@@ -37,15 +37,14 @@
 #include "statedump.h"
 #include "write-behind-mem-types.h"
 
-#define MAX_VECTOR_COUNT 8
+#define MAX_VECTOR_COUNT  8
 #define WB_AGGREGATE_SIZE 131072 /* 128 KB */
-#define WB_WINDOW_SIZE 1048576 /* 1MB */
- 
+#define WB_WINDOW_SIZE    1048576 /* 1MB */
+
 typedef struct list_head list_head_t;
 struct wb_conf;
 struct wb_page;
 struct wb_file;
-
 
 typedef struct wb_file {
         int          disabled;
@@ -63,7 +62,6 @@ typedef struct wb_file {
         gf_lock_t    lock;
         xlator_t    *this;
 }wb_file_t;
-
 
 typedef struct wb_request {
         list_head_t     list;
@@ -88,15 +86,14 @@ typedef struct wb_request {
                                              * whatever data currently present in
                                              * request queue.
                                              */
-                                            
+
                 }write_request;
-                
+
                 struct {
                         char marked_for_resume;
                 }other_requests;
         }flags;
 } wb_request_t;
-
 
 struct wb_conf {
         uint64_t     aggregate_size;
@@ -106,7 +103,6 @@ struct wb_conf {
         gf_boolean_t flush_behind;
         gf_boolean_t enable_trickling_writes;
 };
-
 
 typedef struct wb_local {
         list_head_t     winds;
@@ -120,12 +116,10 @@ typedef struct wb_local {
         int32_t         reply_count;
 } wb_local_t;
 
-
 typedef struct wb_conf wb_conf_t;
 typedef struct wb_page wb_page_t;
 
-
-int32_t 
+int32_t
 wb_process_queue (call_frame_t *frame, wb_file_t *file);
 
 ssize_t
@@ -173,7 +167,7 @@ wb_request_unref (wb_request_t *this)
                         "request is NULL");
                 goto out;
         }
-        
+
         file = this->file;
         LOCK (&file->lock);
         {
@@ -204,6 +198,7 @@ wb_request_t *
 wb_request_ref (wb_request_t *this)
 {
         wb_file_t *file = NULL;
+
         if (this == NULL) {
                 gf_log ("wb-request", GF_LOG_DEBUG,
                         "request is NULL");
@@ -229,7 +224,7 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
         wb_local_t   *local   = NULL;
         struct iovec *vector  = NULL;
         int32_t       count   = 0;
-                        
+
         request = GF_CALLOC (1, sizeof (*request), gf_wb_mt_wb_request_t);
         if (request == NULL) {
                 goto out;
@@ -297,7 +292,9 @@ wb_file_t *
 wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
 {
         wb_file_t *file = NULL;
-        wb_conf_t *conf = this->private; 
+        wb_conf_t *conf = NULL;
+
+        conf = this->private;
 
         file = GF_CALLOC (1, sizeof (*file), gf_wb_mt_wb_file_t);
         if (file == NULL) {
@@ -307,9 +304,9 @@ wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
         INIT_LIST_HEAD (&file->request);
         INIT_LIST_HEAD (&file->passive_requests);
 
-        /* 
-           fd_ref() not required, file should never decide the existance of
-           an fd
+        /*
+          fd_ref() not required, file should never decide the existance of
+          an fd
         */
         file->fd= fd;
         file->disable_till = conf->disable_till;
@@ -323,6 +320,7 @@ wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
 out:
         return file;
 }
+
 
 void
 wb_file_destroy (wb_file_t *file)
@@ -348,14 +346,13 @@ int32_t
 wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
-        wb_local_t   *local = NULL;
-        list_head_t  *winds = NULL;
-        wb_file_t    *file = NULL;
-        wb_request_t *request = NULL, *dummy = NULL;
+        wb_local_t   *local             = NULL;
+        list_head_t  *winds             = NULL;
+        wb_file_t    *file              = NULL;
+        wb_request_t *request           = NULL, *dummy = NULL;
         wb_local_t   *per_request_local = NULL;
-        int32_t       ret = -1;
-        fd_t         *fd  = NULL;
-
+        int32_t       ret               = -1;
+        fd_t         *fd                = NULL;
 
         local = frame->local;
         winds = &local->winds;
@@ -379,7 +376,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
                         __wb_request_unref (request);
                 }
-                
+
                 if (op_ret == -1) {
                         file->op_ret = op_ret;
                         file->op_errno = op_errno;
@@ -388,7 +385,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
         UNLOCK (&file->lock);
 
-        ret = wb_process_queue (frame, file);  
+        ret = wb_process_queue (frame, file);
         if ((ret == -1) && (errno == ENOMEM)) {
                 LOCK (&file->lock);
                 {
@@ -410,19 +407,19 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 ssize_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 {
-        wb_request_t   *dummy = NULL, *request = NULL;
+        wb_request_t   *dummy         = NULL, *request = NULL;
         wb_request_t   *first_request = NULL, *next = NULL;
-        size_t          total_count = 0, count = 0;
-        size_t          copied = 0;
-        call_frame_t   *sync_frame = NULL;
-        struct iobref  *iobref = NULL;
-        wb_local_t     *local = NULL;
-        struct iovec   *vector = NULL;
-        ssize_t         current_size = 0, bytes = 0;
-        size_t          bytecount = 0;
-        wb_conf_t      *conf = NULL;
-        fd_t           *fd   = NULL;
-        int32_t         op_errno = -1;
+        size_t          total_count   = 0, count = 0;
+        size_t          copied        = 0;
+        call_frame_t   *sync_frame    = NULL;
+        struct iobref  *iobref        = NULL;
+        wb_local_t     *local         = NULL;
+        struct iovec   *vector        = NULL;
+        ssize_t         current_size  = 0, bytes = 0;
+        size_t          bytecount     = 0;
+        wb_conf_t      *conf          = NULL;
+        fd_t           *fd            = NULL;
+        int32_t         op_errno      = -1;
 
         if (frame == NULL) {
                 op_errno = EINVAL;
@@ -442,7 +439,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         "synced");
                 goto out;
         }
-  
+
         list_for_each_entry_safe (request, dummy, winds, winds) {
                 if (!vector) {
                         vector = GF_MALLOC (VECTORSIZE (MAX_VECTOR_COUNT),
@@ -475,7 +472,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         }
 
                         INIT_LIST_HEAD (&local->winds);
-            
+
                         first_request = request;
                         current_size = 0;
                 }
@@ -486,7 +483,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         request->stub->args.writev.vector,
                         bytecount);
                 copied += bytecount;
-      
+
                 current_size += request->write_size;
 
                 if (request->stub->args.writev.iobref) {
@@ -495,7 +492,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                 }
 
                 next = NULL;
-                if (request->winds.next != winds) {    
+                if (request->winds.next != winds) {
                         next = list_entry (request->winds.next,
                                            wb_request_t, winds);
                 }
@@ -509,7 +506,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                     || ((current_size + next->write_size)
                         > conf->aggregate_size))
                 {
-                        sync_frame = copy_frame (frame);  
+                        sync_frame = copy_frame (frame);
                         if (sync_frame == NULL) {
                                 bytes = -1;
                                 op_errno = ENOMEM;
@@ -530,15 +527,13 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         fd_ref (fd);
 
                         bytes += current_size;
-                        STACK_WIND (sync_frame,
-                                    wb_sync_cbk,
+                        STACK_WIND (sync_frame, wb_sync_cbk,
                                     FIRST_CHILD(sync_frame->this),
                                     FIRST_CHILD(sync_frame->this)->fops->writev,
-                                    fd, vector,
-                                    count,
+                                    fd, vector, count,
                                     first_request->stub->args.writev.off,
                                     iobref);
-        
+
                         iobref_unref (iobref);
                         GF_FREE (vector);
                         first_request = NULL;
@@ -603,17 +598,17 @@ out:
 }
 
 
-int32_t 
+int32_t
 wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, struct iatt *buf)
 {
-        wb_local_t   *local = NULL;
-        wb_request_t *request = NULL; 
+        wb_local_t   *local         = NULL;
+        wb_request_t *request       = NULL;
         call_frame_t *process_frame = NULL;
-        wb_file_t    *file = NULL;
-        int32_t       ret = -1;
-        fd_t         *fd  = NULL;
-  
+        wb_file_t    *file          = NULL;
+        int32_t       ret           = -1;
+        fd_t         *fd            = NULL;
+
         local = frame->local;
         file = local->file;
 
@@ -663,10 +658,8 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 static int32_t
 wb_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        STACK_WIND (frame, wb_stat_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->stat,
-                    loc);
+        STACK_WIND (frame, wb_stat_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->stat, loc);
         return 0;
 }
 
@@ -674,20 +667,20 @@ wb_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
 int32_t
 wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        wb_file_t    *file = NULL;
-        fd_t         *iter_fd = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = -1, op_errno = EINVAL;
+        wb_file_t    *file     = NULL;
+        fd_t         *iter_fd  = NULL;
+        wb_local_t   *local    = NULL;
+        uint64_t      tmp_file = 0;
+        call_stub_t  *stub     = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = -1, op_errno = EINVAL;
 
         if (loc->inode) {
                 /* FIXME: fd_lookup extends life of fd till stat returns */
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
                         if (!fd_ctx_get (iter_fd, this, &tmp_file)) {
-				file = (wb_file_t *)(long)tmp_file;
+                                file = (wb_file_t *)(long)tmp_file;
                         } else {
                                 fd_unref (iter_fd);
                                 iter_fd = NULL;
@@ -726,20 +719,18 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 }
 
         } else {
-                STACK_WIND (frame, wb_stat_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->stat,
-                            loc);
+                STACK_WIND (frame, wb_stat_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->stat, loc);
         }
-        return 0;
 
+        return 0;
 unwind:
         STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
 
         if (stub) {
                 call_stub_destroy (stub);
         }
-        
+
         if (iter_fd != NULL) {
                 fd_unref (iter_fd);
         }
@@ -748,15 +739,15 @@ unwind:
 }
 
 
-int32_t 
+int32_t
 wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *buf)
 {
-        wb_local_t   *local = NULL;
-        wb_request_t *request = NULL; 
-        wb_file_t    *file = NULL;
-        int32_t       ret = -1;
-  
+        wb_local_t   *local   = NULL;
+        wb_request_t *request = NULL;
+        wb_file_t    *file    = NULL;
+        int32_t       ret     = -1;
+
         local = frame->local;
         file = local->file;
 
@@ -776,27 +767,24 @@ wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 }
 
 
-int32_t 
+int32_t
 wb_fstat_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        STACK_WIND (frame,
-                    wb_fstat_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fstat,
-                    fd);
+        STACK_WIND (frame, wb_fstat_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fstat, fd);
         return 0;
 }
 
 
-int32_t 
+int32_t
 wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        wb_file_t    *file = NULL;
-        wb_local_t   *local = NULL;
-  	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = -1;
+        wb_file_t    *file     = NULL;
+        wb_local_t   *local    = NULL;
+        uint64_t      tmp_file = 0;
+        call_stub_t  *stub     = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = -1;
         int           op_errno = EINVAL;
 
         if ((!IA_ISDIR (fd->inode->ia_type))
@@ -809,7 +797,7 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 return 0;
         }
 
-	file = (wb_file_t *)(long)tmp_file;
+        file = (wb_file_t *)(long)tmp_file;
         local = GF_CALLOC (1, sizeof (*local),
                            gf_wb_mt_wb_local_t);
         if (local == NULL) {
@@ -827,7 +815,7 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         op_errno = ENOMEM;
                         goto unwind;
                 }
-                
+
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
@@ -843,11 +831,8 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         goto unwind;
                 }
         } else {
-                STACK_WIND (frame,
-                            wb_fstat_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fstat,
-                            fd);
+                STACK_WIND (frame, wb_fstat_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fstat, fd);
         }
 
         return 0;
@@ -867,12 +852,12 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf)
 {
-        wb_local_t   *local = NULL; 
-        wb_request_t *request = NULL;
-        wb_file_t    *file = NULL;
+        wb_local_t   *local         = NULL;
+        wb_request_t *request       = NULL;
+        wb_file_t    *file          = NULL;
         call_frame_t *process_frame = NULL;
-        int32_t       ret = -1;
-        fd_t         *fd  = NULL;
+        int32_t       ret           = -1;
+        fd_t         *fd            = NULL;
 
         local = frame->local;
         file = local->file;
@@ -886,7 +871,8 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
+                             postbuf);
 
         if (request) {
                 wb_request_unref (request);
@@ -920,48 +906,43 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-static int32_t 
+static int32_t
 wb_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                     off_t offset)
 {
-        STACK_WIND (frame,
-                    wb_truncate_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->truncate,
-                    loc,
-                    offset);
+        STACK_WIND (frame, wb_truncate_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->truncate, loc, offset);
 
         return 0;
 }
 
 
-int32_t 
+int32_t
 wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
-        wb_file_t    *file = NULL;
-        fd_t         *iter_fd = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = -1, op_errno = ENOMEM;
+        wb_file_t    *file     = NULL;
+        fd_t         *iter_fd  = NULL;
+        wb_local_t   *local    = NULL;
+        uint64_t      tmp_file = 0;
+        call_stub_t  *stub     = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = -1, op_errno = ENOMEM;
 
-        if (loc->inode)
-        {
-                /* 
-                   FIXME: fd_lookup extends life of fd till the execution of
-                   truncate_cbk
+        if (loc->inode) {
+                /*
+                  FIXME: fd_lookup extends life of fd till the execution of
+                  truncate_cbk
                 */
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
                         if (!fd_ctx_get (iter_fd, this, &tmp_file)){
-				file = (wb_file_t *)(long)tmp_file;
+                                file = (wb_file_t *)(long)tmp_file;
                         } else {
                                 fd_unref (iter_fd);
                         }
                 }
         }
-  
+
         local = GF_CALLOC (1, sizeof (*local),
                            gf_wb_mt_wb_local_t);
         if (local == NULL) {
@@ -970,7 +951,7 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         }
 
         local->file = file;
-        
+
         frame->local = local;
         if (file) {
                 stub = fop_truncate_stub (frame, wb_truncate_helper, loc,
@@ -985,19 +966,15 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                         op_errno = ENOMEM;
                         goto unwind;
                 }
-                
+
                 ret = wb_process_queue (frame, file);
                 if ((ret == -1) && (errno == ENOMEM)) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
         } else {
-                STACK_WIND (frame,
-                            wb_truncate_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->truncate,
-                            loc,
-                            offset);
+                STACK_WIND (frame, wb_truncate_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->truncate, loc, offset);
         }
 
         return 0;
@@ -1018,10 +995,10 @@ wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf)
 {
-        wb_local_t   *local = NULL; 
+        wb_local_t   *local   = NULL;
         wb_request_t *request = NULL;
-        wb_file_t    *file = NULL;
-        int32_t       ret = -1;
+        wb_file_t    *file    = NULL;
+        int32_t       ret     = -1;
 
         local = frame->local;
         file = local->file;
@@ -1036,7 +1013,8 @@ wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
+                             postbuf);
 
         return 0;
 }
@@ -1046,25 +1024,21 @@ static int32_t
 wb_ftruncate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      off_t offset)
 {
-        STACK_WIND (frame,
-                    wb_ftruncate_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->ftruncate,
-                    fd,
-                    offset);
+        STACK_WIND (frame, wb_ftruncate_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->ftruncate, fd, offset);
         return 0;
 }
 
-        
+
 int32_t
 wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
-        wb_file_t    *file = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = -1; 
+        wb_file_t    *file     = NULL;
+        wb_local_t   *local    = NULL;
+        uint64_t      tmp_file = 0;
+        call_stub_t  *stub     = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = -1;
         int           op_errno = EINVAL;
 
         if ((!IA_ISDIR (fd->inode->ia_type))
@@ -1073,18 +1047,16 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
 
-                STACK_UNWIND_STRICT (ftruncate, frame, -1, EBADFD,
-                                     NULL, NULL);
+                STACK_UNWIND_STRICT (ftruncate, frame, -1, EBADFD, NULL, NULL);
                 return 0;
         }
 
-	file = (wb_file_t *)(long)tmp_file;
+        file = (wb_file_t *)(long)tmp_file;
 
         local = GF_CALLOC (1, sizeof (*local),
                            gf_wb_mt_wb_local_t);
         if (local == NULL) {
-                STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM,
-                                     NULL, NULL);
+                STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
 
@@ -1112,12 +1084,8 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                         goto unwind;
                 }
         } else {
-                STACK_WIND (frame,
-                            wb_ftruncate_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->ftruncate,
-                            fd,
-                            offset);
+                STACK_WIND (frame, wb_ftruncate_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->ftruncate, fd, offset);
         }
 
         return 0;
@@ -1133,18 +1101,18 @@ unwind:
 }
 
 
-int32_t 
+int32_t
 wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *statpre,
                 struct iatt *statpost)
 {
-        wb_local_t   *local = NULL;       
-        wb_request_t *request = NULL;
-        call_frame_t *process_frame = NULL; 
-        wb_file_t    *file = NULL;
-        int32_t       ret = -1;
-        fd_t         *fd  = NULL;
-  
+        wb_local_t   *local         = NULL;
+        wb_request_t *request       = NULL;
+        call_frame_t *process_frame = NULL;
+        wb_file_t    *file          = NULL;
+        int32_t       ret           = -1;
+        fd_t         *fd            = NULL;
+
         local = frame->local;
         file = local->file;
         request = local->request;
@@ -1192,33 +1160,27 @@ wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-static int32_t 
+static int32_t
 wb_setattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                    struct iatt *stbuf, int32_t valid)
 {
-        STACK_WIND (frame,
-                    wb_setattr_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setattr,
-                    loc,
-                    stbuf,
-                    valid);
-
+        STACK_WIND (frame, wb_setattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid);
         return 0;
 }
 
 
-int32_t 
+int32_t
 wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct iatt *stbuf, int32_t valid)
 {
-        wb_file_t    *file = NULL;
-        fd_t         *iter_fd = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = -1, op_errno = EINVAL;
+        wb_file_t    *file     = NULL;
+        fd_t         *iter_fd  = NULL;
+        wb_local_t   *local    = NULL;
+        uint64_t      tmp_file = 0;
+        call_stub_t  *stub     = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = -1, op_errno = EINVAL;
 
         local = GF_CALLOC (1, sizeof (*local),
                            gf_wb_mt_wb_local_t);
@@ -1230,24 +1192,22 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         frame->local = local;
 
-	if (!(valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME))) {
-                STACK_WIND (frame,
-                            wb_setattr_cbk,
-                            FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->setattr,
-                            loc, stbuf, valid);
+        if (!(valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME))) {
+                STACK_WIND (frame, wb_setattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->setattr, loc, stbuf,
+                            valid);
                 goto out;
         }
 
         if (loc->inode) {
-                /* 
-                   FIXME: fd_lookup extends life of fd till the execution
-                   of wb_utimens_cbk
+                /*
+                  FIXME: fd_lookup extends life of fd till the execution
+                  of wb_utimens_cbk
                 */
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
                 if (iter_fd) {
                         if (!fd_ctx_get (iter_fd, this, &tmp_file)) {
-				file = (wb_file_t *)(long)tmp_file;
+                                file = (wb_file_t *)(long)tmp_file;
                         } else {
                                 fd_unref (iter_fd);
                         }
@@ -1258,7 +1218,8 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         local->file = file;
 
         if (file) {
-                stub = fop_setattr_stub (frame, wb_setattr_helper, loc, stbuf, valid);
+                stub = fop_setattr_stub (frame, wb_setattr_helper, loc, stbuf,
+                                         valid);
                 if (stub == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
@@ -1276,18 +1237,14 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         goto unwind;
                 }
         } else {
-                STACK_WIND (frame,
-                            wb_setattr_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->setattr,
-                            loc,
-                            stbuf, valid);
+                STACK_WIND (frame, wb_setattr_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->setattr, loc, stbuf,
+                            valid);
         }
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno,
-                             NULL, NULL);
+        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL);
 
         if (stub) {
                 call_stub_destroy (stub);
@@ -1296,14 +1253,15 @@ out:
         return 0;
 }
 
+
 int32_t
 wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, fd_t *fd)
 {
         int32_t     wbflags = 0, flags = 0;
-        wb_file_t  *file = NULL;
-        wb_conf_t  *conf = NULL;
-        wb_local_t *local = NULL;
+        wb_file_t  *file    = NULL;
+        wb_conf_t  *conf    = NULL;
+        wb_local_t *local   = NULL;
 
         conf = this->private;
 
@@ -1329,17 +1287,17 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 if (((flags & O_DIRECT) == O_DIRECT)
                     || ((flags & O_ACCMODE) == O_RDONLY)
                     || (((flags & O_SYNC) == O_SYNC)
-                        && conf->enable_O_SYNC == _gf_true)) { 
+                        && conf->enable_O_SYNC == _gf_true)) {
                         file->window_conf = 0;
                 }
 
                 if (wbflags & GF_OPEN_NOWB) {
                         file->disabled = 1;
                 }
- 
+
                 LOCK_INIT (&file->lock);
         }
-        
+
 out:
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
         return 0;
@@ -1350,7 +1308,7 @@ int32_t
 wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, int32_t wbflags)
 {
-        wb_local_t *local = NULL;
+        wb_local_t *local    = NULL;
         int32_t     op_errno = EINVAL;
 
         local = GF_CALLOC (1, sizeof (*local),
@@ -1362,14 +1320,11 @@ wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         local->flags = flags;
         local->wbflags = wbflags;
- 
+
         frame->local = local;
 
-        STACK_WIND (frame,
-                    wb_open_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->open,
-                    loc, flags, fd, wbflags);
+        STACK_WIND (frame, wb_open_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd, wbflags);
         return 0;
 
 unwind:
@@ -1385,9 +1340,10 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *postparent)
 {
         long       flags = 0;
-        wb_file_t *file = NULL;
-        wb_conf_t *conf = this->private;
+        wb_file_t *file  = NULL;
+        wb_conf_t *conf  = NULL;
 
+        conf = this->private;
         if (op_ret != -1) {
                 if (frame->local) {
                         flags = (long) frame->local;
@@ -1405,17 +1361,17 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (((flags & O_DIRECT) == O_DIRECT)
                             || ((flags & O_ACCMODE) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
-                                && (conf->enable_O_SYNC == _gf_true))) { 
+                                && (conf->enable_O_SYNC == _gf_true))) {
                                 file->window_conf = 0;
                         }
                 }
 
                 LOCK_INIT (&file->lock);
         }
-        
+
         frame->local = NULL;
 
-out:        
+out:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
         return 0;
@@ -1428,12 +1384,12 @@ wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 {
         frame->local = (void *)(long)flags;
 
-        STACK_WIND (frame, wb_create_cbk,
-                    FIRST_CHILD(this),
+        STACK_WIND (frame, wb_create_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
                     loc, flags, mode, fd, params);
         return 0;
 }
+
 
 /* Mark all the contiguous write requests for winding starting from head of
  * request list. Stops marking at the first non-write request found. If
@@ -1462,9 +1418,10 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
                 if (!request->flags.write_request.stack_wound) {
                         if (first_request) {
                                 first_request = 0;
-                                offset_expected = request->stub->args.writev.off;
+                                offset_expected
+                                        = request->stub->args.writev.off;
                         }
-                        
+
                         if (request->stub->args.writev.off != offset_expected) {
                                 break;
                         }
@@ -1484,9 +1441,9 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
 
                         request->flags.write_request.stack_wound = 1;
                         list_add_tail (&request->winds, winds);
-                } 
+                }
         }
-  
+
         return size;
 }
 
@@ -1496,8 +1453,8 @@ __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
                char *non_contiguous_writes, char *incomplete_writes,
                char *wind_all)
 {
-        wb_request_t *request = NULL;
-        char          first_request = 1;
+        wb_request_t *request         = NULL;
+        char          first_request   = 1;
         off_t         offset_expected = 0;
 
         list_for_each_entry (request, list, list)
@@ -1519,13 +1476,16 @@ __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
 
                 if (!request->flags.write_request.stack_wound) {
                         if (first_request) {
+                                char flush = 0;
                                 first_request = 0;
                                 offset_expected
                                         = request->stub->args.writev.off;
+
+                                flush = request->flags.write_request.flush_all;
                                 if (wind_all != NULL) {
-                                        *wind_all = request->flags.write_request.flush_all;
+                                        *wind_all = flush;
                                 }
-                        } 
+                        }
 
                         if (offset_expected != request->stub->args.writev.off) {
                                 if (non_contiguous_writes) {
@@ -1577,7 +1537,7 @@ out:
 }
 
 
-size_t 
+size_t
 __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
 {
         size_t        written_behind = 0;
@@ -1603,9 +1563,10 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
                                 written_behind += request->write_size;
                                 request->flags.write_request.write_behind = 1;
                                 list_add_tail (&request->unwinds, unwinds);
-                                
+
                                 if (!request->flags.write_request.got_reply) {
-                                        file->window_current += request->write_size;
+                                        file->window_current
+                                                += request->write_size;
                                 }
                         }
                 } else {
@@ -1621,8 +1582,8 @@ out:
 void
 __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds)
 {
-        wb_request_t *request        = NULL;
-        wb_file_t    *file           = NULL;
+        wb_request_t *request = NULL;
+        wb_file_t    *file    = NULL;
 
         if (list_empty (list)) {
                 goto out;
@@ -1633,7 +1594,8 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds)
 
         if (file->window_current <= file->window_conf) {
                 __wb_mark_unwind_till (list, unwinds,
-                                       file->window_conf - file->window_current);
+                                       file->window_conf
+                                       - file->window_current);
         }
 
 out:
@@ -1645,13 +1607,14 @@ uint32_t
 __wb_get_other_requests (list_head_t *list, list_head_t *other_requests)
 {
         wb_request_t *request = NULL;
-        uint32_t      count = 0;
+        uint32_t      count   = 0;
+
         list_for_each_entry (request, list, list) {
                 if ((request->stub == NULL)
                     || (request->stub->fop == GF_FOP_WRITE)) {
                         break;
                 }
-                
+
                 if (!request->flags.other_requests.marked_for_resume) {
                         request->flags.other_requests.marked_for_resume = 1;
                         list_add_tail (&request->other_requests,
@@ -1667,14 +1630,13 @@ __wb_get_other_requests (list_head_t *list, list_head_t *other_requests)
 int32_t
 wb_stack_unwind (list_head_t *unwinds)
 {
-        struct iatt   buf = {0,};
+        struct iatt   buf     = {0,};
         wb_request_t *request = NULL, *dummy = NULL;
-        call_frame_t *frame = NULL;
-        wb_local_t   *local = NULL;
-        int           ret   = 0, write_requests_removed = 0;
+        call_frame_t *frame   = NULL;
+        wb_local_t   *local   = NULL;
+        int           ret     = 0, write_requests_removed = 0;
 
-        list_for_each_entry_safe (request, dummy, unwinds, unwinds)
-        {
+        list_for_each_entry_safe (request, dummy, unwinds, unwinds) {
                 frame = request->stub->frame;
                 local = frame->local;
 
@@ -1695,11 +1657,11 @@ int32_t
 wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
                           list_head_t *other_requests)
 {
-        int32_t       ret = 0;
-        wb_request_t *request = NULL, *dummy = NULL;
+        int32_t       ret          = 0;
+        wb_request_t *request      = NULL, *dummy = NULL;
         int32_t       fops_removed = 0;
-        char          wind = 0;
-        call_stub_t  *stub = NULL;
+        char          wind         = 0;
+        call_stub_t  *stub         = NULL;
 
         if (list_empty (other_requests)) {
                 goto out;
@@ -1709,8 +1671,8 @@ wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
                                   other_requests) {
                 wind = request->stub->wind;
                 stub = request->stub;
-                
-                LOCK (&file->lock); 
+
+                LOCK (&file->lock);
                 {
                         request->stub = NULL;
                 }
@@ -1719,15 +1681,15 @@ wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
                 if (!wind) {
                         wb_request_unref (request);
                         fops_removed++;
-                } 
-                
+                }
+
                 call_resume (stub);
         }
 
         if (fops_removed > 0) {
                 ret = wb_process_queue (frame, file);
         }
-        
+
 out:
         return ret;
 }
@@ -1787,7 +1749,7 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
                                 "out of memory");
                         goto out;
                 }
-                                                                          
+
                 ret = iobref_add (iobref, iobuf);
                 if (ret != 0) {
                         iobuf_unref (iobuf);
@@ -1797,14 +1759,14 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
                                 iobuf, iobref);
                         goto out;
                 }
-                                                                          
+
                 iov_unload (iobuf->ptr, holder->stub->args.writev.vector,
                             holder->stub->args.writev.count);
                 holder->stub->args.writev.vector[0].iov_base = iobuf->ptr;
-                                                                          
+
                 iobref_unref (holder->stub->args.writev.iobref);
                 holder->stub->args.writev.iobref = iobref;
-                                                                          
+
                 iobuf_unref (iobuf);
 
                 holder->flags.write_request.virgin = 0;
@@ -1866,12 +1828,12 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
                                 if (ret != 0) {
                                         break;
                                 }
-                                
+
                                 __wb_request_unref (request);
                         } else {
                                 holder = request;
                         }
-                } else { 
+                } else {
                         break;
                 }
         }
@@ -1880,19 +1842,19 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
 }
 
 
-int32_t 
+int32_t
 wb_process_queue (call_frame_t *frame, wb_file_t *file)
 {
-        list_head_t winds, unwinds, other_requests;
-        size_t      size = 0;
-        wb_conf_t  *conf = NULL;
-        uint32_t    count = 0;
-        int32_t     ret = -1; 
+        list_head_t winds  = {0, }, unwinds = {0, }, other_requests = {0, };
+        size_t      size   = 0;
+        wb_conf_t  *conf   = NULL;
+        uint32_t    count  = 0;
+        int32_t     ret    = -1;
 
         INIT_LIST_HEAD (&winds);
         INIT_LIST_HEAD (&unwinds);
         INIT_LIST_HEAD (&other_requests);
-                
+
         if (file == NULL) {
                 errno = EINVAL;
                 goto out;
@@ -1902,7 +1864,7 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file)
         size = conf->aggregate_size;
         LOCK (&file->lock);
         {
-                /* 
+                /*
                  * make sure requests are marked for unwinding and adjacent
                  * continguous write buffers (each of size less than that of
                  * an iobuf) are packed properly so that iobufs are filled to
@@ -1945,18 +1907,18 @@ int32_t
 wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
            int32_t count, off_t offset, struct iobref *iobref)
 {
-        wb_file_t    *file = NULL;
-        char          wb_disabled = 0;
+        wb_file_t    *file          = NULL;
+        char          wb_disabled   = 0;
         call_frame_t *process_frame = NULL;
-        size_t        size = 0;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        wb_local_t   *local = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = -1;
-        int32_t       op_ret = -1, op_errno = EINVAL; 
+        size_t        size          = 0;
+        uint64_t      tmp_file      = 0;
+        call_stub_t  *stub          = NULL;
+        wb_local_t   *local         = NULL;
+        wb_request_t *request       = NULL;
+        int32_t       ret           = -1;
+        int32_t       op_ret        = -1, op_errno = EINVAL;
 
-        if (vector != NULL) 
+        if (vector != NULL)
                 size = iov_length (vector, count);
 
         if ((!IA_ISDIR (fd->inode->ia_type))
@@ -1969,7 +1931,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 goto unwind;
         }
 
-	file = (wb_file_t *)(long)tmp_file;
+        file = (wb_file_t *)(long)tmp_file;
         if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "wb_file not found for fd %p", fd);
@@ -2001,14 +1963,13 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         }
 
         if (op_ret == -1) {
-                STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno,
-                                     NULL, NULL);
+                STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, NULL,
+                                     NULL);
                 return 0;
         }
 
         if (wb_disabled) {
-                STACK_WIND (frame, wb_writev_cbk,
-                            FIRST_CHILD (frame->this),
+                STACK_WIND (frame, wb_writev_cbk, FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->writev,
                             fd, vector, count, offset, iobref);
                 return 0;
@@ -2043,7 +2004,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-                
+
         ret = wb_process_queue (process_frame, file);
         if ((ret == -1) && (errno == ENOMEM)) {
                 op_errno = ENOMEM;
@@ -2074,10 +2035,10 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct iatt *stbuf, struct iobref *iobref)
 {
-        wb_local_t   *local = NULL;
-        wb_file_t    *file = NULL;
+        wb_local_t   *local   = NULL;
+        wb_file_t    *file    = NULL;
         wb_request_t *request = NULL;
-        int32_t       ret = 0;
+        int32_t       ret     = 0;
 
         local = frame->local;
         file = local->file;
@@ -2085,7 +2046,7 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
         if ((request != NULL) && (file != NULL)) {
                 wb_request_unref (request);
-                
+
                 ret = wb_process_queue (frame, file);
                 if ((ret == -1) && (errno == ENOMEM)) {
                         op_ret = -1;
@@ -2093,7 +2054,8 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 }
         }
 
-        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count, stbuf, iobref);
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+                             stbuf, iobref);
 
         return 0;
 }
@@ -2103,12 +2065,9 @@ static int32_t
 wb_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t offset)
 {
-        STACK_WIND (frame,
-                    wb_readv_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readv,
-                    fd, size, offset);
-        
+        STACK_WIND (frame, wb_readv_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readv, fd, size, offset);
+
         return 0;
 }
 
@@ -2117,12 +2076,12 @@ int32_t
 wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset)
 {
-        wb_file_t    *file = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        int32_t       ret = -1;
-        wb_request_t *request = NULL;
+        wb_file_t    *file     = NULL;
+        wb_local_t   *local    = NULL;
+        uint64_t      tmp_file = 0;
+        call_stub_t  *stub     = NULL;
+        int32_t       ret      = -1;
+        wb_request_t *request  = NULL;
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
@@ -2130,18 +2089,17 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
 
-                STACK_UNWIND_STRICT (readv, frame, -1, EBADFD,
-                                     NULL, 0, NULL, NULL);
+                STACK_UNWIND_STRICT (readv, frame, -1, EBADFD, NULL, 0, NULL,
+                                     NULL);
                 return 0;
         }
 
-	file = (wb_file_t *)(long)tmp_file;
+        file = (wb_file_t *)(long)tmp_file;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
-                STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
-                                     NULL, 0, NULL, NULL);
+                STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0, NULL,
+                                     NULL);
                 return 0;
         }
 
@@ -2152,31 +2110,29 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 stub = fop_readv_stub (frame, wb_readv_helper, fd, size,
                                        offset);
                 if (stub == NULL) {
-                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
-                                             NULL, 0, NULL, NULL);
+                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0,
+                                             NULL, NULL);
                         return 0;
                 }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
-                                             NULL, 0, NULL, NULL);
+                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0,
+                                             NULL, NULL);
                         call_stub_destroy (stub);
                         return 0;
                 }
 
                 ret = wb_process_queue (frame, file);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
-                                             NULL, 0, NULL, NULL);
+                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0,
+                                             NULL, NULL);
                         call_stub_destroy (stub);
                         return 0;
                 }
 
         } else {
-                STACK_WIND (frame,
-                            wb_readv_cbk,
-                            FIRST_CHILD(this),
+                STACK_WIND (frame, wb_readv_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readv,
                             fd, size, offset);
         }
@@ -2216,7 +2172,7 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 }
                 UNLOCK (&file->lock);
         }
-                
+
         STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
 
         return 0;
@@ -2253,7 +2209,7 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
                 wb_request_unref (local->request);
         }
-        
+
         if (conf->flush_behind) {
                 flush_frame = copy_frame (frame);
                 if (flush_frame == NULL) {
@@ -2261,17 +2217,11 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         goto unwind;
                 }
 
-                STACK_WIND (flush_frame,
-                            wb_ffr_bg_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->flush,
-                            fd);
+                STACK_WIND (flush_frame, wb_ffr_bg_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->flush, fd);
         } else {
-                STACK_WIND (frame,
-                            wb_ffr_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->flush,
-                            fd);
+                STACK_WIND (frame, wb_ffr_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->flush, fd);
         }
 
         if (process_frame != NULL) {
@@ -2299,14 +2249,14 @@ unwind:
 int32_t
 wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        wb_conf_t    *conf = NULL;
-        wb_file_t    *file = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
+        wb_conf_t    *conf        = NULL;
+        wb_file_t    *file        = NULL;
+        wb_local_t   *local       = NULL;
+        uint64_t      tmp_file    = 0;
+        call_stub_t  *stub        = NULL;
         call_frame_t *flush_frame = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = 0;
+        wb_request_t *request     = NULL;
+        int32_t       ret         = 0;
 
         conf = this->private;
 
@@ -2320,7 +2270,7 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 return 0;
         }
 
-	file = (wb_file_t *)(long)tmp_file;
+        file = (wb_file_t *)(long)tmp_file;
 
         if (file != NULL) {
                 local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
@@ -2362,17 +2312,12 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
                         STACK_UNWIND_STRICT (flush, frame, 0, 0);
 
-                        STACK_WIND (flush_frame,
-                                    wb_ffr_bg_cbk,
+                        STACK_WIND (flush_frame, wb_ffr_bg_cbk,
                                     FIRST_CHILD(this),
-                                    FIRST_CHILD(this)->fops->flush,
-                                    fd);
+                                    FIRST_CHILD(this)->fops->flush, fd);
                 } else {
-                        STACK_WIND (frame,
-                                    wb_ffr_cbk,
-                                    FIRST_CHILD(this),
-                                    FIRST_CHILD(this)->fops->flush,
-                                    fd);
+                        STACK_WIND (frame, wb_ffr_cbk, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->flush, fd);
                 }
         }
 
@@ -2384,10 +2329,10 @@ static int32_t
 wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
-        wb_local_t   *local = NULL;
-        wb_file_t    *file = NULL;
+        wb_local_t   *local   = NULL;
+        wb_file_t    *file    = NULL;
         wb_request_t *request = NULL;
-        int32_t       ret = -1; 
+        int32_t       ret     = -1;
 
         local = frame->local;
         file = local->file;
@@ -2417,7 +2362,7 @@ wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 
         STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
-        
+
         return 0;
 }
 
@@ -2426,11 +2371,8 @@ static int32_t
 wb_fsync_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  int32_t datasync)
 {
-        STACK_WIND (frame,
-                    wb_fsync_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fsync,
-                    fd, datasync);
+        STACK_WIND (frame, wb_fsync_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsync, fd, datasync);
         return 0;
 }
 
@@ -2438,12 +2380,12 @@ wb_fsync_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t
 wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 {
-        wb_file_t    *file = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = -1;
+        wb_file_t    *file     = NULL;
+        wb_local_t   *local    = NULL;
+        uint64_t      tmp_file = 0;
+        call_stub_t  *stub     = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = -1;
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
@@ -2455,7 +2397,7 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
                 return 0;
         }
 
-	file = (wb_file_t *)(long)tmp_file;
+        file = (wb_file_t *)(long)tmp_file;
 
         local = GF_CALLOC (1, sizeof (*local),
                            gf_wb_mt_wb_local_t);
@@ -2471,33 +2413,29 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
         if (file) {
                 stub = fop_fsync_stub (frame, wb_fsync_helper, fd, datasync);
                 if (stub == NULL) {
-                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM,
-                                             NULL, NULL);
+                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL,
+                                             NULL);
                         return 0;
                 }
-        
+
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM,
-                                             NULL, NULL);
+                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL,
+                                             NULL);
                         call_stub_destroy (stub);
                         return 0;
                 }
 
                 ret = wb_process_queue (frame, file);
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM,
-                                             NULL, NULL);
+                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL,
+                                             NULL);
                         call_stub_destroy (stub);
                         return 0;
                 }
-                                
         } else {
-                STACK_WIND (frame,
-                            wb_fsync_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fsync,
-                            fd, datasync);
+                STACK_WIND (frame, wb_fsync_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsync, fd, datasync);
         }
 
         return 0;
@@ -2508,9 +2446,9 @@ int32_t
 wb_release (xlator_t *this, fd_t *fd)
 {
         uint64_t   file_ptr = 0;
-        wb_file_t *file = NULL;
+        wb_file_t *file     = NULL;
 
-	fd_ctx_get (fd, this, &file_ptr);
+        fd_ctx_get (fd, this, &file_ptr);
         file = (wb_file_t *) (long) file_ptr;
 
         if (file != NULL) {
@@ -2526,22 +2464,19 @@ wb_release (xlator_t *this, fd_t *fd)
         return 0;
 }
 
+
 int
 wb_priv_dump (xlator_t *this)
 {
-        wb_conf_t       *conf = NULL;
-        char            key[GF_DUMP_MAX_BUF_LEN];
-        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+        wb_conf_t      *conf                            = NULL;
+        char            key[GF_DUMP_MAX_BUF_LEN]        = {0, };
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        int             ret                             = -1;
 
-        if (!this)
-                return -1;
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
 
         conf = this->private;
-        if (!conf) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "conf null in xlator");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
         gf_proc_dump_build_key (key_prefix,
                                 "xlator.performance.write-behind",
@@ -2562,16 +2497,18 @@ wb_priv_dump (xlator_t *this)
         gf_proc_dump_build_key (key, key_prefix, "enable_trickling_writes");
         gf_proc_dump_write (key, "%d", conf->enable_trickling_writes);
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 
 void
 __wb_dump_requests (struct list_head *head, char *prefix, char passive)
 {
-        char          key[GF_DUMP_MAX_BUF_LEN];
-        char          key_prefix[GF_DUMP_MAX_BUF_LEN];
-        wb_request_t *request = NULL;
+        char          key[GF_DUMP_MAX_BUF_LEN]        = {0, };
+        char          key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, }, flag = 0;
+        wb_request_t *request                         = NULL;
 
         list_for_each_entry (request, head, list) {
                 gf_proc_dump_build_key (key, prefix,
@@ -2589,9 +2526,9 @@ __wb_dump_requests (struct list_head *head, char *prefix, char passive)
                 gf_proc_dump_write (key, "%d", request->refcount);
 
                 if (request->fop == GF_FOP_WRITE) {
+                        flag = request->flags.write_request.stack_wound;
                         gf_proc_dump_build_key (key, key_prefix, "stack_wound");
-                        gf_proc_dump_write (key, "%d",
-                                            request->flags.write_request.stack_wound);
+                        gf_proc_dump_write (key, "%d", flag);
 
                         gf_proc_dump_build_key (key, key_prefix, "size");
                         gf_proc_dump_write (key, "%"GF_PRI_SIZET,
@@ -2601,27 +2538,27 @@ __wb_dump_requests (struct list_head *head, char *prefix, char passive)
                         gf_proc_dump_write (key, "%"PRId64,
                                             request->stub->args.writev.off);
 
+                        flag = request->flags.write_request.write_behind;
                         gf_proc_dump_build_key (key, key_prefix,
                                                 "write_behind");
-                        gf_proc_dump_write (key, "%d",
-                                            request->flags.write_request.write_behind);
+                        gf_proc_dump_write (key, "%d", flag);
 
+                        flag = request->flags.write_request.got_reply;
                         gf_proc_dump_build_key (key, key_prefix, "got_reply");
-                        gf_proc_dump_write (key, "%d",
-                                            request->flags.write_request.got_reply);
+                        gf_proc_dump_write (key, "%d", flag);
 
+                        flag = request->flags.write_request.virgin;
                         gf_proc_dump_build_key (key, key_prefix, "virgin");
-                        gf_proc_dump_write (key, "%d",
-                                            request->flags.write_request.virgin);
+                        gf_proc_dump_write (key, "%d", flag);
 
+                        flag = request->flags.write_request.flush_all;
                         gf_proc_dump_build_key (key, key_prefix, "flush_all");
-                        gf_proc_dump_write (key, "%d",
-                                            request->flags.write_request.flush_all);
+                        gf_proc_dump_write (key, "%d", flag);
                 } else {
+                        flag = request->flags.other_requests.marked_for_resume;
                         gf_proc_dump_build_key (key, key_prefix,
                                                 "marked_for_resume");
-                        gf_proc_dump_write (key, "%d",
-                                            request->flags.other_requests.marked_for_resume);
+                        gf_proc_dump_write (key, "%d", flag);
                 }
         }
 }
@@ -2630,11 +2567,11 @@ __wb_dump_requests (struct list_head *head, char *prefix, char passive)
 int
 wb_file_dump (xlator_t *this, fd_t *fd)
 {
-        wb_file_t *file = NULL;
-        uint64_t   tmp_file = 0;
-        int32_t    ret  = -1;
-        char       key[GF_DUMP_MAX_BUF_LEN];
-        char       key_prefix[GF_DUMP_MAX_BUF_LEN];
+        wb_file_t *file                            = NULL;
+        uint64_t   tmp_file                        = 0;
+        int32_t    ret                             = -1;
+        char       key[GF_DUMP_MAX_BUF_LEN]        = {0, };
+        char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
 
         if ((fd == NULL) || (this == NULL)) {
                 ret = 0;
@@ -2647,7 +2584,7 @@ wb_file_dump (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-	file = (wb_file_t *)(long)tmp_file;
+        file = (wb_file_t *)(long)tmp_file;
         if (file == NULL) {
                 ret = 0;
                 goto out;
@@ -2702,7 +2639,7 @@ wb_file_dump (xlator_t *this, fd_t *fd)
                 }
         }
         UNLOCK (&file->lock);
-        
+
 out:
         return ret;
 }
@@ -2727,25 +2664,22 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+
 int
 validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 {
-        char         *str=NULL;
-        uint64_t     window_size;
-        gf_boolean_t flush_behind;
+        char         *str          = NULL;
+        uint64_t      window_size  = 0;;
+        gf_boolean_t  flush_behind = 0;
+        int           ret          = 0;
 
-        int          ret = 0;
-
-
-
-        ret = dict_get_str (options, "cache-size", 
-                            &str);
+        ret = dict_get_str (options, "cache-size", &str);
         if (ret == 0) {
                 ret = gf_string2bytesize (str, &window_size);
                 if (ret != 0) {
                         gf_log(this->name, GF_LOG_WARNING, "Validation"
-                                        "'option cache-size %s failed , Invalid"
-                                                        " number format, ", str);
+                               "'option cache-size %s failed , Invalid"
+                               " number format, ", str);
                         *op_errstr = gf_strdup ("Error, Invalid num format");
                         ret = -1;
                         goto out;
@@ -2753,8 +2687,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 if (window_size < (512 * GF_UNIT_KB)) {
                         gf_log(this->name, GF_LOG_WARNING, "Validation"
-                                        "'option cache-size %s' failed , Min value"
-                                                        "should be 512KiB ", str);
+                               "'option cache-size %s' failed , Min value"
+                               "should be 512KiB ", str);
                         *op_errstr = gf_strdup ("Error, Should be min 512KB");
                         ret = -1;
                         goto out;
@@ -2762,21 +2696,21 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 if (window_size > (1 * GF_UNIT_GB)) {
                         gf_log(this->name, GF_LOG_WARNING, "Reconfiguration"
-                                        "'option cache-size %s' failed , Max value"
-                                                        "can be 1 GiB", str);
+                               "'option cache-size %s' failed , Max value"
+                               "can be 1 GiB", str);
                         *op_errstr = gf_strdup ("Error, Max Value is 1GB");
                         ret = -1;
                         goto out;
                 }
 
-        
                 gf_log(this->name, GF_LOG_DEBUG, "Validated "
-                                "'option cache-size %s '", str);
+                       "'option cache-size %s '", str);
         }
-        ret = dict_get_str (options, "flush-behind", 
+
+        ret = dict_get_str (options, "flush-behind",
                             &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str, 
+                ret = gf_string2boolean (str,
                                          &flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -2786,23 +2720,24 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         goto out;
                 }
         }
+
         ret =0;
 out:
-                return ret;
-
+        return ret;
 }
+
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-	char	     *str=NULL;
-	uint64_t     window_size;
-	wb_conf_t    *conf = NULL;
-	int	     ret = 0;
+        char      *str         = NULL;
+        uint64_t   window_size = 0;
+        wb_conf_t *conf        = NULL;
+        int        ret         = 0;
 
-	conf = this->private;
+        conf = this->private;
 
-	ret = dict_get_str (options, "cache-size", 
+        ret = dict_get_str (options, "cache-size",
                             &str);
         if (ret == 0) {
                 ret = gf_string2bytesize (str, &window_size);
@@ -2811,40 +2746,40 @@ reconfigure (xlator_t *this, dict_t *options)
                                "'option cache-size %s failed , Invalid"
                                " number format, Defaulting to old value "
                                "(%"PRIu64")", str, conf->window_size);
-			ret = -1;
-			goto out;
+                        ret = -1;
+                        goto out;
                 }
 
-		if (window_size < (512 * GF_UNIT_KB)) {
+                if (window_size < (512 * GF_UNIT_KB)) {
                         gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
                                "'option cache-size %s' failed , Max value"
                                "can be 512KiB, Defaulting to old value "
                                "(%"PRIu64")", str, conf->window_size);
-			ret = -1;
-			goto out;
+                        ret = -1;
+                        goto out;
                 }
 
-		if (window_size > (2 * GF_UNIT_GB)) {
+                if (window_size > (2 * GF_UNIT_GB)) {
                         gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
                                "'option cache-size %s' failed , Max value"
                                "can be 1 GiB, Defaulting to old value "
                                "(%"PRIu64")", str, conf->window_size);
-			ret = -1;
-			goto out;
+                        ret = -1;
+                        goto out;
                 }
 
-		conf->window_size = window_size;
-		gf_log(this->name, GF_LOG_DEBUG, "Reconfiguring "
+                conf->window_size = window_size;
+                gf_log(this->name, GF_LOG_DEBUG, "Reconfiguring "
                        "'option cache-size %s ' to %"PRIu64, str,
                        conf->window_size);
-        }
-        else
+        } else {
                 conf->window_size = WB_WINDOW_SIZE;
-        
-        ret = dict_get_str (options, "flush-behind", 
+        }
+
+        ret = dict_get_str (options, "flush-behind",
                             &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str, 
+                ret = gf_string2boolean (str,
                                          &conf->flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2852,28 +2787,28 @@ reconfigure (xlator_t *this, dict_t *options)
                         conf->flush_behind = 1;
                         return -1;
                 }
+
                 if (conf->flush_behind) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "enabling flush-behind");
-                }
-                else
-                        gf_log (this->name, GF_LOG_DEBUG, 
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "disabling flush-behind");
+                }
         }
 
-                
 out:
-	return 0;
-
+        return 0;
 }
 
-int32_t 
+
+int32_t
 init (xlator_t *this)
 {
         dict_t    *options = NULL;
-        wb_conf_t *conf = NULL;
-        char      *str = NULL;
-        int32_t    ret = -1;
+        wb_conf_t *conf    = NULL;
+        char      *str     = NULL;
+        int32_t    ret     = -1;
 
         if ((this->children == NULL)
             || this->children->next) {
@@ -2888,7 +2823,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "dangling volume. check volfile");
         }
-        
+
         options = this->options;
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_wb_mt_wb_conf_t);
@@ -2897,7 +2832,7 @@ init (xlator_t *this)
                         "FATAL: Out of memory");
                 return -1;
         }
-        
+
         conf->enable_O_SYNC = _gf_false;
         ret = dict_get_str (options, "enable-O_SYNC",
                             &str);
@@ -2914,35 +2849,35 @@ init (xlator_t *this)
         /* configure 'options aggregate-size <size>' */
         conf->aggregate_size = WB_AGGREGATE_SIZE;
         conf->disable_till = 0;
-        ret = dict_get_str (options, "disable-for-first-nbytes", 
+        ret = dict_get_str (options, "disable-for-first-nbytes",
                             &str);
         if (ret == 0) {
-                ret = gf_string2bytesize (str, 
+                ret = gf_string2bytesize (str,
                                           &conf->disable_till);
                 if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR, 
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format \"%s\" of \"option "
-                                "disable-for-first-nbytes\"", 
+                                "disable-for-first-nbytes\"",
                                 str);
                         return -1;
                 }
         }
 
         gf_log (this->name, GF_LOG_DEBUG,
-                "disabling write-behind for first %"PRIu64" bytes", 
+                "disabling write-behind for first %"PRIu64" bytes",
                 conf->disable_till);
-  
+
         /* configure 'option window-size <size>' */
-        conf->window_size = WB_WINDOW_SIZE; 
-        ret = dict_get_str (options, "cache-size", 
+        conf->window_size = WB_WINDOW_SIZE;
+        ret = dict_get_str (options, "cache-size",
                             &str);
         if (ret == 0) {
-                ret = gf_string2bytesize (str, 
+                ret = gf_string2bytesize (str,
                                           &conf->window_size);
                 if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR, 
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format \"%s\" of \"option "
-                                "window-size\"", 
+                                "window-size\"",
                                 str);
                         GF_FREE (conf);
                         return -1;
@@ -2968,10 +2903,10 @@ init (xlator_t *this)
 
         /* configure 'option flush-behind <on/off>' */
         conf->flush_behind = 1;
-        ret = dict_get_str (options, "flush-behind", 
+        ret = dict_get_str (options, "flush-behind",
                             &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str, 
+                ret = gf_string2boolean (str,
                                          &conf->flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2980,8 +2915,8 @@ init (xlator_t *this)
                 }
 
                 if (conf->flush_behind) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"enabling flush-behind");
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "enabling flush-behind");
                 }
         }
 
@@ -3011,6 +2946,7 @@ fini (xlator_t *this)
 
         if (!conf)
                 return;
+
         this->private = NULL;
         GF_FREE (conf);
         return;
@@ -3031,7 +2967,6 @@ struct xlator_fops fops = {
         .setattr     = wb_setattr,
 };
 
-
 struct xlator_cbks cbks = {
         .release  = wb_release
 };
@@ -3042,13 +2977,13 @@ struct xlator_dumpops dumpops = {
 };
 
 struct volume_options options[] = {
-        { .key  = {"flush-behind"}, 
+        { .key  = {"flush-behind"},
           .type = GF_OPTION_TYPE_BOOL
         },
-        { .key  = {"cache-size", "window-size"}, 
-          .type = GF_OPTION_TYPE_SIZET, 
-          .min  = 512 * GF_UNIT_KB, 
-          .max  = 1 * GF_UNIT_GB 
+        { .key  = {"cache-size", "window-size"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min  = 512 * GF_UNIT_KB,
+          .max  = 1 * GF_UNIT_GB
         },
         { .key = {"disable-for-first-nbytes"},
           .type = GF_OPTION_TYPE_SIZET,
@@ -3057,7 +2992,7 @@ struct volume_options options[] = {
         },
         { .key = {"enable-O_SYNC"},
           .type = GF_OPTION_TYPE_BOOL,
-        }, 
+        },
         { .key = {"enable-trickling-writes"},
           .type = GF_OPTION_TYPE_BOOL,
         },
