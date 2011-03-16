@@ -124,7 +124,7 @@ out:
 
 
 void
-qr_resume_pending_ops (qr_fd_ctx_t *qr_fd_ctx)
+qr_resume_pending_ops (qr_fd_ctx_t *qr_fd_ctx, int32_t op_ret, int32_t op_errno)
 {
         call_stub_t      *stub        = NULL, *tmp = NULL;
         struct list_head  waiting_ops = {0, };
@@ -145,6 +145,14 @@ qr_resume_pending_ops (qr_fd_ctx_t *qr_fd_ctx)
         if (!list_empty (&waiting_ops)) {
                 list_for_each_entry_safe (stub, tmp, &waiting_ops, list) {
                         list_del_init (&stub->list);
+                        if (op_ret < 0) {
+                                qr_local_t *local = NULL;
+
+                                local = stub->frame->local;
+                                local->op_ret = op_ret;
+                                local->op_errno = op_errno;
+                        }
+
                         call_resume (stub);
                 }
         }
@@ -557,6 +565,14 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         list_for_each_entry_safe (stub, tmp, &waiting_ops,
                                                   list) {
                                 list_del_init (&stub->list);
+                                if (op_ret < 0) {
+                                        qr_local_t *local = NULL;
+
+                                        local = stub->frame->local;
+                                        local->op_ret = op_ret;
+                                        local->op_errno = op_errno;
+                                }
+
                                 call_resume (stub);
                         }
                 }
@@ -866,7 +882,7 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (need_open) {
                 ret = qr_loc_fill (&loc, fd->inode, path);
                 if (ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto out;
                 }
 
@@ -901,8 +917,38 @@ int32_t
 qr_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t offset)
 {
+        qr_local_t  *local    = NULL;
+        int32_t      op_errno = EINVAL, ret = 0;
+        uint64_t     value    = 0;
+        qr_fd_ctx_t *fdctx   = NULL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding read call",
+                        fdctx ? fdctx->path : NULL, strerror (errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_readv_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->readv, fd, size, offset);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
         return 0;
 }
 
@@ -987,7 +1033,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         } else {
                                                 if ((offset + size)
                                                     > content->len) {
-                                                        op_ret = content->len - offset;
+                                                        op_ret = content->len
+                                                                - offset;
                                                         end = content->len;
                                                 } else {
                                                         op_ret = size;
@@ -995,7 +1042,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                 }
                                         }
 
-                                        count = (op_ret / iobuf_pool->page_size);
+                                        count = (op_ret
+                                                 / iobuf_pool->page_size);
                                         if ((op_ret % iobuf_pool->page_size)
                                             != 0) {
                                                 count++;
@@ -1047,7 +1095,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                                 : iobuf_pool->page_size;
 
                                                         memcpy (iobuf->ptr,
-                                                                content->data + start,
+                                                                content->data
+                                                                + start,
                                                                 len);
                                                 }
 
@@ -1100,6 +1149,19 @@ out:
                                 if (qr_fd_ctx->opened) {
                                         can_wind = 1;
                                 } else {
+                                        if (frame->local == NULL) {
+                                                frame->local = GF_CALLOC (1,
+                                                                          sizeof (qr_local_t),
+                                                                          gf_qr_mt_qr_local_t);
+                                                if (frame->local == NULL) {
+                                                        op_ret = -1;
+                                                        op_errno = ENOMEM;
+                                                        need_unwind = 1;
+                                                        qr_fd_ctx->open_in_transit = 0;
+                                                }
+                                                goto fdctx_unlock;
+                                        }
+
                                         stub = fop_readv_stub (frame,
                                                                qr_readv_helper,
                                                                fd, size,
@@ -1130,7 +1192,7 @@ out:
                 if (need_open) {
                         op_ret = qr_loc_fill (&loc, fd->inode, path);
                         if (op_ret == -1) {
-                                qr_resume_pending_ops (qr_fd_ctx);
+                                qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                                 goto ret;
                         }
 
@@ -1175,9 +1237,40 @@ qr_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   struct iovec *vector, int32_t count, off_t off,
                   struct iobref *iobref)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding write call",
+                        fdctx ? fdctx->path : NULL, strerror (errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_writev_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->writev, fd, vector, count, off,
                     iobref);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1235,6 +1328,17 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_writev_stub (frame, qr_writev_helper,
                                                         fd, vector, count, off,
                                                         iobref);
@@ -1265,7 +1369,7 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -1293,8 +1397,39 @@ qr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 qr_fstat_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding fstat call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_fstat_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fstat, fd);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (fstat, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1331,6 +1466,17 @@ qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_fstat_stub (frame, qr_fstat_helper,
                                                        fd);
                                 if (stub == NULL) {
@@ -1359,7 +1505,7 @@ qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -1389,9 +1535,41 @@ int32_t
 qr_fsetattr_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                     struct iatt *stbuf, int32_t valid)
 {
-        STACK_WIND(frame, qr_fsetattr_cbk, FIRST_CHILD(this),
-                   FIRST_CHILD(this)->fops->fsetattr, fd, stbuf,
-                   valid);
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding fsetattr "
+                        "call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
+        STACK_WIND (frame, qr_fsetattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsetattr, fd, stbuf,
+                    valid);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1428,6 +1606,17 @@ qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_fsetattr_stub (frame,
                                                           qr_fsetattr_helper,
                                                           fd, stbuf, valid);
@@ -1458,7 +1647,7 @@ qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -1487,8 +1676,40 @@ int32_t
 qr_fsetxattr_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      dict_t *dict, int32_t flags)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding fsetxattr "
+                        "call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_fsetxattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fsetxattr, fd, dict, flags);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (fsetxattr, frame, -1, op_errno);
         return 0;
 }
 
@@ -1526,6 +1747,17 @@ qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_fsetxattr_stub (frame,
                                                            qr_fsetxattr_helper,
                                                            fd, dict, flags);
@@ -1556,7 +1788,7 @@ qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -1585,8 +1817,40 @@ int32_t
 qr_fgetxattr_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      const char *name)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding fgetxattr "
+                        "call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_fgetxattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fgetxattr, fd, name);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (fgetxattr, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1628,6 +1892,17 @@ qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_fgetxattr_stub (frame,
                                                            qr_fgetxattr_helper,
                                                            fd, name);
@@ -1657,7 +1932,7 @@ qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -1685,8 +1960,39 @@ qr_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 qr_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding flush call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_flush_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->flush, fd);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (flush, frame, -1, op_errno);
         return 0;
 }
 
@@ -1711,6 +2017,17 @@ qr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else if (qr_fd_ctx->open_in_transit) {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_flush_stub (frame, qr_flush_helper,
                                                        fd);
                                 if (stub == NULL) {
@@ -1758,9 +2075,41 @@ qr_fentrylk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
                     fd_t *fd, const char *basename, entrylk_cmd cmd,
                     entrylk_type type)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding fentrylk "
+                        "call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND(frame, qr_fentrylk_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fentrylk, volume, fd, basename,
                    cmd, type);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (fentrylk, frame, -1, op_errno);
         return 0;
 }
 
@@ -1798,6 +2147,17 @@ qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_fentrylk_stub (frame,
                                                           qr_fentrylk_helper,
                                                           volume, fd, basename,
@@ -1829,7 +2189,7 @@ qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -1859,8 +2219,40 @@ int32_t
 qr_finodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
                     fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding finodelk "
+                        "call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_finodelk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->finodelk, volume, fd, cmd, lock);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (finodelk, frame, -1, op_errno);
         return 0;
 }
 
@@ -1898,6 +2290,17 @@ qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_finodelk_stub (frame,
                                                           qr_finodelk_helper,
                                                           volume, fd, cmd,
@@ -1929,7 +2332,7 @@ qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -1957,10 +2360,42 @@ qr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 qr_fsync_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding fsync call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_fsync_cbk, FIRST_CHILD (this),
                     FIRST_CHILD(this)->fops->fsync, fd, flags);
         return 0;
+
+unwind:
+        QR_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL);
+        return 0;
 }
+
 
 int32_t
 qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
@@ -1994,6 +2429,17 @@ qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_fsync_stub (frame, qr_fsync_helper,
                                                        fd, flags);
                                 if (stub == NULL) {
@@ -2022,7 +2468,7 @@ qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -2094,8 +2540,40 @@ int32_t
 qr_ftruncate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      off_t offset)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding ftruncate "
+                        "call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_ftruncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset);
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2175,7 +2653,7 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
@@ -2204,9 +2682,40 @@ int32_t
 qr_lk_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
               struct gf_flock *lock)
 {
+        qr_local_t  *local    = NULL;
+        qr_fd_ctx_t *fdctx    = NULL;
+        uint64_t     value    = 0;
+        int32_t      ret      = 0;
+        int32_t      op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+
+                ret = fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fdctx = (qr_fd_ctx_t *)(long) value;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open failed on path (%s) (%s), unwinding lk call",
+                        fdctx ? fdctx->path : NULL, strerror (op_errno));
+                goto unwind;
+        }
+
         STACK_WIND (frame, qr_lk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lk, fd, cmd, lock);
 
+        return 0;
+
+unwind:
+        QR_STACK_UNWIND (lk, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2244,6 +2753,17 @@ qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
+                                frame->local = GF_CALLOC (1,
+                                                          sizeof (qr_local_t),
+                                                          gf_qr_mt_qr_local_t);
+                                if (frame->local == NULL) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        need_unwind = 1;
+                                        qr_fd_ctx->open_in_transit = 0;
+                                        goto unlock;
+                                }
+
                                 stub = fop_lk_stub (frame, qr_lk_helper, fd,
                                                     cmd, lock);
                                 if (stub == NULL) {
@@ -2272,7 +2792,7 @@ qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx);
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
                         goto ret;
                 }
 
