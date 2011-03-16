@@ -31,9 +31,10 @@
 #include "glusterfs3.h"
 
 /* FIXME: Needs to be defined in a common file */
-#define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
+#define CLIENT_CMD_CONNECT    "trusted.glusterfs.client-connect"
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
-#define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
+#define CLIENT_DUMP_LOCKS     "trusted.glusterfs.clientlk-dump"
+
 struct clnt_options {
         char *remote_subvolume;
         int   ping_timeout;
@@ -81,7 +82,7 @@ typedef struct _client_fd_ctx {
 typedef struct _client_posix_lock {
         fd_t              *fd;            /* The fd on which the lk operation was made */
 
-        struct gf_flock       user_flock;    /* the flock supplied by the user */
+        struct gf_flock    user_flock;    /* the flock supplied by the user */
         off_t              fl_start;
         off_t              fl_end;
         short              fl_type;
@@ -92,19 +93,19 @@ typedef struct _client_posix_lock {
 } client_posix_lock_t;
 
 typedef struct client_local {
-        loc_t              loc;
-        loc_t              loc2;
-        fd_t              *fd;
-        clnt_fd_ctx_t     *fdctx;
-        uint32_t           flags;
-        uint32_t           wbflags;
-        struct iobref     *iobref;
+        loc_t                loc;
+        loc_t                loc2;
+        fd_t                *fd;
+        clnt_fd_ctx_t       *fdctx;
+        uint32_t             flags;
+        uint32_t             wbflags;
+        struct iobref       *iobref;
 
         client_posix_lock_t *client_lock;
-        uint64_t           owner;
-        int32_t            cmd;
-        struct list_head   lock_list;
-        pthread_mutex_t    mutex;
+        uint64_t             owner;
+        int32_t              cmd;
+        struct list_head     lock_list;
+        pthread_mutex_t      mutex;
 } clnt_local_t;
 
 typedef struct client_args {

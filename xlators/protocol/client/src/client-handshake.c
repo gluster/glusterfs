@@ -56,20 +56,25 @@ rpc_client_ping_timer_expired (void *data)
         this = data;
 
         if (!this || !this->private) {
+                gf_log ("", GF_LOG_WARNING, "xlator initialization not done");
                 goto out;
         }
 
         conf = this->private;
 
         clnt = conf->rpc;
-        if (!clnt)
+        if (!clnt) {
+                gf_log (this->name, GF_LOG_WARNING, "rpc not initialized");
                 goto out;
+        }
 
         conn = &clnt->conn;
         trans = conn->trans;
 
-        if (!trans)
+        if (!trans) {
+                gf_log (this->name, GF_LOG_WARNING, "transport not initialized");
                 goto out;
+        }
 
         pthread_mutex_lock (&conn->lock);
         {
@@ -97,8 +102,8 @@ rpc_client_ping_timer_expired (void *data)
                                                      rpc_client_ping_timer_expired,
                                                      (void *) this);
                         if (conn->ping_timer == NULL)
-                                gf_log (trans->name, GF_LOG_DEBUG,
-                                        "unable to setup timer");
+                                gf_log (trans->name, GF_LOG_WARNING,
+                                        "unable to setup ping timer");
 
                 } else {
                         conn->ping_started = 0;
@@ -109,8 +114,8 @@ rpc_client_ping_timer_expired (void *data)
         pthread_mutex_unlock (&conn->lock);
 
         if (disconnect) {
-                gf_log (trans->name, GF_LOG_ERROR,
-                        "Server %s has not responded in the last %d "
+                gf_log (trans->name, GF_LOG_CRITICAL,
+                        "server %s has not responded in the last %d "
                         "seconds, disconnecting.",
                         conn->trans->peerinfo.identifier,
                         conf->opt.ping_timeout);
@@ -134,17 +139,22 @@ client_start_ping (void *data)
         int                      frame_count = 0;
 
         this = data;
-        if (!this || !this->private)
+        if (!this || !this->private) {
+                gf_log ("", GF_LOG_WARNING, "xlator not initialized");
                 goto fail;
+        }
 
         conf  = this->private;
-        if (!conf->rpc)
+        if (!conf->rpc) {
+                gf_log (this->name, GF_LOG_WARNING, "rpc not initialized");
                 goto fail;
-
+        }
         conn = &conf->rpc->conn;
 
-        if (conf->opt.ping_timeout == 0)
+        if (conf->opt.ping_timeout == 0) {
+                gf_log (this->name, GF_LOG_INFO, "ping timeout is 0, returning");
                 return;
+        }
 
         pthread_mutex_lock (&conn->lock);
         {
@@ -163,12 +173,17 @@ client_start_ping (void *data)
                         /* using goto looked ugly here,
                          * hence getting out this way */
                         /* unlock */
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "returning as transport is already disconnected"
+                                " OR there are no frames (%d || %d)",
+                                frame_count, !conn->connected);
+
                         pthread_mutex_unlock (&conn->lock);
                         return;
                 }
 
                 if (frame_count < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "saved_frames->count is %"PRId64,
                                 conn->saved_frames->count);
                         conn->saved_frames->count = 0;
@@ -183,8 +198,8 @@ client_start_ping (void *data)
                                              (void *) this);
 
                 if (conn->ping_timer == NULL) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "unable to setup timer");
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "unable to setup ping timer");
                 } else {
                         conn->ping_started = 1;
                 }
@@ -203,6 +218,7 @@ client_start_ping (void *data)
 
         return;
 fail:
+        gf_log ("", GF_LOG_ERROR, "failed to start ping timer");
 
         if (frame) {
                 STACK_DESTROY (frame->root);
@@ -222,28 +238,31 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t          *frame   = NULL;
         clnt_conf_t           *conf    = NULL;
 
-        if (!myframe)
+        if (!myframe) {
+                gf_log ("", GF_LOG_WARNING, "frame with the request is NULL");
                 goto out;
-
+        }
         frame = myframe;
         this = frame->this;
-        if (!this || !this->private)
+        if (!this || !this->private) {
+                gf_log ("", GF_LOG_WARNING, "xlator private is not set");
                 goto out;
+        }
 
         conf = this->private;
         conn = &conf->rpc->conn;
 
         if (req->rpc_status == -1) {
-		 if (conn->ping_timer != NULL) {
-			 gf_log (this->name, GF_LOG_DEBUG, "socket or ib"
-				 " related error");
-			 gf_timer_call_cancel (this->ctx, conn->ping_timer);
-			 conn->ping_timer = NULL;
-		 } else {
-			 /* timer expired and transport bailed out */
-			 gf_log (this->name, GF_LOG_DEBUG, "timer must have "
-			 "expired");
-		 }
+                if (conn->ping_timer != NULL) {
+                        gf_log (this->name, GF_LOG_WARNING, "socket or ib"
+                                " related error");
+                        gf_timer_call_cancel (this->ctx, conn->ping_timer);
+                        conn->ping_timer = NULL;
+                } else {
+                        /* timer expired and transport bailed out */
+                        gf_log (this->name, GF_LOG_WARNING, "timer must have "
+                                "expired");
+                }
                 goto out;
         }
 
@@ -260,8 +279,8 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                              client_start_ping, (void *)this);
 
                 if (conn->ping_timer == NULL)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "gf_timer_call_after() returned NULL");
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to set the ping timer");
         }
         pthread_mutex_unlock (&conn->lock);
 out:
@@ -281,22 +300,32 @@ client3_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
 
-        if (-1 == req->rpc_status) {
+        if (!frame || !frame->this) {
+                gf_log ("", GF_LOG_ERROR, "frame not found with the request, "
+                        "returning EINVAL");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                goto out;
+        }
+        if (-1 == req->rpc_status) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "received RPC status error, returning ENOTCONN");
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
                 goto out;
         }
 
         ret = xdr_to_getspec_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "XDR decoding failed, returning EINVAL");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
         if (-1 == rsp.op_ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
+                gf_log (frame->this->name, GF_LOG_WARNING,
                         "failed to get the 'volume file' from server");
                 goto out;
         }
@@ -337,6 +366,7 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the request");
         STACK_UNWIND_STRICT (getspec, frame, -1, op_errno, NULL);
         return 0;
 
@@ -380,10 +410,15 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t  *frame                 = NULL;
 
         frame = myframe;
+        if (!frame || !frame->this)
+                goto out;
+
         local = frame->local;
         conf  = frame->this->private;
 
         if (-1 == req->rpc_status) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "received RPC status error, returning ENOTCONN");
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
                 goto out;
@@ -391,18 +426,18 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_open_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
         if (rsp.op_ret < 0) {
-                gf_log (frame->this->name, GF_LOG_NORMAL,
+                gf_log (frame->this->name, GF_LOG_WARNING,
                         "reopen on %s failed (%s)",
                         local->loc.path, strerror (rsp.op_errno));
         } else {
-                gf_log (frame->this->name, GF_LOG_NORMAL,
+                gf_log (frame->this->name, GF_LOG_DEBUG,
                         "reopen on %s succeeded (remote-fd = %"PRId64")",
                         local->loc.path, rsp.fd);
         }
@@ -415,6 +450,7 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         fdctx = local->fdctx;
 
         if (!fdctx) {
+                gf_log (frame->this->name, GF_LOG_WARNING, "fdctx not found");
                 ret = -1;
                 goto out;
         }
@@ -437,18 +473,18 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 ret = client_attempt_lock_recovery (frame->this, local->fdctx);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "No locks on fd to recover");
+                                "lock recovery not attempted on fd");
                 } else {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "Need to attempt lock recovery on %lld open fds",
-                                (unsigned long long) fd_count);
+                        gf_log (frame->this->name, GF_LOG_INFO,
+                                "need to attempt lock recovery on %"PRIu64
+                                " open fds", fd_count);
                 }
-        } else {
-                fd_count = decrement_reopen_fd_count (frame->this, conf);
         }
 
-
 out:
+        if (!attempt_lock_recovery)
+                fd_count = decrement_reopen_fd_count (frame->this, conf);
+
         if (fdctx)
                 client_fdctx_destroy (frame->this, fdctx);
 
@@ -479,10 +515,11 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
 
         local        = frame->local;
-        frame->local = NULL;
         conf         = frame->this->private;
 
         if (-1 == req->rpc_status) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "received RPC status error, returning ENOTCONN");
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
                 goto out;
@@ -490,14 +527,14 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_opendir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
         if (rsp.op_ret < 0) {
-                gf_log (frame->this->name, GF_LOG_NORMAL,
+                gf_log (frame->this->name, GF_LOG_WARNING,
                         "reopendir on %s failed (%s)",
                         local->loc.path, strerror (rsp.op_errno));
         } else {
@@ -506,23 +543,29 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         local->loc.path, rsp.fd);
         }
 
-	if (-1 != rsp.op_ret) {
-                fdctx = local->fdctx;
-                if (fdctx) {
-                        pthread_mutex_lock (&conf->lock);
-                        {
-                                fdctx->remote_fd = rsp.fd;
-
-                                if (!fdctx->released) {
-                                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
-                                        fdctx = NULL;
-                                }
-                        }
-                        pthread_mutex_unlock (&conf->lock);
-                }
+	if (-1 == rsp.op_ret) {
+                ret = -1;
+                goto out;
         }
 
-        decrement_reopen_fd_count (frame->this, conf);
+        fdctx = local->fdctx;
+        if (!fdctx) {
+                gf_log (frame->this->name, GF_LOG_WARNING, "fdctx not found");
+                ret = -1;
+                goto out;
+        }
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                fdctx->remote_fd = rsp.fd;
+
+                if (!fdctx->released) {
+                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+                        fdctx = NULL;
+                }
+        }
+        pthread_mutex_unlock (&conf->lock);
+
         ret = 0;
 
 out:
@@ -561,6 +604,9 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         ret = inode_path (inode, NULL, &path);
         if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "couldn't build path from inode %s",
+                        uuid_utoa (inode->gfid));
                 goto out;
         }
 
@@ -599,6 +645,8 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
         return ret;
 
 out:
+        gf_log ("", GF_LOG_ERROR, "failed to send the re-opendir request");
+
         if (frame) {
                 frame->local = NULL;
                 STACK_DESTROY (frame->root);
@@ -636,6 +684,9 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         ret = inode_path (inode, NULL, &path);
         if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "couldn't build path from inode %s",
+                        uuid_utoa (inode->gfid));
                 goto out;
         }
 
@@ -674,6 +725,8 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         return ret;
 
 out:
+        gf_log ("", GF_LOG_ERROR, "failed to send the re-open request");
+
         if (frame) {
                 frame->local = NULL;
                 STACK_DESTROY (frame->root);
@@ -742,9 +795,8 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
                 }
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "No open fds - notifying all parents child up");
+                        "no open fds - notifying all parents child up");
                 client_notify_parents_child_up (this);
-
         }
 out:
         return 0;
@@ -771,13 +823,15 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         conf  = this->private;
 
         if (-1 == req->rpc_status) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "received RPC status error");
                 op_ret = -1;
                 goto out;
         }
 
         ret = xdr_to_setvolume_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 op_ret = -1;
                 goto out;
         }
@@ -785,7 +839,8 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         op_errno = gf_error_to_errno (rsp.op_errno);
         if (-1 == rsp.op_ret) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
-                        "failed to set the volume");
+                        "failed to set the volume (%s)",
+                        (op_errno)? strerror (op_errno) : "--");
         }
 
         reply = dict_new ();
@@ -796,7 +851,7 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 ret = dict_unserialize (rsp.dict.dict_val,
                                         rsp.dict.dict_len, &reply);
                 if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                        gf_log (frame->this->name, GF_LOG_WARNING,
                                 "failed to unserialize buffer to dict");
                         goto out;
                 }
@@ -804,13 +859,13 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
 
         ret = dict_get_str (reply, "ERROR", &remote_error);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "failed to get ERROR string from reply dict");
         }
 
         ret = dict_get_str (reply, "process-uuid", &process_uuid);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "failed to get 'process-uuid' from reply dict");
         }
 
@@ -830,10 +885,14 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 }
                 goto out;
         }
+
         ret = dict_get_str (this->options, "remote-subvolume",
                             &remote_subvol);
-        if (ret || !remote_subvol)
+        if (ret || !remote_subvol) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to find key 'remote-subvolume' in the options");
                 goto out;
+        }
 
         /* TODO: currently setpeer path is broken */
         /*
@@ -857,7 +916,7 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         }
         */
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "Connected to %s, attached to remote volume '%s'.",
                 conf->rpc->conn.trans->peerinfo.identifier,
                 remote_subvol);
@@ -878,6 +937,7 @@ out:
                  * background, for now, don't hang here,
                  * tell the parents that i am all ok..
                  */
+                gf_log (this->name, GF_LOG_INFO, "sending CHILD_CONNECTING event");
                 parent = this->parents;
                 while (parent) {
                         xlator_notify (parent->xlator,
@@ -992,6 +1052,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                                      NULL, 0, NULL);
 
 fail:
+
         if (ret) {
                 config.remote_port = -1;
                 rpc_clnt_reconfig (conf->rpc, &config);
@@ -1010,8 +1071,11 @@ select_server_supported_programs (xlator_t *this, gf_prog_detail *prog)
         clnt_conf_t    *conf     = NULL;
         int             ret      = -1;
 
-        if (!this || !prog)
+        if (!this || !prog) {
+                gf_log ("", GF_LOG_WARNING,
+                        "xlator not found OR RPC program not found");
                 goto out;
+        }
 
         conf = this->private;
         trav = prog;
@@ -1046,8 +1110,11 @@ server_has_portmap (xlator_t *this, gf_prog_detail *prog)
         gf_prog_detail *trav     = NULL;
         int             ret      = -1;
 
-        if (!this || !prog)
+        if (!this || !prog) {
+                gf_log ("", GF_LOG_WARNING,
+                        "xlator not found OR RPC program not found");
                 goto out;
+        }
 
         trav = prog;
 
@@ -1078,26 +1145,29 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
         xlator_t                         *this   = NULL;
 
         frame = myframe;
-        if (!frame || !frame->this || !frame->this->private)
+        if (!frame || !frame->this || !frame->this->private) {
+                gf_log ("", GF_LOG_WARNING,
+                        "frame not found with rpc request");
                 goto out;
-
+        }
         this  = frame->this;
         conf  = frame->this->private;
 
         if (-1 == req->rpc_status) {
-                gf_log ("", 1, "some error, retry again later");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "received RPC status error, try again later");
                 goto out;
         }
 
         ret = xdr_to_pmap_port_by_brick_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 goto out;
         }
 
         if (-1 == rsp.op_ret) {
                 ret = -1;
-                gf_log (frame->this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "failed to get the port number for remote subvolume");
                 goto out;
         }
@@ -1175,17 +1245,18 @@ client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count,
         conf  = frame->this->private;
 
         if (-1 == req->rpc_status) {
-                gf_log ("", 1, "some error, retry again later");
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "received RPC status error");
                 goto out;
         }
 
         ret = xdr_to_dump_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding failed");
                 goto out;
         }
         if (-1 == rsp.op_ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
+                gf_log (frame->this->name, GF_LOG_WARNING,
                         "failed to get the 'versions' from server");
                 goto out;
         }
@@ -1200,8 +1271,7 @@ client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = select_server_supported_programs (frame->this, rsp.prog);
         if (ret) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
-                        "Server versions are not present in this "
-                        "release");
+                        "server doesn't support the version");
                 goto out;
         }
 
@@ -1236,8 +1306,10 @@ client_handshake (xlator_t *this, struct rpc_clnt *rpc)
         int           ret   = 0;
 
         conf = this->private;
-        if (!conf->handshake)
+        if (!conf->handshake) {
+                gf_log (this->name, GF_LOG_WARNING, "handshake program not found");
                 goto out;
+        }
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame)
