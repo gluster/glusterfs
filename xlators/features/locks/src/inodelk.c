@@ -570,8 +570,6 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 
         pinode = pl_inode_get (this, inode);
         if (!pinode) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -593,8 +591,6 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
         reqlock = new_inode_lock (flock, transport, client_pid, owner, volume);
 
         if (!reqlock) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;

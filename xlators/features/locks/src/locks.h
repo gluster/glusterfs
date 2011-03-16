@@ -30,6 +30,7 @@
 #include "call-stub.h"
 #include "locks-mem-types.h"
 
+#define POSIX_LOCKS "posix-locks"
 struct __pl_fd;
 
 struct __posix_lock {

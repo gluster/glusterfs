@@ -614,16 +614,12 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 
         pinode = pl_inode_get (this, inode);
         if (!pinode) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_errno = ENOMEM;
                 goto out;
         }
 
         dom = get_domain (pinode, volume);
         if (!dom){
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto out;
         }
