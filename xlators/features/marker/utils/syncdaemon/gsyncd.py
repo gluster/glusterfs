@@ -111,7 +111,9 @@ def startup(**kw):
         select.select((x,), (), ())
         os.close(x)
 
-    lkw = {'level': gconf.log_level}
+    lkw = {}
+    if gconf.log_level:
+        lkw['level'] = gconf.log_level
     if kw.get('log_file'):
         lkw['filename'] = kw['log_file']
     GLogger.setup(slave=kw.get('slave'), **lkw)
