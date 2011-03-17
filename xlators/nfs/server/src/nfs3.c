@@ -2361,7 +2361,7 @@ nfs3_create_common (nfs3_call_state_t *cs)
         if (!cs)
                 return ret;
 
-        if ((cs->createmode == UNCHECKED) || (cs->createmode = EXCLUSIVE))
+        if (cs->createmode == UNCHECKED)
                 flags = O_RDWR;
         else if (cs->createmode == GUARDED)
                 flags = (O_RDWR | O_EXCL);
