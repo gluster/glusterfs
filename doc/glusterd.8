@@ -18,55 +18,44 @@
 .\"
 .\"
 
-.TH Glusterd 8 "Gluster dynamic volume management Daemon" "9 September 2010" "Gluster Inc." 
+.TH Glusterd 8 "Gluster elastic volume management daemon" "07 March 2011" "Gluster Inc."
 .SH NAME
-Glusterd \- Gluster dynamic volume management Daemon.
+Glusterd \- Gluster elastic volume management daemon
 .SH SYNOPSIS
 .B glusterd
-.PP
-(or)
-.B glusterd
 .I [OPTION...]
-.PP
-Glusterd is a daemon for dynamic volume management for glusterfs.
 .SH DESCRIPTION
-Gluster daemon is used for dynamic volume management.
-The daemon must be executed on all of the export servers.
+The glusterd daemon is used for elastic volume management. The daemon must be run on all export servers.
 
 .SH OPTIONS
-.PP
-Mandatory or optional arguments to long options are also mandatory or optional
-for any corresponding short options.
+
 .SS "Basic options"
 .PP
 .TP
 
-\fB\-l, \fB\-\-log\-file=LOGFILE\fR
-File to use for logging [default:/usr/local/var/log/glusterfs/glusterfs.log]
+\fB\-l=<LOGFILE>, \fB\-\-log\-file=<LOGFILE>\fR
+File to use for logging.
 .TP
-\fB\-L, \fB\-\-log\-level=LOGLEVEL\fR
-Logging severity.  Valid options are TRACE, DEBUG, NORMAL, WARNING,
-ERROR and CRITICAL [default: NORMAL]
+\fB\-L=<LOGLEVEL>, \fB\-\-log\-level=<LOGLEVEL>\fR
+Logging severity.  Valid options are TRACE, DEBUG, NORMAL, WARNING, ERROR and CRITICAL (the default is NORMAL).
 .TP
 \fB\-\-debug\fR
-Run in debug mode.  This option sets \fB\-\-no\-daemon\fR, \fB\-\-log\-level\fR to DEBUG
-and \fB\-\-log\-file\fR to console
+Run the program in debug mode. This option sets \fB\-\-no\-daemon\fR, \fB\-\-log\-level\fR to DEBUG
+and \fB\-\-log\-file\fR to console.
 .TP
 \fB\-N, \fB\-\-no\-daemon\fR
-Run in foreground
-.TP
+Run the program in the foreground.
 
-.TP
-.SS  Miscellaneous Options:
+.SS "Miscellaneous Options:"
 .TP
 \fB\-?, \fB\-\-help\fR
-Give this help list
+Display this help.
 .TP
 \fB\-\-usage\fR
-Give a short usage message
+Display a short usage message.
 .TP
 \fB\-V, \fB\-\-version\fR
-Print program version
+Print the program version.
 
 .PP
 .SH FILES
