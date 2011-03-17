@@ -319,18 +319,21 @@ size_t strnlen(const char *string, size_t maxlen);
 static inline int32_t
 dirent_size (struct dirent *entry)
 {
+        int32_t size = -1;
+
 #ifdef GF_BSD_HOST_OS
-        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+        size = GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
 #endif
 #ifdef GF_DARWIN_HOST_OS
-        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+        size = GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
 #endif
 #ifdef GF_LINUX_HOST_OS
-        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+        size = GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 #endif
 #ifdef GF_SOLARIS_HOST_OS
-        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+        size = GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 #endif
+        return size;
 }
 
 
