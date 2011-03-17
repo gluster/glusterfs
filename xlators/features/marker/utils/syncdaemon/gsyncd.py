@@ -186,7 +186,7 @@ def main_i():
     op.add_option('-p', '--pid-file',      metavar='PIDF',  type=str, action='callback', callback=store_abs)
     op.add_option('-l', '--log-file',      metavar='LOGF',  type=str, action='callback', callback=store_abs)
     op.add_option('-L', '--log-level',     metavar='LVL')
-    op.add_option('-r', '--remote-gsyncd', metavar='CMD',   default='/usr/libexec/gsyncd')
+    op.add_option('-r', '--remote-gsyncd', metavar='CMD',   default=os.path.abspath(sys.argv[0]))
     op.add_option('-s', '--ssh-command',   metavar='CMD',   default='ssh')
     op.add_option('--rsync-command',       metavar='CMD',   default='rsync')
     op.add_option('--rsync-extra',         metavar='ARGS',  default='-sS', help=SUPPRESS_HELP)
