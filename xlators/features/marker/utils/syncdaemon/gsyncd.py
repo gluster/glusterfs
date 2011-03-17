@@ -153,6 +153,7 @@ def main():
     # but this handler neither does
     # signal.signal(signal.SIGTERM, finalize)
     GLogger.setup()
+    exval = 0
     try:
         try:
             main_i()
@@ -161,11 +162,12 @@ def main():
             if exc != SystemExit:
                 logging.exception("FAIL: ")
                 sys.stderr.write("failed with %s.\n" % exc.__name__)
-                sys.exit(1)
+                exval = 1
+                sys.exit(exval)
     finally:
         finalize()
         # force exit in non-main thread too
-        os._exit(1)
+        os._exit(exval)
 
 def main_i():
     rconf = {'go_daemon': 'should'}
