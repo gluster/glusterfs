@@ -1,4 +1,3 @@
-.\"
 .\"  Copyright (c) 2006-2011 Gluster, Inc. <http://www.gluster.com>
 .\"  This file is part of GlusterFS.
 .\"
@@ -13,109 +12,115 @@
 .\"  Affero General Public License for more details.
 .\"
 .\"  You should have received a copy of the GNU Affero General Public License
-.\"  along with this program.  If not, see
-.\"  <http://www.gnu.org/licenses/>.
+.\"  along with this program.  If not, see " <http://www.gnu.org/licenses/>.
 .\"
 .\"
-.TH Gluster 8 "Gluster command line tool" "9 September 2010" "Gluster Inc."
+.TH Gluster 8 "Gluster command line utility" "07 March 2011" "Gluster Inc."
 .SH NAME
-Gluster \- Gluster command line tool.
+gluster - Gluster Console Manager (command line utility)
 .SH SYNOPSIS
 .B gluster
 .PP
-To enter gluster prompt 
+To run the program and display gluster prompt:
+.PP
+.B gluster
 .PP
 (or)
 .PP
-
+To specify a command directly:
+.PP
 .B gluster
 .I [commands] [options]
-.PP
-Gluster is a command line tool for dynamic volume management for glusterfs.
+
 .SH DESCRIPTION
-Gluster command line tool is used for dynamic volume management. 
-The tool must be executed on any of the export servers. The cli gives an easy way to perform cloud operations such as volume create, volume expand, volume shrink, volume migrate, volume rebalance without the necessity of scheduling downtimes. 
+The Gluster Console Manager is a command line utility for elastic volume management. You can run the gluster command on any export server. The command enables administrators to perform cloud operations, such as creating, expanding, shrinking, rebalancing, and migrating volumes without needing to schedule server downtime.
 .SH COMMANDS
-.PP
-Mandatory or optional arguments to long options are also mandatory or optional
-for any corresponding short options.
-.SS "Basic commands"
+
+.SS "Volume Commands"
 .PP
 .TP
 
 \fB\ volume info [all|<VOLNAME>] \fR
-list information of all volumes
+Display information about all volumes, or the specified volume.
 .TP
 \fB\ volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] [transport <tcp|rdma>] <NEW-BRICK> ... \fR
-create a new volume of specified type with mentioned bricks, with specified transport-type [default:tcp]
+Create a new volume of the specified type using the specified bricks and transport type (the default transport type is tcp).
 .TP
 \fB\ volume delete <VOLNAME> \fR
-delete volume specified by \fB\<VOLNAME>\fR
+Delete the specified volume.
 .TP
 \fB\ volume start <VOLNAME> \fR
-start volume specified by \fB\<VOLNAME>\fR
+Start the specified volume.
 .TP
 \fB\ volume stop <VOLNAME> [force] \fR
-stop volume specified by \fB\<VOLNAME>\fR
+Stop the specified volume.
 .TP
 \fB\ volume rename <VOLNAME> <NEW-VOLNAME> \fR
-rename volume \fB\<VOLNAME>\fR to \fB\<NEW-VOLNAME>\fR
+Rename the specified volume.
+.TP
+\fB\ volume set <VOLNAME> <OPTION> <PARAMETER> [<OPTION> <PARAMETER>] ... \fR
+Set the volume options.
+.TP
+\fB\ volume help \fR
+Display help for the volume command.
+.SS "Brick Commands"
+.PP
 .TP
 \fB\ volume add-brick <VOLNAME> <NEW-BRICK> ... \fR
-add brick to volume. if the volume is of the type replicate or stripe, then one need to provide bricks in multiple of replica count, or stripe count.\fB\<VOLNAME>\fR
+Add the specified brick to the specified volume.
 .TP
 \fB\ volume remove-brick <VOLNAME> <BRICK> ... \fR
-remove brick from volume. if the volume is of the type replicate or stripe, then one need to provide bricks in multiple of replica count, or stripe count. Note that with this option, your data in the bricks which are removed is not going to available. If you need to migrate data, then refer to 'replace-brick' option. \fB\<VOLNAME>\fR
+Remove the specified brick from the specified volume.
+.IP
+.B Note:
+If you remove the brick, the data stored in that brick will not be available. You can migrate data from one brick to another using
+.B replace-brick
+option.
 .TP
-\fB\ volume rebalance <VOLNAME> start \fR
-start rebalance of volume \fB\<VOLNAME>\fR
+\fB\ volume rebalance-brick <VOLNAME>(<BRICK> <NEW-BRICK>) start \fR
+Start rebalancing the specified volume.
 .TP
 \fB\ volume rebalance <VOLNAME> stop \fR
-stop rebalance of volume \fB\<VOLNAME>\fR
+Stop rebalancing the specified volume.
 .TP
 \fB\ volume rebalance <VOLNAME> status \fR
-rebalance status of volume \fB<VOLNAME>\fR
+Display the rebalance status of the specified volume.
 .TP
 \fB\ volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status|commit \fR
-replace-brick operations
+Replace the specified brick.
+.SS "Log Commands"
 .TP
-\fB\ volume set <VOLNAME> <OPTION> <VALUE> [<OPTION> <VALUE>] ... \fR
-set transport type for volume \fB\<VOLNAME>\fR
+\fB\ volume log filename <VOLNAME> [BRICK] <DIRECTORY> \fB
+Set the log directory for the corresponding volume/brick.
 .TP
-\fB\ volume help \fB
-display help for the volume command
-.TP
-\fB\ volume log filename <VOLNAME> [BRICK] <PATH> \fB
-set the log file for corresponding volume/brick
-.TP
-\fB\ volume log locate <VOLNAME> [BRICK] \fB
-locate the log file for corresponding volume/brick
+\fB\volume log locate <VOLNAME> [BRICK] \fB
+Locate the log file for corresponding volume/brick.
 .TP
 \fB\ volume log rotate <VOLNAME> [BRICK] \fB
-rotate the log file for corresponding volume/brick
+Rotate the log file for corresponding volume/brick.
+.SS "Peer Commands"
 .TP
 \fB\ peer probe <HOSTNAME> \fR
-probe peer specified by \fB\<HOSTNAME>\fR
+Probe the specified peer.
 .TP
 \fB\ peer detach <HOSTNAME> \fR
-detach peer specified by \fB\<HOSTNAME>\fR
+Detach the specified peer.
 .TP
 \fB\ peer status \fR
-list status of peers
+Display the status of peers.
 .TP
 \fB\ peer help \fR
-Help command for peer 
+Display help for the peer command.
+.SS "Other Commands"
 .TP
 \fB\ help \fR
-display command options
+Display the command options.
 .TP
 \fB\ quit \fR
-quit
-.TP
-.PP
+Exit the gluster command line interface.
+
 .SH FILES
 /etc/glusterd/*
-
 .SH SEE ALSO
 .nf
 \fBfusermount\fR(1), \fBmount.glusterfs\fR(8), \fBglusterfs\fR(8), \fBglusterd\fR(8)
@@ -124,5 +129,3 @@ quit
 .SH COPYRIGHT
 .nf
 Copyright(c) 2006-2011  Gluster, Inc.  <http://www.gluster.com>
-
-.fi
