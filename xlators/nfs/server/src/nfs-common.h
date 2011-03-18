@@ -32,7 +32,9 @@
 #include "iatt.h"
 #include "uuid.h"
 
-#define NFS_PATH_MAX    PATH_MAX
+//NFS_PATH_MAX hard-coded to 4096 as a work around for bug 2476.
+//nfs server crashes when path received is longer than PATH_MAX
+#define NFS_PATH_MAX    4096
 #define NFS_NAME_MAX    NAME_MAX
 
 #define NFS_DEFAULT_CREATE_MODE 0644
