@@ -1291,11 +1291,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (key_fixed) {
-                        GF_FREE (key_fixed);
-                        key_fixed = NULL;
-                }
-
                 *op_errstr = NULL;
                 if (!global_opt)
                         ret = glusterd_validate_reconfopts (volinfo, val_dict, op_errstr);
@@ -1314,6 +1309,11 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
                 dict_del (val_dict, key);
+
+                if (key_fixed) {
+                        GF_FREE (key_fixed);
+                        key_fixed = NULL;
+                }
         }
 
 
