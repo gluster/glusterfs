@@ -3292,6 +3292,11 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
         if (priv->active_subvol == graph->top)
                 return 0; /* This is a valid case */
 
+        if (graph->used)
+                return 0;
+
+        graph->used = 1;
+
         itable = inode_table_new (0, graph->top);
         if (!itable)
                 return -1;
@@ -3307,6 +3312,9 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
         }
         pthread_mutex_unlock (&priv->sync_mutex);
 
+        gf_log ("fuse", GF_LOG_INFO, "switched to graph %d",
+                ((graph) ? graph->id : 0));
+
         return ret;
 }
 
@@ -3320,20 +3328,21 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
         private = this->private;
 
+        graph = data;
+
+        gf_log ("fuse", GF_LOG_DEBUG, "got event %d on graph %d",
+                event, ((graph) ? graph->id : 0));
+
         switch (event)
         {
         case GF_EVENT_GRAPH_NEW:
-                graph = data;
-                /* TODO: */
-
                 break;
 
         case GF_EVENT_CHILD_UP:
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_CHILD_CONNECTING:
         {
-                if (data) {
-                        graph = data;
+                if (graph) {
                         ret = fuse_graph_setup (this, graph);
                         if (ret)
                                 gf_log (this->name, GF_LOG_WARNING,
@@ -3341,7 +3350,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 }
 
                 if (event == GF_EVENT_CHILD_UP) {
-
                         pthread_mutex_lock (&private->sync_mutex);
                         {
                                 private->child_up = 1;
