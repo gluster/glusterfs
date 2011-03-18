@@ -306,6 +306,7 @@ struct _glusterfs_graph {
         void                     *first;
         void                     *top;   /* selected by -n */
         int                       xl_count;
+        int                       id;    /* Used in logging */
         uint32_t                  volfile_checksum;
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;
@@ -332,7 +333,9 @@ struct _glusterfs_ctx {
         pthread_t           sigwaiter;
         struct mem_pool    *stub_mem_pool;
         unsigned char       cleanup_started;
-
+        int                 graph_id; /* Incremented per graph, value should
+                                         indicate how many times the graph has
+                                         got changed */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
