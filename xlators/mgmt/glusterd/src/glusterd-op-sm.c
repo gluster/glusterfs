@@ -66,7 +66,7 @@ static char *glusterd_op_sm_state_names[] = {
         "Stage op sent",
         "Staged",
         "Commit op sent",
-        "Commited",
+        "Committed",
         "Unlock sent",
         "Stage op failed",
         "Commit op failed",
@@ -2714,7 +2714,7 @@ out:
 }
 
 static int
-rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
+rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
                                 glusterd_brickinfo_t *src_brickinfo)
 {
         glusterd_conf_t  *priv                        = NULL;
@@ -2733,7 +2733,7 @@ rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
         ret = stat (mount_point_path, &buf);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "stat failed. Cannot destroy maintainence "
+                        "stat failed. Cannot destroy maintenance "
                         "client");
                 goto out;
         }
@@ -2745,7 +2745,7 @@ rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
         ret = gf_system (cmd_str);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "umount failed on maintainence client");
+                        "umount failed on maintenance client");
                 goto out;
         }
 
@@ -2774,8 +2774,8 @@ out:
 }
 
 static int
-rb_spawn_maintainence_client (glusterd_volinfo_t *volinfo,
-                              glusterd_brickinfo_t *src_brickinfo)
+rb_spawn_maintenance_client (glusterd_volinfo_t *volinfo,
+                             glusterd_brickinfo_t *src_brickinfo)
 {
         int ret = -1;
 
@@ -2841,10 +2841,10 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
         gf_log ("", GF_LOG_DEBUG,
                 "replace-brick sending start xattr");
 
-        ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Could not spawn maintainence "
+                        "Could not spawn maintenance "
                         "client");
                 goto out;
         }
@@ -2866,10 +2866,10 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
                         "Failed to send command to pump");
         }
 
-        ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Failed to destroy maintainence "
+                        "Failed to destroy maintenance "
                         "client");
                 goto out;
         }
@@ -2892,10 +2892,10 @@ rb_do_operation_pause (glusterd_volinfo_t *volinfo,
         gf_log ("", GF_LOG_NORMAL,
                 "replace-brick send pause xattr");
 
-        ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Could not spawn maintainence "
+                        "Could not spawn maintenance "
                         "client");
                 goto out;
         }
@@ -2912,10 +2912,10 @@ rb_do_operation_pause (glusterd_volinfo_t *volinfo,
 
         }
 
-        ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Failed to destroy maintainence "
+                        "Failed to destroy maintenance "
                         "client");
                 goto out;
         }
@@ -2964,10 +2964,10 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
         gf_log ("", GF_LOG_DEBUG,
                 "replace-brick sending abort xattr");
 
-        ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Could not spawn maintainence "
+                        "Could not spawn maintenance "
                         "client");
                 goto out;
         }
@@ -2983,10 +2983,10 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
                         "Failed to send command to pump");
 	}
 
-        ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Failed to destroy maintainence "
+                        "Failed to destroy maintenance "
                         "client");
                 goto out;
         }
@@ -3072,10 +3072,10 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
         origin = _gf_true;
 
         if (origin) {
-                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+                ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
-                                "Could not spawn maintainence "
+                                "Could not spawn maintenance "
                                 "client");
                         goto out;
                 }
@@ -3111,10 +3111,10 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                 }
 
 	umount:
-                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+                ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
-                                "Failed to destroy maintainence "
+                                "Failed to destroy maintenance "
                                 "client");
 			goto out;
 		}
@@ -3442,7 +3442,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         case GF_REPLACE_OP_PAUSE:
         {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Recieved pause - doing nothing");
+                        "Received pause - doing nothing");
                 ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
                 if (ctx) {
                         ret = rb_do_operation_pause (volinfo, src_brickinfo,
@@ -7373,7 +7373,7 @@ glusterd_op_sm_t glusterd_op_state_commit_op_sent [] = {
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
-glusterd_op_sm_t glusterd_op_state_commited [] = {
+glusterd_op_sm_t glusterd_op_state_committed [] = {
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_LOCK
@@ -7415,7 +7415,7 @@ glusterd_op_sm_t *glusterd_op_state_table [] = {
         glusterd_op_state_stage_op_sent,
         glusterd_op_state_staged,
         glusterd_op_state_commit_op_sent,
-        glusterd_op_state_commited,
+        glusterd_op_state_committed,
         glusterd_op_state_unlock_sent,
         glusterd_op_state_stage_op_failed,
         glusterd_op_state_commit_op_failed,

@@ -1382,7 +1382,7 @@ __socket_read_frag (rpc_transport_t *this)
                 } else if (priv->incoming.msg_type == GF_UNIVERSAL_ANSWER) {
                         gf_log ("rpc", GF_LOG_ERROR,
                                 "older version of protocol/process trying to "
-                                "connect from %s. use newer verison on that node",
+                                "connect from %s. use newer version on that node",
                                 this->peerinfo.identifier);
                 } else {
                         gf_log ("rpc", GF_LOG_ERROR,

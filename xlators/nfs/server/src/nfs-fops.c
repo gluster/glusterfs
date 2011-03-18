@@ -293,7 +293,7 @@ out:
  *
  * nfs_<fopname>
  * Unlike the nfs_fop_<fopname> variety, this is the stateful type of fop, in
- * that it silently performs all the relevant GlusterFS state maintainence
+ * that it silently performs all the relevant GlusterFS state maintenance
  * operations on the data returned to the callbacks, leaving the caller's
  * callback to just use the data returned for whatever it needs to do with that
  * data, for eg. the nfs_lookup, will take care of looking up the inodes,

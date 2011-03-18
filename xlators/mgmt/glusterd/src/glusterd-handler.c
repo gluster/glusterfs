@@ -1560,7 +1560,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                         break;
         }
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Recieved replace brick %s request", operation);
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received replace brick %s request", operation);
         gf_cmd_log ("Volume replace-brick","volname: %s src_brick:%s"
                     " dst_brick:%s op:%s",cli_req.volname, src_brick, dst_brick
                     ,operation);
