@@ -71,7 +71,7 @@ struct _call_frame_t {
         call_stack_t *root;        /* stack root */
         call_frame_t *parent;      /* previous BP */
         call_frame_t *next;
-        call_frame_t *prev;        /* maintainence list */
+        call_frame_t *prev;        /* maintenance list */
         void         *local;       /* local variables */
         xlator_t     *this;        /* implicit object */
         ret_fn_t      ret;         /* op_return address */

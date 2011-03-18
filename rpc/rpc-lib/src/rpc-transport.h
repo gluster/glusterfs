@@ -97,7 +97,7 @@ typedef enum {
                                     * reading a single msg, this event may be
                                     * delivered more than once.
                                     */
-        RPC_TRANSPORT_MAP_XID_REQUEST, /* reciever of this event should send
+        RPC_TRANSPORT_MAP_XID_REQUEST, /* receiver of this event should send
                                         * the prognum and procnum corresponding
                                         * to xid.
                                         */

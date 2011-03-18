@@ -9,7 +9,7 @@ basic working
   2. VFS ==> FUSE ==> /dev/fuse.
   3. fuse-bridge initiates a glusterfs writev() call.
   4. writev() is STACK_WIND()ed upto client-protocol or storage translator.
-  5. client-protocol, on recieving reply from server, starts STACK_UNWIND() towards the fuse-bridge.
+  5. client-protocol, on receiving reply from server, starts STACK_UNWIND() towards the fuse-bridge.
 
   on a translator tree with write-behind, control flow is like this:
   
@@ -30,7 +30,7 @@ windowing
 
   write_behind: if set, indicates that write-behind has done STACK_UNWIND() towards fuse-bridge.
 
-  got_reply: if set, indicates that write-behind has recieved reply from child translator for a writev() STACK_WIND(). a request will be destroyed by write-behind only if this flag is set.
+  got_reply: if set, indicates that write-behind has received reply from child translator for a writev() STACK_WIND(). a request will be destroyed by write-behind only if this flag is set.
 
   currently pending write requests = aggregate size of requests with write_behind = 1 and got_reply = 0.
   

@@ -731,7 +731,7 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 op_ret = -1;
                 op_errno = ENOTDIR;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "open with O_DIRECTORY flag recieved on non-directory");
+                        "open with O_DIRECTORY flag received on non-directory");
                 goto unwind;
         }
 

@@ -625,7 +625,7 @@ rpc_clnt_reply_init (rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
                 goto out;
         }
 
-        gf_log (conn->trans->name, GF_LOG_TRACE, "recieved rpc message (RPC XID: 0x%ux"
+        gf_log (conn->trans->name, GF_LOG_TRACE, "received rpc message (RPC XID: 0x%ux"
                 " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
                 saved_frame->rpcreq->xid,
                 saved_frame->rpcreq->prog->progname,
@@ -666,7 +666,7 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         }
 
         gf_log (clnt->conn.trans->name, GF_LOG_TRACE,
-                "recieved rpc message (XID: 0x%lx, "
+                "received rpc message (XID: 0x%lx, "
                 "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) "
                 "from rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),

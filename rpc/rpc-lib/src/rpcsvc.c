@@ -348,7 +348,7 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
         ret = -1;
         rpcsvc_request_init (svc, trans, &rpcmsg, progmsg, msg, req);
 
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "recieved rpc-message (XID: 0x%lx, "
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "received rpc-message (XID: 0x%lx, "
                 "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) from"
                 " rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),

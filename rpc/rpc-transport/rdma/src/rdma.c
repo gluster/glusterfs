@@ -2866,14 +2866,14 @@ rdma_decode_header (rdma_peer_t *peer, rdma_post_t *post,
         case RDMA_MSGP:
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                         "rdma msg of msg-type RDMA_MSGP should not have been "
-                        "recieved");
+                        "received");
                 ret = -1;
                 break;
 
         case RDMA_DONE:
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                         "rdma msg of msg-type RDMA_DONE should not have been "
-                        "recieved");
+                        "received");
                 ret = -1;
                 break;
 
@@ -3042,7 +3042,7 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                 }
 
                 /* handling the case where both hdr and payload of
-                 * GF_FOP_READ_CBK were recieved in a single iobuf
+                 * GF_FOP_READ_CBK were received in a single iobuf
                  * because of server sending entire msg as inline without
                  * doing rdma writes.
                  */
