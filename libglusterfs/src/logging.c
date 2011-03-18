@@ -395,10 +395,10 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                 else
                         basename = file;
 
-                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s %s: ",
+                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s %d-%s: ",
                                    timestr, level_strings[level],
                                    basename, line, function, callstr,
-                                   domain);
+                                   ((this->graph) ? this->graph->id:0), domain);
                 if (-1 == ret) {
                         goto unlock;
                 }
@@ -534,10 +534,10 @@ log:
                 else
                         basename = file;
 
-                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s: ",
+                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %d-%s: ",
                                    timestr, level_strings[level],
                                    basename, line, function,
-                                   domain);
+                                   ((this->graph)?this->graph->id:0), domain);
                 if (-1 == ret) {
                         goto unlock;
                 }
