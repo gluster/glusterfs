@@ -2444,7 +2444,10 @@ init (xlator_t *this)
         }
 
         if (!this->parents) {
-                gf_log (this->name, GF_LOG_WARNING,
+                /* This is very much valid as io-stats currently is loaded
+                 * on top of volumes on both client and server, hence this is
+                 * not an warning message */
+                gf_log (this->name, GF_LOG_DEBUG,
                         "dangling volume. check volfile ");
         }
 
