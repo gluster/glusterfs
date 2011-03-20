@@ -1126,7 +1126,6 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
         if (ret == 0) {
                 ret = glusterd_brick_unlink_socket_file (volinfo, brickinfo);
-                brickinfo->port = 0;
         }
         return ret;
 }
