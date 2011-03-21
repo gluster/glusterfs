@@ -114,6 +114,8 @@ _posix_xattr_get_set (dict_t *xattr_req,
         ssize_t  req_size  = 0;
 
 
+        if (!strcmp (key, "gfid-req"))
+                return;
         /* should size be put into the data_t ? */
         if (!strcmp (key, GF_CONTENT_KEY)
             && IA_ISREG (filler->stbuf->ia_type)) {
