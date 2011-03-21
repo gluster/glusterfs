@@ -3081,6 +3081,8 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR,
                                 "Unable to allocate memory");
                 goto out;
+        } else {
+                dict->extra_stdfree = rsp.stats_info.stats_info_val;
         }
 
         ret = dict_get_int32 (dict, "op", (int32_t*)&op);
@@ -3109,6 +3111,10 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        if (dict)
+                dict_unref (dict);
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
         cli_cmd_broadcast_response (ret);
         return ret;
 }
