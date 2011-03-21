@@ -6,7 +6,7 @@ EXTRA_DIST = glusterfs.vol.sample glusterfsd.vol.sample glusterfs.8 mount.gluste
 SUBDIRS = examples hacker-guide
 
 voldir = $(sysconfdir)/glusterfs
-vol_DATA = glusterfs.vol.sample glusterfsd.vol.sample glusterd.vol
+vol_DATA = glusterd.vol
 
 man8_MANS = glusterfs.8 mount.glusterfs.8 gluster.8 glusterd.8 glusterfsd.8
 
