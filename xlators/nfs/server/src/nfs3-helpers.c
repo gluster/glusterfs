@@ -1852,14 +1852,22 @@ err:
 int
 nfs3_flush_call_state (nfs3_call_state_t *cs, fd_t *openedfd)
 {
-        if ((!cs) || (!openedfd))
+        if ((!cs))
                 return -1;
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "Calling resume");
-        cs->resolve_ret = 0;
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd done: %d",
-                openedfd->refcount);
-        cs->fd = fd_ref (openedfd);
+        if (openedfd) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd done: %d",
+                        openedfd->refcount);
+                cs->fd = fd_ref (openedfd);
+                /* Set resove_ret to 0 so that the error checking in the resume
+                 * callback results in a successful read reply when the fd was
+                 * opened. If the fd opening failed, the resolve_ret is already
+                 * set to -1 in nfs3_file_open_cbk, so that will result in an
+                 * error being returned to the nfs client' read request.
+                 */
+                cs->resolve_ret = 0;
+        }
         list_del (&cs->openwait_q);
         nfs3_call_resume (cs);
 
@@ -1873,7 +1881,7 @@ nfs3_flush_inode_queue (struct inode_op_queue *inode_q, fd_t *openedfd)
         nfs3_call_state_t       *cstmp = NULL;
         nfs3_call_state_t       *cs = NULL;
 
-        if ((!openedfd) || (!inode_q))
+        if (!inode_q)
                 return -1;
 
         list_for_each_entry_safe (cs, cstmp, &inode_q->opq, openwait_q)
@@ -2058,7 +2066,8 @@ nfs3_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd failed");
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd failed: "
+                        "%s", strerror(op_errno));
                 cs->resolve_ret = -1;
                 cs->resolve_errno = op_errno;
                 fd = NULL;
@@ -2068,8 +2077,13 @@ nfs3_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         nfs3 = nfs_rpcsvc_request_program_private (cs->req);
+        /* Call states are flushed even when the opening of the file failed.
+         * This allows returning an error for each one of the file io requests
+         * that are currently queued waiting for the open to succeed.
+         */
         nfs3_flush_open_wait_call_states (cs, fd);
-        nfs3_fdcache_add (nfs3, fd);
+        if (fd)
+                nfs3_fdcache_add (nfs3, fd);
         return 0;
 }
 
