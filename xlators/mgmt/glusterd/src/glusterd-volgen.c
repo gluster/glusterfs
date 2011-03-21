@@ -140,8 +140,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC}, /* NODOC */
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC},      /* NODOC */
 
-        {MARKER_VOL_KEY,                         "features/marker",           "!marker", "off", NO_DOC},
-        {"features.marker_gsync",                "features/marker",           "gsync", "off"},
+        {"features.marker_gsync",                "features/marker",           "gsync", "off", NO_DOC},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
         {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC},
@@ -164,9 +163,9 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC},
 
-        {"features.quota",                       "features/quota",            "quota", "off"},
-        {"features.quota",                       "features/marker",           "quota", "off"},
-        {"features.limit-usage",                 "features/quota",            "limit-set", NULL},
+        {"features.quota",                       "features/quota",            "quota", "off", NO_DOC},
+        {"features.quota",                       "features/marker",           "quota", "off", NO_DOC},
+        {"features.limit-usage",                 "features/quota",            "limit-set", NULL, NO_DOC},
 
         {NULL,                                                                }
 };
@@ -1114,7 +1113,83 @@ server_spec_option_handler (glusterfs_graph_t *graph,
         return ret;
 }
 
-static void get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo);
+static void
+get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
+{
+        glusterd_conf_t *priv  = NULL;
+
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (filename, volinfo, priv);
+        strncat (filename, "/marker.tstamp",
+                 PATH_MAX - strlen(filename) - 1);
+}
+
+static int32_t
+glusterd_gsync_option_set (glusterd_volinfo_t *volinfo,
+                           xlator_t *xl, dict_t *set_dict)
+{
+        int32_t        ret                   = -1;
+        char          *gsync_val             = NULL;
+        gf_boolean_t   gsync                 = _gf_false;
+        char           volume_id [64]        = {0, };
+        char           tstamp_file[PATH_MAX] = {0,};
+
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", xl, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", set_dict, out);
+
+        ret = volgen_dict_get (set_dict, "features.marker_gsync",
+                               &gsync_val);
+        if (ret)
+                return -1;
+
+        if (gsync_val)
+                ret = gf_string2boolean (gsync_val, &gsync);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "value for marker_gsync option is junk");
+                return -1;
+        }
+        get_vol_tstamp_file (tstamp_file, volinfo);
+        if (gsync == _gf_false) {
+                ret = unlink (tstamp_file);
+                if (ret == -1 && errno == ENOENT)
+                        ret = 0;
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR, "failed to unlink %s (%s)",
+                                tstamp_file, strerror (errno));
+                        return -1;
+                }
+                goto out;
+        }
+
+        ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0644);
+        if (ret == -1 && errno == EEXIST) {
+                gf_log ("", GF_LOG_DEBUG, "timestamp file exist");
+                ret = -2;
+        }
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to create %s (%s)",
+                        tstamp_file, strerror (errno));
+                return -1;
+        }
+        if (ret >= 0)
+                close (ret);
+
+        uuid_unparse (volinfo->volume_id, volume_id);
+        ret = xlator_set_option (xl, "volume-uuid", volume_id);
+        if (ret)
+                return -1;
+
+        ret = xlator_set_option (xl, "timestamp-file", tstamp_file);
+        if (ret)
+                return -1;
+
+        ret = 0;
+out:
+        return ret;
+}
 
 static int
 server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
@@ -1127,10 +1202,6 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         xlator_t *txl = NULL;
         xlator_t *rbxl = NULL;
         char      transt[16] = {0,};
-        char      volume_id[64] = {0,};
-        char      tstamp_file[PATH_MAX] = {0,};
-        char     *marker_val = NULL;
-        gf_boolean_t marker = _gf_false;
         int       ret = 0;
 
         path = param;
@@ -1184,29 +1255,13 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 return -1;
 
-        ret = volgen_dict_get (set_dict, MARKER_VOL_KEY, &marker_val);
-        if (ret)
+        xl = volgen_graph_add (graph, "features/marker", volname);
+        if (!xl)
                 return -1;
-        if (marker_val)
-                ret = gf_string2boolean (marker_val, &marker);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "value for "MARKER_VOL_KEY" option is junk");
 
+        ret = glusterd_gsync_option_set (volinfo, xl, set_dict);
+        if (ret < 0)
                 return -1;
-        }
-        if (marker) {
-                xl = volgen_graph_add (graph, "features/marker", volname);
-                if (!xl)
-                        return -1;
-                uuid_unparse (volinfo->volume_id, volume_id);
-                ret = xlator_set_option (xl, "volume-uuid", volume_id);
-                if (ret)
-                        return -1;
-                get_vol_tstamp_file (tstamp_file, volinfo);
-                ret = xlator_set_option (xl, "timestamp-file", tstamp_file);
-                if (ret)
-                        return -1;
-        }
 
         xl = volgen_graph_add_as (graph, "debug/io-stats", path);
         if (!xl)
@@ -1774,63 +1829,11 @@ glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
         return ret;
 }
 
-static void
-get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
-{
-        glusterd_conf_t *priv  = NULL;
-
-        priv = THIS->private;
-
-        GLUSTERD_GET_VOLUME_DIR (filename, volinfo, priv);
-        strncat (filename, "/marker.tstamp",
-                 PATH_MAX - strlen(filename) - 1);
-}
-
 static int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
-        char                     tstamp_file[PATH_MAX] = {0,};
-        char                    *marker_val = NULL;
-        gf_boolean_t             marker = _gf_false;
         int                      ret = -1;
-
-        ret = glusterd_volinfo_get (volinfo, MARKER_VOL_KEY, &marker_val);
-        if (ret)
-                return -1;
-        if (marker_val)
-                ret = gf_string2boolean (marker_val, &marker);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "value for "MARKER_VOL_KEY" option is junk");
-
-                return -1;
-        }
-
-        get_vol_tstamp_file (tstamp_file, volinfo);
-
-        if (marker) {
-                ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0644);
-                if (ret == -1 && errno == EEXIST) {
-                        gf_log ("", GF_LOG_DEBUG, "timestamp file exist");
-                        ret = -2;
-                }
-                if (ret == -1) {
-                        gf_log ("", GF_LOG_ERROR, "failed to create %s (%s)",
-                                tstamp_file, strerror (errno));
-                        return -1;
-                }
-                if (ret >= 0)
-                        close (ret);
-        } else {
-                ret = unlink (tstamp_file);
-                if (ret == -1 && errno == ENOENT)
-                        ret = 0;
-                if (ret == -1) {
-                        gf_log ("", GF_LOG_ERROR, "failed to unlink %s (%s)",
-                                tstamp_file, strerror (errno));
-                        return -1;
-                }
-        }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 gf_log ("", GF_LOG_DEBUG,

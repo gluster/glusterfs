@@ -27,8 +27,6 @@
 
 #include "glusterd.h"
 
-#define MARKER_VOL_KEY "monitor.xtime-marker"
-
 int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 

@@ -3887,64 +3887,13 @@ out:
 }
 
 int32_t
-glusterd_marker_dict_set (glusterd_volinfo_t *volinfo, char *value)
+glusterd_marker_create_volfile (glusterd_volinfo_t *volinfo)
 {
         int32_t          ret     = 0;
-        char            *marker_gsync = NULL;
-        gf_boolean_t     flag    = _gf_false;
-        char            *quota   = NULL;
 
-        ret = gf_string2boolean (value, &flag);
-        if (ret < 0)
-                goto out;
-
-        if (flag == _gf_true) {
-                ret = dict_set_dynstr (volinfo->dict, MARKER_VOL_KEY, value);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Setting dict failed");
-                        goto out;
-                }
-                goto create_vol;
-        }
-
-        ret = glusterd_volinfo_get (volinfo, "features.marker_gsync", &marker_gsync);
-        if (ret)
-                return -1;
-
-        ret = glusterd_volinfo_get (volinfo, "features.quota", &quota);
-        if (ret)
-                return -1;
-
-        ret = gf_string2boolean (marker_gsync, &flag);
-        if (ret < 0)
-                goto out;
-
-        if (flag == _gf_false) {
-                ret = gf_string2boolean (marker_gsync, &flag);
-                if (ret < 0)
-                        goto out;
-
-                if (flag == _gf_false) {
-                        ret = dict_set_dynstr (volinfo->dict, MARKER_VOL_KEY, value);
-                        if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Setting dict failed");
-                                goto out;
-                        }
-                }
-        }
-
-create_vol:
         ret = glusterd_create_volfiles (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile"
-                        " for setting of marker while 'gsync start'");
-                ret = -1;
-                goto out;
-        }
-
-        ret = glusterd_restart_brick_servers (volinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to restart bricks"
                         " for setting of marker while 'gsync start'");
                 ret = -1;
                 goto out;
@@ -3986,7 +3935,7 @@ glusterd_set_marker_gsync (char *master, char *value)
         if (ret < 0)
                 goto out;
 
-        ret = glusterd_marker_dict_set (volinfo, value);
+        ret = glusterd_marker_create_volfile (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Setting dict failed");
                 goto out;
@@ -4282,7 +4231,7 @@ glusterd_quota_get_limit_value (char *quota_limits, char *path)
 }
 
 char*
-_glusterd_quota_glusted_quota_get_limit_usages (glusterd_volinfo_t *volinfo,
+_glusterd_quota_get_limit_usages (glusterd_volinfo_t *volinfo,
                                   char *path, char **op_errstr)
 {
         int32_t  ret          = 0;
@@ -4308,11 +4257,11 @@ _glusterd_quota_glusted_quota_get_limit_usages (glusterd_volinfo_t *volinfo,
 }
 
 int32_t
-glusted_quota_get_limit_usages (glusterd_conf_t *priv,
-                                glusterd_volinfo_t *volinfo,
-                                char *volname,
-                                dict_t *dict,
-                                char **op_errstr)
+glusterd_quota_get_limit_usages (glusterd_conf_t *priv,
+                                 glusterd_volinfo_t *volinfo,
+                                 char *volname,
+                                 dict_t *dict,
+                                 char **op_errstr)
 {
         int32_t i               = 0;
         int32_t ret             = 0;
@@ -4331,7 +4280,7 @@ glusted_quota_get_limit_usages (glusterd_conf_t *priv,
                 goto out;
 
         if (count == 0) {
-                ret_str = _glusterd_quota_glusted_quota_get_limit_usages (volinfo, NULL, op_errstr);
+                ret_str = _glusterd_quota_get_limit_usages (volinfo, NULL, op_errstr);
         } else {
                 i = 0;
                 while (count--) {
@@ -4341,7 +4290,7 @@ glusted_quota_get_limit_usages (glusterd_conf_t *priv,
                         if (ret < 0)
                                 goto out;
 
-                        ret_str = _glusterd_quota_glusted_quota_get_limit_usages (volinfo, path, op_errstr);
+                        ret_str = _glusterd_quota_get_limit_usages (volinfo, path, op_errstr);
                 }
         }
 
@@ -4393,10 +4342,6 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
-        ret = glusterd_marker_dict_set (volinfo, status);
-        if (ret)
-                goto out;
-
         *crawl = _gf_true;
 
         ret = 0;
@@ -4437,9 +4382,6 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_marker_dict_set (volinfo, quota_status);
-
-        ret = 0;
 out:
         return ret;
 }
@@ -4613,25 +4555,34 @@ glusterd_op_quota (dict_t *dict, char **op_errstr)
 
         if (type == GF_QUOTA_OPTION_TYPE_ENABLE) {
                 ret = glusterd_quota_enable (volinfo, op_errstr, &start_crawl);
-                goto out;
+                if (ret < 0)
+                        goto out;
+
+                goto create_vol;
         }
 
         if (type == GF_QUOTA_OPTION_TYPE_DISABLE) {
                 ret = glusterd_quota_disable (volinfo, op_errstr);
+                if (ret < 0)
+                        goto out;
 
-                goto out;
+                goto create_vol;
         }
 
         if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
                 ret = glusterd_quota_limit_usage (volinfo, dict, op_errstr);
                 if (ret < 0)
                         goto out;
+
+                goto create_vol;
         }
 
         if (type == GF_QUOTA_OPTION_TYPE_REMOVE) {
                 ret = glusterd_quota_remove_limits (volinfo, dict, op_errstr);
                 if (ret < 0)
                         goto out;
+
+                goto create_vol;
         }
 
         if (type == GF_QUOTA_OPTION_TYPE_LIST) {
@@ -4642,11 +4593,11 @@ glusterd_op_quota (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                glusted_quota_get_limit_usages (priv, volinfo, volname, dict, op_errstr);
+                glusterd_quota_get_limit_usages (priv, volinfo, volname, dict, op_errstr);
 
                 goto out;
         }
-
+create_vol:
         ret = glusterd_create_volfiles (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to re-create volfile for"
@@ -4825,13 +4776,6 @@ glusterd_op_set_volume (dict_t *dict)
                         if (ret)
                                 goto out;
                 }
-
-                if (strcmp (key, MARKER_VOL_KEY) == 0 &&
-                    GLUSTERD_STATUS_STARTED == volinfo->status) {
-
-                        restart_flag = 1;
-                }
-
 
                 if (key_fixed) {
                         GF_FREE (key_fixed);
@@ -6704,7 +6648,7 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_QUOTA:
-                        ret = glusterd_op_quota (dict, op_errstr);
+                        ret = glusterd_op_stage_quota (dict, op_errstr);
                         break;
 
                 default:
@@ -6783,7 +6727,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_QUOTA:
-                        ret = glusterd_op_stage_quota (dict, op_errstr);
+                        ret = glusterd_op_quota (dict, op_errstr);
                         break;
 
                 default:
