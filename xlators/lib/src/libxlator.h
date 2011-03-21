@@ -22,6 +22,7 @@
 #define UUID_SIZE 36
 #define MARKER_UUID_TYPE    1
 #define MARKER_XTIME_TYPE   2
+#define GF_XATTR_QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 
 
 typedef int32_t (*xlator_specf_unwind_t) (call_frame_t *frame,
