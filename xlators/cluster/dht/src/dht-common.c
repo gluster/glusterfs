@@ -30,10 +30,51 @@
 #include "libxlator.h"
 #include "dht-common.h"
 #include "defaults.h"
+#include "byte-order.h"
 
 #include <sys/time.h>
 #include <libgen.h>
 
+
+void
+dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
+{
+        dict_t  *dst  = NULL;
+        int64_t *ptr  = 0, size = 0;
+        int32_t  ret  = -1;
+
+        dst = data;
+
+        if (strncmp (key, GF_XATTR_QUOTA_SIZE_KEY,
+                     strlen (GF_XATTR_QUOTA_SIZE_KEY)) == 0) {
+                ret = dict_get_bin (dst, key, (void **)&ptr);
+                if (ret == 0) {
+                        size = ntoh64 (*ptr);
+                }
+
+                ptr = data_to_bin (value);
+
+                size += ntoh64 (*ptr);
+
+                *ptr = hton64 (*ptr);
+                ret = dict_set_bin (dst, key, ptr, sizeof (int64_t));
+        }
+
+        return;
+}
+
+
+void
+dht_aggregate_xattr (dict_t *dst, dict_t *src)
+{
+        if ((dst == NULL) || (src == NULL)) {
+                goto out;
+        }
+
+        dict_foreach (src, dht_aggregate, dst);
+out:
+        return;
+}
 
 /* TODO:
    - use volumename in xattr instead of "dht"
@@ -147,8 +188,12 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 local->op_ret = 0;
-                if (local->xattr == NULL)
+                if (local->xattr == NULL) {
                         local->xattr = dict_ref (xattr);
+                } else {
+                        dht_aggregate_xattr (local->xattr, xattr);
+                }
+
                 if (local->inode == NULL)
                         local->inode = inode_ref (inode);
 
@@ -463,8 +508,11 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->loc.parent)
                         local->postparent.ia_ino = local->loc.parent->ino;
 
-                if (!local->xattr)
+                if (!local->xattr) {
                         local->xattr = dict_ref (xattr);
+                } else if (is_dir) {
+                        dht_aggregate_xattr (local->xattr, xattr);
+                }
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -1884,6 +1932,10 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local->xattr) {
                 local->xattr = dict_copy_with_ref (xattr, NULL);
         } else {
+                /* first aggregate everything into xattr and then copy into
+                 * local->xattr.
+                 */
+                dht_aggregate_xattr (xattr, local->xattr);
                 local->xattr = dict_copy (xattr, local->xattr);
         }
 out:
