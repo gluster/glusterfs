@@ -61,7 +61,7 @@
 
 #ifndef O_DIRECTORY
 /* FreeBSD does not need O_DIRECTORY */
-#define O_DIRECTORY 0
+#define O_DIRECTORY 0200000
 #endif
 
 #ifndef EBADFD
