@@ -3701,6 +3701,221 @@ out:
 }
 
 int32_t
+stripe_iatt_merge (struct iatt *from, struct iatt *to)
+{
+        if (to->ia_size < from->ia_size)
+                to->ia_size = from->ia_size;
+        if (to->ia_mtime < from->ia_mtime)
+                to->ia_mtime = from->ia_mtime;
+        if (to->ia_ctime < from->ia_ctime)
+                to->ia_ctime = from->ia_ctime;
+        if (to->ia_atime < from->ia_atime)
+                to->ia_atime = from->ia_atime;
+        return 0;
+}
+
+int32_t
+stripe_readdirp_entry_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        gf_dirent_t    *entry = NULL;
+        stripe_local_t *local = NULL;
+        int32_t        done = 0;
+        int32_t        ret = -1;
+
+        if (!this || !frame || !frame->local || !cookie) {
+                gf_log (this->name, GF_LOG_DEBUG, "possible NULL deref");
+                goto out;
+        }
+        entry = cookie;
+        local = frame->local;
+        LOCK (&frame->lock);
+        {
+
+                local->count++;
+                if (local->count == local->wind_count)
+                        done = 1;
+                if (op_ret == -1) {
+                        local->op_errno = op_errno;
+                        local->op_ret = op_ret;
+                        goto unlock;
+                }
+                stripe_iatt_merge (buf, &entry->d_stat);
+        }
+unlock:
+        UNLOCK(&frame->lock);
+        if (done) {
+                fd_unref (local->fd);
+                frame->local = NULL;
+                ret = local->op_ret;
+                STRIPE_STACK_UNWIND (readdir, frame, local->op_ret,
+                                      local->op_errno, &local->entries);
+                if (ret > 0)
+                        gf_dirent_free (&local->entries);
+                stripe_local_wipe (local);
+        }
+out:
+        return 0;        
+
+}
+
+int32_t
+stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, gf_dirent_t *orig_entries)
+{
+        stripe_local_t *local = NULL;
+        call_frame_t   *prev = NULL;
+        gf_dirent_t    *local_entry = NULL;
+        int32_t        ret = -1;
+        gf_dirent_t    *tmp_entry = NULL;
+        xlator_list_t  *trav = NULL;
+        loc_t          loc = {0, };
+        inode_t        *inode = NULL;
+        char           *path;
+        int32_t        count = 0;
+
+        if (!this || !frame || !frame->local || !cookie) {
+                gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
+                goto out;
+        }
+        prev  = cookie;
+        local = frame->local;
+        trav = this->children;
+
+        LOCK (&frame->lock);
+        {
+
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s returned error %s",
+                                prev->this->name, strerror (op_errno));
+                        local->op_errno = op_errno;
+                        local->op_ret = op_ret;
+                        goto unlock;
+                } else {
+                        local->op_ret = op_ret;
+                        list_splice_init (&orig_entries->list,
+                                          &local->entries.list);
+                }
+        }
+unlock:
+        UNLOCK (&frame->lock); 
+        if (op_ret == -1)
+                goto out;
+        ret = 0;
+        list_for_each_entry_safe (local_entry, tmp_entry
+                                  , (&local->entries.list), list) {
+
+                if (!local_entry)
+                        break;
+                if (!IA_ISREG(local_entry->d_stat.ia_type))
+                        continue;
+
+                inode = inode_new(local->fd->inode->table);
+                if (inode) {
+                        loc.ino= inode->ino = local_entry->d_ino;
+                        loc.inode = inode;
+                } else {
+                        goto out;
+                }
+
+                loc.parent = local->fd->inode;
+                ret = inode_path (local->fd->inode, local_entry->d_name, &path);
+                if (ret != -1) {
+                        loc.path = path;
+                } else  if (inode) {
+                        ret = inode_path (inode, NULL, &path);
+                        if (ret != -1) {
+                                loc.path = path;
+                        } else {
+                                goto out;
+                        }
+                }
+
+                loc.name   = strrchr (loc.path, '/');
+                loc.name++;
+                trav = this->children;
+                while (trav) {
+                        LOCK (&frame->lock);
+                        {
+                                local->wind_count++;
+                        }
+                        UNLOCK (&frame->lock);
+                        STACK_WIND_COOKIE (frame, stripe_readdirp_entry_stat_cbk,
+                                           local_entry, trav->xlator,
+                                           trav->xlator->fops->stat, &loc);
+                        count++;
+                        trav = trav->next;
+                }
+                inode_unref (loc.inode);
+        }  
+out:
+        if (!count){ //all entries are directories
+                fd_unref (local->fd);
+                frame->local = NULL;
+                STRIPE_STACK_UNWIND (readdir, frame, local->op_ret, 
+                                     local->op_errno, &local->entries);
+                if (op_ret > 0)
+                        gf_dirent_free (&local->entries);
+                stripe_local_wipe (local);
+        }
+
+        return 0;
+
+}
+int32_t
+stripe_readdirp (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, size_t size, off_t off)
+{
+        stripe_local_t  *local  = NULL;
+        stripe_private_t *priv = NULL;
+        xlator_list_t   *trav = NULL;
+        int             op_errno = -1;
+
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+        priv = this->private;
+        trav = this->children;
+
+        if (priv->first_child_down) {
+                op_errno = ENOTCONN;
+                goto err;
+        }
+
+        /* Initialization */
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        frame->local = local;
+
+        local->fd = fd_ref (fd);
+
+        local->wind_count = 0;
+        
+        local->count = 0;
+        local->op_ret = -1;
+        INIT_LIST_HEAD(&local->entries);
+
+        if (!trav)
+                goto err;
+        STACK_WIND (frame, stripe_readdirp_cbk, trav->xlator,
+                   trav->xlator->fops->readdirp, fd, size, off);
+        return 0;
+err:
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        STRIPE_STACK_UNWIND (readdir, frame, -1, op_errno, NULL);
+
+        return 0;
+
+}
+int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
@@ -4062,6 +4277,7 @@ struct xlator_fops fops = {
         .mknod       = stripe_mknod,
 
         .getxattr    = stripe_getxattr,
+        .readdirp    = stripe_readdirp,
 };
 
 struct xlator_cbks cbks = {
