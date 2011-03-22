@@ -456,7 +456,6 @@ ios_stat_add_to_list (struct ios_stat_head *list_head, uint64_t value,
                         if (reposition == MAX_LIST_MEMBERS)
                                 list_head->min_cnt = value;
                         else if (min_count) {
-                                gf_log ("shishir", 1, "I am here");
                                 list_head->min_cnt = min_count;
                         }
                 } else if (list_head->members < MAX_LIST_MEMBERS) {
@@ -1038,13 +1037,11 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
                                  goto out;
                          if (index != IOS_STATS_THRU_MAX) {
                                  snprintf (key, 256, "%s-%d", "time-sec", cnt);
-                                 gf_log ("shishir", 1, "%s %ld",key,entry->iosstat->thru_counters[index].time.tv_sec);
                                  ret = dict_set_int32 (resp, key, 
                                          entry->iosstat->thru_counters[index].time.tv_sec);
                                  if (ret)
                                          goto out;
                                  snprintf (key, 256, "%s-%d", "time-usec", cnt);
-                                gf_log ("shishir", 1, "%s %ld",key,entry->iosstat->thru_counters[index].time.tv_usec);
                                  ret = dict_set_int32 (resp, key, 
                                          entry->iosstat->thru_counters[index].time.tv_usec);
                                  if (ret)
