@@ -367,13 +367,17 @@ afr_prepare_loc (call_frame_t *frame, fd_t *fd)
         char           *path = NULL;
         int             ret = 0;
 
-        if (!fd)
+        if ((!fd) || (!fd->inode))
                 return -1;
 
         local = frame->local;
         ret = inode_path (fd->inode, NULL, (char **)&path);
-        if (ret <= 0)
+        if (ret <= 0) {
+                gf_log (frame->this->name, GF_LOG_DEBUG,
+                        "Unable to get path for gfid: %s",
+                        uuid_utoa (fd->inode->gfid));
                 return -1;
+        }
 
         if (local->loc.path) {
                 if (strcmp (path, local->loc.path))
@@ -414,8 +418,7 @@ afr_openfd_sh (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh    = &local->self_heal;
 
-        afr_prepare_loc (frame, local->fd);
-
+        GF_ASSERT (local->loc.path);
         /* forcibly trigger missing-entries self-heal */
 
         local->success_count    = 1;
@@ -583,6 +586,16 @@ afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         local = frame->local;
 
         /*
+         * If the file is already deleted while the fd is open, no need to
+         * perform the openfd flush, call the flush_cbk and get out.
+         */
+        ret = afr_prepare_loc (frame, fd);
+        if (ret < 0) {
+                local->openfd_flush_cbk (frame, this);
+                goto out;
+        }
+
+        /*
          * Some subvolumes might have come up on which we never
          * opened this fd in the first place. Re-open fd's on those
          * subvolumes now.
@@ -611,8 +624,6 @@ afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 no_open = 1;
                 goto out;
         }
-
-        afr_prepare_loc (frame, fd);
 
         local->call_count = call_count;
 
