@@ -1799,11 +1799,12 @@ init (xlator_t *this)
         xlator_list_t         *trav = NULL;
         data_t                *mandatory = NULL;
         data_t                *trace = NULL;
+        int                   ret = -1;
 
         if (!this->children || this->children->next) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "FATAL: posix-locks should have exactly one child");
-                return -1;
+                goto out;
         }
 
         if (!this->parents) {
@@ -1819,7 +1820,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "'locks' translator is not loaded over a storage "
                         "translator");
-                return -1;
+                goto out;;
         }
 
         priv = GF_CALLOC (1, sizeof (*priv),
@@ -1836,12 +1837,19 @@ init (xlator_t *this)
                                        &priv->trace) == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'trace' takes on only boolean values.");
-                        return -1;
+                        goto out;
                 }
         }
 
         this->private = priv;
-        return 0;
+        ret = 0;
+
+out:
+        if (ret) {
+                if (priv)
+                        GF_FREE (priv);
+        }
+        return ret;
 }
 
 
