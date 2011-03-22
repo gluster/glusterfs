@@ -1321,6 +1321,8 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                          "<export-dir-abs-path>", value);
                                 ret = -1;
                                 goto out;
+                        } else {
+                                cli_path_strip_trailing_slashes (delimiter + 1);
                         }
                         ret = dict_set_str (dict, "brick", value);
 
