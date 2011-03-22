@@ -931,8 +931,9 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 	int              enoent_count = 0;
 	int              call_count = 0;
 	mode_t           st_mode = 0;
-	dev_t            ia_dev = 0;
+	dev_t            ia_rdev = 0;
         dict_t          *dict = NULL;
+        dev_t            st_rdev = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -947,11 +948,12 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 
 	st_mode = st_mode_from_ia (sh->buf[sh->source].ia_prot,
                                    sh->buf[sh->source].ia_type);
-	ia_dev  = sh->buf[sh->source].ia_dev;
+	ia_rdev  = sh->buf[sh->source].ia_rdev;
+        st_rdev = makedev (ia_major (ia_rdev), ia_minor (ia_rdev));
 
 	gf_log (this->name, GF_LOG_TRACE,
-		"mknod %s mode 0%o on %d subvolumes",
-		local->loc.path, st_mode, enoent_count);
+		"mknod %s mode 0%o device type %"PRId64" on %d subvolumes",
+		local->loc.path, st_mode, (uint64_t)st_rdev, enoent_count);
 
         dict = dict_new ();
         if (!dict)
@@ -968,7 +970,7 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->mknod,
-					   &local->loc, st_mode, ia_dev, dict);
+					   &local->loc, st_mode, st_rdev, dict);
 			if (!--call_count)
 				break;
 		}
@@ -1253,21 +1255,24 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t     *local = NULL;
 	int              call_count = 0;
 	afr_private_t   *priv = NULL;
-
+        mode_t           st_mode = 0;
 
 	local = frame->local;
 	priv = this->private;
 
 	child_index = (long) cookie;
 
+        if (buf)
+                st_mode = st_mode_from_ia (buf->ia_prot, buf->ia_type);
+
 	LOCK (&frame->lock);
 	{
 		if (op_ret == 0) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"path %s on subvolume %s is of mode 0%o",
-				local->loc.path,
-				priv->children[child_index]->name,
-				buf->ia_type);
+                                local->loc.path,
+                                priv->children[child_index]->name,
+				st_mode);
 
 			local->self_heal.buf[child_index] = *buf;
                         local->self_heal.parentbuf        = *postparent;
