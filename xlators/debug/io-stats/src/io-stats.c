@@ -340,7 +340,7 @@ ios_stat_unref (struct ios_stat *iosstat)
         LOCK (&iosstat->lock);
         {
                 iosstat->refcnt--;
-                if (iosstat->refcnt <= 0) {
+                if (iosstat->refcnt == 0) {
                         if (iosstat->filename) {
                                 GF_FREE (iosstat->filename);
                                 iosstat->filename = NULL;
@@ -484,8 +484,15 @@ ios_stats_cleanup (xlator_t *this, inode_t *inode)
 {
 
         struct ios_stat *iosstat = NULL;
+        uint64_t         iosstat64 = 0;
 
-        ios_inode_ctx_get (inode, this, &iosstat);
+        inode_ctx_del (inode, this, &iosstat64);
+        if (!iosstat64) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "could not get inode ctx");
+                return 0;
+        }
+        iosstat = (void *) (long)iosstat64;
         if (iosstat) {
                 ios_stat_unref (iosstat);
         }
@@ -1306,14 +1313,6 @@ io_stats_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *preparent, struct iatt *postparent)
 {
-        inode_t         *inode = NULL;
-
-        if (frame->local) {
-                inode = frame->local;
-                frame->local = NULL;
-                ios_stats_cleanup (this, inode);
-                inode = NULL;
-        }
         END_FOP_LATENCY (frame, UNLINK);
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
                              preparent, postparent);
@@ -1465,17 +1464,8 @@ io_stats_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *preparent, struct iatt *postparent)
 {
-        inode_t         *inode = NULL;
 
         END_FOP_LATENCY (frame, RMDIR);
-
-
-        if (frame->local) {
-                inode = frame->local;
-                frame->local = NULL;
-                ios_stats_cleanup (this, inode);
-                inode = NULL;
-        }
 
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
                              preparent, postparent);
@@ -1828,7 +1818,6 @@ io_stats_rmdir (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (RMDIR);
 
-        frame->local = loc->inode;
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_rmdir_cbk,
@@ -2346,7 +2335,7 @@ int
 io_stats_forget (xlator_t *this, inode_t *inode)
 {
         BUMP_FOP (FORGET);
-
+        ios_stats_cleanup (this, inode);
         return 0;
 }
 
