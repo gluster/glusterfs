@@ -179,6 +179,7 @@ struct stripe_local {
         fd_t                *fd;
         void                *value;
         struct iobref       *iobref;
+        gf_dirent_t         entries;
 };
 
 typedef struct stripe_local   stripe_local_t;
