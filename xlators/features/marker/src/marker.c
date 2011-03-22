@@ -1642,6 +1642,80 @@ out:
         return ret;
 }
 
+void
+marker_priv_cleanup (xlator_t *this)
+{
+        marker_conf_t *priv = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", this, out);
+
+        priv = (marker_conf_t *) this->private;
+
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        if (priv->volume_uuid != NULL)
+                GF_FREE (priv->volume_uuid);
+
+        if (priv->timestamp_file != NULL)
+                GF_FREE (priv->timestamp_file);
+
+        if (priv->marker_xattr != NULL)
+                GF_FREE (priv->marker_xattr);
+
+        if (priv->size_key != NULL)
+                GF_FREE (priv->size_key);
+
+        if (priv->dirty_key != NULL)
+                GF_FREE (priv->dirty_key);
+
+        GF_FREE (priv);
+out:
+        return;
+}
+
+int32_t
+reconfigure (xlator_t *this, dict_t *options)
+{
+        int32_t         ret     = -1;
+        data_t         *data    = NULL;
+        marker_conf_t  *priv    = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", this, err);
+        GF_VALIDATE_OR_GOTO (this->name, options, err);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, err);
+
+        priv->feature_enabled = 0;
+
+        data = dict_get (options, "quota");
+        if (data) {
+                if (strcmp (data->data, "on") == 0) {
+                        priv->feature_enabled |= GF_QUOTA;
+                        ret = init_quota_priv (this);
+                        if (ret < 0)
+                                goto err;
+                }
+        }
+
+        data = dict_get (options, "gsync");
+        if (data) {
+                if (strcmp (data->data, "on") == 0) {
+                        priv->feature_enabled |= GF_GSYNC;
+                        ret = init_gsync_priv (this);
+                        if (ret < 0)
+                                goto err;
+                }
+        }
+
+        return 0;
+err:
+        marker_priv_cleanup (this);
+
+        return -1;
+}
+
+
 int32_t
 init (xlator_t *this)
 {
@@ -1690,18 +1764,9 @@ init (xlator_t *this)
                 }
         }
 
-        if (priv->feature_enabled == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Marker translator in the volfile "
-                        "but no functionality is enabled "
-                        "failing marker init()");
-
-                goto err;
-        }
-
         return 0;
 err:
-        fini (this);
+        marker_priv_cleanup (this);
 
         return -1;
 }
@@ -1724,31 +1789,7 @@ out:
 void
 fini (xlator_t *this)
 {
-        marker_conf_t *priv = NULL;
-
-        priv = (marker_conf_t *) this->private;
-
-        if (priv == NULL)
-                goto out;
-
-        if (priv->volume_uuid != NULL)
-                GF_FREE (priv->volume_uuid);
-
-        if (priv->timestamp_file != NULL)
-                GF_FREE (priv->timestamp_file);
-
-        if (priv->marker_xattr != NULL)
-                GF_FREE (priv->marker_xattr);
-
-        if (priv->size_key != NULL)
-                GF_FREE (priv->size_key);
-
-        if (priv->dirty_key != NULL)
-                GF_FREE (priv->dirty_key);
-
-        GF_FREE (priv);
-out:
-        return ;
+        marker_priv_cleanup (this);
 }
 
 struct xlator_fops fops = {
