@@ -157,8 +157,6 @@ gf_add_locker (struct _lock_table *table, const char *volume,
 
         GF_VALIDATE_OR_GOTO ("server", table, out);
         GF_VALIDATE_OR_GOTO ("server", volume, out);
-        GF_VALIDATE_OR_GOTO ("server", loc, out);
-        GF_VALIDATE_OR_GOTO ("server", fd, out);
 
         new = GF_CALLOC (1, sizeof (struct _locker), gf_server_mt_locker_t);
         if (new == NULL) {
@@ -202,8 +200,6 @@ gf_del_locker (struct _lock_table *table, const char *volume,
 
         GF_VALIDATE_OR_GOTO ("server", table, out);
         GF_VALIDATE_OR_GOTO ("server", volume, out);
-        GF_VALIDATE_OR_GOTO ("server", loc, out);
-        GF_VALIDATE_OR_GOTO ("server", fd, out);
 
         INIT_LIST_HEAD (&del);
 
