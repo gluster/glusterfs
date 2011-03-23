@@ -2256,6 +2256,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
 
         ret = glusterd_create_volfiles (volinfo);
+        if (ret)
+                goto out;
 
         ret = glusterd_volume_compute_cksum (volinfo);
         if (ret)
