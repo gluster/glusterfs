@@ -340,7 +340,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         d = tempfile.mkdtemp()
         try:
             argv = [gconf.gluster_command] + \
-                    (gconf.gluster_log_level and ['-L', gConf.gluster_log_level] or []) + \
+                    (gconf.gluster_log_level and ['-L', gconf.gluster_log_level] or []) + \
                     ['-l', gconf.gluster_log_file, '-s', self.host,
                      '--volfile-id', self.volume, '--client-pid=-1', d]
             if os.spawnvp(os.P_WAIT, argv[0], argv):
