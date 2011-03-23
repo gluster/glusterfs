@@ -1912,6 +1912,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
                 ret = glusterd_friend_add (hostname, 0, state, &uuid,
                                            NULL, &peerinfo, 1, &args);
 
+                GF_FREE (hostname);
                 if (ret)
                         goto out;
 

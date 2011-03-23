@@ -895,6 +895,8 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         dict_t                        *dict   = NULL;
+        char                          err_str[2048] = {0};
+        char                          *peer_str = NULL;
 
         GF_ASSERT (req);
 
@@ -948,8 +950,17 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
                 opinfo.op_ret = op_ret;
-                if (strcmp ("", rsp.op_errstr))
-                        opinfo.op_errstr = gf_strdup(rsp.op_errstr);
+                if (strcmp ("", rsp.op_errstr)) {
+                        opinfo.op_errstr = gf_strdup (rsp.op_errstr);
+                } else {
+                        if (peerinfo)
+                                peer_str = peerinfo->hostname;
+                        else
+                                peer_str = uuid_utoa (rsp.uuid);
+                        snprintf (err_str, sizeof (err_str), "Operation failed "
+                                  "on %s", peer_str);
+                        opinfo.op_errstr = gf_strdup (err_str);
+                }
                 if (!opinfo.op_errstr) {
                         gf_log ("", GF_LOG_ERROR, "memory allocation failed");
                         ret = -1;
@@ -1067,6 +1078,8 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         dict_t                        *dict = NULL;
+        char                          err_str[2048] = {0};
+        char                          *peer_str = NULL;
 
 
         GF_ASSERT (req);
@@ -1123,7 +1136,17 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
                 opinfo.op_ret = op_ret;
-                opinfo.op_errstr = gf_strdup(rsp.op_errstr);
+                if (strcmp ("", rsp.op_errstr)) {
+                        opinfo.op_errstr = gf_strdup(rsp.op_errstr);
+                } else {
+                        if (peerinfo)
+                                peer_str = peerinfo->hostname;
+                        else
+                                peer_str = uuid_utoa (rsp.uuid);
+                        snprintf (err_str, sizeof (err_str), "Operation failed "
+                                  "on %s", peer_str);
+                        opinfo.op_errstr = gf_strdup (err_str);
+                }
                 if (!opinfo.op_errstr) {
                         gf_log ("", GF_LOG_ERROR, "memory allocation failed");
                         ret = -1;
