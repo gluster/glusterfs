@@ -253,16 +253,18 @@ struct ios_local {
 #define BUMP_STATS(iosstat, type)                                               \
         do {                                                                    \
                 struct ios_conf         *conf = NULL;                           \
+                uint64_t                 value = 0;                             \
                                                                                 \
                 conf = this->private;                                           \
                                                                                 \
                 LOCK(&iosstat->lock);                                           \
                 {                                                               \
                         iosstat->counters[type]++;                              \
-                        ios_stat_add_to_list (&conf->list[type],                \
-					     iosstat->counters[type], iosstat); \
+                        value = iosstat->counters[type];                        \
                 }                                                               \
                 UNLOCK (&iosstat->lock);                                        \
+                ios_stat_add_to_list (&conf->list[type],                        \
+				     value, iosstat);                           \
                                                                                 \
         } while (0)
 
@@ -273,6 +275,7 @@ struct ios_local {
 		double                   elapsed;				\
 		struct timeval          *begin, *end;				\
 		double                   throughput;				\
+               int                      flag = 0;                              \
 										\
 		begin = &frame->begin;						\
 		end   = &frame->end;						\
@@ -290,11 +293,13 @@ struct ios_local {
                                                                 throughput;     \
 				gettimeofday (&iosstat->                        \
                                              thru_counters[type].time, NULL);   \
-	                        ios_stat_add_to_list (&conf->thru_list[type],	\
-						throughput, iosstat); 		\
+                               flag = 1;                                       \
                         }							\
                 }								\
         	UNLOCK (&iosstat->lock);					\
+               if (flag)                                                       \
+                       ios_stat_add_to_list (&conf->thru_list[type],           \
+                                               throughput, iosstat);           \
 	} while (0)
 
 int
@@ -329,7 +334,12 @@ ios_fd_ctx_set (fd_t *fd, xlator_t *this, struct ios_fd *iosfd)
 int
 ios_stat_ref (struct ios_stat *iosstat)
 {
-        iosstat->refcnt++;
+        LOCK (&iosstat->lock);
+        {
+                iosstat->refcnt++;
+        }
+        UNLOCK (&iosstat->lock);
+
         return iosstat->refcnt;
 }
 
