@@ -771,8 +771,8 @@ typedef struct volume_options {
         char                *key[ZR_VOLUME_MAX_NUM_KEY];
         /* different key, same meaning */
         volume_option_type_t type;
-        int64_t              min;  /* -1 means no range */
-        int64_t              max;  /* -1 means no range */
+        int64_t              min;  /* 0 means no range */
+        int64_t              max;  /* 0 means no range */
         char                *value[ZR_OPTION_MAX_ARRAY_SIZE];
         /* If specified, will check for one of
            the value from this array */
@@ -806,10 +806,9 @@ struct _xlator {
         void              (*fini) (xlator_t *this);
         int32_t           (*init) (xlator_t *this);
         int32_t           (*reconfigure) (xlator_t *this, dict_t *options);
-        int32_t           (*mem_acct_init) (xlator_t *this);
-        int32_t           (*validate_options) (xlator_t *this, dict_t *options,
-                                               char **op_errstr);
-        event_notify_fn_t notify;
+	int32_t           (*mem_acct_init) (xlator_t *this);
+        int32_t           (*validate_options) (xlator_t *this, char **op_errstr);
+	event_notify_fn_t notify;
 
         gf_loglevel_t    loglevel;   /* Log level for translator */
 
@@ -865,5 +864,14 @@ int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 int xlator_validate_rec (xlator_t *xlator, char **op_errstr);
 int graph_reconf_validateopt (glusterfs_graph_t *graph, char **op_errstr);
 int glusterd_check_log_level (const char *value);
+int validate_xlator_volume_options_attacherr (xlator_t *xl,
+                                          volume_option_t *opt,
+                                         char **op_errstr);
+int _volume_option_value_validate_attacherr (xlator_t *xl, 
+                               data_pair_t *pair, 
+                               volume_option_t *opt, 
+                               char **op_errstr);
+
+
 
 #endif /* _XLATOR_H */

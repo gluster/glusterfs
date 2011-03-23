@@ -2076,72 +2076,31 @@ out:
 }
 
 int
-validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+validate_options (xlator_t *this, char **op_errstr)
 {
-        int     ret = 0;
-        int     timeout_ret=0;
-        int     ping_timeout;
-        int     frame_timeout;
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
-
-        timeout_ret = dict_get_int32 (options, "frame-timeout",
-                                      &frame_timeout);
-        if (timeout_ret == 0) {
-                if (frame_timeout < 5 ) {
-                        gf_log (this->name, GF_LOG_WARNING, "validation of "
-                                "'option frame-timeout %d failed, min value"
-                                " can be 5", frame_timeout);
-                        *op_errstr = gf_strdup ("Error, Min Value 5");
-                        ret = -1;
-                        goto out;
-                }
-
-                if (frame_timeout > 86400 ) {
-                        gf_log (this->name, GF_LOG_WARNING, "reconfiguration of"
-                                " 'option frame-timeout %d failed , max value "
-                                "can be 86400", frame_timeout );
-                        *op_errstr = gf_strdup ("Error, Max Value 86400");
-                        ret = -1;
-                        goto out;
-                }
-
-
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "validation otion frame-timeout to %d",
-                        frame_timeout);
-
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
+                goto out;
         }
 
-        timeout_ret = dict_get_int32 (options, "ping-timeout",
-                                      &ping_timeout);
-        if (timeout_ret == 0) {
+        if (list_empty (&this->volume_options))
+                goto out;
 
-                if (ping_timeout < 5 ) {
-                        gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-                                " 'option ping-timeout %d failed , Min value"
-                                " can be 5", ping_timeout);
-                        *op_errstr = gf_strdup ("Error, Min Value 5");
-                        ret = -1;
-                        goto out;
-                }
-
-                if (ping_timeout > 1013 ) {
-                        gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-                                " 'option frame-timeout %d failed , Max value"
-                                " can be 1013,", frame_timeout);
-                        *op_errstr =  gf_strdup ("Error, Max Value 1013");
-                        ret = -1;
-                        goto out;
-                }
-
-                gf_log (this->name, GF_LOG_DEBUG, "Validated "
-                        "'option ping-timeout' to %d", ping_timeout);
-
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+        list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
         }
-
-        ret = 0;
 
 out:
+
         return ret;
 }
 
@@ -2169,7 +2128,6 @@ reconfigure (xlator_t *this, dict_t *options)
 			      "'option frame-timeout %d failed , Min value"
 			      " can be 5, Defaulting to old value (%d)"
 			      , frame_timeout, conf->rpc_conf.rpc_timeout);
-			ret = -1;
 			goto out;
 		}
 
@@ -2178,7 +2136,6 @@ reconfigure (xlator_t *this, dict_t *options)
 			      "'option frame-timeout %d failed , Max value"
 			      "can be 3600, Defaulting to old value (%d)"
 			      , frame_timeout, conf->rpc_conf.rpc_timeout);
-			ret = -1;
 			goto out;
 		}
 
@@ -2201,7 +2158,6 @@ reconfigure (xlator_t *this, dict_t *options)
 			      "'option ping-timeout %d failed , Min value"
 			      " can be 5, Defaulting to old value (%d)"
 			      , ping_timeout, conf->opt.ping_timeout);
-			ret = -1;
 			goto out;
 		}
 
@@ -2210,7 +2166,6 @@ reconfigure (xlator_t *this, dict_t *options)
 			      "'option ping-timeout %d failed , Max value"
 			      "can be 1013, Defaulting to old value (%d)"
 			      , ping_timeout, conf->opt.ping_timeout);
-			ret = -1;
 			goto out;
 		}
 

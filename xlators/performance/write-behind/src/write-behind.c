@@ -2867,64 +2867,33 @@ out:
 
 
 int
-validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+validate_options (xlator_t *this, char **op_errstr)
 {
-        char         *str          = NULL;
-        uint64_t      window_size  = 0;;
-        gf_boolean_t  flush_behind = 0;
-        int           ret          = 0;
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
-        ret = dict_get_str (options, "cache-size", &str);
-        if (ret == 0) {
-                ret = gf_string2bytesize (str, &window_size);
-                if (ret != 0) {
-                        gf_log(this->name, GF_LOG_WARNING, "Validation"
-                               "'option cache-size %s failed , Invalid"
-                               " number format, ", str);
-                        *op_errstr = gf_strdup ("Error, Invalid num format");
-                        ret = -1;
-                        goto out;
-                }
-
-                if (window_size < (512 * GF_UNIT_KB)) {
-                        gf_log(this->name, GF_LOG_WARNING, "Validation"
-                               "'option cache-size %s' failed , Min value"
-                               "should be 512KiB ", str);
-                        *op_errstr = gf_strdup ("Error, Should be min 512KB");
-                        ret = -1;
-                        goto out;
-                }
-
-                if (window_size > (1 * GF_UNIT_GB)) {
-                        gf_log(this->name, GF_LOG_WARNING, "Reconfiguration"
-                               "'option cache-size %s' failed , Max value"
-                               "can be 1 GiB", str);
-                        *op_errstr = gf_strdup ("Error, Max Value is 1GB");
-                        ret = -1;
-                        goto out;
-                }
-
-                gf_log(this->name, GF_LOG_WARNING,
-                       "validated 'option cache-size %s '", str);
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
+                goto out;
         }
 
-        ret = dict_get_str (options, "flush-behind", &str);
-        if (ret == 0) {
-                ret = gf_string2boolean (str, &flush_behind);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "'flush-behind' takes only boolean arguments");
-                        *op_errstr = gf_strdup ("Error, should be boolean");
-                        ret = -1;
-                        goto out;
-                }
+        if (list_empty (&this->volume_options))
+                goto out;
+
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+        list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
         }
 
-        ret =0;
 out:
+
         return ret;
 }
-
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -2944,8 +2913,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                "'option cache-size %s failed , Invalid"
                                " number format, Defaulting to old value "
                                "(%"PRIu64")", str, conf->window_size);
-                        ret = -1;
-                        goto out;
+			goto out;
                 }
 
                 if (window_size < (512 * GF_UNIT_KB)) {
@@ -2953,8 +2921,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                "'option cache-size %s' failed , Max value"
                                "can be 512KiB, Defaulting to old value "
                                "(%"PRIu64")", str, conf->window_size);
-                        ret = -1;
-                        goto out;
+			goto out;
                 }
 
                 if (window_size > (2 * GF_UNIT_GB)) {
@@ -2962,8 +2929,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                "'option cache-size %s' failed , Max value"
                                "can be 1 GiB, Defaulting to old value "
                                "(%"PRIu64")", str, conf->window_size);
-                        ret = -1;
-                        goto out;
+			goto out;
                 }
 
                 conf->window_size = window_size;
@@ -2981,7 +2947,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'flush-behind' takes only boolean arguments");
                         conf->flush_behind = 1;
-                        return -1;
+                        goto out;
                 }
 
                 if (conf->flush_behind) {

@@ -2541,20 +2541,31 @@ fini (xlator_t *this)
 }
 
 int
-validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+validate_options (xlator_t *this, char **op_errstr)
 {
-        int             ret = -1;
-        char            *log_str = NULL;
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
-        ret = dict_get_str (options, "log-level", &log_str);
-        if (ret)
-                return 0;
-        ret = glusterd_check_log_level(log_str);
-        if (ret == -1)
-                *op_errstr = gf_strdup ("Invalid log level. possible option are"
-                                    " DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
-        else
-                ret = 0;
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
+                goto out;
+        }
+
+        if (list_empty (&this->volume_options))
+                goto out;
+
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
+        }
+
+out:
+
         return ret;
 }
 int
@@ -2675,6 +2686,7 @@ struct volume_options options[] = {
         },
         { .key = {"log-level"},
           .type = GF_OPTION_TYPE_STR,
+          .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
         },
                 { .key  = {NULL} },
 };
