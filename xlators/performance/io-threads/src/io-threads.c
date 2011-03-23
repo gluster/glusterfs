@@ -2081,34 +2081,28 @@ mem_acct_init (xlator_t *this)
 
 
 int
-validate_options ( xlator_t *this, dict_t *options, char **op_errstr)
+validate_options ( xlator_t *this, char **op_errstr)
 {
-        int              ret = 0;
-        int              thread_count;
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
-
-        if (dict_get (options, "thread-count")) {
-                thread_count = data_to_int32 (dict_get (options,
-                                              "thread-count"));
-
-                if (thread_count < IOT_MIN_THREADS) {
-                        gf_log ("io-threads", GF_LOG_DEBUG,
-                                "volume set thread_count WRONG,it is lesser");
-                        ret = -1;
-                        *op_errstr = gf_strdup ("LESSER Than min. threads");
-                        goto out;
-                }
-
-                if (thread_count > IOT_MAX_THREADS) {
-                        gf_log ("io-threads", GF_LOG_DEBUG,
-                                "volume set thread_count WRONG,it is greater");
-                        *op_errstr = gf_strdup ("GREATER than max. threads");
-                        ret = -1;
-                        goto out;
-                }
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
+                goto out;
         }
 
-        ret = 0;
+        if (list_empty (&this->volume_options))
+                goto out;
+
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
+        }
 
 out:
         return ret;
@@ -2119,7 +2113,7 @@ int
 reconfigure ( xlator_t *this, dict_t *options)
 {
 	iot_conf_t      *conf = NULL;
-	int		 ret = -1;
+	int		 ret = 0;
 	int		 thread_count;
 
         conf = this->private;

@@ -258,36 +258,33 @@ mem_acct_init (xlator_t *this)
 out:
         return ret;
 }
+
 int
-validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+validate_options (xlator_t *this, char **op_errstr)
 {
-        char            *temp_str = NULL;
-        gf_boolean_t     search_unhashed;
-        int              ret = 0;
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
-        GF_VALIDATE_OR_GOTO ("dht", this, out);
-        GF_VALIDATE_OR_GOTO ("dht", options, out);
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
+                goto out;
+        }
 
-        if (dict_get_str (options, "lookup-unhashed", &temp_str) == 0) {
-                if (strcasecmp (temp_str, "auto")) {
-                        if (!gf_string2boolean (temp_str, &search_unhashed)) {
-                                gf_log(this->name, GF_LOG_DEBUG, "Validated"
-                                       " lookup-unahashed (%s)",
-                                       temp_str);
-                        } else {
-                                gf_log(this->name, GF_LOG_ERROR, "Validation:"
-                                       " lookup-unahashed should be boolean,"
-                                       " not (%s)", temp_str);
-                                *op_errstr = gf_strdup ("Error, lookup-"
-                                                        "unhashed be boolean");
-                                ret = -1;
-                                goto out;
-                        }
+        if (list_empty (&this->volume_options))
+                goto out;
 
-                }
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
         }
 
 out:
+
         return ret;
 }
 

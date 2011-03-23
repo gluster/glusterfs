@@ -472,66 +472,34 @@ out:
 }
 
 int
-validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+validate_options ( xlator_t *this, char **op_errstr)
 {
-        int               inode_lru_limit = 0;
-        char              errstr[1024] = {0, };
-        dict_t           *auth_modules =  NULL;
-        int               ret = 0;
-        data_t           *data;
-        gf_boolean_t      trace;
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
-        if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
-                if (!(inode_lru_limit < (1 * GF_UNIT_MB)  &&
-                      inode_lru_limit >1 )) {
-                        gf_log (this->name, GF_LOG_INFO, "Validate inode-lru"
-                                "-limit %d, was WRONG", inode_lru_limit);
-                        snprintf (errstr,1024, "Error, Greater than max value %d "
-                                  ,inode_lru_limit);
-
-                        *op_errstr = gf_strdup (errstr);
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        data = dict_get (options, "trace");
-        if (data) {
-                ret = gf_string2boolean (data->data, &trace);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "'trace' takes on only boolean values. "
-                                "Neglecting option");
-                        snprintf (errstr,1024, "Error, trace takes only boolean"
-                                  "values");
-                        *op_errstr = gf_strdup (errstr);
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        auth_modules = dict_new ();
-        if (!auth_modules) {
-                ret = -1;
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
                 goto out;
         }
 
-        dict_foreach (options, get_auth_types, auth_modules);
-        ret = validate_auth_options (this, options);
-        if (ret == -1) {
-                /* logging already done in validate_auth_options function. */
-                snprintf (errstr,1024, "authentication values are incorrect");
-                *op_errstr = gf_strdup (errstr);
+        if (list_empty (&this->volume_options))
                 goto out;
+
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
         }
 
-        ret = gf_auth_init (this, auth_modules);
 out:
-        if (auth_modules)
-                dict_unref (auth_modules);
 
         return ret;
 }
+
 static void
 _delete_auth_opt (dict_t *this,
                 char *key,

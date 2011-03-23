@@ -1634,7 +1634,7 @@ nfs_option_handler (glusterfs_graph_t *graph,
 
 
         if (! strcmp (vme->option, "!nfs-disable")) {
-                ret = gf_asprintf (&aa, "nfs3.%s.disable",
+                ret = gf_asprintf (&aa, "nfs.%s.disable",
                                         volinfo->volname);
 
                 if (ret != -1) {

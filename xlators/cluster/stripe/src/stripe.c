@@ -3720,43 +3720,32 @@ out:
         return ret;
 }
 int
-validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+validate_options (xlator_t *this, char **op_errstr)
 {
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
+                goto out;
+        }
 
-        data_t           *data = NULL;
-        int               ret = 0;
-        stripe_private_t *priv = NULL;
+        if (list_empty (&this->volume_options))
+                goto out;
 
-        data = dict_get (options, "block-size");
-        if (data) {
-                gf_log (this->name, GF_LOG_TRACE,"Reconfiguring Stripe"
-                                " Block-size");
-                priv = GF_CALLOC (1, sizeof (stripe_private_t),
-                                  gf_stripe_mt_stripe_private_t);
-                if (!priv) {
-                        gf_log ("",GF_LOG_ERROR, "Unable to allocate memory");
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = set_stripe_block_size (this, priv, data->data);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Reconfigue: Block-Size reconfiguration failed");
-                        *op_errstr = gf_strdup ("Error, could not parse list");
-                        ret = -1;
-                        goto out;
-                }
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Reconfigue: Block-Size reconfigured Successfully");
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
         }
 
 out:
-                if (priv)
-                GF_FREE (priv);
-        return ret;
 
+        return ret;
 }
 
 int
@@ -3766,7 +3755,6 @@ reconfigure (xlator_t *this, dict_t *options)
 	stripe_private_t *priv = NULL;
 	data_t           *data = NULL;
 	int 		  ret = 0;
-
 
 	priv = this->private;
 
@@ -3787,7 +3775,6 @@ reconfigure (xlator_t *this, dict_t *options)
         else {
                 priv->block_size = (128 * GF_UNIT_KB);
         }
-                        
 
 out:
 	return ret;

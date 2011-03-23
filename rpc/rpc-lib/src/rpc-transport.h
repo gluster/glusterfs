@@ -200,7 +200,6 @@ struct rpc_transport {
  	int32_t                  (*init)   (rpc_transport_t *this);
 	void                     (*fini)   (rpc_transport_t *this);
         int32_t                  (*validate_options) (rpc_transport_t *this, 
-                                                      dict_t *options, 
                                                       char **op_errstr);
         int                      (*reconfigure) (rpc_transport_t *this, dict_t *options);
         rpc_transport_notify_t     notify;

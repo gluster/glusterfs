@@ -105,6 +105,548 @@ fill_defaults (xlator_t *xl)
 	return;
 }
 
+int 
+_volume_option_value_validate_attacherr (xlator_t *xl,
+                               data_pair_t *pair,
+                               volume_option_t *opt,
+                               char **op_errstr)
+{
+        int       i = 0;
+        int       ret = -1;
+        uint64_t  input_size = 0;
+        long long inputll = 0;
+        char      errstr[256] = {0, };
+
+        /* Key is valid, validate the option */
+        switch (opt->type) {
+        case GF_OPTION_TYPE_PATH:
+        {
+                if (strstr (pair->value->data, "../")) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "invalid path given '%s'",
+                                pair->value->data);
+                        snprintf (errstr, 256,
+                                  "invalid path given '%s'",
+                                  pair->value->data);
+
+                        *op_errstr = gf_strdup (errstr);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Make sure the given path is valid */
+                if (pair->value->data[0] != '/') {
+                        gf_log (xl->name, GF_LOG_WARNING,
+                                "option %s %s: '%s' is not an "
+                                "absolute path name",
+                                pair->key, pair->value->data,
+                                pair->value->data);
+                        snprintf (errstr, 256,
+                                  "option %s %s: '%s' is not an "
+                                  "absolute path name",
+                                  pair->key, pair->value->data,
+                                  pair->value->data);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_INT:
+        {
+                /* Check the range */
+                if (gf_string2longlong (pair->value->data,
+                                        &inputll) != 0) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "invalid number format \"%s\" in "
+                                "\"option %s\"",
+                                pair->value->data, pair->key);
+                        snprintf (errstr, 256,
+                                  "invalid number format \"%s\" in "
+                                "\"option %s\"",
+                                pair->value->data, pair->key);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+
+                if ((opt->min == 0) && (opt->max == 0)) {
+                        gf_log (xl->name, GF_LOG_DEBUG,
+                                "no range check required for "
+                                "'option %s %s'",
+                                pair->key, pair->value->data);
+                        ret = 0;
+                        break;
+                }
+                if ((inputll < opt->min) ||
+                    (inputll > opt->max)) {
+                        gf_log (xl->name, GF_LOG_WARNING,
+                                "'%lld' in 'option %s %s' is out of "
+                                "range [%"PRId64" - %"PRId64"]",
+                                inputll, pair->key,
+                                pair->value->data,
+                                opt->min, opt->max);
+                        snprintf (errstr, 256,
+                                  "'%lld' in 'option %s %s' is out of "
+                                "range [%"PRId64" - %"PRId64"]",
+                                inputll, pair->key,
+                                pair->value->data,
+                                opt->min, opt->max);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_SIZET:
+        {
+                /* Check the range */
+                if (gf_string2bytesize (pair->value->data,
+                                        &input_size) != 0) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "invalid size format \"%s\" in "
+                                "\"option %s\"",
+                                pair->value->data, pair->key);
+                        snprintf (errstr, 256,
+                                  "invalid size format \"%s\" in "
+                                  "\"option %s\"",
+                                  pair->value->data, pair->key);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+
+                if ((opt->min == 0) && (opt->max == 0)) {
+                        gf_log (xl->name, GF_LOG_DEBUG,
+                                "no range check required for "
+                                "'option %s %s'",
+                                pair->key, pair->value->data);
+                        ret = 0;
+                        break;
+                }
+                if ((input_size < opt->min) ||
+                    (input_size > opt->max)) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "'%"PRId64"' in 'option %s %s' is "
+                                "out of range [%"PRId64" - %"PRId64"]",
+                                input_size, pair->key,
+                                pair->value->data,
+                                opt->min, opt->max);
+                        snprintf (errstr, 256,
+                                  "'%"PRId64"' in 'option %s %s' is "
+                                "out of range [%"PRId64" - %"PRId64"]",
+                                input_size, pair->key,
+                                pair->value->data,
+                                opt->min, opt->max);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_BOOL:
+        {
+                /* Check if the value is one of
+                   '0|1|on|off|no|yes|true|false|enable|disable' */
+                gf_boolean_t bool_value;
+                if (gf_string2boolean (pair->value->data,
+                                       &bool_value) != 0) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "option %s %s: '%s' is not a valid "
+                                "boolean value",
+                                pair->key, pair->value->data,
+                                pair->value->data);
+                        snprintf (errstr, 256,
+                                   "option %s %s: '%s' is not a valid "
+                                   "boolean value",
+                                   pair->key, pair->value->data,
+                                   pair->value->data);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_XLATOR:
+        {
+                /* Check if the value is one of the xlators */
+                xlator_t *xlopt = xl;
+                while (xlopt->prev)
+                        xlopt = xlopt->prev;
+
+                while (xlopt) {
+                        if (strcmp (pair->value->data,
+                                    xlopt->name) == 0) {
+                                ret = 0;
+                                break;
+                        }
+                        xlopt = xlopt->next;
+                }
+                if (!xlopt) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "option %s %s: '%s' is not a "
+                                "valid volume name",
+                                pair->key, pair->value->data,
+                                pair->value->data);
+                        snprintf (errstr, 256,
+                                  "option %s %s: '%s' is not a "
+                                  "valid volume name",
+                                  pair->key, pair->value->data,
+                                  pair->value->data);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_STR:
+        {
+                /* Check if the '*str' is valid */
+                if (GF_OPTION_LIST_EMPTY(opt)) {
+                        ret = 0;
+                        goto out;
+                }
+
+                for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
+                             opt->value[i]; i++) {
+                        if (fnmatch (opt->value[i], pair->value->data,
+                                     FNM_EXTMATCH) == 0) {
+                                ret = 0;
+                                break;
+                        }
+                }
+
+                if ((i == ZR_OPTION_MAX_ARRAY_SIZE)
+                    || ((i < ZR_OPTION_MAX_ARRAY_SIZE)
+                        && (!opt->value[i]))) {
+                        /* enter here only if
+                         * 1. reached end of opt->value array and haven't
+                         *    validated input
+                         *                      OR
+                         * 2. valid input list is less than
+                         *    ZR_OPTION_MAX_ARRAY_SIZE and input has not
+                         *    matched all possible input values.
+                         */
+                        char given_array[4096] = {0,};
+                        for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
+                                     opt->value[i]; i++) {
+                                strcat (given_array, opt->value[i]);
+                                strcat (given_array, ", ");
+                        }
+
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "option %s %s: '%s' is not valid "
+                                "(possible options are %s)",
+                                pair->key, pair->value->data,
+                                pair->value->data, given_array);
+                        snprintf (errstr, 256,
+                                  "option %s %s: '%s' is not valid "
+                                  "(possible options are %s)",
+                                  pair->key, pair->value->data,
+                                  pair->value->data, given_array);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+        }
+        break;
+        case GF_OPTION_TYPE_PERCENT:
+        {
+                uint32_t percent = 0;
+
+
+                /* Check if the value is valid percentage */
+                if (gf_string2percent (pair->value->data,
+                                       &percent) != 0) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "invalid percent format \"%s\" "
+                                "in \"option %s\"",
+                                pair->value->data, pair->key);
+                        snprintf (errstr, 256,
+                                  "invalid percent format \"%s\" "
+                                  "in \"option %s\"",
+                                  pair->value->data, pair->key);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+
+                if ((percent < 0) || (percent > 100)) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "'%d' in 'option %s %s' is out of "
+                                "range [0 - 100]",
+                                percent, pair->key,
+                                pair->value->data);
+                        snprintf (errstr, 256,
+                                   "'%d' in 'option %s %s' is out of "
+                                "range [0 - 100]",
+                                percent, pair->key,
+                                pair->value->data);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_PERCENT_OR_SIZET:
+        {
+                uint32_t percent = 0;
+                uint64_t input_size = 0;
+
+                /* Check if the value is valid percentage */
+                if (gf_string2percent (pair->value->data,
+                                       &percent) == 0) {
+                        if (percent > 100) {
+                                gf_log (xl->name, GF_LOG_DEBUG,
+                                        "value given was greater than 100, "
+                                        "assuming this is actually a size");
+                                if (gf_string2bytesize (pair->value->data,
+                                                        &input_size) == 0) {
+                                        /* Check the range */
+                                        if ((opt->min == 0) &&
+                                            (opt->max == 0)) {
+                                                gf_log (xl->name, GF_LOG_DEBUG,
+                                                        "no range check "
+                                                        "required for "
+                                                        "'option %s %s'",
+                                                        pair->key,
+                                                        pair->value->data);
+                                                // It is a size
+                                                ret = 0;
+                                                goto out;
+                                        }
+                                        if ((input_size < opt->min) ||
+                                            (input_size > opt->max)) {
+                                                gf_log (xl->name, GF_LOG_ERROR,
+                                                        "'%"PRId64"' in "
+                                                        "'option %s %s' is out"
+                                                        " of range [%"PRId64""
+                                                        "- %"PRId64"]",
+                                                        input_size, pair->key,
+                                                        pair->value->data,
+                                                        opt->min, opt->max);
+                                                 snprintf (errstr, 256,
+                                                          "'%"PRId64"' in "
+                                                          "'option %s %s' is "
+                                                          " out of range ["
+                                                          "%"PRId64"- %"PRId64"]",
+                                                          input_size, pair->key,
+                                                          pair->value->data,
+                                                          opt->min, opt->max);
+
+                                                *op_errstr = gf_strdup (errstr);
+                                                goto out;
+                                        }
+                                        // It is a size
+                                        ret = 0;
+                                        goto out;
+                                } else {
+                                        // It's not a percent or size
+                                        gf_log (xl->name, GF_LOG_ERROR,
+                                        "invalid number format \"%s\" "
+                                        "in \"option %s\"",
+                                        pair->value->data, pair->key);
+
+                                        snprintf (errstr, 256,
+                                        "invalid number format \"%s\" "
+                                        "in \"option %s\"",
+                                        pair->value->data, pair->key);
+
+
+                                        *op_errstr = gf_strdup (errstr);
+                                        goto out;
+                                }
+
+                        }
+                        // It is a percent
+                        ret = 0;
+                        goto out;
+                } else {
+                        if (gf_string2bytesize (pair->value->data,
+                                                &input_size) == 0) {
+                                /* Check the range */
+                                if ((opt->min == 0) && (opt->max == 0)) {
+                                        gf_log (xl->name, GF_LOG_DEBUG,
+                                                "no range check required for "
+                                                "'option %s %s'",
+                                                pair->key, pair->value->data);
+                                        // It is a size
+                                        ret = 0;
+                                        goto out;
+                                }
+                                if ((input_size < opt->min) ||
+                                    (input_size > opt->max)) {
+                                        gf_log (xl->name, GF_LOG_ERROR,
+                                                "'%"PRId64"' in 'option %s %s'"
+                                                " is out of range [%"PRId64" -"
+                                                " %"PRId64"]",
+                                                input_size, pair->key,
+                                                pair->value->data,
+                                                opt->min, opt->max);
+                                        snprintf (errstr, 256,
+                                                  "'%"PRId64"' in 'option %s %s'"
+                                                  " is out of range [%"PRId64" -"
+                                                  " %"PRId64"]",
+                                                  input_size, pair->key,
+                                                  pair->value->data,
+                                                  opt->min, opt->max);
+
+                                        *op_errstr = gf_strdup (errstr);
+                                        goto out;
+                                }
+                        } else {
+                                // It's not a percent or size
+                                gf_log (xl->name, GF_LOG_ERROR,
+                                        "invalid number format \"%s\" "
+                                        "in \"option %s\"",
+                                        pair->value->data, pair->key);
+                                snprintf (errstr, 256,
+                                          "invalid number format \"%s\" "
+                                          "in \"option %s\"",
+                                          pair->value->data, pair->key);
+
+                                *op_errstr = gf_strdup (errstr);
+                                goto out;
+                        }
+                        //It is a size
+                        ret = 0;
+                        goto out;
+                }
+
+        }
+        break;
+        case GF_OPTION_TYPE_TIME:
+        {
+                uint32_t input_time = 0;
+
+                /* Check if the value is valid percentage */
+                if (gf_string2time (pair->value->data,
+                                    &input_time) != 0) {
+                        gf_log (xl->name,
+                                GF_LOG_ERROR,
+                                "invalid time format \"%s\" in "
+                                "\"option %s\"",
+                                pair->value->data, pair->key);
+
+                        snprintf (errstr, 256,
+                                  "invalid time format \"%s\" in "
+                                  "\"option %s\"",
+                                  pair->value->data, pair->key);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+
+                if ((opt->min == 0) && (opt->max == 0)) {
+                        gf_log (xl->name, GF_LOG_DEBUG,
+                                "no range check required for "
+                                "'option %s %s'",
+                                pair->key, pair->value->data);
+                        ret = 0;
+                        goto out;
+                }
+                if ((input_time < opt->min) ||
+                    (input_time > opt->max)) {
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "'%"PRIu32"' in 'option %s %s' is "
+                                "out of range [%"PRId64" - %"PRId64"]",
+                                input_time, pair->key,
+                                pair->value->data,
+                                opt->min, opt->max);
+
+                        snprintf (errstr, 256,
+                                  "'%"PRIu32"' in 'option %s %s' is "
+                                  "out of range [%"PRId64" - %"PRId64"]",
+                                  input_time, pair->key,
+                                  pair->value->data,
+                                  opt->min, opt->max);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_DOUBLE:
+        {
+                double input_time = 0.0;
+
+                /* Check if the value is valid double */
+                if (gf_string2double (pair->value->data,
+                                      &input_time) != 0) {
+                        gf_log (xl->name,
+                                GF_LOG_ERROR,
+                                "invalid double \"%s\" in \"option %s\"",
+                                pair->value->data, pair->key);
+
+                        snprintf (errstr, 256,
+                                  "invalid double \"%s\" in \"option %s\"",
+                                  pair->value->data, pair->key);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+
+                if (input_time < 0.0) {
+                        gf_log (xl->name,
+                                GF_LOG_ERROR,
+                                "invalid time format \"%s\" in \"option %s\"",
+                                pair->value->data, pair->key);
+
+                        snprintf (errstr, 256,
+                                  "invalid double \"%s\" in \"option %s\"",
+                                  pair->value->data, pair->key);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+
+                if ((opt->min == 0) && (opt->max == 0)) {
+                        gf_log (xl->name, GF_LOG_DEBUG,
+                                "no range check required for 'option %s %s'",
+                                pair->key, pair->value->data);
+                        ret = 0;
+                        goto out;
+                }
+                ret = 0;
+        }
+        break;
+        case GF_OPTION_TYPE_INTERNET_ADDRESS:
+        {
+                if (valid_internet_address (pair->value->data)) {
+                        ret = 0;
+                } else {
+                        gf_log (xl->name, GF_LOG_ERROR, "internet address '%s'"
+                                " does not conform to standards.",
+                                pair->value->data);
+
+                        snprintf (errstr, 256,
+                                  "internet address '%s'"
+                                  " does not conform to standards.",
+                                  pair->value->data);
+
+                        *op_errstr = gf_strdup (errstr);
+                        goto out;
+                }
+        }
+        break;
+        case GF_OPTION_TYPE_ANY:
+                /* NO CHECK */
+                ret = 0;
+                break;
+        }
+
+out:
+        return ret;
+}
+
+
 int
 _volume_option_value_validate (xlator_t *xl,
 			       data_pair_t *pair,
@@ -498,6 +1040,71 @@ out:
 }
 
 int
+validate_xlator_volume_options_attacherr (xlator_t *xl,
+                                          volume_option_t *opt,
+                                          char **op_errstr)
+{
+        int i = 0;
+        int ret = -1;
+        int index = 0;
+        volume_option_t *trav  = NULL;
+        data_pair_t     *pairs = NULL;
+
+        if (!opt) {
+                ret = 0;
+                goto out;
+        }
+
+        /* First search for not supported options, if any report error */
+        pairs = xl->options->members_list;
+        while (pairs) {
+                ret = -1;
+                for (index = 0;
+                     opt[index].key && opt[index].key[0] ; index++) {
+                        trav = &(opt[index]);
+                        for (i = 0 ;
+                             (i < ZR_VOLUME_MAX_NUM_KEY) &&
+                                     trav->key[i]; i++) {
+                                /* Check if the key is valid */
+                                if (fnmatch (trav->key[i],
+                                             pairs->key, FNM_NOESCAPE) == 0) {
+                                        ret = 0;
+                                        break;
+                                }
+                        }
+                        if (!ret) {
+                                if (i) {
+                                        gf_log (xl->name, GF_LOG_WARNING,
+                                                "option '%s' is deprecated, "
+                                                "preferred is '%s', continuing"
+                                                " with correction",
+                                                trav->key[i], trav->key[0]);
+                                        /* TODO: some bytes lost */
+                                        pairs->key = gf_strdup (trav->key[0]);
+                                }
+                                break;
+                        }
+                }
+                if (!ret) {
+                        ret = _volume_option_value_validate_attacherr (xl,
+                                                                       pairs,
+                                                                       trav,
+                                                                       op_errstr);
+                        if (-1 == ret) {
+                                goto out;
+                        }
+                }
+
+                pairs = pairs->next;
+        }
+
+        ret = 0;
+ out:
+        return ret;
+}
+
+
+int
 validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
 {
 	int i = 0;
@@ -888,9 +1495,8 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
                 gf_log ("", GF_LOG_DEBUG, "Did not load the symbols");
 
         if (xlator->validate_options) {
-                if (xlator->validate_options (xlator, xlator->options,
-                    op_errstr)) {
-                        gf_log ("", GF_LOG_INFO, "%s", *op_errstr);
+                if (xlator->validate_options (xlator, op_errstr)) {
+                        gf_log ("", GF_LOG_DEBUG, "%s", *op_errstr);
                         return -1;
                 }
                 gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");

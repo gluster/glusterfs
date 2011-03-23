@@ -2457,40 +2457,20 @@ struct rpc_transport_ops tops = {
 };
 
 int
-validate_options (rpc_transport_t *this, dict_t *options, char **op_errstr)
-{
-        char             *optstr = NULL;
-        int               ret = -1;
-        gf_boolean_t      tmp_bool = _gf_false;
-
-        if (dict_get_str (options, "transport.socket.keepalive",
-                          &optstr) == 0) {
-                if (gf_string2boolean (optstr, &tmp_bool) == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "'transport.socket.keepalive' takes only "
-                                "boolean options, not taking any action");
-                        *op_errstr = "Value should be only boolean!!";
-                        ret =-1;
-                        goto out;
-                }
-        }
-
-        ret =0;
-out:
-        return ret;
-
-}
-
-int
 reconfigure (rpc_transport_t *this, dict_t *options)
 {
         socket_private_t *priv = NULL;
         gf_boolean_t      tmp_bool = _gf_false;
         char             *optstr = NULL;
-        int               ret = -1;
+        int               ret = 0;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
+
+        if (!this || !this->private) {
+                ret =-1;
+                goto out;
+        }
 
         priv = this->private;
 
@@ -2501,6 +2481,7 @@ reconfigure (rpc_transport_t *this, dict_t *options)
                                 "'transport.socket.keepalive' takes only "
                                 "boolean options, not taking any action");
                         priv->keepalive = 1;
+                        ret = -1;
                         goto out;
                 }
                 gf_log (this->name, GF_LOG_DEBUG, "Reconfigured transport.socket.keepalive");

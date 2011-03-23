@@ -603,47 +603,31 @@ free_nfs:
 }
 
 int
-validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+validate_options (xlator_t *this, char **op_errstr)
 {
-        char         *str=NULL;
-        gf_boolean_t  nfs_ino32;
-        data_t       *data = NULL;
-        long long     lng = 0;
-        int           ret = 0;
+        int                 ret = 0;
+        volume_opt_list_t  *vol_opt = NULL;
+        volume_opt_list_t  *tmp;
 
-
-
-        ret = dict_get_str (options, "nfs.enable-ino32", 
-                            &str);
-        if (ret == 0) {
-                ret = gf_string2boolean (str, 
-                                         &nfs_ino32);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "'nfs.enable-ino32' takes only boolean"
-                                " arguments");
-                        *op_errstr = gf_strdup ("Error, should be boolean");
-                        ret = -1;
-                        goto out;
-                }
+        if (!this) {
+                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
+                ret =-1;
+                goto out;
         }
 
-        data = dict_get (options, "nfs.mem-factor");
-        if (data) {
-                if (gf_string2longlong (data->data, &lng) != 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "invalid number format"
-                                                        "\"%s\" in option "
-                                                        "\"nfs.mem-factor\" ",
-                                data->data );
-                        *op_errstr = gf_strdup ("Error, Invalid number format");
-                        ret = -1;
-                        goto out;
-                }
+        if (list_empty (&this->volume_options))
+                goto out;
+
+        vol_opt = list_entry (this->volume_options.next,
+                                      volume_opt_list_t, list);
+        list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
+                ret = validate_xlator_volume_options_attacherr (this,
+                                                                vol_opt->given_opt,
+                                                                op_errstr);
         }
 
-        ret =0;
 out:
-                return ret;
+        return ret;
 
 }
 
@@ -944,7 +928,7 @@ struct volume_options options[] = {
                          "Please consult gluster-users list before using this "
                          "option."
         },
-        { .key  = {"nfs3.*.disable"},
+        { .key  = {"nfs.*.disable"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "This option is used to start or stop NFS server"
                          "for individual volume."
