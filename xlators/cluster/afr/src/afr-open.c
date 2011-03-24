@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #include <libgen.h>
@@ -57,24 +57,24 @@
 
 
 int
-afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-			int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                         struct iatt *postbuf)
 {
-	afr_local_t * local = frame->local;
+        afr_local_t * local = frame->local;
 
-	AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
-			  local->fd);
-	return 0;
+        AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
+                          local->fd);
+        return 0;
 }
 
 
 int
 afr_open_cbk (call_frame_t *frame, void *cookie,
-	      xlator_t *this, int32_t op_ret, int32_t op_errno,
-	      fd_t *fd)
+              xlator_t *this, int32_t op_ret, int32_t op_errno,
+              fd_t *fd)
 {
-	afr_local_t *  local = NULL;
+        afr_local_t *  local = NULL;
 
         int child_index = (long) cookie;
 
@@ -83,18 +83,18 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 
         int ret = 0;
 
-	int call_count = -1;
+        int call_count = -1;
 
-	local = frame->local;
+        local = frame->local;
 
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			local->op_errno = op_errno;
-		}
+        LOCK (&frame->lock);
+        {
+                if (op_ret == -1) {
+                        local->op_errno = op_errno;
+                }
 
-		if (op_ret >= 0) {
-			local->op_ret = op_ret;
+                if (op_ret >= 0) {
+                        local->op_ret = op_ret;
                         local->success_count++;
 
                         ret = afr_fd_ctx_set (this, fd);
@@ -124,26 +124,26 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
                         fd_ctx->opened_on[child_index] = 1;
                         fd_ctx->flags                  = local->cont.open.flags;
                         fd_ctx->wbflags                = local->cont.open.wbflags;
-		}
-	}
+                }
+        }
 unlock:
-	UNLOCK (&frame->lock);
+        UNLOCK (&frame->lock);
 
-	call_count = afr_frame_return (frame);
+        call_count = afr_frame_return (frame);
 
-	if (call_count == 0) {
-		if ((local->cont.open.flags & O_TRUNC)
-		    && (local->op_ret >= 0)) {
-			STACK_WIND (frame, afr_open_ftruncate_cbk,
-				    this, this->fops->ftruncate,
-				    fd, 0);
-		} else {
+        if (call_count == 0) {
+                if ((local->cont.open.flags & O_TRUNC)
+                    && (local->op_ret >= 0)) {
+                        STACK_WIND (frame, afr_open_ftruncate_cbk,
+                                    this, this->fops->ftruncate,
+                                    fd, 0);
+                } else {
                         AFR_STACK_UNWIND (open, frame, local->op_ret,
                                           local->op_errno, local->fd);
-		}
-	}
+                }
+        }
 
-	return 0;
+        return 0;
 }
 
 
@@ -151,67 +151,67 @@ int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, int32_t wbflags)
 {
-	afr_private_t * priv  = NULL;
-	afr_local_t *   local = NULL;
+        afr_private_t * priv  = NULL;
+        afr_local_t *   local = NULL;
 
-	int     i = 0;
-	int   ret = -1;
+        int     i = 0;
+        int   ret = -1;
 
-	int32_t call_count = 0;	
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
-	int32_t wind_flags = flags & (~O_TRUNC);
+        int32_t call_count = 0;
+        int32_t op_ret   = -1;
+        int32_t op_errno = 0;
+        int32_t wind_flags = flags & (~O_TRUNC);
 
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (this, out);
-	VALIDATE_OR_GOTO (this->private, out);
-	VALIDATE_OR_GOTO (loc, out);
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (loc, out);
 
-	priv = this->private;
+        priv = this->private;
 
         if (afr_is_split_brain (this, loc->inode)) {
-		/* self-heal failed */
-		op_errno = EIO;
-		goto out;
-	}
+                /* self-heal failed */
+                op_errno = EIO;
+                goto out;
+        }
 
-	ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (local, afr_local_t, out);
 
-	ret = AFR_LOCAL_INIT (local, priv);
-	if (ret < 0) {
-		op_errno = -ret;
-		goto out;
-	}
+        ret = AFR_LOCAL_INIT (local, priv);
+        if (ret < 0) {
+                op_errno = -ret;
+                goto out;
+        }
 
-	frame->local = local;
-	call_count   = local->call_count;
+        frame->local = local;
+        call_count   = local->call_count;
 
         loc_copy (&local->loc, loc);
 
-	local->cont.open.flags   = flags;
+        local->cont.open.flags   = flags;
         local->cont.open.wbflags = wbflags;
 
-	local->fd = fd_ref (fd);
+        local->fd = fd_ref (fd);
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
-					   priv->children[i],
-					   priv->children[i]->fops->open,
-					   loc, wind_flags, fd, wbflags);
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i]) {
+                        STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->open,
+                                           loc, wind_flags, fd, wbflags);
 
-			if (!--call_count)
-				break;
-		}
-	}
+                        if (!--call_count)
+                                break;
+                }
+        }
 
-	op_ret = 0;
+        op_ret = 0;
 out:
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (open, frame, op_ret, op_errno, fd);
-	}
+        if (op_ret == -1) {
+                AFR_STACK_UNWIND (open, frame, op_ret, op_errno, fd);
+        }
 
-	return 0;
+        return 0;
 }
 
 
@@ -447,7 +447,7 @@ int
 afr_openfd_flush_done (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t *priv = NULL;
-	afr_local_t *local  = NULL;
+        afr_local_t *local  = NULL;
 
         uint64_t       ctx;
         afr_fd_ctx_t * fd_ctx = NULL;
@@ -455,7 +455,7 @@ afr_openfd_flush_done (call_frame_t *frame, xlator_t *this)
         int _ret = -1;
 
         priv  = this->private;
-	local = frame->local;
+        local = frame->local;
 
         LOCK (&local->fd->lock);
         {
@@ -481,7 +481,7 @@ out:
         fd_unref (local->fd);
         local->openfd_flush_cbk (frame, this);
 
-	return 0;
+        return 0;
 }
 
 
@@ -489,11 +489,11 @@ out:
 int
 afr_openfd_xaction (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-	afr_local_t   * local = NULL;
+        afr_local_t   * local = NULL;
 
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (this, out);
-	VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
 
         local = frame->local;
 
@@ -512,7 +512,7 @@ afr_openfd_xaction (call_frame_t *frame, xlator_t *this, fd_t *fd)
         afr_transaction (frame, this, AFR_DATA_TRANSACTION);
 
 out:
-	return 0;
+        return 0;
 }
 
 
