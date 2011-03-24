@@ -72,8 +72,8 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
                 sh->healing_fd = NULL;
         }
 
-/*         for (i = 0; i < priv->child_count; i++) */
-/*                 sh->locked_nodes[i] = 0; */
+        /* for (i = 0; i < priv->child_count; i++) */
+        /*        sh->locked_nodes[i] = 0; */
 
         gf_log (this->name, GF_LOG_TRACE,
                 "self heal of %s completed",
@@ -89,11 +89,10 @@ int
 afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno)
 {
-        afr_local_t     *local = NULL;
-        afr_private_t   *priv  = NULL;
-        int              call_count = 0;
-
-        int child_index = (long) cookie;
+        afr_local_t   *local       = NULL;
+        afr_private_t *priv        = NULL;
+        int            call_count  = 0;
+        int            child_index = (long) cookie;
 
         local = frame->local;
         priv = this->private;
@@ -101,7 +100,7 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "flush or setattr failed on %s on subvolume %s: %s",
                                 local->loc.path, priv->children[child_index]->name,
                                 strerror (op_errno));
@@ -121,7 +120,8 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_sh_data_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct iatt *statpre, struct iatt *statpost)
+                         int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                         struct iatt *statpost)
 {
         afr_sh_data_flush_cbk (frame, cookie, this, op_ret, op_errno);
 
@@ -132,22 +132,20 @@ afr_sh_data_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 {
-        afr_local_t     *local = NULL;
-        afr_private_t   *priv  = NULL;
-        afr_self_heal_t *sh    = NULL;
-
-        int  i            = 0;
-        int  call_count   = 0;
-        int  source       = 0;
-        int32_t valid     = 0;
-
-        struct iatt stbuf = {0,};
+        afr_local_t     *local      = NULL;
+        afr_private_t   *priv       = NULL;
+        afr_self_heal_t *sh         = NULL;
+        int              i          = 0;
+        int              call_count = 0;
+        int              source     = 0;
+        int32_t          valid      = 0;
+        struct iatt      stbuf      = {0,};
 
         local = frame->local;
         sh    = &local->self_heal;
         priv  = this->private;
 
-        source       = sh->source;
+        source = sh->source;
 
         valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
 
@@ -232,13 +230,12 @@ afr_sh_data_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           call_count = 0;
         int           child_index = (long) cookie;
 
-
         local = frame->local;
 
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "locking inode of %s on child %d failed: %s",
                                 local->loc.path, child_index,
                                 strerror (op_errno));
@@ -327,7 +324,6 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
         int              i = 0;
         dict_t          **erase_xattr = NULL;
 
-
         local = frame->local;
         sh = &local->self_heal;
         priv = this->private;
@@ -398,7 +394,7 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1)
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "ftruncate of %s on subvolume %s failed (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
@@ -511,7 +507,8 @@ afr_sh_data_pick_algo (call_frame_t *frame, xlator_t *this)
 
                 if ((local->enoent_count != 0)
                     || sh_zero_byte_files_exist (sh, priv->child_count)
-                    || (sh->file_size <= (priv->data_self_heal_window_size * this->ctx->page_size))) {
+                    || (sh->file_size <= (priv->data_self_heal_window_size *
+                                          this->ctx->page_size))) {
 
                         /*
                          * If the file does not exist on one of the subvolumes,
@@ -546,7 +543,6 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
         int              active_sinks = 0;
         int              source = 0;
         int              i = 0;
-
         struct afr_sh_algorithm *sh_algo = NULL;
 
         local = frame->local;
@@ -564,7 +560,7 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
         sh->success[source] = 1;
 
         if (active_sinks == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_INFO,
                         "no active sinks for performing self-heal on file %s",
                         local->loc.path);
                 afr_sh_data_finish (frame, this);
@@ -592,7 +588,6 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local      = NULL;
         afr_local_t *    orig_local = NULL;
-
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
         int              nsources = 0;
@@ -628,7 +623,8 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
             && (sh->child_errno[priv->favorite_child] == 0)) {
 
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Picking favorite child %s as authentic source to resolve conflicting data of %s",
+                        "Picking favorite child %s as authentic source to "
+                        "resolve conflicting data of %s",
                         priv->children[priv->favorite_child]->name,
                         local->loc.path);
 
@@ -640,9 +636,9 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
         if (nsources == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to self-heal contents of '%s' (possible split-brain). "
-                        "Please delete the file from all but the preferred "
-                        "subvolume.", local->loc.path);
+                        "Unable to self-heal contents of '%s' (possible "
+                        "split-brain). Please delete the file from all but "
+                        "the preferred subvolume.", local->loc.path);
 
                 local->govinda_gOvinda = 1;
 
@@ -661,7 +657,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         }
 
         sh->source     = source;
-        sh->block_size = 65536;
+        sh->block_size = 65536; /* TODO: make it configurable or use macro */
         sh->file_size  = sh->buf[source].ia_size;
 
         if (FILE_HAS_HOLES (&sh->buf[source]))
@@ -706,7 +702,6 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
 {
         afr_self_heal_t *sh   = NULL;
         afr_private_t   *priv = NULL;
-
         int              source = 0;
         int              i = 0;
 
@@ -743,7 +738,6 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
         afr_private_t   *priv  = NULL;
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-
         int call_count  = -1;
         int child_index = (long) cookie;
 
@@ -780,7 +774,6 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
         afr_self_heal_t *sh    = NULL;
         afr_local_t     *local = NULL;
         afr_private_t   *priv  = NULL;
-
         int call_count = 0;
         int i = 0;
 
@@ -818,7 +811,6 @@ afr_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
         afr_private_t   *priv  = NULL;
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-
         int call_count  = -1;
         int child_index = (long) cookie;
 
@@ -856,9 +848,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
         afr_local_t     *local = NULL;
         afr_private_t   *priv  = NULL;
         dict_t          *xattr_req = NULL;
-
-        int32_t zero_pending[3] = {0, 0, 0};
-
+        int32_t zero_pending[3] = {0,};
         int call_count = 0;
         int i = 0;
         int ret = 0;
@@ -917,7 +907,7 @@ afr_sh_data_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Non Blocking inodelks failed.");
                 afr_sh_data_done (frame, this);
         } else {
@@ -1005,7 +995,7 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_TRACE,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "open of %s failed on child %s (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
@@ -1044,9 +1034,7 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
 {
         int i = 0;
         int call_count = 0;
-
         fd_t *fd = NULL;
-
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
         afr_self_heal_t *sh = NULL;
@@ -1094,7 +1082,6 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
         afr_local_t   *local = NULL;
         afr_self_heal_t *sh = NULL;
         afr_private_t *priv = this->private;
-
 
         local = frame->local;
         sh = &local->self_heal;

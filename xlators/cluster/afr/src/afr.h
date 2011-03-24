@@ -834,8 +834,10 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
                 local->optimistic_change_log = 1;
 
         local->call_count = afr_up_children_count (priv->child_count, local->child_up);
-        if (local->call_count == 0)
+        if (local->call_count == 0) {
+                gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
                 return -ENOTCONN;
+        }
 
         local->transaction.erase_pending = 1;
 

@@ -76,13 +76,13 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
         }
 
         if (local->govinda_gOvinda) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "aborting selfheal of %s",
                         local->loc.path);
                 sh->completion_cbk (frame, this);
         } else {
                 if (IA_ISREG (sh->type)) {
-                        gf_log (this->name, GF_LOG_TRACE,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "proceeding to data check on %s",
                                 local->loc.path);
                         afr_self_heal_data (frame, this);
@@ -90,7 +90,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
                 }
 
                 if (IA_ISDIR (sh->type)) {
-                        gf_log (this->name, GF_LOG_TRACE,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "proceeding to entry check on %s",
                                 local->loc.path);
                         afr_self_heal_entry (frame, this);
@@ -155,11 +155,6 @@ afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
 
         local = frame->local;
 
-        LOCK (&frame->lock);
-        {
-        }
-        UNLOCK (&frame->lock);
-
         call_count = afr_frame_return (frame);
 
         if (call_count == 0)
@@ -190,6 +185,8 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 
         erase_xattr = GF_CALLOC (sizeof (*erase_xattr), priv->child_count,
                                  gf_afr_mt_dict_t);
+        if (!erase_xattr)
+                return -ENOMEM;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (sh->xattr[i]) {
@@ -206,7 +203,7 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         if (call_count == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_INFO,
                         "metadata of %s not healed on any subvolume",
                         local->loc.path);
 
@@ -262,7 +259,7 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "setting attributes failed for %s on %s (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
@@ -314,7 +311,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
         int              call_count = 0;
         int              i = 0;
 
-        struct iatt      stbuf;
+        struct iatt      stbuf = {0,};
         int32_t          valid = 0;
 
         local = frame->local;
@@ -591,7 +588,7 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (xattr)
                                 sh->xattr[child_index] = dict_ref (xattr);
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "path %s on subvolume %s => -1 (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
