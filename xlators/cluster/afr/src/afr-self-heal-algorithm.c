@@ -86,7 +86,7 @@ sh_full_loop_driver_done (call_frame_t *frame, xlator_t *this)
 
         sh_full_private_cleanup (frame, this);
         if (sh->op_failed) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_INFO,
                         "full self-heal aborting on %s",
                         local->loc.path);
 
@@ -104,13 +104,12 @@ sh_full_loop_driver_done (call_frame_t *frame, xlator_t *this)
 static int
 sh_full_loop_return (call_frame_t *rw_frame, xlator_t *this, off_t offset)
 {
-        afr_local_t *               rw_local   = NULL;
-        afr_self_heal_t *           rw_sh      = NULL;
-
-        call_frame_t *sh_frame              = NULL;
-        afr_local_t * sh_local              = NULL;
-        afr_self_heal_t *sh                 = NULL;
-        afr_sh_algo_full_private_t *sh_priv = NULL;
+        afr_local_t *               rw_local = NULL;
+        afr_self_heal_t *           rw_sh    = NULL;
+        call_frame_t               *sh_frame = NULL;
+        afr_local_t *               sh_local = NULL;
+        afr_self_heal_t            *sh       = NULL;
+        afr_sh_algo_full_private_t *sh_priv  = NULL;
 
         rw_local = rw_frame->local;
         rw_sh    = &rw_local->self_heal;
@@ -133,16 +132,14 @@ sh_full_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf)
 {
-        afr_private_t * priv    = NULL;
-        afr_local_t * rw_local  = NULL;
-        afr_self_heal_t *rw_sh  = NULL;
-
-        call_frame_t *sh_frame  = NULL;
-        afr_local_t * sh_local  = NULL;
-        afr_self_heal_t *sh     = NULL;
-
-        int child_index = (long) cookie;
-        int call_count = 0;
+        afr_private_t *  priv        = NULL;
+        afr_local_t *    rw_local    = NULL;
+        afr_self_heal_t *rw_sh       = NULL;
+        call_frame_t    *sh_frame    = NULL;
+        afr_local_t *    sh_local    = NULL;
+        afr_self_heal_t *sh          = NULL;
+        int              child_index = (long) cookie;
+        int              call_count  = 0;
 
         priv = this->private;
 
@@ -161,7 +158,7 @@ sh_full_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
         LOCK (&sh_frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "write to %s failed on subvolume %s (%s)",
                                 sh_local->loc.path,
                                 priv->children[child_index]->name,
@@ -188,18 +185,15 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
                   struct iovec *vector, int32_t count, struct iatt *buf,
                   struct iobref *iobref)
 {
-        afr_private_t * priv    = NULL;
-        afr_local_t * rw_local  = NULL;
-        afr_self_heal_t *rw_sh  = NULL;
-
-        call_frame_t *sh_frame  = NULL;
-        afr_local_t * sh_local  = NULL;
-        afr_self_heal_t *sh     = NULL;
-
-        int i = 0;
-        int call_count = 0;
-
-        off_t offset = (long) cookie;
+        afr_private_t *  priv       = NULL;
+        afr_local_t *    rw_local   = NULL;
+        afr_self_heal_t *rw_sh      = NULL;
+        call_frame_t    *sh_frame   = NULL;
+        afr_local_t *    sh_local   = NULL;
+        afr_self_heal_t *sh         = NULL;
+        int              i          = 0;
+        int              call_count = 0;
+        off_t            offset     = (long) cookie;
 
         priv = this->private;
         rw_local = rw_frame->local;
@@ -218,6 +212,11 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
                 op_ret, sh_local->loc.path, offset);
 
         if (op_ret <= 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "read from %s failed on subvolume %s (%s)",
+                        sh_local->loc.path,
+                        priv->children[sh->source]->name,
+                        strerror (op_errno));
                 sh->op_failed = 1;
                 sh_full_loop_return (rw_frame, this, offset);
                 return 0;
@@ -231,7 +230,8 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
                            sh->offset already being updated
                            above
                         */
-
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "block has all 0 filled");
                         sh_full_loop_return (rw_frame, this, offset);
                         goto out;
                 }
@@ -262,15 +262,13 @@ out:
 static int
 sh_full_read_write (call_frame_t *frame, xlator_t *this, off_t offset)
 {
-        afr_private_t * priv    = NULL;
-        afr_local_t * local     = NULL;
-        afr_local_t * rw_local  = NULL;
-        afr_self_heal_t *rw_sh  = NULL;
-        afr_self_heal_t *sh     = NULL;
-
-        call_frame_t *rw_frame = NULL;
-
-        int32_t op_errno = 0;
+        afr_private_t *  priv     = NULL;
+        afr_local_t *    local    = NULL;
+        afr_local_t *    rw_local = NULL;
+        afr_self_heal_t *rw_sh    = NULL;
+        afr_self_heal_t *sh       = NULL;
+        call_frame_t    *rw_frame = NULL;
+        int32_t          op_errno = 0;
 
         priv  = this->private;
         local = frame->local;
@@ -308,15 +306,14 @@ out:
 static int
 sh_full_loop_driver (call_frame_t *frame, xlator_t *this, gf_boolean_t is_first_call)
 {
-        afr_private_t * priv = NULL;
-        afr_local_t * local  = NULL;
-        afr_self_heal_t *sh  = NULL;
-        afr_sh_algo_full_private_t *sh_priv = NULL;
-        gf_boolean_t    is_driver_done = _gf_false;
-        blksize_t       block_size = 0;
-        off_t offset  = 0;
-
-        int   loop    = 0;
+        afr_private_t *             priv           = NULL;
+        afr_local_t *               local          = NULL;
+        afr_self_heal_t            *sh             = NULL;
+        afr_sh_algo_full_private_t *sh_priv        = NULL;
+        gf_boolean_t                is_driver_done = _gf_false;
+        blksize_t                   block_size     = 0;
+        off_t                       offset         = 0;
+        int                         loop           = 0;
 
         priv    = this->private;
         local   = frame->local;
@@ -381,6 +378,8 @@ afr_sh_algo_full (call_frame_t *frame, xlator_t *this)
 
         sh_priv = GF_CALLOC (1, sizeof (*sh_priv),
                              gf_afr_mt_afr_private_t);
+        if (!sh_priv)
+                goto out;
 
         LOCK_INIT (&sh_priv->lock);
 
@@ -389,6 +388,7 @@ afr_sh_algo_full (call_frame_t *frame, xlator_t *this)
         local->call_count = 0;
 
         sh_full_loop_driver (frame, this, _gf_true);
+out:
         return 0;
 }
 
@@ -406,8 +406,7 @@ sh_diff_private_cleanup (call_frame_t *frame, xlator_t *this)
         afr_local_t *               local   = NULL;
         afr_self_heal_t *           sh      = NULL;
         afr_sh_algo_diff_private_t *sh_priv = NULL;
-
-        int i;
+        int                         i       = 0;
 
         priv  = this->private;
         local = frame->local;
@@ -441,7 +440,7 @@ sh_diff_private_cleanup (call_frame_t *frame, xlator_t *this)
 static uint32_t
 __make_cookie (int loop_index, int child_index)
 {
-        uint32_t ret = (loop_index << 16) | child_index;
+        uint32_t ret = ((loop_index << 16) | child_index);
         return ret;
 }
 
@@ -449,7 +448,7 @@ __make_cookie (int loop_index, int child_index)
 static int
 __loop_index (uint32_t cookie)
 {
-        return (cookie & 0xFFFF0000) >> 16;
+        return ((cookie & 0xFFFF0000) >> 16);
 }
 
 
@@ -478,7 +477,7 @@ static int
 sh_diff_number_of_writes_needed (unsigned char *write_needed, int child_count)
 {
         int writes = 0;
-        int i;
+        int i      = 0;
 
         for (i = 0; i < child_count; i++) {
                 if (write_needed[i])
@@ -492,13 +491,12 @@ sh_diff_number_of_writes_needed (unsigned char *write_needed, int child_count)
 static int
 sh_diff_loop_driver_done (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t *   priv  = NULL;
-        afr_local_t *     local = NULL;
-        afr_self_heal_t * sh    = NULL;
-        afr_sh_algo_diff_private_t *sh_priv = NULL;
-        int32_t total_blocks = 0;
-        int32_t diff_blocks = 0;
-
+        afr_private_t *             priv         = NULL;
+        afr_local_t *               local        = NULL;
+        afr_self_heal_t *           sh           = NULL;
+        afr_sh_algo_diff_private_t *sh_priv      = NULL;
+        int32_t                     total_blocks = 0;
+        int32_t                     diff_blocks  = 0;
 
         priv         = this->private;
         local        = frame->local;
@@ -509,19 +507,15 @@ sh_diff_loop_driver_done (call_frame_t *frame, xlator_t *this)
 
         sh_diff_private_cleanup (frame, this);
         if (sh->op_failed) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_INFO,
                         "diff self-heal aborting on %s",
                         local->loc.path);
 
                 local->self_heal.algo_abort_cbk (frame, this);
         } else {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "diff self-heal completed on %s",
-                        local->loc.path);
-
-
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "diff self-heal on %s: %d blocks of %d were different (%.2f%%)",
+                gf_log (this->name, GF_LOG_INFO,
+                        "diff self-heal on %s: completed. "
+                        "(%d blocks of %d were different (%.2f%%))",
                         local->loc.path, diff_blocks, total_blocks,
                         ((diff_blocks * 1.0)/total_blocks) * 100);
 
@@ -540,14 +534,13 @@ static int
 sh_diff_loop_return (call_frame_t *rw_frame, xlator_t *this,
                      struct sh_diff_loop_state *loop_state)
 {
-        afr_private_t *             priv       = NULL;
-        afr_local_t *               rw_local   = NULL;
-        afr_self_heal_t *           rw_sh      = NULL;
-
-        call_frame_t *sh_frame              = NULL;
-        afr_local_t * sh_local              = NULL;
-        afr_self_heal_t *sh                 = NULL;
-        afr_sh_algo_diff_private_t *sh_priv = NULL;
+        afr_private_t *             priv     = NULL;
+        afr_local_t *               rw_local = NULL;
+        afr_self_heal_t *           rw_sh    = NULL;
+        call_frame_t               *sh_frame = NULL;
+        afr_local_t *               sh_local = NULL;
+        afr_self_heal_t            *sh       = NULL;
+        afr_sh_algo_diff_private_t *sh_priv  = NULL;
 
         priv  = this->private;
 
@@ -575,20 +568,17 @@ sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
                    struct iatt *postbuf)
 {
-        afr_private_t *   priv     = NULL;
-        afr_local_t *     rw_local = NULL;
-        afr_self_heal_t * rw_sh    = NULL;
-
-        call_frame_t *sh_frame  = NULL;
-        afr_local_t * sh_local  = NULL;
-        afr_self_heal_t *sh     = NULL;
-
-        afr_sh_algo_diff_private_t *sh_priv;
-        struct sh_diff_loop_state *loop_state;
-
-        int call_count  = 0;
-        int child_index = 0;
-        int loop_index  = 0;
+        afr_private_t *             priv        = NULL;
+        afr_local_t *               rw_local    = NULL;
+        afr_self_heal_t *           rw_sh       = NULL;
+        call_frame_t               *sh_frame    = NULL;
+        afr_local_t *               sh_local    = NULL;
+        afr_self_heal_t            *sh          = NULL;
+        afr_sh_algo_diff_private_t *sh_priv     = NULL;
+        struct sh_diff_loop_state  *loop_state  = NULL;
+        int                         call_count  = 0;
+        int                         child_index = 0;
+        int                         loop_index  = 0;
 
         priv     = this->private;
         rw_local = rw_frame->local;
@@ -611,7 +601,7 @@ sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
         LOCK (&sh_frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "write to %s failed on subvolume %s (%s)",
                                 sh_local->loc.path,
                                 priv->children[child_index]->name,
@@ -638,23 +628,18 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
                   struct iovec *vector, int32_t count, struct iatt *buf,
                   struct iobref *iobref)
 {
-        afr_private_t *   priv     = NULL;
-        afr_local_t *     rw_local = NULL;
-        afr_self_heal_t * rw_sh    = NULL;
-
-        afr_sh_algo_diff_private_t * sh_priv = NULL;
-
-        call_frame_t *sh_frame  = NULL;
-        afr_local_t * sh_local  = NULL;
-        afr_self_heal_t *sh     = NULL;
-
-        int loop_index;
-        struct sh_diff_loop_state *loop_state;
-
-        uint32_t wcookie;
-
-        int i = 0;
-        int call_count = 0;
+        afr_private_t *               priv       = NULL;
+        afr_local_t *                 rw_local   = NULL;
+        afr_self_heal_t *             rw_sh      = NULL;
+        afr_sh_algo_diff_private_t *  sh_priv    = NULL;
+        call_frame_t                 *sh_frame   = NULL;
+        afr_local_t *                 sh_local   = NULL;
+        afr_self_heal_t              *sh         = NULL;
+        int                           loop_index = 0;
+        struct sh_diff_loop_state    *loop_state = NULL;
+        uint32_t                      wcookie    = 0;
+        int                           i          = 0;
+        int                           call_count = 0;
 
         priv     = this->private;
         rw_local = rw_frame->local;
@@ -686,7 +671,7 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
 
         if (sh->file_has_holes) {
                 if (iov_0filled (vector, count) == 0) {
-
+                        gf_log (this->name, GF_LOG_DEBUG, "0 filled block");
                         sh_diff_loop_return (rw_frame, this, loop_state);
                         goto out;
                 }
@@ -717,18 +702,15 @@ static int
 sh_diff_read (call_frame_t *rw_frame, xlator_t *this,
               int loop_index)
 {
-        afr_private_t *   priv     = NULL;
-        afr_local_t *     rw_local = NULL;
-        afr_self_heal_t * rw_sh    = NULL;
-
-        afr_sh_algo_diff_private_t * sh_priv = NULL;
-        struct sh_diff_loop_state *loop_state;
-
-        call_frame_t *sh_frame  = NULL;
-        afr_local_t * sh_local  = NULL;
-        afr_self_heal_t *sh     = NULL;
-
-        uint32_t cookie;
+        afr_private_t *               priv       = NULL;
+        afr_local_t *                 rw_local   = NULL;
+        afr_self_heal_t *             rw_sh      = NULL;
+        afr_sh_algo_diff_private_t *  sh_priv    = NULL;
+        struct sh_diff_loop_state    *loop_state = NULL;
+        call_frame_t                 *sh_frame   = NULL;
+        afr_local_t *                 sh_local   = NULL;
+        afr_self_heal_t              *sh         = NULL;
+        uint32_t                      cookie     = 0;
 
         priv     = this->private;
         rw_local = rw_frame->local;
@@ -759,23 +741,19 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
                       uint32_t weak_checksum, uint8_t *strong_checksum)
 {
-        afr_private_t * priv    = NULL;
-        afr_local_t * rw_local  = NULL;
-        afr_self_heal_t *rw_sh  = NULL;
-
-        call_frame_t *sh_frame  = NULL;
-        afr_local_t * sh_local  = NULL;
-        afr_self_heal_t *sh     = NULL;
-
-        afr_sh_algo_diff_private_t * sh_priv = NULL;
-
-        int loop_index = 0;
-        int child_index = 0;
-        struct sh_diff_loop_state *loop_state;
-
-        int call_count   = 0;
-        int i            = 0;
-        int write_needed = 0;
+        afr_private_t *               priv         = NULL;
+        afr_local_t *                 rw_local     = NULL;
+        afr_self_heal_t              *rw_sh        = NULL;
+        call_frame_t                 *sh_frame     = NULL;
+        afr_local_t *                 sh_local     = NULL;
+        afr_self_heal_t              *sh           = NULL;
+        afr_sh_algo_diff_private_t *  sh_priv      = NULL;
+        int                           loop_index   = 0;
+        int                           child_index  = 0;
+        struct sh_diff_loop_state    *loop_state   = NULL;
+        int                           call_count   = 0;
+        int                           i            = 0;
+        int                           write_needed = 0;
 
         priv  = this->private;
 
@@ -821,7 +799,7 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                                   must be written to this sink
                                 */
 
-                                gf_log (this->name, GF_LOG_TRACE,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "checksum on subvolume %s at offset %"
                                         PRId64" differs from that on source",
                                         priv->children[i]->name, loop_state->offset);
@@ -854,7 +832,7 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
 static int
 sh_diff_find_unused_loop (afr_sh_algo_diff_private_t *sh_priv, int max)
 {
-        int i;
+        int i = 0;
 
         LOCK (&sh_priv->lock);
         {
@@ -880,24 +858,19 @@ sh_diff_find_unused_loop (afr_sh_algo_diff_private_t *sh_priv, int max)
 static int
 sh_diff_checksum (call_frame_t *frame, xlator_t *this, off_t offset)
 {
-        afr_private_t *   priv     = NULL;
-        afr_local_t *     local    = NULL;
-        afr_local_t *     rw_local = NULL;
-        afr_self_heal_t * sh       = NULL;
-        afr_self_heal_t * rw_sh    = NULL;
-
-        afr_sh_algo_diff_private_t * sh_priv = NULL;
-
-        call_frame_t *rw_frame = NULL;
-
-        uint32_t cookie;
-        int loop_index = 0;
-        struct sh_diff_loop_state *loop_state = NULL;
-
-        int32_t op_errno = 0;
-
-        int call_count = 0;
-        int i          = 0;
+        afr_private_t *               priv       = NULL;
+        afr_local_t *                 local      = NULL;
+        afr_local_t *                 rw_local   = NULL;
+        afr_self_heal_t *             sh         = NULL;
+        afr_self_heal_t *             rw_sh      = NULL;
+        afr_sh_algo_diff_private_t *  sh_priv    = NULL;
+        call_frame_t                 *rw_frame   = NULL;
+        uint32_t                      cookie     = 0;
+        int                           loop_index = 0;
+        struct sh_diff_loop_state    *loop_state = NULL;
+        int32_t                       op_errno   = 0;
+        int                           call_count = 0;
+        int                           i          = 0;
 
         priv    = this->private;
         local   = frame->local;
@@ -971,17 +944,15 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this,
                      gf_boolean_t is_first_call,
                      struct sh_diff_loop_state *loop_state)
 {
-        afr_private_t *   priv  = NULL;
-        afr_local_t *     local = NULL;
-        afr_self_heal_t * sh    = NULL;
-        afr_sh_algo_diff_private_t *sh_priv = NULL;
-        gf_boolean_t      is_driver_done = _gf_false;
-        blksize_t         block_size = 0;
-
-        int   loop    = 0;
-
-        off_t offset = 0;
-        char  sh_type_str[256] = {0,};
+        afr_private_t *             priv           = NULL;
+        afr_local_t *               local          = NULL;
+        afr_self_heal_t *           sh             = NULL;
+        afr_sh_algo_diff_private_t *sh_priv        = NULL;
+        gf_boolean_t                is_driver_done = _gf_false;
+        blksize_t                   block_size     = 0;
+        int                         loop           = 0;
+        off_t                       offset         = 0;
+        char                        sh_type_str[256] = {0,};
 
         priv    = this->private;
         local   = frame->local;
@@ -1044,8 +1015,7 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
         afr_local_t *               local   = NULL;
         afr_self_heal_t *           sh      = NULL;
         afr_sh_algo_diff_private_t *sh_priv = NULL;
-
-        int i;
+        int                         i       = 0;
 
         priv  = this->private;
         local = frame->local;
@@ -1053,6 +1023,8 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
 
         sh_priv = GF_CALLOC (1, sizeof (*sh_priv),
                              gf_afr_mt_afr_private_t);
+        if (!sh_priv)
+                goto err;
 
         sh_priv->block_size = this->ctx->page_size;
 
@@ -1065,20 +1037,48 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
         sh_priv->loops = GF_CALLOC (priv->data_self_heal_window_size,
                                     sizeof (*sh_priv->loops),
                                     gf_afr_mt_sh_diff_loop_state);
+        if (!sh_priv->loops)
+                goto err;
 
         for (i = 0; i < priv->data_self_heal_window_size; i++) {
                 sh_priv->loops[i]               = GF_CALLOC (1, sizeof (*sh_priv->loops[i]),
                                                              gf_afr_mt_sh_diff_loop_state);
+                if (!sh_priv->loops[i])
+                        goto err;
 
                 sh_priv->loops[i]->checksum     = GF_CALLOC (priv->child_count,
                                                              MD5_DIGEST_LEN, gf_afr_mt_uint8_t);
+                if (!sh_priv->loops[i]->checksum)
+                        goto err;
+
                 sh_priv->loops[i]->write_needed = GF_CALLOC (priv->child_count,
                                                              sizeof (*sh_priv->loops[i]->write_needed),
                                                              gf_afr_mt_char);
+                if (!sh_priv->loops[i]->write_needed)
+                        goto err;
+
         }
 
         sh_diff_loop_driver (frame, this, _gf_true, NULL);
 
+        return 0;
+err:
+        if (sh_priv) {
+                if (sh_priv->loops) {
+                        for (i = 0; i < priv->data_self_heal_window_size; i++) {
+                                if (sh_priv->loops[i]->write_needed)
+                                        GF_FREE (sh_priv->loops[i]->write_needed);
+                                if (sh_priv->loops[i]->checksum)
+                                        GF_FREE (sh_priv->loops[i]->checksum);
+                                if (sh_priv->loops[i])
+                                        GF_FREE (sh_priv->loops[i]);
+                        }
+
+                        GF_FREE (sh_priv->loops);
+                }
+
+                GF_FREE (sh_priv);
+        }
         return 0;
 }
 

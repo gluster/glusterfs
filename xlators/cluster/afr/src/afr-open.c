@@ -74,16 +74,12 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
               xlator_t *this, int32_t op_ret, int32_t op_errno,
               fd_t *fd)
 {
-        afr_local_t *  local = NULL;
-
-        int child_index = (long) cookie;
-
-        uint64_t      ctx;
-        afr_fd_ctx_t *fd_ctx;
-
-        int ret = 0;
-
-        int call_count = -1;
+        afr_local_t *  local       = NULL;
+        uint64_t       ctx         = 0;
+        afr_fd_ctx_t  *fd_ctx      = NULL;
+        int            ret         = 0;
+        int            call_count  = -1;
+        int            child_index = (long) cookie;
 
         local = frame->local;
 
@@ -101,8 +97,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "could not set fd ctx for fd=%p",
-                                        fd);
+                                        "could not set fd ctx for fd=%p", fd);
 
                                 local->op_ret   = -1;
                                 local->op_errno = -ret;
@@ -151,16 +146,14 @@ int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, int32_t wbflags)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t *   local = NULL;
-
-        int     i = 0;
-        int   ret = -1;
-
-        int32_t call_count = 0;
-        int32_t op_ret   = -1;
-        int32_t op_errno = 0;
-        int32_t wind_flags = flags & (~O_TRUNC);
+        afr_private_t * priv       = NULL;
+        afr_local_t *   local      = NULL;
+        int             i          = 0;
+        int             ret        = -1;
+        int32_t         call_count = 0;
+        int32_t         op_ret     = -1;
+        int32_t         op_errno   = 0;
+        int32_t         wind_flags = flags & (~O_TRUNC);
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -171,6 +164,8 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         if (afr_is_split_brain (this, loc->inode)) {
                 /* self-heal failed */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to open as split brain seen, returning EIO");
                 op_errno = EIO;
                 goto out;
         }
@@ -219,17 +214,14 @@ int
 afr_openfd_sh_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
-
-        int ret = 0;
-
-        uint64_t      ctx;
-        afr_fd_ctx_t *fd_ctx;
-
-        int call_count  = 0;
-        int child_index = (long) cookie;
+        afr_internal_lock_t *int_lock    = NULL;
+        afr_local_t         *local       = NULL;
+        afr_private_t       *priv        = NULL;
+        afr_fd_ctx_t        *fd_ctx      = NULL;
+        uint64_t             ctx         = 0;
+        int                  ret         = 0;
+        int                  call_count  = 0;
+        int                  child_index = (long) cookie;
 
         priv     = this->private;
         local    = frame->local;
@@ -241,6 +233,8 @@ afr_openfd_sh_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = fd_ctx_get (fd, this, &ctx);
 
                         if (ret < 0) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "failed to get fd context, %p", fd);
                                 goto out;
                         }
 
@@ -270,7 +264,7 @@ out:
 static int
 __unopened_count (int child_count, unsigned int *opened_on, unsigned char *child_up)
 {
-        int i;
+        int i = 0;
         int count = 0;
 
         for (i = 0; i < child_count; i++) {
@@ -285,16 +279,14 @@ __unopened_count (int child_count, unsigned int *opened_on, unsigned char *child
 int
 afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this)
 {
-        afr_local_t *local  = NULL;
-        afr_private_t *priv = NULL;
-
-        uint64_t      ctx;
-        afr_fd_ctx_t *fd_ctx;
-
-        int abandon = 0;
-        int ret = 0;
-        int i;
-        int call_count = 0;
+        afr_local_t   *local      = NULL;
+        afr_private_t *priv       = NULL;
+        uint64_t       ctx        = 0;
+        afr_fd_ctx_t  *fd_ctx     = NULL;
+        int            abandon    = 0;
+        int            ret        = 0;
+        int            i          = 0;
+        int            call_count = 0;
 
         priv  = this->private;
         local = frame->local;
@@ -306,8 +298,10 @@ afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this)
          */
 
         ret = fd_ctx_get (local->fd, this, &ctx);
-
         if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to get fd context %p (%s)",
+                        local->fd, local->loc.path);
                 abandon = 1;
                 goto out;
         }
@@ -327,6 +321,9 @@ afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&local->fd->lock);
 
         if (call_count == 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "fd not open on any subvolume %p (%s)",
+                        local->fd, local->loc.path);
                 abandon = 1;
                 goto out;
         }
@@ -460,8 +457,10 @@ afr_openfd_flush_done (call_frame_t *frame, xlator_t *this)
         LOCK (&local->fd->lock);
         {
                 _ret = __fd_ctx_get (local->fd, this, &ctx);
-
                 if (_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to get fd context %p (%s)",
+                                local->fd, local->loc.path);
                         goto out;
                 }
 
@@ -499,15 +498,14 @@ afr_openfd_xaction (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         local->op = GF_FOP_FLUSH;
 
-        local->transaction.fop          = afr_openfd_sh;
-        local->transaction.done         = afr_openfd_flush_done;
+        local->transaction.fop    = afr_openfd_sh;
+        local->transaction.done   = afr_openfd_flush_done;
 
         local->transaction.start  = 0;
         local->transaction.len    = 0;
 
         gf_log (this->name, GF_LOG_TRACE,
-                "doing up/down flush on fd=%p",
-                fd);
+                "doing up/down flush on fd=%p", fd);
 
         afr_transaction (frame, this, AFR_DATA_TRANSACTION);
 
@@ -521,17 +519,14 @@ int
 afr_openfd_xaction_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
-
-        int ret = 0;
-
-        uint64_t      ctx = 0;
-        afr_fd_ctx_t *fd_ctx = NULL;
-
-        int call_count  = 0;
-        int child_index = (long) cookie;
+        afr_internal_lock_t *int_lock    = NULL;
+        afr_local_t         *local       = NULL;
+        afr_private_t       *priv        = NULL;
+        int                  ret         = 0;
+        uint64_t             ctx         = 0;
+        afr_fd_ctx_t        *fd_ctx      = NULL;
+        int                  call_count  = 0;
+        int                  child_index = (long) cookie;
 
         priv     = this->private;
         local    = frame->local;
@@ -543,6 +538,9 @@ afr_openfd_xaction_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = fd_ctx_get (fd, this, &ctx);
 
                         if (ret < 0) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "failed to get fd context %p (%s)",
+                                        fd, local->loc.path);
                                 goto out;
                         }
 
@@ -571,16 +569,14 @@ out:
 int
 afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        afr_local_t *local  = NULL;
-        afr_private_t *priv = NULL;
-
-        uint64_t      ctx;
-        afr_fd_ctx_t *fd_ctx;
-
-        int no_open = 0;
-        int ret = 0;
-        int i;
-        int call_count = 0;
+        afr_local_t   *local      = NULL;
+        afr_private_t *priv       = NULL;
+        uint64_t       ctx        = 0;
+        afr_fd_ctx_t  *fd_ctx     = NULL;
+        int            no_open    = 0;
+        int            ret        = 0;
+        int            i          = 0;
+        int            call_count = 0;
 
         priv  = this->private;
         local = frame->local;
@@ -604,8 +600,10 @@ afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         local->fd = fd_ref (fd);
 
         ret = fd_ctx_get (fd, this, &ctx);
-
         if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to get fd context %p (%s)",
+                        fd, local->loc.path);
                 no_open = 1;
                 goto out;
         }
@@ -621,6 +619,9 @@ afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         UNLOCK (&local->fd->lock);
 
         if (call_count == 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "fd not open on any subvolume %p (%s)",
+                        fd, local->loc.path);
                 no_open = 1;
                 goto out;
         }
