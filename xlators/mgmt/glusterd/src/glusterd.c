@@ -215,6 +215,20 @@ out:
         return ret;
 }
 
+int
+glusterd_rpcsvc_options_build (dict_t *options)
+{
+        int             ret = 0;
+
+        if (!dict_get (options, "rpc-auth-allow-insecure")) {
+                ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
+                if (ret)
+                        goto out;
+        }
+out:
+        return ret;
+}
+
 /*
  * init - called during glusterd initialization
  *
@@ -359,6 +373,9 @@ init (xlator_t *this)
         if (ret == -1)
                 goto out;
 #endif
+        ret = glusterd_rpcsvc_options_build (this->options);
+        if (ret)
+                goto out;
         rpc = rpcsvc_init (this->ctx, this->options);
         if (rpc == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
