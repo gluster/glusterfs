@@ -540,4 +540,6 @@ int rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
 
 int
 rpcsvc_transport_unix_options_build (dict_t **options, char *filepath);
+int
+rpcsvc_set_allow_insecure (rpcsvc_t *svc, dict_t *options);
 #endif
