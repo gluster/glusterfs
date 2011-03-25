@@ -4600,6 +4600,7 @@ out:
                         gf_log ("", GF_LOG_DEBUG,
                                 "failed to set error message in ctx");
                 }
+                *op_errstr = NULL;
         }
 
         return ret;
