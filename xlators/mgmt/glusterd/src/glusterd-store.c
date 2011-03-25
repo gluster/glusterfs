@@ -536,8 +536,9 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                 goto out;
 
 out:
-        gf_log ("", GF_LOG_ERROR, "Unable to write volume values"
-                " for %s", volinfo->volname);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Unable to write volume values"
+                        " for %s", volinfo->volname);
         return ret;
 }
 
@@ -694,6 +695,7 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
 
         GF_ASSERT (volinfo);
 
+        glusterd_perform_volinfo_version_action (volinfo, ac);
         ret = glusterd_store_create_volume_dir (volinfo);
         if (ret)
                 goto out;
@@ -705,7 +707,10 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
         ret = glusterd_store_perform_volume_store (volinfo);
         if (ret)
                 goto out;
-        glusterd_perform_volinfo_version_action (volinfo, ac);
+        //checksum should be computed at the end
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -728,7 +733,7 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         priv = THIS->private;
 
         GF_ASSERT (priv);
-        snprintf (pathname, 1024, "%s/vols/%s", priv->workdir,
+        snprintf (pathname, sizeof (pathname), "%s/vols/%s", priv->workdir,
                   volinfo->volname);
 
         dir = opendir (pathname);
@@ -737,7 +742,8 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         ret = glusterd_store_remove_bricks (volinfo);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Remove bricks failed");
+                gf_log ("", GF_LOG_ERROR, "Remove bricks failed for %s",
+                        volinfo->volname);
         }
 
         glusterd_for_each_entry (entry, dir);
@@ -768,14 +774,14 @@ stat_failed:
 
         ret = closedir (dir);
         if (ret) {
-                gf_log ("", GF_LOG_NORMAL, "Failed to close dir, errno:%d",
+                gf_log ("", GF_LOG_ERROR, "Failed to close dir, errno:%d",
                         errno);
         }
 
         ret = rmdir (pathname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Failed to rmdir: %s, errno: %d",
-                        pathname, errno);
+                gf_log ("", GF_LOG_ERROR, "Failed to rmdir: %s, err: %s",
+                        pathname, strerror (errno));
         }
 
 
@@ -1457,8 +1463,7 @@ glusterd_store_retrieve_volume (char    *volname)
                         volinfo->status = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_VERSION,
                             strlen (GLUSTERD_STORE_KEY_VOL_VERSION))) {
-                        if (gf_string2uint32 (value, &volinfo->version))
-                                gf_log ("", GF_LOG_ERROR, "%s", strerror(errno));
+                        volinfo->version = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_PORT,
                             strlen (GLUSTERD_STORE_KEY_VOL_PORT))) {
                         volinfo->port = atoi (value);

@@ -616,8 +616,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         if (GLUSTERD_VOL_COMP_RJT != status) {
                 event_type = GD_FRIEND_EVENT_LOCAL_ACC;
                 op_ret = 0;
-        }
-        else {
+        } else {
                 event_type = GD_FRIEND_EVENT_LOCAL_RJT;
                 op_errno = GF_PROBE_VOLUME_CONFLICT;
                 op_ret = -1;

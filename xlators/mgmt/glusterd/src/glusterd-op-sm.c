@@ -143,11 +143,11 @@ glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
         volinfo->status = status;
 }
 
-static int
+gf_boolean_t
 glusterd_is_volume_started (glusterd_volinfo_t  *volinfo)
 {
         GF_ASSERT (volinfo);
-        return (!(volinfo->status == GLUSTERD_STATUS_STARTED));
+        return (volinfo->status == GLUSTERD_STATUS_STARTED);
 }
 
 gf_boolean_t
@@ -438,7 +438,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         exists = glusterd_check_volume_exists (volname);
 
         if (!exists) {
-                snprintf (msg, 2048, "Volume %s does not exist", volname);
+                snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
                 gf_log ("", GF_LOG_ERROR, "%s",
                         msg);
                 *op_errstr = gf_strdup (msg);
@@ -470,12 +470,10 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                 }
 
                 if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
-                        ret = glusterd_is_volume_started (volinfo);
-                        if (!ret) {
-                                snprintf (msg, 2048, "Volume %s already started",
-                                          volname);
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "%s", msg);
+                        if (glusterd_is_volume_started (volinfo)) {
+                                snprintf (msg, sizeof (msg), "Volume %s already"
+                                          "started", volname);
+                                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
                                 *op_errstr = gf_strdup (msg);
                                 ret = -1;
                                 goto out;
@@ -523,9 +521,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                 goto out;
 
         if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
-                ret = glusterd_is_volume_started (volinfo);
-
-                if (ret) {
+                if (_gf_false == glusterd_is_volume_started (volinfo)) {
                         snprintf (msg, sizeof(msg), "Volume %s "
                                   "is not in the started state", volname);
                         gf_log ("", GF_LOG_ERROR, "Volume %s "
@@ -577,9 +573,7 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
-        ret = glusterd_is_volume_started (volinfo);
-
-        if (!ret) {
+        if (glusterd_is_volume_started (volinfo)) {
                 snprintf (msg, sizeof (msg), "Volume %s has been started."
                           "Volume needs to be stopped before deletion.",
                           volname);
@@ -1130,9 +1124,7 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_is_volume_started (volinfo);
-
-        if (ret) {
+        if (_gf_false == glusterd_is_volume_started (volinfo)) {
                 snprintf (msg, sizeof (msg), "Volume %s needs to be started before"
                           " log rotate.", volname);
                 gf_log ("", GF_LOG_ERROR, "%s", msg);
@@ -1408,12 +1400,7 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick)
                         goto out;
                 }
         }
-
-        glusterd_delete_volfile (volinfo, brickinfo);
-        glusterd_store_delete_brick (volinfo, brickinfo);
-        glusterd_brickinfo_delete (brickinfo);
-        volinfo->brick_count--;
-
+        glusterd_delete_brick (volinfo, brickinfo);
 out:
         if (dup_brick)
                 GF_FREE (dup_brick);
@@ -1458,7 +1445,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         if (ret)
                 goto out;
 
-        ret = glusterd_create_volfiles (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret)
                 goto out;
 
@@ -1522,7 +1509,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
 
-        ret = glusterd_create_volfiles (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret)
                 goto out;
 
@@ -2067,7 +2054,7 @@ glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
         }
 
         if (GF_CLI_STATS_INFO == stats_op)  {
-                if (glusterd_is_volume_started (volinfo)) {
+                if (_gf_false == glusterd_is_volume_started (volinfo)) {
                         snprintf (msg, sizeof (msg), "volume %s is not started.",
                                   volinfo->volname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
@@ -2103,7 +2090,7 @@ glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
         } else if (GF_CLI_STATS_TOP == stats_op)  {
-                if (glusterd_is_volume_started (volinfo)) {
+                if (_gf_false == glusterd_is_volume_started (volinfo)) {
                         snprintf (msg, sizeof (msg), "volume %s is not started.",
                                   volinfo->volname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
@@ -2255,7 +2242,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
-        ret = glusterd_create_volfiles (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret)
                 goto out;
 
@@ -2326,12 +2313,8 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
-
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs (volinfo);
+                ret = glusterd_check_generate_start_nfs ();
 
 out:
         return ret;
@@ -3412,13 +3395,13 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 			gf_log ("", GF_LOG_CRITICAL, "Unable to add "
 				"dst-brick: %s to volume: %s",
 				dst_brick, volinfo->volname);
-		        (void) glusterd_check_generate_start_nfs (volinfo);
+		        (void) glusterd_check_generate_start_nfs ();
 			goto out;
 		}
 
 		volinfo->defrag_status = 0;
 
-		ret = glusterd_check_generate_start_nfs (volinfo);
+		ret = glusterd_check_generate_start_nfs ();
 		if (ret) {
                         gf_log ("", GF_LOG_CRITICAL,
                                 "Failed to generate nfs volume file");
@@ -3427,10 +3410,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 		ret = glusterd_store_volinfo (volinfo,
                                               GLUSTERD_VOLINFO_VER_AC_INCREMENT);
 
-		if (ret)
-			goto out;
-
-		ret = glusterd_volume_compute_cksum (volinfo);
 		if (ret)
 			goto out;
 
@@ -3548,7 +3527,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo)
 
         dict_foreach (volinfo->dict, _delete_reconfig_opt, volinfo->dict);
 
-        ret = glusterd_create_volfiles (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
@@ -3561,12 +3540,8 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
-
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs (volinfo);
+                ret = glusterd_check_generate_start_nfs ();
         if (ret)
                 goto out;
 
@@ -3893,7 +3868,7 @@ glusterd_marker_create_volfile (glusterd_volinfo_t *volinfo)
 {
         int32_t          ret     = 0;
 
-        ret = glusterd_create_volfiles (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile"
                         " for setting of marker while 'gsync start'");
@@ -3905,12 +3880,8 @@ glusterd_marker_create_volfile (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
-
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs (volinfo);
+                ret = glusterd_check_generate_start_nfs ();
         ret = 0;
 out:
         return ret;
@@ -4600,7 +4571,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr)
                 goto out;
         }
 create_vol:
-        ret = glusterd_create_volfiles (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to re-create volfile for"
                                           " 'quota'");
@@ -4612,12 +4583,8 @@ create_vol:
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
-
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs (volinfo);
+                ret = glusterd_check_generate_start_nfs ();
 
         ret = 0;
 
@@ -4638,7 +4605,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
 {
         glusterd_brickinfo_t                    *brickinfo = NULL;
@@ -4651,7 +4618,7 @@ glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
         return 0;
 }
 
-static int
+int
 glusterd_start_bricks (glusterd_volinfo_t *volinfo)
 {
         glusterd_brickinfo_t                    *brickinfo = NULL;
@@ -4794,7 +4761,7 @@ glusterd_op_set_volume (dict_t *dict)
         }
 
         if (!global_opt) {
-                ret = glusterd_create_volfiles (volinfo);
+                ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
                                 " 'volume set'");
@@ -4813,12 +4780,8 @@ glusterd_op_set_volume (dict_t *dict)
                 if (ret)
                         goto out;
 
-                ret = glusterd_volume_compute_cksum (volinfo);
-                if (ret)
-                        goto out;
-
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                        ret = glusterd_check_generate_start_nfs (volinfo);
+                        ret = glusterd_check_generate_start_nfs ();
                         if (ret) {
                                 gf_log ("", GF_LOG_WARNING,
                                          "Unable to restart NFS-Server");
@@ -4830,7 +4793,7 @@ glusterd_op_set_volume (dict_t *dict)
         else {
                 list_for_each_entry (voliter, &priv->volumes, vol_list) {
                         volinfo = voliter;
-                        ret = glusterd_create_volfiles (volinfo);
+                        ret = glusterd_create_volfiles_and_notify_services (volinfo);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
                                         " 'volume set'");
@@ -4850,12 +4813,8 @@ glusterd_op_set_volume (dict_t *dict)
                         if (ret)
                                 goto out;
 
-                        ret = glusterd_volume_compute_cksum (volinfo);
-                        if (ret)
-                                goto out;
-
                         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                                ret = glusterd_check_generate_start_nfs (volinfo);
+                                ret = glusterd_check_generate_start_nfs ();
                                 if (ret) {
                                         gf_log ("", GF_LOG_WARNING,
                                                 "Unable to restart NFS-Server");
@@ -4922,7 +4881,7 @@ glusterd_op_remove_brick (dict_t *dict)
                 i++;
         }
 
-        ret = glusterd_create_volfiles (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret)
                 goto out;
 
@@ -4933,12 +4892,8 @@ glusterd_op_remove_brick (dict_t *dict)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
-
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs (volinfo);
+                ret = glusterd_check_generate_start_nfs ();
 
 out:
         return ret;
@@ -4970,17 +4925,9 @@ glusterd_op_delete_volume (dict_t *dict)
         if (ret)
                 goto out;
 
-        ret = glusterd_store_delete_volume (volinfo);
-
-        if (ret)
-                goto out;
-
-        ret = glusterd_volinfo_delete (volinfo);
-
-        if (ret)
-                goto out;
-
+        ret = glusterd_delete_volume (volinfo);
 out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 
@@ -5013,11 +4960,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
-
-        ret = glusterd_check_generate_start_nfs (volinfo);
+        ret = glusterd_check_generate_start_nfs ();
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
@@ -5294,8 +5237,6 @@ glusterd_op_stop_volume (dict_t *dict)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-
         if (glusterd_are_all_volumes_stopped ()) {
                 if (glusterd_is_nfs_started ()) {
                         ret = glusterd_nfs_server_stop ();
@@ -5303,7 +5244,7 @@ glusterd_op_stop_volume (dict_t *dict)
                                 goto out;
                 }
         } else {
-                ret = glusterd_check_generate_start_nfs (volinfo);
+                ret = glusterd_check_generate_start_nfs ();
         }
 
 out:
@@ -5500,7 +5441,7 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                         volinfo->volname, fd_stats_key, fd_stats_value);
                 goto out;
         }
-	ret = glusterd_create_volfiles (volinfo);
+	ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
 	if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
@@ -5514,12 +5455,8 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
-
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs (volinfo);
+                ret = glusterd_check_generate_start_nfs ();
 
         ret = 0;
 
@@ -6840,7 +6777,7 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (!glusterd_is_brick_started (brickinfo)) {
+                if (glusterd_is_brick_started (brickinfo)) {
                         pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                   gf_gld_mt_pending_node_t);
                         if (!pending_node) {
@@ -6904,7 +6841,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr)
                                                               &brickinfo);
                 if (ret)
                         goto out;
-                if (!glusterd_is_brick_started (brickinfo)) {
+                if (glusterd_is_brick_started (brickinfo)) {
                         pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                   gf_gld_mt_pending_node_t);
                         if (!pending_node) {
@@ -6971,7 +6908,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 break;
         case GF_CLI_STATS_INFO:
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                        if (!glusterd_is_brick_started (brickinfo)) {
+                        if (glusterd_is_brick_started (brickinfo)) {
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
                                 if (!pending_node) {
@@ -7010,7 +6947,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 }
                 ret = 0;
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                        if (!glusterd_is_brick_started (brickinfo)) {
+                        if (glusterd_is_brick_started (brickinfo)) {
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
                                 if (!pending_node) {
@@ -7025,7 +6962,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                         }
                 }
                 break;
-  
+
         default:
                 GF_ASSERT (0);
                 gf_log ("glusterd", GF_LOG_ERROR, "Invalid profile op: %d",

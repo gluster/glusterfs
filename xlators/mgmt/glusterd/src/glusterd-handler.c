@@ -1036,7 +1036,7 @@ out:
         if (free_ptr)
                 GF_FREE(free_ptr);
 
-        glusterd_volume_bricks_delete (&tmpvolinfo);
+        glusterd_volume_brickinfos_delete (&tmpvolinfo);
         if (brickinfo)
                 glusterd_brickinfo_delete (brickinfo);
         if (cli_req.volname)
@@ -1459,7 +1459,7 @@ out:
 
         if (free_ptr)
                 GF_FREE (free_ptr);
-        glusterd_volume_bricks_delete (&tmpvolinfo);
+        glusterd_volume_brickinfos_delete (&tmpvolinfo);
         if (brickinfo)
                 glusterd_brickinfo_delete (brickinfo);
         if (cli_req.volname)
