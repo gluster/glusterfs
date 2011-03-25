@@ -157,7 +157,7 @@ void
 glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
                             glusterd_volume_status status);
 int
-glusterd_check_generate_start_nfs (glusterd_volinfo_t *volinfo);
+glusterd_check_generate_start_nfs (void);
 int32_t
 glusterd_volume_count_get (void);
 int32_t
@@ -172,7 +172,7 @@ void
 glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
                             gf_brick_status_t status);
 
-int
+gf_boolean_t
 glusterd_is_brick_started (glusterd_brickinfo_t  *brickinfo);
 
 int
@@ -206,7 +206,7 @@ int
 glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                              char *op_errstr, size_t len);
 int32_t
-glusterd_volume_bricks_delete (glusterd_volinfo_t *volinfo);
+glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo);
 int32_t
 glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                glusterd_volinfo_t *volinfo,
@@ -257,4 +257,16 @@ int
 glusterd_clear_pending_nodes (struct list_head *list);
 gf_boolean_t
 glusterd_peerinfo_is_uuid_unknown (glusterd_peerinfo_t *peerinfo);
+int32_t
+glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
+                        glusterd_brickinfo_t  *brickinfo);
+int32_t
+glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo);
+int32_t
+glusterd_delete_volume (glusterd_volinfo_t *volinfo);
+int32_t
+glusterd_delete_brick (glusterd_volinfo_t* volinfo,
+                       glusterd_brickinfo_t *brickinfo);
+int32_t
+glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo);
 #endif

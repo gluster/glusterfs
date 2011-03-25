@@ -198,7 +198,7 @@ struct glusterd_volinfo_ {
         glusterd_brickinfo_t    *src_brick;
         glusterd_brickinfo_t    *dst_brick;
 
-        uint32_t                version;
+        int                     version;
         uint32_t                cksum;
         gf_transport_type       transport_type;
 
@@ -402,9 +402,6 @@ glusterd_handle_friend_update (rpcsvc_request_t *req);
 int
 glusterd_handle_cli_stop_volume (rpcsvc_request_t *req);
 
-int32_t
-glusterd_delete_volume (rpcsvc_request_t *req, char *volname, int flags);
-
 int
 glusterd_handle_cli_delete_volume (rpcsvc_request_t *req);
 
@@ -416,9 +413,6 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags);
 
 int
 glusterd_handle_add_brick (rpcsvc_request_t *req);
-
-int32_t
-glusterd_replace_brick (rpcsvc_request_t *req, dict_t *dict);
 
 int
 glusterd_handle_replace_brick (rpcsvc_request_t *req);
@@ -484,7 +478,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count);
 
 int
-glusterd_restart_bricks(glusterd_conf_t *conf);
+glusterd_restart_bricks (glusterd_conf_t *conf);
 
 int32_t
 glusterd_volume_txn (rpcsvc_request_t *req, char *volname, int flags,

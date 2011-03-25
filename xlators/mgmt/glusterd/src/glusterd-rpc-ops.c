@@ -1759,7 +1759,7 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
 
                 if (!dummy_frame)
                         continue;
-                if (glusterd_is_brick_started (brickinfo))
+                if (_gf_false == glusterd_is_brick_started (brickinfo))
                         continue;
 
                 ret = glusterd_brick_op_build_payload (req_ctx->op, brickinfo,

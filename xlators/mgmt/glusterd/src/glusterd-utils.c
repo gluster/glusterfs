@@ -550,11 +550,11 @@ glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo)
 }
 
 int32_t
-glusterd_volume_bricks_delete (glusterd_volinfo_t *volinfo)
+glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_brickinfo_t    *tmp = NULL;
-        int32_t                 ret = -1;
+        int32_t                 ret = 0;
 
         GF_ASSERT (volinfo);
 
@@ -579,7 +579,7 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
 
         list_del_init (&volinfo->vol_list);
 
-        ret = glusterd_volume_bricks_delete (volinfo);
+        ret = glusterd_volume_brickinfos_delete (volinfo);
         if (ret)
                 goto out;
         dict_unref (volinfo->dict);
@@ -932,6 +932,40 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         snprintf (sockpath, len, "%s/%s.socket", glusterd_sock_dir, md5_sum);
 }
 
+/* connection happens only if it is not aleady connected,
+ * reconnections are taken care by rpc-layer
+ */
+int32_t
+glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
+                        glusterd_brickinfo_t  *brickinfo)
+{
+        int                     ret = 0;
+        char                    socketpath[PATH_MAX] = {0};
+        dict_t                  *options = NULL;
+        struct rpc_clnt         *rpc = NULL;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+        if (brickinfo->rpc == NULL) {
+                glusterd_set_brick_socket_filepath (volinfo, brickinfo,
+                                                    socketpath,
+                                                    sizeof (socketpath));
+                ret = rpc_clnt_transport_unix_options_build (&options, socketpath);
+                if (ret)
+                        goto out;
+                ret = glusterd_rpc_create (&rpc, options,
+                                           glusterd_brick_rpc_notify,
+                                           brickinfo);
+                if (ret)
+                        goto out;
+                brickinfo->rpc = rpc;
+        }
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                  glusterd_brickinfo_t  *brickinfo)
@@ -949,9 +983,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         int                     port = 0;
         FILE                    *file = NULL;
         gf_boolean_t            is_locked = _gf_false;
-        dict_t                  *options = NULL;
         char                    socketpath[PATH_MAX] = {0};
-        struct rpc_clnt         *rpc = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -1048,17 +1080,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         }
 
 connect:
-        if (brickinfo->rpc == NULL) {
-                ret = rpc_clnt_transport_unix_options_build (&options, socketpath);
-                if (ret)
-                        goto out;
-                ret = glusterd_rpc_create (&rpc, options,
-                                           glusterd_brick_rpc_notify,
-                                           brickinfo);
-                if (ret)
-                        goto out;
-                brickinfo->rpc = rpc;
-        }
+        ret = glusterd_brick_connect (volinfo, brickinfo);
+        if (ret)
+                goto out;
 out:
         if (is_locked && file)
                 lockf (fileno (file), F_ULOCK, 0);
@@ -1097,6 +1121,19 @@ glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
 
         return ret;
 }
+
+int32_t
+glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
+{
+        GF_ASSERT (brickinfo);
+
+        if (brickinfo->rpc) {
+                rpc_clnt_unref (brickinfo->rpc);
+                brickinfo->rpc = NULL;
+        }
+        return 0;
+}
+
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                                 glusterd_brickinfo_t   *brickinfo)
@@ -1114,11 +1151,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         GF_ASSERT (this);
 
         priv = this->private;
+        (void) glusterd_brick_disconnect (brickinfo);
 
-        if (brickinfo->rpc) {
-                rpc_clnt_unref (brickinfo->rpc);
-                brickinfo->rpc = NULL;
-        }
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
@@ -1333,12 +1367,18 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.transport_type", count);
+        ret = dict_set_uint32 (dict, key, volinfo->transport_type);
+        if (ret)
+                goto out;
+
         volume_id_str = gf_strdup (uuid_utoa (volinfo->volume_id));
         if (!volume_id_str)
                 goto out;
 
         memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.volume_id", count);
+        snprintf (key, sizeof (key), "volume%d.volume_id", count);
         ret = dict_set_dynstr (dict, key, volume_id_str);
         if (ret)
                 goto out;
@@ -1491,8 +1531,7 @@ out:
 
 int32_t
 glusterd_import_friend_volume_opts (dict_t *vols, int count,
-                                    glusterd_volinfo_t *volinfo,
-                                    int new_volinfo)
+                                    glusterd_volinfo_t *volinfo)
 {
         char                    key[512] = {0,};
         int32_t                 ret = -1;
@@ -1501,183 +1540,404 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
         char                    *opt_key = NULL;
         char                    *opt_val = NULL;
         char                    *dup_opt_val = NULL;
+        char                    msg[2048] = {0};
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.opt-count", count);
         ret = dict_get_int32 (vols, key, &opt_count);
-        if (ret)
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Volume option count not "
+                          "specified for %s", volinfo->volname);
                 goto out;
-        if (!new_volinfo) {
-                ret = glusterd_options_reset (volinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "options reset failed");
-                        goto out;
-                }
         }
         while (i <= opt_count) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.key%d",
                           count, i);
                 ret = dict_get_str (vols, key, &opt_key);
-                if (ret)
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Volume option key not "
+                                  "specified for %s", volinfo->volname);
                         goto out;
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.value%d",
                           count, i);
                 ret = dict_get_str (vols, key, &opt_val);
-                if (ret)
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Volume option value not "
+                                  "specified for %s", volinfo->volname);
                         goto out;
+                }
                 dup_opt_val = gf_strdup (opt_val);
                 if (!dup_opt_val) {
                         ret = -1;
                         goto out;
                 }
                 ret = dict_set_dynstr (volinfo->dict, opt_key, dup_opt_val);
-                if (ret)
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Volume set %s %s "
+                                  "unsuccessful for %s", opt_key, dup_opt_val,
+                                  volinfo->volname);
                         goto out;
+                }
                 i++;
         }
+out:
+        if (msg[0])
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
+                           int32_t brick_count,
+                           glusterd_brickinfo_t **brickinfo)
+{
+        char                    key[512] = {0,};
+        int                     ret = -1;
+        char                    *hostname = NULL;
+        char                    *path = NULL;
+        glusterd_brickinfo_t    *new_brickinfo = NULL;
+        char                    msg[2048] = {0};
+
+        GF_ASSERT (vols);
+        GF_ASSERT (vol_count >= 0);
+        GF_ASSERT (brickinfo);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.brick%d.hostname",
+                  vol_count, brick_count);
+        ret = dict_get_str (vols, key, &hostname);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload", key);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.brick%d.path",
+                  vol_count, brick_count);
+        ret = dict_get_str (vols, key, &path);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload", key);
+                goto out;
+        }
+
+        ret = glusterd_brickinfo_new (&new_brickinfo);
+        if (ret)
+                goto out;
+
+        strcpy (new_brickinfo->path, path);
+        strcpy (new_brickinfo->hostname, hostname);
+        //peerinfo might not be added yet
+        (void) glusterd_resolve_brick (new_brickinfo);
+        ret = 0;
+        *brickinfo = new_brickinfo;
+out:
+        if (msg[0])
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_import_bricks (dict_t *vols, int32_t vol_count,
+                        glusterd_volinfo_t *new_volinfo)
+{
+        int                     ret = -1;
+        int                     brick_count = 1;
+        glusterd_brickinfo_t     *new_brickinfo = NULL;
+
+        GF_ASSERT (vols);
+        GF_ASSERT (vol_count >= 0);
+        GF_ASSERT (new_volinfo);
+        while (brick_count <= new_volinfo->brick_count) {
+
+                ret = glusterd_import_new_brick (vols, vol_count, brick_count,
+                                                 &new_brickinfo);
+                if (ret)
+                        goto out;
+                list_add_tail (&new_brickinfo->brick_list, &new_volinfo->bricks);
+                brick_count++;
+        }
+        ret = 0;
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
 int32_t
-glusterd_import_friend_volume (dict_t *vols, int count)
+glusterd_import_volinfo (dict_t *vols, int count,
+                         glusterd_volinfo_t **volinfo)
 {
-
-        int32_t                 ret = -1;
-        glusterd_conf_t         *priv = NULL;
-        char                    key[512] = {0,};
-        glusterd_volinfo_t      *volinfo = NULL;
-        char                    *volname = NULL;
-        char                    *hostname = NULL;
-        char                    *path = NULL;
-        glusterd_brickinfo_t    *brickinfo = NULL;
-        glusterd_brickinfo_t    *tmp = NULL;
-        int                     new_volinfo = 0;
-        int                     i = 1;
-        char                    *volume_id_str = NULL;
+        int                ret = -1;
+        char               key[256] = {0};
+        char               *volname = NULL;
+        glusterd_volinfo_t *new_volinfo = NULL;
+        char               *volume_id_str = NULL;
+        char                    msg[2048] = {0};
 
         GF_ASSERT (vols);
+        GF_ASSERT (volinfo);
 
         snprintf (key, sizeof (key), "volume%d.name", count);
         ret = dict_get_str (vols, key, &volname);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload", key);
+                goto out;
+        }
+
+        ret = glusterd_volinfo_new (&new_volinfo);
         if (ret)
                 goto out;
-
-        priv = THIS->private;
-
-        ret = glusterd_volinfo_find (volname, &volinfo);
-
-        if (ret) {
-                ret = glusterd_volinfo_new (&volinfo);
-                if (ret)
-                        goto out;
-                strncpy (volinfo->volname, volname, sizeof (volinfo->volname));
-                new_volinfo = 1;
-        }
+        strncpy (new_volinfo->volname, volname, sizeof (new_volinfo->volname));
 
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.type", count);
-        ret = dict_get_int32 (vols, key, &volinfo->type);
-        if (ret)
+        ret = dict_get_int32 (vols, key, &new_volinfo->type);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick_count", count);
-        ret = dict_get_int32 (vols, key, &volinfo->brick_count);
-        if (ret)
+        ret = dict_get_int32 (vols, key, &new_volinfo->brick_count);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
-        ret = dict_get_uint32 (vols, key, &volinfo->version);
-        if (ret)
+        ret = dict_get_int32 (vols, key, &new_volinfo->version);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.status", count);
-        ret = dict_get_int32 (vols, key, (int32_t *)&volinfo->status);
-        if (ret)
+        ret = dict_get_int32 (vols, key, (int32_t *)&new_volinfo->status);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.sub_count", count);
-        ret = dict_get_int32 (vols, key, &volinfo->sub_count);
-        if (ret)
+        ret = dict_get_int32 (vols, key, &new_volinfo->sub_count);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
-        ret = dict_get_uint32 (vols, key, &volinfo->cksum);
-        if (ret)
+        ret = dict_get_uint32 (vols, key, &new_volinfo->cksum);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.volume_id", count);
         ret = dict_get_str (vols, key, &volume_id_str);
-        if (ret)
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
-        uuid_parse (volume_id_str, volinfo->volume_id);
-
-        list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
-                                   brick_list) {
-                glusterd_delete_volfile (volinfo, brickinfo);
-                glusterd_store_delete_brick (volinfo, brickinfo);
-                ret = glusterd_brickinfo_delete (brickinfo);
-                if (ret)
-                        goto out;
         }
 
-        while (i <= volinfo->brick_count) {
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.brick%d.hostname",
-                          count, i);
-                ret = dict_get_str (vols, key, &hostname);
-                if (ret)
-                        goto out;
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.brick%d.path",
-                          count, i);
-                ret = dict_get_str (vols, key, &path);
-                if (ret)
-                        goto out;
-
-                ret = glusterd_brickinfo_new (&brickinfo);
-                if (ret)
-                        goto out;
-
-                strcpy (brickinfo->path, path);
-                strcpy (brickinfo->hostname, hostname);
-                glusterd_resolve_brick (brickinfo);
-
-                list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
-
-                i++;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.transport_type", count);
+        ret = dict_get_uint32 (vols, key, &new_volinfo->transport_type);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
+                goto out;
         }
 
-        ret = glusterd_import_friend_volume_opts (vols, count, volinfo,
-                                                  new_volinfo);
+        uuid_parse (volume_id_str, new_volinfo->volume_id);
+
+        ret = glusterd_import_friend_volume_opts (vols, count, new_volinfo);
         if (ret)
                 goto out;
-        if (new_volinfo)
-                list_add_tail (&volinfo->vol_list, &priv->volumes);
-        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
+        ret = glusterd_import_bricks (vols, count, new_volinfo);
+        if (ret)
+                goto out;
+        *volinfo = new_volinfo;
+out:
+        if (msg[0])
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
 
-        ret = glusterd_create_volfiles (volinfo);
+int32_t
+glusterd_volume_disconnect_all_bricks (glusterd_volinfo_t *volinfo)
+{
+        int                  ret = 0;
+        glusterd_brickinfo_t *brickinfo = NULL;
+        GF_ASSERT (volinfo);
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (glusterd_is_brick_started (brickinfo)) {
+                        ret = glusterd_brick_disconnect (brickinfo);
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                                        "disconnect %s:%s", brickinfo->hostname,
+                                        brickinfo->path);
+                                break;
+                        }
+                }
+        }
+
+        return ret;
+}
+
+int32_t
+glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
+                                      glusterd_volinfo_t *old_volinfo)
+{
+        glusterd_brickinfo_t *new_brickinfo = NULL;
+        glusterd_brickinfo_t *old_brickinfo = NULL;
+
+        int             ret = 0;
+        GF_ASSERT (new_volinfo);
+        GF_ASSERT (old_volinfo);
+        if (_gf_false == glusterd_is_volume_started (new_volinfo))
+                goto out;
+        list_for_each_entry (new_brickinfo, &new_volinfo->bricks, brick_list) {
+                ret = glusterd_volume_brickinfo_get (new_brickinfo->uuid,
+                                                     new_brickinfo->hostname,
+                                                     new_brickinfo->path,
+                                                     old_volinfo, &old_brickinfo);
+                if ((0 == ret) && glusterd_is_brick_started (old_brickinfo)) {
+                        new_brickinfo->port = old_brickinfo->port;
+                }
+        }
+out:
+        ret = 0;
+        return ret;
+}
+
+int32_t
+glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
+                                    glusterd_volinfo_t *old_volinfo)
+{
+        glusterd_brickinfo_t *new_brickinfo = NULL;
+        glusterd_brickinfo_t *old_brickinfo = NULL;
+
+        int             ret = 0;
+        GF_ASSERT (new_volinfo);
+        GF_ASSERT (old_volinfo);
+        if (_gf_false == glusterd_is_volume_started (old_volinfo))
+                goto out;
+        list_for_each_entry (old_brickinfo, &old_volinfo->bricks, brick_list) {
+                ret = glusterd_volume_brickinfo_get (old_brickinfo->uuid,
+                                                     old_brickinfo->hostname,
+                                                     old_brickinfo->path,
+                                                     new_volinfo, &new_brickinfo);
+                if (ret) {
+                        ret = glusterd_brick_stop (old_volinfo, old_brickinfo);
+                        if (ret)
+                                gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                                        "stop brick %s:%s", old_brickinfo->hostname,
+                                        old_brickinfo->path);
+                }
+        }
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
+                              glusterd_volinfo_t *valid_volinfo)
+{
+        GF_ASSERT (stale_volinfo);
+        GF_ASSERT (valid_volinfo);
+
+        /* If stale volume is in started state, copy the port numbers of the
+         * local bricks if they exist in the valid volume information.
+         * stop stale bricks. Stale volume information is going to be deleted.
+         * Which deletes the valid brick information inside stale volinfo.
+         * We dont want brick_rpc_notify to access already deleted brickinfo.
+         * Disconnect valid bricks.
+         */
+        if (glusterd_is_volume_started (stale_volinfo)) {
+                if (glusterd_is_volume_started (valid_volinfo)) {
+                        (void) glusterd_volinfo_stop_stale_bricks (valid_volinfo,
+                                                                   stale_volinfo);
+                        //Only valid bricks will be running now.
+                        (void) glusterd_volinfo_copy_brick_portinfo (valid_volinfo,
+                                                                     stale_volinfo);
+                        (void) glusterd_volume_disconnect_all_bricks (stale_volinfo);
+                } else {
+                        (void) glusterd_stop_bricks (stale_volinfo);
+                }
+        }
+        /* Delete all the bricks and stores and vol files. They will be created
+         * again by the valid_volinfo. Volume store delete should not be
+         * performed because some of the bricks could still be running,
+         * keeping pid files under run directory
+         */
+        (void) glusterd_delete_all_bricks (stale_volinfo);
+        if (stale_volinfo->shandle) {
+                unlink (stale_volinfo->shandle->path);
+                (void) glusterd_store_handle_destroy (stale_volinfo->shandle);
+                stale_volinfo->shandle = NULL;
+        }
+        (void) glusterd_volinfo_delete (stale_volinfo);
+        return 0;
+}
+
+int32_t
+glusterd_import_friend_volume (dict_t *vols, size_t count)
+{
+
+        int32_t                 ret = -1;
+        glusterd_conf_t         *priv = NULL;
+        xlator_t                *this = NULL;
+        glusterd_volinfo_t      *old_volinfo = NULL;
+        glusterd_volinfo_t      *new_volinfo = NULL;
+
+        GF_ASSERT (vols);
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        ret = glusterd_import_volinfo (vols, count, &new_volinfo);
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
+        ret = glusterd_volinfo_find (new_volinfo->volname, &old_volinfo);
+        if (0 == ret) {
+                (void) glusterd_delete_stale_volume (old_volinfo, new_volinfo);
+        }
+
+        if (glusterd_is_volume_started (new_volinfo)) {
+                (void) glusterd_start_bricks (new_volinfo);
+        }
+
+        ret = glusterd_store_volinfo (new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
+        ret = glusterd_create_volfiles_and_notify_services (new_volinfo);
         if (ret)
                 goto out;
 
-
+        list_add_tail (&new_volinfo->vol_list, &priv->volumes);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d", ret);
         return ret;
@@ -1715,6 +1975,7 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
         int32_t                 count = 0;
         int                     i = 1;
         gf_boolean_t            update = _gf_false;
+        gf_boolean_t            stale_nfs = _gf_false;
 
         GF_ASSERT (vols);
         GF_ASSERT (status);
@@ -1739,9 +2000,17 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
         }
 
         if (update) {
+                if (glusterd_is_nfs_started ())
+                        stale_nfs = _gf_true;
                 ret = glusterd_import_friend_volumes (vols);
                 if (ret)
                         goto out;
+                if (_gf_false == glusterd_are_all_volumes_stopped ()) {
+                        ret = glusterd_check_generate_start_nfs ();
+                } else {
+                        if (stale_nfs)
+                                glusterd_nfs_server_stop ();
+                }
         }
 
 out:
@@ -1890,15 +2159,9 @@ glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
 }
 
 int
-glusterd_check_generate_start_nfs (glusterd_volinfo_t *volinfo)
+glusterd_check_generate_start_nfs ()
 {
         int ret = -1;
-
-        if (!volinfo) {
-                gf_log ("", GF_LOG_ERROR, "Invalid Arguments");
-                goto out;
-        }
-
 
         ret = glusterd_create_nfs_volfile ();
         if (ret)
@@ -2024,14 +2287,14 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                              brick_list) {
                                 glusterd_brick_start (volinfo, brickinfo);
                         }
-                        glusterd_check_generate_start_nfs (volinfo);
+                        glusterd_check_generate_start_nfs ();
                 }
         }
         return ret;
 }
 
 int
-glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port, 
+glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
                         gf_boolean_t localhost, glusterd_brickinfo_t **brickinfo)
 {
         glusterd_conf_t         *priv = NULL;
@@ -2073,11 +2336,11 @@ glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
         }
 }
 
-int
+gf_boolean_t
 glusterd_is_brick_started (glusterd_brickinfo_t  *brickinfo)
 {
         GF_ASSERT (brickinfo);
-        return (!(brickinfo->status == GF_BRICK_STARTED));
+        return (brickinfo->status == GF_BRICK_STARTED);
 }
 
 int
@@ -2809,4 +3072,57 @@ glusterd_peerinfo_is_uuid_unknown (glusterd_peerinfo_t *peerinfo)
         if (uuid_is_null (peerinfo->uuid))
                 return _gf_true;
         return _gf_false;
+}
+
+int32_t
+glusterd_delete_volume (glusterd_volinfo_t *volinfo)
+{
+        int             ret = -1;
+        GF_ASSERT (volinfo);
+
+        ret = glusterd_store_delete_volume (volinfo);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_volinfo_delete (volinfo);
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_delete_brick (glusterd_volinfo_t* volinfo,
+                       glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = 0;
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+#ifdef DEBUG
+        ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
+                                             brickinfo->hostname,
+                                             brickinfo->path, volinfo, NULL);
+        GF_ASSERT (0 == ret);
+#endif
+        glusterd_delete_volfile (volinfo, brickinfo);
+        glusterd_store_delete_brick (volinfo, brickinfo);
+        glusterd_brickinfo_delete (brickinfo);
+        volinfo->brick_count--;
+        return ret;
+}
+
+int32_t
+glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo)
+{
+        int             ret = 0;
+        glusterd_brickinfo_t *brickinfo = NULL;
+        glusterd_brickinfo_t *tmp = NULL;
+
+        GF_ASSERT (volinfo);
+
+        list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+                ret = glusterd_delete_brick (volinfo, brickinfo);
+        }
+        return ret;
 }

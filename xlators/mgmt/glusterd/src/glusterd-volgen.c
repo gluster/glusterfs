@@ -1945,7 +1945,7 @@ glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
 }
 
 int
-glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
+glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
 {
         int ret = -1;
 
@@ -2004,13 +2004,18 @@ int
 glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo)
 {
+        int  ret = 0;
         char filename[PATH_MAX] = {0,};
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
         get_brick_filepath (filename, volinfo, brickinfo);
-        return unlink (filename);
+        ret = unlink (filename);
+        if (ret)
+                gf_log ("glusterd", GF_LOG_ERROR, "failed to delete file: %s, "
+                        "reason: %s", filename, strerror (errno));
+        return ret;
 }
 
 int

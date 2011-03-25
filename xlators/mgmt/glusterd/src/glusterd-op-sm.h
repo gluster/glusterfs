@@ -278,4 +278,12 @@ glusterd_volume_stats_read_perf (char *brick_path, int32_t blk_size,
 int32_t
 glusterd_volume_stats_write_perf (char *brick_path, int32_t blk_size,
                 int32_t blk_count, double *throughput, double *time);
+gf_boolean_t
+glusterd_is_volume_started (glusterd_volinfo_t  *volinfo);
+int
+glusterd_start_bricks (glusterd_volinfo_t *volinfo);
+gf_boolean_t
+glusterd_are_all_volumes_stopped ();
+int
+glusterd_stop_bricks (glusterd_volinfo_t *volinfo);
 #endif
