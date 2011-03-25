@@ -442,7 +442,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 
                 gf_log ("rpcsvc", GF_LOG_TRACE, "Client port: %d", (int)port);
 
-                if (port > 1024) {  //Non-privilaged user, fail request
+                if ((port > 1024) && (0 == svc->allow_insecure)) {  //Non-privileged user, fail request
                         gf_log ("glusterd", GF_LOG_ERROR, "Request received from non-"
                                 "privileged port. Failing request");
                         return -1;
