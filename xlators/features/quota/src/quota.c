@@ -135,11 +135,8 @@ quota_local_new ()
         int32_t          ret    = 0;
 
         QUOTA_LOCAL_ALLOC_OR_GOTO (local, quota_local_t, err);
-
-        LOCK_INIT (&local->lock);
-
 err:
-        return NULL;
+        return local;
 }
 
 
@@ -1095,7 +1092,6 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         quota_local_t     *local          = NULL;
         call_stub_t       *stub           = NULL;
         int32_t            validate_count = 0;
-        quota_inode_ctx_t *ctx            = NULL;
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -1122,12 +1118,12 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         quota_check_limit (frame, loc->parent, this, NULL, 0);
 
-        LOCK (&ctx->lock);
+        LOCK (&local->lock);
         {
                 local->link_count = 0;
                 validate_count = local->validate_count;
         }
-        UNLOCK (&ctx->lock);
+        UNLOCK (&local->lock);
 
         if (validate_count == 0) {
                 call_resume (stub);

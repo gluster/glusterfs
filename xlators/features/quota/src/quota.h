@@ -90,7 +90,6 @@
                 STACK_UNWIND_STRICT (fop, frame, params);               \
                 quota_local_cleanup (_this, _local);                    \
                 GF_FREE (_local);                                       \
-                gf_log (this->name, GF_LOG_INFO, "stack unwind");       \
         } while (0)
 
 #define QUOTA_FREE_CONTRIBUTION_NODE(_contribution)     \
