@@ -40,24 +40,37 @@ void
 dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
 {
         dict_t  *dst  = NULL;
-        int64_t *ptr  = 0, size = 0;
+        int64_t *ptr  = 0, *size = NULL;
         int32_t  ret  = -1;
 
         dst = data;
 
-        if (strncmp (key, GF_XATTR_QUOTA_SIZE_KEY,
-                     strlen (GF_XATTR_QUOTA_SIZE_KEY)) == 0) {
-                ret = dict_get_bin (dst, key, (void **)&ptr);
-                if (ret == 0) {
-                        size = ntoh64 (*ptr);
+        if (strcmp (key, GF_XATTR_QUOTA_SIZE_KEY) == 0) {
+                ret = dict_get_bin (dst, key, (void **)&size);
+                if (ret < 0) {
+                        size = GF_CALLOC (1, sizeof (int64_t),
+                                          gf_common_mt_char);
+                        if (size == NULL) {
+                                gf_log ("dht", GF_LOG_WARNING,
+                                        "memory allocation failed");
+                                return;
+                        }
+                        ret = dict_set_bin (dst, key, size, sizeof (int64_t));
+                        if (ret < 0) {
+                                gf_log ("dht", GF_LOG_WARNING,
+                                        "dht aggregate dict set failed");
+                                GF_FREE (size);
+                                return;
+                        }
                 }
 
                 ptr = data_to_bin (value);
+                if (ptr == NULL) {
+                        gf_log ("dht", GF_LOG_WARNING, "data to bin failed");
+                        return;
+                }
 
-                size += ntoh64 (*ptr);
-
-                *ptr = hton64 (*ptr);
-                ret = dict_set_bin (dst, key, ptr, sizeof (int64_t));
+                *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
         }
 
         return;
