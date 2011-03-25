@@ -146,7 +146,7 @@ mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!dict)
                 goto wind;
 
-        ret = dict_get_bin (dict, priv->size_key, (void **) &size);
+        ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
         if (ret)
                 goto wind;
 
@@ -157,7 +157,7 @@ wind:
         if (!newdict)
                 goto err;
 
-        ret = dict_set_int8 (newdict, priv->dirty_key, 0);
+        ret = dict_set_int8 (newdict, QUOTA_DIRTY_KEY, 0);
         if (ret)
                 goto err;
 
@@ -190,7 +190,7 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         int64_t         *size     = NULL;
         int64_t         *delta    = NULL;
         quota_local_t   *local    = NULL;
-        marker_conf_t    *priv     = NULL;
+        marker_conf_t   *priv     = NULL;
 
         if (op_ret == -1)
                 goto err;
@@ -202,7 +202,7 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        ret = dict_get_bin (dict, priv->size_key, (void **) &size);
+        ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
         if (!size)
                 goto err;
 
@@ -217,7 +217,7 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         new_dict = dict_new ();
         if (!new_dict);
 
-        ret = dict_set_bin (new_dict, priv->size_key, delta, 8);
+        ret = dict_set_bin (new_dict, QUOTA_SIZE_KEY, delta, 8);
         if (ret)
                 goto err;
 
@@ -235,7 +235,7 @@ err:
         }
 
         if (new_dict)
-                dict_unref (dict);
+                dict_unref (new_dict);
 
         return 0;
 }
@@ -258,7 +258,7 @@ get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
                 goto err;
         }
 
-        ret = dict_set_int64 (dict, priv->size_key, 0);
+        ret = dict_set_int64 (dict, QUOTA_SIZE_KEY, 0);
         if (ret)
                 goto err;
 
@@ -537,7 +537,7 @@ check_if_still_dirty (call_frame_t *frame,
               goto err;
         }
 
-        ret = dict_get_int8 (dict, priv->dirty_key, &dirty);
+        ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
         if (ret)
                 goto err;
 
@@ -593,7 +593,7 @@ get_dirty_xattr (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        ret = dict_set_int8 (xattr_req, priv->dirty_key, 0);
+        ret = dict_set_int8 (xattr_req, QUOTA_DIRTY_KEY, 0);
         if (ret)
                 goto err;
 
@@ -706,7 +706,7 @@ create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!newdict)
                         goto err;
 
-                ret = dict_set_int8 (newdict, priv->dirty_key, 0);
+                ret = dict_set_int8 (newdict, QUOTA_DIRTY_KEY, 0);
                 if (ret == -1)
                         goto err;
 
@@ -766,7 +766,7 @@ quota_set_inode_xattr (xlator_t *this, loc_t *loc)
 
         if (loc->inode->ia_type == IA_IFDIR) {
                 QUOTA_ALLOC_OR_GOTO (size, int64_t, ret, err);
-                ret = dict_set_bin (dict, priv->size_key, size, 8);
+                ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
                 if (ret < 0)
                         goto free_size;
         }
@@ -877,8 +877,6 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
         int32_t         ret  = 0;
         quota_local_t  *local = NULL;
 
-        trap ();
-
         local = frame->local;
 
         if (op_ret == -1 || local->err) {
@@ -985,7 +983,7 @@ quota_mark_undirty (call_frame_t *frame,
                 if (ret < 0)
                         goto err;
 
-                ret = dict_get_bin (dict, priv->size_key, (void **) &size);
+                ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
                 if (ret < 0)
                         goto err;
 
@@ -1002,7 +1000,7 @@ quota_mark_undirty (call_frame_t *frame,
         if (!newdict)
                 goto err;
 
-        ret = dict_set_int8 (newdict, priv->dirty_key, 0);
+        ret = dict_set_int8 (newdict, QUOTA_DIRTY_KEY, 0);
 
         if (ret == -1)
                 goto err;
@@ -1071,7 +1069,7 @@ quota_update_parent_size (call_frame_t *frame,
 
         *size = ntoh64 (local->delta);
 
-        ret = dict_set_bin (newdict, priv->size_key, size, 8);
+        ret = dict_set_bin (newdict, QUOTA_SIZE_KEY, size, 8);
         if (ret < 0)
                 goto err;
 
@@ -1136,7 +1134,7 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
         LOCK (&ctx->lock);
         {
                 if (local->loc.inode->ia_type == IA_IFDIR ) {
-                        ret = dict_get_bin (dict, priv->size_key,
+                        ret = dict_get_bin (dict, QUOTA_SIZE_KEY,
                                             (void **) &size);
                         if (ret < 0)
                                 goto unlock;
@@ -1241,7 +1239,7 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
                 goto err;
 
         if (local->loc.inode->ia_type == IA_IFDIR) {
-                ret = dict_set_int64 (newdict, priv->size_key, 0);
+                ret = dict_set_int64 (newdict, QUOTA_SIZE_KEY, 0);
         }
 
         GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
@@ -1301,7 +1299,7 @@ quota_markdirty (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        ret = dict_set_int8 (dict, priv->dirty_key, 1);
+        ret = dict_set_int8 (dict, QUOTA_DIRTY_KEY, 1);
         if (ret == -1)
                 goto err;
 
@@ -1473,11 +1471,11 @@ inspect_directory_xattr (xlator_t *this,
                 }
         }
 
-        ret = dict_get_bin (dict, priv->size_key, (void **) &size);
+        ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
         if (ret < 0)
                 goto out;
 
-        ret = dict_get_int8 (dict, priv->dirty_key, &dirty);
+        ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
         if (ret < 0)
                 goto out;
 
@@ -1611,13 +1609,13 @@ quota_req_xattr (xlator_t *this,
                 goto out;
 
 set_size:
-        ret = dict_set_uint64 (dict, priv->size_key, 0);
+        ret = dict_set_uint64 (dict, QUOTA_SIZE_KEY, 0);
         if (ret < 0) {
                 ret = -1;
                 goto out;
         }
 
-        ret = dict_set_int8 (dict, priv->dirty_key, 0);
+        ret = dict_set_int8 (dict, QUOTA_DIRTY_KEY, 0);
         if (ret < 0) {
                 ret = -1;
                 goto out;
@@ -1700,8 +1698,7 @@ reduce_parent_size (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        ret = quota_inode_loc_fill ((const char *) loc->parent->gfid,
-                                    loc->parent, &local->parent_loc);
+        ret = quota_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
         if (ret < 0)
                 goto free_local;
 
@@ -1715,7 +1712,7 @@ reduce_parent_size (xlator_t *this, loc_t *loc)
 
         *size = hton64 (-contribution->contribution);
 
-        ret = dict_set_bin (dict, priv->size_key, size, 8);
+        ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
         if (ret < 0)
                 goto free_size;
 
@@ -1748,17 +1745,7 @@ out:
 int32_t
 init_quota_priv (xlator_t *this)
 {
-        marker_conf_t  *priv    = NULL;
-
-        priv = this->private;
-
         strcpy (volname, "quota");
-
-        gf_asprintf (&priv->size_key, QUOTA_XATTR_PREFIX
-                     ".%s.size", volname);
-
-        gf_asprintf (&priv->dirty_key, QUOTA_XATTR_PREFIX
-                     ".%s.dirty", volname);
 
         return 0;
 }
