@@ -599,6 +599,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
         }
 
+        (void) rpcsvc_set_allow_insecure (rpc_conf, options);
         list_for_each_entry (listeners, &(rpc_conf->listeners), list) {
                 if (listeners->trans != NULL) {
                         if (listeners->trans->reconfigure )
@@ -853,6 +854,8 @@ struct volume_options options[] = {
                     "conf-dir"},
           .type  = GF_OPTION_TYPE_PATH,
         },
-
+        { .key   = {"rpc-auth-allow-insecure"},
+          .type  = GF_OPTION_TYPE_BOOL,
+        },
         { .key   = {NULL} },
 };
