@@ -29,6 +29,8 @@
 #include "marker-mem-types.h"
 
 #define QUOTA_XATTR_PREFIX "trusted.glusterfs"
+#define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
+#define QUOTA_DIRTY_KEY "trusted.glusterfs.quota.dirty"
 #define CONTRIBUTION "contri"
 #define VOL_NAME volname
 #define CONTRI_KEY_MAX 512
