@@ -133,6 +133,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC},
 
         {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC},
+        {"server.allow-insecure",                 "protocol/server",          "rpc-auth-allow-insecure", NULL, NO_DOC},
 
         {"performance.write-behind",             "performance/write-behind",  "!perf", "on", NO_DOC}, /* NODOC */
         {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC}, /* NODOC */
