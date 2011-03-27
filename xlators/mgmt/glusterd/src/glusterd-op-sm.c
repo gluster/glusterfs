@@ -2234,22 +2234,27 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
         }
-        list_add_tail (&volinfo->vol_list, &priv->volumes);
-        volinfo->defrag_status = 0;
 
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-
-        if (ret)
+        if (ret) {
+                *op_errstr = gf_strdup ("Failed to store the Volume information");
                 goto out;
+        }
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
-        if (ret)
+        if (ret) {
+                *op_errstr = gf_strdup ("Failed to create volume files");
                 goto out;
+        }
 
         ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
+        if (ret) {
+                *op_errstr = gf_strdup ("Failed to compute checksum of volume");
                 goto out;
+        }
 
+        volinfo->defrag_status = 0;
+        list_add_tail (&volinfo->vol_list, &priv->volumes);
 out:
         if (free_ptr)
                 GF_FREE(free_ptr);
