@@ -846,11 +846,11 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf, preoldparent,
                              postoldparent, prenewparent, postnewparent);
 
-        oplocal = local->oplocal;
-        local->oplocal = NULL;
-
         if (op_ret == -1 || local == NULL)
                 goto out;
+
+        oplocal = local->oplocal;
+        local->oplocal = NULL;
 
         priv = this->private;
 
