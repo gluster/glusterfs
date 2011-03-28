@@ -97,6 +97,10 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                         GF_FREE (host_name);
                         goto out;
                 }
+                if (!valid_host_name(host_name, strlen(host_name))) {
+                        cli_out ("internet address '%s' does not comform to "
+			         "standards", host_name);
+                }
                 GF_FREE (host_name);
                 tmp_list = gf_strdup (brick_list + 1);
                 if (free_list_ptr) {
