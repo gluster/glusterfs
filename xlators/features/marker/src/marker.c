@@ -1580,7 +1580,6 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        struct iatt     stat_buf;
         marker_conf_t  *priv    = NULL;
         marker_local_t *local   = NULL;
 
@@ -1588,12 +1587,6 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_TRACE, "lookup failed with %s",
                         strerror (op_errno));
         }
-
-        priv = this->private;
-
-        dict_ref (dict);
-
-        memmove (&stat_buf, buf, sizeof (struct iatt));
 
         local = (marker_local_t *) frame->local;
 
@@ -1605,14 +1598,14 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1 || local == NULL)
                 goto out;
 
+        priv = this->private;
+
         if (priv->feature_enabled & GF_QUOTA) {
-                quota_xattr_state (this, &local->loc, dict, stat_buf);
+                quota_xattr_state (this, &local->loc, dict, *buf);
         }
 
 out:
         marker_local_unref (local);
-
-        dict_unref (dict);
 
         return 0;
 }
