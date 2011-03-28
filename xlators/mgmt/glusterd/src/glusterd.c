@@ -568,6 +568,9 @@ struct volume_options options[] = {
         { .key   = {"rpc-auth.*"},
           .type  = GF_OPTION_TYPE_ANY,
         },
+        { .key   = {"rpc-auth-allow-insecure"},
+          .type  = GF_OPTION_TYPE_BOOL,
+        },
 
         { .key   = {NULL} },
 };
