@@ -4058,7 +4058,7 @@ _glusterd_quota_remove_limits (char **quota_limits, char *path)
                         memcpy ((void *) &limits [i], (void *) &qlimits [i], size + 1);
                 } else {
                         skiplen = size + 1;
-                        size = len - i - size + 1;
+                        size = len - i - size;
                         memcpy ((void *) &limits [i], (void *) &qlimits [i + skiplen], size);
                         break;
                 }
@@ -4436,7 +4436,7 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
 
         quota_limits = value;
 
-        ret = dict_set_dynstr (volinfo->dict, "features.limit-usage",
+        ret = dict_set_str (volinfo->dict, "features.limit-usage",
                             quota_limits);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
@@ -4484,7 +4484,7 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **
                 goto out;
 
         if (quota_limits) {
-                ret = dict_set_dynstr (volinfo->dict, "features.limit-usage",
+                ret = dict_set_str (volinfo->dict, "features.limit-usage",
                                     quota_limits);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
