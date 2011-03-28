@@ -749,6 +749,7 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs3.*.volume-access"},
           .type = GF_OPTION_TYPE_STR,
+          .value = {"read-only", "read-write"},
           .description = "Type of access desired for this subvolume: "
                          " read-only, read-write(default)"
         },
