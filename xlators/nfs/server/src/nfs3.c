@@ -2512,7 +2512,7 @@ nfs3_create (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->cookieverf = cverf;
-        cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, NULL,
+        cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
                                                           &cs->mode);
         cs->createmode = mode;
         cs->parent = *dirfh;
