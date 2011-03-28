@@ -388,9 +388,12 @@ __volume_option_value_validate (char *name,
 	break;
         case GF_OPTION_TYPE_INTERNET_ADDRESS:
         {
-                if (valid_internet_address (pair->value->data)) {
-                        ret = 0;
+                if (!valid_internet_address (pair->value->data)) {
+			gf_log (name, GF_LOG_ERROR,
+			        "internet address '%s' does not conform to"
+				"standards.", pair->value->data);
                 }
+                ret = 0;
 	}
         break;
 	case GF_OPTION_TYPE_ANY:

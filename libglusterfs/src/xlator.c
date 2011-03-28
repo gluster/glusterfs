@@ -619,10 +619,8 @@ _volume_option_value_validate_attacherr (xlator_t *xl,
         break;
         case GF_OPTION_TYPE_INTERNET_ADDRESS:
         {
-                if (valid_internet_address (pair->value->data)) {
-                        ret = 0;
-                } else {
-                        gf_log (xl->name, GF_LOG_ERROR, "internet address '%s'"
+                if (!valid_internet_address (pair->value->data)) {
+                        gf_log (xl->name, GF_LOG_WARNING, "internet address '%s'"
                                 " does not conform to standards.",
                                 pair->value->data);
 
@@ -632,8 +630,8 @@ _volume_option_value_validate_attacherr (xlator_t *xl,
                                   pair->value->data);
 
                         *op_errstr = gf_strdup (errstr);
-                        goto out;
                 }
+                ret = 0;
         }
         break;
         case GF_OPTION_TYPE_ANY:
@@ -1019,14 +1017,12 @@ _volume_option_value_validate (xlator_t *xl,
 	break;
         case GF_OPTION_TYPE_INTERNET_ADDRESS:
         {
-                if (valid_internet_address (pair->value->data)) {
-                        ret = 0;
-                } else {
-			gf_log (xl->name, GF_LOG_ERROR, "internet address '%s'"
+                if (!valid_internet_address (pair->value->data)) {
+			gf_log (xl->name, GF_LOG_WARNING, "internet address '%s'"
 				" does not conform to standards.",
 				pair->value->data);
-			goto out;
 		}
+                ret = 0;
 	}
         break;
 	case GF_OPTION_TYPE_ANY:
