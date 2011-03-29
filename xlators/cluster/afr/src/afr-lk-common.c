@@ -95,7 +95,6 @@ internal_lock_count (call_frame_t *frame, xlator_t *this,
 {
         afr_local_t   *local = NULL;
         afr_private_t *priv  = NULL;
-
         int32_t call_count = 0;
         int i = 0;
 
@@ -476,7 +475,6 @@ initialize_inodelk_variables (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local    = NULL;
         afr_internal_lock_t *int_lock = NULL;
         afr_private_t       *priv     = NULL;
-
         int i = 0;
 
         priv     = this->private;
@@ -514,7 +512,7 @@ int
 afr_locked_nodes_count (unsigned char *locked_nodes, int child_count)
 
 {
-        int i;
+        int i = 0;
         int call_count = 0;
 
         for (i = 0; i < child_count; i++) {
@@ -556,13 +554,18 @@ static int32_t
 afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno)
 {
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+
         afr_trace_inodelk_out (frame, AFR_INODELK_TRANSACTION,
                                AFR_UNLOCK_OP, NULL, op_ret,
                                op_errno, (long) cookie);
 
         if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Unlock failed for some reason");
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: unlock failed %s",
+                        local->loc.path, strerror (op_errno));
         }
 
         afr_unlock_common_cbk (frame, cookie, this, op_ret, op_errno);
@@ -577,8 +580,7 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
-
-        struct gf_flock flock;
+        struct gf_flock flock = {0,};
         int call_count = 0;
         int i = 0;
 
@@ -663,7 +665,6 @@ afr_unlock_entrylk (call_frame_t *frame, xlator_t *this)
         afr_private_t       *priv     = NULL;
         const char          *basename = NULL;
         loc_t               *loc      = NULL;
-
         int call_count = 0;
         int i = -1;
 
@@ -716,7 +717,6 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
-
         int done = 0;
         int child_index = (long) cookie;
 
@@ -731,7 +731,7 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 /* return ENOTSUP */
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "subvolume does not support locking. "
-                                        "please load features/posix-locks xlator on server");
+                                        "please load features/locks xlator on server");
                                 local->op_ret = op_ret;
                                 int_lock->lock_op_ret = op_ret;
                                 done = 1;
@@ -783,7 +783,6 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_t               *higher      = NULL;
         const char          *lower_name  = NULL;
         const char          *higher_name = NULL;
-
         int child_index = (long) cookie;
 
         priv     = this->private;
@@ -798,7 +797,7 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "subvolume does not support locking. "
-                                        "please load features/posix-locks xlator on server");
+                                        "please load features/locks xlator on server");
 
                                 local->op_ret   = op_ret;
                         }
@@ -907,9 +906,8 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
         loc_t               *higher      = NULL;
         const char          *lower_name  = NULL;
         const char          *higher_name = NULL;
-
-        struct gf_flock flock;
-        uint64_t ctx;
+        struct gf_flock flock = {0,};
+        uint64_t ctx = 0;
         int ret = 0;
 
         local    = frame->local;
@@ -924,7 +922,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
                 ret = fd_ctx_get (local->fd, this, &ctx);
 
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "unable to get fd ctx for fd=%p",
                                 local->fd);
 
@@ -960,7 +958,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
         if ((child_index == priv->child_count) &&
             int_lock->lock_count == 0) {
 
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "unable to lock on even one child");
 
                 local->op_ret           = -1;
@@ -1128,7 +1126,6 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
-
         int call_count          = 0;
         int child_index         = (long) cookie;
 
@@ -1151,7 +1148,7 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* return ENOTSUP */
                         gf_log (this->name, GF_LOG_ERROR,
                                 "subvolume does not support locking. "
-                                "please load features/posix-locks xlator on server");
+                                "please load features/locks xlator on server");
                         local->op_ret         = op_ret;
                         int_lock->lock_op_ret = op_ret;
 
@@ -1199,10 +1196,9 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
         afr_fd_ctx_t        *fd_ctx   = NULL;
         const char          *basename = NULL;
         loc_t               *loc      = NULL;
-
         int32_t call_count = 0;
         int i = 0;
-        uint64_t  ctx;
+        uint64_t  ctx = 0;
         int ret = 0;
 
         local    = frame->local;
@@ -1219,7 +1215,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                 ret = fd_ctx_get (local->fd, this, &ctx);
 
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "unable to get fd ctx for fd=%p",
                                 local->fd);
 
@@ -1237,7 +1233,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                 int_lock->lk_call_count = call_count;
 
                 if (!call_count) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "fd not open on any subvolumes. aborting.");
                         afr_unlock (frame, this);
                         goto out;
@@ -1294,7 +1290,6 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
-
         int call_count  = 0;
         int child_index = (long) cookie;
 
@@ -1317,7 +1312,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* return ENOTSUP */
                         gf_log (this->name, GF_LOG_ERROR,
                                 "subvolume does not support locking. "
-                                "please load features/posix-locks xlator on server");
+                                "please load features/locks xlator on server");
                         local->op_ret                = op_ret;
                         int_lock->lock_op_ret        = op_ret;
                         local->child_up[child_index] = 0;
@@ -1362,12 +1357,11 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
         afr_fd_ctx_t        *fd_ctx   = NULL;
-
         int32_t  call_count = 0;
         uint64_t ctx        = 0;
         int      i          = 0;
         int      ret        = 0;
-        struct gf_flock flock;
+        struct gf_flock flock = {0,};
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -1383,7 +1377,7 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                 ret = fd_ctx_get (local->fd, this, &ctx);
 
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "unable to get fd ctx for fd=%p",
                                 local->fd);
 
@@ -1402,7 +1396,7 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                 int_lock->lk_call_count = call_count;
 
                 if (!call_count) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "fd not open on any subvolumes. aborting.");
                         afr_unlock (frame, this);
                         goto out;
@@ -1461,7 +1455,6 @@ __is_lower_locked (call_frame_t *frame, xlator_t *this)
         afr_internal_lock_t *int_lock = NULL;
         afr_private_t       *priv     = NULL;
         afr_local_t         *local    = NULL;
-
         int count = 0;
         int i     = 0;
 
@@ -1484,7 +1477,6 @@ __is_higher_locked (call_frame_t *frame, xlator_t *this)
         afr_internal_lock_t *int_lock = NULL;
         afr_private_t       *priv     = NULL;
         afr_local_t         *local    = NULL;
-
         int count = 0;
         int i = 0;
 
@@ -1509,7 +1501,6 @@ afr_unlock_lower_entrylk (call_frame_t *frame, xlator_t *this)
         afr_private_t       *priv     = NULL;
         const char          *basename = NULL;
         loc_t               *loc      = NULL;
-
         int call_count = 0;
         int i = -1;
 
@@ -1709,6 +1700,11 @@ afr_mark_locked_nodes (xlator_t *this, fd_t *fd,
                 goto out;
 
         ret = fd_ctx_get (fd, this, &tmp);
+        if (ret) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "failed to get the fd ctx");
+                goto out;
+        }
         fdctx = (afr_fd_ctx_t *) (long) tmp;
 
         GF_ASSERT (fdctx->locked_on);
@@ -1751,8 +1747,6 @@ __afr_save_locked_fd (xlator_t *this, fd_t *fd)
         locked_fd = GF_CALLOC (1, sizeof (*locked_fd),
                                gf_afr_mt_locked_fd);
         if (!locked_fd) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 ret = -1;
                 goto out;
         }
@@ -1784,7 +1778,7 @@ afr_save_locked_fd (xlator_t *this, fd_t *fd)
 
                 ret = __afr_save_locked_fd (this, fd);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "fd=%p could not be saved", fd);
                         goto unlock;
                 }
@@ -1835,12 +1829,10 @@ afr_get_source_lock_recovery (xlator_t *this, fd_t *fd)
         for (i = 0; i < priv->child_count; i++) {
                 if (fdctx->locked_on[i]) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "Found lock recovery source=%d",
-                                i);
+                                "Found lock recovery source=%d", i);
                         source_child = i;
                         break;
                 }
-
         }
 
 out:
@@ -1864,7 +1856,7 @@ afr_recover_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv  = this->private;
 
         if (op_ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "lock recovery failed");
                 goto cleanup;
         }
@@ -1926,7 +1918,7 @@ afr_get_locks_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         if (op_ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Failed to get locks on fd");
                 goto cleanup;
         }
@@ -1935,7 +1927,7 @@ afr_get_locks_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 "Got a lock on fd");
 
         if (is_afr_lock_eol (lock)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Reached EOL on locks on fd");
                 goto cleanup;
         }
@@ -2017,7 +2009,7 @@ afr_lock_recovery_preopen_cbk (call_frame_t *frame, void *cookie, xlator_t *this
         int ret = 0;
 
         if (op_ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Reopen during lock-recovery failed");
                 goto cleanup;
         }
@@ -2027,14 +2019,14 @@ afr_lock_recovery_preopen_cbk (call_frame_t *frame, void *cookie, xlator_t *this
 
         ret = afr_lock_recovery (frame, this);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Lock recovery failed");
                 goto cleanup;
         }
 
         ret = afr_mark_fd_opened (this, fd, child_index);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Marking fd open failed");
                 goto cleanup;
         }
@@ -2113,7 +2105,7 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
         afr_locked_fd_t *locked_fd = NULL;
         afr_locked_fd_t  *tmp       = NULL;
         int              ret       = 0;
-        struct list_head locks_list;
+        struct list_head locks_list = {0,};
 
 
         priv = this->private;
@@ -2123,8 +2115,6 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 ret = -1;
                 goto out;
         }
@@ -2132,16 +2122,12 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
         local = GF_CALLOC (1, sizeof (*local),
                            gf_afr_mt_afr_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Out of memory");
                 ret = -1;
                 goto out;
         }
 
         AFR_LOCAL_INIT (local, priv);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 ret = -1;
                 goto out;
         }

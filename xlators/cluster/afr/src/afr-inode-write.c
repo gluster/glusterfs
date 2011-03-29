@@ -84,7 +84,6 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postbuf)
 {
         afr_local_t *   local = NULL;
-
         int child_index = (long) cookie;
         int call_count  = -1;
         int read_child  = 0;
@@ -135,7 +134,6 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int i = 0;
         int call_count = -1;
 
@@ -195,7 +193,6 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t * transaction_frame = NULL;
         afr_local_t *  local             = NULL;
-
         int op_ret   = -1;
         int op_errno = 0;
 
@@ -203,8 +200,6 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_errno = ENOMEM;
                 goto out;
         }
@@ -251,13 +246,10 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
-
         int ret = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
-
-        uint64_t ctx;
+        uint64_t ctx = 0;
         afr_fd_ctx_t *fd_ctx = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -349,7 +341,6 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
-
         int child_index = (long) cookie;
         int read_child  = 0;
         int call_count  = -1;
@@ -410,7 +401,6 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int call_count = -1;
         int i = 0;
 
@@ -466,9 +456,7 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
-
         int ret = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
 
@@ -480,8 +468,6 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -565,7 +551,6 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
-
         int child_index = (long) cookie;
         int call_count  = -1;
         int need_unwind = 0;
@@ -626,7 +611,6 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int call_count = -1;
         int i = 0;
 
@@ -679,7 +663,6 @@ afr_do_ftruncate (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t * transaction_frame = NULL;
         afr_local_t *  local             = NULL;
-
         int op_ret   = -1;
         int op_errno = 0;
 
@@ -687,8 +670,6 @@ afr_do_ftruncate (call_frame_t *frame, xlator_t *this)
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -727,13 +708,10 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
-
         int ret = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
-
-        uint64_t ctx;
+        uint64_t ctx = 0;
         afr_fd_ctx_t *fd_ctx = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -823,7 +801,6 @@ afr_setattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
-
         int child_index = (long) cookie;
         int read_child  = 0;
         int call_count  = -1;
@@ -884,7 +861,6 @@ afr_setattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int call_count = -1;
         int i = 0;
 
@@ -941,9 +917,7 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
-
         int ret = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
 
@@ -955,8 +929,6 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -1041,7 +1013,6 @@ afr_fsetattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
-
         int child_index = (long) cookie;
         int read_child  = 0;
         int call_count  = -1;
@@ -1102,7 +1073,6 @@ afr_fsetattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int call_count = -1;
         int i = 0;
 
@@ -1159,9 +1129,7 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
-
         int ret = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
 
@@ -1173,8 +1141,6 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -1252,7 +1218,6 @@ afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
-
         int call_count  = -1;
         int need_unwind = 0;
 
@@ -1294,7 +1259,6 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int call_count = -1;
         int i = 0;
 
@@ -1348,9 +1312,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
-
         int ret = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
 
@@ -1370,8 +1332,6 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -1440,7 +1400,6 @@ afr_removexattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
-
         int call_count  = -1;
         int need_unwind = 0;
 
@@ -1482,7 +1441,6 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int call_count = -1;
         int i = 0;
 
@@ -1536,9 +1494,7 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
-
         int ret = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
 
@@ -1551,8 +1507,6 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 

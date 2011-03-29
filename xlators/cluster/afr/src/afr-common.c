@@ -123,7 +123,13 @@ afr_set_split_brain (xlator_t *this, inode_t *inode, gf_boolean_t set)
                 } else {
                         ctx = (~AFR_ICTX_SPLIT_BRAIN_MASK & ctx);
                 }
-                __inode_ctx_put (inode, this, ctx);
+
+                ret = __inode_ctx_put (inode, this, ctx);
+                if (ret) {
+                        gf_log_callingfn (this->name, GF_LOG_INFO,
+                                          "failed to set the inode ctx (%s)",
+                                          uuid_utoa (inode->gfid));
+                }
         }
         UNLOCK (&inode->lock);
 out:
@@ -134,8 +140,7 @@ out:
 uint64_t
 afr_is_opendir_done (xlator_t *this, inode_t *inode)
 {
-        int ret = 0;
-
+        int      ret          = 0;
         uint64_t ctx          = 0;
         uint64_t opendir_done = 0;
 
@@ -177,7 +182,12 @@ afr_set_opendir_done (xlator_t *this, inode_t *inode)
                 ctx = (~AFR_ICTX_OPENDIR_DONE_MASK & ctx)
                         | (0xFFFFFFFFFFFFFFFFULL & AFR_ICTX_OPENDIR_DONE_MASK);
 
-                __inode_ctx_put (inode, this, ctx);
+                ret = __inode_ctx_put (inode, this, ctx);
+                if (ret) {
+                        gf_log_callingfn (this->name, GF_LOG_INFO,
+                                          "failed to set the inode ctx (%s)",
+                                          uuid_utoa (inode->gfid));
+                }
         }
         UNLOCK (&inode->lock);
 out:
@@ -231,7 +241,12 @@ afr_set_read_child (xlator_t *this, inode_t *inode, int32_t read_child)
                 ctx = (~AFR_ICTX_READ_CHILD_MASK & ctx)
                         | (AFR_ICTX_READ_CHILD_MASK & read_child);
 
-                __inode_ctx_put (inode, this, ctx);
+                ret = __inode_ctx_put (inode, this, ctx);
+                if (ret) {
+                        gf_log_callingfn (this->name, GF_LOG_INFO,
+                                          "failed to set the inode ctx (%s)",
+                                          uuid_utoa (inode->gfid));
+                }
         }
         UNLOCK (&inode->lock);
 
@@ -348,7 +363,7 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 void
 afr_local_cleanup (afr_local_t *local, xlator_t *this)
 {
-        int i;
+        int i = 0;
         afr_private_t * priv = NULL;
 
         if (!local)
@@ -525,7 +540,7 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
 
-        if (local->govinda_gOvinda) {
+        if (local->govinda_gOvinda && local->cont.lookup.inode) {
                 afr_set_split_brain (this, local->cont.lookup.inode, _gf_true);
         }
 
@@ -543,10 +558,9 @@ static void
 afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
                           int child_index, dict_t *xattr)
 {
-        uint32_t        inodelk_count = 0;
-        uint32_t        entrylk_count = 0;
-
-        int ret = 0;
+        uint32_t inodelk_count = 0;
+        uint32_t entrylk_count = 0;
+        int      ret           = 0;
 
         if (afr_sh_has_metadata_pending (xattr, child_index, this)) {
                 local->self_heal.need_metadata_self_heal = _gf_true;
@@ -557,13 +571,13 @@ afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
 
         if (afr_sh_has_entry_pending (xattr, child_index, this)) {
                 local->self_heal.need_entry_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_DEBUG,
+                gf_log(this->name, GF_LOG_INFO,
                        "entry self-heal is pending for %s.", local->loc.path);
         }
 
         if (afr_sh_has_data_pending (xattr, child_index, this)) {
                 local->self_heal.need_data_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_DEBUG,
+                gf_log(this->name, GF_LOG_INFO,
                        "data self-heal is pending for %s.", local->loc.path);
         }
 
@@ -587,7 +601,7 @@ afr_lookup_self_heal_check (xlator_t *this, afr_local_t *local,
                 /* mismatching filetypes with same name
                  */
 
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "filetype differs for %s ", local->loc.path);
 
                 local->govinda_gOvinda = 1;
@@ -595,7 +609,7 @@ afr_lookup_self_heal_check (xlator_t *this, afr_local_t *local,
 
         if (PERMISSION_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "permissions differ for %s ", local->loc.path);
                 local->self_heal.need_metadata_self_heal = _gf_true;
         }
@@ -603,13 +617,13 @@ afr_lookup_self_heal_check (xlator_t *this, afr_local_t *local,
         if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
                 local->self_heal.need_metadata_self_heal = _gf_true;
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "ownership differs for %s ", local->loc.path);
         }
 
         if (SIZE_DIFFERS (buf, lookup_buf)
             && IA_ISREG (buf->ia_type)) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "size differs for %s ", local->loc.path);
                 local->self_heal.need_data_self_heal = _gf_true;
         }
@@ -624,7 +638,6 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
         int  source = -1;
         int  up_count = 0;
         char sh_type_str[256] = {0,};
-
         afr_private_t *priv  = NULL;
         afr_local_t   *local = NULL;
 
@@ -657,19 +670,18 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                 local->self_heal.need_metadata_self_heal = _gf_true;
                 local->self_heal.need_data_self_heal     = _gf_true;
                 local->self_heal.need_entry_self_heal    = _gf_true;
-                gf_log(this->name, GF_LOG_NORMAL,
+                gf_log(this->name, GF_LOG_INFO,
                        "entries are missing in lookup of %s.",
                        local->loc.path);
         }
 
         if (local->success_count) {
                 /* check for split-brain case in previous lookup */
-                if (afr_is_split_brain (this,
-                                        local->cont.lookup.inode)) {
+                if (afr_is_split_brain (this, local->cont.lookup.inode)) {
                         local->self_heal.need_data_self_heal = _gf_true;
-                        gf_log(this->name, GF_LOG_NORMAL,
-                               "split brain detected during lookup of "
-                               "%s.", local->loc.path);
+                        gf_log(this->name, GF_LOG_WARNING,
+                               "split brain detected during lookup of %s.",
+                               local->loc.path);
                 }
         }
 
@@ -694,29 +706,30 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                                                             source);
                                 }
                         }
-                } else {
-                        if (!local->cont.lookup.inode->ia_type) {
-                                /* fix for RT #602 */
-                                local->cont.lookup.inode->ia_type =
-                                        lookup_buf->ia_type;
-                        }
-
-                        local->self_heal.background = _gf_true;
-                        local->self_heal.type       = local->cont.lookup.buf.ia_type;
-                        local->self_heal.unwind     = afr_self_heal_lookup_unwind;
-
-                        unwind = 0;
-
-                        afr_self_heal_type_str_get(&local->self_heal,
-                                                   sh_type_str,
-                                                   sizeof(sh_type_str));
-
-                        gf_log (this->name, GF_LOG_NORMAL, "background %s "
-                                "self-heal triggered. path: %s",
-                                sh_type_str, local->loc.path);
-
-                        afr_self_heal (frame, this);
+                        goto unwind;
                 }
+
+                if (!local->cont.lookup.inode->ia_type) {
+                        /* fix for RT #602 */
+                        local->cont.lookup.inode->ia_type =
+                                lookup_buf->ia_type;
+                }
+
+                local->self_heal.background = _gf_true;
+                local->self_heal.type       = local->cont.lookup.buf.ia_type;
+                local->self_heal.unwind     = afr_self_heal_lookup_unwind;
+
+                unwind = 0;
+
+                afr_self_heal_type_str_get(&local->self_heal,
+                                           sh_type_str,
+                                           sizeof(sh_type_str));
+
+                gf_log (this->name, GF_LOG_INFO,
+                        "background %s self-heal triggered. path: %s",
+                        sh_type_str, local->loc.path);
+
+                afr_self_heal (frame, this);
         }
 
 unwind:
@@ -766,7 +779,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
         struct iatt *   lookup_buf = NULL;
-
         int             call_count      = -1;
         int             child_index     = -1;
         int             first_up_child  = -1;
@@ -815,7 +827,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                         local->cont.lookup.postparent          = *postparent;
 
                         if (priv->first_lookup && inode->ino == 1) {
-                                gf_log (this->name, GF_LOG_NORMAL,
+                                gf_log (this->name, GF_LOG_INFO,
                                         "added root inode");
                                 priv->root_inode = inode_ref (inode);
                                 priv->first_lookup = 0;
@@ -880,7 +892,6 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
         struct iatt *   lookup_buf = NULL;
-
         int             call_count      = -1;
         int             child_index     = -1;
         int             first_up_child  = -1;
@@ -993,18 +1004,14 @@ int
 afr_lookup (call_frame_t *frame, xlator_t *this,
             loc_t *loc, dict_t *xattr_req)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t   *local = NULL;
-        int            ret = -1;
-        int            i = 0;
-
-        fop_lookup_cbk_t callback;
-
-        int call_count = 0;
-
-        uint64_t       ctx;
-
-        int32_t        op_errno = 0;
+        afr_private_t    *priv       = NULL;
+        afr_local_t      *local      = NULL;
+        int               ret        = -1;
+        int               i          = 0;
+        fop_lookup_cbk_t  callback   = NULL;
+        int               call_count = 0;
+        uint64_t          ctx        = 0;
+        int32_t           op_errno   = 0;
 
         priv = this->private;
 
@@ -1073,20 +1080,23 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                                        3 * sizeof(int32_t));
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_WARNING,
-                                "Unable to set dict value.");
+                                "%s: Unable to set dict value for %s",
+                                loc->path, priv->pending_key[i]);
                 /* 3 = data+metadata+entry */
         }
 
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "Unable to set dict value.");
+                        "%s: Unable to set dict value for %s",
+                        loc->path, GLUSTERFS_INODELK_COUNT);
         }
 
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "Unable to set dict value.");
+                        "%s: Unable to set dict value for %s",
+                        loc->path, GLUSTERFS_ENTRYLK_COUNT);
         }
 
         for (i = 0; i < priv->child_count; i++) {
@@ -1115,12 +1125,10 @@ out:
 int
 afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 {
-        afr_private_t * priv = NULL;
-
-        int ret    = -1;
-
-        uint64_t       ctx;
-        afr_fd_ctx_t * fd_ctx = NULL;
+        afr_private_t * priv   = NULL;
+        int             ret    = -1;
+        uint64_t        ctx    = 0;
+        afr_fd_ctx_t *  fd_ctx = NULL;
 
         VALIDATE_OR_GOTO (this->private, out);
         VALIDATE_OR_GOTO (fd, out);
@@ -1137,9 +1145,6 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 fd_ctx = GF_CALLOC (1, sizeof (afr_fd_ctx_t),
                                     gf_afr_mt_afr_fd_ctx_t);
                 if (!fd_ctx) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-
                         ret = -ENOMEM;
                         goto unlock;
                 }
@@ -1148,8 +1153,6 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                                                  priv->child_count,
                                                  gf_afr_mt_char);
                 if (!fd_ctx->pre_op_done) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         ret = -ENOMEM;
                         goto unlock;
                 }
@@ -1158,8 +1161,6 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                                                       priv->child_count,
                                                       gf_afr_mt_char);
                 if (!fd_ctx->pre_op_piggyback) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         ret = -ENOMEM;
                         goto unlock;
                 }
@@ -1168,8 +1169,6 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                                                priv->child_count,
                                                gf_afr_mt_char);
                 if (!fd_ctx->opened_on) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         ret = -ENOMEM;
                         goto unlock;
                 }
@@ -1181,13 +1180,14 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                                                priv->child_count,
                                                gf_afr_mt_char);
                 if (!fd_ctx->locked_on) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         ret = -ENOMEM;
                         goto unlock;
                 }
 
                 ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
+                if (ret)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to set fd ctx (%p)", fd);
 
                 INIT_LIST_HEAD (&fd_ctx->entries);
         }
@@ -1230,7 +1230,6 @@ afr_flush_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
-
         int call_count  = -1;
         int child_index = (long) cookie;
         int need_unwind = 0;
@@ -1276,7 +1275,6 @@ afr_flush_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-
         int i = 0;
         int call_count = -1;
 
@@ -1329,14 +1327,10 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
-
         call_frame_t  * transaction_frame = NULL;
-
         int ret        = -1;
-
         int op_ret   = -1;
         int op_errno = 0;
-
         int call_count = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1358,8 +1352,6 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -1403,7 +1395,6 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         int             ret = 0;
 
         ret = fd_ctx_get (fd, this, &ctx);
-
         if (ret < 0)
                 goto out;
 
@@ -1463,9 +1454,7 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *postbuf)
 {
         afr_local_t *local = NULL;
-
         int call_count = -1;
-
         int child_index = (long) cookie;
         int read_child  = 0;
 
@@ -1520,9 +1509,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -1577,7 +1564,6 @@ afr_fsyncdir_cbk (call_frame_t *frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
         afr_local_t *local = NULL;
-
         int call_count = -1;
 
         local = frame->local;
@@ -1607,9 +1593,7 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -1661,7 +1645,6 @@ afr_xattrop_cbk (call_frame_t *frame, void *cookie,
                  dict_t *xattr)
 {
         afr_local_t *local = NULL;
-
         int call_count = -1;
 
         local = frame->local;
@@ -1691,9 +1674,7 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -1775,9 +1756,7 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -1828,7 +1807,6 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 {
         afr_local_t *local = NULL;
-
         int call_count = -1;
 
         local = frame->local;
@@ -1858,9 +1836,7 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -1910,7 +1886,6 @@ afr_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 {
         afr_local_t *local = NULL;
-
         int call_count = -1;
 
         local = frame->local;
@@ -1940,9 +1915,7 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -1992,7 +1965,6 @@ afr_entrylk_cbk (call_frame_t *frame, void *cookie,
 
 {
         afr_local_t *local = NULL;
-
         int call_count = -1;
 
         local = frame->local;
@@ -2023,9 +1995,7 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -2076,7 +2046,6 @@ afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
 {
         afr_local_t *local = NULL;
-
         int call_count = -1;
 
         local = frame->local;
@@ -2107,9 +2076,7 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
-
         int ret = -1;
-
         int i = 0;
         int32_t call_count = 0;
         int32_t op_ret   = -1;
@@ -2158,7 +2125,6 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
                 struct statvfs *statvfs)
 {
         afr_local_t *local = NULL;
-
         int call_count = 0;
 
         LOCK (&frame->lock);
@@ -2201,8 +2167,7 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
         int              child_count = 0;
         afr_local_t   *  local       = NULL;
         int              i           = 0;
-
-        int ret = -1;
+        int              ret = -1;
         int              call_count = 0;
         int32_t          op_ret      = -1;
         int32_t          op_errno    = 0;
@@ -2250,7 +2215,6 @@ afr_lk_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         afr_local_t * local = NULL;
-
         int call_count = -1;
 
         local = frame->local;
@@ -2269,8 +2233,7 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t   * local = NULL;
         afr_private_t * priv  = NULL;
-
-        int i;
+        int i = 0;
         int call_count = 0;
 
         local = frame->local;
@@ -2312,9 +2275,9 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        int child_index = -1;
 /*        int            ret  = 0; */
 
-        int child_index = -1;
 
         local = frame->local;
         priv  = this->private;
@@ -2375,14 +2338,11 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_lk (call_frame_t *frame, xlator_t *this,
-        fd_t *fd, int32_t cmd,
-        struct gf_flock *flock)
+        fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
-
         int i = 0;
-
         int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
@@ -2402,7 +2362,6 @@ afr_lk (call_frame_t *frame, xlator_t *this,
                                                  gf_afr_mt_char);
 
         if (!local->cont.lk.locked_nodes) {
-                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
                 op_errno = ENOMEM;
                 goto out;
         }
@@ -2490,7 +2449,6 @@ static int
 find_child_index (xlator_t *this, xlator_t *child)
 {
         afr_private_t *priv = NULL;
-
         int i = -1;
 
         priv = this->private;
@@ -2509,7 +2467,6 @@ afr_notify (xlator_t *this, int32_t event,
 {
         afr_private_t *     priv     = NULL;
         unsigned char *     child_up = NULL;
-
         int i           = -1;
         int up_children = 0;
         int down_children = 0;
