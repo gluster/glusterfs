@@ -192,6 +192,8 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t   *local    = NULL;
         marker_conf_t   *priv     = NULL;
 
+        local = frame->local;
+
         if (op_ret == -1)
                 goto err;
 
@@ -199,8 +201,6 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (!dict)
                 goto err;
-
-        local = frame->local;
 
         ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
         if (!size)
