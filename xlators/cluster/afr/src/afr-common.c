@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #include <libgen.h>
@@ -585,7 +585,7 @@ afr_lookup_self_heal_check (xlator_t *this, afr_local_t *local,
 {
         if (FILETYPE_DIFFERS (buf, lookup_buf)) {
                 /* mismatching filetypes with same name
-                */
+                 */
 
                 gf_log (this->name, GF_LOG_NORMAL,
                         "filetype differs for %s ", local->loc.path);
@@ -841,8 +841,8 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
 
                         if (child_index == local->read_child_index) {
                                 /*
-                                   lookup has succeeded on the read child.
-                                   So use its inode number
+                                  lookup has succeeded on the read child.
+                                  So use its inode number
                                 */
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
@@ -899,13 +899,13 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                 local->enoent_count++;
 
                         if (__error_more_important (local->op_errno, op_errno))
-                            local->op_errno = op_errno;
+                                local->op_errno = op_errno;
 
-                            if (local->op_errno == ESTALE) {
-                                    local->op_ret = -1;
-                            }
+                        if (local->op_errno == ESTALE) {
+                                local->op_ret = -1;
+                        }
 
-                            goto unlock;
+                        goto unlock;
                 }
 
                 afr_lookup_collect_xattr (local, this, child_index, xattr);
@@ -958,8 +958,8 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                         if (child_index == local->read_child_index) {
 
                                 /*
-                                   lookup has succeeded on the read child.
-                                   So use its inode number
+                                  lookup has succeeded on the read child.
+                                  So use its inode number
                                 */
 
                                 if (local->cont.lookup.xattr)
@@ -1047,8 +1047,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         local->child_up = memdup (priv->child_up, priv->child_count);
 
         local->cont.lookup.xattrs = GF_CALLOC (priv->child_count,
-                                    sizeof (*local->cont.lookup.xattr),
-                                    gf_afr_mt_dict_t);
+                                               sizeof (*local->cont.lookup.xattr),
+                                               gf_afr_mt_dict_t);
 
         local->call_count = afr_up_children_count (priv->child_count,
                                                    local->child_up);
@@ -1226,7 +1226,7 @@ afr_flush_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_flush_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno)
+                    int32_t op_ret, int32_t op_errno)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -2072,7 +2072,7 @@ out:
 
 int32_t
 afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno)
+                  xlator_t *this, int32_t op_ret, int32_t op_errno)
 
 {
         afr_local_t *local = NULL;
@@ -2310,8 +2310,8 @@ int32_t
 afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
 /*        int            ret  = 0; */
 
         int child_index = -1;
@@ -2353,19 +2353,19 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* locking has succeeded on all nodes that are up */
 
                 /* temporarily
-                ret = afr_mark_locked_nodes (this, local->fd,
-                                             local->cont.lk.locked_nodes);
-                if (ret)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Could not save locked nodes info in fdctx");
+                   ret = afr_mark_locked_nodes (this, local->fd,
+                   local->cont.lk.locked_nodes);
+                   if (ret)
+                   gf_log (this->name, GF_LOG_DEBUG,
+                   "Could not save locked nodes info in fdctx");
 
-                ret = afr_save_locked_fd (this, local->fd);
-                if (ret)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Could not save locked fd");
+                   ret = afr_save_locked_fd (this, local->fd);
+                   if (ret)
+                   gf_log (this->name, GF_LOG_DEBUG,
+                   "Could not save locked fd");
 
                 */
-		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
+                AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
                                   &local->cont.lk.ret_flock);
         }
 
@@ -2398,8 +2398,8 @@ afr_lk (call_frame_t *frame, xlator_t *this,
         frame->local  = local;
 
         local->cont.lk.locked_nodes = GF_CALLOC (priv->child_count,
-                                              sizeof (*local->cont.lk.locked_nodes),
-                                              gf_afr_mt_char);
+                                                 sizeof (*local->cont.lk.locked_nodes),
+                                                 gf_afr_mt_char);
 
         if (!local->cont.lk.locked_nodes) {
                 gf_log (this->name, GF_LOG_ERROR, "Out of memory");
@@ -2448,7 +2448,7 @@ afr_priv_dump (xlator_t *this)
                 gf_proc_dump_build_key(key, key_prefix, "child_up[%d]", i);
                 gf_proc_dump_write(key, "%d", priv->child_up[i]);
                 gf_proc_dump_build_key(key, key_prefix,
-                                        "pending_key[%d]", i);
+                                       "pending_key[%d]", i);
                 gf_proc_dump_write(key, "%s", priv->pending_key[i]);
         }
         gf_proc_dump_build_key(key, key_prefix, "data_self_heal");
@@ -2526,7 +2526,7 @@ afr_notify (xlator_t *this, int32_t event,
                 i = find_child_index (this, data);
 
                 /* temporarily
-                afr_attempt_lock_recovery (this, i);
+                   afr_attempt_lock_recovery (this, i);
                 */
 
                 child_up[i] = 1;
@@ -2538,8 +2538,8 @@ afr_notify (xlator_t *this, int32_t event,
                 UNLOCK (&priv->lock);
 
                 /*
-                   if all the children were down, and one child came up,
-                   send notify to parent
+                  if all the children were down, and one child came up,
+                  send notify to parent
                 */
 
                 for (i = 0; i < priv->child_count; i++)
@@ -2570,8 +2570,8 @@ afr_notify (xlator_t *this, int32_t event,
                 UNLOCK (&priv->lock);
 
                 /*
-                   if all children are down, and this was the last to go down,
-                   send notify to parent
+                  if all children are down, and this was the last to go down,
+                  send notify to parent
                 */
 
                 for (i = 0; i < priv->child_count; i++)

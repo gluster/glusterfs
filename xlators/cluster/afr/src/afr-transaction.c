@@ -78,12 +78,12 @@ static void
 __mark_all_pending (int32_t *pending[], int child_count,
                     afr_transaction_type type)
 {
-	int i;
+        int i;
         int j;
 
         for (i = 0; i < child_count; i++) {
                 j = afr_index_for_transaction_type (type);
-		pending[i][j] = hton32 (1);
+                pending[i][j] = hton32 (1);
         }
 }
 
@@ -96,7 +96,7 @@ __mark_child_dead (int32_t *pending[], int child_count, int child,
 
         j = afr_index_for_transaction_type (type);
 
-	pending[child][j] = 0;
+        pending[child][j] = 0;
 }
 
 
@@ -158,14 +158,14 @@ static void
 __mark_down_children (int32_t *pending[], int child_count,
                       unsigned char *child_up, afr_transaction_type type)
 {
-	int i;
-	int j;
+        int i;
+        int j;
 
-	for (i = 0; i < child_count; i++) {
+        for (i = 0; i < child_count; i++) {
                 j = afr_index_for_transaction_type (type);
 
-		if (!child_up[i])
-			pending[i][j] = 0;
+                if (!child_up[i])
+                        pending[i][j] = 0;
         }
 }
 
@@ -174,12 +174,12 @@ static void
 __mark_all_success (int32_t *pending[], int child_count,
                     afr_transaction_type type)
 {
-	int i;
+        int i;
         int j;
 
-	for (i = 0; i < child_count; i++) {
+        for (i = 0; i < child_count; i++) {
                 j = afr_index_for_transaction_type (type);
-		pending[i][j] = hton32 (-1);
+                pending[i][j] = hton32 (-1);
         }
 }
 
@@ -187,79 +187,45 @@ __mark_all_success (int32_t *pending[], int child_count,
 static int
 __changelog_enabled (afr_private_t *priv, afr_transaction_type type)
 {
-	int ret = 0;
+        int ret = 0;
 
-	switch (type) {
-	case AFR_DATA_TRANSACTION:
-		if (priv->data_change_log)
-			ret = 1;
+        switch (type) {
+        case AFR_DATA_TRANSACTION:
+                if (priv->data_change_log)
+                        ret = 1;
 
-		break;
+                break;
 
-	case AFR_METADATA_TRANSACTION:
-		if (priv->metadata_change_log)
-			ret = 1;
+        case AFR_METADATA_TRANSACTION:
+                if (priv->metadata_change_log)
+                        ret = 1;
 
-		break;
+                break;
 
-	case AFR_ENTRY_TRANSACTION:
-	case AFR_ENTRY_RENAME_TRANSACTION:
-		if (priv->entry_change_log)
-			ret = 1;
+        case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_RENAME_TRANSACTION:
+                if (priv->entry_change_log)
+                        ret = 1;
 
-		break;
-	}
+                break;
+        }
 
-	return ret;
+        return ret;
 }
 
 
 static int
 __changelog_needed_pre_op (call_frame_t *frame, xlator_t *this)
 {
-	afr_private_t * priv  = NULL;
-	afr_local_t   * local = NULL;
+        afr_private_t * priv  = NULL;
+        afr_local_t   * local = NULL;
 
-	int op_ret   = 0;
+        int op_ret   = 0;
 
-	priv  = this->private;
-	local = frame->local;
+        priv  = this->private;
+        local = frame->local;
 
-	if (__changelog_enabled (priv, local->transaction.type)) {
-		switch (local->op) {
-
-		case GF_FOP_WRITE:
-		case GF_FOP_FTRUNCATE:
-                        op_ret = 1;
-			break;
-
-		case GF_FOP_FLUSH:
-			op_ret = 0;
-			break;
-
-		default:
-			op_ret = 1;
-		}
-	}
-
-	return op_ret;
-}
-
-
-static int
-__changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
-{
-	afr_private_t * priv  = NULL;
-	afr_local_t   * local = NULL;
-
-	int op_ret = 0;
-	afr_transaction_type type = -1;
-
-	priv  = this->private;
-	local = frame->local;
-	type  = local->transaction.type;
-
-	if (__changelog_enabled (priv, type)) {
+        if (__changelog_enabled (priv, local->transaction.type)) {
                 switch (local->op) {
 
                 case GF_FOP_WRITE:
@@ -276,7 +242,41 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-	return op_ret;
+        return op_ret;
+}
+
+
+static int
+__changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t * priv  = NULL;
+        afr_local_t   * local = NULL;
+
+        int op_ret = 0;
+        afr_transaction_type type = -1;
+
+        priv  = this->private;
+        local = frame->local;
+        type  = local->transaction.type;
+
+        if (__changelog_enabled (priv, type)) {
+                switch (local->op) {
+
+                case GF_FOP_WRITE:
+                case GF_FOP_FTRUNCATE:
+                        op_ret = 1;
+                        break;
+
+                case GF_FOP_FLUSH:
+                        op_ret = 0;
+                        break;
+
+                default:
+                        op_ret = 1;
+                }
+        }
+
+        return op_ret;
 }
 
 
@@ -309,7 +309,7 @@ afr_set_piggyback_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
         int *arr = NULL;
         int index = 0;
         size_t pending_xattr_size = 3 * sizeof (int32_t);
-                                 /* 3 = data+metadata+entry */
+        /* 3 = data+metadata+entry */
 
         index = afr_index_for_transaction_type (type);
 
@@ -340,41 +340,41 @@ out:
 int
 afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
 {
-	int ret = 0;
+        int ret = 0;
 
-	switch (type) {
-	case AFR_DATA_TRANSACTION:
-		ret = priv->child_count;
-		break;
+        switch (type) {
+        case AFR_DATA_TRANSACTION:
+                ret = priv->child_count;
+                break;
 
-	case AFR_METADATA_TRANSACTION:
-		ret = priv->child_count;
-		break;
+        case AFR_METADATA_TRANSACTION:
+                ret = priv->child_count;
+                break;
 
-	case AFR_ENTRY_TRANSACTION:
-	case AFR_ENTRY_RENAME_TRANSACTION:
-		ret = priv->child_count;
-		break;
-	}
+        case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_RENAME_TRANSACTION:
+                ret = priv->child_count;
+                break;
+        }
 
-	return ret;
+        return ret;
 }
 
 /* {{{ pending */
 
 int32_t
 afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			   int32_t op_ret, int32_t op_errno, dict_t *xattr)
+                           int32_t op_ret, int32_t op_errno, dict_t *xattr)
 {
         afr_internal_lock_t *int_lock = NULL;
-	afr_private_t       *priv     = NULL;
-	afr_local_t         *local    = NULL;
+        afr_private_t       *priv     = NULL;
+        afr_local_t         *local    = NULL;
         int                  child_index = 0;
 
-	int call_count = -1;
+        int call_count = -1;
 
-	priv     = this->private;
-	local    = frame->local;
+        priv     = this->private;
+        local    = frame->local;
         int_lock = &local->internal_lock;
 
         child_index = (long) cookie;
@@ -386,22 +386,22 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 __mark_pre_op_undone_on_fd (frame, this, child_index);
         }
 
-	LOCK (&frame->lock);
-	{
-		call_count = --local->call_count;
-	}
-	UNLOCK (&frame->lock);
+        LOCK (&frame->lock);
+        {
+                call_count = --local->call_count;
+        }
+        UNLOCK (&frame->lock);
 
-	if (call_count == 0) {
+        if (call_count == 0) {
                 if (afr_lock_server_count (priv, local->transaction.type) == 0) {
                         local->transaction.done (frame, this);
                 } else {
                         int_lock->lock_cbk = local->transaction.done;
                         afr_unlock (frame, this);
                 }
-	}
+        }
 
-	return 0;
+        return 0;
 }
 
 
@@ -449,26 +449,26 @@ afr_update_read_child (call_frame_t *frame, xlator_t *this, inode_t *inode,
 }
 
 
-int 
+int
 afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 {
-	afr_private_t * priv = this->private;
+        afr_private_t * priv = this->private;
         afr_internal_lock_t *int_lock = NULL;
-	int ret        = 0;
-	int i          = 0;
-	int call_count = 0;
+        int ret        = 0;
+        int i          = 0;
+        int call_count = 0;
 
-	afr_local_t *  local = NULL;
+        afr_local_t *  local = NULL;
         afr_fd_ctx_t  *fdctx = NULL;
-	dict_t        **xattr = NULL;
+        dict_t        **xattr = NULL;
         int            piggyback = 0;
         int            index = 0;
         int            nothing_failed = 1;
 
-	local    = frame->local;
+        local    = frame->local;
         int_lock = &local->internal_lock;
 
-	__mark_down_children (local->pending, priv->child_count,
+        __mark_down_children (local->pending, priv->child_count,
                               local->child_up, local->transaction.type);
 
         if (local->fd)
@@ -477,7 +477,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
         xattr = alloca (priv->child_count * sizeof (*xattr));
         memset (xattr, 0, (priv->child_count * sizeof (*xattr)));
-	for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < priv->child_count; i++) {
                 xattr[i] = get_new_dict ();
                 dict_ref (xattr[i]);
         }
@@ -488,21 +488,21 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 call_count *= 2;
         }
 
-	local->call_count = call_count;
+        local->call_count = call_count;
 
         if (local->fd)
                 fdctx = afr_fd_ctx_get (local->fd, this);
 
-	if (call_count == 0) {
-		/* no child is up */
+        if (call_count == 0) {
+                /* no child is up */
                 for (i = 0; i < priv->child_count; i++) {
                         dict_unref (xattr[i]);
                 }
 
                 int_lock->lock_cbk = local->transaction.done;
-		afr_unlock (frame, this);
-		return 0;
-	}
+                afr_unlock (frame, this);
+                return 0;
+        }
 
         /* check if something has failed, to handle piggybacking */
         nothing_failed = 1;
@@ -522,8 +522,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                         local->pending[i][index]++;
         }
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!local->child_up[i])
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->child_up[i])
                         continue;
 
                 ret = afr_set_pending_dict (priv, xattr[i],
@@ -563,7 +563,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
                         if (nothing_failed && piggyback) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i]);
                         } else {
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_post_op_cbk,
@@ -579,7 +579,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (nothing_failed) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i]);
                                 break;
                         }
 
@@ -602,7 +602,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (nothing_failed) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i]);
                         } else {
                                 STACK_WIND_COOKIE (frame, afr_changelog_post_op_cbk,
                                                    (void *) (long) i,
@@ -635,7 +635,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (nothing_failed) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i]);
                                 break;
                         }
 
@@ -657,13 +657,13 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
                 if (!--call_count)
                         break;
-	}
+        }
 
         for (i = 0; i < priv->child_count; i++) {
                 dict_unref (xattr[i]);
         }
 
-	return 0;
+        return 0;
 }
 
 
@@ -671,18 +671,18 @@ int32_t
 afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *xattr)
 {
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = this->private;
-	loc_t       *   loc   = NULL;
+        afr_local_t *   local = NULL;
+        afr_private_t * priv  = this->private;
+        loc_t       *   loc   = NULL;
 
-	int call_count  = -1;
-	int child_index = (long) cookie;
+        int call_count  = -1;
+        int child_index = (long) cookie;
 
-	local = frame->local;
-	loc   = &local->loc;
+        local = frame->local;
+        loc   = &local->loc;
 
-	LOCK (&frame->lock);
-	{
+        LOCK (&frame->lock);
+        {
                 if (op_ret == 1) {
                         /* special op_ret for piggyback */
                 }
@@ -691,97 +691,97 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         __mark_pre_op_done_on_fd (frame, this, child_index);
                 }
 
-		if (op_ret == -1) {
-			local->child_up[child_index] = 0;
+                if (op_ret == -1) {
+                        local->child_up[child_index] = 0;
 
-			if (op_errno == ENOTSUP) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"xattrop not supported by %s",
-					priv->children[child_index]->name);
-				local->op_ret = -1;
+                        if (op_errno == ENOTSUP) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "xattrop not supported by %s",
+                                        priv->children[child_index]->name);
+                                local->op_ret = -1;
 
-			} else if (!child_went_down (op_ret, op_errno)) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"xattrop failed on child %s: %s",
-					priv->children[child_index]->name,
-					strerror (op_errno));
-			}
-			local->op_errno = op_errno;
-		}
+                        } else if (!child_went_down (op_ret, op_errno)) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "xattrop failed on child %s: %s",
+                                        priv->children[child_index]->name,
+                                        strerror (op_errno));
+                        }
+                        local->op_errno = op_errno;
+                }
 
-		call_count = --local->call_count;
-	}
-	UNLOCK (&frame->lock);
+                call_count = --local->call_count;
+        }
+        UNLOCK (&frame->lock);
 
-	if (call_count == 0) {
-		if ((local->op_ret == -1) &&
-		    (local->op_errno == ENOTSUP)) {
-			local->transaction.resume (frame, this);
-		} else {
+        if (call_count == 0) {
+                if ((local->op_ret == -1) &&
+                    (local->op_errno == ENOTSUP)) {
+                        local->transaction.resume (frame, this);
+                } else {
                         __mark_all_success (local->pending, priv->child_count,
                                             local->transaction.type);
 
                         afr_pid_restore (frame);
 
-			local->transaction.fop (frame, this);
-		}
-	}
+                        local->transaction.fop (frame, this);
+                }
+        }
 
-	return 0;
+        return 0;
 }
 
 
 int
 afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 {
-	afr_private_t * priv = this->private;
-	int i = 0;
-	int ret = 0;
-	int call_count = 0;
-	dict_t **xattr = NULL;
+        afr_private_t * priv = this->private;
+        int i = 0;
+        int ret = 0;
+        int call_count = 0;
+        dict_t **xattr = NULL;
         afr_fd_ctx_t *fdctx = NULL;
 
-	afr_local_t *local = NULL;
+        afr_local_t *local = NULL;
         int          piggyback = 0;
 
-	local = frame->local;
+        local = frame->local;
 
         xattr = alloca (priv->child_count * sizeof (*xattr));
         memset (xattr, 0, (priv->child_count * sizeof (*xattr)));
 
-	for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < priv->child_count; i++) {
                 xattr[i] = get_new_dict ();
                 dict_ref (xattr[i]);
         }
 
-	call_count = afr_up_children_count (priv->child_count,
-					    local->child_up);
+        call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 
-	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
-		call_count *= 2;
-	}
+        if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+                call_count *= 2;
+        }
 
-	if (call_count == 0) {
-		/* no child is up */
+        if (call_count == 0) {
+                /* no child is up */
                 for (i = 0; i < priv->child_count; i++) {
                         dict_unref (xattr[i]);
                 }
 
                 local->internal_lock.lock_cbk =
                         local->transaction.done;
-		afr_unlock (frame, this);
-		return 0;
-	}
+                afr_unlock (frame, this);
+                return 0;
+        }
 
-	local->call_count = call_count;
+        local->call_count = call_count;
 
-	__mark_all_pending (local->pending, priv->child_count,
+        __mark_all_pending (local->pending, priv->child_count,
                             local->transaction.type);
 
         if (local->fd)
                 fdctx = afr_fd_ctx_get (local->fd, this);
 
-	for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < priv->child_count; i++) {
                 if (!local->child_up[i])
                         continue;
                 ret = afr_set_pending_dict (priv, xattr[i],
@@ -925,13 +925,13 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
                 if (!--call_count)
                         break;
-	}
+        }
 
         for (i = 0; i < priv->child_count; i++) {
                 dict_unref (xattr[i]);
         }
 
-	return 0;
+        return 0;
 }
 
 
@@ -947,7 +947,7 @@ afr_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         if (int_lock->lock_op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Blocking inodelks failed.");
-		local->transaction.done (frame, this);
+                local->transaction.done (frame, this);
         } else {
 
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -997,7 +997,7 @@ afr_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
         if (int_lock->lock_op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Blocking entrylks failed.");
-		local->transaction.done (frame, this);
+                local->transaction.done (frame, this);
         } else {
 
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1047,7 +1047,7 @@ afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
         if (int_lock->lock_op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Blocking entrylks failed.");
-		local->transaction.done (frame, this);
+                local->transaction.done (frame, this);
         } else {
 
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1101,15 +1101,15 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
 
         int_lock->transaction_lk_type = AFR_TRANSACTION_LK;
 
-	switch (local->transaction.type) {
-	case AFR_DATA_TRANSACTION:
-	case AFR_METADATA_TRANSACTION:
+        switch (local->transaction.type) {
+        case AFR_DATA_TRANSACTION:
+        case AFR_METADATA_TRANSACTION:
                 afr_set_transaction_flock (local);
 
                 int_lock->lock_cbk = afr_post_nonblocking_inodelk_cbk;
 
                 afr_nonblocking_inodelk (frame, this);
-		break;
+                break;
 
         case AFR_ENTRY_RENAME_TRANSACTION:
 
@@ -1117,7 +1117,7 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
                 afr_blocking_lock (frame, this);
                 break;
 
-	case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_TRANSACTION:
                 int_lock->lk_basename = local->transaction.basename;
                 if (&local->transaction.parent_loc)
                         int_lock->lk_loc = &local->transaction.parent_loc;
@@ -1144,7 +1144,7 @@ afr_lock (call_frame_t *frame, xlator_t *this)
 
         afr_set_lock_number (frame, this);
 
-	return afr_lock_rec (frame, this);
+        return afr_lock_rec (frame, this);
 }
 
 
@@ -1178,25 +1178,25 @@ int
 afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
-	afr_local_t         *local    = NULL;
-	afr_private_t       *priv     = NULL;
+        afr_local_t         *local    = NULL;
+        afr_private_t       *priv     = NULL;
 
-	local    = frame->local;
+        local    = frame->local;
         int_lock = &local->internal_lock;
-	priv     = this->private;
+        priv     = this->private;
 
-	if (__changelog_needed_post_op (frame, this)) {
-		afr_changelog_post_op (frame, this);
-	} else {
-		if (afr_lock_server_count (priv, local->transaction.type) == 0) {
-			local->transaction.done (frame, this);
-		} else {
+        if (__changelog_needed_post_op (frame, this)) {
+                afr_changelog_post_op (frame, this);
+        } else {
+                if (afr_lock_server_count (priv, local->transaction.type) == 0) {
+                        local->transaction.done (frame, this);
+                } else {
                         int_lock->lock_cbk = local->transaction.done;
-			afr_unlock (frame, this);
-		}
-	}
+                        afr_unlock (frame, this);
+                }
+        }
 
-	return 0;
+        return 0;
 }
 
 
@@ -1207,11 +1207,11 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 void
 afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index)
 {
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
+        afr_local_t *   local = NULL;
+        afr_private_t * priv  = NULL;
 
-	local = frame->local;
-	priv  = this->private;
+        local = frame->local;
+        priv  = this->private;
 
         __mark_child_dead (local->pending, priv->child_count,
                            child_index, local->transaction.type);
@@ -1221,22 +1221,22 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index
 int
 afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 {
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
+        afr_local_t *   local = NULL;
+        afr_private_t * priv  = NULL;
 
-	local = frame->local;
-	priv  = this->private;
+        local = frame->local;
+        priv  = this->private;
 
-	afr_transaction_local_init (local, priv);
+        afr_transaction_local_init (local, priv);
 
-	local->transaction.resume = afr_transaction_resume;
-	local->transaction.type   = type;
+        local->transaction.resume = afr_transaction_resume;
+        local->transaction.type   = type;
 
-	if (afr_lock_server_count (priv, local->transaction.type) == 0) {
+        if (afr_lock_server_count (priv, local->transaction.type) == 0) {
                 afr_internal_lock_finish (frame, this);
-	} else {
-		afr_lock (frame, this);
-	}
+        } else {
+                afr_lock (frame, this);
+        }
 
-	return 0;
+        return 0;
 }

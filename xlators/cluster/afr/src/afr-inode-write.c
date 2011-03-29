@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 
@@ -1036,8 +1036,8 @@ afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_fsetattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno,
-                      struct iatt *preop, struct iatt *postop)
+                       int32_t op_ret, int32_t op_errno,
+                       struct iatt *preop, struct iatt *postop)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -1241,7 +1241,7 @@ afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
         if (main_frame) {
                 AFR_STACK_UNWIND (setxattr, main_frame,
                                   local->op_ret, local->op_errno)
-        }
+                        }
         return 0;
 }
 
@@ -1429,7 +1429,7 @@ afr_removexattr_unwind (call_frame_t *frame, xlator_t *this)
         if (main_frame) {
                 AFR_STACK_UNWIND (removexattr, main_frame,
                                   local->op_ret, local->op_errno)
-        }
+                        }
         return 0;
 }
 
