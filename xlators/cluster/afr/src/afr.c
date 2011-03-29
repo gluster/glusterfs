@@ -152,8 +152,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         self_heal);
         }
 
-        dict_ret = dict_get_str (options, "data-self-heal",
-                                 &self_heal);
+        dict_ret = dict_get_str (options, "data-self-heal", &self_heal);
         if (dict_ret == 0) {
                 temp_ret = gf_string2boolean (self_heal, &data_self_heal);
                 if (temp_ret < 0) {
@@ -224,8 +223,7 @@ reconfigure (xlator_t *this, dict_t *options)
         }
 
 
-        dict_ret = dict_get_str (options, "data-change-log",
-                                 &change_log);
+        dict_ret = dict_get_str (options, "data-change-log", &change_log);
         if (dict_ret == 0) {
                 temp_ret = gf_string2boolean (change_log, &data_change_log);
                 if (temp_ret < 0) {
@@ -328,19 +326,16 @@ reconfigure (xlator_t *this, dict_t *options)
                         break;
                 }
 
-
                 trav = trav->next;
         }
 
         if (flag == 0 ) {
-
                 gf_log (this->name, GF_LOG_ERROR,
                         "Invalid 'option read-subvolume %s', no such subvolume"
                         , read_subvol);
                 ret = -1;
                 goto out;
         }
-
 
 next:
 out:
@@ -374,7 +369,6 @@ init (xlator_t *this)
         int             i           = 0;
         int             ret         = -1;
         int             op_errno    = 0;
-
         char * read_subvol     = NULL;
         char * fav_child       = NULL;
         char * self_heal       = NULL;
@@ -383,11 +377,9 @@ init (xlator_t *this)
         char * strict_readdir  = NULL;
         char * inodelk_trace   = NULL;
         char * entrylk_trace   = NULL;
-
         int32_t background_count  = 0;
         int32_t lock_server_count = 1;
         int32_t window_size       = 0;
-
         int    fav_ret       = -1;
         int    read_ret      = -1;
         int    dict_ret      = -1;
@@ -404,7 +396,6 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "Volume is dangling.");
         }
-
 
         ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
@@ -670,8 +661,6 @@ init (xlator_t *this)
         priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                     gf_afr_mt_char);
         if (!priv->child_up) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -686,8 +675,6 @@ init (xlator_t *this)
         priv->children = GF_CALLOC (sizeof (xlator_t *), child_count,
                                     gf_afr_mt_xlator_t);
         if (!priv->children) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -696,8 +683,6 @@ init (xlator_t *this)
                                        child_count,
                                        gf_afr_mt_char);
         if (!priv->pending_key) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 ret = -ENOMEM;
                 goto out;
         }

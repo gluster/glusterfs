@@ -78,8 +78,8 @@ static void
 __mark_all_pending (int32_t *pending[], int child_count,
                     afr_transaction_type type)
 {
-        int i;
-        int j;
+        int i = 0;
+        int j = 0;
 
         for (i = 0; i < child_count; i++) {
                 j = afr_index_for_transaction_type (type);
@@ -92,7 +92,7 @@ static void
 __mark_child_dead (int32_t *pending[], int child_count, int child,
                    afr_transaction_type type)
 {
-        int j;
+        int j = 0;
 
         j = afr_index_for_transaction_type (type);
 
@@ -158,8 +158,8 @@ static void
 __mark_down_children (int32_t *pending[], int child_count,
                       unsigned char *child_up, afr_transaction_type type)
 {
-        int i;
-        int j;
+        int i = 0;
+        int j = 0;
 
         for (i = 0; i < child_count; i++) {
                 j = afr_index_for_transaction_type (type);
@@ -251,7 +251,6 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
-
         int op_ret = 0;
         afr_transaction_type type = -1;
 
@@ -283,7 +282,7 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
 static int
 afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending)
 {
-        int i;
+        int i = 0;
         int ret = 0;
 
         for (i = 0; i < priv->child_count; i++) {
@@ -304,7 +303,7 @@ static int
 afr_set_piggyback_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
                         afr_transaction_type type)
 {
-        int i;
+        int i = 0;
         int ret = 0;
         int *arr = NULL;
         int index = 0;
@@ -370,8 +369,7 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_private_t       *priv     = NULL;
         afr_local_t         *local    = NULL;
         int                  child_index = 0;
-
-        int call_count = -1;
+        int                  call_count = -1;
 
         priv     = this->private;
         local    = frame->local;
@@ -530,7 +528,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                             local->pending);
 
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "failed to set pending entry");
 
 
@@ -626,7 +624,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                             local->pending);
 
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "failed to set pending entry");
 
                 /* fall through */
@@ -674,7 +672,6 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t *   local = NULL;
         afr_private_t * priv  = this->private;
         loc_t       *   loc   = NULL;
-
         int call_count  = -1;
         int child_index = (long) cookie;
 
@@ -740,7 +737,6 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
         int call_count = 0;
         dict_t **xattr = NULL;
         afr_fd_ctx_t *fdctx = NULL;
-
         afr_local_t *local = NULL;
         int          piggyback = 0;
 
@@ -788,7 +784,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                             local->pending);
 
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "failed to set pending entry");
 
 
@@ -890,7 +886,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                             local->pending);
 
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "failed to set pending entry");
 
                 /* fall through */
@@ -945,7 +941,7 @@ afr_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Blocking inodelks failed.");
                 local->transaction.done (frame, this);
         } else {
@@ -995,7 +991,7 @@ afr_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Blocking entrylks failed.");
                 local->transaction.done (frame, this);
         } else {
@@ -1045,7 +1041,7 @@ afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Blocking entrylks failed.");
                 local->transaction.done (frame, this);
         } else {
