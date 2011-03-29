@@ -71,13 +71,12 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
                 fd_unref (sh->healing_fd);
         sh->healing_fd = NULL;
 
-/*         for (i = 0; i < priv->child_count; i++) { */
-/*                 sh->locked_nodes[i] = 0; */
-/*         } */
+        /* for (i = 0; i < priv->child_count; i++) { */
+        /*        sh->locked_nodes[i] = 0; */
+        /* } */
 
         gf_log (this->name, GF_LOG_TRACE,
-                "self heal of %s completed",
-                local->loc.path);
+                "self heal of %s completed", local->loc.path);
 
         sh->completion_cbk (frame, this);
 
@@ -122,16 +121,28 @@ afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
                                 xlator_t *this, int32_t op_ret,
                                 int32_t op_errno, dict_t *xattr)
 {
+        long                 i          = 0;
         int                  call_count = 0;
         afr_local_t         *local      = NULL;
         afr_self_heal_t     *sh         = NULL;
         afr_local_t         *orig_local = NULL;
         call_frame_t        *orig_frame = NULL;
+        afr_private_t       *priv       = NULL;
+
+        local = frame->local;
+        priv  = this->private;
+
+        if (op_ret == -1) {
+                i = (long)cookie;
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: failed to erase pending xattrs on %s (%s)",
+                        local->loc.path, priv->children[i]->name,
+                        strerror (op_errno));
+        }
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                local = frame->local;
                 sh = &local->self_heal;
 
                 orig_frame = sh->orig_frame;
@@ -158,7 +169,6 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
         int              i = 0;
         dict_t          **erase_xattr = NULL;
         int              need_unwind = 0;
-
 
         local = frame->local;
         sh = &local->self_heal;
@@ -316,8 +326,6 @@ build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
         }
 
         if (!child->path) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -329,8 +337,6 @@ build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
         child->inode = inode_new (parent->inode->table);
 
         if (!child->inode) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -381,8 +387,7 @@ afr_sh_entry_expunge_parent_setattr_cbk (call_frame_t *expunge_frame,
         afr_local_t     *expunge_local = NULL;
         afr_self_heal_t *expunge_sh    = NULL;
         call_frame_t    *frame         = NULL;
-
-        int active_src = (long) cookie;
+        int              active_src    = (long) cookie;
 
         priv          = this->private;
         expunge_local = expunge_frame->local;
@@ -390,7 +395,7 @@ afr_sh_entry_expunge_parent_setattr_cbk (call_frame_t *expunge_frame,
         frame         = expunge_sh->sh_frame;
 
         if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "setattr on parent directory of %s on subvolume %s failed: %s",
                         expunge_local->loc.path,
                         priv->children[active_src]->name, strerror (op_errno));
@@ -415,8 +420,7 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
         afr_self_heal_t *expunge_sh = NULL;
         int              active_src = 0;
         call_frame_t    *frame = NULL;
-
-        int32_t valid = 0;
+        int32_t          valid = 0;
 
         priv = this->private;
         expunge_local = expunge_frame->local;
@@ -431,7 +435,7 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
                         expunge_local->loc.path,
                         priv->children[active_src]->name);
         } else {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "removing %s on %s failed (%s)",
                         expunge_local->loc.path,
                         priv->children[active_src]->name,
@@ -571,7 +575,7 @@ afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
         active_src = (long) cookie;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "lookup of %s on %s failed (%s)",
                         expunge_local->loc.path,
                         priv->children[active_src]->name,
@@ -655,7 +659,7 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
         }
 
         if (need_expunge) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_INFO,
                         "missing entry %s on %s",
                         expunge_local->loc.path,
                         priv->children[source]->name);
@@ -674,7 +678,7 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
                         expunge_local->loc.path,
                         priv->children[source]->name);
         } else {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_INFO,
                         "looking up %s under %s failed (%s)",
                         expunge_local->loc.path,
                         priv->children[source]->name,
@@ -730,8 +734,6 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 
         expunge_frame = copy_frame (frame);
         if (!expunge_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
@@ -742,7 +744,6 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         expunge_sh->sh_frame = frame;
         expunge_sh->active_source = active_src;
         expunge_sh->entrybuf = entry->d_stat;
-
 
         ret = build_child_loc (this, &expunge_local->loc, &local->loc, name);
         if (ret != 0) {
@@ -791,7 +792,7 @@ afr_sh_entry_expunge_readdir_cbk (call_frame_t *frame, void *cookie,
 
         if (op_ret <= 0) {
                 if (op_ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "readdir of %s on subvolume %s failed (%s)",
                                 local->loc.path,
                                 priv->children[active_src]->name,
@@ -862,7 +863,7 @@ afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this)
         sh->offset = 0;
 
         if (sh->source == -1) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "no active sources for %s to expunge entries",
                         local->loc.path);
                 goto out;
@@ -940,7 +941,7 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
                         impunge_local->loc.path,
                         priv->children[child_index]->name);
         } else {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "setattr (%s) on %s failed (%s)",
                         impunge_local->loc.path,
                         priv->children[child_index]->name,
@@ -982,6 +983,14 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 
         child_index = (long) cookie;
 
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: failed to perform xattrop on %s (%s)",
+                        impunge_local->loc.path,
+                        priv->children[child_index]->name,
+                        strerror (op_errno));
+        }
+
         gf_log (this->name, GF_LOG_TRACE,
                 "setting ownership of %s on %s to %d/%d",
                 impunge_local->loc.path,
@@ -1019,9 +1028,9 @@ afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *setattr_frame,
         loc_t *parent_loc = cookie;
 
         if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "setattr on parent directory failed: %s",
-                        strerror (op_errno));
+                gf_log (this->name, GF_LOG_INFO,
+                        "setattr on parent directory (%s) failed: %s",
+                        parent_loc->path, strerror (op_errno));
         }
 
         loc_wipe (parent_loc);
@@ -1041,24 +1050,23 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                                   struct iatt *preparent,
                                   struct iatt *postparent)
 {
-        int              call_count = 0;
-        afr_private_t   *priv = NULL;
-        afr_local_t     *impunge_local = NULL;
-        afr_self_heal_t *impunge_sh = NULL;
-        call_frame_t    *frame = NULL;
-        int              active_src = 0;
-        int              child_index = 0;
+        int              call_count       = 0;
+        afr_private_t   *priv             = NULL;
+        afr_local_t     *impunge_local    = NULL;
+        afr_self_heal_t *impunge_sh       = NULL;
+        call_frame_t    *frame            = NULL;
+        int              active_src       = 0;
+        int              child_index      = 0;
         int              pending_array[3] = {0, };
-        dict_t          *xattr = NULL;
-        int              ret = 0;
-        int              idx = 0;
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-
-        call_frame_t *setattr_frame = NULL;
-        int32_t valid = 0;
-        loc_t *parent_loc = NULL;
-        struct iatt parentbuf;
+        dict_t          *xattr            = NULL;
+        int              ret              = 0;
+        int              idx              = 0;
+        afr_local_t     *local            = NULL;
+        afr_self_heal_t *sh               = NULL;
+        call_frame_t    *setattr_frame    = NULL;
+        int32_t          valid            = 0;
+        loc_t           *parent_loc       = NULL;
+        struct iatt      parentbuf        = {0,};
 
         priv = this->private;
         impunge_local = impunge_frame->local;
@@ -1071,7 +1079,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         child_index = (long) cookie;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "creation of %s on %s failed (%s)",
                         impunge_local->loc.path,
                         priv->children[child_index]->name,
@@ -1142,11 +1150,10 @@ int
 afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
                             int child_index, struct iatt *stbuf)
 {
-        afr_private_t   *priv = NULL;
-        afr_local_t     *impunge_local = NULL;
-        dict_t          *dict = NULL;
-
-        int ret = 0;
+        afr_private_t *priv          = NULL;
+        afr_local_t   *impunge_local = NULL;
+        dict_t        *dict          = NULL;
+        int            ret           = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
@@ -1162,7 +1169,8 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 
         ret = afr_set_dict_gfid (dict, stbuf->ia_gfid);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
+                gf_log (this->name, GF_LOG_INFO, "%s: gfid set failed",
+                        impunge_local->loc.path);
 
         STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_newfile_cbk,
                            (void *) (long) child_index,
@@ -1202,7 +1210,8 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
 
         ret = afr_set_dict_gfid (dict, stbuf->ia_gfid);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
+                gf_log (this->name, GF_LOG_INFO, "%s: gfid set failed",
+                        impunge_local->loc.path);
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "creating missing directory %s on %s",
@@ -1228,12 +1237,11 @@ int
 afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
                               int child_index, const char *linkname)
 {
-        afr_private_t   *priv          = NULL;
-        afr_local_t     *impunge_local = NULL;
-        dict_t          *dict          = NULL;
-        struct iatt     *buf           = NULL;
-
-        int ret = 0;
+        afr_private_t *priv          = NULL;
+        afr_local_t   *impunge_local = NULL;
+        dict_t        *dict          = NULL;
+        struct iatt   *buf           = NULL;
+        int            ret           = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
@@ -1249,8 +1257,9 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 
         ret = afr_set_dict_gfid (dict, buf->ia_gfid);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "dict set gfid failed");
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: dict set gfid failed",
+                        impunge_local->loc.path);
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "creating missing symlink %s -> %s on %s",
@@ -1294,7 +1303,7 @@ afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
         child_index = (long) cookie;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "unlink of %s on %s failed (%s)",
                         impunge_local->loc.path,
                         priv->children[child_index]->name,
@@ -1370,7 +1379,7 @@ afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cooki
         child_index = (long) cookie;
 
         if ((op_ret == -1) && (op_errno != ENOENT)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "readlink of %s on %s failed (%s)",
                         impunge_local->loc.path,
                         priv->children[active_src]->name,
@@ -1465,7 +1474,7 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
         child_index = (long) cookie;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "readlink of %s on %s failed (%s)",
                         impunge_local->loc.path,
                         priv->children[active_src]->name,
@@ -1545,7 +1554,7 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
         active_src = impunge_sh->active_source;
 
         if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "looking up %s on %s (for %s) failed (%s)",
                         impunge_local->loc.path,
                         priv->children[active_src]->name,
@@ -1680,7 +1689,7 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 
                 impunge_sh->parentbuf = *postparent;
         } else {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_WARNING,
                         "looking up %s under %s failed (%s)",
                         impunge_local->loc.path,
                         priv->children[child_index]->name,
@@ -1827,7 +1836,7 @@ afr_sh_entry_impunge_readdir_cbk (call_frame_t *frame, void *cookie,
 
         if (op_ret <= 0) {
                 if (op_ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "readdir of %s on subvolume %s failed (%s)",
                                 local->loc.path,
                                 priv->children[active_src]->name,
@@ -1945,7 +1954,7 @@ afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "opendir of %s failed on child %s (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
@@ -2216,7 +2225,8 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
                                                3 * sizeof(int32_t));
                         if (ret < 0)
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "Unable to set dict value.");
+                                        "%s: Unable to set dict value.",
+                                        local->loc.path);
                 }
         }
 
@@ -2249,7 +2259,7 @@ afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Non Blocking entrylks failed.");
                 afr_sh_entry_done (frame, this);
         } else {
