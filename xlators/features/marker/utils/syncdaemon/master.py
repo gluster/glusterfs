@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 import time
 import stat
 import signal
@@ -15,20 +16,50 @@ URXTIME = (-1, 0)
 class GMaster(object):
 
     def get_volinfo(self):
-        self.volume_info = self.master.server.volume_info()
-        if self.volume_info['retval']:
-            raise RuntimeError("master is corrupt")
-        return self.volume_info
+        vol_mark_dict_list = self.master.server.foreign_marks()
+        return_dict = None
+        if vol_mark_dict_list:
+            for i in range(0, len(vol_mark_dict_list)):
+                present_time = int (time.time())
+                if (present_time < vol_mark_dict_list[i]['timeout']):
+                    logging.debug('syncing as intermediate-master with master as %s till: %d (time)' % \
+                                  (vol_mark_dict_list[i]['uuid'], vol_mark_dict_list[i]['timeout']))
+                    if self.inter_master:
+                        if (self.forgn_uuid != vol_mark_dict_list[i]['uuid']):
+                            raise RuntimeError ('more than one master present')
+                    else:
+                        self.inter_master = True
+                        self.forgn_uuid = vol_mark_dict_list[i]['uuid']
+                    return_dict = vol_mark_dict_list[i]
+                else:
+                    logging.debug('an expired master (%s) with time-out: %d, present time: %d' % \
+                                  (vol_mark_dict_list[i]['uuid'], vol_mark_dict_list[i]['timeout'],
+                                    present_time))
+        if self.inter_master:
+            self.volume_info = return_dict
+            if return_dict:
+                if self.volume_info['retval']:
+                    raise RuntimeError ("master is corrupt")
+            return self.volume_info
+
+        self.volume_info =  self.master.server.native_mark()
+        logging.debug('returning volume-mark from glusterfs: %s' %(self.volume_info))
+        if self.volume_info:
+            if self.volume_info['retval']:
+                raise RuntimeError("master is corrupt")
+            return self.volume_info
 
     @property
     def uuid(self):
         if not getattr(self, '_uuid', None):
-            self._uuid = self.volume_info['uuid']
+            if self.volume_info:
+                self._uuid = self.volume_info['uuid']
         return self._uuid
 
     @property
     def volmark(self):
-        return self.volume_info['volume_mark']
+        if self.volume_info:
+            return self.volume_info['volume_mark']
 
     def xtime(self, path, *a, **opts):
         if a:
@@ -36,31 +67,57 @@ class GMaster(object):
         else:
             rsc = self.master
         if not 'create' in opts:
-            opts['create'] = rsc == self.master
+            opts['create'] = (rsc == self.master and not self.inter_master)
+        if not 'default_xtime' in opts:
+            if self.inter_master:
+                opts['default_xtime'] = ENODATA
+            else:
+                opts['default_xtime'] = URXTIME
         xt = rsc.server.xtime(path, self.uuid)
         if isinstance(xt, int) and xt != ENODATA:
             return xt
-        if (xt == ENODATA or xt < self.volmark) and opts['create']:
+        invalid_xtime = (xt == ENODATA or xt < self.volmark)
+        if invalid_xtime and opts['create']:
             t = time.time()
             sec = int(t)
             nsec = int((t - sec) * 1000000)
             xt = (sec, nsec)
             rsc.server.set_xtime(path, self.uuid, xt)
-        if xt == ENODATA:
-            xt = URXTIME
+        if invalid_xtime:
+            xt = opts['default_xtime']
         return xt
 
     def __init__(self, master, slave):
         self.master = master
         self.slave = slave
-        self.get_volinfo()
         self.jobtab = {}
         self.syncer = Syncer(slave)
         self.total_turns = int(gconf.turns)
         self.turns = 0
         self.start = None
         self.change_seen = None
-        logging.info('master started on ' + self.uuid)
+        self.forgn_uuid = None
+        self.orig_master = False
+        self.inter_master = False
+        self.get_volinfo()
+        if self.volume_info:
+            logging.info('master started on(UUID) : ' + self.uuid)
+
+        #pinger
+        if gconf.timeout and int(gconf.timeout) > 0:
+            def pinger():
+                while True:
+                    volmark = self.get_volinfo()
+                    if volmark:
+                        volmark['forgn_uuid'] = True
+                        timeout = int (time.time()) + 2 * gconf.timeout
+                        volmark['timeout'] = timeout
+
+                    self.slave.server.ping(volmark)
+                    time.sleep(int(gconf.timeout) * 0.5)
+        t = threading.Thread(target=pinger)
+        t.setDaemon(True)
+        t.start()
         while True:
             self.crawl()
 
@@ -95,10 +152,15 @@ class GMaster(object):
                 logging.info("crawl took %.6f" % (time.time() - self.start))
             time.sleep(1)
             self.start = time.time()
-            logging.info("crawling...")
-            self.get_volinfo()
-            if self.volume_info['uuid'] != self.uuid:
-                raise RuntimeError("master uuid mismatch")
+            volinfo = self.get_volinfo()
+            if volinfo:
+                if volinfo['uuid'] != self.uuid:
+                    raise RuntimeError("master uuid mismatch")
+                logging.info("Crawling as %s (%s master mode) ..." % \
+                             (self.uuid,self.inter_master and "intermediate" or "primary"))
+            else:
+                logging.info("Crawling: waiting for valid key for %s" % self.uuid)
+                return
         logging.debug("entering " + path)
         if not xtl:
             xtl = self.xtime(path)
