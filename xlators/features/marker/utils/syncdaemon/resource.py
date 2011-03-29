@@ -10,6 +10,7 @@ import socket
 import logging
 import tempfile
 import threading
+import time
 from ctypes import *
 from ctypes.util import find_library
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR
@@ -67,12 +68,12 @@ class Xattr(object):
         raise OSError(errn, os.strerror(errn))
 
     @classmethod
-    def lgetxattr(cls, path, attr, siz=0):
+    def _query_xattr(cls, path, siz, syscall, *a):
         if siz:
             buf = create_string_buffer('\0' * siz)
         else:
             buf = None
-        ret = cls.libc.lgetxattr(path, attr, buf, siz)
+        ret = getattr(cls.libc, syscall)(*((path,) + a + (buf, siz)))
         if ret == -1:
             cls.raise_oserr()
         if siz:
@@ -81,15 +82,37 @@ class Xattr(object):
             return ret
 
     @classmethod
+    def lgetxattr(cls, path, attr, siz=0):
+        return cls._query_xattr( path, siz, 'lgetxattr', attr)
+
+    @classmethod
+    def llistxattr(cls, path, siz=0):
+        ret = cls._query_xattr(path, siz, 'llistxattr')
+        if isinstance(ret, str):
+            ret = ret.split('\0')
+        return ret
+
+    @classmethod
     def lsetxattr(cls, path, attr, val):
         ret = cls.libc.lsetxattr(path, attr, val, len(val), 0)
         if ret == -1:
             cls.raise_oserr()
 
+    @classmethod
+    def llistxattr_buf(cls, path):
+        size = cls.llistxattr(path)
+        if size  == -1:
+            raise_oserr()
+        return cls.llistxattr(path, size)
+
+
 
 class Server(object):
 
     GX_NSPACE = "trusted.glusterfs"
+    NTV_FMTSTR = "!" + "B"*19 + "II"
+    FRGN_XTRA_FMT = "I"
+    FRGN_FMTSTR = NTV_FMTSTR + FRGN_XTRA_FMT
 
     @staticmethod
     def entries(path):
@@ -184,7 +207,16 @@ class Server(object):
 
     lastping = 0
     @classmethod
-    def ping(cls):
+    def ping(cls, dct):
+        if dct:
+            key = '.'.join([cls.GX_NSPACE, 'volume-mark', dct['uuid']])
+            val = struct.pack(cls.FRGN_FMTSTR,
+                              *(dct['version']  +
+                                tuple(int(x,16) for x in re.findall('(?:[\da-f]){2}', dct['uuid'])) +
+                                (dct['retval'],) + dct['volume_mark'][0:2] + (dct['timeout'],)))
+            Xattr.lsetxattr('.', key, val)
+        else:
+            logging.info('no volume-mark, if the behaviour persists have to check if master gsyncd is running')
         cls.lastping += 1
         return cls.lastping
 
@@ -243,14 +275,6 @@ class SlaveRemote(object):
                 da1[i][k] = int(v)
         if da1[0] != da1[1]:
             raise RuntimeError("RePCe major version mismatch: local %s, remote %s" % (exrv, rv))
-        if gconf.timeout and int(gconf.timeout) > 0:
-            def pinger():
-                while True:
-                    self.server.ping()
-                    time.sleep(int(gconf.timeout) * 0.5)
-            t = threading.Thread(target=pinger)
-            t.setDaemon(True)
-            t.start()
 
     def rsync(self, files, *args):
         if not files:
@@ -314,16 +338,51 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
     class GLUSTERServer(Server):
 
+        forgn_mark_size = struct.calcsize(Server.FRGN_FMTSTR)
+        nativ_mark_size = struct.calcsize(Server.NTV_FMTSTR)
+
         @classmethod
-        def volume_info(cls):
-            vm = struct.unpack('!' + 'B'*19 + 'II',
-                               Xattr.lgetxattr('.', '.'.join([cls.GX_NSPACE, 'volume-mark']), 27))
+        def attr_unpack_dict(cls, xattr, extra_fields = ''):
+            fmt_string = cls.NTV_FMTSTR + extra_fields
+            buf = Xattr.lgetxattr('.', xattr, struct.calcsize(fmt_string))
+            vm = struct.unpack(fmt_string, buf)
+            logging.info("str: %s" % `vm`)
             m = re.match('(.{8})(.{4})(.{4})(.{4})(.{12})', "".join(['%02x' % x for x in vm[2:18]]))
             uuid = '-'.join(m.groups())
-            return { 'version': vm[0:2],
-                     'uuid'   : uuid,
-                     'retval' : vm[18],
-                     'volume_mark': vm[-2:] }
+            volinfo = {  'version': vm[0:2],
+                         'uuid'   : uuid,
+                         'retval' : vm[18],
+                         'volume_mark': vm[18:20],
+                      }
+            logging.info("volinfo: %s" % `volinfo`)
+            if extra_fields:
+                return volinfo, vm[-len(extra_fields):]
+            else:
+                return volinfo
+
+        @classmethod
+        def foreign_marks(cls):
+            dict_list = []
+            xattr_list = Xattr.llistxattr_buf('.')
+            for ele in xattr_list:
+                if (ele.find('trusted.glusterfs.volume-mark') != -1):
+                    #buf = Xattr.lgetxattr('.', ele, cls.forgn_mark_size)
+                    d, x = cls.attr_unpack_dict(ele, cls.FRGN_XTRA_FMT)
+                    d['timeout'] = x[0]
+                    dict_list.append(d)
+            return dict_list
+
+        @classmethod
+        def native_mark(cls):
+            try:
+                return cls.attr_unpack_dict('.'.join([cls.GX_NSPACE, 'volume-mark']))
+            except OSError:
+                ex = sys.exc_info()[1]
+                if ex.errno == ENODATA:
+                    logging.warn("volume-mark not found")
+                    return
+                else:
+                    raise RuntimeError("master is corrupt")
 
     server = GLUSTERServer
 
