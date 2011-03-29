@@ -34,7 +34,7 @@
 int
 afr_sh_select_source (int sources[], int child_count)
 {
-        int i;
+        int i = 0;
         for (i = 0; i < child_count; i++)
                 if (sources[i])
                         return i;
@@ -50,7 +50,7 @@ afr_sh_select_source (int sources[], int child_count)
 int
 afr_sh_sink_count (int sources[], int child_count)
 {
-        int i;
+        int i = 0;
         int sinks = 0;
         for (i = 0; i < child_count; i++)
                 if (!sources[i])
@@ -61,7 +61,7 @@ afr_sh_sink_count (int sources[], int child_count)
 int
 afr_sh_source_count (int sources[], int child_count)
 {
-        int i;
+        int i = 0;
         int nsource = 0;
 
         for (i = 0; i < child_count; i++)
@@ -90,12 +90,11 @@ afr_sh_supress_errenous_children (int sources[], int child_errno[],
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 {
-        afr_private_t * priv = this->private;
-
-        char *buf = NULL;
-        char *ptr = NULL;
-
-        int i, j;
+        afr_private_t *  priv = this->private;
+        char            *buf  = NULL;
+        char            *ptr  = NULL;
+        int              i    = 0;
+        int              j    = 0;
 
         /* 10 digits per entry + 1 space + '[' and ']' */
         buf = GF_MALLOC (priv->child_count * 11 + 8, gf_afr_mt_char);
@@ -120,13 +119,13 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
                              int32_t *pending_matrix[], dict_t *xattr[],
                              int child_count, afr_transaction_type type)
 {
-        int i, j, k;
-
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-        int32_t pending[3];
-        void *pending_raw = NULL;
-        int ret = -1;
-
+        int32_t        pending[3]       = {0,};
+        void          *pending_raw      = NULL;
+        int            ret              = -1;
+        int            i                = 0;
+        int            j                = 0;
+        int            k                = 0;
         unsigned char *ignorant_subvols = NULL;
 
         ignorant_subvols = GF_CALLOC (sizeof (*ignorant_subvols), child_count,
@@ -342,8 +341,7 @@ afr_sh_mark_wisest_as_sources (int sources[],
                                int child_count)
 {
         int nsources = 0;
-
-        int i = 0;
+        int i        = 0;
 
         for (i = 0; i < child_count; i++) {
                 if (characters[i].wisdom == 1) {
@@ -359,10 +357,10 @@ afr_sh_mark_wisest_as_sources (int sources[],
 static int
 afr_sh_mark_if_size_differs (afr_self_heal_t *sh, int child_count)
 {
-        int32_t ** pending_matrix;
-        int i, j;
-
-        int size_differs = 0;
+        int32_t ** pending_matrix = NULL;
+        int        i              = 0;
+        int        j              = 0;
+        int        size_differs   = 0;
 
         pending_matrix = sh->pending_matrix;
 
@@ -392,7 +390,7 @@ afr_sh_mark_biggest_fool_as_source (afr_self_heal_t *sh,
                                     afr_node_character *characters,
                                     int child_count)
 {
-        int i = 0;
+        int i       = 0;
         int biggest = 0;
 
         for (i = 0; i < child_count; i++) {
@@ -424,7 +422,7 @@ static int
 afr_sh_mark_biggest_as_source (afr_self_heal_t *sh, int child_count)
 {
         int biggest = 0;
-        int i;
+        int i       = 0;
 
         for (i = 0; i < child_count; i++) {
                 if (!sh->buf)
@@ -445,7 +443,7 @@ static int
 afr_sh_mark_loweia_uid_as_source (afr_self_heal_t *sh, int child_count)
 {
         uid_t smallest = 0;
-        int i;
+        int   i        = 0;
 
         for (i = 0; i < child_count; i++) {
                 if (!sh->buf)
@@ -466,23 +464,27 @@ int
 afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                      afr_self_heal_type type)
 {
-        int i = 0;
-
-        int32_t ** pending_matrix;
-        int *      sources;
-
-        int size_differs = 0;
-
-        pending_matrix = sh->pending_matrix;
-        sources        = sh->sources;
-
-        int nsources = 0;
-
         /* stores the 'characters' (innocent, fool, wise) of the nodes */
-        afr_node_character *
-                characters = GF_CALLOC (sizeof (afr_node_character),
+        afr_node_character *characters =  NULL;
+
+        int            i              = 0;
+        int32_t **     pending_matrix = NULL;
+        int *          sources        = NULL;
+        int            size_differs   = 0;
+        int            nsources       = 0;
+        xlator_t      *this           = NULL;
+        afr_private_t *priv           = NULL;
+
+        characters = GF_CALLOC (sizeof (afr_node_character),
                                         child_count,
                                         gf_afr_mt_afr_node_character) ;
+        if (!characters)
+                goto out;
+
+        this = THIS;
+        priv = this->private;
+        pending_matrix = sh->pending_matrix;
+        sources        = sh->sources;
 
         /* start clean */
         for (i = 0; i < child_count; i++) {
@@ -500,11 +502,12 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                         characters[i].type = AFR_NODE_WISE;
 
                 } else {
-                        gf_log ("[module:replicate]", GF_LOG_ERROR,
-                                "Could not determine the state of subvolume %d!"
+                        gf_log (this->name, GF_LOG_CRITICAL,
+                                "Could not determine the state of subvolume %s!"
                                 " (This message should never appear."
                                 " Please file a bug report to "
-                                "<gluster-devel@nongnu.org>.)", i);
+                                "<gluster-devel@nongnu.org>.)",
+                                priv->children[i]->name);
                 }
         }
 
@@ -530,7 +533,8 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
 
                 if (afr_sh_wise_nodes_conflict (characters, child_count)) {
                         /* split-brain */
-
+                        gf_log (this->name, GF_LOG_INFO,
+                                "split-brain possible, no source detected");
                         nsources = -1;
                         goto out;
 
@@ -545,7 +549,8 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
         }
 
 out:
-        GF_FREE (characters);
+        if (characters)
+                GF_FREE (characters);
 
         return nsources;
 }
@@ -556,14 +561,13 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                          int32_t *delta_matrix[], int success[],
                          int child_count, afr_transaction_type type)
 {
-        int i = 0;
-        int j = 0;
-        int k = 0;
-
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-        int32_t   pending[3];
-        void      *pending_raw = NULL;
-        int       ret          = 0;
+        int32_t  pending[3]  = {0,};
+        void    *pending_raw = NULL;
+        int      ret         = 0;
+        int      i           = 0;
+        int      j           = 0;
+        int      k           = 0;
 
         /* start clean */
         for (i = 0; i < child_count; i++) {
@@ -580,8 +584,7 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                         ret = dict_get_ptr (xattr[i], priv->pending_key[j],
                                             &pending_raw);
                         if (ret < 0)
-                                gf_log ("afr_sh_pending_to_delta",
-                                        GF_LOG_DEBUG,
+                                gf_log (THIS->name, GF_LOG_DEBUG,
                                         "Unable to get dict value.");
                         if (!success[j])
                                 continue;
@@ -605,13 +608,11 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
                        int32_t *delta_matrix[], dict_t *xattr[],
                        int child_count, afr_transaction_type type)
 {
-        int i = 0;
-        int j = 0;
-        int k = 0;
-
-        int ret = 0;
-
-        int32_t *pending = 0;
+        int      i       = 0;
+        int      j       = 0;
+        int      k       = 0;
+        int      ret     = 0;
+        int32_t *pending = NULL;
 
         for (i = 0; i < child_count; i++) {
                 if (!xattr[i])
@@ -620,6 +621,9 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
                 for (j = 0; j < child_count; j++) {
                         pending = GF_CALLOC (sizeof (int32_t), 3,
                                              gf_afr_mt_int32_t);
+
+                        if (!pending)
+                                continue;
                         /* 3 = data+metadata+entry */
 
                         k = afr_index_for_transaction_type (type);
@@ -630,8 +634,7 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
                                             pending,
                                             3 * sizeof (int32_t));
                         if (ret < 0)
-                                gf_log ("afr_sh_delta_to_xattr",
-                                        GF_LOG_WARNING,
+                                gf_log (THIS->name, GF_LOG_WARNING,
                                         "Unable to set dict value.");
                 }
         }
@@ -642,14 +645,13 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
 int
 afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
 {
-        afr_private_t *priv = NULL;
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-        int32_t       pending[3];
+        int32_t        pending[3]  = {0,};
         void          *pending_raw = NULL;
-
-        int           ret = -1;
-        int            i  = 0;
-        int            j  = 0;
+        afr_private_t *priv        = NULL;
+        int            ret         = -1;
+        int            i           = 0;
+        int            j           = 0;
 
         priv = this->private;
 
@@ -674,14 +676,13 @@ afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
 int
 afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 {
-        afr_private_t *priv = NULL;
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-        int32_t       pending[3];
+        int32_t        pending[3]  = {0,};
         void          *pending_raw = NULL;
-
-        int           ret = -1;
-        int            i  = 0;
-        int            j  = 0;
+        afr_private_t *priv        = NULL;
+        int            ret         = -1;
+        int            i           = 0;
+        int            j           = 0;
 
         priv = this->private;
 
@@ -706,14 +707,13 @@ afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 int
 afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
 {
-        afr_private_t *priv = NULL;
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-        int32_t       pending[3];
+        int32_t        pending[3]  = {0,};
         void          *pending_raw = NULL;
-
-        int           ret = -1;
-        int            i  = 0;
-        int            j  = 0;
+        afr_private_t *priv        = NULL;
+        int            ret         = -1;
+        int            i           = 0;
+        int            j           = 0;
 
         priv = this->private;
 
@@ -742,7 +742,8 @@ afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
 int
 afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count)
 {
-        int i, j;
+        int i = 0;
+        int j = 0;
 
         for (i = 0; i < child_count; i++)
                 for (j = 0; j < child_count; j++)
@@ -778,8 +779,8 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
         }
 
         if (local->govinda_gOvinda) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "aborting selfheal of %s",
+                gf_log (this->name, GF_LOG_INFO,
+                        "split brain found: aborting selfheal of %s",
                         local->loc.path);
                 sh->completion_cbk (frame, this);
         } else {
@@ -814,16 +815,14 @@ sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int op_errno,
                 struct iatt *preop, struct iatt *postop)
 {
-        afr_local_t *local = NULL;
-
-        loc_t *parent_loc = cookie;
-
-        int call_count = 0;
+        afr_local_t *local      = NULL;
+        loc_t       *parent_loc = cookie;
+        int          call_count = 0;
 
         local = frame->local;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "setattr on %s failed: %s",
                         local->loc.path, strerror (op_errno));
         }
@@ -851,17 +850,15 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
                                  struct iatt *preparent,
                                  struct iatt *postparent)
 {
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
+        afr_local_t     *local         = NULL;
+        afr_self_heal_t *sh            = NULL;
+        afr_private_t   *priv          = NULL;
         call_frame_t    *setattr_frame = NULL;
-        int              call_count = 0;
-        int              child_index = 0;
-
-        loc_t *parent_loc = NULL;
-
-        struct iatt     stbuf;
-        int32_t valid;
+        int              call_count    = 0;
+        int              child_index   = 0;
+        loc_t           *parent_loc    = NULL;
+        struct iatt      stbuf         = {0,};
+        int32_t          valid         = 0;
 
         local = frame->local;
         sh    = &local->self_heal;
@@ -879,6 +876,13 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 
         valid = GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
                 GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
+
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: failed to mknod on %s (%s)",
+                        local->loc.path, priv->children[child_index]->name,
+                        strerror (op_errno));
+        }
 
         if (op_ret == 0) {
                 setattr_frame = copy_frame (frame);
@@ -961,7 +965,8 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 
         ret = afr_set_dict_gfid (dict, sh->buf[sh->source].ia_gfid);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
+                gf_log (this->name, GF_LOG_INFO, "%s: gfid set failed",
+                        local->loc.path);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (sh->child_errno[i] == ENOENT) {
@@ -996,7 +1001,6 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
         int              call_count = 0;
         mode_t           st_mode = 0;
 
-
         local = frame->local;
         sh = &local->self_heal;
         priv = this->private;
@@ -1021,8 +1025,8 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
 
         ret = afr_set_dict_gfid (dict, sh->buf[sh->source].ia_gfid);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "inode gfid set failed");
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: inode gfid set failed", local->loc.path);
 
 
         gf_log (this->name, GF_LOG_TRACE,
@@ -1093,7 +1097,7 @@ sh_missing_entries_symlink (call_frame_t *frame, xlator_t *this,
         ret = afr_set_dict_gfid (dict, buf->ia_gfid);
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "dict gfid set failed");
+                        "%s: dict gfid set failed", local->loc.path);
 
         gf_log (this->name, GF_LOG_TRACE,
                 "symlink %s -> %s on %d subvolumes",
@@ -1122,10 +1126,23 @@ sh_missing_entries_readlink_cbk (call_frame_t *frame, void *cookie,
                                  int32_t op_ret, int32_t op_errno,
                                  const char *link, struct iatt *sbuf)
 {
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_private_t   *priv = NULL;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+
         if (op_ret > 0)
                 sh_missing_entries_symlink (frame, this, link, sbuf);
-        else
+        else {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: failed to do readlink on %s (%s)",
+                        local->loc.path, priv->children[sh->source]->name,
+                        strerror (op_errno));
                 sh_missing_entries_finish (frame, this);
+        }
 
         return 0;
 }
@@ -1137,7 +1154,6 @@ sh_missing_entries_readlink (call_frame_t *frame, xlator_t *this)
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
-
 
         local = frame->local;
         sh = &local->self_heal;
@@ -1163,7 +1179,6 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
         int              enoent_count = 0;
         int              govinda_gOvinda = 0;
 
-
         local = frame->local;
         sh = &local->self_heal;
         priv = this->private;
@@ -1178,8 +1193,9 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
                 } else {
                         if (type) {
                                 if (type != sh->buf[i].ia_type) {
-                                        gf_log (this->name, GF_LOG_TRACE,
-                                                "file %s is govinda!",
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "file %s is not recoverable "
+                                                "automatically!",
                                                 local->loc.path);
 
                                         govinda_gOvinda = 1;
@@ -1211,7 +1227,7 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
         }
 
         if (enoent_count == 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_INFO,
                         "no missing files - %s. proceeding to metadata check",
                         local->loc.path);
                 /* proceed to next step - metadata self-heal */
@@ -1235,7 +1251,7 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
                 break;
         default:
                 gf_log (this->name, GF_LOG_ERROR,
-                        "unknown file type: 0%o", type);
+                        "%s: unknown file type: 0%o", local->loc.path, type);
                 local->govinda_gOvinda = 1;
                 sh_missing_entries_finish (frame, this);
         }
@@ -1277,7 +1293,7 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
                         local->self_heal.buf[child_index] = *buf;
                         local->self_heal.parentbuf        = *postparent;
                 } else {
-                        gf_log (this->name, GF_LOG_TRACE,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "path %s on subvolume %s => -1 (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
@@ -1326,7 +1342,8 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
                                                3 * sizeof(int32_t));
                         if (ret < 0)
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "Unable to set dict value.");
+                                        "%s: failed to set value for %s",
+                                        local->loc.path, priv->pending_key[i]);
                 }
         }
 
@@ -1366,7 +1383,7 @@ afr_sh_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Non blocking entrylks failed.");
                 afr_sh_missing_entries_done (frame, this);
         } else {
@@ -1434,13 +1451,14 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         afr_self_heal_t *sh = NULL;
         afr_self_heal_t *shc = NULL;
 
-
         priv = this->private;
 
         sh = &l->self_heal;
 
         lc = GF_CALLOC (1, sizeof (afr_local_t),
                         gf_afr_mt_afr_local_t);
+        if (!lc)
+                goto out;
 
         shc = &lc->self_heal;
 
@@ -1502,6 +1520,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         lc->internal_lock.entrylk_lock_count =
                 l->internal_lock.entrylk_lock_count;
 
+out:
         return lc;
 }
 
@@ -1527,7 +1546,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 
         afr_self_heal_type_str_get(sh, sh_type_str,
                                    sizeof(sh_type_str));
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "background %s self-heal completed on %s", sh_type_str,
                 local->loc.path);
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
@@ -1559,7 +1578,6 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
 
         call_frame_t *sh_frame = NULL;
         afr_local_t  *sh_local = NULL;
-
 
         local = frame->local;
         priv  = this->private;
@@ -1598,7 +1616,6 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
         sh->orig_frame  = frame;
 
         sh->completion_cbk = afr_self_heal_completion_cbk;
-
 
         sh->buf = GF_CALLOC (priv->child_count, sizeof (struct iatt),
                              gf_afr_mt_iatt);
@@ -1656,12 +1673,10 @@ afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
         }
 
         if (self_heal_p->need_data_self_heal) {
-                snprintf(str + strlen(str), size - strlen(str),
-                         " data");
+                snprintf(str + strlen(str), size - strlen(str), " data");
         }
 
         if (self_heal_p->need_entry_self_heal) {
-                snprintf(str + strlen(str), size - strlen(str),
-                         " entry");
+                snprintf(str + strlen(str), size - strlen(str), " entry");
         }
 }
