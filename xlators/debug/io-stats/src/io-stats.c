@@ -2464,7 +2464,7 @@ init (xlator_t *this)
 
         for (i = 0; i <IOS_STATS_TYPE_MAX; i++) {
                 conf->list[i].iosstats = GF_CALLOC (1, 
-                                         sizeof(conf->list[i].iosstats), 
+                                         sizeof(*conf->list[i].iosstats), 
                                          gf_io_stats_mt_ios_stat);
 
                 if (!conf->list[i].iosstats) {
