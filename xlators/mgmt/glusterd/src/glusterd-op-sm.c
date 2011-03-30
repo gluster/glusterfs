@@ -472,7 +472,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                 if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
                         if (glusterd_is_volume_started (volinfo)) {
                                 snprintf (msg, sizeof (msg), "Volume %s already"
-                                          "started", volname);
+                                          " started", volname);
                                 gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
                                 *op_errstr = gf_strdup (msg);
                                 ret = -1;
