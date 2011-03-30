@@ -170,6 +170,13 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!op_ret && uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
+        /* Check if the gfid is different for file from other node */
+        if (!op_ret && uuid_compare (local->gfid, stbuf->ia_gfid)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: gfid different on %s",
+                        local->loc.path, prev->this->name);
+        }
+
         LOCK (&frame->lock);
         {
                 /* TODO: assert equal mode on stbuf->st_mode and
@@ -662,6 +669,12 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (uuid_is_null (local->gfid))
                         memcpy (local->gfid, buf->ia_gfid, 16);
 
+                if (uuid_compare (local->gfid, buf->ia_gfid)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: gfid differs on subvolume %s",
+                                loc->path, prev->this->name);
+                }
+
                 is_linkfile = check_is_linkfile (inode, buf, xattr);
                 is_dir = check_is_dir (inode, buf, xattr);
 
@@ -873,6 +886,12 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
+        if (uuid_compare (local->gfid, stbuf->ia_gfid)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: gfid different on data file on %s",
+                        local->loc.path, subvol->name);
+        }
+
         if ((stbuf->ia_nlink == 1)
             && (conf && conf->unhashed_sticky_bit)) {
                 stbuf->ia_prot.sticky = 1;
@@ -977,7 +996,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* This is required for handling stale linkfile deletion,
          * or any more call which happens from this 'loc'.
          */
-        if (uuid_is_null (local->gfid) && !op_ret)
+        if (!op_ret && uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
         if (ENTRY_MISSING (op_ret, op_errno)) {
