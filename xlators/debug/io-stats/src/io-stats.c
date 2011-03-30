@@ -988,7 +988,7 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
                              ios_stats_type_t flags, int32_t list_cnt)
 {
         struct ios_conf         *conf = NULL;
-        int                      cnt  = -1;
+        int                      cnt  = 0;
         char                     key[256];
         struct ios_stat_head    *list_head = NULL;
         struct ios_stat_list    *entry = NULL;
