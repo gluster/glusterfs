@@ -527,6 +527,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                         gf_log ("", GF_LOG_ERROR, "Volume %s "
                                 "has not been started", volname);
                         *op_errstr = gf_strdup (msg);
+                        ret = -1;
                         goto out;
                 }
         }
