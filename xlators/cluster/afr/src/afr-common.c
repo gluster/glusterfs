@@ -628,6 +628,11 @@ afr_lookup_self_heal_check (xlator_t *this, afr_local_t *local,
                 local->self_heal.need_data_self_heal = _gf_true;
         }
 
+        if (uuid_compare (buf->ia_gfid, lookup_buf->ia_gfid)) {
+                /* mismatching gfid */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: gfid different on subvolume", local->loc.path);
+        }
 }
 
 
