@@ -655,11 +655,12 @@ update_dirty_inode (xlator_t *this,
         lock.l_start = 0;
         lock.l_len = 0;
 
-         STACK_WIND (frame,
-                     get_dirty_xattr,
-                     FIRST_CHILD(this),
-                     FIRST_CHILD(this)->fops->inodelk,
-                     this->name, &local->loc, F_SETLKW, &lock);
+        STACK_WIND (frame,
+                    get_dirty_xattr,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->inodelk,
+                    this->name, &local->loc, F_SETLKW, &lock);
+        return 0;
 
 fr_destroy:
          QUOTA_STACK_DESTROY (frame, this);
@@ -834,7 +835,7 @@ out:
 int32_t
 get_parent_inode_local (xlator_t *this, quota_local_t *local)
 {
-        uint32_t           ret;
+        int32_t            ret;
         quota_inode_ctx_t *ctx = NULL;
 
         loc_wipe (&local->loc);
