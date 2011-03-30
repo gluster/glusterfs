@@ -710,9 +710,12 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 dht_iatt_merge (this, &local->postparent,
                                                 postparent, subvol);
                         } else {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                /* This is where we need 'rename' both entries logic */
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "multiple subvolumes (%s and %s) have "
-                                        "file %s", local->cached_subvol->name,
+                                        "file %s (preferrably rename the file "
+                                        "in the backend, and do a fresh lookup)",
+                                        local->cached_subvol->name,
                                         subvol->name, local->loc.path);
                         }
                 }
@@ -721,7 +724,7 @@ unlock:
         UNLOCK (&frame->lock);
 
         if (is_linkfile) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "deleting stale linkfile %s on %s",
                         loc->path, subvol->name);
                 dht_linkfile_unlink (frame, this, subvol, loc);
@@ -755,7 +758,7 @@ unlock:
                 }
 
                 if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "cannot create linkfile file for %s on %s: "
                                 "hashed subvolume cannot be found.",
                                 loc->path, cached_subvol->name);
@@ -766,7 +769,7 @@ unlock:
                         ret = dht_layout_preset (frame->this, cached_subvol,
                                                  local->inode);
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_INFO,
                                         "failed to set layout for subvol %s",
                                         cached_subvol ? cached_subvol->name :
                                         "<nil>");
@@ -1040,9 +1043,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         is_linkfile = check_is_linkfile (inode, stbuf, xattr);
-        is_dir      = check_is_dir (inode, stbuf, xattr);
 
-        if (!is_dir && !is_linkfile) {
+        if (!is_linkfile) {
                 /* non-directory and not a linkfile */
 
                 dht_itransform (this, prev->this, stbuf->ia_ino,
@@ -1062,21 +1064,18 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (is_linkfile) {
-                subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
-
-                if (!subvol) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "linkfile not having link subvolume. path=%s",
-                                loc->path);
-                        dht_lookup_everywhere (frame, this, loc);
-                        return 0;
-                }
-
-                STACK_WIND (frame, dht_lookup_linkfile_cbk,
-                            subvol, subvol->fops->lookup,
-                            &local->loc, local->xattr_req);
+        subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
+        if (!subvol) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "linkfile not having link subvolume. path=%s",
+                        loc->path);
+                dht_lookup_everywhere (frame, this, loc);
+                return 0;
         }
+
+        STACK_WIND (frame, dht_lookup_linkfile_cbk,
+                    subvol, subvol->fops->lookup,
+                    &local->loc, local->xattr_req);
 
         return 0;
 
