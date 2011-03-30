@@ -145,7 +145,8 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
 
-                if (prev->this == dht_first_up_subvol (this)) {
+                if (!local->ia_ino &&
+                    (prev->this == dht_first_up_subvol (this))) {
 			local->ia_ino = local->stbuf.ia_ino;
                 }
 
@@ -1018,6 +1019,9 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
+		local->inode    = inode_ref (loc->inode);
+		local->ia_ino   = loc->inode->ino;
+
 		if (layout->gen && (layout->gen < conf->gen)) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"incomplete layout failure for path=%s",
@@ -1028,12 +1032,9 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 			goto do_fresh_lookup;
 		}
 
-		local->inode    = inode_ref (loc->inode);
-		local->ia_ino   = loc->inode->ino;
-		
 		local->call_cnt = 1;
 		call_cnt = local->call_cnt;
-		
+
 		/* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
 		 *       revalidates directly go to the cached-subvolume.
 		 */
