@@ -2720,7 +2720,7 @@ nfs3_mkdir (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->parent = *dirfh;
-        cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, NULL,
+        cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
                                                           &cs->mode);
         ret = nfs3_fh_resolve_and_resume (cs, dirfh, name, nfs3_mkdir_resume);
         if (ret < 0)
@@ -3149,13 +3149,13 @@ nfs3_mknod (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name,
         case NF3BLK:
                 cs->devnums = nodedata->mknoddata3_u.device.spec;
                 sattr = &nodedata->mknoddata3_u.device.dev_attributes;
-                cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, NULL,
+                cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
                                                                   &cs->mode);
                 break;
         case NF3SOCK:
         case NF3FIFO:
                 sattr = &nodedata->mknoddata3_u.pipe_attributes;
-                cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, NULL,
+                cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
                                                                   &cs->mode);
                 break;
         default:
