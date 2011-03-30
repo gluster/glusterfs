@@ -2635,7 +2635,7 @@ gf_cli3_1_gsync_get_pid_file (char *pidfolder, char *pidfile, char *master, char
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (buffer, PATH_MAX, "%s/%s", pidfolder, buff);
+                snprintf (buffer, PATH_MAX, "%s/%s.pid", pidfolder, buff);
                 strncpy (pidfile, buffer, PATH_MAX);
         }
         else {
