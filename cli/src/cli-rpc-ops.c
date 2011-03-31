@@ -3275,8 +3275,8 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = dict_get_uint64 (dict, key, &max_nr_open);
                         if (ret)
                                 goto out;
-                        cli_out ("Current open fd's: %"PRIu64", Max open"
-                                " fd's: %"PRIu64, nr_open, max_nr_open);
+                        cli_out ("Current open fds: %"PRIu64", Max open"
+                                " fds: %"PRIu64, nr_open, max_nr_open);
                 case GF_CLI_TOP_READ:
                 case GF_CLI_TOP_WRITE:
                 case GF_CLI_TOP_OPENDIR:
