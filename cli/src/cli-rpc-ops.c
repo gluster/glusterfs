@@ -3043,6 +3043,7 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int                               interval = 0;
         int                               i = 1;
         int32_t                           brick_count = 0;
+        char                              *volname = NULL;
         if (-1 == req->rpc_status) {
                 goto out;
         }
@@ -3051,18 +3052,6 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = gf_xdr_to_cli_stats_volume_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
-                goto out;
-        }
-
-        if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
-                cli_out (rsp.op_errstr);
-        } else {
-                cli_out ("volume profile %s ",
-                         (rsp.op_ret) ? "unsuccessful": "successful");
-        }
-
-        if (rsp.op_ret) {
-                ret = rsp.op_ret;
                 goto out;
         }
 
@@ -3085,7 +3074,42 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 dict->extra_stdfree = rsp.stats_info.stats_info_val;
         }
 
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+
         ret = dict_get_int32 (dict, "op", (int32_t*)&op);
+        if (ret)
+                goto out;
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
+                cli_out (rsp.op_errstr);
+        } else {
+                switch (op) {
+                case GF_CLI_STATS_START:
+                        cli_out ("Starting volume profile on %s has been %s ",
+                                 volname,
+                                 (rsp.op_ret) ? "unsuccessful": "successful");
+                        break;
+                case GF_CLI_STATS_STOP:
+                        cli_out ("Stopping volume profile on %s has been %s ",
+                                 volname,
+                                 (rsp.op_ret) ? "unsuccessful": "successful");
+                        break;
+                case GF_CLI_STATS_INFO:
+                        break;
+                default:
+                        cli_out ("volume profile on %s has been %s ",
+                                 volname,
+                                 (rsp.op_ret) ? "unsuccessful": "successful");
+                        break;
+                }
+        }
+
+        if (rsp.op_ret) {
+                ret = rsp.op_ret;
+                goto out;
+        }
 
         if (op != GF_CLI_STATS_INFO) {
                 ret = 0;
