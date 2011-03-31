@@ -2610,6 +2610,7 @@ gf_cli3_1_gsync_get_pid_file (char *pidfolder, char *pidfile, char *master, char
         char                cmd[PATH_MAX] = {0, };
         char               *ptr = NULL;
         char                buffer[PATH_MAX] = {0, };
+        int                 ret = 0;
 
         snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-escape-url"
                                      " %s %s", master, slave);
@@ -2623,10 +2624,9 @@ gf_cli3_1_gsync_get_pid_file (char *pidfolder, char *pidfile, char *master, char
                 buff[strlen(buff)-1]='\0'; //strip off \n
                 snprintf (buffer, PATH_MAX, "%s/gsync/%s", gl_workdir, buff);
                 strncpy (pidfolder, buffer, PATH_MAX);
-        }
-        else {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-                return -1;
+        } else {
+                ret = -1;
+                goto out;
         }
 
         memset (buff, 0, PATH_MAX);
@@ -2638,12 +2638,14 @@ gf_cli3_1_gsync_get_pid_file (char *pidfolder, char *pidfile, char *master, char
                 snprintf (buffer, PATH_MAX, "%s/%s.pid", pidfolder, buff);
                 strncpy (pidfile, buffer, PATH_MAX);
         }
-        else {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-                return -1;
-        }
 
-        return 0;
+ out:
+        ret |= pclose (in);
+
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "popen failed");
+
+        return ret ? -1 : 0;
 }
 
 /* status: 0 when gsync is running
