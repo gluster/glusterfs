@@ -115,7 +115,12 @@ def startup(**kw):
     if gconf.log_level:
         lkw['level'] = gconf.log_level
     if kw.get('log_file'):
-        lkw['filename'] = kw['log_file']
+        if kw['log_file'] in ('-', '/dev/stderr'):
+            lkw['stream'] = sys.stderr
+        elif kw['log_file'] == '/dev/stdout':
+            lkw['stream'] = sys.stdout
+        else:
+            lkw['filename'] = kw['log_file']
     GLogger.setup(slave=kw.get('slave'), **lkw)
 
 def finalize(*a):
@@ -199,8 +204,8 @@ def main_i():
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,      action='callback', callback=store_local_curry(True))
     op.add_option('-N', '--no-daemon', dest="go_daemon",    action='callback', callback=store_local_curry('dont'))
     op.add_option('--debug', dest="go_daemon",              action='callback', callback=lambda *a: (store_local_curry('dont')(*a),
-                                                                                                    a[-1].values.__dict__.get('log_level') or \
-                                                                                                     a[-1].values.__dict__.update(log_level='DEBUG')))
+                                                                                                    setattr(a[-1].values, 'log_file', '-'),
+                                                                                                    setattr(a[-1].values, 'log_level', 'DEBUG'))),
     op.add_option('--config-get',           metavar='OPT',  type=str, dest='config', action='callback', callback=store_local)
     op.add_option('--config-get-all', dest='config', action='callback', callback=store_local_curry(True))
     op.add_option('--config-set',           metavar='OPT VAL', type=str, nargs=2, dest='config', action='callback',
