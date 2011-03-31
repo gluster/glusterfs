@@ -69,7 +69,7 @@ class GMaster(object):
         if not 'create' in opts:
             opts['create'] = (rsc == self.master and not self.inter_master)
         if not 'default_xtime' in opts:
-            if self.inter_master:
+            if rsc == self.master and self.inter_master:
                 opts['default_xtime'] = ENODATA
             else:
                 opts['default_xtime'] = URXTIME
