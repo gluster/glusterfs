@@ -1704,6 +1704,7 @@ glusterd_gsync_get_pid_file (char *pidfile, char *master, char *slave)
         char                buffer[PATH_MAX] = {0, };
         char                pidfolder[PATH_MAX] = {0, };
         glusterd_conf_t    *priv  = NULL;
+        int                 ret = 0;
 
         GF_ASSERT (THIS);
 
@@ -1721,10 +1722,9 @@ glusterd_gsync_get_pid_file (char *pidfile, char *master, char *slave)
                 buff[strlen(buff)-1]='\0'; //strip off \n
                 snprintf (buffer, PATH_MAX, "%s/gsync/%s", priv->workdir, buff);
                 strncpy (pidfolder, buffer, PATH_MAX);
-        }
-        else {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-                return -1;
+        } else {
+                ret = -1;
+                goto out;
         }
 
         memset (buff, 0, PATH_MAX);
@@ -1736,12 +1736,14 @@ glusterd_gsync_get_pid_file (char *pidfile, char *master, char *slave)
                 snprintf (buffer, PATH_MAX, "%s/%s.pid", pidfolder, buff);
                 strncpy (pidfile, buffer, PATH_MAX);
         }
-        else {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-                return -1;
-        }
 
-        return 0;
+ out:
+        ret |= pclose (in);
+
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "popen failed");
+
+        return ret ? -1 : 0;
 }
 
 /* status: return 0 when gsync is running
