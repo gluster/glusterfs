@@ -1773,3 +1773,34 @@ gf_array_insertionsort (void *A, int l, int r, size_t elem_size,
                 }
         }
 }
+
+int
+gf_is_str_int (const char *value)
+{
+        int     flag = 0;
+        char   *str  = NULL;
+        char   *fptr = NULL;
+
+        GF_VALIDATE_OR_GOTO ("", value, out);
+
+        str = strdup (value);
+        if (!str)
+                goto out;
+
+        fptr = str;
+
+        while (*str) {
+                if (!isdigit(*str)) {
+                        flag = 1;
+                        goto out;
+                }
+                str++;
+        }
+
+out:
+        if (fptr)
+                GF_FREE (fptr);
+
+        return flag;
+}
+
