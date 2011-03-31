@@ -1886,10 +1886,16 @@ err:
 int32_t
 marker_forget (xlator_t *this, inode_t *inode)
 {
-        marker_inode_ctx_t      *ctx = NULL;
+        marker_inode_ctx_t *ctx   = NULL;
+        uint64_t            value = 0;
 
-        if (inode_ctx_del (inode, this, (uint64_t *) &ctx) != 0)
+        if (inode_ctx_del (inode, this, &value) != 0)
                 goto out;
+
+        ctx = (marker_inode_ctx_t *)(unsigned long)value;
+        if (ctx == NULL) {
+                goto out;
+        }
 
         quota_forget (this, ctx->quota_ctx);
 
