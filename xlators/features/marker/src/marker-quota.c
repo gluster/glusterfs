@@ -98,6 +98,8 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
         struct gf_flock   lock;
         quota_local_t    *local = NULL;
 
+        local = frame->local;
+
         if (op_ret == -1) {
                 local->err = -1;
 
@@ -105,8 +107,6 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 return 0;
         }
-
-        local = frame->local;
 
         if (op_ret == 0)
                 local->ctx->dirty = 0;
@@ -136,12 +136,12 @@ mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t *local     = NULL;
         marker_conf_t  *priv      = NULL;
 
+        local = (quota_local_t *) frame->local;
+
         if (op_ret == -1)
                 goto err;
 
         priv = (marker_conf_t *) this->private;
-
-        local = (quota_local_t *) frame->local;
 
         if (!dict)
                 goto wind;
@@ -288,6 +288,7 @@ get_child_contribution (call_frame_t *frame,
                         struct iatt *postparent)
 {
         int32_t          ret            = -1;
+	int32_t		 val	 	= 0;
         char             contri_key [512] = {0, };
         int64_t         *contri         = NULL;
         quota_local_t   *local          = NULL;
@@ -324,11 +325,11 @@ get_child_contribution (call_frame_t *frame,
 out:
         LOCK (&local->lock);
         {
-                local->dentry_child_count--;
+                val = local->dentry_child_count--;
         }
         UNLOCK (&local->lock);
 
-        if (local->dentry_child_count == 0) {
+        if (val== 0) {
                 if (local->err) {
                         QUOTA_SAFE_DECREMENT (&local->lock, local->ref);
 
@@ -1377,12 +1378,12 @@ start_quota_txn (xlator_t *this, loc_t *loc,
 
         ret = loc_copy (&local->loc, loc);
         if (ret < 0)
-                goto local_unref;
+                goto fr_destroy;
 
         ret = quota_inode_loc_fill (NULL, local->loc.parent,
                                     &local->parent_loc);
         if (ret < 0)
-                goto local_unref;
+                goto fr_destroy;
 
         local->ctx = ctx;
         local->contri = contri;
@@ -1390,9 +1391,6 @@ start_quota_txn (xlator_t *this, loc_t *loc,
         get_lock_on_parent (frame, this);
 
         return 0;
-
-local_unref:
-        quota_local_unref (this, local);
 
 fr_destroy:
         QUOTA_STACK_DESTROY (frame, this);
@@ -1557,7 +1555,7 @@ inspect_file_xattr (xlator_t *this,
 
                 ret = dict_get_bin (dict, contri_key, (void **) &contri_int);
                 if (ret == 0) {
-                        contri_ptr = (int64_t *) contri_int;
+                        contri_ptr = (int64_t *)(unsigned long)contri_int;
 
                         contribution->contribution = ntoh64 (*contri_ptr);
 

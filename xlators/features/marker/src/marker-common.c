@@ -49,13 +49,14 @@ marker_force_inode_ctx_get (inode_t *inode, xlator_t *this,
         {
                 ret = __inode_ctx_get (inode, this, &ctx_int);
                 if (ret == 0)
-                        *ctx = (marker_inode_ctx_t *) ctx_int;
+                        *ctx = (marker_inode_ctx_t *) (unsigned long)ctx_int;
                 else {
                         *ctx = marker_inode_ctx_new ();
                         if (*ctx == NULL)
                                 goto unlock;
 
-                        ret = __inode_ctx_put (inode, this, (uint64_t ) *ctx);
+                        ret = __inode_ctx_put (inode, this,
+                                               (uint64_t )(unsigned long) *ctx);
                         if (ret == -1) {
                                 GF_FREE (*ctx);
                                 goto unlock;
