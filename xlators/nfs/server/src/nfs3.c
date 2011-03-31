@@ -2401,16 +2401,24 @@ nfs3svc_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto nfs3err;
         }
 
-        if (cs->preparent.ia_mtime == buf->ia_mtime)
+        if ((cs->stbuf.ia_mtime == buf->ia_mtime) &&
+            (cs->stbuf.ia_atime == buf->ia_atime)) {
+                gf_log (GF_NFS3, GF_LOG_DEBUG, "Create req retransmitted verf %x %x",
+                        cs->stbuf.ia_mtime, cs->stbuf.ia_atime);
                 stat = NFS3_OK;
-        else
+                nfs3_fh_build_child_fh (&cs->parent, buf, &cs->fh);
+        } else {
+                gf_log (GF_NFS3, GF_LOG_DEBUG, "File already exist new_verf %x %x"
+                        "old_verf %x %x", cs->stbuf.ia_mtime, cs->stbuf.ia_atime,
+                        buf->ia_mtime, buf->ia_atime);
                 stat = NFS3ERR_EXIST;
+        }
 
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "CREATE",
                                      stat, op_errno);
-                nfs3_create_reply (cs->req, stat, NULL, NULL, NULL, NULL);
+                nfs3_create_reply (cs->req, stat, &cs->fh, buf, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
 
@@ -2427,9 +2435,12 @@ nfs3_create_exclusive (nfs3_call_state_t *cs)
         if (!cs)
                 return ret;
 
-        /* HACK warning. */
-        cs->preparent.ia_mtime = cs->cookieverf;
-        cs->preparent.ia_atime = 9669;
+        /* Storing verifier as a mtime and atime attribute, to store it
+         * in stable storage */
+        cs->stbuf.ia_atime = (cs->cookieverf && 0xFFFFFFFF00000000);
+        cs->stbuf.ia_mtime = (cs->cookieverf && 0x00000000FFFFFFFF);
+        cs->setattr_valid |= GF_SET_ATTR_ATIME;
+        cs->setattr_valid |= GF_SET_ATTR_MTIME;
         nfs_request_user_init (&nfu, cs->req);
 
         /* If the file already existed we need to get that attributes so we can
