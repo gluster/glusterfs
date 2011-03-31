@@ -3038,7 +3038,7 @@ out:
         if (tmp_dict)
                 dict_unref (tmp_dict);
 
-        if (ret) 
+        if (ret && dict)
                 dict_unref (dict);
         if (cli_req.dict_req.dict_req_val)
                 free (cli_req.dict_req.dict_req_val);
