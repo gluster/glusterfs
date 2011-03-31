@@ -1253,7 +1253,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         int      ret            = -1;
         gf1_cli_stats_op op = GF_CLI_STATS_NONE;
         gf1_cli_top_op    top_op = GF_CLI_TOP_NONE;
-        int32_t  list_cnt       = 0;
+        int32_t  list_cnt       = -1;
         int      index          = 0;
         int      perf           = 0;
         int32_t  blk_size       = 0;
@@ -1332,15 +1332,11 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
 
                 } else if (!strcmp (key, "list-cnt")) {
                         list_cnt = atoi(value);
-                        if (!list_cnt) {
-                                list_cnt = 100;
-                        }
-                        if (list_cnt < 1 || list_cnt > 100) {
-                                cli_out ("list-cnt should be between 1 to 100");
+                        if (list_cnt < 0 || list_cnt > 100) {
+                                cli_out ("list-cnt should be between 0 to 100");
                                 ret = -1;
                                 goto out;
                         }
-                        ret = dict_set_int32 (dict, "list-cnt", list_cnt);
                 } else if (perf && !strcmp (key, "bs")){
                         blk_size = atoi (value);
                         if (blk_size < 0){
@@ -1369,6 +1365,14 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         goto out;
                 }
         }
+        if (list_cnt == -1)
+                list_cnt = 100;
+        ret = dict_set_int32 (dict, "list-cnt", list_cnt);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Dict set failed for list_cnt");
+                goto out;
+        }
+
         *options = dict;
 out:
         if (ret && dict)

@@ -1039,6 +1039,8 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
                        goto out;
         }
         ret = dict_set_int32 (resp, "top-op", flags);
+        if (!list_cnt)
+                goto out;
         LOCK (&list_head->lock);
         {
                 list_for_each_entry (entry, &list_head->iosstats->list, list) {
@@ -2600,8 +2602,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 ret = dict_get_int32 (dict, "top-op", &top_op);
                 if (!ret) {
                         ret = dict_get_int32 (dict, "list-cnt", &list_cnt);
-                        if (!list_cnt)
-                                list_cnt = 100;
                         if (top_op > IOS_STATS_TYPE_NONE &&
                             top_op < IOS_STATS_TYPE_MAX)
                                 ret = io_stats_dump_stats_to_dict (this, output,

@@ -3184,7 +3184,7 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t                            *dict = NULL;
         gf1_cli_stats_op                op = GF_CLI_STATS_NONE;
         char                              key[256] = {0};
-        int                               i = 1;
+        int                               i = 0;
         int32_t                           brick_count = 0;
         char                              brick[1024];
         int32_t                           members = 0;
@@ -3251,16 +3251,20 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret)
                 goto out;
-        snprintf (key, sizeof (key), "%d-top-op", i);
+        snprintf (key, sizeof (key), "%d-top-op", 1);
         ret = dict_get_int32 (dict, key, (int32_t*)&top_op);
         if (ret)
                 goto out;
         while (i <= brick_count) {
+                i++;
                 snprintf (brick, sizeof (brick), "%d-brick", i);
                 ret = dict_get_str (dict, brick, &bricks);
                 if (ret)
                         goto out;
                 cli_out ("Brick: %s", bricks);
+                snprintf(key, sizeof (key), "%d-members", i);
+                ret = dict_get_int32 (dict, key, &members);
+
                 switch (top_op) {
                 case GF_CLI_TOP_OPEN:
                         snprintf (key, sizeof (key), "%d-current-open", i);
@@ -3277,6 +3281,10 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case GF_CLI_TOP_WRITE:
                 case GF_CLI_TOP_OPENDIR:
                 case GF_CLI_TOP_READDIR:
+                        if (!members) {
+                                cli_out ("No entries in list");
+                                continue;
+                        }
                         cli_out ("Count\t\tfilename\n=======================");
                         break;
                 case GF_CLI_TOP_READ_PERF:
@@ -3291,13 +3299,16 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 cli_out ("Throughput %.2f MBps time %.4f secs", throughput,
                                           time / 1e6);
 
+                        if (!members) {
+                                cli_out ("No entries in list");
+                                continue;
+                        }
                         cli_out ("MBps\t\tfilename\t\t time\n========================");
                         break;
                 default:
                         goto out;
                 }
-                snprintf(key, sizeof (key), "%d-members", i);
-                ret = dict_get_int32 (dict, key, &members);
+
                 for (j = 1; j <= members; j++) {
                         snprintf (key, sizeof (key), "%d-filename-%d", i, j);
                         ret = dict_get_str (dict, key, &filename);
@@ -3329,7 +3340,6 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 cli_out ("%"PRIu64"\t\t%s", value, filename);
                         }
                 }
-                i++;
         }
         ret = rsp.op_ret;
 
