@@ -1331,15 +1331,19 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         ret = dict_set_str (dict, "brick", value);
 
                 } else if (!strcmp (key, "list-cnt")) {
-                        list_cnt = atoi(value);
-                        if (list_cnt < 0 || list_cnt > 100) {
+                        ret = gf_is_str_int (value);
+                        if (!ret)
+                                list_cnt = atoi (value);
+                        if (ret || (list_cnt < 0) || (list_cnt > 100)) {
                                 cli_out ("list-cnt should be between 0 to 100");
                                 ret = -1;
                                 goto out;
                         }
-                } else if (perf && !strcmp (key, "bs")){
-                        blk_size = atoi (value);
-                        if (blk_size < 0){
+                } else if (perf && !strcmp (key, "bs")) {
+                        ret = gf_is_str_int (value);
+                        if (!ret)
+                                blk_size = atoi (value);
+                        if (ret || (blk_size < 0)) {
                                 cli_out ("block size should be an integer "
                                          "greater than zero");
                                 ret = -1;
@@ -1347,8 +1351,10 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         }
                         ret = dict_set_int32 (dict, "blk-size", blk_size);
                 } else if (perf && !strcmp (key, "count")) {
-                        count = atoi(value);
-                        if (count < 0 ){
+                        ret = gf_is_str_int (value);
+                        if (!ret)
+                                count = atoi(value);
+                        if (ret || (count < 0)) {
                                 cli_out ("count should be an integer greater "
                                          "zero");
                                 ret = -1;
