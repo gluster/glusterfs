@@ -2014,6 +2014,33 @@ out:
         return ret;
 }
 
+static gf_boolean_t
+glusterd_is_profile_on (glusterd_volinfo_t *volinfo)
+{
+        int                                     ret = -1;
+        char                                    *latency_key = NULL;
+        char                                    *fd_stats_key = NULL;
+        gf_boolean_t                            is_latency_on = _gf_false;
+        gf_boolean_t                            is_fd_stats_on = _gf_false;
+
+        GF_ASSERT (volinfo);
+        latency_key = "diagnostics.latency-measurement";
+        fd_stats_key = "diagnostics.dump-fd-stats";
+
+        ret = dict_get_str_boolean (volinfo->dict, fd_stats_key,
+                                    _gf_false);
+        if (ret != -1)
+                is_fd_stats_on = ret;
+        ret = dict_get_str_boolean (volinfo->dict, latency_key,
+                                    _gf_false);
+        if (ret != -1)
+                is_latency_on = ret;
+        if ((_gf_true == is_latency_on) &&
+            (_gf_true == is_fd_stats_on))
+                return _gf_true;
+        return _gf_false;
+}
+
 static int
 glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
 {
@@ -2022,88 +2049,63 @@ glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
         gf_boolean_t                            exists = _gf_false;
         char                                    msg[2048] = {0,};
         int32_t                                 stats_op = GF_CLI_STATS_NONE;
-        char                                    *latency_key = NULL;
-        char                                    *fd_stats_key = NULL;
-        char                                    *value = NULL;
-        gf_boolean_t                            enabled = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
-
-        latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.dump-fd-stats";
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume name get failed");
+                snprintf (msg, sizeof (msg), "Volume name get failed");
                 goto out;
         }
 
         exists = glusterd_check_volume_exists (volname);
         ret = glusterd_volinfo_find (volname, &volinfo);
         if ((!exists) || (ret < 0)) {
-                snprintf (msg, sizeof (msg), "volume %s, "
+                snprintf (msg, sizeof (msg), "Volume %s, "
                          "doesn't exist", volname);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "op", &stats_op);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume profile op get failed");
+                snprintf (msg, sizeof (msg), "Volume profile op get failed");
                 goto out;
         }
 
-        if (GF_CLI_STATS_INFO == stats_op)  {
-                if (_gf_false == glusterd_is_volume_started (volinfo)) {
-                        snprintf (msg, sizeof (msg), "volume %s is not started.",
-                                  volinfo->volname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_get_str (volinfo->dict, latency_key, &value);
-                if (value) {
-                        ret = gf_string2boolean (value, &enabled);
-                }
-                if (ret || (_gf_false == enabled)) {
-                        snprintf (msg, sizeof (msg), "Profiling is not enabled for "
-                                  "volume %s", volinfo->volname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
-                enabled = _gf_false;
-                value = NULL;
-                ret = dict_get_str (volinfo->dict, fd_stats_key, &value);
-                if (value) {
-                        ret = gf_string2boolean (value, &enabled);
-                }
-                if (ret || (_gf_false == enabled)) {
-                        snprintf (msg, sizeof (msg), "Profiling is not enabled for "
-                                  "volume %s", volinfo->volname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
-        } else if (GF_CLI_STATS_TOP == stats_op)  {
-                if (_gf_false == glusterd_is_volume_started (volinfo)) {
-                        snprintf (msg, sizeof (msg), "volume %s is not started.",
-                                  volinfo->volname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
+        if (GF_CLI_STATS_START == stats_op) {
+                if (_gf_true == glusterd_is_profile_on (volinfo)) {
+                        snprintf (msg, sizeof (msg), "Profile on Volume %s is"
+                                  " already started", volinfo->volname);
                         ret = -1;
                         goto out;
                 }
         }
-
+        if ((GF_CLI_STATS_STOP == stats_op) ||
+            (GF_CLI_STATS_INFO == stats_op)) {
+                if (_gf_false == glusterd_is_profile_on (volinfo)) {
+                        snprintf (msg, sizeof (msg), "Profile on Volume %s is"
+                                  " not started", volinfo->volname);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        if ((GF_CLI_STATS_TOP == stats_op) ||
+            (GF_CLI_STATS_INFO == stats_op)) {
+                if (_gf_false == glusterd_is_volume_started (volinfo)) {
+                        snprintf (msg, sizeof (msg), "Volume %s is not started.",
+                                  volinfo->volname);
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        ret = 0;
 out:
+        if (msg[0] != '\0') {
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+        }
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-
         return ret;
 }
 
