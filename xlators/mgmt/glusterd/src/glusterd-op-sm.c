@@ -5332,30 +5332,60 @@ out:
 }
 
 static int
+glusterd_add_profile_volume_options (glusterd_volinfo_t *volinfo)
+{
+        int                                     ret = -1;
+        char                                    *latency_key = NULL;
+        char                                    *fd_stats_key = NULL;
+
+        GF_ASSERT (volinfo);
+
+        latency_key = "diagnostics.latency-measurement";
+        fd_stats_key = "diagnostics.dump-fd-stats";
+
+        ret = dict_set_str (volinfo->dict, latency_key, "on");
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "failed to set the volume %s "
+                        "option %s value %s",
+                        volinfo->volname, latency_key, "on");
+                goto out;
+        }
+
+        ret = dict_set_str (volinfo->dict, fd_stats_key, "on");
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "failed to set the volume %s "
+                        "option %s value %s",
+                        volinfo->volname, fd_stats_key, "on");
+                goto out;
+        }
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static void
+glusterd_remove_profile_volume_options (glusterd_volinfo_t *volinfo)
+{
+        char                                    *latency_key = NULL;
+        char                                    *fd_stats_key = NULL;
+
+        GF_ASSERT (volinfo);
+
+        latency_key = "diagnostics.latency-measurement";
+        fd_stats_key = "diagnostics.dump-fd-stats";
+        dict_del (volinfo->dict, latency_key);
+        dict_del (volinfo->dict, fd_stats_key);
+}
+
+static int
 glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                           dict_t *rsp_dict)
 {
         int                                     ret = -1;
         char                                    *volname = NULL;
         char                                    msg[2048] = {0,};
-        glusterd_conf_t                         *priv = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
-        xlator_t                                *this = NULL;
         int32_t                                 stats_op = GF_CLI_STATS_NONE;
-        char                                    *fd_stats_value = NULL;
-        char                                    *latency_value = NULL;
-        char                                    *latency_key = NULL;
-        char                                    *fd_stats_key = NULL;
-        char                                    *key_found = NULL;
-        int                                     exists = 0;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.dump-fd-stats";
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -5378,38 +5408,14 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        exists = glusterd_check_option_exists (latency_key, &key_found);
-        if (key_found)
-                GF_FREE (key_found);
-        if (!exists) {
-                snprintf (msg, sizeof (msg), "Volume Option %s does not exist",
-                          latency_key);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
-                ret = -1;
-                goto out;
-        }
-
-        exists = glusterd_check_option_exists (fd_stats_key, &key_found);
-        if (key_found)
-                GF_FREE (key_found);
-        if (!exists) {
-                snprintf (msg, sizeof (msg), "Volume Option %s does not exist",
-                          fd_stats_key);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
-                ret = -1;
-                goto out;
-        }
-
         switch (stats_op) {
         case GF_CLI_STATS_START:
-                fd_stats_value = gf_strdup ("on");
-                latency_value = gf_strdup ("on");
+                ret = glusterd_add_profile_volume_options (volinfo);
+                if (ret)
+                        goto out;
                 break;
         case GF_CLI_STATS_STOP:
-                fd_stats_value = gf_strdup ("off");
-                latency_value = gf_strdup ("off");
+                glusterd_remove_profile_volume_options (volinfo);
                 break;
         case GF_CLI_STATS_INFO:
         case GF_CLI_STATS_TOP:
@@ -5425,30 +5431,6 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 ret = -1;
                 goto out;
                 break;
-        }
-
-        if (!fd_stats_value || !latency_value) {
-                ret = -1;
-                gf_log ("glusterd", GF_LOG_ERROR, "Out of memory");
-                goto out;
-        }
-
-        ret = dict_set_dynstr (volinfo->dict, latency_key, latency_value);
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "failed to set the volume %s "
-
-
-                        "option %s value %s",
-                        volinfo->volname, latency_key, latency_value);
-                goto out;
-        }
-
-        ret = dict_set_dynstr (volinfo->dict, fd_stats_key, fd_stats_value);
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "failed to set the volume %s "
-                        "option %s value %s",
-                        volinfo->volname, fd_stats_key, fd_stats_value);
-                goto out;
         }
 	ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
@@ -5470,10 +5452,6 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
         ret = 0;
 
 out:
-        if (ret && fd_stats_value)
-                GF_FREE (fd_stats_value);
-        if (ret && latency_value)
-                GF_FREE (latency_value);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
