@@ -107,13 +107,6 @@
                                     _vol_name, _gfid_unparsed); \
         } while (0)
 
-#define GET_SIZE_KEY_OR_GOTO(var, _vol_name, label)             \
-        do {                                                    \
-                ret = gf_asprintf (var, QUOTA_XATTR_PREFIX      \
-                                   "%s." SIZE, _vol_name);      \
-                if (ret == -1)                                  \
-                        goto label;                             \
-        } while (0)
 
 #define GET_CONTRI_KEY_OR_GOTO(var, _vol_name, _gfid, label)    \
         do {                                                    \
@@ -167,7 +160,6 @@ struct quota_local {
 typedef struct quota_local quota_local_t;
 
 struct quota_priv {
-        char    *size_key;
         int64_t  timeout;
         struct list_head limit_head;
 };

@@ -190,6 +190,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_inode_ctx_t *ctx            = NULL;
         quota_priv_t      *priv           = NULL;
         int64_t           *size           = 0;
+        uint64_t           value          = 0;
 
         local = frame->local;
         GF_ASSERT (local);
@@ -213,8 +214,9 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, dict, unwind, op_errno,
                                         EINVAL);
 
-        ret = inode_ctx_get (local->validate_loc.inode, this,
-                             (uint64_t *) &ctx);
+        ret = inode_ctx_get (local->validate_loc.inode, this, &value);
+
+        ctx = (quota_inode_ctx_t *)(unsigned long)value;
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context is not present in inode (ino:%"PRId64", "
@@ -224,7 +226,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
-        ret = dict_get_bin (dict, priv->size_key, (void **) &size);
+        ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "size key not present in dict");
@@ -298,11 +300,11 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         int64_t               delta          = 0;
         call_stub_t          *stub           = NULL;
         int32_t               validate_count = 0, link_count = 0;
+        uint64_t              value          = 0;
 
         GF_VALIDATE_OR_GOTO ("quota", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
-        GF_VALIDATE_OR_GOTO (this->name, stub, out);
 
         local = frame->local;
         GF_VALIDATE_OR_GOTO (this->name, local, out);
@@ -313,7 +315,8 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         priv = this->private;
 
-        inode_ctx_get (inode, this, (uint64_t *) &ctx);
+        inode_ctx_get (inode, this, &value);
+        ctx = (quota_inode_ctx_t *)(unsigned long)value;
 
         _inode = inode_ref (inode);
 
@@ -343,7 +346,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         }
 
                         if (need_unwind) {
-                                goto out;
+                                break;
                         }
                 }
 
@@ -361,7 +364,9 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 inode_unref (_inode);
                 _inode = parent;
 
-                inode_ctx_get (_inode, this, (uint64_t *) &ctx);
+                value = 0;
+                inode_ctx_get (_inode, this, &value);
+                ctx = (quota_inode_ctx_t *)(unsigned long)value;
         } while (1);
 
         ret = 0;
@@ -397,7 +402,7 @@ validate:
 
         STACK_WIND (frame, quota_validate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr, &local->validate_loc,
-                    priv->size_key);
+                    QUOTA_SIZE_KEY);
 
         inode_unref (_inode);
         return 0;
@@ -439,7 +444,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 __quota_init_inode_ctx (inode_t *inode, int64_t limit, xlator_t *this,
                         dict_t *dict, struct iatt *buf,
                         quota_inode_ctx_t **context)
@@ -469,7 +474,7 @@ __quota_init_inode_ctx (inode_t *inode, int64_t limit, xlator_t *this,
         INIT_LIST_HEAD (&ctx->parents);
 
         if (dict != NULL) {
-                ret = dict_get_bin (dict, priv->size_key, (void **) &size);
+                ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
                 if (ret == 0) {
                         ctx->size = ntoh64 (*size);
                         gettimeofday (&ctx->tv, NULL);
@@ -487,9 +492,10 @@ out:
 }
 
 
-int32_t
+static int32_t
 quota_inode_ctx_get (inode_t *inode, int64_t limit, xlator_t *this,
-                     dict_t *dict, struct iatt *buf, quota_inode_ctx_t **ctx)
+                     dict_t *dict, struct iatt *buf, quota_inode_ctx_t **ctx,
+                     char create_if_absent)
 {
         int32_t  ret = 0;
         uint64_t ctx_int;
@@ -499,8 +505,8 @@ quota_inode_ctx_get (inode_t *inode, int64_t limit, xlator_t *this,
                 ret = __inode_ctx_get (inode, this, &ctx_int);
 
                 if ((ret == 0) && (ctx != NULL)) {
-                        *ctx = (quota_inode_ctx_t *) (long)ctx_int;
-                } else if (limit >= 0) {
+                        *ctx = (quota_inode_ctx_t *) (unsigned long)ctx_int;
+                } else if (create_if_absent) {
                         ret = __quota_init_inode_ctx (inode, limit, this, dict,
                                                       buf, ctx);
                 }
@@ -526,15 +532,16 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if ((op_ret < 0) || (local == NULL) || (local->limit < 0)
-            || (!IA_ISREG (buf->ia_type))) {
+        if ((op_ret < 0) || (local == NULL)
+            || ((local->limit < 0) && !((IA_ISREG (buf->ia_type))
+                                        || (IA_ISLNK (buf->ia_type))))) {
                 goto unwind;
         }
 
         priv = this->private;
 
         ret = quota_inode_ctx_get (local->loc.inode, local->limit, this, dict,
-                                   buf, &ctx);
+                                   buf, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
                         "context in inode(ino:%"PRId64", gfid:%s)",
@@ -547,6 +554,22 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&ctx->lock);
         {
+
+                if (dict != NULL) {
+                        ret = dict_get_bin (dict, QUOTA_SIZE_KEY,
+                                            (void **) &size);
+                        if (ret == 0) {
+                                ctx->size = ntoh64 (size);
+                                gettimeofday (&ctx->tv, NULL);
+                        }
+                }
+
+                ctx->buf = *buf;
+
+                if (!(IA_ISREG (buf->ia_type) || IA_ISLNK (buf->ia_type))) {
+                        goto unlock;
+                }
+
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         if ((strcmp (dentry->name, local->loc.name) == 0)
                             && (local->loc.parent->ino == dentry->par)) {
@@ -574,17 +597,6 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 goto unlock;
                         }
                 }
-
-                if (dict != NULL) {
-                        ret = dict_get_bin (dict, priv->size_key,
-                                            (void **) &size);
-                        if (ret == 0) {
-                                ctx->size = ntoh64 (size);
-                                gettimeofday (&ctx->tv, NULL);
-                        }
-                }
-
-                ctx->buf = *buf;
         }
 unlock:
         UNLOCK (&ctx->lock);
@@ -615,10 +627,6 @@ quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
         }
 
-        if (limit < 0) {
-                goto wind;
-        }
-
         local = quota_local_new ();
         if (local == NULL) {
                 goto err;
@@ -642,7 +650,7 @@ quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 dict_newed = _gf_true;
         }
 
-        ret = dict_set_uint64 (xattr_req, priv->size_key, 0);
+        ret = dict_set_uint64 (xattr_req, QUOTA_SIZE_KEY, 0);
         if (ret < 0) {
                 goto err;
         }
@@ -672,12 +680,14 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
                    int64_t delta)
 {
         inode_t              *_inode         = NULL, *parent = NULL;
+        uint64_t              value          = 0;
         quota_inode_ctx_t    *ctx            = NULL;
 
         GF_VALIDATE_OR_GOTO ("quota", this, out);
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-        inode_ctx_get (inode, this, (uint64_t *) &ctx);
+        inode_ctx_get (inode, this, &value);
+        ctx = (quota_inode_ctx_t *)(unsigned long)value;
 
         _inode = inode_ref (inode);
 
@@ -704,7 +714,8 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
                 inode_unref (_inode);
                 _inode = parent;
 
-                inode_ctx_get (_inode, this, (uint64_t *) &ctx);
+                inode_ctx_get (_inode, this, &value);
+                ctx = (quota_inode_ctx_t *)(unsigned long)value;
         } while (1);
 
 out:
@@ -731,7 +742,7 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = inode_ctx_get (local->loc.inode, this, &ctx_int);
 
-        ctx = (quota_inode_ctx_t *)(long) ctx_int;
+        ctx = (quota_inode_ctx_t *)(unsigned long) ctx_int;
 
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
@@ -814,9 +825,9 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
         frame->local = local;
-        local->inode = inode_ref (fd->inode);
+        local->loc.inode = inode_ref (fd->inode);
 
-        ret = quota_inode_ctx_get (fd->inode, -1, this, NULL, NULL, &ctx);
+        ret = quota_inode_ctx_get (fd->inode, -1, this, NULL, NULL, &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64", "
@@ -988,14 +999,13 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local  = NULL;
         quota_inode_ctx_t *ctx    = NULL;
         quota_dentry_t    *dentry = NULL;
-        char               found  = 0;
 
         local = frame->local;
         if (op_ret < 0) {
                 goto unwind;
         }
 
-        ret = quota_inode_ctx_get (inode, -1, this, NULL, buf, &ctx);
+        ret = quota_inode_ctx_get (inode, -1, this, NULL, buf, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
                         "context in inode(ino:%"PRId64", gfid:%s)",
@@ -1007,42 +1017,21 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&ctx->lock);
         {
-                list_for_each_entry (dentry, &ctx->parents, next) {
-                        if ((strcmp (dentry->name, local->loc.name) == 0)
-                            && (local->loc.parent->ino == dentry->par)) {
-                                found = 1;
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "entry being created (par:%"
-                                        PRId64", name:%s) for inode (ino:%"
-                                        PRId64", gfid:%s) is already present "
-                                        "in inode-dentry-list", dentry->par,
-                                        dentry->name, inode->ino,
-                                        uuid_utoa (inode->gfid));
-
-                                break;
-                        }
-                }
-
-                if (!found) {
-                        dentry = __quota_dentry_new (ctx,
-                                                     (char *)local->loc.name,
-                                                     local->loc.parent->ino);
-                        if (dentry == NULL) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "cannot create a new dentry (par:%"
-                                        PRId64", name:%s) for inode(ino:%"
-                                        PRId64", gfid:%s)",
-                                        local->loc.parent->ino,
-                                        local->loc.name,
-                                        local->loc.inode->ino,
-                                        uuid_utoa (local->loc.inode->gfid));
-                                op_ret = -1;
-                                op_errno = ENOMEM;
-                                goto unlock;
-                        }
-                }
-
                 ctx->buf = *buf;
+
+                dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
+                                             local->loc.parent->ino);
+                if (dentry == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot create a new dentry (par:%"
+                                PRId64", name:%s) for inode(ino:%"
+                                PRId64", gfid:%s)", local->loc.parent->ino,
+                                local->loc.name, local->loc.inode->ino,
+                                uuid_utoa (local->loc.inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unlock;
+                }
         }
 unlock:
         UNLOCK (&ctx->lock);
@@ -1145,6 +1134,7 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
+        uint64_t           value = 0;
 
         if (op_ret == -1) {
                 goto out;
@@ -1152,7 +1142,9 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = (quota_local_t *) frame->local;
 
-        inode_ctx_get (local->loc.inode, this, (uint64_t *)&ctx);
+        inode_ctx_get (local->loc.inode, this, &value);
+        ctx = (quota_inode_ctx_t *)(unsigned long)value;
+
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -1224,12 +1216,11 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         quota_update_size (this, local->loc.parent, NULL, 0, buf->ia_size);
 
-        ret = quota_inode_ctx_get (inode, -1, this, NULL, NULL, &ctx);
+        ret = quota_inode_ctx_get (inode, -1, this, NULL, NULL, &ctx, 0);
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
+                gf_log (this->name, GF_LOG_WARNING, "cannot find quota "
                         "context in inode(ino:%"PRId64", gfid:%s)",
-                        local->loc.inode->ino,
-                        uuid_utoa (local->loc.inode->gfid));
+                        inode->ino, uuid_utoa (inode->gfid));
                 op_ret = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -1343,12 +1334,13 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         local->link_count = 1;
         local->stub = stub;
 
-        ret = quota_inode_ctx_get (oldloc->inode, -1, this, NULL, NULL, &ctx);
+        ret = quota_inode_ctx_get (oldloc->inode, -1, this, NULL, NULL, &ctx,
+                                   0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
-                        uuid_utoa (local->loc.inode->gfid));
+                        ", gfid:%s)", local->oldloc.inode->ino,
+                        uuid_utoa (local->oldloc.inode->gfid));
                 op_errno = EINVAL;
                 goto err;
         }
@@ -1385,11 +1377,12 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *preoldparent, struct iatt *postoldparent,
                   struct iatt *prenewparent, struct iatt *postnewparent)
 {
-        int32_t               ret          = -1;
-        quota_local_t        *local        = NULL;
-        quota_inode_ctx_t    *ctx          = NULL;
-        quota_dentry_t       *old_dentry   = NULL, *dentry = NULL;
+        int32_t               ret              = -1;
+        quota_local_t        *local            = NULL;
+        quota_inode_ctx_t    *ctx              = NULL;
+        quota_dentry_t       *old_dentry       = NULL, *dentry = NULL;
         char                  new_dentry_found = 0;
+        int64_t               size             = 0;
 
         if (op_ret == -1) {
                 goto out;
@@ -1403,12 +1396,21 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        quota_update_size (this, local->oldloc.parent, NULL, 0,
-                           (-buf->ia_size));
-        quota_update_size (this, local->newloc.parent, NULL, 0, buf->ia_size);
+        if (IA_ISREG (local->oldloc.inode->ia_type)
+            || IA_ISLNK (local->oldloc.inode->ia_type)) {
+                size = buf->ia_size;
+        }
+
+        quota_update_size (this, local->oldloc.parent, NULL, 0, (-size));
+        quota_update_size (this, local->newloc.parent, NULL, 0, size);
+
+        if (!(IA_ISREG (local->oldloc.inode->ia_type)
+              || IA_ISLNK (local->oldloc.inode->ia_type))) {
+                goto out;
+        }
 
         ret = quota_inode_ctx_get (local->oldloc.inode, -1, this, NULL, NULL,
-                                   &ctx);
+                                   &ctx, 0);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "quota context not"
                         "set in inode(ino:%"PRId64", gfid:%s)",
@@ -1424,7 +1426,7 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* decision of whether to create a context in newloc->inode
                  * depends on fuse_rename_cbk's choice of inode it retains
                  * after rename. currently it just associates oldloc->inode
-                 * with new parent and name. If this changes following code
+                 * with new parent and name. If this changes, following code
                  * should be changed to set a new context in newloc->inode.
                  */
                 list_for_each_entry (dentry, &ctx->parents, next) {
@@ -1554,17 +1556,22 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         local->link_count = 1;
         local->stub = stub;
 
-        ret = quota_inode_ctx_get (oldloc->inode, -1, this, NULL, NULL, &ctx);
-        if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", oldloc->inode?oldloc->inode->ino:0,
-                        oldloc->inode?uuid_utoa (oldloc->inode->gfid):"0");
-                op_errno = EINVAL;
-                goto err;
+        if (IA_ISREG (oldloc->inode->ia_type)
+            || IA_ISLNK (oldloc->inode->ia_type)) {
+                ret = quota_inode_ctx_get (oldloc->inode, -1, this, NULL, NULL,
+                                           &ctx, 0);
+                if (ctx == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "quota context not set in inode (ino:%"PRId64
+                                ", gfid:%s)", oldloc->inode?oldloc->inode->ino:0,
+                                oldloc->inode?uuid_utoa (oldloc->inode->gfid):"0");
+                        op_errno = EINVAL;
+                        goto err;
+                }
+                local->delta = ctx->buf.ia_size;
+        } else {
+                local->delta = 0;
         }
-
-        local->delta = ctx->buf.ia_size;
 
         quota_check_limit (frame, newloc->parent, this, NULL, 0);
 
@@ -1596,9 +1603,10 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent)
 {
-        int64_t                  size           = 0;
-        quota_local_t           *local          = NULL;
-        quota_inode_ctx_t       *ctx            = NULL;
+        int64_t            size   = 0;
+        quota_local_t     *local  = NULL;
+        quota_inode_ctx_t *ctx    = NULL;
+        quota_dentry_t    *dentry = NULL;
 
         if (op_ret == -1) {
                 goto out;
@@ -1611,7 +1619,7 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_update_size (this, local->loc.parent, NULL, 0, buf->ia_size);
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 1);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -1623,6 +1631,19 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&ctx->lock);
         {
                 ctx->buf = *buf;
+
+                dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
+                                             local->loc.parent->ino);
+                if (dentry == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot create a new dentry (par:%"
+                                PRId64", name:%s) for inode(ino:%"
+                                PRId64", gfid:%s)", local->loc.parent->ino,
+                                local->loc.name, local->loc.inode->ino,
+                                uuid_utoa (local->loc.inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                }
         }
         UNLOCK (&ctx->lock);
 
@@ -1743,7 +1764,7 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_update_size (this, local->loc.inode, NULL, 0, delta);
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -1819,7 +1840,7 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_update_size (this, local->loc.inode, NULL, 0, delta);
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -1869,15 +1890,17 @@ int32_t
 quota_send_dir_limit_to_cli (call_frame_t *frame, xlator_t *this,
                              inode_t *inode, const char *name)
 {
-        int32_t             ret                 = 0;
-        char                dir_limit [1024]    = {0, };
-        dict_t             *dict                = NULL;
-        quota_inode_ctx_t  *ctx                 = NULL;
+        int32_t            ret               = 0;
+        char               dir_limit [1024]  = {0, };
+        dict_t            *dict              = NULL;
+        quota_inode_ctx_t *ctx               = NULL;
+        uint64_t           value             = 0;
 
-        ret = inode_ctx_get (inode, this, (uint64_t *) &ctx);
+        ret = inode_ctx_get (inode, this, &value);
         if (ret < 0)
                 goto out;
 
+        ctx = (quota_inode_ctx_t *)(unsigned long)value;
         snprintf (dir_limit, 1024, "%"PRId64",%"PRId64, ctx->size, ctx->limit);
 
         dict = dict_new ();
@@ -1954,7 +1977,7 @@ quota_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -2017,7 +2040,7 @@ quota_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -2075,7 +2098,7 @@ quota_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -2140,7 +2163,7 @@ quota_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -2200,7 +2223,7 @@ quota_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -2259,7 +2282,7 @@ quota_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -2326,7 +2349,7 @@ quota_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
-                             &ctx);
+                             &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
@@ -2451,7 +2474,7 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *options)
 
                         quota_lim->value = value;
 
-                        gf_log (this->name, GF_LOG_INFO, "%s:%ld",
+                        gf_log (this->name, GF_LOG_INFO, "%s:%"PRId64,
                                 quota_lim->path, quota_lim->value);
 
                         list_add_tail (&quota_lim->limit_list,
@@ -2465,7 +2488,7 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *options)
         }
 
         list_for_each_entry (quota_lim, &priv->limit_head, limit_list) {
-                gf_log (this->name, GF_LOG_INFO, "%s:%ld", quota_lim->path,
+                gf_log (this->name, GF_LOG_INFO, "%s:%"PRId64, quota_lim->path,
                         quota_lim->value);
         }
 
@@ -2505,8 +2528,6 @@ init (xlator_t *this)
         if (ret) {
                 goto err;
         }
-
-        GET_SIZE_KEY_OR_GOTO (&priv->size_key, this->name, err);
 
         ret = 0;
 err:
