@@ -338,15 +338,11 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
     class GLUSTERServer(Server):
 
-        forgn_mark_size = struct.calcsize(Server.FRGN_FMTSTR)
-        nativ_mark_size = struct.calcsize(Server.NTV_FMTSTR)
-
         @classmethod
         def attr_unpack_dict(cls, xattr, extra_fields = ''):
             fmt_string = cls.NTV_FMTSTR + extra_fields
             buf = Xattr.lgetxattr('.', xattr, struct.calcsize(fmt_string))
             vm = struct.unpack(fmt_string, buf)
-            logging.info("str: %s" % `vm`)
             m = re.match('(.{8})(.{4})(.{4})(.{4})(.{12})', "".join(['%02x' % x for x in vm[2:18]]))
             uuid = '-'.join(m.groups())
             volinfo = {  'version': vm[0:2],
@@ -354,7 +350,6 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                          'retval' : vm[18],
                          'volume_mark': vm[18:20],
                       }
-            logging.info("volinfo: %s" % `volinfo`)
             if extra_fields:
                 return volinfo, vm[-len(extra_fields):]
             else:
@@ -365,8 +360,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             dict_list = []
             xattr_list = Xattr.llistxattr_buf('.')
             for ele in xattr_list:
-                if (ele.find('trusted.glusterfs.volume-mark') != -1):
-                    #buf = Xattr.lgetxattr('.', ele, cls.forgn_mark_size)
+                if ele.find('trusted.glusterfs.volume-mark.') == 0:
                     d, x = cls.attr_unpack_dict(ele, cls.FRGN_XTRA_FMT)
                     d['timeout'] = x[0]
                     dict_list.append(d)
