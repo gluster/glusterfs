@@ -528,7 +528,7 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_inode_ctx_t *ctx    = NULL;
         quota_dentry_t    *dentry = NULL;
         quota_priv_t      *priv   = NULL;
-        int64_t            size   = 0;
+        int64_t           *size   = 0;
 
         local = frame->local;
 
@@ -559,7 +559,7 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = dict_get_bin (dict, QUOTA_SIZE_KEY,
                                             (void **) &size);
                         if (ret == 0) {
-                                ctx->size = ntoh64 (size);
+                                ctx->size = ntoh64 (*size);
                                 gettimeofday (&ctx->tv, NULL);
                         }
                 }
