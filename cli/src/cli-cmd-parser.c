@@ -1343,7 +1343,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         ret = gf_is_str_int (value);
                         if (!ret)
                                 blk_size = atoi (value);
-                        if (ret || (blk_size < 0)) {
+                        if (ret || (blk_size <= 0)) {
                                 cli_out ("block size should be an integer "
                                          "greater than zero");
                                 ret = -1;
@@ -1354,7 +1354,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         ret = gf_is_str_int (value);
                         if (!ret)
                                 count = atoi(value);
-                        if (ret || (count < 0)) {
+                        if (ret || (count <= 0)) {
                                 cli_out ("count should be an integer greater "
                                          "zero");
                                 ret = -1;
