@@ -2911,19 +2911,12 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         int           count = 0;
         dht_layout_t *layout = 0;
         dht_conf_t   *conf   = NULL;
-        xlator_t     *subvol = NULL;
-        uint64_t      value  = 0;
+        xlator_t     *subvol = 0;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
         conf  = this->private;
-
-        if (!fd_ctx_get (local->fd, this, &value))
-                subvol = (xlator_t *)(long)value;
-
-        if (!subvol)
-                goto unwind;
 
         if (op_ret < 0)
                 goto done;
@@ -2938,7 +2931,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
                 if (check_is_linkfile (NULL, (&orig_entry->d_stat), NULL)
                     || (check_is_dir (NULL, (&orig_entry->d_stat), NULL)
-                        && (prev->this != subvol))) {
+                        && (prev->this != dht_first_up_subvol (this)))) {
                         continue;
                 }
 
@@ -2997,9 +2990,6 @@ done:
                 if (!next_subvol) {
                         goto unwind;
                 }
-                if ((op_ret < 0) && (prev->this == subvol))
-                            fd_ctx_set (local->fd, this,
-                                        (uint64_t)(long)next_subvol);
 
                 STACK_WIND (frame, dht_readdirp_cbk,
                             next_subvol, next_subvol->fops->readdirp,
@@ -3151,13 +3141,10 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (whichop == GF_FOP_READDIR)
                 STACK_WIND (frame, dht_readdir_cbk, xvol, xvol->fops->readdir,
                             fd, size, xoff);
-        else {
-                if (yoff == 0)
-                        fd_ctx_set (fd, this, (uint64_t)(long)xvol);
-
+        else
                 STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
                             fd, size, xoff);
-        }
+
         return 0;
 
 err:
