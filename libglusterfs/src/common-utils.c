@@ -1783,7 +1783,7 @@ gf_is_str_int (const char *value)
 
         GF_VALIDATE_OR_GOTO ("", value, out);
 
-        str = strdup (value);
+        str = gf_strdup (value);
         if (!str)
                 goto out;
 
