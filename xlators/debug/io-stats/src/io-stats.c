@@ -2352,32 +2352,26 @@ io_stats_forget (xlator_t *this, inode_t *inode)
 }
 
 int
-reconfigure (xlator_t *this, dict_t *options)
+iostats_configure_options (xlator_t *this, dict_t *options,
+                           struct ios_conf *conf)
 {
-        struct ios_conf    *conf = NULL;
-        char               *str = NULL;
         int                 ret = 0;
         char               *log_str = NULL;
-        glusterfs_ctx_t     *ctx = NULL;
 
-        if (!this || !this->private)
-                return -1;
+        GF_ASSERT (this);
+        GF_ASSERT (options);
+        GF_ASSERT (conf);
 
-        conf = this->private;
-
-        ret = dict_get_str (options, "dump-fd-stats", &str);
-        if (ret == 0) {
-                ret = gf_string2boolean (str, &conf->dump_fd_stats);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "'dump-fd-stats' takes only boolean arguments");
-                        return -1;
-                }
-
-                if (conf->dump_fd_stats) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"enabling dump-fd-stats");
-                }
+        ret = dict_get_str_boolean (options, "dump-fd-stats", _gf_false);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "'dump-fd-stats' takes only boolean arguments");
+        } else {
+                conf->dump_fd_stats = ret;
+                if (conf->dump_fd_stats)
+			gf_log (this->name, GF_LOG_DEBUG, "enabling dump-fd-stats");
+                else
+			gf_log (this->name, GF_LOG_DEBUG, "disabling dump-fd-stats");
         }
 
         ret = dict_get_str_boolean (options, "latency-measurement", 0);
@@ -2388,18 +2382,38 @@ reconfigure (xlator_t *this, dict_t *options)
                                 conf->measure_latency, ret);
                 }
                 conf->measure_latency = ret;
+        } else {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "'latency-measurement' takes only boolean arguments");
         }
-        ctx = glusterfs_ctx_get ();
-        if (!ctx)
-                return -1;
 
         ret = dict_get_str (options, "log-level", &log_str);
         if (!ret) {
-                if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level", log_str)) {
+                if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level",
+                                       log_str)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                "changing log-level to %s", log_str);
                 }
         }
+        return 0;
+}
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        struct ios_conf    *conf = NULL;
+        glusterfs_ctx_t     *ctx = NULL;
+
+        if (!this || !this->private)
+                return -1;
+
+        conf = this->private;
+
+        iostats_configure_options (this, options, conf);
+        ctx = glusterfs_ctx_get ();
+        if (!ctx)
+                return -1;
+
         return 0;
 }
 
@@ -2412,7 +2426,7 @@ mem_acct_init (xlator_t *this)
                 return ret;
 
         ret = xlator_mem_acct_init (this, gf_io_stats_mt_end + 1);
-        
+
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                         " failed");
@@ -2427,9 +2441,6 @@ init (xlator_t *this)
 {
         dict_t             *options = NULL;
         struct ios_conf    *conf = NULL;
-        char               *str = NULL;
-        int                 ret = 0;
-        char               *log_str = NULL;
         int                 i = 0;
 
         if (!this)
@@ -2465,8 +2476,8 @@ init (xlator_t *this)
         gettimeofday (&conf->incremental.started_at, NULL);
 
         for (i = 0; i <IOS_STATS_TYPE_MAX; i++) {
-                conf->list[i].iosstats = GF_CALLOC (1, 
-                                         sizeof(*conf->list[i].iosstats), 
+                conf->list[i].iosstats = GF_CALLOC (1,
+                                         sizeof(*conf->list[i].iosstats),
                                          gf_io_stats_mt_ios_stat);
 
                 if (!conf->list[i].iosstats) {
@@ -2494,37 +2505,7 @@ init (xlator_t *this)
 		LOCK_INIT (&conf->thru_list[i].lock);
         }
 
-        ret = dict_get_str (options, "dump-fd-stats", &str);
-        if (ret == 0) {
-                ret = gf_string2boolean (str, &conf->dump_fd_stats);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "'dump-fd-stats' takes only boolean arguments");
-                        return -1;
-                }
-
-                if (conf->dump_fd_stats) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"enabling dump-fd-stats");
-                }
-        }
-
-        ret = dict_get_str_boolean (options, "latency-measurement", 0);
-        if (ret != -1) {
-                conf->measure_latency = ret;
-                if (conf->measure_latency)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "enabling latency measurement");
-        }
-
-        ret = dict_get_str (options, "log-level", &log_str);
-        if (!ret) {
-                if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level", log_str)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                               "changing log-level to %s", log_str);
-                }
-        }
-
+        iostats_configure_options (this, options, conf);
         this->private = conf;
 
         return 0;
