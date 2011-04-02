@@ -3599,6 +3599,7 @@ stop_gsync (char *master, char *slave, char **op_errstr)
         FILE            *file   = NULL;
         char            pidfile[PATH_MAX] = {0,};
         char            buf [1024] = {0,};
+        int             i       = 0;
 
         ret = gsync_status (master, slave, &status);
         if (ret == 0 && status == -1) {
@@ -3632,14 +3633,25 @@ stop_gsync (char *master, char *slave, char **op_errstr)
         ret = read (fileno(file), buf, 1024);
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
-                ret = kill (pid, SIGTERM);
+                ret = kill (-pid, SIGTERM);
                 if (ret) {
                         gf_log ("", GF_LOG_WARNING,
                                 "failed to stop gsyncd");
                         goto out;
                 }
-                sleep (0.1);
-                kill (pid, SIGTERM);
+                for (i = 0; i < 20; i++) {
+                        if (gsync_status (master, slave, &status) == -1 ||
+                            status == -1) {
+                                /* monitor gsyncd is dead but worker may
+                                 * still be alive, give some more time
+                                 * before SIGKILL (hack)
+                                 */
+                                sleep (0.05);
+                                break;
+                        }
+                        sleep (0.05);
+                }
+                kill (-pid, SIGKILL);
                 unlink (pidfile);
         }
         ret = 0;

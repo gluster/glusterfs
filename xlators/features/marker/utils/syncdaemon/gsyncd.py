@@ -17,6 +17,7 @@ from errno import EEXIST, ENOENT, EACCES, EAGAIN
 from gconf import gconf
 from configinterface import GConffile
 import resource
+from monitor import monitor
 
 class GLogger(Logger):
 
@@ -37,12 +38,11 @@ class GLogger(Logger):
 
     @classmethod
     def setup(cls, **kw):
-        if kw.get('slave'):
-            sls = "(slave)"
-        else:
-            sls = ""
+        lbl = kw.get('label', "")
+        if lbl:
+            lbl = '(' + lbl + ')'
         lprm = {'datefmt': "%Y-%m-%d %H:%M:%S",
-                'format': "[%(asctime)s.%(nsecs)d] %(lvlnam)s [%(module)s" + sls + ":%(lineno)s:%(funcName)s] %(ctx)s: %(message)s"}
+                'format': "[%(asctime)s.%(nsecs)d] %(lvlnam)s [%(module)s" + lbl + ":%(lineno)s:%(funcName)s] %(ctx)s: %(message)s"}
         lprm.update(kw)
         lvl = kw.get('level', logging.INFO)
         lprm['level'] = lvl
@@ -121,7 +121,7 @@ def startup(**kw):
             lkw['stream'] = sys.stdout
         else:
             lkw['filename'] = kw['log_file']
-    GLogger.setup(slave=kw.get('slave'), **lkw)
+    GLogger.setup(label=kw.get('label'), **lkw)
 
 def finalize(*a):
     if getattr(gconf, 'pid_file', None):
@@ -178,7 +178,9 @@ def main_i():
     rconf = {'go_daemon': 'should'}
 
     def store_abs(opt, optstr, val, parser):
-        setattr(parser.values, opt.dest, os.path.abspath(val))
+        if val:
+            val = os.path.abspath(val)
+        setattr(parser.values, opt.dest, val)
     def store_local(opt, optstr, val, parser):
         rconf[opt.dest] = val
     def store_local_curry(val):
@@ -190,8 +192,10 @@ def main_i():
     op.add_option('--gluster-log-level',   metavar='LVL')
     op.add_option('-p', '--pid-file',      metavar='PIDF',  type=str, action='callback', callback=store_abs)
     op.add_option('-l', '--log-file',      metavar='LOGF',  type=str, action='callback', callback=store_abs)
+    op.add_option('--state-file',          metavar='STATF', type=str, action='callback', callback=store_abs)
     op.add_option('-L', '--log-level',     metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',   default=os.path.abspath(sys.argv[0]))
+    op.add_option('--volume-id',           metavar='UUID')
     op.add_option('-s', '--ssh-command',   metavar='CMD',   default='ssh')
     op.add_option('--rsync-command',       metavar='CMD',   default='rsync')
     op.add_option('--rsync-extra',         metavar='ARGS',  default='-sS', help=SUPPRESS_HELP)
@@ -201,6 +205,7 @@ def main_i():
 
     op.add_option('-c', '--config-file',   metavar='CONF',  type=str, action='callback', callback=store_local)
     # duh. need to specify dest or value will be mapped to None :S
+    op.add_option('--monitor', dest='monitor', action='callback', callback=store_local_curry(True))
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,      action='callback', callback=store_local_curry(True))
     op.add_option('-N', '--no-daemon', dest="go_daemon",    action='callback', callback=store_local_curry('dont'))
     op.add_option('--debug', dest="go_daemon",              action='callback', callback=lambda *a: (store_local_curry('dont')(*a),
@@ -277,6 +282,7 @@ def main_i():
     gconf.__dict__.update(defaults.__dict__)
     gcnf.update_to(gconf.__dict__)
     gconf.__dict__.update(opts.__dict__)
+    gconf.configinterface = gcnf
 
     #normalize loglevel
     lvl0 = gconf.log_level
@@ -290,13 +296,25 @@ def main_i():
         gconf.log_level = lvl2
 
     go_daemon = rconf['go_daemon']
+    be_monitor = rconf.get('monitor')
 
-    if isinstance(remote, resource.SSH) and go_daemon == 'should':
+    if not be_monitor and isinstance(remote, resource.SSH) and \
+       go_daemon == 'should':
         go_daemon = 'postconn'
         log_file = None
     else:
         log_file = gconf.log_file
-    startup(go_daemon=go_daemon, log_file=log_file, slave=(not remote))
+    if be_monitor:
+        label = 'monitor'
+    elif remote:
+        #master
+        label = ''
+    else:
+        label = 'slave'
+    startup(go_daemon=go_daemon, log_file=log_file, label=label)
+
+    if be_monitor:
+        return monitor()
 
     logging.info("syncing: %s" % " -> ".join(peers))
     if remote:
