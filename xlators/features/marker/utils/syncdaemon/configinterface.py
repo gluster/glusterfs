@@ -109,19 +109,19 @@ class GConffile(object):
                 continue
             print("%s: %s" % (k, v))
 
-    def write(self):
-        if not self.config.has_section(SECT_META):
-            self.config.add_section(SECT_META)
-        self.config.set(SECT_META, 'version', config_version)
-        f = None
-        try:
-            f = open(self.path, 'wb')
+    def write(self, trfn, *a, **kw):
+        def mergeconf(f):
+            self.config = ConfigParser.RawConfigParser()
+            self.config.readfp(f)
+        def updateconf(f):
+            if not self.config.has_section(SECT_META):
+                self.config.add_section(SECT_META)
+            self.config.set(SECT_META, 'version', config_version)
+            trfn(*a, **kw)
             self.config.write(f)
-        finally:
-            if f:
-                f.close()
+        syncdutils.update_file(self.path, updateconf, mergeconf)
 
-    def set(self, opt, val, rx=False):
+    def _set(self, opt, val, rx=False):
         sect = self.section(rx)
         if not self.config.has_section(sect):
             self.config.add_section(sect)
@@ -130,11 +130,16 @@ class GConffile(object):
                 self.config.add_section(SECT_ORD)
             self.config.set(SECT_ORD, sect, len(self.config._sections[SECT_ORD]))
         self.config.set(sect, opt, val)
-        self.write()
 
-    def delete(self, opt, rx=False):
+    def set(self, *a, **kw):
+        self.write(self._set, *a, **kw)
+
+    def _delete(self, opt, rx=False):
         sect = self.section(rx)
         if not self.config.has_section(sect):
             return
         if self.config.remove_option(sect, opt):
             self.write()
+
+    def delete(self, *a, **kw):
+        self.write(self._delete, *a, **kw)
