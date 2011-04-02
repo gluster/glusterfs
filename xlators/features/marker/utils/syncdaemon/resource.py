@@ -99,12 +99,17 @@ class Xattr(object):
             cls.raise_oserr()
 
     @classmethod
+    def lremovexattr(cls, path, attr):
+        ret = cls.libc.lremovexattr(path, attr)
+        if ret == -1:
+            cls.raise_oserr()
+
+    @classmethod
     def llistxattr_buf(cls, path):
         size = cls.llistxattr(path)
         if size  == -1:
             raise_oserr()
         return cls.llistxattr(path, size)
-
 
 
 class Server(object):
@@ -205,9 +210,9 @@ class Server(object):
     def pid():
         return os.getpid()
 
-    lastping = 0
+    last_keep_alive = 0
     @classmethod
-    def ping(cls, dct):
+    def keep_alive(cls, dct):
         if dct:
             key = '.'.join([cls.GX_NSPACE, 'volume-mark', dct['uuid']])
             val = struct.pack(cls.FRGN_FMTSTR,
@@ -217,8 +222,8 @@ class Server(object):
             Xattr.lsetxattr('.', key, val)
         else:
             logging.info('no volume-mark, if the behaviour persists have to check if master gsyncd is running')
-        cls.lastping += 1
-        return cls.lastping
+        cls.last_keep_alive += 1
+        return cls.last_keep_alive
 
     @staticmethod
     def version():
@@ -238,9 +243,9 @@ class SlaveLocal(object):
         logging.info("slave listening")
         if gconf.timeout and int(gconf.timeout) > 0:
             while True:
-                lp = self.server.lastping
+                lp = self.server.last_keep_alive
                 time.sleep(int(gconf.timeout))
-                if lp == self.server.lastping:
+                if lp == self.server.last_keep_alive:
                     logging.info("connection inactive for %d seconds, stopping" % int(gconf.timeout))
                     break
         else:
@@ -339,7 +344,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
     class GLUSTERServer(Server):
 
         @classmethod
-        def attr_unpack_dict(cls, xattr, extra_fields = ''):
+        def _attr_unpack_dict(cls, xattr, extra_fields = ''):
             fmt_string = cls.NTV_FMTSTR + extra_fields
             buf = Xattr.lgetxattr('.', xattr, struct.calcsize(fmt_string))
             vm = struct.unpack(fmt_string, buf)
@@ -356,27 +361,32 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                 return volinfo
 
         @classmethod
-        def foreign_marks(cls):
+        def foreign_volume_infos(cls):
             dict_list = []
             xattr_list = Xattr.llistxattr_buf('.')
             for ele in xattr_list:
-                if ele.find('trusted.glusterfs.volume-mark.') == 0:
-                    d, x = cls.attr_unpack_dict(ele, cls.FRGN_XTRA_FMT)
-                    d['timeout'] = x[0]
-                    dict_list.append(d)
+                if ele.find('.'.join([cls.GX_NSPACE, 'volume-mark', ''])) == 0:
+                    d, x = cls._attr_unpack_dict(ele, cls.FRGN_XTRA_FMT)
+                    now = int(time.time())
+                    if x[0] > now:
+                        logging.debug("volinfo[%s] expires: %d (%d sec later)" % \
+                                      (d['uuid'], x[0], x[0] - now))
+                        dict_list.append(d)
+                    else:
+                        try:
+                            Xattr.lremovexattr('.', ele)
+                        except OSError:
+                            pass
             return dict_list
 
         @classmethod
-        def native_mark(cls):
+        def native_volume_info(cls):
             try:
-                return cls.attr_unpack_dict('.'.join([cls.GX_NSPACE, 'volume-mark']))
+                return cls._attr_unpack_dict('.'.join([cls.GX_NSPACE, 'volume-mark']))
             except OSError:
                 ex = sys.exc_info()[1]
-                if ex.errno == ENODATA:
-                    logging.warn("volume-mark not found")
-                    return
-                else:
-                    raise RuntimeError("master is corrupt")
+                if ex.errno != ENODATA:
+                    raise
 
     server = GLUSTERServer
 
