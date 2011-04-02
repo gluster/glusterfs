@@ -15,51 +15,32 @@ URXTIME = (-1, 0)
 
 class GMaster(object):
 
-    def get_volinfo(self):
-        vol_mark_dict_list = self.master.server.foreign_marks()
-        return_dict = None
-        if vol_mark_dict_list:
-            for i in range(0, len(vol_mark_dict_list)):
-                present_time = int (time.time())
-                if (present_time < vol_mark_dict_list[i]['timeout']):
-                    logging.debug('syncing as intermediate-master with master as %s till: %d (time)' % \
-                                  (vol_mark_dict_list[i]['uuid'], vol_mark_dict_list[i]['timeout']))
-                    if self.inter_master:
-                        if (self.forgn_uuid != vol_mark_dict_list[i]['uuid']):
-                            raise RuntimeError ('more than one master present')
-                    else:
-                        self.inter_master = True
-                        self.forgn_uuid = vol_mark_dict_list[i]['uuid']
-                    return_dict = vol_mark_dict_list[i]
-                else:
-                    logging.debug('an expired master (%s) with time-out: %d, present time: %d' % \
-                                  (vol_mark_dict_list[i]['uuid'], vol_mark_dict_list[i]['timeout'],
-                                    present_time))
-        if self.inter_master:
-            self.volume_info = return_dict
-            if return_dict:
-                if self.volume_info['retval']:
-                    raise RuntimeError ("master is corrupt")
-            return self.volume_info
+    KFGN = 0
+    KNAT = 1
 
-        self.volume_info =  self.master.server.native_mark()
-        logging.debug('returning volume-mark from glusterfs: %s' %(self.volume_info))
-        if self.volume_info:
-            if self.volume_info['retval']:
-                raise RuntimeError("master is corrupt")
-            return self.volume_info
+    def get_sys_volinfo(self):
+        fgn_vis, nat_vi = self.master.server.foreign_volume_infos(), \
+                          self.master.server.native_volume_info()
+        fgn_vi = None
+        if fgn_vis:
+            if len(fgn_vis) > 1:
+                raise RuntimeError("cannot work with multiple foreign masters")
+            fgn_vi = fgn_vis[0]
+        return fgn_vi, nat_vi
 
     @property
     def uuid(self):
-        if not getattr(self, '_uuid', None):
-            if self.volume_info:
-                self._uuid = self.volume_info['uuid']
-        return self._uuid
+        if self.volinfo:
+            return self.volinfo['uuid']
 
     @property
     def volmark(self):
-        if self.volume_info:
-            return self.volume_info['volume_mark']
+        if self.volinfo:
+            return self.volinfo['volume_mark']
+
+    @property
+    def inter_master(self):
+        return self.volinfo_state[self.KFGN] and True or False
 
     def xtime(self, path, *a, **opts):
         if a:
@@ -96,28 +77,36 @@ class GMaster(object):
         self.turns = 0
         self.start = None
         self.change_seen = None
-        self.forgn_uuid = None
-        self.orig_master = False
-        self.inter_master = False
-        self.get_volinfo()
-        if self.volume_info:
-            logging.info('master started on(UUID) : ' + self.uuid)
+        # the authorative (foreign, native) volinfo pair
+        # which lets us deduce what to do when we refetch
+        # the volinfos from system
+        self.volinfo_state = (None, None)
+        # the actual volinfo we make use of
+        self.volinfo = None
 
-        #pinger
-        if gconf.timeout and int(gconf.timeout) > 0:
-            def pinger():
+        timo = int(gconf.timeout or 0)
+        if timo > 0:
+            def keep_alive():
                 while True:
-                    volmark = self.get_volinfo()
-                    if volmark:
-                        volmark['forgn_uuid'] = True
-                        timeout = int (time.time()) + 2 * gconf.timeout
-                        volmark['timeout'] = timeout
-
-                    self.slave.server.ping(volmark)
-                    time.sleep(int(gconf.timeout) * 0.5)
-        t = threading.Thread(target=pinger)
-        t.setDaemon(True)
-        t.start()
+                    gap = timo * 0.5
+                    # first grab a reference as self.volinfo
+                    # can be changed in main thread
+                    vi = self.volinfo
+                    if vi:
+                        # then have a private copy which we can mod
+                        vi = vi.copy()
+                        vi['timeout'] = int(time.time()) + timo
+                    else:
+                        # send keep-alives more frequently to
+                        # avoid a delay in announcing our volume info
+                        # to slave if it becomes established in the
+                        # meantime
+                        gap = min(10, gap)
+                    self.slave.server.keep_alive(vi)
+                    time.sleep(gap)
+            t = threading.Thread(target=keep_alive)
+            t.setDaemon(True)
+            t.start()
         while True:
             self.crawl()
 
@@ -146,20 +135,53 @@ class GMaster(object):
             self.slave.server.setattr(path, adct)
         self.slave.server.set_xtime(path, self.uuid, mark)
 
+    @staticmethod
+    def volinfo_state_machine(volinfo_state, volinfo_sys):
+        # store the value below "boxed" to emulate proper closures
+        # (variables of the enclosing scope are available inner functions
+        # provided they are no reassigned; mutation is OK).
+        relax_mismatch = [False]
+        def select_vi(vi0, vi):
+            if vi and (not vi0 or vi0['uuid'] == vi['uuid']):
+                # valid new value found; for the rest, we are graceful about
+                # uuid mismatch
+                relax_mismatch[0] = True
+                return vi
+            if vi0 and vi and vi0['uuid'] != vi['uuid'] and not relax_mismatch[0]:
+                # uuid mismatch for master candidate, bail out
+                raise RuntimeError("aborting on uuid change from %s to %s" % \
+                                   (vi0['uuid'], vi['uuid']))
+            # fall back to old
+            return vi0
+        newstate = tuple(select_vi(*vip) for vip in zip(volinfo_state, volinfo_sys))
+        srep = lambda vi: vi and vi['uuid'][0:8]
+        logging.debug('(%s, %s) << (%s, %s) -> (%s, %s)' % \
+                      tuple(srep(vi) for vi in volinfo_state + volinfo_sys + newstate))
+        return newstate
+
     def crawl(self, path='.', xtl=None):
         if path == '.':
             if self.start:
                 logging.info("crawl took %.6f" % (time.time() - self.start))
             time.sleep(1)
             self.start = time.time()
-            volinfo = self.get_volinfo()
-            if volinfo:
-                if volinfo['uuid'] != self.uuid:
-                    raise RuntimeError("master uuid mismatch")
-                logging.info("Crawling as %s (%s master mode) ..." % \
-                             (self.uuid,self.inter_master and "intermediate" or "primary"))
+            volinfo_sys = self.get_sys_volinfo()
+            self.volinfo_state = self.volinfo_state_machine(self.volinfo_state, volinfo_sys)
+            if self.inter_master:
+                self.volinfo = volinfo_sys[self.KFGN]
             else:
-                logging.info("Crawling: waiting for valid key for %s" % self.uuid)
+                self.volinfo = volinfo_sys[self.KNAT]
+            if self.volinfo:
+                if self.volinfo['retval']:
+                    raise RuntimeError ("master is corrupt")
+                logging.info("Crawling as %s (%s master mode) ..." % \
+                             (self.uuid, self.inter_master and "intermediate" or "primary"))
+            else:
+                if self.inter_master:
+                    logging.info("Crawling: waiting for being synced from %s" % \
+                                 self.volinfo_state[self.KFGN]['uuid'])
+                else:
+                    logging.info("Crawling: waiting for volume info")
                 return
         logging.debug("entering " + path)
         if not xtl:
