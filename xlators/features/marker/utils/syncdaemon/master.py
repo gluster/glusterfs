@@ -10,6 +10,7 @@ from errno import ENOENT, ENODATA
 from threading import Thread, currentThread, Condition, Lock
 
 from gconf import gconf
+from syncdutils import FreeObject
 
 URXTIME = (-1, 0)
 
@@ -80,7 +81,8 @@ class GMaster(object):
         # the authorative (foreign, native) volinfo pair
         # which lets us deduce what to do when we refetch
         # the volinfos from system
-        self.volinfo_state = (None, None)
+        uuid_preset = getattr(gconf, 'volume_id', None)
+        self.volinfo_state = (uuid_preset and {'uuid': uuid_preset}, None)
         # the actual volinfo we make use of
         self.volinfo = None
 
@@ -140,14 +142,16 @@ class GMaster(object):
         # store the value below "boxed" to emulate proper closures
         # (variables of the enclosing scope are available inner functions
         # provided they are no reassigned; mutation is OK).
-        relax_mismatch = [False]
+        param = FreeObject(relax_mismatch = False, state_change = False)
         def select_vi(vi0, vi):
             if vi and (not vi0 or vi0['uuid'] == vi['uuid']):
+                if not vi0 and not param.relax_mismatch:
+                    param.state_change = True
                 # valid new value found; for the rest, we are graceful about
                 # uuid mismatch
-                relax_mismatch[0] = True
+                param.relax_mismatch = True
                 return vi
-            if vi0 and vi and vi0['uuid'] != vi['uuid'] and not relax_mismatch[0]:
+            if vi0 and vi and vi0['uuid'] != vi['uuid'] and not param.relax_mismatch:
                 # uuid mismatch for master candidate, bail out
                 raise RuntimeError("aborting on uuid change from %s to %s" % \
                                    (vi0['uuid'], vi['uuid']))
@@ -157,7 +161,7 @@ class GMaster(object):
         srep = lambda vi: vi and vi['uuid'][0:8]
         logging.debug('(%s, %s) << (%s, %s) -> (%s, %s)' % \
                       tuple(srep(vi) for vi in volinfo_state + volinfo_sys + newstate))
-        return newstate
+        return newstate, param.state_change
 
     def crawl(self, path='.', xtl=None):
         if path == '.':
@@ -166,11 +170,16 @@ class GMaster(object):
             time.sleep(1)
             self.start = time.time()
             volinfo_sys = self.get_sys_volinfo()
-            self.volinfo_state = self.volinfo_state_machine(self.volinfo_state, volinfo_sys)
+            self.volinfo_state, state_change = self.volinfo_state_machine(self.volinfo_state,
+                                                                          volinfo_sys)
             if self.inter_master:
                 self.volinfo = volinfo_sys[self.KFGN]
             else:
                 self.volinfo = volinfo_sys[self.KNAT]
+            if state_change:
+                logging.info('new master is %s', self.uuid)
+                if self.inter_master:
+                    gconf.configinterface.set('volume_id', self.uuid)
             if self.volinfo:
                 if self.volinfo['retval']:
                     raise RuntimeError ("master is corrupt")

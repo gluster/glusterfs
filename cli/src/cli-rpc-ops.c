@@ -2603,14 +2603,29 @@ out:
 }
 
 int
-gf_cli3_1_gsync_get_pid_file (char *pidfolder, char *pidfile, char *master, char *slave, char *gl_workdir)
+gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, char *slave, char *gl_workdir)
 {
         FILE               *in = NULL;
         char                buff[PATH_MAX] = {0, };
         char                cmd[PATH_MAX] = {0, };
         char               *ptr = NULL;
-        char                buffer[PATH_MAX] = {0, };
+        char                pidfolder[PATH_MAX] = {0, };
+        char               *dotp = NULL;
         int                 ret = 0;
+
+        if (!(master && slave && gl_workdir)) {
+                GF_ASSERT (!master && !slave && !gl_workdir);
+                /* extension adjustment mode */
+
+                dotp = strrchr (prmfile, '.');
+                if (!dotp++ ||
+                    /* overflow */
+                    dotp - prmfile + strlen (ext) + 1 > PATH_MAX)
+                        return -1;
+
+                strcpy (dotp, ext);
+                return 0;
+        }
 
         snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-escape-url"
                                      " %s %s", master, slave);
@@ -2622,21 +2637,18 @@ gf_cli3_1_gsync_get_pid_file (char *pidfolder, char *pidfile, char *master, char
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (buffer, PATH_MAX, "%s/gsync/%s", gl_workdir, buff);
-                strncpy (pidfolder, buffer, PATH_MAX);
+                snprintf (pidfolder, PATH_MAX, "%s/gsync/%s", gl_workdir, buff);
         } else {
                 ret = -1;
                 goto out;
         }
 
         memset (buff, 0, PATH_MAX);
-        memset (buffer, 0, PATH_MAX);
 
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (buffer, PATH_MAX, "%s/%s.pid", pidfolder, buff);
-                strncpy (pidfile, buffer, PATH_MAX);
+                snprintf (prmfile, PATH_MAX, "%s/%s.pid", pidfolder, buff);
         }
 
  out:
@@ -2684,19 +2696,19 @@ gf_cli3_1_start_gsync (char *master, char *slave, char *gl_workdir)
         int32_t         ret     = -1;
         int32_t         status  = 0;
         char            cmd[PATH_MAX] = {0,};
-        char            pidfile[PATH_MAX] = {0,};
-        char            pidfolder[PATH_MAX] = {0,};
+        char            prmfile[PATH_MAX] = {0,};
+        char            *tslash = NULL;
 
-        ret = gf_cli3_1_gsync_get_pid_file (pidfolder, pidfile, master,
-                                               slave, gl_workdir);
+        ret = gf_cli3_1_gsync_get_param_file (prmfile, "pid", master,
+                                              slave, gl_workdir);
         if (ret == -1) {
                 ret = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to construct the "
-                        "pidfile string");
+                        "prmfile string");
                 goto out;
         }
 
-        ret = gf_cli3_1_gsync_status (master, slave, pidfile, &status);
+        ret = gf_cli3_1_gsync_status (master, slave, prmfile, &status);
         if ((ret == 0 && status == 0)) {
                 gf_log ("", GF_LOG_WARNING, "gsync %s:%s"
                         "already started", master, slave);
@@ -2707,19 +2719,24 @@ gf_cli3_1_start_gsync (char *master, char *slave, char *gl_workdir)
                 goto out;
         }
 
-        unlink (pidfile);
+        unlink (prmfile);
 
-        ret = mkdir (pidfolder, 0777);
-        if (ret && (errno != EEXIST)) {
-                gf_log ("", GF_LOG_DEBUG, "mkdir failed, errno: %d",
-                        errno);
-                goto out;
+        tslash = strrchr(prmfile, '/');
+        if (tslash) {
+                *tslash = '\0';
+                ret = mkdir (prmfile, 0777);
+                if (ret && (errno != EEXIST)) {
+                        gf_log ("", GF_LOG_DEBUG, "mkdir failed, errno: %d",
+                                errno);
+                        goto out;
+                }
+                *tslash = '/';
         }
 
         memset (cmd, 0, sizeof (cmd));
         ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
                                        " --config-set pid-file %s", gl_workdir,
-                                       GSYNC_CONF, master, slave, pidfile);
+                                       GSYNC_CONF, master, slave, prmfile);
         if (ret <= 0) {
                 ret = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to construct the  "
@@ -2728,14 +2745,29 @@ gf_cli3_1_start_gsync (char *master, char *slave, char *gl_workdir)
         }
 
         ret = system (cmd);
-        if (ret == -1) {
+        if (ret) {
                 gf_log ("", GF_LOG_WARNING, "failed to set the pid "
                         "option for %s %s", master, slave);
                 goto out;
         }
 
+        ret = gf_cli3_1_gsync_get_param_file (prmfile, "status", NULL, NULL, NULL);
+        if (ret != -1)
+                ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+                                " --config-set state-file %s", gl_workdir,
+                                GSYNC_CONF, master, slave, prmfile);
+        if (ret >= PATH_MAX)
+                ret = -1;
+        if (ret != -1)
+                ret = system (cmd) ? -1 : 0;
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to set status file "
+                        "for %s %s", master, slave);
+                goto out;
+        }
+
         memset (cmd, 0, sizeof (cmd));
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c %s/%s %s %s"
                                        , gl_workdir, GSYNC_CONF, master, slave);
         if (ret <= 0) {
                 ret = -1;

@@ -40,3 +40,11 @@ def update_file(path, updater, merger = lambda f: True):
         for fx in (fr, fw):
             if fx:
                 fx.close()
+
+
+class FreeObject(object):
+    """wildcard class for which any attribute can be set"""
+
+    def __init__(self, **kw):
+        for k,v in kw.iteritems():
+            setattr(self, k, v)
