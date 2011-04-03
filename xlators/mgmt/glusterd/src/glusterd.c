@@ -229,6 +229,66 @@ out:
         return ret;
 }
 
+static int
+configure_syncaemon (xlator_t *this, const char *workdir)
+{
+        int ret = 0;
+#if SYNCDAEMON_COMPILE
+        char voldir[PATH_MAX] = {0,};
+        char cmd[4096] = {0,};
+        int blen = 0;
+
+        snprintf (voldir, PATH_MAX, "%s/gsync", workdir);
+        ret = mkdir (voldir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create gsync directory %s (%s)",
+                        voldir, strerror (errno));
+                return -1;
+        }
+
+        blen = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF
+                         " --config-set-rx ", workdir);
+
+        /* remote-gsyncd */
+        strcpy (cmd + blen,
+                "remote-gsyncd "
+                "'"GSYNCD_PREFIX"/gsyncd --gluster-command "GFS_PREFIX"/sbin/glusterfs' "
+                ". .");
+        ret = system (cmd);
+        if (ret)
+                goto out;
+
+        strcpy (cmd + blen,
+                "remote-gsyncd /usr/local/libexec/glusterfs/gsyncd . ^ssh:");
+        ret = system (cmd);
+        if (ret)
+                goto out;
+
+        /* gluster-command */
+        /* XXX $sbindir should be used (throughout the codebase) */
+        strcpy (cmd + blen,
+                "gluster-command "GFS_PREFIX"/sbin/glusterfs . .");
+        ret = system (cmd);
+        if (ret)
+                goto out;
+
+        /* ssh-command */
+        strcpy (cmd + blen,
+                "ssh-command 'ssh -oPasswordAuthentication=no' . .");
+        ret = system (cmd);
+        if (ret)
+                goto out;
+
+ out:
+#else
+        (void)this;
+        (void)workdir;
+#endif
+        return ret ? -1 : 0;
+}
+
+
 /*
  * init - called during glusterd initialization
  *
@@ -247,7 +307,6 @@ init (xlator_t *this)
         char               dirname [PATH_MAX];
         char               cmd_log_filename [PATH_MAX] = {0,};
         int                first_time        = 0;
-        char               cmd [PATH_MAX]    = {0,};
 
         dir_data = dict_get (this->options, "working-directory");
 
@@ -338,41 +397,11 @@ init (xlator_t *this)
                         " ,errno = %d", voldir, errno);
                 exit (1);
         }
-#if (SYNCDAEMON_COMPILE)
-        snprintf (voldir, PATH_MAX, "%s/gsync", dirname);
-        ret = mkdir (voldir, 0777);
-        if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "Unable to create gsync directory %s"
-                        " ,errno = %d", voldir, errno);
-                exit (1);
-        }
 
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s "
-                                " --config-set-rx remote-gsyncd %s/gsyncd . ."
-                                , dirname, GSYNC_CONF, GSYNCD_PREFIX);
-        if (ret <= 0) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = system (cmd);
-        if (ret == -1)
+        ret = configure_syncaemon (this, dirname);
+        if (ret)
                 goto out;
 
-        ret = snprintf (cmd, 1024, GSYNCD_PREFIX "/gsyncd -c %s/%s "
-                                " --config-set-rx remote-gsyncd"
-                                " /usr/local/libexec/glusterfs/gsyncd . ^ssh:"
-                                , dirname, GSYNC_CONF);
-        if (ret <= 0) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = system (cmd);
-        if (ret == -1)
-                goto out;
-#endif
         ret = glusterd_rpcsvc_options_build (this->options);
         if (ret)
                 goto out;

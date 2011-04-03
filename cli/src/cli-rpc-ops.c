@@ -26,6 +26,7 @@
 #ifndef GSYNC_CONF
 #define GSYNC_CONF "gsync/gsyncd.conf"
 #endif
+#define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
 
 #include "cli.h"
 #include "compat-errno.h"
@@ -2609,7 +2610,7 @@ gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, ch
         char                buff[PATH_MAX] = {0, };
         char                cmd[PATH_MAX] = {0, };
         char               *ptr = NULL;
-        char                pidfolder[PATH_MAX] = {0, };
+        char                prmfolder[PATH_MAX] = {0, };
         char               *dotp = NULL;
         int                 ret = 0;
 
@@ -2637,7 +2638,7 @@ gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, ch
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (pidfolder, PATH_MAX, "%s/gsync/%s", gl_workdir, buff);
+                snprintf (prmfolder, PATH_MAX, "%s/gsync/%s", gl_workdir, buff);
         } else {
                 ret = -1;
                 goto out;
@@ -2648,7 +2649,7 @@ gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, ch
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (prmfile, PATH_MAX, "%s/%s.pid", pidfolder, buff);
+                snprintf (prmfile, PATH_MAX, "%s/%s.%s", prmfolder, buff, ext);
         }
 
  out:
@@ -2704,7 +2705,7 @@ gf_cli3_1_start_gsync (char *master, char *slave, char *gl_workdir)
         if (ret == -1) {
                 ret = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to construct the "
-                        "prmfile string");
+                        "pidfile string");
                 goto out;
         }
 
@@ -2756,6 +2757,60 @@ gf_cli3_1_start_gsync (char *master, char *slave, char *gl_workdir)
                 ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
                                 " --config-set state-file %s", gl_workdir,
                                 GSYNC_CONF, master, slave, prmfile);
+        if (ret >= PATH_MAX)
+                ret = -1;
+        if (ret != -1)
+                ret = system (cmd) ? -1 : 0;
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to set status file "
+                        "for %s %s", master, slave);
+                goto out;
+        }
+
+        ret = gf_cli3_1_gsync_get_param_file (prmfile, "log", master,
+                                              slave, DEFAULT_LOG_FILE_DIRECTORY);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to construct the "
+                        "logfile string");
+                goto out;
+        }
+        /* XXX "mkdir -p": eventually this should be made into a library routine */
+        tslash = strrchr(prmfile, '/');
+        if (tslash) {
+                char *slash = prmfile;
+                struct stat st = {0,};
+
+                *tslash = '\0';
+                if (*slash == '/')
+                        slash++;
+                while (slash) {
+                        slash = strchr (slash, '/');
+                        if (slash)
+                                *slash = '\0';
+                        ret = mkdir (prmfile, 0777);
+                        if (ret == -1 && errno != EEXIST) {
+                                gf_log ("", GF_LOG_DEBUG, "mkdir failed (%s)",
+                                        strerror (errno));
+                                goto out;
+                        }
+                        if (slash) {
+                                *slash = '/';
+                                slash++;
+                        }
+                }
+                ret = stat (prmfile, &st);
+                if (ret == -1 || !S_ISDIR (st.st_mode)) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_DEBUG, "mkdir failed (%s)",
+                                strerror (errno));
+                        goto out;
+                }
+                *tslash = '/';
+        }
+
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+                        " --config-set log-file %s", gl_workdir,
+                        GSYNC_CONF, master, slave, prmfile);
         if (ret >= PATH_MAX)
                 ret = -1;
         if (ret != -1)
