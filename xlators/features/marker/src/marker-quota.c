@@ -489,13 +489,13 @@ quota_dirty_inode_readdir (call_frame_t *frame,
 {
         quota_local_t *local = NULL;
 
+        local = frame->local;
+
         if (op_ret == -1) {
                 local->err = -1;
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
                 return 0;
         }
-
-        local = frame->local;
 
         if (local->fd == NULL)
                 local->fd = fd_ref (fd);
@@ -1223,6 +1223,9 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
                         "%s couldnt mark dirty", local->parent_loc.path);
                 goto err;
         }
+
+        VALIDATE_OR_GOTO (local->ctx, err);
+        VALIDATE_OR_GOTO (local->contri, err);
 
         gf_log (this->name, GF_LOG_DEBUG, "%s marked dirty", local->parent_loc.path);
 
