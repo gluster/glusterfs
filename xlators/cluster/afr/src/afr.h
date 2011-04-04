@@ -68,7 +68,7 @@ typedef struct _afr_private {
         gf_boolean_t entry_change_log;      /* on/off */
 
         int read_child;               /* read-subvolume */
-        unsigned int favorite_child;  /* subvolume to be preferred in resolving
+        int favorite_child;  /* subvolume to be preferred in resolving
                                          split-brain cases */
 
         unsigned int data_lock_server_count;
