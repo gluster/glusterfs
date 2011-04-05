@@ -141,7 +141,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC}, /* NODOC */
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC},      /* NODOC */
 
-        {"features.marker_gsync",                "features/marker",           "gsync", "off", NO_DOC},
+        {"features.marker-gsync",                "features/marker",           "gsync", "off", NO_DOC},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
         {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC},
@@ -1140,7 +1140,7 @@ glusterd_gsync_option_set (glusterd_volinfo_t *volinfo,
         GF_VALIDATE_OR_GOTO ("glusterd", xl, out);
         GF_VALIDATE_OR_GOTO ("glusterd", set_dict, out);
 
-        ret = volgen_dict_get (set_dict, "features.marker_gsync",
+        ret = volgen_dict_get (set_dict, "features.marker-gsync",
                                &gsync_val);
         if (ret)
                 return -1;
@@ -1149,7 +1149,7 @@ glusterd_gsync_option_set (glusterd_volinfo_t *volinfo,
                 ret = gf_string2boolean (gsync_val, &gsync);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
-                        "value for marker_gsync option is junk");
+                        "value for marker-gsync option is junk");
                 return -1;
         }
         get_vol_tstamp_file (tstamp_file, volinfo);
