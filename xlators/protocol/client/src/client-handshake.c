@@ -345,24 +345,16 @@ unwind:
 int
 client_notify_parents_child_up (xlator_t *this)
 {
-        xlator_list_t          *parent = NULL;
+        clnt_conf_t *conf = NULL;
+        int          ret  = 0;
 
-        /* As fuse is not 'parent' of any translator now, triggering its
-           CHILD_UP event is hacky in case client has only client protocol */
-        if (!this->parents && this->ctx && this->ctx->master) {
-                /* send notify to 'ctx->master' if it exists */
-                xlator_notify (this->ctx->master, GF_EVENT_CHILD_UP,
-                               this->graph);
-        } else {
+        conf = this->private;
+        ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
+        if (ret)
+                gf_log (this->name, GF_LOG_INFO,
+                        "notify of CHILD_UP failed");
 
-                parent = this->parents;
-                while (parent) {
-                        xlator_notify (parent->xlator, GF_EVENT_CHILD_UP,
-                                       this);
-                        parent = parent->next;
-                }
-        }
-
+        conf->last_sent_event = GF_EVENT_CHILD_UP;
         return 0;
 }
 
@@ -757,7 +749,6 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         clnt_conf_t          *conf          = NULL;
         xlator_t             *this          = NULL;
         dict_t               *reply         = NULL;
-        xlator_list_t        *parent        = NULL;
         char                 *process_uuid  = NULL;
         char                 *remote_error  = NULL;
         char                 *remote_subvol = NULL;
@@ -820,13 +811,11 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                         remote_error ? remote_error : strerror (op_errno));
                 errno = op_errno;
                 if (op_errno == ESTALE) {
-                        parent = this->parents;
-                        while (parent) {
-                                xlator_notify (parent->xlator,
-                                               GF_EVENT_VOLFILE_MODIFIED,
-                                               this);
-                                parent = parent->next;
-                        }
+                        ret = default_notify (this, GF_EVENT_VOLFILE_MODIFIED, NULL);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "notify of VOLFILE_MODIFIED failed");
+                        conf->last_sent_event = GF_EVENT_VOLFILE_MODIFIED;
                 }
                 goto out;
         }
@@ -878,13 +867,11 @@ out:
                  * background, for now, don't hang here,
                  * tell the parents that i am all ok..
                  */
-                parent = this->parents;
-                while (parent) {
-                        xlator_notify (parent->xlator,
-                                       GF_EVENT_CHILD_CONNECTING, this);
-                        parent = parent->next;
-                }
-
+                ret = default_notify (this, GF_EVENT_CHILD_CONNECTING, NULL);
+                if (ret)
+                        gf_log (this->name, GF_LOG_INFO,
+                                "notify of CHILD_CONNECTING failed");
+                conf->last_sent_event = GF_EVENT_CHILD_CONNECTING;
                 conf->connecting= 1;
         }
 

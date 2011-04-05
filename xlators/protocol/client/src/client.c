@@ -1584,10 +1584,14 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                         "handshake msg returned %d", ret);
                 } else {
                         //conf->rpc->connected = 1;
-                        ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "default notify failed");
+                        if (conf->last_sent_event != GF_EVENT_CHILD_UP) {
+                                ret = default_notify (this, GF_EVENT_CHILD_UP,
+                                                      NULL);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "default notify failed");
+                                conf->last_sent_event = GF_EVENT_CHILD_UP;
+                        }
                 }
                 break;
         }
@@ -1599,7 +1603,16 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         if (conf->connected)
                                 gf_log (this->name, GF_LOG_NORMAL,
                                         "disconnected");
-                        default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
+
+                        /* If the CHILD_DOWN event goes to parent xlator
+                           multiple times, the logic of parent xlator notify
+                           may get screwed up.. (eg. CHILD_MODIFIED event in
+                           replicate), hence make sure events which are passed
+                           to parent are genuine */
+                        if (conf->last_sent_event != GF_EVENT_CHILD_DOWN) {
+                                default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
+                                conf->last_sent_event = GF_EVENT_CHILD_DOWN;
+                        }
                 } else {
                         if (conf->connected)
                                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1648,6 +1661,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         "got %d, calling default_notify ()", event);
 
                 default_notify (this, event, data);
+                conf->last_sent_event = event;
                 break;
         }
 
@@ -2008,6 +2022,8 @@ init (xlator_t *this)
 
         LOCK_INIT (&conf->rec_lock);
 
+        conf->last_sent_event = -1; /* To start with we don't have any events */
+
         this->private = conf;
 
         /* If it returns -1, then its a failure, if it returns +1 we need
@@ -2024,6 +2040,7 @@ init (xlator_t *this)
                 ret = 0;
                 goto out;
         }
+
 
         ret = client_init_rpc (this);
 out:
