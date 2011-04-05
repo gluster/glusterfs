@@ -1378,8 +1378,10 @@ print_limit_list (char *volname, char *limit_list)
                 if (ret < 0) {
                         cli_out ("%-20s %10s", path, value);
                 } else {
-                        sscanf (ret_str, "%ld,%ld", &size, &limit_value);
-                        cli_out ("%-20s %10ld %20ld", path, limit_value, size);
+                        sscanf (ret_str, "%"PRId64",%"PRId64, &size,
+                                &limit_value);
+                        cli_out ("%-20s %10"PRId64" %20"PRId64, path,
+                                 limit_value, size);
                 }
                 i++;
         }

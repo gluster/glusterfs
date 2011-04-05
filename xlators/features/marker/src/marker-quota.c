@@ -210,9 +210,10 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         *delta = ntoh64 (ntoh64 (*size) - local->sum);
 
-        gf_log (this->name, GF_LOG_DEBUG, "calculated size = %ld, original size = %ld"
-                        "path = %s diff = %ld", local->sum, ntoh64 (*size),
-                        local->loc.path, ntoh64 (*delta));
+        gf_log (this->name, GF_LOG_DEBUG, "calculated size = %"PRId64", "
+                "original size = %"PRIu64
+                " path = %s diff = %"PRIu64, local->sum, ntoh64 (*size),
+                local->loc.path, ntoh64 (*delta));
 
         new_dict = dict_new ();
         if (!new_dict);
@@ -463,9 +464,11 @@ quota_readdir_cbk (call_frame_t *frame,
                         break;
                 }
         }
-        gf_log (this->name, GF_LOG_INFO, "offset before =%lu",local->d_off);
+        gf_log (this->name, GF_LOG_INFO, "offset before =%"PRIu64,
+                local->d_off);
         local->d_off +=offset;
-        gf_log (this->name, GF_LOG_INFO, "offset after = %lu",local->d_off);
+        gf_log (this->name, GF_LOG_INFO, "offset after = %"PRIu64,
+                local->d_off);
 
         if (ret)
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
