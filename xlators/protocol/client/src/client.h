@@ -60,6 +60,10 @@ typedef struct clnt_conf {
                                                    connection is established */
         gf_lock_t              rec_lock;
         int                    skip_notify;
+
+        int                    last_sent_event; /* Flag used to make sure we are
+                                                   not repeating the same event
+                                                   which was sent earlier */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
