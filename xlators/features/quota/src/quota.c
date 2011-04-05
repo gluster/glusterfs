@@ -463,7 +463,8 @@ __quota_init_inode_ctx (inode_t *inode, int64_t limit, xlator_t *this,
         QUOTA_ALLOC_OR_GOTO (ctx, quota_inode_ctx_t, out);
 
         ctx->limit = limit;
-        ctx->buf = *buf;
+        if (buf)
+                ctx->buf = *buf;
 
         LOCK_INIT(&ctx->lock);
 
