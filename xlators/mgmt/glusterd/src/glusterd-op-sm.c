@@ -1988,7 +1988,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                         gf_log ("", GF_LOG_WARNING, "gsync not running");
                         *op_errstr = gf_strdup ("gsync not running");
                         glusterd_gsync_volinfo_dict_set (volinfo,
-                                        "features.marker_gsync", "off");
+                                        "features.marker-gsync", "off");
                         ret = -1;
                         goto out;
                 }  else if (ret == -1) {
@@ -3926,7 +3926,7 @@ glusterd_set_marker_gsync (char *master, char *value)
         }
 
         ret = glusterd_gsync_volinfo_dict_set (volinfo,
-                                               "features.marker_gsync", value);
+                                               "features.marker-gsync", value);
         if (ret < 0)
                 goto out;
 
