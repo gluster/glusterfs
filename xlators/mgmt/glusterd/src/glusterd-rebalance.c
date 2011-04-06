@@ -43,17 +43,18 @@
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
-        int                     ret                = -1;
-        int                     dst_fd             = -1;
-        int                     src_fd             = -1;
-        DIR                    *fd                 = NULL;
-        glusterd_defrag_info_t *defrag             = NULL;
-        struct dirent          *entry              = NULL;
-        struct stat             stbuf              = {0,};
-        struct stat             new_stbuf          = {0,};
-        char                    full_path[1024]    = {0,};
-        char                    tmp_filename[1024] = {0,};
-        char                    value[16]          = {0,};
+        int                     ret                    = -1;
+        int                     dst_fd                 = -1;
+        int                     src_fd                 = -1;
+        DIR                    *fd                     = NULL;
+        glusterd_defrag_info_t *defrag                 = NULL;
+        struct dirent          *entry                  = NULL;
+        struct stat             stbuf                  = {0,};
+        struct stat             new_stbuf              = {0,};
+        char                    full_path[PATH_MAX]    = {0,};
+        char                    tmp_filename[PATH_MAX] = {0,};
+        char                    value[16]              = {0,};
+        char                    linkinfo[PATH_MAX]     = {0,};
 
         if (!volinfo->defrag)
                 goto out;
@@ -70,7 +71,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
                         continue;
 
-                snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
+                snprintf (full_path, PATH_MAX, "%s/%s", dir, entry->d_name);
 
                 ret = stat (full_path, &stbuf);
                 if (ret == -1)
@@ -79,8 +80,13 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (S_ISREG (stbuf.st_mode))
                         defrag->num_files_lookedup += 1;
 
-                if (!(S_ISREG (stbuf.st_mode) &&
-                      ((stbuf.st_mode & S_ISVTX) == S_ISVTX)))
+                /* if distribute is present, it will honor this key.
+                   -1 is returned if distribute is not present or file doesn't
+                   have a link-file. If file has link-file, the path of
+                   link-file will be the value  */
+                ret = sys_lgetxattr (full_path, GF_XATTR_LINKINFO_KEY,
+                                     &linkinfo, PATH_MAX);
+                if (ret <= 0)
                         continue;
 
                 /* If the file is open, don't run rebalance on it */
@@ -91,11 +97,11 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 /* If its a regular file, and sticky bit is set, we need to
                    rebalance that */
-                snprintf (tmp_filename, 1024, "%s/.%s.gfs%llu", dir,
+                snprintf (tmp_filename, PATH_MAX, "%s/.%s.gfs%llu", dir,
                           entry->d_name,
                           (unsigned long long)stbuf.st_size);
 
-                dst_fd = creat (tmp_filename, (stbuf.st_mode & ~S_ISVTX));
+                dst_fd = creat (tmp_filename, stbuf.st_mode);
                 if (dst_fd == -1)
                         continue;
 
@@ -128,13 +134,6 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         close (dst_fd);
                         close (src_fd);
                         continue;
-                }
-
-                ret = fchmod (dst_fd, stbuf.st_mode & ~S_ISVTX);
-                if (ret) {
-                        gf_log ("", GF_LOG_WARNING,
-                                "failed to set the mode of file %s: %s",
-                                tmp_filename, strerror (errno));
                 }
 
                 ret = fchown (dst_fd, stbuf.st_uid, stbuf.st_gid);
@@ -556,12 +555,11 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                 goto out;
         }
 
-        snprintf (cmd_str, sizeof (cmd_str), "%s/sbin/glusterfs -s localhost "
-                  "--volfile-id %s --volume-name %s-quick-read "
-                  "--xlator-option *dht.unhashed-sticky-bit=yes "
+        snprintf (cmd_str, sizeof (cmd_str),
+                  "%s/sbin/glusterfs -s localhost --volfile-id %s "
                   "--xlator-option *dht.use-readdirp=yes "
                   "--xlator-option *dht.lookup-unhashed=yes %s",
-                  GFS_PREFIX, volinfo->volname, volinfo->volname,
+                  GFS_PREFIX, volinfo->volname,
                   defrag->mount);
         ret = gf_system (cmd_str);
         if (ret) {
