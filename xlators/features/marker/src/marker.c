@@ -267,12 +267,18 @@ int32_t
 marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  const char *name)
 {
-        gf_boolean_t ret;
+        gf_boolean_t   ret  = _gf_false;
+        marker_conf_t *priv = NULL;
+
+        priv = this->private;
+
+        if (priv == NULL || (priv->feature_enabled & GF_GSYNC) == 0)
+                goto wind;
 
         gf_log (this->name, GF_LOG_DEBUG, "USER:PID = %d", frame->root->pid);
 
         ret = call_from_special_client (frame, this, name);
-
+wind:
         if (ret == _gf_false)
                 STACK_WIND (frame, marker_getxattr_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->getxattr, loc, name);
