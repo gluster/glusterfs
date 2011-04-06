@@ -6276,6 +6276,31 @@ glusterd_op_clear_errstr() {
 }
 
 int32_t
+glusterd_op_set_ctx (glusterd_op_t op, void *ctx)
+{
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        opinfo.op_ctx[op] = ctx;
+
+        return 0;
+
+}
+
+int32_t
+glusterd_op_reset_ctx (glusterd_op_t op)
+{
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        glusterd_op_set_ctx (op, NULL);
+
+        return 0;
+}
+
+int32_t
 glusterd_op_txn_complete ()
 {
         int32_t                 ret = -1;
@@ -6322,7 +6347,7 @@ glusterd_op_txn_complete ()
                 glusterd_op_clear_op (op);
                 ctx = glusterd_op_get_ctx (op);
                 ctx_free = glusterd_op_get_ctx_free (op);
-                glusterd_op_set_ctx (op, NULL);
+                glusterd_op_reset_ctx (op);
                 glusterd_op_clear_ctx_free (op);
                 glusterd_op_clear_errstr ();
         }
@@ -7614,6 +7639,10 @@ glusterd_op_init_ctx (glusterd_op_t op)
         int     ret = 0;
         dict_t *dict = NULL;
 
+        if (GD_OP_PROFILE_VOLUME != op) {
+                gf_log ("", GF_LOG_DEBUG, "Received op: %d, returning", op);
+                goto out;
+        }
         dict = dict_new ();
         if (dict == NULL) {
                 ret = -1;
@@ -7630,6 +7659,8 @@ out:
         return ret;
 }
 
+
+
 int32_t
 glusterd_op_fini_ctx (glusterd_op_t op)
 {
@@ -7640,21 +7671,11 @@ glusterd_op_fini_ctx (glusterd_op_t op)
                 if (dict)
                         dict_unref (dict);
         }
+        glusterd_op_reset_ctx (op);
         return 0;
 }
 
-int32_t
-glusterd_op_set_ctx (glusterd_op_t op, void *ctx)
-{
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        opinfo.op_ctx[op] = ctx;
-
-        return 0;
-
-}
 
 int32_t
 glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
