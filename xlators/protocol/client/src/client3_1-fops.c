@@ -1220,7 +1220,7 @@ client3_1_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        if (rsp.op_ret == -1) {
+        if ((rsp.op_ret == -1) && (EAGAIN != rsp.op_errno)) {
                 gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
@@ -1257,7 +1257,7 @@ client3_1_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        if (rsp.op_ret == -1) {
+        if ((rsp.op_ret == -1) && (EAGAIN != rsp.op_errno)) {
                 gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
@@ -1295,7 +1295,7 @@ client3_1_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
 
-        if (rsp.op_ret == -1) {
+        if ((rsp.op_ret == -1) && (EAGAIN != rsp.op_errno)) {
                 gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
@@ -1332,7 +1332,7 @@ client3_1_fentrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        if (rsp.op_ret == -1) {
+        if ((rsp.op_ret == -1) && (EAGAIN != rsp.op_errno)) {
                 gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
@@ -1824,7 +1824,7 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         client_local_wipe (local);
 
 out:
-        if (rsp.op_ret == -1) {
+        if ((rsp.op_ret == -1) && (EAGAIN != rsp.op_errno)) {
                 gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
