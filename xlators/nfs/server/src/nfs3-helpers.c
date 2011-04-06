@@ -256,6 +256,10 @@ nfs3_errno_to_nfsstat3 (int errnum)
                 stat = NFS3ERR_IO;
                 break;
 
+        case EDQUOT:
+                stat = NFS3ERR_DQUOT;
+                break;
+
         default:
                 stat = NFS3ERR_SERVERFAULT;
                 break;
