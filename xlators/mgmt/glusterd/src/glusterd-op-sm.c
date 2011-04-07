@@ -4310,26 +4310,25 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
 
         ret = glusterd_check_if_quota_trans_enabled (volinfo);
         if (ret == 0) {
-                *op_errstr = gf_strdup ("quota translator "
-                                        "couldnot be enabled");
+                *op_errstr = gf_strdup ("Quota is already enabled");
                 goto out;
         }
 
         quota_status = gf_strdup ("on");
         if (!quota_status) {
                 gf_log ("", GF_LOG_ERROR, "memory allocation failed");
-                *op_errstr = gf_strdup ("quota enable failed");
+                *op_errstr = gf_strdup ("Enabling quota has been unsuccessful");
                 goto out;
         }
 
         ret = dict_set_dynstr (volinfo->dict, "features.quota", quota_status);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "dict set failed");
-                *op_errstr = gf_strdup ("quota enable failed");
+                *op_errstr = gf_strdup ("Enabling quota has been unsuccessful");
                 goto out;
         }
 
-        *op_errstr = gf_strdup ("quota translator is enabled");
+        *op_errstr = gf_strdup ("Enabling quota has been successful");
 
         status = gf_strdup ("on");
         if (status == NULL) {
@@ -4356,18 +4355,18 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         quota_status = gf_strdup ("off");
         if (!quota_status) {
                 gf_log ("", GF_LOG_ERROR, "memory allocation failed");
-                *op_errstr = gf_strdup ("quota disable failed");
+                *op_errstr = gf_strdup ("Disabling quota has been unsuccessful");
                 goto out;
         }
 
         ret = dict_set_dynstr (volinfo->dict, "features.quota", quota_status);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "dict set failed");
-                *op_errstr = gf_strdup ("quota disable failed");
+                *op_errstr = gf_strdup ("Disabling quota has been unsuccessful");
                 goto out;
         }
 
-        *op_errstr = gf_strdup ("quota disabled");
+        *op_errstr = gf_strdup ("Disabling quota has been successful");
 
         dict_del (volinfo->dict, "features.limit-usage");
 
@@ -4397,7 +4396,8 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
 
         ret = glusterd_check_if_quota_trans_enabled (volinfo);
         if (ret == -1) {
-                *op_errstr = gf_strdup ("failed to set limit");
+                *op_errstr = gf_strdup ("Quota is disabled, "
+                                        "please enable to set limit");
                 goto out;
         }
 
@@ -4472,6 +4472,7 @@ int32_t
 glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **op_errstr)
 {
         int32_t         ret     = -1;
+        char            str [PATH_MAX + 1024] = {0,};
         char            *quota_limits = NULL;
         char            *path   = NULL;
 
@@ -4497,8 +4498,14 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **
         }
 
         ret = _glusterd_quota_remove_limits (&quota_limits, path);
-        if (ret == -1)
+        if (ret == -1) {
+                snprintf (str, sizeof (str), "Removing limit on %s has been unsuccessful", path);
+                *op_errstr = gf_strdup (str);
                 goto out;
+        } else {
+                snprintf (str, sizeof (str), "Removed quota limit on %s", path);
+                *op_errstr = gf_strdup (str);
+        }
 
         if (quota_limits) {
                 ret = dict_set_str (volinfo->dict, "features.limit-usage",
