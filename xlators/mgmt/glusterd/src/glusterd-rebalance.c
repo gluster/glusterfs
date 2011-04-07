@@ -77,8 +77,13 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (ret == -1)
                         continue;
 
-                if (S_ISREG (stbuf.st_mode))
-                        defrag->num_files_lookedup += 1;
+                if (!S_ISREG (stbuf.st_mode))
+                        continue;
+
+                defrag->num_files_lookedup += 1;
+
+                if (stbuf.st_nlink > 1)
+                        continue;
 
                 /* if distribute is present, it will honor this key.
                    -1 is returned if distribute is not present or file doesn't
