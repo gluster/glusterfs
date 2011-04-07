@@ -1339,8 +1339,8 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->oldloc.inode->ino,
-                        uuid_utoa (local->oldloc.inode->gfid));
+                        ", gfid:%s)", oldloc->inode?oldloc->inode->ino:0,
+                        oldloc->inode?uuid_utoa (oldloc->inode->gfid):"0");
                 op_errno = EINVAL;
                 goto err;
         }
