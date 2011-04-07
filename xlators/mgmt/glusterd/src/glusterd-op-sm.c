@@ -2027,7 +2027,7 @@ glusterd_is_profile_on (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
         latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.dump-fd-stats";
+        fd_stats_key = "diagnostics.count-fop-hits";
 
         ret = dict_get_str_boolean (volinfo->dict, fd_stats_key,
                                     _gf_false);
@@ -5355,7 +5355,7 @@ glusterd_add_profile_volume_options (glusterd_volinfo_t *volinfo)
         GF_ASSERT (volinfo);
 
         latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.dump-fd-stats";
+        fd_stats_key = "diagnostics.count-fop-hits";
 
         ret = dict_set_str (volinfo->dict, latency_key, "on");
         if (ret) {
@@ -5386,7 +5386,7 @@ glusterd_remove_profile_volume_options (glusterd_volinfo_t *volinfo)
         GF_ASSERT (volinfo);
 
         latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.dump-fd-stats";
+        fd_stats_key = "diagnostics.count-fop-hits";
         dict_del (volinfo->dict, latency_key);
         dict_del (volinfo->dict, fd_stats_key);
 }
