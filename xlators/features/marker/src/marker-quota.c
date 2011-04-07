@@ -996,6 +996,8 @@ quota_mark_undirty (call_frame_t *frame,
                 {
                         if (size)
                                 ctx->size = ntoh64 (*size);
+                        gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64,
+                                local->parent_loc.path, ctx->size);
                 }
                 UNLOCK (&ctx->lock);
         }
@@ -1054,6 +1056,12 @@ quota_update_parent_size (call_frame_t *frame,
 
                 goto err;
         }
+
+        local->contri->contribution += local->delta;
+
+        gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
+                local->loc.path, local->ctx->size,
+                local->contri->contribution);
 
         priv = this->private;
 
@@ -1162,6 +1170,8 @@ unlock:
         if (ret < 0)
                 goto err;
 
+        gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
+                local->loc.path, ctx->size, contribution->contribution);
         newdict = dict_new ();
         if (newdict == NULL) {
                 ret = -1;
@@ -1287,7 +1297,8 @@ quota_markdirty (call_frame_t *frame, void *cookie,
 
         if (op_ret == -1){
                 gf_log (this->name, GF_LOG_ERROR,
-                        "lock setting failed %s", strerror (op_errno));
+                        "lock setting failed on %s",
+                        local->parent_loc.path);
 
                 local->err = 1;
 
@@ -1340,6 +1351,8 @@ get_lock_on_parent (call_frame_t *frame, xlator_t *this)
         GF_VALIDATE_OR_GOTO ("marker", frame, fr_destroy);
 
         local = frame->local;
+        gf_log (this->name, GF_LOG_DEBUG, "taking lock on %s",
+                local->parent_loc.path);
 
         lock.l_len    = 0;
         lock.l_start  = 0;
@@ -1505,6 +1518,10 @@ inspect_directory_xattr (xlator_t *this,
 
         ctx->size = ntoh64 (*size);
 
+        gf_log (this->name, GF_LOG_INFO, "size=%"PRId64
+                "contri=%"PRId64, ctx->size,
+                contribution?contribution->contribution:0);
+
         ctx->dirty = dirty;
         if (ctx->dirty == 1)
                 update_dirty_inode (this, loc, ctx, contribution);
@@ -1564,6 +1581,10 @@ inspect_file_xattr (xlator_t *this,
                         contri_ptr = (int64_t *)(unsigned long)contri_int;
 
                         contribution->contribution = ntoh64 (*contri_ptr);
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "size=%"PRId64 " contri=%"PRId64, ctx->size,
+                                contribution->contribution);
 
                         ret = validate_inode_size_contribution
                                 (this, loc, ctx, contribution);
@@ -1644,13 +1665,18 @@ quota_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *dict)
+                         int32_t op_ret, int32_t op_errno)
 {
         int32_t          ret        = 0;
         char             contri_key [512] = {0, };
         quota_local_t   *local      = NULL;
 
         local = (quota_local_t *) frame->local;
+
+        if (op_ret == -1 || local->err == -1) {
+                quota_removexattr_cbk (frame, NULL, this, -1, 0);
+                return 0;
+        }
 
         if (local->hl_count > 1) {
                 GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
@@ -1673,16 +1699,101 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
-reduce_parent_size (xlator_t *this, loc_t *loc)
+mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        int32_t ret;
+        struct gf_flock lock;
+        quota_inode_ctx_t *ctx;
+        quota_local_t  *local = NULL;
+
+        local = frame->local;
+        if (op_ret == -1)
+                local->err = -1;
+
+        ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
+        if (ret == 0)
+                ctx->size -= local->contri->contribution;
+
+        local->contri->contribution = 0;
+
+        lock.l_type   = F_UNLCK;
+        lock.l_whence = SEEK_SET;
+        lock.l_start  = 0;
+        lock.l_len    = 0;
+        lock.l_pid    = 0;
+
+        STACK_WIND (frame,
+                    quota_inode_remove_done,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->inodelk,
+                    this->name, &local->parent_loc,
+                    F_SETLKW, &lock);
+        return 0;
+}
+
+static int32_t
+mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
         int32_t                  ret               = -1;
         int64_t                 *size              = NULL;
         dict_t                  *dict              = NULL;
-        call_frame_t            *frame             = NULL;
         marker_conf_t           *priv              = NULL;
         quota_local_t           *local             = NULL;
-        quota_inode_ctx_t       *ctx               = NULL;
         inode_contribution_t    *contribution      = NULL;
+
+        local = frame->local;
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "inodelk set failed on %s", local->parent_loc.path);
+                QUOTA_STACK_DESTROY (frame, this);
+                return 0;
+        }
+
+        VALIDATE_OR_GOTO (local->contri, err);
+
+        priv = this->private;
+
+        contribution = local->contri;
+
+        dict = dict_new ();
+        if (dict == NULL) {
+                ret = -1;
+                goto err;
+        }
+
+        QUOTA_ALLOC_OR_GOTO (size, int64_t, ret, err);
+
+        *size = hton64 (-contribution->contribution);
+
+
+        ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
+        if (ret < 0)
+                goto err;
+
+
+        STACK_WIND (frame, mq_inode_remove_done, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->xattrop, &local->parent_loc,
+                    GF_XATTROP_ADD_ARRAY64, dict);
+        return 0;
+
+err:
+        local->err = 1;
+        mq_inode_remove_done (frame, NULL, this, -1, 0, NULL);
+        return 0;
+}
+
+int32_t
+reduce_parent_size (xlator_t *this, loc_t *loc)
+{
+        int32_t                  ret           = -1;
+        struct gf_flock          lock          = {0,};
+        call_frame_t            *frame         = NULL;
+        marker_conf_t           *priv          = NULL;
+        quota_local_t           *local         = NULL;
+        quota_inode_ctx_t       *ctx           = NULL;
+        inode_contribution_t    *contribution  = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
@@ -1703,46 +1814,39 @@ reduce_parent_size (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
+        ret = loc_copy (&local->loc, loc);
+        if (ret < 0)
+                goto out;
+
+        local->ctx = ctx;
+        local->contri = contribution;
+
         ret = quota_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
         if (ret < 0)
-                goto free_local;
-
-        dict = dict_new ();
-        if (dict == NULL) {
-                ret = -1;
-                goto free_local;
-        }
-
-        QUOTA_ALLOC_OR_GOTO (size, int64_t, ret, free_local);
-
-        *size = hton64 (-contribution->contribution);
-
-        ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
-        if (ret < 0)
-                goto free_size;
+                goto out;
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
                 ret = -1;
-                goto free_size;
+                goto out;
         }
 
+        frame->root->lk_owner = cn++;
         frame->local = local;
 
-        STACK_WIND (frame, quota_inode_remove_done, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->xattrop, &local->parent_loc,
-                    GF_XATTROP_ADD_ARRAY64, dict);
+        lock.l_len    = 0;
+        lock.l_start  = 0;
+        lock.l_type   = F_WRLCK;
+        lock.l_whence = SEEK_SET;
+
+        STACK_WIND (frame,
+                    mq_reduce_parent_size_xattr,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->inodelk,
+                    this->name, &local->parent_loc, F_SETLKW, &lock);
         ret = 0;
 
-free_size:
-        if (ret < 0)
-                GF_FREE (size);
-free_local:
-        if (ret < 0)
-                quota_local_unref (this, local);
 out:
-        dict_unref (dict);
-
         return ret;
 }
 
