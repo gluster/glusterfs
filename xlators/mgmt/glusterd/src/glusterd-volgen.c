@@ -107,6 +107,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"diagnostics.latency-measurement",      "debug/io-stats",     NULL, NULL, NO_DOC         },
         {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC        },
+        {"diagnostics.count-fop-hits",            "debug/io-stats",     NULL, NULL, NO_DOC        },
         {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level", NULL, DOC},
         {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level", NULL, DOC},
 
