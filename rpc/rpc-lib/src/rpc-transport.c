@@ -189,9 +189,13 @@ __volume_option_value_validate (char *name,
 			 */
 			char given_array[4096] = {0,};
 			for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
-				     opt->value[i]; i++) {
+				     opt->value[i];) {
 				strcat (given_array, opt->value[i]);
-				strcat (given_array, ", ");
+                                if(((++i) < ZR_OPTION_MAX_ARRAY_SIZE) &&
+                                   (opt->value[i]))
+				        strcat (given_array, ", ");
+                                else
+                                        strcat (given_array, ".");
 			}
 
 			gf_log (name, GF_LOG_ERROR,
