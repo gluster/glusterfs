@@ -2619,13 +2619,15 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
         else
                 rsp.op_errstr = "";
 
-        ret = dict_allocate_and_serialize (rsp_dict,
-                                           &rsp.dict.dict_val,
-                                           (size_t *)&rsp.dict.dict_len);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "failed to get serialized length of dict");
-                goto out;
+        if (rsp_dict) {
+                ret = dict_allocate_and_serialize (rsp_dict,
+                                                   &rsp.dict.dict_val,
+                                                   (size_t *)&rsp.dict.dict_len);
+                if (ret < 0) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "failed to get serialized length of dict");
+                        goto out;
+                }
         }
 
 
