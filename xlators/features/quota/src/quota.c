@@ -301,6 +301,8 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         call_stub_t          *stub           = NULL;
         int32_t               validate_count = 0, link_count = 0;
         uint64_t              value          = 0;
+        char                 *tmp_name       = NULL;
+        ino_t                 tmp_par        = 0;
 
         GF_VALIDATE_OR_GOTO ("quota", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -318,6 +320,8 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         inode_ctx_get (inode, this, &value);
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
 
+        tmp_name = name;
+        tmp_par = par;
         _inode = inode_ref (inode);
 
         do {
@@ -354,11 +358,11 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         break;
                 }
 
-                parent = inode_parent (_inode, par, name);
+                parent = inode_parent (_inode, tmp_par, tmp_name);
 
-                if (name != NULL) {
-                        name = NULL;
-                        par = 0;
+                if (tmp_name != NULL) {
+                        tmp_name = NULL;
+                        tmp_par = 0;
                 }
 
                 inode_unref (_inode);
@@ -389,11 +393,6 @@ out:
 validate:
         LOCK (&local->lock);
         {
-                if (local->stub == NULL) {
-                        local->stub = stub;
-                }
-
-                local->delta = delta;
                 loc_wipe (&local->validate_loc);
                 local->validate_count++;
                 quota_inode_loc_fill (_inode, &local->validate_loc);
