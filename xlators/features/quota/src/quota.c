@@ -301,8 +301,6 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         call_stub_t          *stub           = NULL;
         int32_t               validate_count = 0, link_count = 0;
         uint64_t              value          = 0;
-        char                 *tmp_name       = NULL;
-        ino_t                 tmp_par        = 0;
 
         GF_VALIDATE_OR_GOTO ("quota", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -320,8 +318,6 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         inode_ctx_get (inode, this, &value);
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
 
-        tmp_name = name;
-        tmp_par = par;
         _inode = inode_ref (inode);
 
         do {
@@ -358,15 +354,26 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         break;
                 }
 
-                parent = inode_parent (_inode, tmp_par, tmp_name);
+                parent = inode_parent (_inode, par, name);
 
-                if (tmp_name != NULL) {
-                        tmp_name = NULL;
-                        tmp_par = 0;
+                if (name != NULL) {
+                        name = NULL;
+                        par = 0;
+                }
+
+                if (parent == NULL) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "cannot find parent for inode (ino:%"PRId64", "
+                                "gfid:%s)", _inode->ino,
+                                uuid_utoa (_inode->gfid));
                 }
 
                 inode_unref (_inode);
                 _inode = parent;
+
+                if (_inode == NULL) {
+                        break;
+                }
 
                 value = 0;
                 inode_ctx_get (_inode, this, &value);
@@ -374,7 +381,10 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         } while (1);
 
         ret = 0;
-        inode_unref (_inode);
+
+        if (_inode != NULL) {
+                inode_unref (_inode);
+        }
 
         LOCK (&local->lock);
         {
