@@ -213,7 +213,7 @@ entrylk_trace_in (xlator_t *this, call_frame_t *frame, const char *domain,
         pl_print_lockee (pl_lockee, 256, fd, loc);
         pl_print_entrylk (pl_entrylk, 256, cmd, type, basename, domain);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[REQUEST] Locker = {%s} Lockee = {%s} Lock = {%s}",
                 pl_locker, pl_lockee, pl_entrylk);
 }
@@ -240,7 +240,7 @@ entrylk_trace_out (xlator_t *this, call_frame_t *frame, const char *domain,
         pl_print_entrylk (pl_entrylk, 256, cmd, type, basename, domain);
         pl_print_verdict (verdict, 32, op_ret, op_errno);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[%s] Locker = {%s} Lockee = {%s} Lock = {%s}",
                 verdict, pl_locker, pl_lockee, pl_entrylk);
 }
@@ -266,7 +266,7 @@ entrylk_trace_block (xlator_t *this, call_frame_t *frame, const char *volume,
         pl_print_lockee (pl_lockee, 256, fd, loc);
         pl_print_entrylk (pl_entrylk, 256, cmd, type, basename, volume);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[BLOCKED] Locker = {%s} Lockee = {%s} Lock = {%s}",
                 pl_locker, pl_lockee, pl_entrylk);
 }

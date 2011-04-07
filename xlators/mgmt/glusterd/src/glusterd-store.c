@@ -762,11 +762,11 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
                 else
                         ret = unlink (path);
 
-                gf_log ("", GF_LOG_NORMAL, "%s %s",
+                gf_log ("", GF_LOG_INFO, "%s %s",
                                 ret?"Failed to remove":"Removed",
                                 entry->d_name);
                 if (ret)
-                        gf_log ("", GF_LOG_NORMAL, "errno:%d", errno);
+                        gf_log ("", GF_LOG_INFO, "errno:%d", errno);
 stat_failed:
                 memset (path, 0, sizeof(path));
                 glusterd_for_each_entry (entry, dir);
@@ -1058,7 +1058,7 @@ glusterd_retrieve_uuid ()
                                              &uuid_str);
 
         if (ret) {
-                gf_log ("", GF_LOG_NORMAL, "No previous uuid is present");
+                gf_log ("", GF_LOG_INFO, "No previous uuid is present");
                 goto out;
         }
 

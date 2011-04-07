@@ -2884,7 +2884,7 @@ rb_do_operation_pause (glusterd_volinfo_t *volinfo,
 {
         int ret = -1;
 
-        gf_log ("", GF_LOG_NORMAL,
+        gf_log ("", GF_LOG_INFO,
                 "replace-brick send pause xattr");
 
         ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
@@ -3144,7 +3144,7 @@ rb_update_srcbrick_port (glusterd_brickinfo_t *src_brickinfo, dict_t *rsp_dict,
         }
 
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
+                gf_log ("", GF_LOG_INFO,
                         "adding src-brick port no");
 
                 src_brickinfo->port = pmap_registry_search (this,
@@ -3201,7 +3201,7 @@ rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
         }
 
         if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
+                gf_log ("", GF_LOG_INFO,
                         "adding dst-brick port no");
 
                 if (rsp_dict) {
@@ -3326,7 +3326,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         case GF_REPLACE_OP_START:
         {
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                        gf_log ("", GF_LOG_NORMAL,
+                        gf_log ("", GF_LOG_INFO,
                                 "I AM THE DESTINATION HOST");
                         if (!glusterd_is_rb_paused (volinfo)) {
                                 ret = rb_spawn_destination_brick (volinfo, dst_brickinfo);
@@ -3353,7 +3353,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 		}
 
 		if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-			gf_log ("", GF_LOG_NORMAL,
+			gf_log ("", GF_LOG_INFO,
 				"adding dst-brick port no");
 
                         ret = rb_update_dstbrick_port (dst_brickinfo, rsp_dict,
@@ -3376,7 +3376,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname) &&
                     replace_op != GF_REPLACE_OP_COMMIT_FORCE) {
-                        gf_log ("", GF_LOG_NORMAL,
+                        gf_log ("", GF_LOG_INFO,
                                 "I AM THE DESTINATION HOST");
                         ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
                         if (ret) {
@@ -3458,7 +3458,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 		}
 
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                        gf_log ("", GF_LOG_NORMAL,
+                        gf_log ("", GF_LOG_INFO,
                                 "I AM THE DESTINATION HOST");
                         ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
                         if (ret) {
@@ -5791,7 +5791,7 @@ out:
                 opinfo.op_ret = ret;
         }
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
+        gf_log ("glusterd", GF_LOG_INFO, "Sent op req to %d peers",
                 opinfo.pending_count);
 
         if (!opinfo.pending_count)
@@ -5908,7 +5908,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
         opinfo.pending_count = pending_count;
-        gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
+        gf_log ("glusterd", GF_LOG_INFO, "Sent op req to %d peers",
                 opinfo.pending_count);
 out:
         if (dict)
@@ -6326,7 +6326,7 @@ glusterd_op_txn_complete ()
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Cleared local lock");
+        gf_log ("glusterd", GF_LOG_INFO, "Cleared local lock");
 
         op_ret = opinfo.op_ret;
         op_errno = opinfo.op_errno;

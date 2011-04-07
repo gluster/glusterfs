@@ -1282,7 +1282,7 @@ server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
         if (state->fd)
                 snprintf (fdstr, 32, " fd=%p", state->fd);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "%s%s => (%d, %d)%s",
                 op, caller, op_ret, op_errno, fdstr);
 out:
@@ -1348,7 +1348,7 @@ server_print_request (call_frame_t *frame)
                 break;
         }
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "%s%s%s%s%s%s%s",
                 op, caller,
                 resolve_vars, loc_vars, resolve2_vars, loc2_vars, other_vars);

@@ -113,8 +113,8 @@ static struct argp_option gf_options[] = {
          "File to use as VOLUME FILE"},
 
         {"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0,
-         "Logging severity.  Valid options are DEBUG, NORMAL, WARNING, ERROR, "
-         "CRITICAL and NONE [default: NORMAL]"},
+         "Logging severity.  Valid options are DEBUG, INFO, WARNING, ERROR, "
+         "CRITICAL and NONE [default: INFO]"},
         {"log-file", ARGP_LOG_FILE_KEY, "LOGFILE", 0,
          "File to use for logging [default: "
          DEFAULT_LOG_FILE_DIRECTORY "/" PACKAGE_NAME ".log" "]"},
@@ -529,8 +529,8 @@ parse_opts (int key, char *arg, struct argp_state *state)
                         cmd_args->log_level = GF_LOG_WARNING;
                         break;
                 }
-                if (strcasecmp (arg, ARGP_LOG_LEVEL_NORMAL_OPTION) == 0) {
-                        cmd_args->log_level = GF_LOG_NORMAL;
+                if (strcasecmp (arg, ARGP_LOG_LEVEL_INFO_OPTION) == 0) {
+                        cmd_args->log_level = GF_LOG_INFO;
                         break;
                 }
                 if (strcasecmp (arg, ARGP_LOG_LEVEL_DEBUG_OPTION) == 0) {

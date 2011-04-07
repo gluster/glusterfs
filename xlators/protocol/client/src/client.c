@@ -1876,7 +1876,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 if (!conf->skip_notify) {
                         if (conf->connected)
-                                gf_log (this->name, GF_LOG_NORMAL,
+                                gf_log (this->name, GF_LOG_INFO,
                                         "disconnected");
 
                         /* If the CHILD_DOWN event goes to parent xlator

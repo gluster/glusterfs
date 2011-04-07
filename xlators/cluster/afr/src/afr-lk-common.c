@@ -273,7 +273,7 @@ afr_trace_inodelk_out (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
 
         afr_print_verdict (op_ret, op_errno, verdict);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[%s %s] [%s] Lockee={%s} Number={%llu}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REPLY" : "UNLOCK REPLY",
@@ -311,7 +311,7 @@ afr_trace_inodelk_in (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[%s %s] Lock={%s} Lockee={%s} Number={%llu}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REQUEST" : "UNLOCK REQUEST",
@@ -348,7 +348,7 @@ afr_trace_entrylk_in (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[%s %s] Lock={%s} Lockee={%s} Number={%llu}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REQUEST" : "UNLOCK REQUEST",
@@ -386,7 +386,7 @@ afr_trace_entrylk_out (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
 
         afr_print_verdict (op_ret, op_errno, verdict);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[%s %s] [%s] Lock={%s} Lockee={%s} Number={%llu}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REPLY" : "UNLOCK REPLY",

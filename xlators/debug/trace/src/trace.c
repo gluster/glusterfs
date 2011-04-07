@@ -41,7 +41,7 @@ struct {
         int enabled;
 } trace_fop_names[GF_FOP_MAXVALUE];
 
-int trace_log_level = GF_LOG_NORMAL;
+int trace_log_level = GF_LOG_INFO;
 
 static char *
 trace_stat_to_str (struct iatt *buf)
@@ -108,7 +108,7 @@ trace_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preparentstr = trace_stat_to_str (preparent);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s (op_ret=%d, fd=%p"
                                 "*stbuf {%s}, *preparent {%s}, *postparent = "
                                 "{%s})", frame->root->unique,
@@ -125,7 +125,7 @@ trace_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* for 'release' log */
                         fd_ctx_set (fd, this, 0);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
                                 frame->root->unique, op_ret, op_errno);
                 }
@@ -144,7 +144,7 @@ trace_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 
         if (trace_fop_names[GF_FOP_OPEN].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d, *fd=%p",
                         frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno, fd);
         }
@@ -167,7 +167,7 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_STAT].enabled) {
                 if (op_ret >= 0) {
                         statstr = trace_stat_to_str (buf);
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d buf=%s",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, statstr);
@@ -175,7 +175,7 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (statstr)
                                 GF_FREE (statstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                                 frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
                 }
@@ -197,7 +197,7 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_READ].enabled) {
                 if (op_ret >= 0) {
                         statstr = trace_stat_to_str (buf);
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d buf=%s",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, statstr);
@@ -205,7 +205,7 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (statstr)
                                 GF_FREE (statstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -232,7 +232,7 @@ trace_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preopstr = trace_stat_to_str (prebuf);
                         postopstr = trace_stat_to_str (postbuf);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, *prebuf = {%s}, "
                                 "*postbuf = {%s})",
                                 frame->root->unique, op_ret,
@@ -244,7 +244,7 @@ trace_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postopstr)
                                 GF_FREE (postopstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -263,7 +263,7 @@ trace_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
 {
         if (trace_fop_names[GF_FOP_READDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64" : gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
         }
@@ -280,7 +280,7 @@ trace_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
 {
         if (trace_fop_names[GF_FOP_READDIRP].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64" : gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
         }
@@ -305,7 +305,7 @@ trace_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preopstr = trace_stat_to_str (prebuf);
                         postopstr = trace_stat_to_str (postbuf);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, *prebuf = {%s}, "
                                 "*postbuf = {%s}",
                                 frame->root->unique, op_ret,
@@ -317,7 +317,7 @@ trace_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postopstr)
                                 GF_FREE (postopstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -344,7 +344,7 @@ trace_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preopstr = trace_stat_to_str (statpre);
                         postopstr = trace_stat_to_str (statpost);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, *prebuf = {%s}, "
                                 "*postbuf = {%s})",
                                 frame->root->unique, op_ret,
@@ -356,7 +356,7 @@ trace_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postopstr)
                                 GF_FREE (postopstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                                 frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
                 }
@@ -381,7 +381,7 @@ trace_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preopstr = trace_stat_to_str (statpre);
                         postopstr = trace_stat_to_str (statpost);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, *prebuf = {%s}, "
                                 "*postbuf = {%s})",
                                 frame->root->unique, op_ret,
@@ -393,7 +393,7 @@ trace_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postopstr)
                                 GF_FREE (postopstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                                 frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
                 }
@@ -419,7 +419,7 @@ trace_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preparentstr = trace_stat_to_str (preparent);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, *preparent = {%s}, "
                                 "*postparent = {%s})",
                                 frame->root->unique, uuid_utoa (frame->local), op_ret, preparentstr,
@@ -431,7 +431,7 @@ trace_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postparentstr)
                                 GF_FREE (postparentstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                                 frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
                 }
@@ -465,7 +465,7 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         prenewparentstr = trace_stat_to_str (prenewparent);
                         postnewparentstr = trace_stat_to_str (postnewparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, *stbuf = {%s}, "
                                 "*preoldparent = {%s}, *postoldparent = {%s}"
                                 " *prenewparent = {%s}, *postnewparent = {%s})",
@@ -485,7 +485,7 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postnewparentstr)
                                 GF_FREE (postnewparentstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -511,13 +511,13 @@ trace_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (op_ret == 0) {
                         statstr = trace_stat_to_str (stbuf);
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, op_errno=%d, buf=%s, "
                                 "stbuf = { %s })",
                                 frame->root->unique, op_ret, op_errno, buf,
                                 statstr);
                 } else
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -546,7 +546,7 @@ trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         statstr = trace_stat_to_str (buf);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s (op_ret=%d "
                                 "*buf {%s}, *postparent {%s}",
                                 frame->root->unique, uuid_utoa (inode->gfid),
@@ -560,7 +560,7 @@ trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* For 'forget' */
                         inode_ctx_put (inode, this, 0);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -590,7 +590,7 @@ trace_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preparentstr = trace_stat_to_str (preparent);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s (op_ret=%d "
                                 "*stbuf = {%s}, *preparent = {%s}, "
                                 "*postparent = {%s})",
@@ -607,7 +607,7 @@ trace_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 GF_FREE (postparentstr);
 
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": op_ret=%d, op_errno=%d",
                                 frame->root->unique, op_ret, op_errno);
                 }
@@ -636,7 +636,7 @@ trace_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preparentstr = trace_stat_to_str (preparent);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s (op_ret=%d "
                                 "*stbuf = {%s}, *preparent = {%s}, "
                                 "*postparent = {%s})",
@@ -652,7 +652,7 @@ trace_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postparentstr)
                                 GF_FREE (postparentstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
                                 frame->root->unique, op_ret, op_errno);
                 }
@@ -681,7 +681,7 @@ trace_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preparentstr = trace_stat_to_str (preparent);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s (op_ret=%d "
                                 ", *stbuf = {%s}, *prebuf = {%s}, "
                                 "*postbuf = {%s} )",
@@ -697,7 +697,7 @@ trace_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postparentstr)
                                 GF_FREE (postparentstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
                                 frame->root->unique, op_ret, op_errno);
                 }
@@ -726,7 +726,7 @@ trace_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preparentstr = trace_stat_to_str (preparent);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, *stbuf = {%s}, "
                                 " *prebuf = {%s}, *postbuf = {%s})",
                                 frame->root->unique, op_ret,
@@ -741,7 +741,7 @@ trace_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postparentstr)
                                 GF_FREE (postparentstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -760,7 +760,7 @@ trace_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_FLUSH].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -777,7 +777,7 @@ trace_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
         if (trace_fop_names[GF_FOP_OPENDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d, fd=%p",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno, fd);
@@ -806,7 +806,7 @@ trace_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preparentstr = trace_stat_to_str (preparent);
                         postparentstr = trace_stat_to_str (postparent);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, *prebuf = {%s}, "
                                 "*postbuf = {%s}",
                                 frame->root->unique, uuid_utoa (frame->local),
@@ -818,7 +818,7 @@ trace_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postparentstr)
                                 GF_FREE (postparentstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -845,7 +845,7 @@ trace_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         preopstr = trace_stat_to_str (prebuf);
                         postopstr = trace_stat_to_str (postbuf);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, *prebuf = {%s}, "
                                 "*postbuf = {%s} )",
                                 frame->root->unique, op_ret, preopstr,
@@ -857,7 +857,7 @@ trace_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (postopstr)
                                 GF_FREE (postopstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -876,7 +876,7 @@ trace_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         if (trace_fop_names[GF_FOP_STATFS].enabled) {
                 if (op_ret >= 0) {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": ({f_bsize=%lu, f_frsize=%lu, f_blocks=%"GF_PRI_FSBLK
                                 ", f_bfree=%"GF_PRI_FSBLK", f_bavail=%"GF_PRI_FSBLK", "
                                 "f_files=%"GF_PRI_FSBLK", f_ffree=%"GF_PRI_FSBLK", f_favail=%"
@@ -885,7 +885,7 @@ trace_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 buf->f_bfree, buf->f_bavail, buf->f_files, buf->f_ffree,
                                 buf->f_favail, buf->f_fsid, buf->f_flag, buf->f_namemax, op_ret);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
                                 frame->root->unique, op_ret, op_errno);
                 }
@@ -902,7 +902,7 @@ trace_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_SETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -919,7 +919,7 @@ trace_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         if (trace_fop_names[GF_FOP_GETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d, dict=%p",
                         frame->root->unique, uuid_utoa (frame->local), op_ret,
                         op_errno, dict);
@@ -936,7 +936,7 @@ trace_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_FSETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local), op_ret,
                         op_errno);
@@ -953,7 +953,7 @@ trace_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         if (trace_fop_names[GF_FOP_FGETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d, dict=%p",
                         frame->root->unique, uuid_utoa (frame->local), op_ret,
                         op_errno, dict);
@@ -970,7 +970,7 @@ trace_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_REMOVEXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -988,7 +988,7 @@ trace_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_FSYNCDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -1005,7 +1005,7 @@ trace_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_ACCESS].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -1030,7 +1030,7 @@ trace_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         prebufstr = trace_stat_to_str (prebuf);
                         postbufstr = trace_stat_to_str (postbuf);
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": op_ret=%d, *prebuf = {%s}, "
                                 "*postbuf = {%s} )",
                                 frame->root->unique, op_ret,
@@ -1043,7 +1043,7 @@ trace_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 GF_FREE (postbufstr);
 
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -1065,7 +1065,7 @@ trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_FSTAT].enabled) {
                 if (op_ret >= 0) {
                         statstr = trace_stat_to_str (buf);
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d buf=%s",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, statstr);
@@ -1073,7 +1073,7 @@ trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (statstr)
                                 GF_FREE (statstr);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -1092,14 +1092,14 @@ trace_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         if (trace_fop_names[GF_FOP_LK].enabled) {
                 if (op_ret >= 0) {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, {l_type=%d, l_whence=%d, "
                                 "l_start=%"PRId64", l_len=%"PRId64", l_pid=%u})",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, lock->l_type, lock->l_whence,
                                 lock->l_start, lock->l_len, lock->l_pid);
                 } else {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
                                 frame->root->unique, uuid_utoa (frame->local),
                                 op_ret, op_errno);
@@ -1118,7 +1118,7 @@ trace_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_ENTRYLK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -1134,7 +1134,7 @@ trace_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_FENTRYLK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -1151,7 +1151,7 @@ trace_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         if (trace_fop_names[GF_FOP_XATTROP].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -1168,7 +1168,7 @@ trace_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         if (trace_fop_names[GF_FOP_FXATTROP].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -1185,7 +1185,7 @@ trace_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_INODELK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno);
@@ -1201,7 +1201,7 @@ trace_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
         if (trace_fop_names[GF_FOP_FINODELK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
         }
@@ -1218,7 +1218,7 @@ trace_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      uint32_t weak_checksum, uint8_t *strong_checksum)
 {
         if (trace_fop_names[GF_FOP_RCHECKSUM].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s op_ret=%d op_errno=%d",
                         frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno);
         }
@@ -1238,7 +1238,7 @@ trace_entrylk (call_frame_t *frame, xlator_t *this,
                entrylk_cmd cmd, entrylk_type type)
 {
         if (trace_fop_names[GF_FOP_ENTRYLK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s volume=%s, (path=%s basename=%s, "
                         "cmd=%s, type=%s)",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
@@ -1306,7 +1306,7 @@ trace_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                         break;
                 }
 
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s volume=%s, (path=%s "
                         "cmd=%s, type=%s, start=%llu, len=%llu, pid=%llu)",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
@@ -1374,7 +1374,7 @@ trace_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                         break;
                 }
 
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s volume=%s, (fd =%p "
                         "cmd=%s, type=%s, start=%llu, len=%llu, pid=%llu)",
                         frame->root->unique, uuid_utoa (fd->inode->gfid), volume, fd,
@@ -1397,7 +1397,7 @@ trace_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                gf_xattrop_flags_t flags, dict_t *dict)
 {
         if (trace_fop_names[GF_FOP_XATTROP].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s (path=%s flags=%d)",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, flags);
@@ -1418,7 +1418,7 @@ trace_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 gf_xattrop_flags_t flags, dict_t *dict)
 {
         if (trace_fop_names[GF_FOP_FXATTROP].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p, flags=%d",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         fd, flags);
@@ -1440,7 +1440,7 @@ trace_lookup (call_frame_t *frame, xlator_t *this,
 {
         if (trace_fop_names[GF_FOP_LOOKUP].enabled) {
                 /* TODO: print all the keys mentioned in xattr_req */
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path);
@@ -1460,7 +1460,7 @@ int
 trace_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         if (trace_fop_names[GF_FOP_STAT].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path);
@@ -1480,7 +1480,7 @@ int
 trace_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 {
         if (trace_fop_names[GF_FOP_READLINK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s, size=%"GF_PRI_SIZET")",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, size);
@@ -1501,7 +1501,7 @@ trace_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
              mode_t mode, dev_t dev, dict_t *params)
 {
         if (trace_fop_names[GF_FOP_MKNOD].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s mode=%d dev=%"GF_PRI_DEV")",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, mode, dev);
@@ -1521,7 +1521,7 @@ trace_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
              dict_t *params)
 {
         if (trace_fop_names[GF_FOP_MKDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s mode=%d",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, mode);
@@ -1539,7 +1539,7 @@ int
 trace_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         if (trace_fop_names[GF_FOP_UNLINK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path);
@@ -1558,7 +1558,7 @@ int
 trace_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         if (trace_fop_names[GF_FOP_RMDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s flags=%d",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, flags);
@@ -1579,7 +1579,7 @@ trace_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
                loc_t *loc, dict_t *params)
 {
         if (trace_fop_names[GF_FOP_SYMLINK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s linkpath=%s, path=%s",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         linkpath, loc->path);
@@ -1608,7 +1608,7 @@ trace_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
                 uuid_utoa_r (oldloc->inode->gfid, oldgfid);
 
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": oldgfid=%s oldpath=%s --> newgfid=%s newpath=%s",
                         frame->root->unique, oldgfid, oldloc->path, newgfid, newloc->path);
 
@@ -1638,7 +1638,7 @@ trace_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
                 uuid_utoa_r (oldloc->inode->gfid, oldgfid);
 
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": oldgfid=%s oldpath=%s --> newgfid=%s newpath=%s",
                         frame->root->unique, oldgfid, oldloc->path,
                         newgfid, newloc->path);
@@ -1663,14 +1663,14 @@ trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         if (trace_fop_names[GF_FOP_SETATTR].enabled) {
                 if (valid & GF_SET_ATTR_MODE) {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s path=%s mode=%o)",
                                 frame->root->unique, uuid_utoa (loc->inode->gfid),
                                 loc->path, st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type));
                 }
 
                 if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s path=%s uid=%o, gid=%o",
                                 frame->root->unique,  uuid_utoa (loc->inode->gfid),
                                 loc->path, stbuf->ia_uid, stbuf->ia_gid);
@@ -1685,7 +1685,7 @@ trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
                                   localtime ((time_t *)&ia_time));
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s path=%s ia_atime=%s, ia_mtime=%s",
                                 frame->root->unique, uuid_utoa (loc->inode->gfid),
                                 loc->path, actime_str, modtime_str);
@@ -1712,14 +1712,14 @@ trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if (trace_fop_names[GF_FOP_FSETATTR].enabled) {
                 if (valid & GF_SET_ATTR_MODE) {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s fd=%p, mode=%o",
                                 frame->root->unique, uuid_utoa (fd->inode->gfid), fd,
                                 st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type));
                 }
 
                 if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s fd=%p, uid=%o, gid=%o",
                                 frame->root->unique, uuid_utoa (fd->inode->gfid),
                                 fd, stbuf->ia_uid, stbuf->ia_gid);
@@ -1734,7 +1734,7 @@ trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
                                   localtime ((time_t *)&ia_time));
 
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s fd=%p ia_atime=%s, ia_mtime=%s",
                                 frame->root->unique, uuid_utoa (fd->inode->gfid),
                                 fd, actime_str, modtime_str);
@@ -1756,7 +1756,7 @@ trace_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 off_t offset)
 {
         if (trace_fop_names[GF_FOP_TRUNCATE].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s, offset=%"PRId64"",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, offset);
@@ -1777,7 +1777,7 @@ trace_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
             int32_t flags, fd_t *fd, int32_t wbflags)
 {
         if (trace_fop_names[GF_FOP_OPEN].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s flags=%d fd=%p wbflags=%d",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, flags, fd, wbflags);
@@ -1797,7 +1797,7 @@ trace_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
               int32_t flags, mode_t mode, fd_t *fd, dict_t *params)
 {
         if (trace_fop_names[GF_FOP_CREATE].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s, fd=%p, flags=0%o mode=0%o",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, fd, flags, mode);
@@ -1816,7 +1816,7 @@ trace_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
              size_t size, off_t offset)
 {
         if (trace_fop_names[GF_FOP_READ].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
                         frame->root->unique, uuid_utoa (fd->inode->gfid), fd, size, offset);
                 frame->local = fd->inode->gfid;
@@ -1836,7 +1836,7 @@ trace_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               off_t offset, struct iobref *iobref)
 {
         if (trace_fop_names[GF_FOP_WRITE].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p, count=%d, offset=%"PRId64")",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         fd, count, offset);
@@ -1855,7 +1855,7 @@ int
 trace_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         if (trace_fop_names[GF_FOP_STATFS].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s",
                         frame->root->unique, (loc->inode)?
                         uuid_utoa (loc->inode->gfid):"0", loc->path);
@@ -1873,7 +1873,7 @@ int
 trace_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
         if (trace_fop_names[GF_FOP_FLUSH].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p",
                         frame->root->unique, uuid_utoa (fd->inode->gfid), fd);
                 frame->local = fd->inode->gfid;
@@ -1891,7 +1891,7 @@ int
 trace_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
         if (trace_fop_names[GF_FOP_FSYNC].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s flags=%d fd=%p",
                         frame->root->unique, uuid_utoa (fd->inode->gfid), flags, fd);
                 frame->local = fd->inode->gfid;
@@ -1910,7 +1910,7 @@ trace_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int32_t flags)
 {
         if (trace_fop_names[GF_FOP_SETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s flags=%d",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, flags);
@@ -1930,7 +1930,7 @@ trace_getxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, const char *name)
 {
         if (trace_fop_names[GF_FOP_GETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s name=%s",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, name);
@@ -1950,7 +1950,7 @@ trace_removexattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, const char *name)
 {
         if (trace_fop_names[GF_FOP_REMOVEXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s name=%s",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, name);
@@ -1970,7 +1970,7 @@ int
 trace_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 {
         if (trace_fop_names[GF_FOP_OPENDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s fd=%p",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, fd);
@@ -1989,7 +1989,7 @@ trace_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 off_t offset)
 {
         if (trace_fop_names[GF_FOP_READDIRP].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p, size=%"GF_PRI_SIZET", offset=%"PRId64,
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         fd, size, offset);
@@ -2010,7 +2010,7 @@ trace_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
                size_t size, off_t offset)
 {
         if (trace_fop_names[GF_FOP_READDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p, size=%"GF_PRI_SIZET", offset=%"PRId64,
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         fd, size, offset);
@@ -2031,7 +2031,7 @@ trace_fsyncdir (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, int32_t datasync)
 {
         if (trace_fop_names[GF_FOP_FSYNCDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s datasync=%d fd=%p",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         datasync, fd);
@@ -2050,7 +2050,7 @@ int
 trace_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 {
         if (trace_fop_names[GF_FOP_ACCESS].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s path=%s mask=0%o",
                         frame->root->unique, uuid_utoa (loc->inode->gfid),
                         loc->path, mask);
@@ -2070,7 +2070,7 @@ trace_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                  int32_t len)
 {
         if (trace_fop_names[GF_FOP_RCHECKSUM].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s offset=%"PRId64" len=%u fd=%p",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         offset, len, fd);
@@ -2092,7 +2092,7 @@ trace_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
                 entrylk_type type)
 {
         if (trace_fop_names[GF_FOP_FENTRYLK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s volume=%s, (fd=%p basename=%s, "
                         "cmd=%s, type=%s)",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
@@ -2115,7 +2115,7 @@ trace_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  const char *name)
 {
         if (trace_fop_names[GF_FOP_FGETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p name=%s",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         fd, name);
@@ -2134,7 +2134,7 @@ trace_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  dict_t *dict, int32_t flags)
 {
         if (trace_fop_names[GF_FOP_FSETXATTR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p flags=%d",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         fd, flags);
@@ -2153,7 +2153,7 @@ trace_ftruncate (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, off_t offset)
 {
         if (trace_fop_names[GF_FOP_FTRUNCATE].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s offset=%"PRId64" fd=%p",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
                         offset, fd);
@@ -2173,7 +2173,7 @@ int
 trace_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
         if (trace_fop_names[GF_FOP_FSTAT].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p",
                         frame->root->unique, uuid_utoa (fd->inode->gfid), fd);
                 frame->local = fd->inode->gfid;
@@ -2192,7 +2192,7 @@ trace_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
           int32_t cmd, struct gf_flock *lock)
 {
         if (trace_fop_names[GF_FOP_LK].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": gfid=%s fd=%p, cmd=%d, lock {l_type=%d, l_whence=%d, "
                         "l_start=%"PRId64", l_len=%"PRId64", l_pid=%u})",
                         frame->root->unique, uuid_utoa (fd->inode->gfid), fd,
@@ -2214,7 +2214,7 @@ trace_forget (xlator_t *this, inode_t *inode)
         /* If user want to understand when a lookup happens,
            he should know about 'forget' too */
         if (trace_fop_names[GF_FOP_LOOKUP].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "gfid=%s ino=%"PRIu64,
                         uuid_utoa (inode->gfid), inode->ino);
         }
@@ -2226,7 +2226,7 @@ int32_t
 trace_releasedir (xlator_t *this, fd_t *fd)
 {
         if (trace_fop_names[GF_FOP_OPENDIR].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "gfid=%s fd=%p", uuid_utoa (fd->inode->gfid), fd);
         }
 
@@ -2238,7 +2238,7 @@ trace_release (xlator_t *this, fd_t *fd)
 {
         if (trace_fop_names[GF_FOP_OPEN].enabled ||
             trace_fop_names[GF_FOP_CREATE].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "gfid=%s fd=%p", uuid_utoa (fd->inode->gfid), fd);
         }
         return 0;
@@ -2335,8 +2335,8 @@ init (xlator_t *this)
                 if (!forced_loglevel)
                         goto setloglevel;
 
-                if (strcmp (forced_loglevel, "NORMAL") == 0)
-                        trace_log_level = GF_LOG_NORMAL;
+                if (strcmp (forced_loglevel, "INFO") == 0)
+                        trace_log_level = GF_LOG_INFO;
                 else if (strcmp (forced_loglevel, "TRACE") == 0)
                         trace_log_level = GF_LOG_TRACE;
                 else if (strcmp (forced_loglevel, "ERROR") == 0)
@@ -2363,7 +2363,7 @@ fini (xlator_t *this)
         if (!this)
                 return;
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "trace translator unloaded");
         return;
 }

@@ -708,7 +708,7 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                 pattern = strtok_r (dup_str, ":", &tmp_str1);
                 childs = strtok_r (NULL, ":", &tmp_str1);
                 if (strncmp (pattern, "*", 2) == 0) {
-                        gf_log ("switch", GF_LOG_NORMAL,
+                        gf_log ("switch", GF_LOG_INFO,
                                 "'*' pattern will be taken by default "
                                 "for all the unconfigured child nodes,"
                                 " hence neglecting current option");

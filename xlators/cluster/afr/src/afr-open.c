@@ -430,7 +430,7 @@ afr_openfd_sh (call_frame_t *frame, xlator_t *this)
         afr_self_heal_type_str_get(&local->self_heal,
                                    sh_type_str,
                                    sizeof(sh_type_str));
-        gf_log (this->name, GF_LOG_NORMAL, "%s self-heal triggered. "
+        gf_log (this->name, GF_LOG_INFO, "%s self-heal triggered. "
                 "path: %s, reason: Replicate up down flush, data lock is held",
                 sh_type_str, local->loc.path);
 

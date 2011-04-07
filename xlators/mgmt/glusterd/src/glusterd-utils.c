@@ -239,7 +239,7 @@ glusterd_lock (uuid_t   uuid)
         ret = glusterd_set_lock_owner (uuid);
 
         if (!ret) {
-                gf_log ("glusterd", GF_LOG_NORMAL, "Cluster lock held by"
+                gf_log ("glusterd", GF_LOG_INFO, "Cluster lock held by"
                          " %s", uuid_utoa (uuid));
         }
 
@@ -703,7 +703,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                 }
                 if ((!uuid_compare (peer_uuid, brickiter->uuid)) &&
                         !strcmp (brickiter->path, path)) {
-                        gf_log ("", GF_LOG_NORMAL, "Found brick");
+                        gf_log ("", GF_LOG_INFO, "Found brick");
                         ret = 0;
                         if (brickinfo)
                                 *brickinfo = brickiter;
@@ -732,7 +732,7 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
         GF_ASSERT (brick);
         GF_ASSERT (volinfo);
 
-        gf_log ("", GF_LOG_NORMAL, "brick: %s", brick);
+        gf_log ("", GF_LOG_INFO, "brick: %s", brick);
 
         dup_brick = gf_strdup (brick);
         if (!dup_brick) {
@@ -859,7 +859,7 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
         fclose (file);
         file = NULL;
 
-        gf_log ("", GF_LOG_NORMAL, "Stopping gluster %s running in pid: %d",
+        gf_log ("", GF_LOG_INFO, "Stopping gluster %s running in pid: %d",
                 service, pid);
 
         ret = kill (pid, sig);
@@ -1013,7 +1013,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 ret = lockf (fileno (file), F_TLOCK, 0);
                 if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
                         ret = 0;
-                        gf_log ("", GF_LOG_NORMAL, "brick %s:%s "
+                        gf_log ("", GF_LOG_INFO, "brick %s:%s "
                                 "already started", brickinfo->hostname,
                                 brickinfo->path);
                         goto connect;
@@ -1029,7 +1029,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                         ret = lockf (fileno (file), F_TLOCK, 0);
                         if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
                                 ret = 0;
-                                gf_log ("", GF_LOG_NORMAL, "brick %s:%s "
+                                gf_log ("", GF_LOG_INFO, "brick %s:%s "
                                         "already started", brickinfo->hostname,
                                         brickinfo->path);
                                 goto connect;
@@ -1043,7 +1043,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         }
         unlink (pidfile);
 
-        gf_log ("", GF_LOG_NORMAL, "About to start glusterfs"
+        gf_log ("", GF_LOG_INFO, "About to start glusterfs"
                 " for brick %s:%s", brickinfo->hostname,
                 brickinfo->path);
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
@@ -2096,17 +2096,17 @@ void
 glusterd_nfs_pmap_deregister ()
 {
         if (pmap_unset (MOUNT_PROGRAM, MOUNTV3_VERSION))
-                gf_log ("", GF_LOG_NORMAL, "De-registered MOUNTV3 successfully");
+                gf_log ("", GF_LOG_INFO, "De-registered MOUNTV3 successfully");
         else
                 gf_log ("", GF_LOG_ERROR, "De-register MOUNTV3 is unsuccessful");
 
         if (pmap_unset (MOUNT_PROGRAM, MOUNTV1_VERSION))
-                gf_log ("", GF_LOG_NORMAL, "De-registered MOUNTV1 successfully");
+                gf_log ("", GF_LOG_INFO, "De-registered MOUNTV1 successfully");
         else
                 gf_log ("", GF_LOG_ERROR, "De-register MOUNTV1 is unsuccessful");
 
         if (pmap_unset (NFS_PROGRAM, NFSV3_VERSION))
-                gf_log ("", GF_LOG_NORMAL, "De-registered NFSV3 successfully");
+                gf_log ("", GF_LOG_INFO, "De-registered NFSV3 successfully");
         else
                 gf_log ("", GF_LOG_ERROR, "De-register NFSV3 is unsuccessful");
 
@@ -2417,7 +2417,7 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
         list_for_each_entry (entry, &priv->peers, uuid_list) {
                 if (!uuid_compare (entry->uuid, uuid)) {
 
-                        gf_log ("glusterd", GF_LOG_NORMAL,
+                        gf_log ("glusterd", GF_LOG_INFO,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
                         *peerinfo = entry;
@@ -2456,7 +2456,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                 if (!strncmp (entry->hostname, hoststr,
                               1024)) {
 
-                        gf_log ("glusterd", GF_LOG_NORMAL,
+                        gf_log ("glusterd", GF_LOG_INFO,
                                  "Friend %s found.. state: %d", hoststr,
                                   entry->state.state);
                         *peerinfo = entry;
@@ -2495,7 +2495,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                         if (!strncmp (entry->hostname, host,
                             1024) || !strncmp (entry->hostname,hname,
                             1024)) {
-                                gf_log ("glusterd", GF_LOG_NORMAL,
+                                gf_log ("glusterd", GF_LOG_INFO,
                                         "Friend %s found.. state: %d",
                                         hoststr, entry->state.state);
                                 *peerinfo = entry;
@@ -2574,7 +2574,7 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        gf_log ("", GF_LOG_NORMAL, "About to stop glusterfs"
+        gf_log ("", GF_LOG_INFO, "About to stop glusterfs"
                 " for brick %s:%s", brickinfo->hostname,
                 brickinfo->path);
         ret = glusterd_volume_stop_glusterfs (volinfo, brickinfo);

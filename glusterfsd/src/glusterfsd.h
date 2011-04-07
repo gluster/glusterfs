@@ -30,7 +30,7 @@
 #define DEFAULT_CLIENT_VOLFILE                CONFDIR "/glusterfs.vol"
 #define DEFAULT_SERVER_VOLFILE                CONFDIR "/glusterfsd.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
-#define DEFAULT_LOG_LEVEL                     GF_LOG_NORMAL
+#define DEFAULT_LOG_LEVEL                     GF_LOG_INFO
 
 #define DEFAULT_EVENT_POOL_SIZE            16384
 
@@ -39,7 +39,7 @@
 #define ARGP_LOG_LEVEL_CRITICAL_OPTION    "CRITICAL"
 #define ARGP_LOG_LEVEL_ERROR_OPTION       "ERROR"
 #define ARGP_LOG_LEVEL_WARNING_OPTION     "WARNING"
-#define ARGP_LOG_LEVEL_NORMAL_OPTION      "NORMAL"
+#define ARGP_LOG_LEVEL_INFO_OPTION      "INFO"
 #define ARGP_LOG_LEVEL_DEBUG_OPTION       "DEBUG"
 
 #define ENABLE_NO_DAEMON_MODE     1

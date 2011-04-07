@@ -1553,10 +1553,10 @@ pump_command_reply (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if (local->op_ret < 0)
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "Command failed");
         else
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "Command succeeded");
 
         dict_unref (local->dict);

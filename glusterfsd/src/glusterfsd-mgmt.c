@@ -634,7 +634,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         size = rsp.op_ret;
 
         if (size == oldvollen && (memcmp (oldvolfile, rsp.spec, size) == 0)) {
-                gf_log ("", GF_LOG_NORMAL, "No change in volfile, continuing");
+                gf_log ("", GF_LOG_INFO, "No change in volfile, continuing");
                 goto out;
         }
 

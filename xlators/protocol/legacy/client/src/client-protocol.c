@@ -5741,7 +5741,7 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
                 }
 
-                gf_log (trans->xl->name, GF_LOG_NORMAL,
+                gf_log (trans->xl->name, GF_LOG_INFO,
                         "Connected to %s, attached "
                         "to remote volume '%s'.",
                         trans->peerinfo.identifier, remote_subvol);

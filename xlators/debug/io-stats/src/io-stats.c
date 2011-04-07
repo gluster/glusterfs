@@ -540,7 +540,7 @@ ios_stats_cleanup (xlator_t *this, inode_t *inode)
                         fprintf (logfp, fmt);                   \
                         fprintf (logfp, "\n");                  \
                 }                                               \
-                gf_log (this->name, GF_LOG_NORMAL, fmt);        \
+                gf_log (this->name, GF_LOG_INFO, fmt);        \
         } while (0)
 
 int
@@ -927,38 +927,38 @@ io_stats_dump_fd (xlator_t *this, struct ios_fd *iosfd)
         sec = now.tv_sec - iosfd->opened_at.tv_sec;
         usec = now.tv_usec - iosfd->opened_at.tv_usec;
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "--- fd stats ---");
 
         if (iosfd->filename)
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "      Filename : %s",
                         iosfd->filename);
 
         if (sec)
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "      Lifetime : %"PRId64"secs, %"PRId64"usecs",
                         sec, usec);
 
         if (iosfd->data_read)
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "     BytesRead : %"PRId64" bytes",
                         iosfd->data_read);
 
         if (iosfd->data_written)
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "  BytesWritten : %"PRId64" bytes",
                         iosfd->data_written);
 
         for (i = 0; i < 32; i++) {
                 if (iosfd->block_count_read[i])
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 " Read %06db+ : %"PRId64,
                                 (1 << i), iosfd->block_count_read[i]);
         }
         for (i = 0; i < 32; i++) {
                 if (iosfd->block_count_write[i])
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "Write %06db+ : %"PRId64,
                                 (1 << i), iosfd->block_count_write[i]);
         }
@@ -2492,7 +2492,7 @@ fini (xlator_t *this)
 
         GF_FREE(conf);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "io-stats translator unloaded");
         return;
 }

@@ -95,7 +95,7 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to probe");
 	 if (!rsp.op_ret) {
 	 	switch (rsp.op_errno) {
 		 	case GF_PROBE_SUCCESS:
@@ -171,7 +171,7 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to deprobe");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to deprobe");
         if (rsp.op_ret) {
                 switch (rsp.op_errno) {
                         case GF_DEPROBE_LOCALHOST:
@@ -235,7 +235,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to list: %d",
+        gf_log ("cli", GF_LOG_INFO, "Received resp to list: %d",
                 rsp.op_ret);
 
         ret = rsp.op_ret;
@@ -401,7 +401,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to get vol: %d",
+        gf_log ("cli", GF_LOG_INFO, "Received resp to get vol: %d",
                 rsp.op_ret);
 
         if (!rsp.op_ret) {
@@ -581,7 +581,7 @@ out:
         if (dict)
                 dict_destroy (dict);
 
-        gf_log ("", GF_LOG_NORMAL, "Returning: %d", ret);
+        gf_log ("", GF_LOG_INFO, "Returning: %d", ret);
         return ret;
 }
 
@@ -612,7 +612,7 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_str (dict, "volname", &volname);
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to create volume");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to create volume");
 	if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
 	        cli_out ("%s", rsp.op_errstr);
         else
@@ -663,7 +663,7 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 volname = local->u.delete_vol.volname;
 
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to delete volume");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to delete volume");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out (rsp.op_errstr);
@@ -677,7 +677,7 @@ out:
         cli_local_wipe (local);
         if (rsp.volname)
                 free (rsp.volname);
-        gf_log ("", GF_LOG_NORMAL, "Returning with %d", ret);
+        gf_log ("", GF_LOG_INFO, "Returning with %d", ret);
         return ret;
 }
 
@@ -711,7 +711,7 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (local)
                 volname = local->u.start_vol.volname;
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to start volume");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to start volume");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
@@ -760,7 +760,7 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (local)
                 volname = local->u.start_vol.volname;
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to stop volume");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to stop volume");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out (rsp.op_errstr);
@@ -912,7 +912,7 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to probe");
         cli_out ("Rename volume %s", (rsp.op_ret) ? "unsuccessful":
                                         "successful");
 
@@ -940,7 +940,7 @@ gf_cli3_1_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to reset");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to reset");
 
         if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
@@ -972,7 +972,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to set");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to set");
 
         if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
@@ -1005,7 +1005,7 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to add brick");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to add brick");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
@@ -1041,7 +1041,7 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to remove brick");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to remove brick");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
@@ -1166,7 +1166,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 rb_operation_str = rsp.op_errstr;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to replace brick");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to replace brick");
         cli_out ("%s",
                  rb_operation_str ? rb_operation_str : "Unknown operation");
 
@@ -1418,7 +1418,7 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
                 if (rsp.limit_list)
                         print_limit_list (rsp.volname, rsp.limit_list);
         } else {
-                gf_log ("cli", GF_LOG_NORMAL, "Received resp to quota command ");
+                gf_log ("cli", GF_LOG_INFO, "Received resp to quota command ");
                 if (rsp.op_errstr)
                         cli_out ("%s", rsp.op_errstr);
                 else
@@ -1450,7 +1450,7 @@ gf_cli3_1_getspec_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to getspec");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to getspec");
 
         spec = GF_MALLOC (rsp.op_ret + 1, cli_mt_char);
         if (!spec) {
@@ -1487,7 +1487,7 @@ gf_cli3_1_pmap_b2p_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to pmap b2p");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to pmap b2p");
 
         cli_out ("%d", rsp.port);
         GF_FREE (spec);
