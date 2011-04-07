@@ -217,7 +217,7 @@ _gf_log_nomem (const char *domain, const char *file,
                                         "E", /* ERROR */
                                         "W", /* WARNING */
                                         "N", /* NOTICE */
-                                        "I", /* INFO/NORMAL */
+                                        "I", /* INFO */
                                         "D", /* DEBUG */
                                         "T", /* TRACE */
                                         ""};
@@ -337,7 +337,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                                         "E", /* ERROR */
                                         "W", /* WARNING */
                                         "N", /* NOTICE */
-                                        "I", /* INFO/NORMAL */
+                                        "I", /* INFO */
                                         "D", /* DEBUG */
                                         "T", /* TRACE */
                                         ""};
@@ -483,7 +483,7 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                                         "E", /* ERROR */
                                         "W", /* WARNING */
                                         "N", /* NOTICE */
-                                        "I", /* INFO/NORMAL */
+                                        "I", /* INFO */
                                         "D", /* DEBUG */
                                         "T", /* TRACE */
                                         ""};

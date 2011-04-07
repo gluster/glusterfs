@@ -264,7 +264,7 @@ pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
         else
                 pl_print_lock (pl_lock, 256, cmd, flock, frame->root->lk_owner);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[REQUEST] Locker = {%s} Lockee = {%s} Lock = {%s}",
                 pl_locker, pl_lockee, pl_lock);
 }
@@ -316,7 +316,7 @@ pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
 
         pl_print_verdict (verdict, 32, op_ret, op_errno);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[%s] Locker = {%s} Lockee = {%s} Lock = {%s}",
                 verdict, pl_locker, pl_lockee, pl_lock);
 }
@@ -344,7 +344,7 @@ pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
         else
                 pl_print_lock (pl_lock, 256, cmd, flock, frame->root->lk_owner);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[BLOCKED] Locker = {%s} Lockee = {%s} Lock = {%s}",
                 pl_locker, pl_lockee, pl_lock);
 }
@@ -371,7 +371,7 @@ pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd)
         pl_print_locker (pl_locker, 256, this, frame);
         pl_print_lockee (pl_lockee, 256, fd, NULL);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[FLUSH] Locker = {%s} Lockee = {%s}",
                 pl_locker, pl_lockee);
 }
@@ -389,7 +389,7 @@ pl_trace_release (xlator_t *this, fd_t *fd)
 
         pl_print_lockee (pl_lockee, 256, fd, NULL);
 
-        gf_log (this->name, GF_LOG_NORMAL,
+        gf_log (this->name, GF_LOG_INFO,
                 "[RELEASE] Lockee = {%s}", pl_lockee);
 }
 

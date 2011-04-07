@@ -488,7 +488,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 ret = dict_set_str (friends, key, peerinfo->hostname);
                 if (ret)
                         goto out;
-                gf_log ("", GF_LOG_NORMAL, "Added uuid: %s, host: %s",
+                gf_log ("", GF_LOG_INFO, "Added uuid: %s, host: %s",
                         dup_buf, peerinfo->hostname);
         }
 

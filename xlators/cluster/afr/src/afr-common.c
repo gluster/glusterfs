@@ -2509,7 +2509,7 @@ afr_notify (xlator_t *this, int32_t event,
                                 up_children++;
 
                 if (up_children == 1) {
-                        gf_log (this->name, GF_LOG_NORMAL,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "Subvolume '%s' came back up; "
                                 "going online.", ((xlator_t *)data)->name);
 

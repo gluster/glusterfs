@@ -176,7 +176,7 @@ gf_latency_toggle (int signum)
 
         if (ctx) {
                 ctx->measure_latency = !ctx->measure_latency;
-                gf_log ("[core]", GF_LOG_NORMAL,
+                gf_log ("[core]", GF_LOG_INFO,
                         "Latency measurement turned %s",
                         ctx->measure_latency ? "on" : "off");
         }

@@ -4526,7 +4526,7 @@ init (xlator_t *this)
                                         strerror(errno));
                         }
                         else {
-                                gf_log (this->name, GF_LOG_NORMAL,
+                                gf_log (this->name, GF_LOG_INFO,
                                         "Maximum allowed open file descriptors "
                                         "set to 65536");
                         }

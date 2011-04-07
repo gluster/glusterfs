@@ -530,7 +530,7 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         "reopendir on %s failed (%s)",
                         local->loc.path, strerror (rsp.op_errno));
         } else {
-                gf_log (frame->this->name, GF_LOG_NORMAL,
+                gf_log (frame->this->name, GF_LOG_INFO,
                         "reopendir on %s succeeded (fd = %"PRId64")",
                         local->loc.path, rsp.fd);
         }

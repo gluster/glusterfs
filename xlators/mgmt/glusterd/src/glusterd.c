@@ -84,7 +84,7 @@ glusterd_uuid_init (int flag)
                 ret = glusterd_retrieve_uuid ();
                 if (!ret) {
                         uuid_copy (glusterd_uuid, priv->uuid);
-                        gf_log ("glusterd", GF_LOG_NORMAL,
+                        gf_log ("glusterd", GF_LOG_INFO,
                                 "retrieved UUID: %s", uuid_utoa (priv->uuid));
                         return 0;
                 }
@@ -92,7 +92,7 @@ glusterd_uuid_init (int flag)
 
         uuid_generate (glusterd_uuid);
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                         "generated UUID: %s", uuid_utoa (glusterd_uuid));
         uuid_copy (priv->uuid, glusterd_uuid);
 
@@ -345,7 +345,7 @@ init (xlator_t *this)
                 first_time = 1;
         }
 
-        gf_log (this->name, GF_LOG_NORMAL, "Using %s as working directory",
+        gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
                 dirname);
 
         snprintf (cmd_log_filename, PATH_MAX,"%s/.cmd_log_history",

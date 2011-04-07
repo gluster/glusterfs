@@ -332,7 +332,7 @@ glusterd_defrag_start (void *data)
 out:
         volinfo->defrag = NULL;
         if (defrag) {
-                gf_log ("rebalance", GF_LOG_NORMAL, "rebalance on %s complete",
+                gf_log ("rebalance", GF_LOG_INFO, "rebalance on %s complete",
                         defrag->mount);
 
                 snprintf (cmd_str, 1024, "umount -l %s", defrag->mount);
@@ -474,7 +474,7 @@ glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
                         break;
         }
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume %d on %s",
+        gf_log ("glusterd", GF_LOG_INFO, "Received rebalance volume %d on %s",
                 cmd, volname);
 }
 

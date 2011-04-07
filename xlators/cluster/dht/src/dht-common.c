@@ -3520,7 +3520,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         if (dht_filter_loc_subvol_key (this, loc, &local->loc,
                                        &cached_subvol)) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "unlinking %s on %s (given path %s)",
                         local->loc.path, cached_subvol->name, loc->path);
                 STACK_WIND (frame, dht_unlink_cbk,
@@ -3827,7 +3827,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
 
         if (dht_filter_loc_subvol_key (this, loc, &local->loc,
                                        &subvol)) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "creating %s on %s (got create on %s)",
                         local->loc.path, subvol->name, loc->path);
                 STACK_WIND (frame, dht_create_cbk,

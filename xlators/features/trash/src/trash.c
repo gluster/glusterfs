@@ -1458,7 +1458,7 @@ init (xlator_t *this)
 
         data = dict_get (this->options, "trash-dir");
         if (!data) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "no option specified for 'trash-dir', "
                         "using \"/.trashcan/\"");
                 _priv->trash_dir = gf_strdup ("/.trashcan");

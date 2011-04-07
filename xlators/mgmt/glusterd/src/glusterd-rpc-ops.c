@@ -430,7 +430,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received probe resp from uuid: %s, host: %s",
                 uuid_utoa (rsp.uuid), rsp.hostname);
         if (rsp.op_ret != 0) {
@@ -477,7 +477,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received resp to probe req");
+        gf_log ("glusterd", GF_LOG_INFO, "Received resp to probe req");
 
 out:
         if (rsp.hostname)
@@ -520,7 +520,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s, host: %s, port: %d",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid), rsp.hostname, rsp.port);
 
@@ -620,7 +620,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s, host: %s, port: %d",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid), rsp.hostname, rsp.port);
 
@@ -702,7 +702,7 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_ret = rsp.op_ret;
 */
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", str);
 
@@ -739,7 +739,7 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_ret = rsp.op_ret;
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
@@ -798,7 +798,7 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_ret = rsp.op_ret;
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
@@ -936,7 +936,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_ret = rsp.op_ret;
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
@@ -1122,7 +1122,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_ret = rsp.op_ret;
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
+        gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 

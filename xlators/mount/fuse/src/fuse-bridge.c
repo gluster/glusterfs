@@ -3214,7 +3214,7 @@ fuse_thread_proc (void *data)
                 mount_point = data_to_str (dict_get (this->options,
                                                      ZR_MOUNTPOINT_OPT));
         if (mount_point) {
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "unmounting %s", mount_point);
                 dict_del (this->options, ZR_MOUNTPOINT_OPT);
         }
@@ -3684,7 +3684,7 @@ fini (xlator_t *this_xl)
                 mount_point = data_to_str (dict_get (this_xl->options,
                                                      ZR_MOUNTPOINT_OPT));
         if (mount_point != NULL) {
-                gf_log (this_xl->name, GF_LOG_NORMAL,
+                gf_log (this_xl->name, GF_LOG_INFO,
                         "Unmounting '%s'.", mount_point);
 
                 dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);

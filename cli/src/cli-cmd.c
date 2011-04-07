@@ -137,7 +137,7 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
                 if (ret) {
                         cli_out ("Connection failed. Please check if gluster "
                                   "daemon is operational.");
-                        gf_log ("", GF_LOG_NORMAL, "Exiting with: %d", ret);
+                        gf_log ("", GF_LOG_INFO, "Exiting with: %d", ret);
                         exit (ret);
                 }
         }

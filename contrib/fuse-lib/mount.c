@@ -627,7 +627,7 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
 
         fd = fuse_mount_sys (mountpoint, fsname, mnt_param);
         if (fd == -1) {
-                gf_log ("glusterfs-fuse", GF_LOG_NORMAL,
+                gf_log ("glusterfs-fuse", GF_LOG_INFO,
                         "direct mount failed (%s), "
                         "retry to mount via fusermount",
                         strerror (errno));

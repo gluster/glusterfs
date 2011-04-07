@@ -64,7 +64,6 @@ typedef enum {
         GF_LOG_WARNING,    /* info about normal operation */
         GF_LOG_NOTICE,
         GF_LOG_INFO,       /* Normal information */
-#define GF_LOG_NORMAL      GF_LOG_INFO
         GF_LOG_DEBUG,      /* internal errors */
         GF_LOG_TRACE,      /* full trace of operation */
 } gf_loglevel_t;
