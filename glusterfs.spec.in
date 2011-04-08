@@ -2,7 +2,7 @@
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
 %define release 1%{?dist}
-%define _libexecdir %{_prefix}/local/libexec
+#%define _libexecdir %{_prefix}/local/libexec
 
 # if you wish to compile an rpm without rdma support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
@@ -115,6 +115,11 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 %install
 %{__rm} -rf %{buildroot} 
 %{__make} install DESTDIR=%{buildroot}
+%{__mkdir_p} %{buildroot}/usr/sbin
+%{__ln_s} ../..%{_sbindir}/glusterd %{buildroot}/usr/sbin/glusterd
+%{__ln_s} ../..%{_sbindir}/glusterfsd %{buildroot}/usr/sbin/glusterfsd
+%{__ln_s} ../..%{_sbindir}/gluster %{buildroot}/usr/sbin/gluster
+%{__ln_s} ../..%{_sbindir}/glusterfs %{buildroot}/usr/sbin/glusterfs
 %{__mkdir_p} %{buildroot}%{_includedir}/glusterfs
 %{__mkdir_p} %{buildroot}/var/log/glusterfs
 %{__install} -p -m 0644 libglusterfs/src/*.h \
@@ -131,13 +136,6 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 /sbin/ldconfig
 /sbin/chkconfig --add glusterd
 
-#creat symlinks
-rm -rf /usr/sbin/glusterd /usr/sbin/glusterfsd /usr/sbin/glusterfs /usr/sbin/gluster
-
-ln -s %{_sbindir}/glusterd /usr/sbin/glusterd
-ln -s %{_sbindir}/glusterfsd /usr/sbin/glusterfsd
-ln -s %{_sbindir}/gluster /usr/sbin/gluster
-ln -s %{_sbindir}/glusterfs /usr/sbin/glusterfs
 
 #update  /etc/ld.so.conf.d
 echo "%{_prefix}/lib64" > /etc/ld.so.conf.d/glusterfs.conf
@@ -169,6 +167,7 @@ fi
 %{_sbindir}/glusterfs*
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
+/usr/sbin
 %{_mandir}/man8/*glusterfs.8*
 %{_mandir}/man8/*glusterfsd.8*
 %{_mandir}/man8/*gluster.8*
@@ -183,8 +182,8 @@ fi
 %{_includedir}/glusterfs
 %exclude %{_includedir}/glusterfs/y.tab.h
 %{_libdir}/*.so
-%{_libexecdir}/gsyncd
-%{_libexecdir}/python/syncdaemon/*
+#%{_libexecdir}/gsyncd
+#%{_libexecdir}/python/syncdaemon/*
 
 %if 0%{!?_without_rdma:1}
 %files rdma
