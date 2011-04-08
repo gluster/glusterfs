@@ -158,16 +158,18 @@ marker_error_handler (xlator_t *this)
 int32_t
 marker_local_unref (marker_local_t *local)
 {
+        int32_t   var = 0;
+
         if (local == NULL)
                 return -1;
 
         LOCK (&local->lock);
         {
-                local->ref--;
+                var = --local->ref;
         }
         UNLOCK (&local->lock);
 
-        if (local->ref != 0)
+        if (var != 0)
                 goto out;
 
         loc_wipe (&local->loc);
