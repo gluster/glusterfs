@@ -2047,7 +2047,8 @@ quota_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&ctx->lock);
         {
-                ctx->buf = *buf;
+                if (buf)
+                        ctx->buf = *buf;
         }
         UNLOCK (&ctx->lock);
 
@@ -2110,7 +2111,8 @@ quota_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&ctx->lock);
         {
-                ctx->buf = *buf;
+                if (buf)
+                        ctx->buf = *buf;
         }
         UNLOCK (&ctx->lock);
 
@@ -2352,7 +2354,8 @@ quota_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&ctx->lock);
         {
-                ctx->buf = *statpost;
+                if (statpost)
+                        ctx->buf = *statpost;
         }
         UNLOCK (&ctx->lock);
 
