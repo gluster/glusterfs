@@ -6470,15 +6470,50 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         return ret;
 }
 
+static gf_boolean_t
+glusterd_need_brick_op (glusterd_op_t op)
+{
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        switch (op) {
+        case GD_OP_PROFILE_VOLUME:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}
+
+static dict_t*
+glusterd_op_init_commit_rsp_dict (glusterd_op_t op)
+{
+        dict_t                  *rsp_dict = NULL;
+        dict_t                  *op_ctx   = NULL;
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        if (glusterd_need_brick_op (op)) {
+                op_ctx = glusterd_op_get_ctx (op);
+                GF_ASSERT (op_ctx);
+                rsp_dict = dict_ref (op_ctx);
+        } else {
+                rsp_dict = dict_new ();
+        }
+
+        return rsp_dict;
+}
+
 static int
 glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                       ret        = 0;
-        glusterd_req_ctx_t      *req_ctx = NULL;
+        glusterd_req_ctx_t       *req_ctx = NULL;
         int32_t                   status     = 0;
         char                     *op_errstr  = NULL;
-        dict_t                   *op_ctx   = NULL;
         dict_t                   *dict       = NULL;
+        dict_t                   *rsp_dict = NULL;
 
         GF_ASSERT (ctx);
 
@@ -6486,21 +6521,25 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         dict = req_ctx->dict;
 
-        op_ctx = glusterd_op_get_ctx (req_ctx->op);
+        rsp_dict = glusterd_op_init_commit_rsp_dict (req_ctx->op);
+        if (NULL == rsp_dict)
+                return -1;
         status = glusterd_op_commit_perform (req_ctx->op, dict, &op_errstr,
-                                             op_ctx);
+                                             rsp_dict);
 
         if (status) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed: %d", status);
         }
 
         ret = glusterd_op_commit_send_resp (req_ctx->req, req_ctx->op,
-                                            status, op_errstr, op_ctx);
+                                            status, op_errstr, rsp_dict);
 
         glusterd_op_fini_ctx (req_ctx->op);
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 
+        if (rsp_dict)
+                dict_unref (rsp_dict);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -7646,7 +7685,7 @@ glusterd_op_init_ctx (glusterd_op_t op)
         int     ret = 0;
         dict_t *dict = NULL;
 
-        if (GD_OP_PROFILE_VOLUME != op) {
+        if (_gf_false == glusterd_need_brick_op (op)) {
                 gf_log ("", GF_LOG_DEBUG, "Received op: %d, returning", op);
                 goto out;
         }
@@ -7927,7 +7966,7 @@ out:
         if (fd >= 0)
                 close (fd);
         if (input_fd >= 0)
-                close (input_fd);        
+                close (input_fd);
         if (output_fd >= 0)
                 close (output_fd);
         if (buf)
@@ -7935,4 +7974,3 @@ out:
         unlink (export_path);
         return ret;
 }
-
