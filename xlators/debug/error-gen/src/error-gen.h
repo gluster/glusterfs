@@ -25,6 +25,8 @@
 #include "config.h"
 #endif
 
+#include "error-gen-mem-types.h"
+
 #define GF_FAILURE_DEFAULT 10
 
 typedef struct {
