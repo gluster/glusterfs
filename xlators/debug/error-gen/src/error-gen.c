@@ -1845,6 +1845,24 @@ error_gen_close (xlator_t *this, fd_t *fd)
 	return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_error_gen_mt_end + 1);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        " failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int
 init (xlator_t *this)
@@ -1876,7 +1894,7 @@ init (xlator_t *this)
         failure_percent = dict_get (this->options, "failure");
         enable = dict_get (this->options, "enable");
 
-        pvt = CALLOC (1, sizeof (eg_t));
+        pvt = GF_CALLOC (1, sizeof (eg_t), gf_error_gen_mt_eg_t);
 
         if (!pvt) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1955,7 +1973,7 @@ fini (xlator_t *this)
 
         if (pvt) {
                 LOCK_DESTROY (&pvt->lock);
-                FREE (pvt);
+                GF_FREE (pvt);
                 gf_log (this->name, GF_LOG_DEBUG, "fini called");
         }
         return;
