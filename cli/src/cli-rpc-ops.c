@@ -32,7 +32,8 @@
 #include "compat-errno.h"
 #include "cli-cmd.h"
 #include <sys/uio.h>
-
+#include <stdlib.h>
+#include <sys/mount.h>
 #include "cli1-xdr.h"
 #include "cli1.h"
 #include "protocol-common.h"
@@ -1308,46 +1309,43 @@ out:
 int32_t
 print_limit_list (char *volname, char *limit_list)
 {
-        char     mount [1024]   = {0, };
-        char     cmd_str [1024] = {0, };
-        char     path [1024]    = {0, };
-        char     ret_str [1024] = {0, };
-        char     value [1024]   = {0, };
-        char     umount_str [1024] = {0, };
-        int64_t  size           = 0;
-        int64_t  limit_value    = 0;
-        int32_t  i, j, k, len, ret;
+        int64_t  size            = 0;
+        int64_t  limit_value     = 0;
+        int32_t  i, j, k;
+        int32_t  len = 0, ret    = -1;
+        char     path [PATH_MAX] = {0, };
+        char     ret_str [1024]  = {0, };
+        char     value [1024]    = {0, };
+        char     mountdir []     = "/tmp/mntXXXXXX";
+        char     cmd_str [PATH_MAX + 1024] = {0, };
 
-        if (volname == NULL || limit_list == NULL)
-                return -1;
+        GF_VALIDATE_OR_GOTO ("cli", volname, out);
+        GF_VALIDATE_OR_GOTO ("cli", limit_list, out);
 
-        snprintf (mount, sizeof (mount), "/etc/glusterd/mountlist/%s", volname);
-
-        snprintf (cmd_str, sizeof (cmd_str), "mkdir -p %s", mount);
-
-        snprintf (umount_str, sizeof (umount_str), "umount %s>>/dev/null 2>&1", mount);
-        system (umount_str);
-
-        ret = system (cmd_str);
-        if (ret) {
+        if (mkdtemp (mountdir) == NULL) {
+                gf_log ("cli", GF_LOG_WARNING, "failed to create a temporary "
+                        "mount directory");
                 ret = -1;
                 goto out;
         }
 
+        /* Mount a temporary client to fetch the disk usage
+         * of the directory on which the limit is set.
+         */
         snprintf (cmd_str, sizeof (cmd_str), GFS_PREFIX "/sbin/glusterfs -s localhost "
-                  "--volfile-id %s %s", volname, mount);
+                  "--volfile-id %s %s", volname, mountdir);
 
         ret = system (cmd_str);
         if (ret) {
+                gf_log ("cli", GF_LOG_WARNING, "failed to mount glusterfs client");
                 ret = -1;
-                goto out;
+                goto rm_dir;
         }
 
         len = strlen (limit_list);
-
         if (len == 0) {
                 cli_out ("quota limit not set ");
-                goto out;
+                goto unmount;
         }
 
         i = 0;
@@ -1371,8 +1369,8 @@ print_limit_list (char *volname, char *limit_list)
                 }
                 value [j] = '\0';
 
-                memset (&cmd_str, 0, 1024);
-                snprintf (cmd_str, sizeof (cmd_str), "%s%s", mount, path);
+                memset (&cmd_str, 0, sizeof (cmd_str));
+                snprintf (cmd_str, sizeof (cmd_str), "%s/%s", mountdir, path);
 
                 ret = getxattr (cmd_str, "trusted.limit.list", (void *) ret_str, 4096);
                 if (ret < 0) {
@@ -1385,9 +1383,18 @@ print_limit_list (char *volname, char *limit_list)
                 }
                 i++;
         }
-out:
-        system (umount_str);
 
+unmount:
+        memset (&cmd_str, 0, sizeof (cmd_str));
+#if GF_LINUX_HOST_OS
+        snprintf (cmd_str, sizeof (cmd_str), "umount -l %s", mountdir);
+#else
+        snprintf (cmd_str, sizeof (cmd_str), "umount %s", mountdir);
+#endif
+        system (cmd_str);
+rm_dir:
+        rmdir (mountdir);
+out:
         return ret;
 }
 
