@@ -1297,7 +1297,8 @@ xlator_foreach (xlator_t *this,
 			   void *data),
 		void *data)
 {
-	xlator_t *first = NULL;
+	xlator_t *first    = NULL;
+        xlator_t *old_THIS = NULL;
 
 	if ((this == NULL) || (fn == NULL) || (data == NULL))	{
 		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
@@ -1310,7 +1311,12 @@ xlator_foreach (xlator_t *this,
 		first = first->prev;
 
 	while (first) {
+                old_THIS = THIS;
+                THIS = first;
+
 		fn (first, data);
+
+                THIS = old_THIS;
 		first = first->next;
 	}
 }
@@ -1399,7 +1405,8 @@ out:
 static void
 xlator_fini_rec (xlator_t *xl)
 {
-	xlator_list_t *trav = NULL;
+	xlator_list_t *trav     = NULL;
+        xlator_t      *old_THIS = NULL;
 
 	if (xl == NULL)	{
 		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
@@ -1420,7 +1427,12 @@ xlator_fini_rec (xlator_t *xl)
 
 	if (xl->init_succeeded) {
 		if (xl->fini) {
+                        old_THIS = THIS;
+                        THIS = xl;
+
 			xl->fini (xl);
+
+                        THIS = old_THIS;
 		} else {
 			gf_log (xl->name, GF_LOG_DEBUG, "No fini() found");
 		}
@@ -1431,9 +1443,10 @@ xlator_fini_rec (xlator_t *xl)
 static int
 xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
 {
-	xlator_list_t *trav1 = NULL;
-        xlator_list_t *trav2 = NULL;
-        int32_t       ret    = 0;
+	xlator_list_t *trav1    = NULL;
+        xlator_list_t *trav2    = NULL;
+        int32_t        ret      = 0;
+        xlator_t      *old_THIS = NULL;
 
 	if ((old_xl == NULL) || (new_xl == NULL))	{
 		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
@@ -1455,12 +1468,18 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
 	}
 
         if (old_xl->reconfigure) {
+                old_THIS = THIS;
+                THIS = old_xl;
+
                 ret = old_xl->reconfigure (old_xl, new_xl->options);
+
+                THIS = old_THIS;
+
                 if (ret)
                         goto out;
-        }
-        else
+        } else {
                 gf_log (old_xl->name, GF_LOG_DEBUG, "No reconfigure() found");
+        }
 
 out:
         return ret;
