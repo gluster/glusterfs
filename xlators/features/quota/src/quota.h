@@ -134,7 +134,6 @@ struct quota_inode_ctx {
         int64_t          size;
         int64_t          limit;
         struct iatt      buf;
-        char             just_validated;
         struct list_head parents;
         struct timeval   tv;
         gf_lock_t        lock;
@@ -154,6 +153,7 @@ struct quota_local {
         int32_t      op_errno;
         int64_t      size;
         int64_t      limit;
+        char         just_validated;
         inode_t     *inode;
         call_stub_t *stub;
 };
