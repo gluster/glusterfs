@@ -583,9 +583,10 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unwind;
                 }
         } else {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": READDIR %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve.fd_no,
+                /* (op_ret == 0) is valid, and means EOF, don't log for that */
+                gf_log (this->name, (op_ret) ? GF_LOG_INFO : GF_LOG_TRACE,
+                        "%"PRId64": READDIR %"PRId64" (%"PRId64") ==> %"PRId32
+                        " (%s)", frame->root->unique, state->resolve.fd_no,
                         state->fd ? state->fd->inode->ino : 0, op_ret,
                         strerror (op_errno));
         }
@@ -1735,13 +1736,13 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
         } else {
-                if (op_errno != ENOENT)
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%"PRId64": READDIRP %"PRId64" (%"PRId64") ==>"
-                                "%"PRId32" (%s)",
-                                frame->root->unique, state->resolve.fd_no,
-                                state->fd ? state->fd->inode->ino : 0, op_ret,
-                                strerror (op_errno));
+                /* (op_ret == 0) is valid, and means EOF, don't log for that */
+                gf_log (this->name, (op_ret) ? GF_LOG_INFO : GF_LOG_TRACE,
+                        "%"PRId64": READDIRP %"PRId64" (%"PRId64") ==>"
+                        "%"PRId32" (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        state->fd ? state->fd->inode->ino : 0, op_ret,
+                        strerror (op_errno));
         }
 
 out:
