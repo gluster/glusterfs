@@ -191,18 +191,12 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_priv_t      *priv           = NULL;
         int64_t           *size           = 0;
         uint64_t           value          = 0;
+        call_stub_t       *stub           = NULL;
 
         local = frame->local;
         GF_ASSERT (local);
 
         priv = this->private;
-
-        LOCK (&local->lock);
-        {
-                validate_count = --local->validate_count;
-                link_count = local->link_count;
-        }
-        UNLOCK (&local->lock);
 
         if (op_ret == -1) {
                 goto unwind;
@@ -234,13 +228,13 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
+        local->just_validated = 1; /* so that we don't go into infinite
+                                    * loop of validation and checking
+                                    * limit when timeout is zero.
+                                    */
         LOCK (&ctx->lock);
         {
                 ctx->size = ntoh64 (*size);
-                ctx->just_validated = 1; /* so that we don't go into infinite
-                                          * loop of validation and checking
-                                          * limit when timeout is zero.
-                                          */
                 gettimeofday (&ctx->tv, NULL);
         }
         UNLOCK (&ctx->lock);
@@ -253,11 +247,19 @@ unwind:
         {
                 local->op_ret = -1;
                 local->op_errno = op_errno;
+
+                validate_count = --local->validate_count;
+                link_count = local->link_count;
+
+                if ((validate_count == 0) && (link_count == 0)) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
         }
         UNLOCK (&local->lock);
 
-        if ((validate_count == 0) && (link_count == 0)) {
-                call_resume (local->stub);
+        if (stub != NULL) {
+                call_resume (stub);
         }
 
         return 0;
@@ -301,6 +303,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         call_stub_t          *stub           = NULL;
         int32_t               validate_count = 0, link_count = 0;
         uint64_t              value          = 0;
+        char                  just_validated = 0;
 
         GF_VALIDATE_OR_GOTO ("quota", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -310,8 +313,8 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
         delta = local->delta;
-        stub = local->stub;
-        GF_VALIDATE_OR_GOTO (this->name, stub, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, local->stub, out);
 
         priv = this->private;
 
@@ -320,12 +323,15 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         _inode = inode_ref (inode);
 
+        just_validated = local->just_validated;
+        local->just_validated = 0;
+
         do {
                 if (ctx != NULL) {
                         LOCK (&ctx->lock);
                         {
                                 if (ctx->limit > 0) {
-                                        if (!ctx->just_validated
+                                        if (!just_validated
                                             && quota_timeout (&ctx->tv,
                                                               priv->timeout)) {
                                                 need_validate = 1;
@@ -336,8 +342,6 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                                                 need_unwind = 1;
                                         }
                                 }
-
-                                ctx->just_validated = 0;
                         }
                         UNLOCK (&ctx->lock);
 
@@ -388,12 +392,20 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         LOCK (&local->lock);
         {
+                if (just_validated) {
+                        local->validate_count--;
+                }
+
                 validate_count = local->validate_count;
                 link_count = local->link_count;
+                if ((validate_count == 0) && (link_count == 0)) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
         }
         UNLOCK (&local->lock);
 
-        if ((validate_count == 0) && (link_count == 0)) {
+        if (stub != NULL) {
                 call_resume (stub);
         }
 
@@ -404,6 +416,11 @@ validate:
         LOCK (&local->lock);
         {
                 loc_wipe (&local->validate_loc);
+
+                if (just_validated) {
+                        local->validate_count--;
+                }
+
                 local->validate_count++;
                 quota_inode_loc_fill (_inode, &local->validate_loc);
         }
@@ -817,7 +834,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               struct iobref *iobref)
 {
         int32_t            ret     = -1, op_errno = EINVAL;
-        int32_t            parents = 0, validate_count = 0;
+        int32_t            parents = 0;
         uint64_t           size    = 0, delta = 0;
         quota_local_t     *local   = NULL;
         quota_inode_ctx_t *ctx     = NULL;
@@ -882,16 +899,22 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
         }
 
+        stub = NULL;
+
         LOCK (&local->lock);
         {
                 local->link_count = 0;
-                validate_count = local->validate_count;
+                if (local->validate_count == 0) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
         }
         UNLOCK (&local->lock);
 
-        if (validate_count == 0) {
+        if (stub != NULL) {
                 call_resume (stub);
         }
+
         return 0;
 
 unwind:
@@ -949,7 +972,6 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         int32_t        ret            = 0, op_errno = 0;
         quota_local_t *local          = NULL;
         call_stub_t   *stub           = NULL;
-        int32_t        validate_count = 0;
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -979,14 +1001,20 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         quota_check_limit (frame, loc->parent, this, NULL, 0);
 
+        stub = NULL;
+
         LOCK (&local->lock);
         {
-                validate_count = local->validate_count;
+                if (local->validate_count == 0) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
+
                 local->link_count = 0;
         }
         UNLOCK (&local->lock);
 
-        if (validate_count == 0) {
+        if (stub != NULL) {
                 call_resume (stub);
         }
 
@@ -1090,7 +1118,6 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         int32_t            ret            = -1;
         quota_local_t     *local          = NULL;
         call_stub_t       *stub           = NULL;
-        int32_t            validate_count = 0;
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -1117,14 +1144,19 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         quota_check_limit (frame, loc->parent, this, NULL, 0);
 
+        stub = NULL;
+
         LOCK (&local->lock);
         {
                 local->link_count = 0;
-                validate_count = local->validate_count;
+                if (local->validate_count == 0) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
         }
         UNLOCK (&local->lock);
 
-        if (validate_count == 0) {
+        if (stub != NULL) {
                 call_resume (stub);
         }
 
@@ -1318,7 +1350,7 @@ unwind:
 int32_t
 quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
-        int32_t            ret   = -1, op_errno = ENOMEM, validate_count = 0;
+        int32_t            ret   = -1, op_errno = ENOMEM;
         quota_local_t     *local = NULL;
         call_stub_t       *stub  = NULL;
         quota_inode_ctx_t *ctx = NULL;
@@ -1359,14 +1391,20 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         quota_check_limit (frame, newloc->parent, this, NULL, 0);
 
+        stub = NULL;
+
         LOCK (&local->lock);
         {
-                validate_count = local->validate_count;
+                if (local->validate_count == 0) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
+
                 local->link_count = 0;
         }
         UNLOCK (&local->lock);
 
-        if (validate_count == 0) {
+        if (stub != NULL) {
                 call_resume (stub);
         }
 
@@ -1534,7 +1572,6 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
               loc_t *newloc)
 {
         int32_t            ret            = -1, op_errno = ENOMEM;
-        int32_t            validate_count = 0;
         quota_local_t     *local          = NULL;
         call_stub_t       *stub           = NULL;
         quota_inode_ctx_t *ctx            = NULL;
@@ -1585,14 +1622,20 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         quota_check_limit (frame, newloc->parent, this, NULL, 0);
 
+        stub = NULL;
+
         LOCK (&local->lock);
         {
-                validate_count = local->validate_count;
+                if (local->validate_count == 0) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
+
                 local->link_count = 0;
         }
         UNLOCK (&local->lock);
 
-        if (validate_count == 0) {
+        if (stub != NULL) {
                 call_resume (stub);
         }
 
@@ -1698,7 +1741,7 @@ int
 quota_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
                loc_t *loc, dict_t *params)
 {
-        int32_t          ret      = -1, validate_count = 0;
+        int32_t          ret      = -1;
         int32_t          op_errno = ENOMEM;
         quota_local_t   *local    = NULL;
         call_stub_t     *stub     = NULL;
@@ -1729,14 +1772,20 @@ quota_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         quota_check_limit (frame, loc->parent, this, NULL, 0);
 
+        stub = NULL;
+
         LOCK (&local->lock);
         {
-                validate_count = local->validate_count;
+                if (local->validate_count == 0) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
+
                 local->link_count = 0;
         }
         UNLOCK (&local->lock);
 
-        if (validate_count == 0) {
+        if (stub == NULL) {
                 call_resume (stub);
         }
 
