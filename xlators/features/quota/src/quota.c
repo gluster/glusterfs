@@ -733,6 +733,13 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
 
                 parent = inode_parent (_inode, par, name);
 
+                if (parent == NULL) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "cannot find parent for inode (ino:%"PRId64", "
+                                "gfid:%s)", _inode->ino,
+                                uuid_utoa (_inode->gfid));
+                }
+
                 if (name != NULL) {
                         name = NULL;
                         par = 0;
@@ -740,6 +747,10 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
 
                 inode_unref (_inode);
                 _inode = parent;
+
+                if (_inode == NULL) {
+                        break;
+                }
 
                 inode_ctx_get (_inode, this, &value);
                 ctx = (quota_inode_ctx_t *)(unsigned long)value;
