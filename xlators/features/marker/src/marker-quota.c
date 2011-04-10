@@ -208,7 +208,7 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         QUOTA_ALLOC_OR_GOTO (delta, int64_t, ret, err);
 
-        *delta = ntoh64 (ntoh64 (*size) - local->sum);
+        *delta = hton64 (ntoh64 (*size) - local->sum);
 
         gf_log (this->name, GF_LOG_DEBUG, "calculated size = %"PRId64", "
                 "original size = %"PRIu64
