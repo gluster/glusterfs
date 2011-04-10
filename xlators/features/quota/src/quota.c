@@ -835,7 +835,8 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         int32_t            ret     = -1, op_errno = EINVAL;
         int32_t            parents = 0;
-        uint64_t           size    = 0, delta = 0;
+        uint64_t           size    = 0;
+        int64_t            delta   = 0;
         quota_local_t     *local   = NULL;
         quota_inode_ctx_t *ctx     = NULL;
         quota_priv_t      *priv    = NULL;
@@ -876,16 +877,13 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         size = iov_length (vector, count);
         LOCK (&ctx->lock);
         {
-                delta = (off + size - ctx->buf.ia_size);
+                delta = off + size - ctx->buf.ia_size;
+
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         parents++;
                 }
         }
         UNLOCK (&ctx->lock);
-
-        if (delta < 0) {
-                delta = 0;
-        }
 
         local->delta = delta;
         local->stub = stub;
@@ -1610,8 +1608,10 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 if (ctx == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "quota context not set in inode (ino:%"PRId64
-                                ", gfid:%s)", oldloc->inode?oldloc->inode->ino:0,
-                                oldloc->inode?uuid_utoa (oldloc->inode->gfid):"0");
+                                ", gfid:%s)",
+                                oldloc->inode ? oldloc->inode->ino:0,
+                                oldloc->inode ? uuid_utoa (oldloc->inode->gfid)
+                                :"0");
                         op_errno = EINVAL;
                         goto err;
                 }
