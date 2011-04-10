@@ -330,8 +330,12 @@ dht_lookup_root_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 local->op_ret = 0;
-                if (local->xattr == NULL)
+                if (local->xattr == NULL) {
                         local->xattr = dict_ref (xattr);
+                } else {
+                        dht_aggregate_xattr (local->xattr, xattr);
+                }
+
                 if (local->inode == NULL)
                         local->inode = inode_ref (inode);
 
@@ -391,6 +395,11 @@ dht_do_fresh_lookup_on_root (xlator_t *this, call_frame_t *frame)
         if (local->layout) {
                 dht_layout_unref (this, local->layout);
                 local->layout = NULL;
+        }
+
+        if (local->xattr != NULL) {
+                dict_unref (local->xattr);
+                local->xattr = NULL;
         }
 
         ret = dict_set_uint32 (local->xattr_req,
@@ -951,6 +960,11 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         local->layout = dht_layout_new (this, conf->subvolume_cnt);
         if (!local->layout) {
                 goto unwind;
+        }
+
+        if (local->xattr != NULL) {
+                dict_unref (local->xattr);
+                local->xattr = NULL;
         }
 
         for (i = 0; i < call_cnt; i++) {
