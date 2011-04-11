@@ -142,11 +142,12 @@ class GMaster(object):
         # store the value below "boxed" to emulate proper closures
         # (variables of the enclosing scope are available inner functions
         # provided they are no reassigned; mutation is OK).
-        param = FreeObject(relax_mismatch = False, state_change = False)
+        param = FreeObject(relax_mismatch = False, state_change = None, index=-1)
         def select_vi(vi0, vi):
+            param.index += 1
             if vi and (not vi0 or vi0['uuid'] == vi['uuid']):
                 if not vi0 and not param.relax_mismatch:
-                    param.state_change = True
+                    param.state_change = param.index
                 # valid new value found; for the rest, we are graceful about
                 # uuid mismatch
                 param.relax_mismatch = True
@@ -176,10 +177,10 @@ class GMaster(object):
                 self.volinfo = volinfo_sys[self.KFGN]
             else:
                 self.volinfo = volinfo_sys[self.KNAT]
-            if state_change:
+            if state_change == self.KFGN or (state_change == self.KNAT and not self.inter_master):
                 logging.info('new master is %s', self.uuid)
-                if self.inter_master:
-                    gconf.configinterface.set('volume_id', self.uuid)
+            if state_change == self.KFGN:
+               gconf.configinterface.set('volume_id', self.uuid)
             if self.volinfo:
                 if self.volinfo['retval']:
                     raise RuntimeError ("master is corrupt")
