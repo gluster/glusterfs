@@ -1276,6 +1276,7 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         glusterd_volinfo_t              tmpvolinfo = {{0},};
         int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_ADD_BRICK;
+        int                             total_bricks = 0;
 
         this = THIS;
         GF_ASSERT(this);
@@ -1357,11 +1358,13 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 if (!brick_count || !volinfo->sub_count)
                         goto brick_val;
 
+                total_bricks = volinfo->brick_count + brick_count;
 		/* If the brick count is less than sub_count then, allow add-brick only for
 		   plain replicate volume since in plain stripe brick_count becoming less than
 		   the sub_count is not allowed */
-                if (volinfo->brick_count < volinfo->sub_count && (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) ) {
-                        if ((volinfo->sub_count - volinfo->brick_count) == brick_count)
+                if (volinfo->brick_count < volinfo->sub_count &&
+                    (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
+                        if (total_bricks <= volinfo->sub_count)
                                 goto brick_val;
                 }
 
