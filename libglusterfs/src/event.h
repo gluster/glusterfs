@@ -32,7 +32,7 @@ struct event_ops;
 struct event_data {
   int fd;
   int idx;
-} __attribute__ ((__packed__));
+} __attribute__ ((__packed__, __may_alias__));
 
 
 typedef int (*event_handler_t) (int fd, int idx, void *data,

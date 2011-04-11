@@ -45,13 +45,13 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 {
 
-        int32_t            callcnt = 0;
-        int                ret = -1;
-        uint32_t          *net_timebuf;
-        uint32_t           host_timebuf[2];
-        char              *marker_xattr;
-        struct marker_str *local;
-        char              *vol_uuid;
+        int32_t            callcnt         = 0;
+        int                ret             = -1;
+        uint32_t          *net_timebuf     = NULL;
+        uint32_t           host_timebuf[2] = {0,};
+        char              *marker_xattr    = NULL;
+        struct marker_str *local           = NULL;
+        char              *vol_uuid        = NULL;
 
         if (!this || !frame || !frame->local || !cookie) {
                 gf_log (this->name, GF_LOG_DEBUG, "possible NULL deref");

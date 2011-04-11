@@ -284,6 +284,7 @@ gf_proc_dump_parse_set_option (char *key, char *value)
         gf_boolean_t    *opt_key = NULL;
         gf_boolean_t    opt_value = _gf_false;
         char buf[GF_DUMP_MAX_BUF_LEN];
+        int ret = -1;
 
         if (!strncasecmp (key, "mem", 3)) {
                 opt_key = &dump_options.dump_mem;
@@ -307,7 +308,7 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                 //None of dump options match the key, return back
                 snprintf (buf, sizeof (buf), "[Warning]:None of the options "
                           "matched key : %s\n", key);
-                write (gf_dump_fd, buf, strlen (buf));
+                ret = write (gf_dump_fd, buf, strlen (buf));
 
                 return -1;
         }
@@ -395,7 +396,7 @@ gf_proc_dump_options_init ()
                 }
 
                 snprintf (dumpbuf, sizeof (dumpbuf), "[Debug]:key=%s, value=%s\n",key,value);
-                write (gf_dump_fd, dumpbuf, strlen (dumpbuf));
+                ret = write (gf_dump_fd, dumpbuf, strlen (dumpbuf));
 
                 gf_proc_dump_parse_set_option (key, value);
 

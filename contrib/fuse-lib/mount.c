@@ -261,6 +261,7 @@ receive_fd (int fd)
         int rv;
         size_t ccmsg[CMSG_SPACE (sizeof (int)) / sizeof (size_t)];
         struct cmsghdr *cmsg;
+        int *recv_fd;
 
         iov.iov_base = buf;
         iov.iov_len = 1;
@@ -285,12 +286,17 @@ receive_fd (int fd)
         }
 
         cmsg = CMSG_FIRSTHDR (&msg);
-        if (!cmsg->cmsg_type == SCM_RIGHTS) {
+        /*
+         * simplify condition expression
+         */
+        if (cmsg->cmsg_type != SCM_RIGHTS) {
                 GFFUSE_LOGERR ("got control message of unknown type %d",
                                cmsg->cmsg_type);
                 return -1;
         }
-        return *(int*)CMSG_DATA (cmsg);
+
+        recv_fd = (int *) CMSG_DATA (cmsg);
+        return (*recv_fd);
 }
 
 static int

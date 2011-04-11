@@ -1391,7 +1391,9 @@ unmount:
 #else
         snprintf (cmd_str, sizeof (cmd_str), "umount %s", mountdir);
 #endif
-        system (cmd_str);
+        ret = system (cmd_str);
+        if (ret)
+                gf_log ("cli", GF_LOG_WARNING, "error executing: %s", cmd_str);
 rm_dir:
         rmdir (mountdir);
 out:
@@ -2580,6 +2582,7 @@ int
 gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
 {
         char  cmd[PATH_MAX] = {0,};
+        int ret = -1;
 
         if (rsp.op_ret < 0)
                 return 0;
@@ -2595,20 +2598,19 @@ gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
                                                    " --config-get %s ",
                                             rsp.glusterd_workdir, GSYNC_CONF,
                                             rsp.master, rsp.slave, rsp.op_name);
-                system (cmd);
-                goto out;
+                ret = system (cmd);
+                /*
+                 * gf_log() failure from system() ?
+                 */
+        } else if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
+          snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s "
+                    "%s %s --config-get-all ",
+                    rsp.glusterd_workdir, GSYNC_CONF,
+                    rsp.master, rsp.slave);
+          
+          ret = system (cmd);
         }
-        if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
-                snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s "
-                                      "%s %s --config-get-all ",
-                                       rsp.glusterd_workdir, GSYNC_CONF,
-                                       rsp.master, rsp.slave);
 
-                system (cmd);
-
-                goto out;
-        }
-out:
         return 0;
 }
 
