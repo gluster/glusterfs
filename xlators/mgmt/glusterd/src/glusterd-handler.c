@@ -1634,7 +1634,10 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
                 }
         }
 
+        gf_cmd_log ("Volume reset", "volume  : %s", cli_req.volname);
         ret = glusterd_op_begin (req, GD_OP_RESET_VOLUME, dict, _gf_true);
+        gf_cmd_log ("Volume reset", " on volume %s %s ", cli_req.volname,
+                ((ret == 0)? " SUCCEDED":" FAILED"));
 
 out:
         if (cli_req.volname)
@@ -1662,6 +1665,10 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
         gf1_cli_gsync_set_req   cli_req = {{0},};
         int                     lock_fail = 0;
         glusterd_op_t           cli_op = GD_OP_GSYNC_SET;
+        char                    *master = NULL;
+        char                    *slave = NULL;
+        char                    operation[256] = {0,};
+        int                     type = 0;
 
         GF_ASSERT (req);
 
@@ -1696,7 +1703,47 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 }
         }
 
+        ret = dict_get_str (dict, "master", &master);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "master not found, while handling"
+                         "gsync options");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "slave", &slave);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "slave not not found, while"
+                        "handling gsync options");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "command type not found, while"
+                        "handling gsync options");
+                goto out;
+        }
+
+        switch (type) {
+
+        case GF_GSYNC_OPTION_TYPE_START:
+                strncpy (operation, "start", sizeof (operation));
+                break;
+
+        case GF_GSYNC_OPTION_TYPE_STOP:
+                strncpy (operation, "stop", sizeof (operation));
+                break;
+
+        case GF_GSYNC_OPTION_TYPE_CONFIGURE:
+                strncpy (operation, "configure", sizeof (operation));
+                break;
+        }
+
+        gf_cmd_log ("volume gsync", " %s command on %s,%s", operation, master,
+                    slave);
         ret = glusterd_op_begin (req, GD_OP_GSYNC_SET, dict, _gf_true);
+        gf_cmd_log ("volume gsync", " %s command on %s,%s %s  ", operation,
+                    master, slave, (ret != 0)? "FAILED" : "SUCCEEDED");
 
 out:
         glusterd_friend_sm ();
@@ -1721,6 +1768,9 @@ glusterd_handle_quota (rpcsvc_request_t *req)
         dict_t                         *dict = NULL;
         int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_QUOTA;
+        char                            operation[256] = {0, };
+        char                           *volname = NULL;
+        int32_t                         type = 0;
 
         GF_ASSERT (req);
 
@@ -1753,7 +1803,42 @@ glusterd_handle_quota (rpcsvc_request_t *req)
                         dict->extra_stdfree = cli_req.dict.dict_val;
                 }
         }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to get volume name, while"
+                        "handling quota command");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to get type of cmd. , while"
+                        "handling quota command");
+                goto out;
+        }
+
+        switch (type) {
+        case GF_QUOTA_OPTION_TYPE_ENABLE:
+                strncpy (operation, "enable", sizeof (operation));
+                break;
+
+        case GF_QUOTA_OPTION_TYPE_DISABLE:
+                strncpy (operation, "disable", sizeof (operation));
+                break;
+
+        case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+                strncpy (operation, "limit-usage", sizeof (operation));
+                break;
+
+        case GF_QUOTA_OPTION_TYPE_REMOVE:
+                strncpy (operation, "remove", sizeof (operation));
+                break;
+        }
+        gf_cmd_log ("volume quota", " %s command on %s", operation, volname);
         ret = glusterd_op_begin (req, GD_OP_QUOTA, dict, _gf_true);
+        gf_cmd_log ("volume quota", " %s command on %s %s", operation,volname,
+                    (ret != 0)? "FAILED" : "SUCCEEDED");
 
 out:
         glusterd_friend_sm ();
@@ -1779,6 +1864,9 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
         dict_t                          *dict = NULL;
         int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_SET_VOLUME;
+        char                            *key = NULL;
+        char                            *value = NULL;
+        char                            *volname = NULL;
 
         GF_ASSERT (req);
 
@@ -1814,8 +1902,32 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
                 }
         }
 
-        ret = glusterd_op_begin (req, GD_OP_SET_VOLUME, dict, _gf_true);
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to get volume name, while"
+                        "handling volume set command");
+                goto out;
+        }
 
+        ret = dict_get_str (dict, "key1", &key);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to get key, while"
+                        "handling volume set for %s",volname);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "value1", &value);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to get value, while"
+                        "handling volume set for %s",volname);
+                goto out;
+        }
+
+        gf_cmd_log ("volume set", "volume-name:%s: key:%s, value:%s",volname,
+                    key, value);
+        ret = glusterd_op_begin (req, GD_OP_SET_VOLUME, dict, _gf_true);
+        gf_cmd_log ("volume set", "volume-name:%s: key:%s, value:%s %s",
+                    volname, key, value, (ret == 0)? "SUCCEDED" : "FAILED" );
 out:
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
