@@ -305,7 +305,10 @@ cli_cmd_get_confirmation (struct cli_state *state, const char *question)
 
 	printf ("%s (y/n) ", question);
 
-	fgets (answer, 4, stdin);
+        if (fgets (answer, 4, stdin) == NULL) {
+                cli_out("gluster cli read error");
+                goto out;
+        }
 
 	len = strlen (answer);
 

@@ -2548,11 +2548,12 @@ out:
 int
 nfs3svc_create (rpcsvc_request_t *req)
 {
-        char                    name[NFS_PATH_MAX];
-        struct nfs3_fh          dirfh = {{0}, };
-        create3args             args;
-        int                     ret = RPCSVC_ACTOR_ERROR;
-        uint64_t                cverf = 0;
+        char            name[NFS_PATH_MAX];
+        struct nfs3_fh  dirfh = {{0}, };
+        create3args     args;
+        int             ret   = RPCSVC_ACTOR_ERROR;
+        uint64_t        cverf = 0;
+        uint64_t       *cval;
 
         if (!req)
                 return ret;
@@ -2564,7 +2565,14 @@ nfs3svc_create (rpcsvc_request_t *req)
                 goto rpcerr;
         }
 
-        cverf = *(uint64_t *)args.how.createhow3_u.verf;
+        cval = (uint64_t *)args.how.createhow3_u.verf;
+        if (cval)
+                cverf = *cval;
+        else {
+                gf_log(GF_NFS3, GF_LOG_ERROR, "Error getting createverf3 from args");
+                goto rpcerr;
+        }
+
         ret = nfs3_create (req, &dirfh, name, args.how.mode,
                            &args.how.createhow3_u.obj_attributes, cverf);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
@@ -4241,6 +4249,7 @@ nfs3svc_readdir (rpcsvc_request_t *req)
         struct nfs3_fh  fh = {{0},};
         int             ret = RPCSVC_ACTOR_ERROR;
         uint64_t        verf = 0;
+        uint64_t       *cval;
 
         if (!req)
                 return ret;
@@ -4251,7 +4260,15 @@ nfs3svc_readdir (rpcsvc_request_t *req)
                 goto rpcerr;
         }
 
-        verf = *(uint64_t *)ra.cookieverf;
+        cval = (uint64_t *) ra.cookieverf;
+
+        if (cval)
+                verf =  *cval;
+        else {
+                gf_log(GF_NFS3, GF_LOG_ERROR, "Error getting cookieverf from readdir args");
+                goto rpcerr;
+        }
+
         ret = nfs3_readdir (req, &fh, ra.cookie, verf, ra.count, 0);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "READDIR procedure failed");
@@ -4271,6 +4288,7 @@ nfs3svc_readdirp (rpcsvc_request_t *req)
         struct nfs3_fh  fh = {{0},};
         int             ret = RPCSVC_ACTOR_ERROR;
         uint64_t        cverf = 0;
+        uint64_t       *cval;
 
         if (!req)
                 return ret;
@@ -4281,7 +4299,15 @@ nfs3svc_readdirp (rpcsvc_request_t *req)
                 goto rpcerr;
         }
 
-        cverf = *(uint64_t *)ra.cookieverf;
+        cval = (uint64_t *) ra.cookieverf;
+
+        if (cval)
+                cverf = *cval;
+        else {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Error getting cookieverf from readdirp args");
+                goto rpcerr;
+	}
+
         ret = nfs3_readdir (req, &fh, ra.cookie, cverf, ra.dircount,
                             ra.maxcount);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {

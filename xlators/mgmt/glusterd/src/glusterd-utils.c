@@ -895,7 +895,9 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
         ret = 0;
 out:
         if (is_locked && file)
-                lockf (fileno (file), F_ULOCK, 0);
+                if (lockf (fileno (file), F_ULOCK, 0) < 0)
+                        gf_log ("", GF_LOG_WARNING, "Cannot unlock pidfile: %s"
+                                " reason: %s", pidfile, strerror(errno));
         if (file)
                 fclose (file);
         return ret;
@@ -1085,7 +1087,9 @@ connect:
                 goto out;
 out:
         if (is_locked && file)
-                lockf (fileno (file), F_ULOCK, 0);
+                if (lockf (fileno (file), F_ULOCK, 0) < 0)
+                        gf_log ("", GF_LOG_WARNING, "Cannot unlock pidfile: %s"
+                                " reason: %s", pidfile, strerror(errno));
         if (file)
                 fclose (file);
         return ret;
