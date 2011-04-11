@@ -193,14 +193,14 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t           value          = 0;
         call_stub_t       *stub           = NULL;
 
+        if (op_ret < 0) {
+                goto unwind;
+        }
+
         local = frame->local;
         GF_ASSERT (local);
 
         priv = this->private;
-
-        if (op_ret == -1) {
-                goto unwind;
-        }
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO_WITH_ERROR ("quota", this, unwind, op_errno,
@@ -774,7 +774,7 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if ((op_ret == -1) || (local == NULL)) {
+        if ((op_ret < 0) || (local == NULL)) {
                 goto out;
         }
 
@@ -1187,7 +1187,7 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_inode_ctx_t *ctx   = NULL;
         uint64_t           value = 0;
 
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 goto out;
         }
 
@@ -1259,7 +1259,7 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_dentry_t       *dentry       = NULL;
         char                  found        = 0;
 
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 goto out;
         }
 
@@ -1441,7 +1441,7 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char                  new_dentry_found = 0;
         int64_t               size             = 0;
 
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 goto out;
         }
 
@@ -1672,7 +1672,7 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_inode_ctx_t *ctx    = NULL;
         quota_dentry_t    *dentry = NULL;
 
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 goto out;
         }
 
@@ -1819,7 +1819,7 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int64_t            delta = 0;
         quota_inode_ctx_t *ctx   = NULL;
 
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 goto out;
         }
 
@@ -1895,7 +1895,7 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int64_t            delta = 0;
         quota_inode_ctx_t *ctx   = NULL;
 
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 goto out;
         }
 
@@ -2040,6 +2040,10 @@ quota_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
 
+        if (op_ret < 0) {
+                goto out;
+        }
+
         local = frame->local;
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_WARNING, "local is NULL");
@@ -2104,6 +2108,10 @@ quota_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
 
+        if (op_ret < 0) {
+                goto out;
+        }
+
         local = frame->local;
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_WARNING, "local is NULL");
@@ -2162,6 +2170,10 @@ quota_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
+
+        if (op_ret < 0) {
+                goto out;
+        }
 
         local = frame->local;
         if (local == NULL) {
@@ -2228,6 +2240,10 @@ quota_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
 
+        if (op_ret < 0) {
+                goto out;
+        }
+
         local = frame->local;
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_WARNING, "local is NULL");
@@ -2288,6 +2304,10 @@ quota_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
 
+        if (op_ret < 0) {
+                goto out;
+        }
+
         local = frame->local;
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_WARNING, "local is NULL");
@@ -2346,6 +2366,10 @@ quota_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
+
+        if (op_ret < 0) {
+                goto out;
+        }
 
         local = frame->local;
         if (local == NULL) {
@@ -2414,6 +2438,10 @@ quota_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         quota_local_t     *local = NULL;
         quota_inode_ctx_t *ctx   = NULL;
+
+        if (op_ret < 0) {
+                goto out;
+        }
 
         local = frame->local;
         if (local == NULL) {
