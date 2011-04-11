@@ -87,7 +87,7 @@ def startup(**kw):
     if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
         if not grabpidfile():
             sys.stderr.write("pidfile is taken, exiting.\n")
-            exit(2)
+            sys.exit(2)
 
     if kw.get('go_daemon') == 'should':
         x, y = os.pipe()
@@ -178,7 +178,7 @@ def main_i():
     rconf = {'go_daemon': 'should'}
 
     def store_abs(opt, optstr, val, parser):
-        if val:
+        if val and val != '-':
             val = os.path.abspath(val)
         setattr(parser.values, opt.dest, val)
     def store_local(opt, optstr, val, parser):

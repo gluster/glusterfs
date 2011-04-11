@@ -28,7 +28,7 @@ class Monitor(object):
 
         self.set_state('starting...')
         ret = 0
-	def nwait(p, o=0):
+        def nwait(p, o=0):
             p2, r = os.waitpid(p, o)
             if not p2:
                 return
