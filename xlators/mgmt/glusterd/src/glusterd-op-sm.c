@@ -3910,11 +3910,14 @@ out:
 }
 
 int
-glusterd_set_marker_gsync (char *master, char *value)
+glusterd_set_marker_gsync (char *master)
 {
         char                    *volname = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
         int                      ret     = -1;
+        char                    *marker_value   = NULL;
+        gf_boolean_t             marker_set = _gf_false;
+        char                    *gsync_status = NULL;
 
         volname = volname_from_master (master);
 
@@ -3924,16 +3927,34 @@ glusterd_set_marker_gsync (char *master, char *value)
                 ret = -1;
                 goto out;
         }
-
-        ret = glusterd_gsync_volinfo_dict_set (volinfo,
-                                               "features.marker-gsync", value);
-        if (ret < 0)
-                goto out;
-
-        ret = glusterd_marker_create_volfile (volinfo);
+        ret = glusterd_volinfo_get (volinfo, "features.marker-gsync", &marker_value);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Setting dict failed");
+                gf_log ("", GF_LOG_ERROR, "failed to get the marker status");
+                ret = -1;
                 goto out;
+        }
+
+        ret = gf_string2boolean (marker_value, &marker_set);
+        if (ret != 0)
+                goto out;
+
+        if (marker_set == _gf_false) {
+                gsync_status = gf_strdup ("on");
+                if (gsync_status == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_gsync_volinfo_dict_set (volinfo,
+                                                      "features.marker-gsync", gsync_status);
+                if (ret < 0)
+                        goto out;
+
+                ret = glusterd_marker_create_volfile (volinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Setting dict failed");
+                        goto out;
+                }
         }
 
 out:
@@ -3948,7 +3969,6 @@ glusterd_op_gsync_set (dict_t *dict)
         int32_t         ret     = -1;
         int32_t         type    = -1;
         dict_t          *ctx    = NULL;
-        char            *gsync_status = NULL;
         char            *op_errstr = NULL;
 
         ret = dict_get_int32 (dict, "type", &type);
@@ -3960,13 +3980,8 @@ glusterd_op_gsync_set (dict_t *dict)
                 goto out;
 
         if (type == GF_GSYNC_OPTION_TYPE_START) {
-                gsync_status = gf_strdup ("on");
-                if (gsync_status == NULL) {
-                        ret = -1;
-                        goto out;
-                }
 
-                ret = glusterd_set_marker_gsync (master, gsync_status);
+                ret = glusterd_set_marker_gsync (master);
                 if (ret != 0) {
                         gf_log ("", GF_LOG_WARNING, "marker start failed");
                         op_errstr = gf_strdup ("gsync start failed");
@@ -3975,21 +3990,6 @@ glusterd_op_gsync_set (dict_t *dict)
                 }
         }
 
-        if (type == GF_GSYNC_OPTION_TYPE_STOP) {
-                gsync_status = gf_strdup ("off");
-                if (gsync_status == NULL) {
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = glusterd_set_marker_gsync (master, gsync_status);
-                if (ret != 0) {
-                        gf_log ("", GF_LOG_WARNING, "marker stop failed");
-                        op_errstr = gf_strdup ("gsync stop failed");
-                        ret = -1;
-                        goto out;
-                }
-        }
 out:
         ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
         if (ctx) {
