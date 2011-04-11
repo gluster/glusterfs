@@ -37,6 +37,8 @@ __iobuf_arena_init_iobufs (struct iobuf_arena *iobuf_arena)
         int                 offset = 0;
         int                 i = 0;
 
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
+
         arena_size = iobuf_arena->iobuf_pool->arena_size;
         page_size  = iobuf_arena->iobuf_pool->page_size;
         iobuf_cnt  = arena_size / page_size;
@@ -61,6 +63,9 @@ __iobuf_arena_init_iobufs (struct iobuf_arena *iobuf_arena)
                 offset += page_size;
                 iobuf++;
         }
+
+out:
+        return;
 }
 
 
@@ -73,12 +78,14 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
         struct iobuf       *iobuf = NULL;
         int                 i = 0;
 
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
+
         arena_size = iobuf_arena->iobuf_pool->arena_size;
         page_size  = iobuf_arena->iobuf_pool->page_size;
         iobuf_cnt  = arena_size / page_size;
 
         if (!iobuf_arena->iobufs) {
-                gf_log ("", GF_LOG_DEBUG, "iobufs not found");
+                gf_log_callingfn ("", GF_LOG_DEBUG, "iobufs not found");
                 return;
         }
 
@@ -91,6 +98,9 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
         }
 
         GF_FREE (iobuf_arena->iobufs);
+
+out:
+        return;
 }
 
 
@@ -99,10 +109,8 @@ __iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
 {
         struct iobuf_pool *iobuf_pool = NULL;
 
-        if (!iobuf_arena) {
-                gf_log ("", GF_LOG_DEBUG, "iobufs not found");
-                return;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
+
         iobuf_pool = iobuf_arena->iobuf_pool;
 
         __iobuf_arena_destroy_iobufs (iobuf_arena);
@@ -112,6 +120,9 @@ __iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
                 munmap (iobuf_arena->mem_base, iobuf_pool->arena_size);
 
         GF_FREE (iobuf_arena);
+
+out:
+        return;
 }
 
 
@@ -120,6 +131,8 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf_arena *iobuf_arena = NULL;
         size_t              arena_size = 0;
+
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         iobuf_arena = GF_CALLOC (sizeof (*iobuf_arena), 1,
                                  gf_common_mt_iobuf_arena);
@@ -151,6 +164,8 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
 
 err:
         __iobuf_arena_destroy (iobuf_arena);
+
+out:
         return NULL;
 }
 
@@ -161,12 +176,15 @@ __iobuf_arena_unprune (struct iobuf_pool *iobuf_pool)
         struct iobuf_arena *iobuf_arena = NULL;
         struct iobuf_arena *tmp = NULL;
 
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
+
         list_for_each_entry (tmp, &iobuf_pool->purge.list, list) {
                 list_del_init (&tmp->list);
                 iobuf_arena = tmp;
                 break;
         }
 
+out:
         return iobuf_arena;
 }
 
@@ -175,6 +193,8 @@ struct iobuf_arena *
 __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf_arena *iobuf_arena = NULL;
+
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         iobuf_arena = __iobuf_arena_unprune (iobuf_pool);
 
@@ -188,6 +208,7 @@ __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool)
 
         list_add_tail (&iobuf_arena->list, &iobuf_pool->arenas.list);
 
+out:
         return iobuf_arena;
 }
 
@@ -197,12 +218,15 @@ iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf_arena *iobuf_arena = NULL;
 
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
+
         pthread_mutex_lock (&iobuf_pool->mutex);
         {
                 iobuf_arena = __iobuf_pool_add_arena (iobuf_pool);
         }
         pthread_mutex_unlock (&iobuf_pool->mutex);
 
+out:
         return iobuf_arena;
 }
 
@@ -213,10 +237,7 @@ iobuf_pool_destroy (struct iobuf_pool *iobuf_pool)
         struct iobuf_arena *iobuf_arena = NULL;
         struct iobuf_arena *tmp = NULL;
 
-        if (!iobuf_pool) {
-                gf_log ("", GF_LOG_WARNING, "iobuf pool not found");
-                return;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         list_for_each_entry_safe (iobuf_arena, tmp, &iobuf_pool->arenas.list,
                                   list) {
@@ -226,6 +247,9 @@ iobuf_pool_destroy (struct iobuf_pool *iobuf_pool)
 
                 __iobuf_arena_destroy (iobuf_arena);
         }
+
+out:
+        return;
 }
 
 
@@ -266,6 +290,8 @@ __iobuf_pool_prune (struct iobuf_pool *iobuf_pool)
         struct iobuf_arena *iobuf_arena = NULL;
         struct iobuf_arena *tmp = NULL;
 
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
+
         if (list_empty (&iobuf_pool->arenas.list))
                 /* buffering - preserve this one arena (if at all)
                    for __iobuf_arena_unprune */
@@ -281,17 +307,25 @@ __iobuf_pool_prune (struct iobuf_pool *iobuf_pool)
 
                 __iobuf_arena_destroy (iobuf_arena);
         }
+
+out:
+        return;
 }
 
 
 void
 iobuf_pool_prune (struct iobuf_pool *iobuf_pool)
 {
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
+
         pthread_mutex_lock (&iobuf_pool->mutex);
         {
                 __iobuf_pool_prune (iobuf_pool);
         }
         pthread_mutex_unlock (&iobuf_pool->mutex);
+
+out:
+        return;
 }
 
 
@@ -300,6 +334,8 @@ __iobuf_select_arena (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf_arena *iobuf_arena = NULL;
         struct iobuf_arena *trav = NULL;
+
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         /* look for unused iobuf from the head-most arena */
         list_for_each_entry (trav, &iobuf_pool->arenas.list, list) {
@@ -314,6 +350,7 @@ __iobuf_select_arena (struct iobuf_pool *iobuf_pool)
                 iobuf_arena = __iobuf_pool_add_arena (iobuf_pool);
         }
 
+out:
         return iobuf_arena;
 }
 
@@ -342,6 +379,8 @@ __iobuf_get (struct iobuf_arena *iobuf_arena)
         struct iobuf      *iobuf = NULL;
         struct iobuf_pool *iobuf_pool = NULL;
 
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
+
         iobuf_pool = iobuf_arena->iobuf_pool;
 
         list_for_each_entry (iobuf, &iobuf_arena->passive.list, list)
@@ -358,6 +397,7 @@ __iobuf_get (struct iobuf_arena *iobuf_arena)
                 list_add (&iobuf_arena->list, &iobuf_pool->filled.list);
         }
 
+out:
         return iobuf;
 }
 
@@ -367,6 +407,8 @@ iobuf_get (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf       *iobuf = NULL;
         struct iobuf_arena *iobuf_arena = NULL;
+
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         pthread_mutex_lock (&iobuf_pool->mutex);
         {
@@ -388,6 +430,7 @@ iobuf_get (struct iobuf_pool *iobuf_pool)
 unlock:
         pthread_mutex_unlock (&iobuf_pool->mutex);
 
+out:
         return iobuf;
 }
 
@@ -396,6 +439,9 @@ void
 __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
 {
         struct iobuf_pool *iobuf_pool = NULL;
+
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         iobuf_pool = iobuf_arena->iobuf_pool;
 
@@ -414,6 +460,8 @@ __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
                 list_del (&iobuf_arena->list);
                 list_add_tail (&iobuf_arena->list, &iobuf_pool->purge.list);
         }
+out:
+        return;
 }
 
 
@@ -423,10 +471,7 @@ iobuf_put (struct iobuf *iobuf)
         struct iobuf_arena *iobuf_arena = NULL;
         struct iobuf_pool  *iobuf_pool = NULL;
 
-        if (!iobuf) {
-                gf_log ("", GF_LOG_WARNING, "iobuf not found");
-                return;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         iobuf_arena = iobuf->iobuf_arena;
         if (!iobuf_arena) {
@@ -447,6 +492,9 @@ iobuf_put (struct iobuf *iobuf)
         pthread_mutex_unlock (&iobuf_pool->mutex);
 
         iobuf_pool_prune (iobuf_pool);
+
+out:
+        return;
 }
 
 
@@ -455,10 +503,7 @@ iobuf_unref (struct iobuf *iobuf)
 {
         int  ref = 0;
 
-        if (!iobuf) {
-                gf_log ("", GF_LOG_WARNING, "iobuf not found");
-                return;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         LOCK (&iobuf->lock);
         {
@@ -469,16 +514,16 @@ iobuf_unref (struct iobuf *iobuf)
 
         if (!ref)
                 iobuf_put (iobuf);
+
+out:
+        return;
 }
 
 
 struct iobuf *
 iobuf_ref (struct iobuf *iobuf)
 {
-        if (!iobuf) {
-                gf_log ("", GF_LOG_WARNING, "iobuf not found");
-                return NULL;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         LOCK (&iobuf->lock);
         {
@@ -486,6 +531,7 @@ iobuf_ref (struct iobuf *iobuf)
         }
         UNLOCK (&iobuf->lock);
 
+out:
         return iobuf;
 }
 
@@ -511,10 +557,7 @@ iobref_new ()
 struct iobref *
 iobref_ref (struct iobref *iobref)
 {
-        if (!iobref) {
-                gf_log ("", GF_LOG_WARNING, "iobref not found");
-                return NULL;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
 
         LOCK (&iobref->lock);
         {
@@ -522,6 +565,7 @@ iobref_ref (struct iobref *iobref)
         }
         UNLOCK (&iobref->lock);
 
+out:
         return iobref;
 }
 
@@ -532,8 +576,7 @@ iobref_destroy (struct iobref *iobref)
         int            i = 0;
         struct iobuf  *iobuf = NULL;
 
-        if (!iobref)
-                return;
+        GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
 
         for (i = 0; i < 8; i++) {
                 iobuf = iobref->iobrefs[i];
@@ -544,6 +587,9 @@ iobref_destroy (struct iobref *iobref)
         }
 
         GF_FREE (iobref);
+
+out:
+        return;
 }
 
 
@@ -552,10 +598,7 @@ iobref_unref (struct iobref *iobref)
 {
         int ref = 0;
 
-        if (!iobref) {
-                gf_log ("", GF_LOG_WARNING, "iobref not found");
-                return;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
 
         LOCK (&iobref->lock);
         {
@@ -565,6 +608,9 @@ iobref_unref (struct iobref *iobref)
 
         if (!ref)
                 iobref_destroy (iobref);
+
+out:
+        return;
 }
 
 
@@ -574,6 +620,9 @@ __iobref_add (struct iobref *iobref, struct iobuf *iobuf)
         int  i = 0;
         int  ret = -ENOMEM;
 
+        GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
+
         for (i = 0; i < 8; i++) {
                 if (iobref->iobrefs[i] == NULL) {
                         iobref->iobrefs[i] = iobuf_ref (iobuf);
@@ -582,6 +631,7 @@ __iobref_add (struct iobref *iobref, struct iobuf *iobuf)
                 }
         }
 
+out:
         return ret;
 }
 
@@ -589,12 +639,10 @@ __iobref_add (struct iobref *iobref, struct iobuf *iobuf)
 int
 iobref_add (struct iobref *iobref, struct iobuf *iobuf)
 {
-        int  ret = 0;
+        int  ret = -EINVAL;
 
-        if (!iobref || !iobuf) {
-                gf_log ("", GF_LOG_WARNING, "(iobref || iobuf) not found");
-                return -EINVAL;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         LOCK (&iobref->lock);
         {
@@ -602,6 +650,7 @@ iobref_add (struct iobref *iobref, struct iobuf *iobuf)
         }
         UNLOCK (&iobref->lock);
 
+out:
         return ret;
 }
 
@@ -610,8 +659,11 @@ int
 iobref_merge (struct iobref *to, struct iobref *from)
 {
         int           i = 0;
-        int           ret = 0;
+        int           ret = -1;
         struct iobuf *iobuf = NULL;
+
+        GF_VALIDATE_OR_GOTO ("iobuf", to, out);
+        GF_VALIDATE_OR_GOTO ("iobuf", from, out);
 
         LOCK (&from->lock);
         {
@@ -629,6 +681,7 @@ iobref_merge (struct iobref *to, struct iobref *from)
         }
         UNLOCK (&from->lock);
 
+out:
         return ret;
 }
 
@@ -638,10 +691,7 @@ iobuf_size (struct iobuf *iobuf)
 {
         size_t size = 0;
 
-        if (!iobuf) {
-                gf_log ("", GF_LOG_WARNING, "iobuf not found");
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         if (!iobuf->iobuf_arena) {
                 gf_log ("", GF_LOG_WARNING, "arena not found");
@@ -665,10 +715,7 @@ iobref_size (struct iobref *iobref)
         size_t size = 0;
         int    i = 0;
 
-        if (!iobref) {
-                gf_log ("", GF_LOG_WARNING, "iobref not found");
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
 
         LOCK (&iobref->lock);
         {
@@ -678,6 +725,7 @@ iobref_size (struct iobref *iobref)
                 }
         }
         UNLOCK (&iobref->lock);
+
 out:
         return size;
 }
@@ -689,10 +737,7 @@ iobuf_info_dump (struct iobuf *iobuf, const char *key_prefix)
         struct iobuf my_iobuf;
         int    ret = 0;
 
-        if (!iobuf) {
-                gf_log ("", GF_LOG_WARNING, "iobuf not found");
-                return;
-        }
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         memset(&my_iobuf, 0, sizeof(my_iobuf));
 
@@ -710,6 +755,8 @@ iobuf_info_dump (struct iobuf *iobuf, const char *key_prefix)
         gf_proc_dump_build_key(key, key_prefix,"ptr");
         gf_proc_dump_write(key, "%p", my_iobuf.ptr);
 
+out:
+        return;
 }
 
 void
@@ -719,8 +766,7 @@ iobuf_arena_info_dump (struct iobuf_arena *iobuf_arena, const char *key_prefix)
         int  i = 1;
         struct iobuf *trav;
 
-        if (!iobuf_arena)
-                return;
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
 
         gf_proc_dump_build_key(key, key_prefix,"mem_base");
         gf_proc_dump_write(key, "%p", iobuf_arena->mem_base);
@@ -734,6 +780,8 @@ iobuf_arena_info_dump (struct iobuf_arena *iobuf_arena, const char *key_prefix)
                 iobuf_info_dump(trav, key);
         }
 
+out:
+        return;
 }
 
 void
@@ -745,8 +793,7 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
         int                i = 1;
         int                ret = -1;
 
-        if (!iobuf_pool)
-                return;
+        GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         memset(msg, 0, sizeof(msg));
 
@@ -776,6 +823,7 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 
         pthread_mutex_unlock(&iobuf_pool->mutex);
 
+out:
         return;
 }
 
@@ -783,6 +831,12 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 void
 iobuf_to_iovec(struct iobuf *iob, struct iovec *iov)
 {
+        GF_VALIDATE_OR_GOTO ("iobuf", iob, out);
+        GF_VALIDATE_OR_GOTO ("iobuf", iov, out);
+
         iov->iov_base = iobuf_ptr (iob);
         iov->iov_len =  iobuf_pagesize (iob);
+
+out:
+        return;
 }
