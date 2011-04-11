@@ -133,8 +133,10 @@ marker_trav_parent (marker_local_t *local)
 
         ret = marker_inode_loc_fill (local->loc.parent, &loc);
 
-        if (ret == -1)
+        if (ret < 0) {
+                ret = -1;
                 goto out;
+        }
 
         loc_wipe (&local->loc);
 
