@@ -168,7 +168,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"features.quota",                       "features/quota",            "quota", "off", NO_DOC},
         {"features.quota",                       "features/marker",           "quota", "off", NO_DOC},
         {"features.limit-usage",                 "features/quota",            "limit-set", NULL, NO_DOC},
-
+        {"features.quota-timeout",               "features/quota",            "timeout", "0", NO_DOC},
         {NULL,                                                                }
 };
 
