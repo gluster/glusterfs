@@ -373,6 +373,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         int              ret     = -1;
         int              i       = 0;
         char             key[20] = {0, };
+        uint64_t         value   = 0;
         gf_quota_type    type    = GF_QUOTA_OPTION_TYPE_NONE;
 
         GF_ASSERT (words);
@@ -418,17 +419,16 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         ret = dict_set_str (dict, "volname", volname);
-
         if (ret)
                 goto out;
 
 
-        if ((strcasecmp (words[3], "enable")) == 0) {
+        if ((strcasecmp (words[3], "enable")) == 0 && wordcount == 4) {
                 type = GF_QUOTA_OPTION_TYPE_ENABLE;
                 goto set_type;
         }
 
-        if (strcasecmp (words[3], "disable") == 0) {
+        if (strcasecmp (words[3], "disable") == 0 && wordcount == 4) {
                 type = GF_QUOTA_OPTION_TYPE_DISABLE;
                 goto set_type;
         }
@@ -447,15 +447,19 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         return -2;
                 }
                 ret = dict_set_str (dict, "path", (char *) words[4]);
-
                 if (ret)
                         goto out;
 
                 if (!words[5]) {
-                        gf_log ("cli", GF_LOG_ERROR, "Please enter the limit value "
-                                            "to be set");
+                        cli_out ("Please enter the limit value to be set");
 
                         return -2;
+                }
+
+                ret = gf_string2bytesize (words[5], &value);
+                if (ret != 0) {
+                        cli_out ("Please enter a correct value");
+                        return -1;
                 }
 
                 ret = dict_set_str (dict, "limit", (char *) words[5]);

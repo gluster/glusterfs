@@ -1171,7 +1171,7 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_profile_cbk,
            "volume profile operations"},
 
-        { "volume quota <VOLNAME> <enable|disable|limit-usage|list|remove> [args] [path]",
+        { "volume quota <VOLNAME> <enable|disable|limit-usage|list|remove> [path] [value]",
           cli_cmd_quota_cbk,
           "quota translator specific operations"},
 
