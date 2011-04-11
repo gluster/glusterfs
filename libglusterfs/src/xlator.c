@@ -1159,70 +1159,68 @@ validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
 int32_t
 xlator_set_type_virtual (xlator_t *xl, const char *type)
 {
-	if ((xl == NULL) || (type == NULL))	{
-		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-		return -1;
-	}
+        GF_VALIDATE_OR_GOTO ("xlator", xl, out);
+        GF_VALIDATE_OR_GOTO ("xlator", type, out);
 
         xl->type = gf_strdup (type);
 
         if (xl->type)
                 return 0;
-        else
-                return -1;
+
+out:
+        return -1;
 }
 
 
 int32_t
 xlator_dynload (xlator_t *xl)
 {
-        int   ret = 0;
+        int   ret = -1;
 	char *name = NULL;
 	void *handle = NULL;
 	volume_opt_list_t *vol_opt = NULL;
 
+        GF_VALIDATE_OR_GOTO ("xlator", xl, out);
+
 	ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
         if (-1 == ret) {
                 gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
-                return -1;
+                goto out;
         }
+
+        ret = -1;
 
 	gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
 
 	handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 	if (!handle) {
 		gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
-                GF_FREE (name);
-		return -1;
+                goto out;
 	}
         xl->dlhandle = handle;
 
 	if (!(xl->fops = dlsym (handle, "fops"))) {
 		gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
 			dlerror ());
-                GF_FREE (name);
-		return -1;
+                goto out;
 	}
 
 	if (!(xl->cbks = dlsym (handle, "cbks"))) {
 		gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
 			dlerror ());
-                GF_FREE (name);
-		return -1;
+                goto out;
 	}
 
 	if (!(xl->init = dlsym (handle, "init"))) {
 		gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
 			dlerror ());
-                GF_FREE (name);
-		return -1;
+                goto out;
 	}
 
 	if (!(xl->fini = dlsym (handle, "fini"))) {
 		gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
 			dlerror ());
-                GF_FREE (name);
-		return -1;
+                goto out;
 	}
 
 	if (!(xl->notify = dlsym (handle, "notify"))) {
@@ -1260,8 +1258,7 @@ xlator_dynload (xlator_t *xl)
                          gf_common_mt_volume_opt_list_t);
 
         if (!vol_opt) {
-                GF_FREE (name);
-                return -1;
+                goto out;
         }
 
 	if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
@@ -1273,8 +1270,12 @@ xlator_dynload (xlator_t *xl)
 
 	fill_defaults (xl);
 
-	GF_FREE (name);
-	return 0;
+        ret = 0;
+
+out:
+        if (name)
+                GF_FREE (name);
+	return ret;
 }
 
 
@@ -1300,10 +1301,9 @@ xlator_foreach (xlator_t *this,
 	xlator_t *first    = NULL;
         xlator_t *old_THIS = NULL;
 
-	if ((this == NULL) || (fn == NULL) || (data == NULL))	{
-		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-		return;
-	}
+        GF_VALIDATE_OR_GOTO ("xlator", this, out);
+        GF_VALIDATE_OR_GOTO ("xlator", fn, out);
+        GF_VALIDATE_OR_GOTO ("xlator", data, out);
 
 	first = this;
 
@@ -1319,6 +1319,9 @@ xlator_foreach (xlator_t *this,
                 THIS = old_THIS;
 		first = first->next;
 	}
+
+out:
+        return;
 }
 
 
@@ -1327,10 +1330,8 @@ xlator_search_by_name (xlator_t *any, const char *name)
 {
 	xlator_t *search = NULL;
 
-	if ((any == NULL) || (name == NULL)) {
-		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-		return NULL;
-	}
+        GF_VALIDATE_OR_GOTO ("xlator", any, out);
+        GF_VALIDATE_OR_GOTO ("xlator", name, out);
 
 	search = any;
 
@@ -1343,6 +1344,7 @@ xlator_search_by_name (xlator_t *any, const char *name)
 		search = search->next;
 	}
 
+out:
 	return search;
 }
 
@@ -1367,14 +1369,9 @@ __xlator_init(xlator_t *xl)
 int
 xlator_init (xlator_t *xl)
 {
-	int32_t ret = 0;
+	int32_t ret = -1;
 
-	if (xl == NULL)	{
-		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-		return 0;
-	}
-
-        ret = -1;
+        GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
         if (xl->mem_acct_init)
                 xl->mem_acct_init (xl);
@@ -1408,10 +1405,7 @@ xlator_fini_rec (xlator_t *xl)
 	xlator_list_t *trav     = NULL;
         xlator_t      *old_THIS = NULL;
 
-	if (xl == NULL)	{
-		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-		return;
-	}
+        GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
 	trav = xl->children;
 
@@ -1438,6 +1432,9 @@ xlator_fini_rec (xlator_t *xl)
 		}
 		xl->init_succeeded = 0;
 	}
+
+out:
+        return;
 }
 
 static int
@@ -1445,13 +1442,11 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
 {
 	xlator_list_t *trav1    = NULL;
         xlator_list_t *trav2    = NULL;
-        int32_t        ret      = 0;
+        int32_t        ret      = -1;
         xlator_t      *old_THIS = NULL;
 
-	if ((old_xl == NULL) || (new_xl == NULL))	{
-		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-		return -1;
-	}
+        GF_VALIDATE_OR_GOTO ("xlator", old_xl, out);
+        GF_VALIDATE_OR_GOTO ("xlator", new_xl, out);
 
 	trav1 = old_xl->children;
         trav2 = new_xl->children;
@@ -1481,6 +1476,7 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
                 gf_log (old_xl->name, GF_LOG_DEBUG, "No reconfigure() found");
         }
 
+        ret = 0;
 out:
         return ret;
 }
@@ -1488,19 +1484,17 @@ out:
 int
 xlator_validate_rec (xlator_t *xlator, char **op_errstr)
 {
+        int            ret  = -1;
         xlator_list_t *trav = NULL;
 
-        if (xlator == NULL )    {
-                gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("xlator", xlator, out);
 
         trav = xlator->children;
 
         while (trav) {
                 if (xlator_validate_rec (trav->xlator, op_errstr)) {
                         gf_log ("xlator", GF_LOG_WARNING, "validate_rec failed");
-                        return -1;
+                        goto out;
                 }
 
                 trav = trav->next;
@@ -1511,8 +1505,8 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
 
         if (xlator->validate_options) {
                 if (xlator->validate_options (xlator, op_errstr)) {
-                        gf_log ("", GF_LOG_DEBUG, "%s", *op_errstr);
-                        return -1;
+                        gf_log ("", GF_LOG_INFO, "%s", *op_errstr);
+                        goto out;
                 }
                 gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");
 
@@ -1520,7 +1514,9 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
 
         gf_log (xlator->name, GF_LOG_DEBUG, "No validate_options() found");
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 int
@@ -1590,13 +1586,13 @@ xlator_tree_fini (xlator_t *xl)
 {
 	xlator_t *top = NULL;
 
-	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
-		return;
-	}
+        GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
 	top = xl;
 	xlator_fini_rec (top);
+
+out:
+        return;
 }
 
 int
@@ -1618,23 +1614,23 @@ xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl)
 int
 xlator_tree_free (xlator_t *tree)
 {
-  xlator_t *trav = tree, *prev = tree;
+        xlator_t *trav = tree, *prev = tree;
 
-  if (!tree) {
-    gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
-    return -1;
-  }
+        if (!tree) {
+                gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
+                return -1;
+        }
 
-  while (prev) {
-    trav = prev->next;
-    dict_destroy (prev->options);
-    GF_FREE (prev->name);
-    GF_FREE (prev->type);
-    GF_FREE (prev);
-    prev = trav;
-  }
+        while (prev) {
+                trav = prev->next;
+                dict_destroy (prev->options);
+                GF_FREE (prev->name);
+                GF_FREE (prev->type);
+                GF_FREE (prev);
+                prev = trav;
+        }
 
-  return 0;
+        return 0;
 }
 
 
@@ -1662,6 +1658,9 @@ loc_copy (loc_t *dst, loc_t *src)
 {
 	int ret = -1;
 
+        GF_VALIDATE_OR_GOTO ("xlator", dst, err);
+        GF_VALIDATE_OR_GOTO ("xlator", src, err);
+
 	dst->ino = src->ino;
 
 	if (src->inode)
@@ -1688,6 +1687,8 @@ out:
                 if (dst->parent)
                         inode_unref (dst->parent);
         }
+
+err:
 	return ret;
 }
 
