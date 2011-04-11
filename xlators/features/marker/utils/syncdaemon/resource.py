@@ -1,6 +1,7 @@
 import re
 import os
 import sys
+import pwd
 import stat
 import time
 import errno
@@ -446,7 +447,7 @@ class SSH(AbstractUrl, SlaveRemote):
         if m:
             u, h = m.groups()
         else:
-            u, h = os.getlogin(), self.remote_addr
+            u, h = pwd.getpwuid(os.geteuid()).pw_name, self.remote_addr
         remote_addr = '@'.join([u, socket.gethostbyname(h)])
         return ':'.join([remote_addr, self.inner_rsc.get_url(canonical=True)])
 
