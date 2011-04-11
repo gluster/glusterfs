@@ -51,7 +51,7 @@
 
 #include <sys/types.h>
 #include <signal.h>
-
+#include <sys/wait.h>
 #define glusterd_op_start_volume_args_get(dict, volname, flags) \
         glusterd_op_stop_volume_args_get (dict, volname, flags)
 
@@ -107,6 +107,11 @@ static char *gsync_opname[] = {
         "sync-jobs",
         NULL
 };
+
+typedef struct glusterd_quota_child_info {
+        pid_t pid;
+        char  mountdir [15];
+} glusterd_quota_child_info_t;
 
 static int
 glusterd_restart_brick_servers (glusterd_volinfo_t *);
@@ -4125,61 +4130,101 @@ out:
         return ret;
 }
 
-void *
-glusterd_quota_start_crawl (void *data)
+
+static void *
+glusterd_quota_child_waitpid (void *arg)
 {
-        int32_t  ret      = 0;
-        char     cmd_str [1024] = {0, };
-        char    *mount    = NULL;
+        char cmd [PATH_MAX] = {0,};
+        glusterd_quota_child_info_t *child_info = NULL;
 
-        mount = (char *) data;
+        GF_VALIDATE_OR_GOTO ("glusterd", arg, out);
 
-        snprintf (cmd_str, 1024, "find %s", mount);
+        child_info = (glusterd_quota_child_info_t *)arg;
 
-        gf_log ("quota crawl", GF_LOG_INFO, "crawl started");
+#ifdef GF_LINUX_HOST_OS
+        snprintf (cmd, sizeof (cmd), "umount -l %s",
+                  child_info->mountdir);
+        system (cmd);
 
-        ret = system (cmd_str);
-        if (ret == -1)
-                gf_log ("crawl", GF_LOG_ERROR, "quota crawl failed");
+        waitpid (child_info->pid, NULL, 0);
+#else
+        waitpid (child_info->pid, NULL, 0);
+        snprintf (cmd, sizeof (cmd), "umount %s",
+                  child_info->mountdir);
+        system (cmd);
+#endif
+        rmdir (child_info->mountdir);
 
-        gf_log ("quota crawl", GF_LOG_INFO, "crawl ended");
+        GF_FREE (child_info);
 
+out:
         return NULL;
 }
 
 int32_t
 glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
 {
+        int32_t   ret = 0;
         pthread_t th;
-        int32_t   ret             = 0;
-        char      mount [1024]    = {0, };
-        char      cmd_str [1024]  = {0, };
+        pid_t     pid;
+        int32_t   idx = 0;
+        char      mountdir [] = "/tmp/mntXXXXXX";
+        char      cmd_str [PATH_MAX + 1024]  = {0, };
+        glusterd_quota_child_info_t *child_info = NULL;
 
-        snprintf (mount, 1024, "%s/mount/%s",
-                  priv->workdir, volname);
-
-        snprintf (cmd_str, 1024, "mkdir -p %s", mount);
-
-        ret = system (cmd_str);
-        if (ret == -1) {
-                gf_log ("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+        if (mkdtemp (mountdir) == NULL) {
+                gf_log ("glusterd", GF_LOG_DEBUG,
+                        "failed to create a temporary mount directory");
+                ret = -1;
                 goto out;
         }
 
-        snprintf (cmd_str, 1024, "%s/sbin/glusterfs -s localhost "
-                  "--volfile-id %s %s", GFS_PREFIX, volname, mount);
+        snprintf (cmd_str, sizeof (cmd_str), "%s/sbin/glusterfs -s localhost "
+                  "--volfile-id %s %s", GFS_PREFIX, volname, mountdir);
 
-        ret = system (cmd_str);
+        ret = gf_system (cmd_str);
         if (ret == -1) {
                 gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
                 goto out;
         }
 
-        ret = pthread_create (&th, NULL, glusterd_quota_start_crawl, mount);
-        if (ret) {
-                snprintf (cmd_str, 1024, "umount -l %s", mount);
-                ret = system (cmd_str);
+        if ((pid = fork ()) < 0) {
+                gf_log ("glusterd", GF_LOG_WARNING, "fork from parent failed");
+                ret = -1;
+                goto err;
+        } else if (pid == 0) {//first child
+                chdir (mountdir);
+                /* close all fd's */
+                for (idx = 3; idx < 65536; idx++) {
+                        close (idx);
+                }
+
+                execl ("/usr/bin/find", "find", ".", (char *) 0);
+                _exit (0);
+        } else {
+                ret = -1;
+
+                child_info = GF_MALLOC (sizeof (glusterd_quota_child_info_t),
+                                        gf_common_mt_char);
+                if (child_info == NULL)
+                        goto err;
+
+                strcpy (child_info->mountdir, mountdir);
+
+                child_info->pid = pid;
+                pthread_create (&th, NULL, glusterd_quota_child_waitpid, child_info);
+
+                ret = 0;
+
+                goto out;
         }
+err:
+        if (ret < 0) {
+                umount (mountdir);
+                if (child_info)
+                        GF_FREE (child_info);
+        }
+
 out:
         return ret;
 }
