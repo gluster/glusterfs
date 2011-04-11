@@ -2588,6 +2588,26 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *options)
                         "no \"limit-set\" option provided");
         }
 
+        ret = dict_get_str (options, "timeout", &str);
+        if (str) {
+                ret = gf_string2bytesize (str, &value);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Invalid quota timout value.");
+                        ret = -1;
+                        goto err;
+                } else {
+                        priv->timeout = (int64_t) value;
+                        gf_log (this->name, GF_LOG_INFO,
+                                "quota timeout value = %"PRId64,
+                                priv->timeout);
+                }
+        } else {
+                gf_log (this->name, GF_LOG_INFO, "timeout option not provided, "
+                        "taking default as 0");
+                priv->timeout = 0;
+        }
+
         list_for_each_entry (quota_lim, &priv->limit_head, limit_list) {
                 gf_log (this->name, GF_LOG_INFO, "%s:%"PRId64, quota_lim->path,
                         quota_lim->value);
@@ -2696,5 +2716,7 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
         {.key = {"limit-set"}},
+        {.key = {"timeout"}
+        },
         {.key = {NULL}}
 };
