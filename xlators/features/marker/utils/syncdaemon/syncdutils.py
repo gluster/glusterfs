@@ -24,7 +24,8 @@ def update_file(path, updater, merger = lambda f: True):
             os.close(fd)
             raise
         fcntl.lockf(fr, fcntl.LOCK_EX)
-        merger(fr)
+        if not merger(fr):
+            return
 
         tmpp = path + '.tmp.' + str(os.getpid())
         fd = os.open(tmpp, os.O_CREAT|os.O_EXCL|os.O_WRONLY)

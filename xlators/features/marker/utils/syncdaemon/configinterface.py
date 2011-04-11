@@ -113,11 +113,11 @@ class GConffile(object):
         def mergeconf(f):
             self.config = ConfigParser.RawConfigParser()
             self.config.readfp(f)
-        def updateconf(f):
             if not self.config.has_section(SECT_META):
                 self.config.add_section(SECT_META)
             self.config.set(SECT_META, 'version', config_version)
-            trfn(*a, **kw)
+            return trfn(*a, **kw)
+        def updateconf(f):
             self.config.write(f)
         syncdutils.update_file(self.path, updateconf, mergeconf)
 
@@ -130,16 +130,15 @@ class GConffile(object):
                 self.config.add_section(SECT_ORD)
             self.config.set(SECT_ORD, sect, len(self.config._sections[SECT_ORD]))
         self.config.set(sect, opt, val)
+        return True
 
     def set(self, *a, **kw):
         self.write(self._set, *a, **kw)
 
     def _delete(self, opt, rx=False):
         sect = self.section(rx)
-        if not self.config.has_section(sect):
-            return
-        if self.config.remove_option(sect, opt):
-            self.write()
+        if self.config.has_section(sect):
+            return self.config.remove_option(sect, opt)
 
     def delete(self, *a, **kw):
         self.write(self._delete, *a, **kw)
