@@ -193,11 +193,12 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t           value          = 0;
         call_stub_t       *stub           = NULL;
 
+        local = frame->local;
+
         if (op_ret < 0) {
                 goto unwind;
         }
 
-        local = frame->local;
         GF_ASSERT (local);
 
         priv = this->private;
