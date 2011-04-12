@@ -536,7 +536,7 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         local->loc.path, rsp.fd);
         }
 
-	if (-1 == rsp.op_ret) {
+        if (-1 == rsp.op_ret) {
                 ret = -1;
                 goto out;
         }
@@ -1156,10 +1156,14 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
 
         if (-1 == rsp.op_ret) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, ((!conf->portmap_err_logged) ?
+                                     GF_LOG_ERROR : GF_LOG_DEBUG),
                         "failed to get the port number for remote subvolume");
+                conf->portmap_err_logged = 1;
                 goto out;
         }
+
+        conf->portmap_err_logged = 0;
 
         config.remote_port = rsp.port;
         rpc_clnt_reconfig (conf->rpc, &config);
@@ -1170,9 +1174,9 @@ out:
                 STACK_DESTROY (frame->root);
 
         if (conf) {
-
+                /* Need this to connect the same transport on different port */
+                /* ie, glusterd to glusterfsd */
                 rpc_transport_disconnect (conf->rpc->conn.trans);
-
                 rpc_clnt_reconnect (conf->rpc->conn.trans);
         }
 

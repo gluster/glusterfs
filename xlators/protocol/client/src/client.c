@@ -69,11 +69,14 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         if (!(conf->connected ||
               ((prog->prognum == GLUSTER_DUMP_PROGRAM) ||
                (prog->prognum == GLUSTER_PMAP_PROGRAM) ||
-               ((prog->prognum == GLUSTER_HNDSK_PROGRAM) && (procnum == GF_HNDSK_SETVOLUME))))) {
-                gf_log (this->name, GF_LOG_WARNING,
+               ((prog->prognum == GLUSTER_HNDSK_PROGRAM) &&
+                (procnum == GF_HNDSK_SETVOLUME))))) {
+                /* This particular error captured/logged in
+                   functions calling this */
+                gf_log (this->name, GF_LOG_DEBUG,
                         "connection in disconnected state");
                 goto out;
-        }
+       }
 
         iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (!iobuf) {

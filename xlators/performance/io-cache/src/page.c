@@ -85,7 +85,8 @@ ioc_page_destroy (ioc_page_t *page)
 
         GF_VALIDATE_OR_GOTO ("io-cache", page, out);
 
-        page_size = iobref_size (page->iobref);
+        if (page->iobref)
+                page_size = iobref_size (page->iobref);
 
         if (page->waitq) {
                 /* frames waiting on this page, do not destroy this page */

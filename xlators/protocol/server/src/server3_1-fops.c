@@ -211,7 +211,7 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 gf_proto_flock_from_flock (&rsp.flock, lock);
-        } else if (op_errno != ENOSYS) {
+        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": LK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
@@ -251,7 +251,7 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_add_locker (conn->ltable, state->volume,
                                        &state->loc, NULL, frame->root->pid,
                                        frame->root->lk_owner, GF_FOP_INODELK);
-        } else if (op_errno != ENOSYS) {
+        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": INODELK %s (%"PRId64") ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
@@ -293,7 +293,7 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                        NULL, state->fd,
                                        frame->root->pid,
                                        frame->root->lk_owner, GF_FOP_INODELK);
-        } else if (op_errno != ENOSYS) {
+        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FINODELK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
@@ -332,7 +332,7 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_add_locker (conn->ltable, state->volume,
                                        &state->loc, NULL, frame->root->pid,
                                        frame->root->lk_owner, GF_FOP_ENTRYLK);
-        } else if (op_errno != ENOSYS) {
+        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": INODELK %s (%"PRId64") ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
@@ -370,7 +370,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_add_locker (conn->ltable, state->volume,
                                        NULL, state->fd, frame->root->pid,
                                        frame->root->lk_owner, GF_FOP_ENTRYLK);
-        } else if (op_errno != ENOSYS) {
+        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FENTRYLK %"PRId64" (%"PRId64") "
                         " ==> %"PRId32" (%s)",

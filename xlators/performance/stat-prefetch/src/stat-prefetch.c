@@ -894,7 +894,8 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (op_ret == -1) {
+        /* For '/' Entry is never cached, don't try to remove it */
+        if ((op_ret == -1) && local->loc.parent) {
                 sp_remove_caches_from_all_fds_opened (this, local->loc.parent,
                                                       (char *)local->loc.name);
         }
