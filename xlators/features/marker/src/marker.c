@@ -27,6 +27,7 @@
 #include "marker.h"
 #include "marker-mem-types.h"
 #include "marker-quota.h"
+#include "marker-common.h"
 
 void
 fini (xlator_t *this);
@@ -263,6 +264,12 @@ int32_t
 marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
+	if (frame->cookie) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Filtering the quota extended attributes");
+
+		dict_foreach (dict, marker_filter_quota_xattr, NULL);
+	}
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -283,9 +290,18 @@ marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = call_from_special_client (frame, this, name);
 wind:
-        if (ret == _gf_false)
+        if (ret == _gf_false) {
+		if (name == NULL) {
+                        /* Signifies that marker translator
+                         * has to filter the quota's xattr's,
+                         * this is to prevent afr from performing
+                         * self healing on marker-quota xattrs'
+                         */
+			frame->cookie = (void *) 1;
+                }
                 STACK_WIND (frame, marker_getxattr_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->getxattr, loc, name);
+	}
 
         return 0;
 }
