@@ -1236,9 +1236,9 @@ dict_foreach (dict_t *dict,
 			 void *data),
 	      void *data)
 {
-        if (!data || !dict) {
+        if (!dict) {
                 gf_log_callingfn ("dict", GF_LOG_CRITICAL,
-                        "@data=%p, @dict=%p", data, dict);
+                                  "@dict=%p", dict);
                 return;
         }
 
