@@ -3143,7 +3143,12 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
 
         dict_copy (tmp_dict, dict);
 
+        gf_cmd_log ("Volume stats", "volume  : %s, op: %d", cli_req.volname,
+                    cli_req.op);
         ret = glusterd_op_begin (req, cli_op, dict, _gf_true);
+        gf_cmd_log ("Volume stats", " on volume %s, op: %d %s ",
+                    cli_req.volname, cli_req.op,
+                    ((ret == 0)? " SUCCEDED":" FAILED"));
 
 out:
         glusterd_friend_sm ();
