@@ -459,6 +459,8 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         pthread_mutex_unlock (&conf->lock);
 
+        ret = 0;
+
         attempt_lock_recovery = _gf_false; /* temporarily */
 
         if (attempt_lock_recovery) {
@@ -471,11 +473,10 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                 "need to attempt lock recovery on %"PRIu64
                                 " open fds", fd_count);
                 }
-        }
-
-out:
-        if (!attempt_lock_recovery)
+        } else {
                 fd_count = decrement_reopen_fd_count (frame->this, conf);
+        }
+out:
 
         if (fdctx)
                 client_fdctx_destroy (frame->this, fdctx);
@@ -558,6 +559,7 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         pthread_mutex_unlock (&conf->lock);
 
+        decrement_reopen_fd_count (frame->this, conf);
         ret = 0;
 
 out:
