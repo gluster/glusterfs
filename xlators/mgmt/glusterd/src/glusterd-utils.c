@@ -2421,7 +2421,7 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
         list_for_each_entry (entry, &priv->peers, uuid_list) {
                 if (!uuid_compare (entry->uuid, uuid)) {
 
-                        gf_log ("glusterd", GF_LOG_INFO,
+                        gf_log ("glusterd", GF_LOG_DEBUG,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
                         *peerinfo = entry;
@@ -2429,6 +2429,8 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
                 }
         }
 
+        gf_log ("glusterd", GF_LOG_DEBUG, "Friend with uuid: %s, not found",
+                uuid_utoa (uuid));
         return ret;
 }
 
@@ -2460,7 +2462,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                 if (!strncmp (entry->hostname, hoststr,
                               1024)) {
 
-                        gf_log ("glusterd", GF_LOG_INFO,
+                        gf_log ("glusterd", GF_LOG_DEBUG,
                                  "Friend %s found.. state: %d", hoststr,
                                   entry->state.state);
                         *peerinfo = entry;
@@ -2499,7 +2501,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                         if (!strncmp (entry->hostname, host,
                             1024) || !strncmp (entry->hostname,hname,
                             1024)) {
-                                gf_log ("glusterd", GF_LOG_INFO,
+                                gf_log ("glusterd", GF_LOG_DEBUG,
                                         "Friend %s found.. state: %d",
                                         hoststr, entry->state.state);
                                 *peerinfo = entry;
@@ -2510,6 +2512,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         }
 
 out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Unable to find friend: %s", hoststr);
         if (addr)
                 freeaddrinfo (addr);
         return -1;
