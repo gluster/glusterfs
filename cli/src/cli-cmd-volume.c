@@ -1182,7 +1182,7 @@ struct cli_cmd volume_cmds[] = {
            "|[read-perf|write-perf bs <size> count <count>]} "
            " [brick <brick>] [list-cnt <count>]",
            cli_cmd_volume_top_cbk,
-           "volume profile operations"},
+           "volume top operations"},
 
         { NULL, NULL, NULL }
 };
