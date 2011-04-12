@@ -168,7 +168,7 @@ gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports
 #sleep for 5 seconds
 sleep 5
 gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 status
-gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp5 abort
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 abort
 
 gluster volume info
 sleep 1
