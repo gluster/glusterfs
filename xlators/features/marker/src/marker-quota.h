@@ -51,6 +51,7 @@ char volname [40];
 
 #define QUOTA_ALLOC(var, type, ret)                     \
         do {                                            \
+                ret = 0;                                \
                 var = GF_CALLOC (sizeof (type), 1,      \
                                 gf_marker_mt_##type);   \
                 if (!var) {                             \
@@ -58,7 +59,6 @@ char volname [40];
                                 "out of memory");       \
                         ret = -1;                       \
                 }                                       \
-                ret = 0;                                \
         } while (0);
 
 #define QUOTA_ALLOC_OR_GOTO(var, type, ret, label)      \
