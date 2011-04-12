@@ -43,7 +43,7 @@ marker_force_inode_ctx_get (inode_t *inode, xlator_t *this,
                             marker_inode_ctx_t **ctx)
 {
         int32_t  ret = -1;
-        uint64_t ctx_int;
+        uint64_t ctx_int = 0;
 
         LOCK (&inode->lock);
         {

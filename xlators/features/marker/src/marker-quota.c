@@ -31,12 +31,17 @@
 #include "marker-quota-helper.h"
 
 int32_t
-loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc, uint64_t ino, char *name)
+loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
+                    uint64_t ino, char *name)
 {
-        int32_t   ret  = 0;
+        int32_t   ret  = -1;
         int32_t   len  = 0;
         char     *path = NULL;
 
+        GF_VALIDATE_OR_GOTO ("marker", this, out);
+        GF_VALIDATE_OR_GOTO ("marker", newloc, out);
+        GF_VALIDATE_OR_GOTO ("marker", oldloc, out);
+        GF_VALIDATE_OR_GOTO ("marker", name, out);
 
         newloc->ino = ino;
 
@@ -68,7 +73,8 @@ loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc, uint64_t ino, 
         if (newloc->name)
                 newloc->name++;
 
-        gf_log (this->name, GF_LOG_INFO, "path = %s name =%s",newloc->path, newloc->name);
+        gf_log (this->name, GF_LOG_DEBUG, "path = %s name =%s",
+                newloc->path, newloc->name);
 out:
         return ret;
 }
@@ -199,12 +205,20 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (!dict)
+        if (dict == NULL) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Dict is null while updating the size xattr %s",
+                        local->loc.path?local->loc.path:"");
                 goto err;
+        }
 
         ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
-        if (!size)
+        if (!size) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to get the size, %s",
+                        local->loc.path?local->loc.path:"");
                 goto err;
+        }
 
         QUOTA_ALLOC_OR_GOTO (delta, int64_t, ret, err);
 
@@ -380,10 +394,10 @@ quota_readdir_cbk (call_frame_t *frame,
         local->dentry_child_count =  0;
 
         list_for_each_entry (entry, (&entries->list), list) {
-              gf_log (this->name, GF_LOG_INFO, "entry  = %s", entry->d_name);
+              gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
 
               if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name, ".."))) {
-                      gf_log (this->name, GF_LOG_INFO, "entry  = %s", entry->d_name);
+                      gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
                       continue;
               }
               count++;
@@ -921,8 +935,6 @@ quota_release_parent_lock (call_frame_t *frame, void *cookie,
         quota_local_t     *local    = NULL;
         quota_inode_ctx_t *ctx      = NULL;
 
-        trap ();
-
         local = frame->local;
 
         ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
@@ -967,8 +979,6 @@ quota_mark_undirty (call_frame_t *frame,
         quota_local_t     *local        = NULL;
         quota_inode_ctx_t *ctx          = NULL;
         marker_conf_t     *priv         = NULL;
-
-        trap ();
 
         local = frame->local;
 
@@ -1047,8 +1057,6 @@ quota_update_parent_size (call_frame_t *frame,
         quota_local_t       *local      = NULL;
         quota_inode_ctx_t   *ctx        = NULL;
 
-        trap ();
-
         local = frame->local;
 
         if (op_ret == -1) {
@@ -1123,8 +1131,6 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
         quota_inode_ctx_t    *ctx             = NULL;
         marker_conf_t        *priv            = NULL;
         inode_contribution_t *contribution    = NULL;
-
-        trap ();
 
         local = frame->local;
 
@@ -1223,8 +1229,6 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
         quota_local_t     *local      = NULL;
         marker_conf_t     *priv       = NULL;
         quota_inode_ctx_t *ctx        = NULL;
-
-        trap ();
 
         local = frame->local;
 
@@ -1425,8 +1429,6 @@ initiate_quota_txn (xlator_t *this, loc_t *loc)
         int32_t            ret    = -1;
         quota_inode_ctx_t *ctx    = NULL;
         inode_contribution_t *contribution = NULL;
-
-        trap ();
 
         VALIDATE_OR_GOTO (loc, out);
 

@@ -190,7 +190,7 @@ add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 {
         inode_contribution_t *contribution = NULL;
 
-        if (ctx == NULL || loc == NULL)
+        if ((ctx == NULL) || (loc == NULL))
                 return NULL;
 
         if (strcmp (loc->path, "/") == 0)
@@ -213,6 +213,10 @@ dict_set_contribution (xlator_t *this, dict_t *dict,
         int32_t ret              = -1;
         char    contri_key [512] = {0, };
 
+        GF_VALIDATE_OR_GOTO ("marker", this, out);
+        GF_VALIDATE_OR_GOTO ("marker", dict, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+
         GET_CONTRI_KEY (contri_key, loc->parent->gfid, ret);
         if (ret < 0) {
                 ret = -1;
@@ -222,7 +226,8 @@ dict_set_contribution (xlator_t *this, dict_t *dict,
         ret = dict_set_int64 (dict, contri_key, 0);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "unable to set dict value.");
+                        "unable to set dict value on %s.",
+                        loc->path);
                 goto out;
         }
 
@@ -251,7 +256,7 @@ quota_inode_ctx_get (inode_t *inode, xlator_t *this,
                 goto out;
         }
 
-        mark_ctx = (marker_inode_ctx_t *) ctx_int;
+        mark_ctx = (marker_inode_ctx_t *) (unsigned long)ctx_int;
         if (mark_ctx->quota_ctx == NULL) {
                 ret = -1;
                 goto out;
@@ -289,13 +294,14 @@ __quota_inode_ctx_new (inode_t *inode, xlator_t *this)
                                 goto unlock;
                         }
                         mark_ctx->quota_ctx = quota_ctx;
-                } else
+                } else {
                         quota_ctx = mark_ctx->quota_ctx;
+                }
 
                 ret = 0;
         }
-unlock: UNLOCK (&inode->lock);
-
+unlock:
+        UNLOCK (&inode->lock);
 out:
         return quota_ctx;
 }
