@@ -234,7 +234,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
-        if (ret == -1) {
+        if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "size key not present in dict");
                 op_errno = EINVAL;
