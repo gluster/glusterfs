@@ -71,10 +71,13 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
         char            *resolvedpath = NULL;
         inode_t         *parent       = NULL;
         int              ret          = -1;
+        xlator_t        *this         = NULL;
 
         if ((!inode) || (!loc)) {
                 return ret;
         }
+
+        this = THIS;
 
         if ((inode) && (inode->ino == 1)) {
                 loc->parent = NULL;
@@ -83,17 +86,26 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
 
         parent = inode_parent (inode, 0, NULL);
         if (!parent) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot find parent for inode (ino:%"PRId64", "
+                        "gfid:%s)", inode->ino,
+                        uuid_utoa (inode->gfid));
                 goto err;
         }
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
         if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot construct path for inode (ino:%"PRId64", "
+                        "gfid:%s)", inode->ino,
+                        uuid_utoa (inode->gfid));
                 goto err;
         }
 
         ret = quota_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "cannot fill loc");
                 goto err;
         }
 
@@ -367,10 +379,11 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 }
 
                 if (parent == NULL) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "cannot find parent for inode (ino:%"PRId64", "
-                                "gfid:%s)", _inode->ino,
-                                uuid_utoa (_inode->gfid));
+                                "gfid:%s), hence aborting enforcing "
+                                "quota-limits and continuing with the fop",
+                                _inode->ino, uuid_utoa (_inode->gfid));
                 }
 
                 inode_unref (_inode);
@@ -423,14 +436,27 @@ validate:
                 }
 
                 local->validate_count++;
-                quota_inode_loc_fill (_inode, &local->validate_loc);
+                ret = quota_inode_loc_fill (_inode, &local->validate_loc);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot fill loc for inode (ino:%"PRId64", "
+                                "gfid:%s), hence aborting quota-checks and "
+                                "continuing with the fop", _inode->ino,
+                                uuid_utoa (_inode->gfid));
+                        local->validate_count--;
+                }
         }
         UNLOCK (&local->lock);
+
+        if (ret < 0) {
+                goto loc_fill_failed;
+        }
 
         STACK_WIND (frame, quota_validate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr, &local->validate_loc,
                     QUOTA_SIZE_KEY);
 
+loc_fill_failed:
         inode_unref (_inode);
         return 0;
 }
@@ -733,12 +759,12 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
                 }
 
                 parent = inode_parent (_inode, par, name);
-
                 if (parent == NULL) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "cannot find parent for inode (ino:%"PRId64", "
-                                "gfid:%s)", _inode->ino,
-                                uuid_utoa (_inode->gfid));
+                                "gfid:%s), hence aborting size updation of "
+                                "parents",
+                                _inode->ino, uuid_utoa (_inode->gfid));
                 }
 
                 if (name != NULL) {
