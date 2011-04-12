@@ -27,6 +27,10 @@
 
 #include "glusterd.h"
 
+typedef enum gd_volopt_flags_ {
+        OPT_FLAG_NONE,
+        OPT_FLAG_FORCE = 1,
+} gd_volopt_flags_t;
 int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 
@@ -45,5 +49,8 @@ int glusterd_validate_globalopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
 
 int glusterd_validate_localopts (dict_t *val_dict, char **op_errstr);
 gf_boolean_t glusterd_check_globaloption (char *key);
+gf_boolean_t
+glusterd_check_voloption_flags (char *key, int32_t flags);
+
 
 #endif

@@ -251,7 +251,7 @@ glusterd_check_brick_rb_part (char *bricks, int count, glusterd_volinfo_t *volin
 void
 glusterd_do_replace_brick (void *data);
 int
-glusterd_options_reset (glusterd_volinfo_t *volinfo);
+glusterd_options_reset (glusterd_volinfo_t *volinfo, int32_t is_force);
 
 char*
 glusterd_op_sm_state_name_get (int state);
