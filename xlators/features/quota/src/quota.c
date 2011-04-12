@@ -618,6 +618,10 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
+                if (local->limit != ctx->limit) {
+                        ctx->limit = local->limit;
+                }
+
                 ctx->buf = *buf;
 
                 if (!(IA_ISREG (buf->ia_type) || IA_ISLNK (buf->ia_type))) {
