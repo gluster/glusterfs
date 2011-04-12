@@ -30,4 +30,7 @@
 
 int32_t
 marker_force_inode_ctx_get (inode_t *, xlator_t *, marker_inode_ctx_t **);
+
+void
+marker_filter_quota_xattr (dict_t *, char *, data_t *, void *);
 #endif

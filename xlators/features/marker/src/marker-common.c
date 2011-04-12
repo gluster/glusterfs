@@ -20,7 +20,7 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
-
+#include <fnmatch.h>
 #include "marker-common.h"
 
 marker_inode_ctx_t *
@@ -69,3 +69,18 @@ unlock: UNLOCK (&inode->lock);
         return ret;
 }
 
+void
+marker_filter_quota_xattr (dict_t *dict, char *key,
+			   data_t *value, void *data)
+{
+	int ret = -1;
+
+	GF_VALIDATE_OR_GOTO ("marker", dict, out);
+	GF_VALIDATE_OR_GOTO ("marker", key, out);
+
+	ret = fnmatch ("trusted.glusterfs.quota*", key, 0);
+	if (ret == 0)
+		dict_del (dict, key);
+out:
+	return;
+}
