@@ -1184,9 +1184,9 @@ dict_foreach (dict_t *dict,
                          void *data),
               void *data)
 {
-        if (!data || !dict) {
+        if (!dict) {
                 gf_log_callingfn ("dict", GF_LOG_WARNING,
-                                  "data OR dict is NULL");
+                                  "dict is NULL");
                 return;
         }
 
