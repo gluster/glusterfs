@@ -279,11 +279,15 @@ __socket_disconnect (rpc_transport_t *this)
         priv = this->private;
 
         if (priv->sock != -1) {
-                ret = shutdown (priv->sock, SHUT_RDWR);
                 priv->connected = -1;
-                gf_log (this->name, GF_LOG_INFO,
-                        "shutdown() returned %d. set connection state to -1",
-                        ret);
+                ret = shutdown (priv->sock, SHUT_RDWR);
+                if (ret) {
+                        /* its already disconnected.. no need to understand
+                           why it failed to shutdown in normal cases */
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "shutdown() returned %d. %s",
+                                ret, strerror (errno));
+                }
         }
 
 out:
@@ -1482,9 +1486,11 @@ __socket_proto_state_machine (rpc_transport_t *this,
                                               &priv->incoming.pending_count,
                                               NULL);
                         if (ret == -1) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "reading from socket failed. Error (%s), "
-                                        "peer (%s)", strerror (errno),
+                                gf_log (this->name,
+                                        ((priv->connected == 1) ?
+                                         GF_LOG_WARNING : GF_LOG_DEBUG),
+                                        "reading from socket failed. Error (%s)"
+                                        ", peer (%s)", strerror (errno),
                                         this->peerinfo.identifier);
                                 goto out;
                         }
