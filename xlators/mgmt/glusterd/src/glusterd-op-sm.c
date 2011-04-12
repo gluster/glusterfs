@@ -4664,10 +4664,10 @@ create_vol:
         ret = 0;
 
 out:
-        if (start_crawl == _gf_true)
+        ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
+        if (ctx && start_crawl == _gf_true)
                 glusterd_quota_initiate_fs_crawl (priv, volname);
 
-        ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
         if (ctx && *op_errstr) {
                 ret = dict_set_dynstr (ctx, "errstr", *op_errstr);
                 if (ret) {
