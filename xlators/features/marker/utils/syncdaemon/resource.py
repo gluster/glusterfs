@@ -411,6 +411,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                 raise RuntimeError("command failed: " + " ".join(argv))
             logging.debug('auxiliary glusterfs mount in place')
             os.chdir(d)
+            time.sleep(0.2) # XXX temporary workaround
             argv = ['umount', '-l', d]
             if os.spawnvp(os.P_WAIT, argv[0], argv):
                 raise RuntimeError("command failed: " + " ".join(argv))

@@ -1386,7 +1386,9 @@ print_limit_list (char *volname, char *limit_list)
 
 unmount:
         memset (&cmd_str, 0, sizeof (cmd_str));
+
 #if GF_LINUX_HOST_OS
+        usleep (200000);
         snprintf (cmd_str, sizeof (cmd_str), "umount -l %s", mountdir);
 #else
         snprintf (cmd_str, sizeof (cmd_str), "umount %s", mountdir);
