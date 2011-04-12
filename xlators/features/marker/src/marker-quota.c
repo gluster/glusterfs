@@ -1475,6 +1475,7 @@ inspect_directory_xattr (xlator_t *this,
         int64_t                 *contri         = NULL;
         char                     contri_key [512] = {0, };
         marker_conf_t           *priv           = NULL;
+        gf_boolean_t             not_root       = _gf_false;
         quota_inode_ctx_t       *ctx            = NULL;
         inode_contribution_t    *contribution   = NULL;
 
@@ -1500,6 +1501,8 @@ inspect_directory_xattr (xlator_t *this,
                 goto out;
 
         if (strcmp (loc->path, "/") != 0) {
+                not_root = _gf_true;
+
                 contribution = add_new_contribution_node (this, ctx, loc);
                 if (contribution == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -1525,8 +1528,12 @@ inspect_directory_xattr (xlator_t *this,
                 contribution?contribution->contribution:0);
 
         ctx->dirty = dirty;
-        if (ctx->dirty == 1)
+        if (ctx->dirty == 1) {
                 update_dirty_inode (this, loc, ctx, contribution);
+        } else if (not_root == _gf_true &&
+                   ctx->size != contribution->contribution) {
+                initiate_quota_txn (this, loc);
+        }
 
         ret = 0;
 out:
