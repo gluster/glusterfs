@@ -432,7 +432,8 @@ gf_proc_dump_info (int signum)
                         iobuf_stats_dump (ctx->iobuf_pool);
                 if (GF_PROC_DUMP_IS_OPTION_ENABLED (callpool))
                         gf_proc_dump_pending_frames (ctx->pool);
-                gf_proc_dump_xlator_info (ctx->active->top);
+                if (ctx->active)
+                        gf_proc_dump_xlator_info (ctx->active->top);
 
         }
 
