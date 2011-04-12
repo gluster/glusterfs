@@ -35,13 +35,13 @@
 #include <sys/time.h>
 #include <libgen.h>
 
-
 void
 dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
 {
         dict_t  *dst  = NULL;
         int64_t *ptr  = 0, *size = NULL;
         int32_t  ret  = -1;
+        data_pair_t  *data_pair = NULL;
 
         dst = data;
 
@@ -71,6 +71,20 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                 }
 
                 *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
+        } else {
+                /* compare user xattrs only */
+                if (!strncmp (key, "user.", strlen ("user."))) {
+                        ret = dict_lookup (dst, key, &data_pair); 
+                        if (!ret && data) {
+                                ret = is_data_equal (data_pair->value, value);
+                                if (!ret)
+                                        gf_log ("dht", GF_LOG_WARNING,
+                                                "xattr mismatch for %s", key);
+                        }
+                }
+                ret = dict_set (dst, key, value);
+                if (ret)
+                        gf_log ("dht", GF_LOG_WARNING, "xattr dict set failed");
         }
 
         return;
@@ -1869,7 +1883,6 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  * local->xattr.
                  */
                 dht_aggregate_xattr (xattr, local->xattr);
-                local->xattr = dict_copy (xattr, local->xattr);
         }
 out:
         if (is_last_call (this_call_cnt)) {

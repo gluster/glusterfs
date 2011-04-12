@@ -214,6 +214,26 @@ _dict_lookup (dict_t *this, char *key)
         return NULL;
 }
 
+int32_t
+dict_lookup (dict_t *this, char *key, data_pair_t **data)
+{
+        if (!this || !key || !data) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "!this || !key || !data");
+                return -1;
+        }
+
+        LOCK (&this->lock);
+        {
+                *data = _dict_lookup (this, key);
+        }
+        UNLOCK (&this->lock);
+        if (*data)
+                return 0;
+        else
+                return -1;
+
+}
 
 static int32_t
 _dict_set (dict_t *this,

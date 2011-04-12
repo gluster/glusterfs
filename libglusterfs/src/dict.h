@@ -89,6 +89,7 @@ dict_t *dict_ref (dict_t *dict);
 data_t *data_ref (data_t *data);
 void data_unref (data_t *data);
 
+int32_t dict_lookup  (dict_t *this, char *key, data_pair_t **data);
 /*
    TODO: provide converts for differnt byte sizes, signedness, and void *
  */
