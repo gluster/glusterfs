@@ -3519,21 +3519,30 @@ out:
 void
 _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
 {
+        int             exists = 0;
+        int32_t         is_force = 0;
 
-        int            exists = 0;
-
+        GF_ASSERT (data);
+        is_force = *((int32_t*)data);
         exists = glusterd_check_option_exists(key, NULL);
 
-        if (exists == 1) {
-                gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s",
-                        key, value->data);
-                dict_del (this, key);
-        }
+        if (exists != 1)
+                goto out;
 
+        if ((!is_force) &&
+            (_gf_true == glusterd_check_voloption_flags (key,
+                                                         OPT_FLAG_FORCE)))
+                goto out;
+
+        gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s",
+                key, value->data);
+        dict_del (this, key);
+out:
+        return;
 }
 
 int
-glusterd_options_reset (glusterd_volinfo_t *volinfo)
+glusterd_options_reset (glusterd_volinfo_t *volinfo, int32_t is_force)
 {
         int                      ret = 0;
 
@@ -3541,7 +3550,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo->dict);
 
-        dict_foreach (volinfo->dict, _delete_reconfig_opt, volinfo->dict);
+        dict_foreach (volinfo->dict, _delete_reconfig_opt, &is_force);
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
@@ -3575,6 +3584,7 @@ glusterd_op_reset_volume (dict_t *dict)
         glusterd_volinfo_t     *volinfo    = NULL;
         int                     ret        = -1;
         char                   *volname    = NULL;
+        int32_t                is_force    = 0;
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -3582,13 +3592,17 @@ glusterd_op_reset_volume (dict_t *dict)
                 goto out;
         }
 
+        ret = dict_get_int32 (dict, "force", &is_force);
+        if (ret)
+                is_force = 0;
+
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
         }
 
-        ret = glusterd_options_reset (volinfo);
+        ret = glusterd_options_reset (volinfo, is_force);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "'volume reset' returning %d", ret);

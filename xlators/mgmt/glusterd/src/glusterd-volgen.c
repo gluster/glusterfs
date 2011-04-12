@@ -84,91 +84,92 @@ struct volopt_map_entry {
         char *option;
         char *value;
         option_type_t type;
+        uint32_t flags;
 };
 
 static struct volopt_map_entry glusterd_volopt_map[] = {
 
-        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC       }, /* NODOC */
-        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC       }, /* NODOC */
+        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
+        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0    },
 
-        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
-        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC       }, /* NODOC */
-        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC       }, /* NODOC */
-        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
-        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
-        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
-        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
-        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC},
-        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
-        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
-        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm", NULL,DOC},
+        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
+        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
+        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC, 0},
+        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm", NULL,DOC, 0},
 
-        {"cluster.stripe-block-size",            "cluster/stripe",            "block-size", NULL, DOC},
+        {"cluster.stripe-block-size",            "cluster/stripe",            "block-size", NULL, DOC, 0},
 
-        {"diagnostics.latency-measurement",      "debug/io-stats",     NULL, NULL, NO_DOC         },
-        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC        },
-        {"diagnostics.count-fop-hits",            "debug/io-stats",     NULL, NULL, NO_DOC        },
-        {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level", NULL, DOC},
-        {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level", NULL, DOC},
+        {"diagnostics.latency-measurement",      "debug/io-stats",     NULL, NULL, NO_DOC, 0      },
+        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0     },
+        {"diagnostics.count-fop-hits",           "debug/io-stats",     NULL, NULL, NO_DOC, 0     },
+        {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level", NULL, DOC, 0},
+        {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level", NULL, DOC, 0},
 
-        {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size", NULL, DOC},
-        {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size", NULL, DOC},
-        {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout", NULL, DOC},
-        {"performance.cache-priority",           "performance/io-cache",      "priority", NULL, DOC}, /* NODOC */
-        {"performance.cache-size",               "performance/io-cache",   NULL, NULL, NO_DOC    },
-        {"performance.cache-size",               "performance/quick-read", NULL, NULL, NO_DOC    },
-        {"performance.flush-behind",             "performance/write-behind",      "flush-behind", NULL, DOC},
+        {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size", NULL, DOC, 0},
+        {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size", NULL, DOC, 0},
+        {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout", NULL, DOC, 0},
+        {"performance.cache-priority",           "performance/io-cache",      "priority", NULL, DOC, 0},
+        {"performance.cache-size",               "performance/io-cache",   NULL, NULL, NO_DOC, 0 },
+        {"performance.cache-size",               "performance/quick-read", NULL, NULL, NO_DOC, 0 },
+        {"performance.flush-behind",             "performance/write-behind",      "flush-behind", NULL, DOC, 0},
 
-        {"performance.io-thread-count",          "performance/io-threads",    "thread-count", DOC},
+        {"performance.io-thread-count",          "performance/io-threads",    "thread-count", DOC, 0},
 
-        {"performance.disk-usage-limit",         "performance/quota",   NULL, NULL, NO_DOC       }, /* NODOC */
-        {"performance.min-free-disk-limit",      "performance/quota",   NULL, NULL, NO_DOC       }, /* NODOC */
+        {"performance.disk-usage-limit",         "performance/quota",   NULL, NULL, NO_DOC, 0    },
+        {"performance.min-free-disk-limit",      "performance/quota",   NULL, NULL, NO_DOC, 0    },
 
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC},
 
-        {"network.frame-timeout",                "protocol/client",    NULL, NULL, NO_DOC        },
-        {"network.ping-timeout",                 "protocol/client",    NULL, NULL, NO_DOC        },
-        {"network.inode-lru-limit",              "protocol/server",    NULL, NULL, NO_DOC        }, /* NODOC */
+        {"network.frame-timeout",                "protocol/client",    NULL, NULL, NO_DOC, 0     },
+        {"network.ping-timeout",                 "protocol/client",    NULL, NULL, NO_DOC, 0     },
+        {"network.inode-lru-limit",              "protocol/server",    NULL, NULL, NO_DOC, 0     },
 
-        {"auth.allow",                           "protocol/server",           "!server-auth", "*", DOC},
-        {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC},
+        {"auth.allow",                           "protocol/server",           "!server-auth", "*", DOC, 0},
+        {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC, 0},
 
-        {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC},
-        {"server.allow-insecure",                 "protocol/server",          "rpc-auth-allow-insecure", NULL, NO_DOC},
+        {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0},
+        {"server.allow-insecure",                 "protocol/server",          "rpc-auth-allow-insecure", NULL, NO_DOC, 0},
 
-        {"performance.write-behind",             "performance/write-behind",  "!perf", "on", NO_DOC}, /* NODOC */
-        {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC}, /* NODOC */
-        {"performance.io-cache",                 "performance/io-cache",      "!perf", "on", NO_DOC}, /* NODOC */
-        {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC}, /* NODOC */
-        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC},      /* NODOC */
+        {"performance.write-behind",             "performance/write-behind",  "!perf", "on", NO_DOC, 0},
+        {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC, 0},
+        {"performance.io-cache",                 "performance/io-cache",      "!perf", "on", NO_DOC, 0},
+        {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC, 0},
+        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC, 0},
 
-        {"features.marker-gsync",                "features/marker",           "gsync", "off", NO_DOC},
+        {"features.marker-gsync",                "features/marker",           "gsync", "off", NO_DOC, OPT_FLAG_FORCE},
 
-        {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
-        {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC},
-        {"nfs.export-dirs",                      "nfs/server",                "nfs3.export-dirs", NULL, GLOBAL_DOC},
-        {"nfs.export-volumes",                   "nfs/server",                "nfs3.export-volumes", NULL, GLOBAL_DOC},
-        {"nfs.addr-namelookup",                  "nfs/server",                "rpc-auth.addr.namelookup", NULL, GLOBAL_DOC},
-        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_DOC},
-        {"nfs.register-with-portmap",            "nfs/server",                "rpc.register-with-portmap", NULL, GLOBAL_DOC},
-        {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC},
+        {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC, 0},
+        {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC, 0},
+        {"nfs.export-dirs",                      "nfs/server",                "nfs3.export-dirs", NULL, GLOBAL_DOC, 0},
+        {"nfs.export-volumes",                   "nfs/server",                "nfs3.export-volumes", NULL, GLOBAL_DOC, 0},
+        {"nfs.addr-namelookup",                  "nfs/server",                "rpc-auth.addr.namelookup", NULL, GLOBAL_DOC, 0},
+        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_DOC, 0},
+        {"nfs.register-with-portmap",            "nfs/server",                "rpc.register-with-portmap", NULL, GLOBAL_DOC, 0},
+        {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC, 0},
 
-        {"nfs.rpc-auth-unix",                    "nfs/server",                "!nfs.rpc-auth-auth-unix", NULL, DOC},
-        {"nfs.rpc-auth-null",                    "nfs/server",                "!nfs.rpc-auth-auth-null", NULL, DOC},
-        {"nfs.rpc-auth-allow",                   "nfs/server",                "!nfs.rpc-auth.addr.allow", NULL, DOC},
-        {"nfs.rpc-auth-reject",                  "nfs/server",                "!nfs.rpc-auth.addr.reject", NULL, DOC},
-        {"nfs.ports-insecure",                   "nfs/server",                "!nfs.auth.ports.insecure", NULL, DOC},
+        {"nfs.rpc-auth-unix",                    "nfs/server",                "!nfs.rpc-auth-auth-unix", NULL, DOC, 0},
+        {"nfs.rpc-auth-null",                    "nfs/server",                "!nfs.rpc-auth-auth-null", NULL, DOC, 0},
+        {"nfs.rpc-auth-allow",                   "nfs/server",                "!nfs.rpc-auth.addr.allow", NULL, DOC, 0},
+        {"nfs.rpc-auth-reject",                  "nfs/server",                "!nfs.rpc-auth.addr.reject", NULL, DOC, 0},
+        {"nfs.ports-insecure",                   "nfs/server",                "!nfs.auth.ports.insecure", NULL, DOC, 0},
 
-        {"nfs.trusted-sync",                     "nfs/server",                "!nfs-trusted-sync", NULL, DOC},
-        {"nfs.trusted-write",                    "nfs/server",                "!nfs-trusted-write", NULL, DOC},
-        {"nfs.volume-access",                    "nfs/server",                "!nfs-volume-access", NULL, DOC},
-        {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC},
-        {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC},
+        {"nfs.trusted-sync",                     "nfs/server",                "!nfs-trusted-sync", NULL, DOC, 0},
+        {"nfs.trusted-write",                    "nfs/server",                "!nfs-trusted-write", NULL, DOC, 0},
+        {"nfs.volume-access",                    "nfs/server",                "!nfs-volume-access", NULL, DOC, 0},
+        {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC, 0},
+        {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
 
-        {"features.quota",                       "features/quota",            "quota", "off", NO_DOC},
-        {"features.quota",                       "features/marker",           "quota", "off", NO_DOC},
-        {"features.limit-usage",                 "features/quota",            "limit-set", NULL, NO_DOC},
-        {"features.quota-timeout",               "features/quota",            "timeout", "0", NO_DOC},
+        {"features.quota",                       "features/quota",            "quota", "off", NO_DOC, OPT_FLAG_FORCE},
+        {"features.quota",                       "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
+        {"features.limit-usage",                 "features/quota",            "limit-set", NULL, NO_DOC, 0},
+        {"features.quota-timeout",               "features/quota",            "timeout", "0", NO_DOC, 0},
         {NULL,                                                                }
 };
 
@@ -746,6 +747,39 @@ int
 glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
 {
         return volgen_dict_get (volinfo->dict, key, value);
+}
+
+gf_boolean_t
+glusterd_check_voloption_flags (char *key, int32_t flags)
+{
+        char *completion = NULL;
+        struct volopt_map_entry *vmep = NULL;
+        int   ret = 0;
+
+        if (!strchr (key, '.')) {
+                ret = option_complete (key, &completion);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        return _gf_false;
+                }
+
+                if (!completion) {
+                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
+                                        key);
+                        return _gf_false;
+                }
+        }
+
+        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
+                if (strcmp (vmep->key, key) == 0) {
+                        if (vmep->flags & flags)
+                                return _gf_true;
+                        else
+                                return _gf_false;
+                }
+        }
+
+        return _gf_false;
 }
 
 gf_boolean_t

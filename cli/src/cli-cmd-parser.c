@@ -342,6 +342,9 @@ cli_cmd_volume_reset_parse (const char **words, int wordcount, dict_t **options)
         if (wordcount < 3)
                 goto out;
 
+        if (wordcount > 4)
+                goto out;
+
         volname = (char *)words[2];
 
         if (!volname) {
@@ -350,17 +353,26 @@ cli_cmd_volume_reset_parse (const char **words, int wordcount, dict_t **options)
         }
 
         ret = dict_set_str (dict, "volname", volname);
-
         if (ret)
                 goto out;
+
+        if (wordcount == 4) {
+                if (strcmp ("force", (char*)words[3])) {
+                        ret = -1;
+                        goto out;
+                } else {
+                        ret = dict_set_int32 (dict, "force", 1);
+                        if (ret)
+                                goto out;
+                }
+        }
 
         *options = dict;
 
 out:
-                if (ret) {
-        if (dict)
+        if (ret && dict) {
                 dict_destroy (dict);
-                }
+        }
 
                 return ret;
 }
