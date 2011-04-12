@@ -25,6 +25,7 @@
 #include <time.h>
 #include <sys/uio.h>
 #include <sys/resource.h>
+#include <sys/mount.h>
 
 #include <libgen.h>
 #include "uuid.h"
