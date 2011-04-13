@@ -3744,7 +3744,7 @@ gsync_config_set (char *master, char *slave,
         }
 
         ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/%s %s %s"
-                                 " --config-set %s %s", priv->workdir,
+                                 " --config-set %s \" %s \"", priv->workdir,
                              GSYNC_CONF, master, slave, op_name, op_value);
         if (ret <= 0) {
                 gf_log ("", GF_LOG_WARNING, "failed to "
