@@ -1971,7 +1971,8 @@ socket_connect (rpc_transport_t *this, int port)
         if (sock != -1) {
                 gf_log_callingfn (this->name, GF_LOG_TRACE,
                                   "connect () called on transport already connected");
-                ret = 0;
+                errno = EINPROGRESS;
+                ret = -1;
                 goto err;
         }
 
