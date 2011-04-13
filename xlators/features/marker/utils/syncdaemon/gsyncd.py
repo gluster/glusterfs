@@ -15,6 +15,7 @@ from logging import Logger
 from errno import EEXIST, ENOENT, EACCES, EAGAIN
 
 from gconf import gconf
+from syncdutils import FreeObject
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -191,6 +192,8 @@ def main_i():
         rconf[opt.dest] = val
     def store_local_curry(val):
         return lambda o, oo, vx, p: store_local(o, oo, val, p)
+    def store_local_obj(op, dmake):
+        return lambda o, oo, vx, p: store_local(o, oo, FreeObject(op=op, **dmake(vx)), p)
 
     op = OptionParser(usage="%prog [options...] <master> <slave>", version="%prog 0.0.1")
     op.add_option('--gluster-command',     metavar='CMD',   default='glusterfs')
@@ -217,18 +220,26 @@ def main_i():
     op.add_option('--debug', dest="go_daemon",              action='callback', callback=lambda *a: (store_local_curry('dont')(*a),
                                                                                                     setattr(a[-1].values, 'log_file', '-'),
                                                                                                     setattr(a[-1].values, 'log_level', 'DEBUG'))),
-    op.add_option('--config-get',           metavar='OPT',  type=str, dest='config', action='callback', callback=store_local)
-    op.add_option('--config-get-all', dest='config', action='callback', callback=store_local_curry(True))
-    op.add_option('--config-set',           metavar='OPT VAL', type=str, nargs=2, dest='config', action='callback',
-                   callback=lambda o, oo, vx, p: store_local(o, oo, (vx[0], vx[1], False), p))
-    op.add_option('--config-set-rx',        metavar='OPT VAL', type=str, nargs=2, dest='config', action='callback',
-                   callback=lambda o, oo, vx, p: store_local(o, oo, (vx[0], vx[1], True), p))
-    op.add_option('--config-del',           metavar='OPT',  type=str, dest='config', action='callback', callback=lambda o, oo, vx, p:
-                                                                                                                    store_local(o, oo, (vx, False, False), p))
-    op.add_option('--config-del-rx',        metavar='OPT',  type=str, dest='config', action='callback', callback=lambda o, oo, vx, p:
-                                                                                                                    store_local(o, oo, (vx, False, True), p))
+
+    for a in ('check', 'get'):
+        op.add_option('--config-' + a,      metavar='OPT',  type=str, dest='config', action='callback',
+                      callback=store_local_obj(a, lambda vx: {'opt': vx}))
+    op.add_option('--config-get-all', dest='config', action='callback', callback=store_local_obj('get', lambda vx: {'opt': None}))
+    for m in ('', '-rx'):
+        # call this code 'Pythonic' eh?
+        # have to define a one-shot local function to be able to inject (a value depending on the)
+        # iteration variable into the inner lambda
+        def conf_mod_opt_regex_variant(rx):
+            op.add_option('--config-set' + m,   metavar='OPT VAL', type=str, nargs=2, dest='config', action='callback',
+                          callback=store_local_obj('set', lambda vx: {'opt': vx[0], 'val': vx[1], 'rx': rx}))
+            op.add_option('--config-del' + m,   metavar='OPT',  type=str, dest='config', action='callback',
+                          callback=store_local_obj('del', lambda vx: {'opt': vx, 'rx': rx}))
+        conf_mod_opt_regex_variant(not not m)
+
     op.add_option('--canonicalize-url',        dest='do_canon', action='callback', callback=store_local_curry('raw'))
     op.add_option('--canonicalize-escape-url', dest='do_canon', action='callback', callback=store_local_curry('escaped'))
+
+    tunables = [ o.get_opt_string()[2:] for o in op.option_list if o.callback in (store_abs, None) and o.get_opt_string() not in ('--version', '--help') ]
 
     # precedence for sources of values: 1) commandline, 2) cfg file, 3) defaults
     # -- for this to work out we need to tell apart defaults from explicitly set
@@ -245,7 +256,7 @@ def main_i():
         sys.stderr.write(op.get_usage() + "\n")
         sys.exit(1)
 
-    if confdata and isinstance(confdata, tuple) and confdata[2]:
+    if getattr(confdata, 'rx', None):
         # peers are regexen, don't try to parse them
         canon_peers = args
     else:
@@ -274,15 +285,20 @@ def main_i():
     gcnf = GConffile(rconf['config_file'], canon_peers)
 
     if confdata:
-        if isinstance(confdata, tuple):
-            if confdata[1]:
-                gcnf.set(*confdata)
+        opt_ok = confdata.opt in tunables + [None]
+        if confdata.op == 'check':
+            if opt_ok:
+                sys.exit(0)
             else:
-                gcnf.delete(confdata[0], confdata[1])
-        else:
-            if confdata == True:
-                confdata = None
-            gcnf.get(confdata)
+                sys.exit(1)
+        elif not opt_ok:
+            raise RuntimeError("not a valid option: " + confdata.opt)
+        if confdata.op == 'get':
+            gcnf.get(confdata.opt)
+        elif confdata.op == 'set':
+            gcnf.set(confdata.opt, confdata.val, confdata.rx)
+        elif confdata.op == 'del':
+            gcnf.delete(confdata.opt, confdata.rx)
         return
 
     gconf.__dict__.update(defaults.__dict__)
