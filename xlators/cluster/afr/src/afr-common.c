@@ -2448,7 +2448,7 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_build_key(key, key_prefix, "read_child");
         gf_proc_dump_write(key, "%d", priv->read_child);
         gf_proc_dump_build_key(key, key_prefix, "favorite_child");
-        gf_proc_dump_write(key, "%u", priv->favorite_child);
+        gf_proc_dump_write(key, "%d", priv->favorite_child);
         gf_proc_dump_build_key(key, key_prefix, "data_lock_server_count");
         gf_proc_dump_write(key, "%u", priv->data_lock_server_count);
         gf_proc_dump_build_key(key, key_prefix, "metadata_lock_server_count");
