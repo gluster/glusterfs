@@ -1,6 +1,5 @@
 import os
 import sys
-import threading
 import time
 import stat
 import signal
@@ -106,7 +105,7 @@ class GMaster(object):
                         gap = min(10, gap)
                     self.slave.server.keep_alive(vi)
                     time.sleep(gap)
-            t = threading.Thread(target=keep_alive)
+            t = Thread(target=keep_alive)
             t.setDaemon(True)
             t.start()
         while True:
