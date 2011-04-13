@@ -163,6 +163,17 @@ typedef struct glusterd_pr_brick_rsp_conv_t {
         dict_t *dict;
 } glusterd_pr_brick_rsp_conv_t;
 
+typedef struct glusterd_gsync_slaves {
+        char *slave;
+        char *host_uuid;
+        int   ret_status;
+        char rmt_hostname[256];
+} glusterd_gsync_slaves_t;
+
+typedef struct glusterd_gsync_status_temp {
+        dict_t *rsp_dict;
+        glusterd_volinfo_t *volinfo;
+}glusterd_gsync_status_temp_t;
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
                           glusterd_op_sm_event_t **new_event);
@@ -286,4 +297,8 @@ gf_boolean_t
 glusterd_are_all_volumes_stopped ();
 int
 glusterd_stop_bricks (glusterd_volinfo_t *volinfo);
+int
+glusterd_get_gsync_status_mst_slv( glusterd_volinfo_t *volinfo, char *master,
+                                   char *slave, dict_t *rsp_dict);
+
 #endif

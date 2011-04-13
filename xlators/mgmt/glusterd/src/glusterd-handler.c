@@ -1669,8 +1669,14 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
         char                    *slave = NULL;
         char                    operation[256] = {0,};
         int                     type = 0;
+        glusterd_conf_t         *priv   = NULL;
+        char                    *host_uuid = NULL;
 
         GF_ASSERT (req);
+        GF_ASSERT (THIS);
+        GF_ASSERT (THIS->private);
+
+        priv = THIS->private;
 
         ret = glusterd_op_set_cli_op (cli_op);
         if (ret) {
@@ -1701,20 +1707,32 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 } else {
                         dict->extra_stdfree = cli_req.dict.dict_val;
                 }
+
+                host_uuid = gf_strdup (uuid_utoa(priv->uuid));
+                if (host_uuid == NULL) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "failed to get"
+                                "the uuid of the host machine");
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_dynstr (dict, "host-uuid", host_uuid);
+                if (ret)
+                        goto out;
+
         }
 
         ret = dict_get_str (dict, "master", &master);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "master not found, while handling"
+                gf_log ("", GF_LOG_INFO, "master not found, while handling"
                          "gsync options");
-                goto out;
+                master = "(No Master)";
         }
 
         ret = dict_get_str (dict, "slave", &slave);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "slave not not found, while"
+                gf_log ("", GF_LOG_INFO, "slave not not found, while"
                         "handling gsync options");
-                goto out;
+                slave = "(No Slave)";
         }
 
         ret = dict_get_int32 (dict, "type", &type);
@@ -1736,6 +1754,10 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         case GF_GSYNC_OPTION_TYPE_CONFIGURE:
                 strncpy (operation, "configure", sizeof (operation));
+                break;
+
+        case GF_GSYNC_OPTION_TYPE_STATUS:
+                strncpy (operation, "status", sizeof (operation));
                 break;
         }
 

@@ -761,6 +761,9 @@ xdr_gf1_cli_gsync_set_rsp (XDR *xdrs, gf1_cli_gsync_set_rsp *objp)
 		 return FALSE;
         if (!xdr_string (xdrs, &objp->glusterd_workdir, ~0))
                 return FALSE;
+        if (!xdr_bytes (xdrs, (char **)&objp->status_dict.status_dict_val,
+                        (u_int *) &objp->status_dict.status_dict_len, ~0))
+                return FALSE;
 
 	return TRUE;
 }

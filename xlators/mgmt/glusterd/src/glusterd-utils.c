@@ -522,6 +522,14 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
                 goto out;
         }
 
+        new_volinfo->gsync_slaves = dict_new ();
+        if (!new_volinfo->gsync_slaves) {
+                if (new_volinfo)
+                        GF_FREE (new_volinfo);
+
+                goto out;
+        }
+
         *volinfo = new_volinfo;
 
         ret = 0;

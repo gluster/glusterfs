@@ -2580,6 +2580,7 @@ out:
         return ret;
 }
 
+
 int
 gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
 {
@@ -2615,6 +2616,7 @@ gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
 
         return 0;
 }
+
 
 int
 gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, char *slave, char *gl_workdir)
@@ -2672,6 +2674,55 @@ gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, ch
                 gf_log ("", GF_LOG_ERROR, "popen failed");
 
         return ret ? -1 : 0;
+}
+int
+gf_cli3_1_gsync_out_status (dict_t *dict)
+{
+        int              gsync_count = 0;
+        int              i = 0;
+        int              ret = 0;
+        char             mst[PATH_MAX] = {0, };
+        char             slv[PATH_MAX]= {0, };
+        char             sts[PATH_MAX] = {0, };
+        char             *mst_val = NULL;
+        char             *slv_val = NULL;
+        char             *sts_val = NULL;
+
+
+        ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
+        if (ret) {
+                cli_out ("No Gsync sessions for the selected");
+                ret = 0;
+                goto out;
+        }
+
+        cli_out ("Gsync Status:");
+
+        for (i = 1; i <= gsync_count; i++) {
+                snprintf (mst, sizeof(mst), "master%d", i);
+                snprintf (slv, sizeof(slv), "slave%d", i);
+                snprintf (sts, sizeof(sts), "status%d", i);
+
+                ret = dict_get_str (dict, mst, &mst_val);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (dict, slv, &slv_val);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (dict, sts, &sts_val);
+                if (ret)
+                        goto out;
+
+                cli_out ("Master:%-20s   Slave:%-50s  Status:%-10s", mst_val,
+                         slv_val, sts_val);
+
+        }
+
+ out:
+        return ret;
+
 }
 
 /* status: 0 when gsync is running
@@ -2860,6 +2911,7 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
 {
         int                     ret     = 0;
         gf1_cli_gsync_set_rsp   rsp     = {0, };
+        dict_t                  *dict   = NULL;
 
         if (req->rpc_status == -1) {
                 ret = -1;
@@ -2873,6 +2925,20 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.status_dict.status_dict_val,
+                                rsp.status_dict.status_dict_len,
+                                &dict);
+
+        if (ret)
+                goto out;
+
         if (rsp.op_ret) {
                 cli_out ("%s", rsp.op_errstr ? rsp.op_errstr :
                          "command unsuccessful");
@@ -2882,10 +2948,17 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 if (rsp.type == GF_GSYNC_OPTION_TYPE_START)
                         ret = gf_cli3_1_start_gsync (rsp.master, rsp.slave,
                                                       rsp.glusterd_workdir);
-                else if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL)
+                else if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL
+                         || rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET)
                         ret = gf_cli3_1_gsync_get_command (rsp);
-                else
+                else if (rsp.type == GF_GSYNC_OPTION_TYPE_STATUS)
+                        ret = gf_cli3_1_gsync_out_status (dict);
+                else if (rsp.type == GF_GSYNC_OPTION_TYPE_STOP)
+                        cli_out ("Gsync session stopped successfully");
+                else if (!rsp.op_errstr)
                         cli_out ("command executed successfully");
+                else
+                        cli_out (rsp.op_errstr);
         }
 out:
         ret = rsp.op_ret;

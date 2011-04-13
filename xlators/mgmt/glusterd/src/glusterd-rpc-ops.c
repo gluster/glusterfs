@@ -304,7 +304,13 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                                         rsp.op_name =
                                                 gf_strdup (op_name);
                         }
-                } else if (op_errstr)
+
+                        ret = dict_allocate_and_serialize (ctx,
+                                        &rsp.status_dict.status_dict_val,
+                                    (size_t*)&rsp.status_dict.status_dict_len);
+
+                }
+                if (op_errstr)
                         rsp.op_errstr = op_errstr;
                 cli_rsp = &rsp;
                 sfunc = gf_xdr_serialize_cli_gsync_set_rsp;
@@ -827,7 +833,108 @@ out:
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
+static int32_t
+glusterd_append_status_dicts (dict_t *dst, dict_t *src)
+{
+        int              dst_count = 0;
+        int              src_count = 0;
+        int              i = 0;
+        int              ret = 0;
+        char             mst[PATH_MAX] = {0,};
+        char             slv[PATH_MAX] = {0, };
+        char             sts[PATH_MAX] = {0, };
+        char             *mst_val = NULL;
+        char             *slv_val = NULL;
+        char             *sts_val = NULL;
 
+        GF_ASSERT (dst);
+
+        if (src == NULL)
+                goto out;
+
+        ret = dict_get_int32 (dst, "gsync-count", &dst_count);
+        if (ret)
+                dst_count = 0;
+
+        ret = dict_get_int32 (src, "gsync-count", &src_count);
+        if (ret || !src_count) {
+                gf_log ("", GF_LOG_DEBUG, "Source brick empty");
+                ret = 0;
+                goto out;
+        }
+
+        for (i = 1; i <= src_count; i++) {
+                snprintf (mst, sizeof(mst), "master%d", i);
+                snprintf (slv, sizeof(slv), "slave%d", i);
+                snprintf (sts, sizeof(sts), "status%d", i);
+
+                ret = dict_get_str (src, mst, &mst_val);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (src, slv, &slv_val);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (src, sts, &sts_val);
+                if (ret)
+                        goto out;
+
+                snprintf (mst, sizeof(mst), "master%d", i+dst_count);
+                snprintf (slv, sizeof(slv), "slave%d", i+dst_count);
+                snprintf (sts, sizeof(sts), "status%d", i+dst_count);
+
+                ret = dict_set_dynstr (dst, mst, gf_strdup (mst_val));
+                if (ret)
+                        goto out;
+
+                ret = dict_set_dynstr (dst, slv, gf_strdup (slv_val));
+                if (ret)
+                        goto out;
+
+                ret = dict_set_dynstr (dst, sts, gf_strdup (sts_val));
+                if (ret)
+                        goto out;
+
+        }
+
+        ret = dict_set_int32 (dst, "gsync-count", dst_count+src_count);
+
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+static int32_t
+glusterd_gsync_use_rsp_dict (dict_t *rsp_dict, char *op_errstr)
+{
+        dict_t             *ctx = NULL;
+        int                ret = 0;
+
+        ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
+        if (!ctx) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Operation Context is not present");
+                GF_ASSERT (0);
+        }
+
+        if (rsp_dict) {
+                ret = glusterd_append_status_dicts (ctx, rsp_dict);
+                if (ret)
+                        goto out;
+        }
+        if (strcmp ("", op_errstr)) {
+                ret = dict_set_dynstr (ctx, "errstr", gf_strdup(op_errstr));
+                if (ret)
+                        goto out;
+        }
+
+        ret = 0;
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d ", ret);
+        return ret;
+}
 static int32_t
 glusterd_rb_use_rsp_dict (dict_t *rsp_dict)
 {
@@ -1169,6 +1276,12 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
                 case GD_OP_PROFILE_VOLUME:
                         ret = glusterd_profile_volume_use_rsp_dict (dict);
+                        if (ret)
+                                goto out;
+                break;
+
+                case GD_OP_GSYNC_SET:
+                        ret = glusterd_gsync_use_rsp_dict (dict, rsp.op_errstr);
                         if (ret)
                                 goto out;
                 break;

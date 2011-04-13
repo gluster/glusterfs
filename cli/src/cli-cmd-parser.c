@@ -1120,13 +1120,14 @@ out:
 int32_t
 cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 {
-        int32_t            ret     = 0;
+        int32_t            ret     = -1;
         int32_t            config_type = 0;
         dict_t             *dict   = NULL;
         gf1_cli_gsync_set  type    = GF_GSYNC_OPTION_TYPE_NONE;
         char               *append_str = NULL;
         size_t             append_len = 0;
         int                i = 0;
+        int32_t            status_type = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -1137,6 +1138,43 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         dict = dict_new ();
         if (!dict)
                 goto out;
+
+        if (wordcount < 3)
+                goto out;
+
+        if ((strcmp (words[2], "status")) == 0) {
+                type = GF_GSYNC_OPTION_TYPE_STATUS;
+
+                if (wordcount == 3)
+                        status_type = GF_GSYNC_OPTION_TYPE_STATUS_ALL;
+                else if (wordcount == 4)
+                        status_type = GF_GSYNC_OPTION_TYPE_STATUS_MASTER;
+                else if (wordcount == 5)
+                        status_type = GF_GSYNC_OPTION_TYPE_STATUS_MST_SLV;
+                else
+                        goto out;
+
+
+                ret = dict_set_int32 (dict, "status-type", status_type);
+                if (ret < 0)
+                        goto out;
+
+                if (wordcount < 4)
+                        goto set_type;
+                ret = dict_set_str (dict, "master", (char *)words[3]);
+                if (ret < 0)
+                        goto out;
+
+                if (wordcount < 5)
+                        goto set_type;
+                ret = dict_set_str (dict, "slave", (char *)words[4]);
+                if (ret < 0)
+                        goto out;
+
+
+
+                goto set_type;
+        }
 
         if (wordcount < 5)
                 goto out;
@@ -1150,12 +1188,18 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 goto out;
 
         if ((strcmp (words[2], "start")) == 0) {
+                if (wordcount != 5)
+                        goto out;
+
                 type = GF_GSYNC_OPTION_TYPE_START;
 
                 goto set_type;
         }
 
         if ((strcmp (words[2], "stop")) == 0) {
+                if (wordcount != 5)
+                        goto out;
+
                 type = GF_GSYNC_OPTION_TYPE_STOP;
 
                 goto set_type;
@@ -1219,6 +1263,9 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 ret = dict_set_int32 (dict, "config_type", config_type);
                 if (ret < 0)
                         goto out;
+        } else {
+                ret = -1;
+                goto out;
         }
 
 set_type:
