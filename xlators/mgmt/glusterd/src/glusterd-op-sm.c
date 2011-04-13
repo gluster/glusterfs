@@ -110,6 +110,9 @@ typedef struct glusterd_quota_child_info {
 
 static int
 glusterd_restart_brick_servers (glusterd_volinfo_t *);
+static int
+glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag);
+
 
 char*
 glusterd_op_sm_state_name_get (int state)
@@ -495,6 +498,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         char                                    *volname = NULL;
         int                                     flags = 0;
         gf_boolean_t                            exists = _gf_false;
+        gf_boolean_t                            is_run = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    msg[2048] = {0};
 
@@ -530,6 +534,23 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+                ret = glusterd_check_gsync_running (volinfo, &is_run);
+                if (ret && (is_run == _gf_false))
+                        gf_log ("", GF_LOG_WARNING, "Unable to get the status"
+                                 " of active gsync session");
+                if (is_run) {
+                        gf_log ("", GF_LOG_WARNING, "Gsync sessions active"
+                                "for the volume %s ", volname);
+                        snprintf (msg, sizeof(msg), "Gsync sessions are active "
+                                  "for the volume '%s'.\nUse 'volume gsync "
+                                  "status' command for more info. Use 'force'"
+                                  "option to ignore and stop stop the volume",
+                                   volname);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
         }
 
 
@@ -2325,6 +2346,21 @@ out:
         }
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
+}
+
+static int
+glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag)
+{
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (flag);
+
+        if (volinfo->gsync_slaves->count)
+                *flag = _gf_true;
+        else
+                *flag = _gf_false;
+
+        return 0;
 }
 
 static int
