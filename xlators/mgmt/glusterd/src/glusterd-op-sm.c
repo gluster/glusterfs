@@ -4428,6 +4428,12 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
         GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
 
+        ret = glusterd_check_if_quota_trans_enabled (volinfo);
+        if (ret == -1) {
+                *op_errstr = gf_strdup ("Quota is already disabled");
+                goto out;
+        }
+
         quota_status = gf_strdup ("off");
         if (!quota_status) {
                 gf_log ("", GF_LOG_ERROR, "memory allocation failed");
