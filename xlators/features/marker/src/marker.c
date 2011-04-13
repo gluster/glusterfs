@@ -264,7 +264,7 @@ int32_t
 marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	if (frame->cookie) {
+	if (cookie) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Filtering the quota extended attributes");
 
@@ -278,8 +278,9 @@ int32_t
 marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  const char *name)
 {
-        gf_boolean_t   ret  = _gf_false;
-        marker_conf_t *priv = NULL;
+        gf_boolean_t   ret    = _gf_false;
+        marker_conf_t *priv   = NULL;
+        unsigned long  cookie = 0;
 
         priv = this->private;
 
@@ -297,10 +298,12 @@ wind:
                          * this is to prevent afr from performing
                          * self healing on marker-quota xattrs'
                          */
-			frame->cookie = (void *) 1;
+			cookie = 1;
                 }
-                STACK_WIND (frame, marker_getxattr_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->getxattr, loc, name);
+                STACK_WIND_COOKIE (frame, marker_getxattr_cbk, (void *)cookie,
+                                   FIRST_CHILD(this),
+                                   FIRST_CHILD(this)->fops->getxattr, loc,
+                                   name);
 	}
 
         return 0;
