@@ -75,6 +75,8 @@ def grabfile(fname, content=None):
     gconf.permanent_handles.append(f)
     return f
 
+pid_file_owned = False
+
 def grabpidfile(fname=None, setpid=True):
     if not fname:
         fname = gconf.pid_file
@@ -84,10 +86,13 @@ def grabpidfile(fname=None, setpid=True):
     return grabfile(fname, content=content)
 
 def startup(**kw):
+    global pid_file_owned
+
     if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
         if not grabpidfile():
             sys.stderr.write("pidfile is taken, exiting.\n")
             sys.exit(2)
+        pid_file_owned = True
 
     if kw.get('go_daemon') == 'should':
         x, y = os.pipe()
@@ -125,7 +130,7 @@ def startup(**kw):
 
 def finalize(*a):
     if getattr(gconf, 'pid_file', None):
-        rm_pidf = True
+        rm_pidf = pid_file_owned
         if gconf.cpid:
             # exit path from parent branch of daemonization
             rm_pidf = False
