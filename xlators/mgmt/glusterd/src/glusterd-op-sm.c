@@ -95,17 +95,11 @@ static char *glusterd_op_sm_event_names[] = {
         "GD_OP_EVENT_INVALID"
 };
 
-static char *gsync_opname[] = {
+static char *gsync_reserved_opts[] = {
         "gluster-command",
-        "gluster-log-file",
-        "gluster-log-level",
+        "pid-file",
         "log-file",
-        "log-level",
-        "remote-gsyncd",
-        "ssh-command",
-        "rsync-command",
-        "timeout",
-        "sync-jobs",
+        "state-file",
         NULL
 };
 
@@ -1829,9 +1823,12 @@ int
 gsync_validate_config_option (dict_t *dict, int32_t config_type,
                               char **op_errstr)
 {
+        char    cmd[PATH_MAX] = {0,};
         int     ret       = -1;
+        char  **resopt    = NULL;
         int     i         = 0;
-        char    *op_name  = NULL;
+        char   *op_name   = NULL;
+        gf_boolean_t banned = _gf_true;
 
         if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL)
                 return 0;
@@ -1840,24 +1837,42 @@ gsync_validate_config_option (dict_t *dict, int32_t config_type,
         if (ret < 0) {
                 gf_log ("", GF_LOG_WARNING, "option not specified");
                 *op_errstr = gf_strdup ("Please specify the option");
-                goto out;
+                return -1;
         }
 
-        i = 0;
-        while (gsync_opname[i] != NULL) {
-                if (strcmp (gsync_opname[i], op_name) == 0) {
-                        ret = 0;
-                        goto out;
+        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --config-check %s", op_name);
+        ret = system (cmd);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Invalid option %s", op_name);
+                *op_errstr = gf_strdup ("Invalid option");
+
+                ret = -1;
+        }
+
+        if (ret != -1 &&
+            (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_SET ||
+             config_type == GF_GSYNC_OPTION_TYPE_CONFIG_DEL)) {
+                /* match option name against reserved options, modulo -/-
+                 * difference
+                 */
+                for (resopt = gsync_reserved_opts; *resopt; resopt++) {
+                        banned = _gf_true;
+                        for (i = 0; (*resopt)[i] && op_name[i]; i++) {
+                                if ((*resopt)[i] == op_name[i] ||
+                                    ((*resopt)[i] == '-' && op_name[i] == '_'))
+                                        continue;
+                                banned = _gf_false;
+                        }
+                        if (banned) {
+                                gf_log ("", GF_LOG_WARNING, "Reserved option %s", op_name);
+                                *op_errstr = gf_strdup ("Reserved option");
+
+                                ret = -1;
+                                break;
+                        }
                 }
-                i++;
         }
 
-        gf_log ("", GF_LOG_WARNING, "Invalid option");
-        *op_errstr = gf_strdup ("Invalid option");
-
-        ret = -1;
-
-out:
         return ret;
 }
 
