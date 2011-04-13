@@ -4604,7 +4604,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (!peerinfo->connected)
+                if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
@@ -4651,7 +4651,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (!peerinfo->connected)
+                if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
@@ -4863,7 +4863,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (!peerinfo->connected)
+                if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
@@ -4989,7 +4989,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (!peerinfo->connected)
+                if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
