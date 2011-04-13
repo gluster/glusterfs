@@ -159,9 +159,7 @@ def finalize(*a):
     sys.stderr.flush()
 
 def main():
-    # ??? "finally" clause does not take effect with SIGTERM...
-    # but this handler neither does
-    # signal.signal(signal.SIGTERM, finalize)
+    signal.signal(signal.SIGTERM, lambda *a: (finalize(*a), os._exit(1)))
     GLogger.setup()
     exval = 0
     try:

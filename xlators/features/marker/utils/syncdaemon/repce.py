@@ -3,7 +3,7 @@ import sys
 import select
 import time
 import logging
-from threading import Thread, Condition
+from threading import Condition
 try:
     import thread
 except ImportError:
@@ -19,6 +19,8 @@ try:
 except ImportError:
     # py 3
     import pickle
+
+from syncdutils import Thread
 
 pickle_proto = -1
 repce_version = 1.0
@@ -51,7 +53,6 @@ class RepceServer(object):
     def service_loop(self):
         for i in range(self.wnum):
             t = Thread(target=self.worker)
-            t.setDaemon(True)
             t.start()
         try:
             while True:
@@ -109,7 +110,6 @@ class RepceClient(object):
         self.inf, self.out = ioparse(i, o)
         self.jtab = {}
         t = Thread(target = self.listen)
-        t.setDaemon(True)
         t.start()
 
     def listen(self):

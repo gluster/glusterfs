@@ -10,7 +10,6 @@ import select
 import socket
 import logging
 import tempfile
-import threading
 from ctypes import *
 from ctypes.util import find_library
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR
@@ -235,8 +234,7 @@ class SlaveLocal(object):
 
     def service_loop(self):
         repce = RepceServer(self.server, sys.stdin, sys.stdout, int(gconf.sync_jobs))
-        t = threading.Thread(target=repce.service_loop)
-        t.setDaemon(True)
+        t = syncdutils.Thread(target=repce.service_loop)
         t.start()
         logging.info("slave listening")
         if gconf.timeout and int(gconf.timeout) > 0:
