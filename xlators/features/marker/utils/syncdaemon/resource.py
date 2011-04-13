@@ -353,7 +353,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             volinfo = {  'version': vm[0:2],
                          'uuid'   : uuid,
                          'retval' : vm[18],
-                         'volume_mark': vm[18:20],
+                         'volume_mark': vm[19:21],
                       }
             if extra_fields:
                 return volinfo, vm[-len(extra_fields):]
