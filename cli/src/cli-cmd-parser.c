@@ -1161,24 +1161,41 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 goto set_type;
         }
 
-        if ((strcmp (words[2], "configure")) == 0) {
+        if ((strcmp (words[2], "config")) == 0) {
                 type = GF_GSYNC_OPTION_TYPE_CONFIGURE;
 
-                if (strcmp (words [5], "config-set") == 0) {
+                switch (wordcount) {
+                case 5:
+                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL;
+                        break;
+                case 6:
+                        if (words[5][0] == '!') {
+                                config_type = GF_GSYNC_OPTION_TYPE_CONFIG_DEL;
+                                i = 1;
+                        } else {
+                                config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET;
+                                i = 0;
+                        }
+
+                        ret = dict_set_str (dict, "op_name", ((char *)words[5]) + i);
+                        if (ret < 0)
+                                goto out;
+                        break;
+                default:
                         config_type = GF_GSYNC_OPTION_TYPE_CONFIG_SET;
 
-                        if (wordcount < 8) {
+                        if (wordcount < 7) {
                                 ret = -1;
 
                                 goto out;
                         }
 
-                        ret = dict_set_str (dict, "op_name", (char *)words[6]);
+                        ret = dict_set_str (dict, "op_name", (char *)words[5]);
                         if (ret < 0)
                                 goto out;
                         /*XXX hack to get around the fact, where parsing of
                          *    args is done based on spaces  */
-                        for (i = 7; i < wordcount; i++)
+                        for (i = 6; i < wordcount; i++)
                                 append_len += (strlen (words[i]) + 1);
                         append_len++; /* trailing strcat will add two bytes, make space for that */
 
@@ -1188,7 +1205,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                                 goto out;
                         }
 
-                        for (i = 7; i< wordcount; i++) {
+                        for (i = 6; i< wordcount; i++) {
                                 strcat (append_str, words[i]);
                                 strcat (append_str, " ");
                         }
@@ -1197,26 +1214,6 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         ret = dict_set_dynstr (dict, "op_value", append_str);
                         if (ret < 0)
                                 goto out;
-                }
-
-                if ((strcmp (words [5], "config-del")) == 0) {
-                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_DEL;
-
-                        ret = dict_set_str (dict, "op_name", (char *)words[6]);
-                        if (ret < 0)
-                                goto out;
-                }
-
-                if ((strcmp (words [5], "config-get")) == 0) {
-                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET;
-
-                        ret = dict_set_str (dict, "op_name", (char *)words[6]);
-                        if (ret < 0)
-                                goto out;
-                }
-
-                if ((strcmp (words [5], "config-get-all")) == 0) {
-                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL;
                 }
 
                 ret = dict_set_int32 (dict, "config_type", config_type);
