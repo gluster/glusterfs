@@ -84,7 +84,9 @@ class GMaster(object):
         self.volinfo_state = (uuid_preset and {'uuid': uuid_preset}, None)
         # the actual volinfo we make use of
         self.volinfo = None
+	self.terminate = False
 
+    def crawl_loop(self):
         timo = int(gconf.timeout or 0)
         if timo > 0:
             def keep_alive():
@@ -108,7 +110,7 @@ class GMaster(object):
             t = Thread(target=keep_alive)
             t.setDaemon(True)
             t.start()
-        while True:
+        while not self.terminate:
             self.crawl()
 
     def add_job(self, path, label, job, *a, **kw):
@@ -166,7 +168,7 @@ class GMaster(object):
     def crawl(self, path='.', xtl=None):
         if path == '.':
             if self.start:
-                logging.info("crawl took %.6f" % (time.time() - self.start))
+                logging.info("... done, took %.6f seconds" % (time.time() - self.start))
             time.sleep(1)
             self.start = time.time()
             volinfo_sys = self.get_sys_volinfo()
@@ -183,14 +185,14 @@ class GMaster(object):
             if self.volinfo:
                 if self.volinfo['retval']:
                     raise RuntimeError ("master is corrupt")
-                logging.info("Crawling as %s (%s master mode) ..." % \
-                             (self.uuid, self.inter_master and "intermediate" or "primary"))
+                logging.info("%s master with volume id %s ..." % \
+                             (self.inter_master and "intermediate" or "primary", self.uuid))
             else:
                 if self.inter_master:
-                    logging.info("Crawling: waiting for being synced from %s" % \
+                    logging.info("waiting for being synced from %s ..." % \
                                  self.volinfo_state[self.KFGN]['uuid'])
                 else:
-                    logging.info("Crawling: waiting for volume info")
+                    logging.info("waiting for volume info ...")
                 return
         logging.debug("entering " + path)
         if not xtl:
@@ -218,8 +220,8 @@ class GMaster(object):
                     self.change_seen = False
                     logging.info("finished turn #%s/%s" % (self.turns, self.total_turns))
                     if self.turns == self.total_turns:
-                        logging.info("reached turn limit, terminating.")
-                        os.kill(os.getpid(), signal.SIGTERM)
+                        logging.info("reached turn limit")
+                        self.terminate = True
                 return
         if path == '.':
             self.change_seen = True
