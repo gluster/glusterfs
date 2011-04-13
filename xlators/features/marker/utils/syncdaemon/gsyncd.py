@@ -15,7 +15,7 @@ from logging import Logger
 from errno import EEXIST, ENOENT, EACCES, EAGAIN
 
 from gconf import gconf
-from syncdutils import FreeObject
+from syncdutils import FreeObject, norm
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -239,7 +239,7 @@ def main_i():
     op.add_option('--canonicalize-url',        dest='do_canon', action='callback', callback=store_local_curry('raw'))
     op.add_option('--canonicalize-escape-url', dest='do_canon', action='callback', callback=store_local_curry('escaped'))
 
-    tunables = [ o.get_opt_string()[2:] for o in op.option_list if o.callback in (store_abs, None) and o.get_opt_string() not in ('--version', '--help') ]
+    tunables = [ norm(o.get_opt_string()[2:]) for o in op.option_list if o.callback in (store_abs, None) and o.get_opt_string() not in ('--version', '--help') ]
 
     # precedence for sources of values: 1) commandline, 2) cfg file, 3) defaults
     # -- for this to work out we need to tell apart defaults from explicitly set
@@ -285,7 +285,7 @@ def main_i():
     gcnf = GConffile(rconf['config_file'], canon_peers)
 
     if confdata:
-        opt_ok = confdata.opt in tunables + [None]
+        opt_ok = norm(confdata.opt) in tunables + [None]
         if confdata.op == 'check':
             if opt_ok:
                 sys.exit(0)

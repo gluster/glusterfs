@@ -15,6 +15,10 @@ def escape(s):
 def unescape(s):
     return urllib.unquote_plus(s)
 
+def norm(s):
+    if s:
+        return s.replace('-', '_')
+
 def update_file(path, updater, merger = lambda f: True):
     """update a file in a transaction-like manner"""
 
