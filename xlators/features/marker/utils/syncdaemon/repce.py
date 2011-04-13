@@ -57,7 +57,7 @@ class RepceServer(object):
             while True:
                 self.q.put(recv(self.inf))
         except EOFError:
-                logging.info("terminating on reaching EOF.")
+            logging.info("terminating on reaching EOF.")
 
     def worker(self):
         while True:

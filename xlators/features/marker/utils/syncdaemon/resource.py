@@ -11,7 +11,6 @@ import socket
 import logging
 import tempfile
 import threading
-import time
 from ctypes import *
 from ctypes.util import find_library
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR
