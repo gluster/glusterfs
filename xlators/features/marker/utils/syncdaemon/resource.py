@@ -220,8 +220,6 @@ class Server(object):
                                 tuple(int(x,16) for x in re.findall('(?:[\da-f]){2}', dct['uuid'])) +
                                 (dct['retval'],) + dct['volume_mark'][0:2] + (dct['timeout'],)))
             Xattr.lsetxattr('.', key, val)
-        else:
-            logging.info('no volume-mark, if the behaviour persists have to check if master gsyncd is running')
         cls.last_keep_alive += 1
         return cls.last_keep_alive
 
@@ -427,7 +425,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
     def service_loop(self, *args):
         if args:
-            GMaster(self, args[0]).crawl()
+            GMaster(self, args[0]).crawl_loop()
         else:
             sup(self, *args)
 
