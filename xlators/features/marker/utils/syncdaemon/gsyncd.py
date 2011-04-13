@@ -168,10 +168,13 @@ def main():
         try:
             main_i()
         except:
-            exc = sys.exc_info()[0]
-            if exc != SystemExit:
+            exc = sys.exc_info()[1]
+            if isinstance(exc, SystemExit):
+                exval = exc.code or 0
+                raise
+            else:
                 logging.exception("FAIL: ")
-                sys.stderr.write("failed with %s.\n" % exc.__name__)
+                sys.stderr.write("failed with %s.\n" % type(exc).__name__)
                 exval = 1
                 sys.exit(exval)
     finally:
