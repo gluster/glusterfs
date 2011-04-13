@@ -225,10 +225,6 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         cmd_args = &ctx->cmd_args;
 
-        /* parsing command line arguments */
-        cmd_args->log_file  = "/dev/null";
-        cmd_args->log_level = GF_LOG_NONE;
-
         INIT_LIST_HEAD (&cmd_args->xlator_options);
 
         lim.rlim_cur = RLIM_INFINITY;
@@ -242,9 +238,17 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 static int
 logging_init (glusterfs_ctx_t *ctx)
 {
+        int         ret      = 0;
         cmd_args_t *cmd_args = NULL;
 
         cmd_args = &ctx->cmd_args;
+
+        /* CLI should not have something to DEBUG after the release,
+           hence defaulting to INFO loglevel */
+        cmd_args->log_level = GF_LOG_INFO;
+
+        ret = gf_asprintf (&cmd_args->log_file,
+                           DEFAULT_CLI_LOG_FILE_DIRECTORY "/cli.log");
 
         if (gf_log_init (cmd_args->log_file) == -1) {
                 fprintf (stderr, "ERROR: failed to open logfile %s\n",
@@ -615,12 +619,12 @@ main (int argc, char *argv[])
                 return EPERM;
         }
 
-        global_rpc = cli_rpc_init (&state);
-        if (!global_rpc)
-                goto out;
-
         ret = logging_init (ctx);
         if (ret)
+                goto out;
+
+        global_rpc = cli_rpc_init (&state);
+        if (!global_rpc)
                 goto out;
 
         ret = cli_cmds_register (&state);

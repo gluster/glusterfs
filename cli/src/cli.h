@@ -33,6 +33,7 @@
 #define CLI_GLUSTERD_PORT                  24007
 #define CLI_DEFAULT_CONN_TIMEOUT             120
 #define CLI_DEFAULT_CMD_TIMEOUT              120
+#define DEFAULT_CLI_LOG_FILE_DIRECTORY     DATADIR "/log/glusterfs"
 
 enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
