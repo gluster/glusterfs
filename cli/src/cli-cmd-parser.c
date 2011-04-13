@@ -1122,8 +1122,11 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 {
         int32_t            ret     = 0;
         int32_t            config_type = 0;
-        dict_t            *dict   = NULL;
-        gf1_cli_gsync_set type    = GF_GSYNC_OPTION_TYPE_NONE;
+        dict_t             *dict   = NULL;
+        gf1_cli_gsync_set  type    = GF_GSYNC_OPTION_TYPE_NONE;
+        char               *append_str = NULL;
+        size_t             append_len = 0;
+        int                i = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -1164,11 +1167,34 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 if (strcmp (words [5], "config-set") == 0) {
                         config_type = GF_GSYNC_OPTION_TYPE_CONFIG_SET;
 
+                        if (wordcount < 8) {
+                                ret = -1;
+
+                                goto out;
+                        }
+
                         ret = dict_set_str (dict, "op_name", (char *)words[6]);
                         if (ret < 0)
                                 goto out;
+                        /*XXX hack to get around the fact, where parsing of
+                         *    args is done based on spaces  */
+                        for (i = 7; i < wordcount; i++)
+                                append_len += (strlen (words[i]) + 1);
+                        append_len++; /* trailing strcat will add two bytes, make space for that */
 
-                        ret = dict_set_str (dict, "op_value", (char *)words[7]);
+                        append_str = GF_CALLOC (1, append_len, cli_mt_append_str);
+                        if (!append_str) {
+                                ret = -1;
+                                goto out;
+                        }
+
+                        for (i = 7; i< wordcount; i++) {
+                                strcat (append_str, words[i]);
+                                strcat (append_str, " ");
+                        }
+                        append_str[append_len - 2] = '\0';
+
+                        ret = dict_set_dynstr (dict, "op_value", append_str);
                         if (ret < 0)
                                 goto out;
                 }
@@ -1205,9 +1231,12 @@ set_type:
 
         *options = dict;
 out:
-        if (ret)
+        if (ret) {
                 if (dict)
                         dict_destroy (dict);
+                if (append_str)
+                        GF_FREE (append_str);
+        }
 
         return ret;
 }
