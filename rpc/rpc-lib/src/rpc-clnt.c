@@ -393,6 +393,14 @@ rpc_clnt_reconnect (void *trans_ptr)
                         gf_log (trans->name, GF_LOG_TRACE,
                                 "attempting reconnect");
                         ret = rpc_transport_connect (trans, conn->config.remote_port);
+                        /* Every time there is a disconnection, processes
+                           should try to connect to 'glusterd' (ie, default
+                           port) or whichever port given as 'option remote-port'
+                           in volume file. */
+                        /* Below code makes sure the (re-)configured port lasts
+                           for just one successful attempt */
+                        if (!ret)
+                                conn->config.remote_port = 0;
 
                         conn->reconnect =
                                 gf_timer_call_after (clnt->ctx, tv,
@@ -1359,8 +1367,12 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         pthread_mutex_lock (&conn->lock);
         {
                 if (conn->connected == 0) {
-                        rpc_transport_connect (conn->trans,
-                                               conn->config.remote_port);
+                        ret = rpc_transport_connect (conn->trans,
+                                                     conn->config.remote_port);
+                        /* Below code makes sure the (re-)configured port lasts
+                           for just one successful connect attempt */
+                        if (!ret)
+                                conn->config.remote_port = 0;
                 }
 
                 ret = -1;
