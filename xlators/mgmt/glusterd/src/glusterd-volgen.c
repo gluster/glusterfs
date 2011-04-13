@@ -1260,6 +1260,10 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 return -1;
 
+        xl = volgen_graph_add (graph, "performance/io-threads", volname);
+        if (!xl)
+                return -1;
+
         ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
         if (ret == -ENOENT)
                 ret = pump = 0;
@@ -1286,10 +1290,6 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (ret)
                         return -1;
         }
-
-        xl = volgen_graph_add (graph, "performance/io-threads", volname);
-        if (!xl)
-                return -1;
 
         xl = volgen_graph_add (graph, "features/marker", volname);
         if (!xl)
