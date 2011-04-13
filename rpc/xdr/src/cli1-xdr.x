@@ -347,6 +347,7 @@ struct gf1_cli_gsync_set_rsp {
         string  slave<>;
         string  gsync_prefix<>;
         string  glusterd_workdir<>;
+        opaque  status_dict<>;
 };
 
 struct gf1_cli_stats_volume_req {

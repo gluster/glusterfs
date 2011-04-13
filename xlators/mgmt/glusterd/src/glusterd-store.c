@@ -448,6 +448,40 @@ out:
         return ret;
 }
 
+static void
+_storeslaves (dict_t *this, char *key, data_t *value, void *data)
+{
+        int32_t                      ret = 0;
+        glusterd_store_handle_t  *shandle = NULL;
+
+        shandle = (glusterd_store_handle_t*)data;
+
+        GF_ASSERT (shandle);
+        GF_ASSERT (shandle->fd > 0);
+        GF_ASSERT (shandle->path);
+        GF_ASSERT (key);
+        GF_ASSERT (value && value->data);
+
+        if ((!shandle) || (shandle->fd <= 0) || (!shandle->path))
+                return;
+
+        if (!key)
+                return;
+        if (!value || !value->data)
+                return;
+
+        gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
+                key, value->data);
+
+        ret = glusterd_store_save_value (shandle->fd, key, (char*)value->data);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to write into store"
+                                " handle for path: %s", shandle->path);
+                return;
+        }
+}
+
+
 void _storeopts (dict_t *this, char *key, data_t *value, void *data)
 {
         int32_t                      ret = 0;
@@ -587,6 +621,8 @@ glusterd_store_volinfo_write (int fd, glusterd_volinfo_t *volinfo)
 
         shandle->fd = fd;
         dict_foreach (volinfo->dict, _storeopts, shandle);
+
+        dict_foreach (volinfo->gsync_slaves, _storeslaves, shandle);
         shandle->fd = 0;
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1479,7 +1515,18 @@ glusterd_store_retrieve_volume (char    *volname)
                         if (ret)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
-                } else {
+                } else if (strstr (key, "slave")) {
+                        ret = dict_set_str(volinfo->gsync_slaves, key,
+                                                gf_strdup (value));
+                        if (ret) {
+                                gf_log ("",GF_LOG_ERROR, "Error in "
+                                                "dict_set_str");
+                                goto out;
+                        }
+                        gf_log ("", GF_LOG_DEBUG, "Parsed as Gsync-"
+                                "skave:key=%s,value:%s", key, value);
+                }
+                else {
                         exists = glusterd_check_option_exists (key, NULL);
                         if (exists == -1) {
                                 ret = -1;

@@ -92,6 +92,11 @@ enum gf1_cli_gsync_set {
 	GF_GSYNC_OPTION_TYPE_CONFIG_DEL = 5,
 	GF_GSYNC_OPTION_TYPE_CONFIG_GET = 6,
 	GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL = 7,
+        GF_GSYNC_OPTION_TYPE_STATUS = 8,
+        GF_GSYNC_OPTION_TYPE_STATUS_ALL = 9,
+        GF_GSYNC_OPTION_TYPE_STATUS_MASTER = 10,
+        GF_GSYNC_OPTION_TYPE_STATUS_MST_SLV = 11
+
 };
 typedef enum gf1_cli_gsync_set gf1_cli_gsync_set;
 
@@ -482,6 +487,10 @@ struct gf1_cli_gsync_set_rsp {
 	char *slave;
 	char *gsync_prefix;
         char *glusterd_workdir;
+	struct {
+		u_int status_dict_len;
+		char *status_dict_val;
+	} status_dict;
 };
 typedef struct gf1_cli_gsync_set_rsp gf1_cli_gsync_set_rsp;
 
