@@ -5,7 +5,7 @@ except ImportError:
     import configparser as ConfigParser
 import re
 
-import syncdutils
+from syncdutils import escape, unescape, norm, update_file
 
 SECT_ORD = '__section_order__'
 SECT_META = '__meta__'
@@ -15,11 +15,23 @@ re_type = type(re.compile(''))
 
 class GConffile(object):
 
+    def _normconfig(self):
+        for n, s in self.config._sections.items():
+            if n.find('__') == 0:
+                continue
+            s2 = type(s)()
+            for k, v in s.items():
+                if k.find('__') != 0:
+                    k = norm(k)
+                s2[k] = v
+            self.config._sections[n] = s2
+
     def __init__(self, path, peers):
         self.peers = peers
         self.path = path
         self.config = ConfigParser.RawConfigParser()
         self.config.read(path)
+        self._normconfig()
 
     def section(self, rx=False):
         peers = self.peers
@@ -30,13 +42,13 @@ class GConffile(object):
             st = 'peersrx'
         else:
             st = 'peers'
-        return ' '.join([st] + [syncdutils.escape(u) for u in peers])
+        return ' '.join([st] + [escape(u) for u in peers])
 
     @staticmethod
     def parse_section(section):
         sl = section.split()
         st = sl.pop(0)
-        sl = [syncdutils.unescape(u) for u in sl]
+        sl = [unescape(u) for u in sl]
         if st == 'peersrx':
             sl = [re.compile(u) for u in sl]
         return sl
@@ -81,11 +93,7 @@ class GConffile(object):
         if not self.peers:
             raise RuntimeError('no peers given, cannot select matching options')
         def update_from_sect(sect):
-            for k, v in self.config._sections[sect].items():
-                if k == '__name__':
-                    continue
-                k = k.replace('-', '_')
-                dct[k] = v
+            dct.update(self.config._sections[sect])
         for sect in self.ord_sections():
             sp = self.parse_section(sect)
             if isinstance(sp[0], re_type) and len(sp) == len(self.peers):
@@ -103,23 +111,25 @@ class GConffile(object):
         d = {}
         self.update_to(d)
         if opt:
+            opt = norm(opt)
             d = {opt: d.get(opt, "")}
         for k, v in d.iteritems():
             if k == '__name__':
                 continue
             print("%s: %s" % (k, v))
 
-    def write(self, trfn, *a, **kw):
+    def write(self, trfn, opt, *a, **kw):
         def mergeconf(f):
             self.config = ConfigParser.RawConfigParser()
             self.config.readfp(f)
+            self._normconfig()
             if not self.config.has_section(SECT_META):
                 self.config.add_section(SECT_META)
             self.config.set(SECT_META, 'version', config_version)
-            return trfn(*a, **kw)
+            return trfn(norm(opt), *a, **kw)
         def updateconf(f):
             self.config.write(f)
-        syncdutils.update_file(self.path, updateconf, mergeconf)
+        update_file(self.path, updateconf, mergeconf)
 
     def _set(self, opt, val, rx=False):
         sect = self.section(rx)
@@ -132,13 +142,13 @@ class GConffile(object):
         self.config.set(sect, opt, val)
         return True
 
-    def set(self, *a, **kw):
-        self.write(self._set, *a, **kw)
+    def set(self, opt, *a, **kw):
+        self.write(self._set, opt, *a, **kw)
 
     def _delete(self, opt, rx=False):
         sect = self.section(rx)
         if self.config.has_section(sect):
             return self.config.remove_option(sect, opt)
 
-    def delete(self, *a, **kw):
-        self.write(self._delete, *a, **kw)
+    def delete(self, opt, *a, **kw):
+        self.write(self._delete, opt, *a, **kw)
