@@ -6,10 +6,10 @@ import signal
 import logging
 import errno
 from errno import ENOENT, ENODATA
-from threading import Thread, currentThread, Condition, Lock
+from threading import currentThread, Condition, Lock
 
 from gconf import gconf
-from syncdutils import FreeObject
+from syncdutils import FreeObject, Thread
 
 URXTIME = (-1, 0)
 
@@ -108,7 +108,6 @@ class GMaster(object):
                     self.slave.server.keep_alive(vi)
                     time.sleep(gap)
             t = Thread(target=keep_alive)
-            t.setDaemon(True)
             t.start()
         while not self.terminate:
             self.crawl()
@@ -342,7 +341,6 @@ class Syncer(object):
         self.pb = PostBox()
         for i in range(int(gconf.sync_jobs)):
             t = Thread(target=self.syncjob)
-            t.setDaemon = True
             t.start()
 
     def syncjob(self):

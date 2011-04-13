@@ -1,5 +1,8 @@
 import os
 import fcntl
+from threading import Thread as baseThread
+from signal import SIGTERM
+
 try:
     # py 3
     from urllib import parse as urllib
@@ -49,3 +52,20 @@ class FreeObject(object):
     def __init__(self, **kw):
         for k,v in kw.iteritems():
             setattr(self, k, v)
+
+class Thread(baseThread):
+
+    def __init__(self, *a, **kw):
+        tf = kw.get('target')
+        if tf:
+            def twrap(*aa):
+                try:
+                    tf(*aa)
+                except:
+                    try:
+                        raise
+                    finally:
+                        os.kill(os.getpid(), SIGTERM)
+            kw['target'] = twrap
+        baseThread.__init__(self, *a, **kw)
+        self.setDaemon(True)
