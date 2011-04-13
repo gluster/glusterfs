@@ -343,7 +343,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 if (ctx != NULL) {
                         LOCK (&ctx->lock);
                         {
-                                if (ctx->limit > 0) {
+                                if (ctx->limit >= 0) {
                                         if (!just_validated
                                             && quota_timeout (&ctx->tv,
                                                               priv->timeout)) {
@@ -750,7 +750,7 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
         _inode = inode_ref (inode);
 
         do {
-                if (ctx != NULL) {
+                if ((ctx != NULL) && (ctx->limit >= 0)) {
                         LOCK (&ctx->lock);
                         {
                                 ctx->size += delta;
@@ -1860,7 +1860,7 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        delta = prebuf->ia_size - postbuf->ia_size;
+        delta = postbuf->ia_size - prebuf->ia_size;
 
         quota_update_size (this, local->loc.inode, NULL, 0, delta);
 
@@ -1936,7 +1936,7 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        delta = prebuf->ia_size - postbuf->ia_size;
+        delta = postbuf->ia_size - prebuf->ia_size;
 
         quota_update_size (this, local->loc.inode, NULL, 0, delta);
 
