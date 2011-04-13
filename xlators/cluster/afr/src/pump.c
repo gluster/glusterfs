@@ -220,7 +220,7 @@ pump_save_path (xlator_t *this, const char *path)
         pump_private_t *pump_priv = NULL;
         pump_state_t state;
         dict_t *dict = NULL;
-        loc_t  loc;
+        loc_t  loc = {0};
         int dict_ret = 0;
         int ret = -1;
 
@@ -580,7 +580,7 @@ pump_complete_migration (xlator_t *this)
         pump_private_t *pump_priv = NULL;
         dict_t *dict = NULL;
         pump_state_t state;
-        loc_t  loc;
+        loc_t  loc = {0};
         int dict_ret = 0;
         int ret = -1;
 
@@ -675,7 +675,7 @@ pump_task (void *data)
         afr_private_t *priv = NULL;
 
 
-        loc_t loc;
+        loc_t loc = {0};
 	struct iatt iatt, parent;
 	dict_t *xattr_rsp = NULL;
         dict_t *xattr_req = NULL;
@@ -853,7 +853,7 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
         afr_private_t *priv      = NULL;
         dict_t        *dict      = NULL;
         char          *dst_brick = NULL;
-        loc_t loc;
+        loc_t loc = {0};
 
         int ret = 0;
 
@@ -1066,7 +1066,7 @@ pump_execute_start (call_frame_t *frame, xlator_t *this)
         afr_local_t   *local = NULL;
 
         int ret = 0;
-        loc_t loc;
+        loc_t loc = {0};
 
         priv = this->private;
         local = frame->local;
