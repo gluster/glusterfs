@@ -3157,13 +3157,15 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        tmp_dict = dict_new();
-        if (!tmp_dict)
-                goto out;
-        dict_unserialize (cli_req.dict_req.dict_req_val,
-                          cli_req.dict_req.dict_req_len, &tmp_dict);
+        if (cli_req.dict_req.dict_req_len > 0) {
+                tmp_dict = dict_new();
+                if (!tmp_dict)
+                        goto out;
+                dict_unserialize (cli_req.dict_req.dict_req_val,
+                                  cli_req.dict_req.dict_req_len, &tmp_dict);
 
-        dict_copy (tmp_dict, dict);
+                dict_copy (tmp_dict, dict);
+        }
 
         gf_cmd_log ("Volume stats", "volume  : %s, op: %d", cli_req.volname,
                     cli_req.op);
