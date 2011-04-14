@@ -3311,7 +3311,7 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to top");
         ret = gf_xdr_to_cli_stats_volume_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log ("", GF_LOG_ERROR, "Unable to decode response");
                 goto out;
         }
 

@@ -444,10 +444,9 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
         iob = glusterd_serialize_reply (req, arg, sfunc, &rsp);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
-                goto out;
+        } else {
+                iobref_add (iobref, iob);
         }
-
-        iobref_add (iobref, iob);
 
         ret = rpcsvc_submit_generic (req, &rsp, 1, payload, payloadcount,
                                      iobref);
@@ -456,7 +455,6 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
          * we can safely unref the iob in the hope that RPC layer must have
          * ref'ed the iob on receiving into the txlist.
          */
-        iobuf_unref (iob);
         if (ret == -1) {
                 gf_log ("", GF_LOG_ERROR, "Reply submission failed");
                 goto out;
@@ -469,6 +467,8 @@ out:
                 iobref_unref (iobref);
         }
 
+        if (iob)
+                iobuf_unref (iob);
         return ret;
 }
 
