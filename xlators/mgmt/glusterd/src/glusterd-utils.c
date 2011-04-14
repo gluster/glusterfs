@@ -2289,7 +2289,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
 {
         glusterd_volinfo_t       *volinfo = NULL;
         glusterd_brickinfo_t     *brickinfo = NULL;
-        int                      ret = -1;
+        int                      ret = 0;
 
         GF_ASSERT (conf);
 
@@ -2302,6 +2302,49 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         }
                         glusterd_check_generate_start_nfs ();
                 }
+        }
+        return ret;
+}
+
+void
+_local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
+{
+        char                        *slave = NULL;
+        int                          uuid_len = 0;
+        char                         uuid_str[64] = {0};
+        glusterd_volinfo_t           *volinfo = NULL;
+
+        volinfo = data;
+        GF_ASSERT (volinfo);
+        slave = strchr(value->data, ':');
+        if (slave)
+                slave ++;
+        else
+                return;
+        uuid_len = (slave - value->data - 1);
+
+
+        strncpy (uuid_str, (char*)value->data, uuid_len);
+        glusterd_start_gsync (volinfo->volname, slave, uuid_str);
+}
+
+int
+glusterd_volume_restart_gsyncds (glusterd_volinfo_t *volinfo)
+{
+        GF_ASSERT (volinfo);
+
+        dict_foreach (volinfo->gsync_slaves, _local_gsyncd_start, volinfo);
+        return 0;
+}
+
+int
+glusterd_restart_gsyncds (glusterd_conf_t *conf)
+{
+        glusterd_volinfo_t       *volinfo = NULL;
+        int                      ret = 0;
+
+        list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                glusterd_volume_restart_gsyncds (volinfo);
         }
         return ret;
 }
@@ -3140,5 +3183,156 @@ glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo)
         list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
                 ret = glusterd_delete_brick (volinfo, brickinfo);
         }
+        return ret;
+}
+
+int
+glusterd_start_gsync (char *master, char *slave, char *uuid_str)
+{
+        int32_t         ret     = 0;
+        int32_t         status  = 0;
+        char            cmd[PATH_MAX] = {0,};
+        char            prmfile[PATH_MAX]   = {0,};
+        char            local_uuid_str [64] = {0};
+        char            *tslash = NULL;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+        char            master_url[GLUSTERD_MAX_VOLUME_NAME + 8] = {0};
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        uuid_utoa_r (priv->uuid, local_uuid_str);
+        if (strcmp (local_uuid_str, uuid_str))
+                goto out;
+
+        snprintf (master_url, sizeof (master_url), ":%s", master);
+        ret = gsync_status (master_url, slave, &status);
+        if (status == 0)
+                goto out;
+        ret = glusterd_gsync_get_param_file (prmfile, "pid", master_url,
+                                             slave, priv->workdir);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to create the pidfile string");
+                goto out;
+        }
+        unlink (prmfile);
+        tslash = strrchr(prmfile, '/');
+        if (tslash) {
+                *tslash = '\0';
+                ret = mkdir (prmfile, 0777);
+                if (ret && (errno != EEXIST)) {
+                        gf_log ("", GF_LOG_DEBUG, "mkdir failed, errno: %d",
+                                errno);
+                        goto out;
+                }
+                *tslash = '/';
+        }
+
+        memset (cmd, 0, sizeof (cmd));
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+                                       " --config-set pid-file %s", priv->workdir,
+                                       GSYNC_CONF, master_url, slave, prmfile);
+        if (ret <= 0) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to construct the  "
+                        "config set command for %s %s", master_url, slave);
+                goto out;
+        }
+
+        ret = gf_system (cmd);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "failed to set the pid "
+                        "option for %s %s", master_url, slave);
+                goto out;
+        }
+
+        ret = glusterd_gsync_get_param_file (prmfile, "status", NULL, NULL, NULL);
+        if (ret != -1)
+                ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+                                " --config-set state-file %s", priv->workdir,
+                                GSYNC_CONF, master_url, slave, prmfile);
+        if (ret >= PATH_MAX)
+                ret = -1;
+        if (ret != -1)
+                ret = gf_system (cmd) ? -1 : 0;
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to set status file "
+                        "for %s %s", master_url, slave);
+                goto out;
+        }
+
+        ret = glusterd_gsync_get_param_file (prmfile, "log", master_url,
+                                             slave, DEFAULT_LOG_FILE_DIRECTORY);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to construct the "
+                        "logfile string");
+                goto out;
+        }
+        /* XXX "mkdir -p": eventually this should be made into a library routine */
+        tslash = strrchr(prmfile, '/');
+        if (tslash) {
+                char *slash = prmfile;
+                struct stat st = {0,};
+
+                *tslash = '\0';
+                if (*slash == '/')
+                        slash++;
+                while (slash) {
+                        slash = strchr (slash, '/');
+                        if (slash)
+                                *slash = '\0';
+                        ret = mkdir (prmfile, 0777);
+                        if (ret == -1 && errno != EEXIST) {
+                                gf_log ("", GF_LOG_DEBUG, "mkdir failed (%s)",
+                                        strerror (errno));
+                                goto out;
+                        }
+                        if (slash) {
+                                *slash = '/';
+                                slash++;
+                        }
+                }
+                ret = stat (prmfile, &st);
+                if (ret == -1 || !S_ISDIR (st.st_mode)) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_DEBUG, "mkdir failed (%s)",
+                                strerror (errno));
+                        goto out;
+                }
+                *tslash = '/';
+        }
+
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+                        " --config-set log-file %s", priv->workdir,
+                        GSYNC_CONF, master_url, slave, prmfile);
+        if (ret >= PATH_MAX)
+                ret = -1;
+        if (ret != -1)
+                ret = gf_system (cmd) ? -1 : 0;
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to set status file "
+                        "for %s %s", master_url, slave);
+                goto out;
+        }
+
+        memset (cmd, 0, sizeof (cmd));
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c %s/%s %s %s"
+                                       , priv->workdir, GSYNC_CONF, master_url, slave);
+        if (ret <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_system (cmd);
+        if (ret == -1)
+                goto out;
+
+        ret = 0;
+
+out:
+
         return ret;
 }
