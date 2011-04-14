@@ -1827,7 +1827,7 @@ quota_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         }
         UNLOCK (&local->lock);
 
-        if (stub == NULL) {
+        if (stub != NULL) {
                 call_resume (stub);
         }
 
