@@ -4992,6 +4992,11 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 
                 return -1;
         }
+        conf->subvol_up_time = GF_CALLOC (cnt, sizeof (time_t),
+                                          gf_dht_mt_subvol_time);
+        if (!conf->subvol_up_time) {
+                return -1;
+        }
         return 0;
 }
 
@@ -5008,7 +5013,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
         int         had_heard_from_all = 0;
         int         have_heard_from_all = 0;
-
+        struct timeval  time = {0,};
 
         conf = this->private;
         if (!conf)
@@ -5042,10 +5047,12 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                         break;
                 }
 
+                gettimeofday (&time, NULL);
                 LOCK (&conf->subvolume_lock);
                 {
                         conf->subvolume_status[cnt] = 1;
                         conf->last_event[cnt] = event;
+                        conf->subvol_up_time[cnt] = time.tv_sec;
                 }
                 UNLOCK (&conf->subvolume_lock);
 
@@ -5089,6 +5096,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 {
                         conf->subvolume_status[cnt] = 0;
                         conf->last_event[cnt] = event;
+                        conf->subvol_up_time[cnt] = 0;
                 }
                 UNLOCK (&conf->subvolume_lock);
 
