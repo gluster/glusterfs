@@ -27,10 +27,20 @@
 
 #include "glusterd.h"
 
+/* volopt map key name definitions */
+
+#define VKEY_DIAG_CNT_FOP_HITS    "diagnostics.count-fop-hits"
+#define VKEY_DIAG_LAT_MEASUREMENT "diagnostics.latency-measurement"
+#define VKEY_FEATURES_LIMIT_USAGE "features.limit-usage"
+#define VKEY_MARKER_XTIME         "features.marker-gsync"
+#define VKEY_FEATURES_QUOTA       "features.quota"
+#define VKEY_PERF_STAT_PREFETCH   "performance.stat-prefetch"
+
 typedef enum gd_volopt_flags_ {
         OPT_FLAG_NONE,
         OPT_FLAG_FORCE = 1,
 } gd_volopt_flags_t;
+
 int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 
@@ -44,6 +54,7 @@ int glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                              glusterd_brickinfo_t *brickinfo);
 
 int glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value);
+int glusterd_volinfo_get_boolean (glusterd_volinfo_t *volinfo, char *key);
 
 int glusterd_validate_globalopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, char **op_errstr);
 
