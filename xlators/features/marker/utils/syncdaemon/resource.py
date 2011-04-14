@@ -37,7 +37,10 @@ def desugar(ustr):
         else:
             return "gluster://#{str}"
     else:
-        return "file://" + os.path.abspath(ustr)
+        ap = os.path.abspath(ustr)
+        if ap.startswith('//'):
+            ap = ap[1:]
+        return "file://" + ap
 
 def parse_url(ustr):
     m = UrlRX.match(ustr)
