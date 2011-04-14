@@ -2578,21 +2578,15 @@ static gf_boolean_t
 glusterd_is_profile_on (glusterd_volinfo_t *volinfo)
 {
         int                                     ret = -1;
-        char                                    *latency_key = NULL;
-        char                                    *fd_stats_key = NULL;
         gf_boolean_t                            is_latency_on = _gf_false;
         gf_boolean_t                            is_fd_stats_on = _gf_false;
 
         GF_ASSERT (volinfo);
-        latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.count-fop-hits";
 
-        ret = dict_get_str_boolean (volinfo->dict, fd_stats_key,
-                                    _gf_false);
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_DIAG_CNT_FOP_HITS);
         if (ret != -1)
                 is_fd_stats_on = ret;
-        ret = dict_get_str_boolean (volinfo->dict, latency_key,
-                                    _gf_false);
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_DIAG_LAT_MEASUREMENT);
         if (ret != -1)
                 is_latency_on = ret;
         if ((_gf_true == is_latency_on) &&
@@ -4548,8 +4542,7 @@ glusterd_set_marker_gsync (char *master)
         char                    *volname = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
         int                      ret     = -1;
-        char                    *marker_value   = NULL;
-        gf_boolean_t             marker_set = _gf_false;
+        int                      marker_set = _gf_false;
         char                    *gsync_status = NULL;
         glusterd_conf_t         *priv = NULL;
 
@@ -4566,16 +4559,12 @@ glusterd_set_marker_gsync (char *master)
                 ret = -1;
                 goto out;
         }
-        ret = glusterd_volinfo_get (volinfo, "features.marker-gsync", &marker_value);
-        if (ret) {
+        marker_set = glusterd_volinfo_get_boolean (volinfo, VKEY_MARKER_XTIME);
+        if (marker_set == -1) {
                 gf_log ("", GF_LOG_ERROR, "failed to get the marker status");
                 ret = -1;
                 goto out;
         }
-
-        ret = gf_string2boolean (marker_value, &marker_set);
-        if (ret != 0)
-                goto out;
 
         if (marker_set == _gf_false) {
                 gsync_status = gf_strdup ("on");
@@ -4585,7 +4574,7 @@ glusterd_set_marker_gsync (char *master)
                 }
 
                 ret = glusterd_gsync_volinfo_dict_set (volinfo,
-                                                      "features.marker-gsync", gsync_status);
+                                                       VKEY_MARKER_XTIME, gsync_status);
                 if (ret < 0)
                         goto out;
 
@@ -4847,19 +4836,14 @@ int32_t
 glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo)
 {
         int32_t  ret           = 0;
-        char    *quota_status  = NULL;
-        gf_boolean_t flag     = _gf_false;
+        int      flag          = _gf_false;
 
-        ret = glusterd_volinfo_get (volinfo, "features.quota", &quota_status);
-        if (ret) {
+        flag = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
+        if (flag == -1) {
                 gf_log ("", GF_LOG_ERROR, "failed to get the quota status");
                 ret = -1;
                 goto out;
         }
-
-        ret = gf_string2boolean (quota_status, &flag);
-        if (ret != 0)
-                goto out;
 
         if (flag == _gf_false) {
                 gf_log ("", GF_LOG_ERROR, "first enable the quota translator");
@@ -5113,7 +5097,7 @@ _glusterd_quota_get_limit_usages (glusterd_volinfo_t *volinfo,
         if (volinfo == NULL)
                 return NULL;
 
-        ret = glusterd_volinfo_get (volinfo, "features.limit-usage",
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_LIMIT_USAGE,
                                     &quota_limits);
         if (ret)
                 return NULL;
@@ -5198,7 +5182,7 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
-        ret = dict_set_dynstr (volinfo->dict, "features.quota", quota_status);
+        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_QUOTA, quota_status);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "dict set failed");
                 *op_errstr = gf_strdup ("Enabling quota has been unsuccessful");
@@ -5242,7 +5226,7 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
                 goto out;
         }
 
-        ret = dict_set_dynstr (volinfo->dict, "features.quota", quota_status);
+        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_QUOTA, quota_status);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "dict set failed");
                 *op_errstr = gf_strdup ("Disabling quota has been unsuccessful");
@@ -5251,7 +5235,7 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
 
         *op_errstr = gf_strdup ("Disabling quota has been successful");
 
-        dict_del (volinfo->dict, "features.limit-usage");
+        dict_del (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE);
 
         quota_status = gf_strdup ("off");
         if (quota_status == NULL) {
@@ -5284,7 +5268,7 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
                 goto out;
         }
 
-        ret = glusterd_volinfo_get (volinfo, "features.limit-usage",
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_LIMIT_USAGE,
                                     &quota_limits);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "failed to get the quota limits");
@@ -5336,7 +5320,7 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
 
         quota_limits = value;
 
-        ret = dict_set_str (volinfo->dict, "features.limit-usage",
+        ret = dict_set_str (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE,
                             quota_limits);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
@@ -5367,7 +5351,7 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **
         if (ret == -1)
                 goto out;
 
-        ret = glusterd_volinfo_get (volinfo, "features.limit-usage",
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_LIMIT_USAGE,
                                     &quota_limits);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "failed to get the quota limits");
@@ -5391,14 +5375,14 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **
         }
 
         if (quota_limits) {
-                ret = dict_set_str (volinfo->dict, "features.limit-usage",
+                ret = dict_set_str (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE,
                                     quota_limits);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
                         goto out;
                 }
         } else {
-               dict_del (volinfo->dict, "features.limit-usage");
+               dict_del (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE);
         }
 
         ret = 0;
@@ -6244,8 +6228,8 @@ glusterd_add_profile_volume_options (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
 
-        latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.count-fop-hits";
+        latency_key = VKEY_DIAG_LAT_MEASUREMENT;
+        fd_stats_key = VKEY_DIAG_CNT_FOP_HITS;
 
         ret = dict_set_str (volinfo->dict, latency_key, "on");
         if (ret) {
@@ -6275,8 +6259,8 @@ glusterd_remove_profile_volume_options (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
 
-        latency_key = "diagnostics.latency-measurement";
-        fd_stats_key = "diagnostics.count-fop-hits";
+        latency_key = VKEY_DIAG_LAT_MEASUREMENT;
+        fd_stats_key = VKEY_DIAG_CNT_FOP_HITS;
         dict_del (volinfo->dict, latency_key);
         dict_del (volinfo->dict, fd_stats_key);
 }

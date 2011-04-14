@@ -74,6 +74,17 @@
  *
  * "NODOC" entries are not part of the public interface and are subject
  * to change at any time.
+ *
+ * Another kind of grouping for options, according to visibility:
+ *
+ * - Exported: one which is used in the code. These are characterized by
+ *   being used a macro as <key> (of the format VKEY_..., defined in
+ *   glusterd-volgen.h
+ *
+ * - Non-exported: the rest; these have string literal <keys>.
+ *
+ * Adhering to this policy, option name changes shall be one-liners.
+ *
  */
 typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
 
@@ -106,9 +117,9 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"cluster.stripe-block-size",            "cluster/stripe",            "block-size", NULL, DOC, 0},
 
-        {"diagnostics.latency-measurement",      "debug/io-stats",     NULL, NULL, NO_DOC, 0      },
+        {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", NO_DOC, 0      },
         {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0     },
-        {"diagnostics.count-fop-hits",           "debug/io-stats",     NULL, NULL, NO_DOC, 0     },
+        {VKEY_DIAG_CNT_FOP_HITS,                 "debug/io-stats",     "count-fop-hits", "off", NO_DOC, 0     },
         {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level", NULL, DOC, 0},
         {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level", NULL, DOC, 0},
 
@@ -141,9 +152,9 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC, 0},
         {"performance.io-cache",                 "performance/io-cache",      "!perf", "on", NO_DOC, 0},
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC, 0},
-        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC, 0},
+        {VKEY_PERF_STAT_PREFETCH,                "performance/stat-prefetch", "!perf", "on", NO_DOC, 0},
 
-        {"features.marker-gsync",                "features/marker",           "gsync", "off", NO_DOC, OPT_FLAG_FORCE},
+        {VKEY_MARKER_XTIME,                      "features/marker",           "gsync", "off", NO_DOC, OPT_FLAG_FORCE},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC, 0},
         {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC, 0},
@@ -166,9 +177,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC, 0},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
 
-        {"features.quota",                       "features/quota",            "!quota", "off", NO_DOC, OPT_FLAG_FORCE},
-        {"features.quota",                       "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
-        {"features.limit-usage",                 "features/quota",            "limit-set", NULL, NO_DOC, 0},
+        {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
+        {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0},
         {"features.quota-timeout",               "features/quota",            "timeout", "0", NO_DOC, 0},
         {NULL,                                                                }
 };
@@ -749,6 +759,28 @@ glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
         return volgen_dict_get (volinfo->dict, key, value);
 }
 
+int
+glusterd_volinfo_get_boolean (glusterd_volinfo_t *volinfo, char *key)
+{
+        char *val = NULL;
+        gf_boolean_t  boo = _gf_false;
+        int ret = 0;
+
+        ret = glusterd_volinfo_get (volinfo, key, &val);
+        if (ret)
+                return -1;
+
+        if (val)
+                ret = gf_string2boolean (val, &boo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "value for %s option is not valid", key);
+
+                return -1;
+        }
+
+        return boo;
+}
+
 gf_boolean_t
 glusterd_check_voloption_flags (char *key, int32_t flags)
 {
@@ -1175,7 +1207,7 @@ glusterd_gsync_option_set (glusterd_volinfo_t *volinfo,
         GF_VALIDATE_OR_GOTO ("glusterd", xl, out);
         GF_VALIDATE_OR_GOTO ("glusterd", set_dict, out);
 
-        ret = volgen_dict_get (set_dict, "features.marker-gsync",
+        ret = volgen_dict_get (set_dict, VKEY_MARKER_XTIME,
                                &gsync_val);
         if (ret)
                 return -1;
@@ -1370,8 +1402,6 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         xlator_t                *xl                 = NULL;
         xlator_t                *txl                = NULL;
         xlator_t                *trav               = NULL;
-        char                    *quota_val          = NULL;
-        gf_boolean_t             quota              = _gf_false;
 
         volname = volinfo->volname;
         dict    = volinfo->dict;
@@ -1486,19 +1516,10 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-        ret = glusterd_volinfo_get (volinfo, "features.quota", &quota_val);
-        if (ret)
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
+        if (ret == -1)
                 return -1;
-
-        if (quota_val)
-                ret = gf_string2boolean (quota_val, &quota);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "value for quota option is not valid");
-
-                return -1;
-        }
-
-        if (quota) {
                 xl = volgen_graph_add (graph, "features/quota", volname);
 
                 if (!xl)
@@ -1735,8 +1756,7 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                 return -1;
         }
 
-        ret = dict_set_str (set_dict, "performance.stat-prefetch",
-                            "off");
+        ret = dict_set_str (set_dict, VKEY_PERF_STAT_PREFETCH, "off");
         if (ret)
                 goto out;
 
