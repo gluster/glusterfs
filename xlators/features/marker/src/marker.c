@@ -1484,14 +1484,16 @@ marker_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
 
-        if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "%s occured while "
-                        "creating symlinks ", strerror (op_errno));
-        }
-
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
+
+        if (op_ret == -1) {
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_ERROR),
+                        "%s occured while creating symlinks for %s",
+                        strerror (op_errno), local->loc.path);
+        }
 
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, statpre,
                              statpost);
@@ -1660,7 +1662,7 @@ marker_lookup (call_frame_t *frame, xlator_t *this,
         if (ret == -1)
                 goto err;
 
-        if (priv->feature_enabled & GF_QUOTA)
+        if ((priv->feature_enabled & GF_QUOTA) && xattr_req)
                 quota_req_xattr (this, loc, xattr_req);
 wind:
         STACK_WIND (frame, marker_lookup_cbk, FIRST_CHILD(this),

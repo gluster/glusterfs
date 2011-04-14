@@ -406,10 +406,10 @@ quota_readdir_cbk (call_frame_t *frame,
         local->frame = frame;
 
         list_for_each_entry (entry, (&entries->list), list) {
-                gf_log (this->name, GF_LOG_INFO, "entry  = %s", entry->d_name);
+                gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
 
                 if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name, ".."))) {
-                        gf_log (this->name, GF_LOG_INFO, "entry  = %s", entry->d_name);
+                        gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
                         offset = entry->d_off;
                         continue;
                 }
@@ -478,10 +478,10 @@ quota_readdir_cbk (call_frame_t *frame,
                         break;
                 }
         }
-        gf_log (this->name, GF_LOG_INFO, "offset before =%"PRIu64,
+        gf_log (this->name, GF_LOG_DEBUG, "offset before =%"PRIu64,
                 local->d_off);
         local->d_off +=offset;
-        gf_log (this->name, GF_LOG_INFO, "offset after = %"PRIu64,
+        gf_log (this->name, GF_LOG_DEBUG, "offset after = %"PRIu64,
                 local->d_off);
 
         if (ret)
@@ -899,7 +899,9 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         if (op_ret == -1 || local->err) {
-                gf_log (this->name, GF_LOG_INFO, "lock setting failed");
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_INFO),
+                        "lock setting failed");
                 xattr_updation_done (frame, NULL, this, 0, 0, NULL);
 
                 return 0;
@@ -1060,7 +1062,9 @@ quota_update_parent_size (call_frame_t *frame,
         local = frame->local;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_ERROR),
+                        "xattrop call failed: %s", strerror (op_errno));
 
                 goto err;
         }
@@ -1108,7 +1112,7 @@ err:
                 quota_release_parent_lock (frame, NULL, this, 0, 0);
         }
 
-        if (dict)
+        if (newdict)
                 dict_unref (newdict);
 
         return 0;
@@ -1135,8 +1139,10 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get size and "
-                        "contribution with %s error", strerror (op_errno));
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_WARNING),
+                        "failed to get size and contribution with %s error",
+                        strerror (op_errno));
                 goto err;
         }
 
@@ -1301,8 +1307,8 @@ quota_markdirty (call_frame_t *frame, void *cookie,
 
         if (op_ret == -1){
                 gf_log (this->name, GF_LOG_ERROR,
-                        "lock setting failed on %s",
-                        local->parent_loc.path);
+                        "lock setting failed on %s (%s)",
+                        local->parent_loc.path, strerror (op_errno));
 
                 local->err = 1;
 
@@ -1523,8 +1529,8 @@ inspect_directory_xattr (xlator_t *this,
 
         ctx->size = ntoh64 (*size);
 
-        gf_log (this->name, GF_LOG_INFO, "size=%"PRId64
-                "contri=%"PRId64, ctx->size,
+        gf_log (this->name, GF_LOG_DEBUG, "size=%"PRId64
+                " contri=%"PRId64, ctx->size,
                 contribution?contribution->contribution:0);
 
         ctx->dirty = dirty;
