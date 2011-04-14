@@ -1632,7 +1632,7 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                rsp.op_errstr = strdup ("Unable to decode response");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
