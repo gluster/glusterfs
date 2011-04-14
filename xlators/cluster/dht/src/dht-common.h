@@ -170,6 +170,7 @@ struct dht_conf {
         gf_boolean_t   use_readdirp;
         char           vol_uuid[UUID_SIZE + 1];
         gf_boolean_t   assert_no_child_down;
+        time_t        *subvol_up_time;
 };
 typedef struct dht_conf dht_conf_t;
 

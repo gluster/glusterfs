@@ -268,6 +268,7 @@ dht_first_up_subvol (xlator_t *this)
         dht_conf_t *conf = NULL;
         xlator_t   *child = NULL;
         int         i = 0;
+        time_t      time = 0;
 
         conf = this->private;
         if (!conf)
@@ -276,9 +277,14 @@ dht_first_up_subvol (xlator_t *this)
         LOCK (&conf->subvolume_lock);
         {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
-                        if (conf->subvolume_status[i]) {
-                                child = conf->subvolumes[i];
-                                break;
+                        if (conf->subvol_up_time[i]) {
+                                if (!time) {
+                                        time = conf->subvol_up_time[i];
+                                        child = conf->subvolumes[i];
+                                } else if (time > conf->subvol_up_time[i]) {
+                                        time  = conf->subvol_up_time[i];
+                                        child = conf->subvolumes[i];
+                                }
                         }
                 }
         }
