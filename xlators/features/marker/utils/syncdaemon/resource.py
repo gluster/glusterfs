@@ -401,7 +401,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
     def connect(self):
         d = tempfile.mkdtemp()
         try:
-            argv = [gconf.gluster_command] + \
+            argv = gconf.gluster_command.split() + \
                     (gconf.gluster_log_level and ['-L', gconf.gluster_log_level] or []) + \
                     ['-l', gconf.gluster_log_file, '-s', self.host,
                      '--volfile-id', self.volume, '--client-pid=-1', d]
