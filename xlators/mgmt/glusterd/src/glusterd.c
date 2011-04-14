@@ -500,6 +500,9 @@ init (xlator_t *this)
         glusterd_opinfo_init ();
 
         glusterd_restart_bricks (conf);
+        ret = glusterd_restart_gsyncds (conf);
+        if (ret)
+                goto out;
         ret = 0;
 out:
         if (ret < 0) {

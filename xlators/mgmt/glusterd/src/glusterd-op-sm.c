@@ -1912,6 +1912,8 @@ gsync_status (char *master, char *slave, int *status)
         }
         ret = 0;
 out:
+        if (file)
+                fclose (file);
         return ret;
 }
 
@@ -2174,7 +2176,7 @@ glusterd_gsync_get_uuid (char *master, char *slave, glusterd_volinfo_t *vol,
         int                         ret = 0;
         glusterd_gsync_slaves_t     status = {0, };
         char                        cann_slave[PATH_MAX] = {0,  };
-        char                        host_uuid_str[32] = {0};
+        char                        host_uuid_str[64] = {0};
         xlator_t                    *this = NULL;
         glusterd_conf_t             *priv = NULL;
 
@@ -2214,7 +2216,7 @@ glusterd_gsync_get_uuid (char *master, char *slave, glusterd_volinfo_t *vol,
 
 static int
 glusterd_check_gsync_running_local (char *master, char *slave,
-                                      gf_boolean_t *is_run)
+                                    gf_boolean_t *is_run)
 {
         int                 ret    = -1;
         int                 ret_status = 0;
@@ -4802,6 +4804,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                    host_uuid, op_errstr);
                 if (ret)
                         goto out;
+                ret = glusterd_start_gsync (volinfo->volname, slave, host_uuid);
 
         }
 
