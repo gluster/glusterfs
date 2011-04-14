@@ -639,6 +639,8 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 
         if (op_ret == -1 && op_errno == ENOENT)
                 need_expunge = 1;
+        else if (op_ret == -1)
+                goto out;
 
         if (!uuid_is_null (expunge_sh->entrybuf.ia_gfid) &&
             !uuid_is_null (buf->ia_gfid) &&
@@ -668,6 +670,7 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 		return 0;
 	}
 
+out:
 	if (op_ret == 0) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"%s exists under %s",
