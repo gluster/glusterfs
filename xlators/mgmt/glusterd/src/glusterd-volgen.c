@@ -166,7 +166,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC, 0},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
 
-        {"features.quota",                       "features/quota",            "quota", "off", NO_DOC, OPT_FLAG_FORCE},
+        {"features.quota",                       "features/quota",            "!quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {"features.quota",                       "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {"features.limit-usage",                 "features/quota",            "limit-set", NULL, NO_DOC, 0},
         {"features.quota-timeout",               "features/quota",            "timeout", "0", NO_DOC, 0},
