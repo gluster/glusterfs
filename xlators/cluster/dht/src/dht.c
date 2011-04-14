@@ -419,6 +419,19 @@ init (xlator_t *this)
                 }
         }
 
+        conf->assert_no_child_down = 0;
+
+        if (!dict_get_str (this->options, "assert-no-child-down", &temp_str)) {
+                if (!strncmp (temp_str, "on", strlen (temp_str))) {
+                        conf->assert_no_child_down = 1;
+                        gf_log (this->name, GF_LOG_INFO,
+                                "assert-no-child-down set to on");
+                } else {
+                        conf->assert_no_child_down = 0;
+                        gf_log (this->name, GF_LOG_INFO,
+                                "assert-no-child-down set to off");
+                }
+        }
 
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
@@ -542,6 +555,10 @@ struct volume_options options[] = {
         },
         { .key = {"use-readdirp"},
           .type = GF_OPTION_TYPE_BOOL
+        },
+        { .key = {"assert-no-child-down"},
+          .value = {"on", "off"},
+          .type = GF_OPTION_TYPE_STR
         },
         { .key  = {NULL} },
 };

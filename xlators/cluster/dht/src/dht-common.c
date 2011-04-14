@@ -5164,6 +5164,12 @@ dht_notify (xlator_t *this, int event, void *data, ...)
         case GF_EVENT_CHILD_DOWN:
                 subvol = data;
 
+                if (conf->assert_no_child_down) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Received CHILD_DOWN. Exiting");
+                        exit(0);
+                }
+
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                         if (subvol == conf->subvolumes[i]) {
                                 cnt = i;
