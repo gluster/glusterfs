@@ -139,8 +139,8 @@ struct stripe_local {
         blkcnt_t             postparent_blocks;
 
         struct readv_replies *replies;
-        struct statvfs       statvfs_buf;
-        dir_entry_t         *entry;
+        struct statvfs        statvfs_buf;
+        dir_entry_t          *entry;
 
         int8_t               revalidate;
         int8_t               failed;
@@ -179,7 +179,8 @@ struct stripe_local {
         fd_t                *fd;
         void                *value;
         struct iobref       *iobref;
-        gf_dirent_t         entries;
+        gf_dirent_t          entries;
+        dict_t              *xattr;
 };
 
 typedef struct stripe_local   stripe_local_t;

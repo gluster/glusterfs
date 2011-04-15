@@ -35,6 +35,7 @@
 
 #include "stripe.h"
 #include "libxlator.h"
+#include "byte-order.h"
 
 void
 stripe_local_wipe (stripe_local_t *local)
@@ -44,6 +45,10 @@ stripe_local_wipe (stripe_local_t *local)
 
         loc_wipe (&local->loc);
         loc_wipe (&local->loc2);
+        if (local->xattr != NULL) {
+                dict_unref (local->xattr);
+        }
+
 out:
         return;
 }
@@ -212,6 +217,61 @@ out:
         return 0;
 }
 
+
+void
+stripe_aggregate (dict_t *this, char *key, data_t *value, void *data)
+{
+        dict_t  *dst  = NULL;
+        int64_t *ptr  = 0, *size = NULL;
+        int32_t  ret  = -1;
+
+        dst = data;
+
+        if (strcmp (key, GF_XATTR_QUOTA_SIZE_KEY) == 0) {
+                ret = dict_get_bin (dst, key, (void **)&size);
+                if (ret < 0) {
+                        size = GF_CALLOC (1, sizeof (int64_t),
+                                          gf_common_mt_char);
+                        if (size == NULL) {
+                                gf_log ("stripe", GF_LOG_WARNING,
+                                        "memory allocation failed");
+                                return;
+                        }
+                        ret = dict_set_bin (dst, key, size, sizeof (int64_t));
+                        if (ret < 0) {
+                                gf_log ("stripe", GF_LOG_WARNING,
+                                        "stripe aggregate dict set failed");
+                                GF_FREE (size);
+                                return;
+                        }
+                }
+
+                ptr = data_to_bin (value);
+                if (ptr == NULL) {
+                        gf_log ("stripe", GF_LOG_WARNING, "data to bin failed");
+                        return;
+                }
+
+                *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
+        }
+
+        return;
+}
+
+
+void
+stripe_aggregate_xattr (dict_t *dst, dict_t *src)
+{
+        if ((dst == NULL) || (src == NULL)) {
+                goto out;
+        }
+
+        dict_foreach (src, stripe_aggregate, dst);
+out:
+        return;
+}
+
+
 int32_t
 stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
@@ -257,8 +317,14 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->stbuf      = *buf;
                                 local->postparent = *postparent;
                                 local->inode = inode_ref (inode);
-                                local->dict = dict_ref (dict);
                         }
+
+                        if (local->dict == NULL) {
+                                local->dict = dict_ref (dict);
+                        } else {
+                                stripe_aggregate_xattr (local->dict, dict);
+                        }
+
                         local->stbuf_blocks      += buf->ia_blocks;
                         local->postparent_blocks += postparent->ia_blocks;
 
@@ -4162,9 +4228,49 @@ stripe_getxattr_unwind (call_frame_t *frame,
         return 0;
 }
 
+
+int
+stripe_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, dict_t *xattr)
+{
+        int                     call_cnt = 0;
+        stripe_local_t         *local = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (frame->local, out);
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                call_cnt = --local->wind_count;
+        }
+        UNLOCK (&frame->lock);
+
+        if (!xattr || (op_ret < 0))
+                goto out;
+
+        local->op_ret = 0;
+
+        if (!local->xattr) {
+                local->xattr = dict_ref (xattr);
+        } else {
+                stripe_aggregate_xattr (local->xattr, xattr);
+        }
+
+out:
+        if (!call_cnt) {
+                STRIPE_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno,
+                                     local->xattr);
+        }
+
+        return 0;
+}
+
+
 int32_t
 stripe_getxattr (call_frame_t *frame, xlator_t *this,
-              loc_t *loc, const char *name)
+                 loc_t *loc, const char *name)
 {
         stripe_local_t     *local = NULL;
         xlator_list_t      *trav = NULL;
@@ -4213,6 +4319,20 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                                            MARKER_UUID_TYPE, priv->vol_uuid)) {
                         op_errno = EINVAL;
                         goto err;
+                }
+
+                return 0;
+        }
+
+        if (name && strncmp (name, GF_XATTR_QUOTA_SIZE_KEY,
+                             strlen (GF_XATTR_QUOTA_SIZE_KEY) == 0)) {
+                local->wind_count = priv->child_count;
+
+                for (i = 0, trav=this->children; i < priv->child_count; i++,
+                             trav = trav->next) {
+                        STACK_WIND (frame, stripe_getxattr_cbk,
+                                    trav->xlator, trav->xlator->fops->getxattr,
+                                    loc, name);
                 }
 
                 return 0;
