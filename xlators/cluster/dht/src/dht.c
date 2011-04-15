@@ -421,16 +421,17 @@ init (xlator_t *this)
 
         conf->assert_no_child_down = 0;
 
-        if (!dict_get_str (this->options, "assert-no-child-down", &temp_str)) {
-                if (!strncmp (temp_str, "on", strlen (temp_str))) {
-                        conf->assert_no_child_down = 1;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "assert-no-child-down set to on");
-                } else {
-                        conf->assert_no_child_down = 0;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "assert-no-child-down set to off");
+        ret = dict_get_str_boolean (this->options, "assert-no-child-down", 0);
+        if (ret != -1) {
+                if (conf->assert_no_child_down != ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Changing assert-no-child-down from %d to %d",
+                                conf->assert_no_child_down, ret);
                 }
+                conf->assert_no_child_down = ret;
+        } else {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "'assert-no-child-down' takes only boolean arguments");
         }
 
         ret = dht_init_subvolumes (this, conf);
@@ -557,8 +558,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL
         },
         { .key = {"assert-no-child-down"},
-          .value = {"on", "off"},
-          .type = GF_OPTION_TYPE_STR
+          .type = GF_OPTION_TYPE_BOOL
         },
         { .key  = {NULL} },
 };
