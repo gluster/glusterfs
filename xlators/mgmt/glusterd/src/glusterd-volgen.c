@@ -35,6 +35,7 @@
 #include "glusterd-mem-types.h"
 #include "cli1.h"
 #include "glusterd-volgen.h"
+#include "glusterd-op-sm.h"
 
 
 /* dispatch table for VOLUME SET
@@ -155,6 +156,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {VKEY_PERF_STAT_PREFETCH,                "performance/stat-prefetch", "!perf", "on", NO_DOC, 0},
 
         {VKEY_MARKER_XTIME,                      "features/marker",           "xtime", "off", NO_DOC, OPT_FLAG_FORCE},
+        {VKEY_MARKER_XTIME,                      "features/marker",           "!xtime", "off", NO_DOC, OPT_FLAG_FORCE},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC, 0},
         {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC, 0},
@@ -1169,12 +1171,68 @@ loglevel_option_handler (glusterfs_graph_t *graph,
 }
 
 static int
+server_check_marker_off (struct volopt_map_entry *vme,
+                         glusterd_volinfo_t *volinfo)
+{
+        gf_boolean_t           bool = _gf_false;
+        int                    ret = 0;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (vme);
+
+        if (strcmp (vme->option, "!xtime") != 0)
+                return 0;
+
+        ret = gf_string2boolean (vme->value, &bool);
+        if (ret || bool)
+                goto out;
+
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_MARKER_XTIME);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to get the marker status");
+                ret = -1;
+                goto out;
+        }
+
+        if (ret) {
+                bool = _gf_false;
+                ret = glusterd_check_gsync_running (volinfo, &bool);
+
+                if (bool) {
+                        gf_log ("", GF_LOG_WARNING, "Gsync sessions active"
+                                "for the volume %s, cannot disable marker "
+                                ,volinfo->volname);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (ret) {
+                        gf_log ("", GF_LOG_WARNING, "Unable to get the status"
+                                 " of active gsync session");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+static int
 server_spec_option_handler (glusterfs_graph_t *graph,
                             struct volopt_map_entry *vme, void *param)
 {
-        int ret = 0;
+        int                     ret = 0;
+        glusterd_volinfo_t      *volinfo = NULL;
+
+        volinfo = param;
 
         ret = server_auth_option_handler (graph, vme, NULL);
+        if (!ret)
+                ret = server_check_marker_off (vme, volinfo);
+
         if (!ret)
                 ret = loglevel_option_handler (graph, vme, "brick");
 
@@ -1272,7 +1330,7 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
-        ret = volgen_graph_set_options_generic (graph, set_dict, NULL,
+        ret = volgen_graph_set_options_generic (graph, set_dict, volinfo,
                                                 &server_spec_option_handler);
 
         return ret;

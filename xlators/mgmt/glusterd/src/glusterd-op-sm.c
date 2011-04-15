@@ -110,8 +110,6 @@ typedef struct glusterd_quota_child_info {
 
 static int
 glusterd_restart_brick_servers (glusterd_volinfo_t *);
-static int
-glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag);
 
 
 char*
@@ -2351,7 +2349,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag)
 {
 
