@@ -1475,6 +1475,10 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                 goto out;
         }
 
+        if ((blk_size > 0) ^ (count > 0)) {
+                ret = -1;
+                goto out;
+        }
         *options = dict;
 out:
         if (ret && dict)
