@@ -1166,7 +1166,7 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
 
                         ctx->size = ntoh64 (*size);
                 } else
-                        ctx->size = buf->ia_size;
+                        ctx->size = buf->ia_blocks * 512;
 
                 ret = dict_get_bin (dict, contri_key, (void **) &contri);
                 if (ret < 0)
@@ -1582,7 +1582,7 @@ inspect_file_xattr (xlator_t *this,
 
         LOCK (&ctx->lock);
         {
-                ctx->size = buf.ia_size;
+                ctx->size = 512 * buf.ia_blocks;
         }
         UNLOCK (&ctx->lock);
 
@@ -1604,7 +1604,7 @@ inspect_file_xattr (xlator_t *this,
                         ret = validate_inode_size_contribution
                                 (this, loc, ctx, contribution);
                 } else
-                      initiate_quota_txn (this, loc);
+                        initiate_quota_txn (this, loc);
         }
 
 out:
