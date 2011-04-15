@@ -271,43 +271,39 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 rsp.op_name = "";
                 rsp.master = "";
                 rsp.slave = "";
-                rsp.glusterd_workdir = gf_strdup (conf->workdir);
-                rsp.gsync_prefix = gf_strdup (GSYNCD_PREFIX);
+                rsp.glusterd_workdir = conf->workdir;
+                rsp.gsync_prefix = GSYNCD_PREFIX;
                 if (ctx) {
-                        ret = dict_get_str (ctx, "errstr",
-                                            &str);
+                        ret = dict_get_str (ctx, "errstr", &str);
                         if (ret == 0)
-                                rsp.op_errstr = gf_strdup (str);
-                        ret = dict_get_int32 (ctx, "type",
-                                              &type);
+                                rsp.op_errstr = str;
+                        ret = dict_get_int32 (ctx, "type", &type);
                         if (ret == 0)
                                 rsp.type = type;
                         ret = dict_get_int32 (ctx, "config_type",
                                               &config_type);
                         if (ret == 0)
                                 rsp.config_type = config_type;
-                        ret = dict_get_str (ctx, "master",
-                                            &master);
+                        ret = dict_get_str (ctx, "master", &master);
                         if (ret == 0)
-                                rsp.master = gf_strdup (master);
+                                rsp.master = master;
 
-                        ret = dict_get_str (ctx, "slave",
-                                            &slave);
+                        ret = dict_get_str (ctx, "slave", &slave);
                         if (ret == 0)
-                                rsp.slave = gf_strdup (slave);
+                                rsp.slave = slave;
 
-                        if (config_type ==
-                            GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
-                                ret = dict_get_str (ctx, "op_name",
-                                                    &op_name);
+                        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
+                                ret = dict_get_str (ctx, "op_name", &op_name);
                                 if (ret == 0)
-                                        rsp.op_name =
-                                                gf_strdup (op_name);
+                                        rsp.op_name = op_name;
                         }
 
                         ret = dict_allocate_and_serialize (ctx,
                                         &rsp.status_dict.status_dict_val,
                                     (size_t*)&rsp.status_dict.status_dict_len);
+
+                        if (ret == 0)
+                                free_ptr = rsp.status_dict.status_dict_val;
 
                 }
                 if (op_errstr)
@@ -357,11 +353,11 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 ctx = op_ctx;
 
                 if (op_errstr)
-                        rsp.op_errstr = gf_strdup (op_errstr);
+                        rsp.op_errstr = op_errstr;
                 else {
                         ret = dict_get_str (ctx, "errstr", &errstr);
                         if (ret == 0)
-                                rsp.op_errstr = gf_strdup (errstr);
+                                rsp.op_errstr = errstr;
                         else
                                 rsp.op_errstr = "";
                 }
@@ -371,22 +367,19 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 if (op_ret == 0 && ctx) {
                         ret = dict_get_str (ctx, "volname", &str);
                         if (ret == 0)
-                                rsp.volname = gf_strdup (str);
+                                rsp.volname = str;
 
-                        ret = dict_get_int32
-                              (ctx, "type", &type);
+                        ret = dict_get_int32 (ctx, "type", &type);
                         if (ret == 0)
                                 rsp.type = type;
                         else
                                 rsp.type = 0;
 
                         if (type == GF_QUOTA_OPTION_TYPE_LIST) {
-                                 ret = dict_get_str
-                                       (ctx,"limit_list", &str);
+                                 ret = dict_get_str (ctx,"limit_list", &str);
 
                                  if (ret == 0)
-                                         rsp.limit_list =
-                                                 gf_strdup (str);
+                                         rsp.limit_list = str;
                         }
                 }
                 cli_rsp = &rsp;
