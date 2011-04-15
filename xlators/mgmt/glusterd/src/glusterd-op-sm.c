@@ -5016,7 +5016,13 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                 ret = -1;
                 goto err;
         } else if (pid == 0) {//first child
-                chdir (mountdir);
+                ret = chdir (mountdir);
+                if (ret == -1) {
+                        gf_log ("glusterd", GF_LOG_WARNING, "chdir %s failed, "
+                                "reason: %s", mountdir, strerror (errno));
+                        exit (EXIT_FAILURE);
+                }
+
                 /* close all fd's */
                 for (idx = 3; idx < 65536; idx++) {
                         close (idx);
