@@ -274,8 +274,10 @@ configure_syncaemon (xlator_t *this, const char *workdir)
                 goto out;
 
         /* ssh-command */
-        strcpy (cmd + blen,
-                "ssh-command 'ssh -oPasswordAuthentication=no' . .");
+        sprintf (cmd + blen,
+                 "ssh-command "
+                 "'ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
+                 "-i %s/"GEOREP"/secret.pem' . .", workdir);
         ret = system (cmd);
         if (ret)
                 goto out;
