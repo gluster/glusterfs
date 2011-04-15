@@ -7,15 +7,14 @@ import time
 import logging
 import signal
 import select
-import shutil
 import optparse
 import fcntl
 from optparse import OptionParser, SUPPRESS_HELP
 from logging import Logger
-from errno import EEXIST, ENOENT, EACCES, EAGAIN
+from errno import EEXIST, ENOENT
 
 from gconf import gconf
-from syncdutils import FreeObject, norm
+from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -53,47 +52,12 @@ class GLogger(Logger):
         logging.basicConfig(**lprm)
 
 
-def grabfile(fname, content=None):
-    # damn those messy open() mode codes
-    fd = os.open(fname, os.O_CREAT|os.O_RDWR)
-    f = os.fdopen(fd, 'r+b', 0)
-    try:
-        fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
-    except:
-        ex = sys.exc_info()[1]
-        f.close()
-        if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
-            # cannot grab, it's taken
-            return
-        raise
-    if content:
-        try:
-            f.truncate()
-            f.write(content)
-        except:
-            f.close()
-            raise
-    gconf.permanent_handles.append(f)
-    return f
-
-pid_file_owned = False
-
-def grabpidfile(fname=None, setpid=True):
-    if not fname:
-        fname = gconf.pid_file
-    content = None
-    if setpid:
-        content = str(os.getpid()) + '\n'
-    return grabfile(fname, content=content)
-
 def startup(**kw):
-    global pid_file_owned
-
     if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
         if not grabpidfile():
             sys.stderr.write("pidfile is taken, exiting.\n")
             sys.exit(2)
-        pid_file_owned = True
+        gconf.pid_file_owned = True
 
     if kw.get('go_daemon') == 'should':
         x, y = os.pipe()
@@ -129,57 +93,19 @@ def startup(**kw):
             lkw['filename'] = kw['log_file']
     GLogger.setup(label=kw.get('label'), **lkw)
 
-def finalize(*a):
-    if getattr(gconf, 'pid_file', None):
-        rm_pidf = pid_file_owned
-        if gconf.cpid:
-            # exit path from parent branch of daemonization
-            rm_pidf = False
-            while True:
-                f = grabpidfile(setpid=False)
-                if not f:
-                    # child has already taken over pidfile
-                    break
-                if os.waitpid(gconf.cpid, os.WNOHANG)[0] == gconf.cpid:
-                    # child has terminated
-                    rm_pidf = True
-                    break;
-                time.sleep(0.1)
-        if rm_pidf:
-            try:
-                os.unlink(gconf.pid_file)
-            except:
-                ex = sys.exc_info()[1]
-                if ex.errno == ENOENT:
-                    pass
-                else:
-                    raise
-    if gconf.ssh_ctl_dir and not gconf.cpid:
-        shutil.rmtree(gconf.ssh_ctl_dir)
-    sys.stdout.flush()
-    sys.stderr.flush()
-
 def main():
     signal.signal(signal.SIGTERM, lambda *a: (finalize(*a), os._exit(1)))
     GLogger.setup()
-    exval = 0
+    excont = FreeObject(exval = 0)
     try:
         try:
             main_i()
         except:
-            exc = sys.exc_info()[1]
-            if isinstance(exc, SystemExit):
-                exval = exc.code or 0
-                raise
-            else:
-                logging.exception("FAIL: ")
-                sys.stderr.write("failed with %s.\n" % type(exc).__name__)
-                exval = 1
-                sys.exit(exval)
+            log_raise_exception(excont)
     finally:
         finalize()
         # force exit in non-main thread too
-        os._exit(exval)
+        os._exit(excont.exval)
 
 def main_i():
     rconf = {'go_daemon': 'should'}

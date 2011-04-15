@@ -4,6 +4,7 @@ class GConf(object):
     ssh_ctl_dir = None
     ssh_ctl_args = None
     cpid = None
+    pid_file_owned = False
     permanent_handles = []
 
     @classmethod
