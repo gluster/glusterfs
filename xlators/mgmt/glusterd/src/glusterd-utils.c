@@ -2328,7 +2328,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 
 
         strncpy (uuid_str, (char*)value->data, uuid_len);
-        glusterd_start_gsync (volinfo->volname, slave, uuid_str);
+        glusterd_start_gsync (volinfo->volname, slave, uuid_str, NULL);
 }
 
 int
@@ -3190,7 +3190,8 @@ glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo)
 }
 
 int
-glusterd_start_gsync (char *master, char *slave, char *uuid_str)
+glusterd_start_gsync (char *master, char *slave, char *uuid_str,
+                      char **op_errstr)
 {
         int32_t         ret     = 0;
         int32_t         status  = 0;
@@ -3201,6 +3202,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
         char            master_url[GLUSTERD_MAX_VOLUME_NAME + 8] = {0};
+        char            msg[3*PATH_MAX] = {0};
 
         this = THIS;
         GF_ASSERT (this);
@@ -3218,7 +3220,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
         ret = glusterd_gsync_get_param_file (prmfile, "pid", master_url,
                                              slave, priv->workdir);
         if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to create the pidfile string");
+                snprintf (msg, sizeof (msg), "failed to create the pidfile string");
                 goto out;
         }
         unlink (prmfile);
@@ -3227,8 +3229,8 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
                 *tslash = '\0';
                 ret = mkdir (prmfile, 0777);
                 if (ret && (errno != EEXIST)) {
-                        gf_log ("", GF_LOG_DEBUG, "mkdir failed, errno: %d",
-                                errno);
+                        snprintf (msg, sizeof (msg), "mkdir %s failed, (%s)",
+                                  prmfile, strerror (errno));
                         goto out;
                 }
                 *tslash = '/';
@@ -3240,15 +3242,15 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
                                        GSYNC_CONF, master_url, slave, prmfile);
         if (ret <= 0) {
                 ret = -1;
-                gf_log ("", GF_LOG_WARNING, "failed to construct the  "
-                        "config set command for %s %s", master_url, slave);
+                snprintf (msg, sizeof (msg), "failed to construct the  "
+                          "config set command for %s %s", master_url, slave);
                 goto out;
         }
 
         ret = gf_system (cmd);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "failed to set the pid "
-                        "option for %s %s", master_url, slave);
+                snprintf (msg, sizeof (msg), "failed to set the pid "
+                          "option for %s %s", master_url, slave);
                 goto out;
         }
 
@@ -3262,16 +3264,16 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
         if (ret != -1)
                 ret = gf_system (cmd) ? -1 : 0;
         if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to set status file "
-                        "for %s %s", master_url, slave);
+                snprintf (msg, sizeof (msg), "failed to set status file "
+                          "for %s %s", master_url, slave);
                 goto out;
         }
 
         ret = glusterd_gsync_get_param_file (prmfile, "log", master_url,
                                              slave, DEFAULT_LOG_FILE_DIRECTORY);
         if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to construct the "
-                        "logfile string");
+                snprintf (msg, sizeof (msg), "failed to construct the "
+                          "logfile string");
                 goto out;
         }
         /* XXX "mkdir -p": eventually this should be made into a library routine */
@@ -3289,8 +3291,8 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
                                 *slash = '\0';
                         ret = mkdir (prmfile, 0777);
                         if (ret == -1 && errno != EEXIST) {
-                                gf_log ("", GF_LOG_DEBUG, "mkdir failed (%s)",
-                                        strerror (errno));
+                                snprintf (msg, sizeof (msg), "mkdir %s failed, "
+                                          "(%s)", prmfile, strerror (errno));
                                 goto out;
                         }
                         if (slash) {
@@ -3301,8 +3303,8 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
                 ret = stat (prmfile, &st);
                 if (ret == -1 || !S_ISDIR (st.st_mode)) {
                         ret = -1;
-                        gf_log ("", GF_LOG_DEBUG, "mkdir failed (%s)",
-                                strerror (errno));
+                        snprintf (msg, sizeof (msg), "mkdir %s failed, "
+                                  "(%s)", prmfile, strerror (errno));
                         goto out;
                 }
                 *tslash = '/';
@@ -3316,8 +3318,8 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
         if (ret != -1)
                 ret = gf_system (cmd) ? -1 : 0;
         if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to set status file "
-                        "for %s %s", master_url, slave);
+                snprintf (msg, sizeof (msg), "failed to set status file "
+                          "for %s %s", master_url, slave);
                 goto out;
         }
 
@@ -3336,6 +3338,10 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str)
         ret = 0;
 
 out:
-
+        if ((ret != 0) && (msg[0] != '\0')) {
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (msg);
+        }
         return ret;
 }

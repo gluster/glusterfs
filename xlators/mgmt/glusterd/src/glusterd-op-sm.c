@@ -4796,7 +4796,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                    host_uuid, op_errstr);
                 if (ret)
                         goto out;
-                ret = glusterd_start_gsync (volinfo->volname, slave, host_uuid);
+                ret = glusterd_start_gsync (volinfo->volname, slave, host_uuid, op_errstr);
 
         }
 
