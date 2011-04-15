@@ -26,7 +26,7 @@
 #endif
 
 #ifndef GSYNC_CONF
-#define GSYNC_CONF "gsync/gsyncd.conf"
+#define GSYNC_CONF GEOREP"/gsyncd.conf"
 #endif
 
 #include <pthread.h>

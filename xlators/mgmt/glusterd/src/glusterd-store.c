@@ -1523,8 +1523,8 @@ glusterd_store_retrieve_volume (char    *volname)
                                                 "dict_set_str");
                                 goto out;
                         }
-                        gf_log ("", GF_LOG_DEBUG, "Parsed as Gsync-"
-                                "skave:key=%s,value:%s", key, value);
+                        gf_log ("", GF_LOG_DEBUG, "Parsed as "GEOREP" "
+                                " slave:key=%s,value:%s", key, value);
                 }
                 else {
                         exists = glusterd_check_option_exists (key, NULL);

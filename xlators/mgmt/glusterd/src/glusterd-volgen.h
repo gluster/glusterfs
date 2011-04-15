@@ -32,7 +32,7 @@
 #define VKEY_DIAG_CNT_FOP_HITS    "diagnostics.count-fop-hits"
 #define VKEY_DIAG_LAT_MEASUREMENT "diagnostics.latency-measurement"
 #define VKEY_FEATURES_LIMIT_USAGE "features.limit-usage"
-#define VKEY_MARKER_XTIME         "features.marker-gsync"
+#define VKEY_MARKER_XTIME         GEOREP".indexing"
 #define VKEY_FEATURES_QUOTA       "features.quota"
 #define VKEY_PERF_STAT_PREFETCH   "performance.stat-prefetch"
 

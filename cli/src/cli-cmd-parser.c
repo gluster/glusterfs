@@ -1133,7 +1133,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         GF_ASSERT (options);
 
         GF_ASSERT ((strcmp (words[0], "volume")) == 0);
-        GF_ASSERT ((strcmp (words[1], "gsync")) == 0);
+        GF_ASSERT ((strcmp (words[1], GEOREP)) == 0);
 
         dict = dict_new ();
         if (!dict)

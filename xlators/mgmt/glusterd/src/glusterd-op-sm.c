@@ -537,12 +537,12 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                 ret = glusterd_check_gsync_running (volinfo, &is_run);
                 if (ret && (is_run == _gf_false))
                         gf_log ("", GF_LOG_WARNING, "Unable to get the status"
-                                 " of active gsync session");
+                                 " of active "GEOREP" session");
                 if (is_run) {
-                        gf_log ("", GF_LOG_WARNING, "Gsync sessions active"
+                        gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
                                 "for the volume %s ", volname);
-                        snprintf (msg, sizeof(msg), "Gsync sessions are active "
-                                  "for the volume '%s'.\nUse 'volume gsync "
+                        snprintf (msg, sizeof(msg), GEOREP" sessions are active "
+                                  "for the volume '%s'.\nUse 'volume "GEOREP" "
                                   "status' command for more info. Use 'force'"
                                   "option to ignore and stop stop the volume",
                                    volname);
@@ -1801,7 +1801,7 @@ glusterd_gsync_get_param_file (char *prmfile, const char *ext, char *master,
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (prmfolder, PATH_MAX, "%s/gsync/%s", gl_workdir, buff);
+                snprintf (prmfolder, PATH_MAX, "%s/"GEOREP"/%s", gl_workdir, buff);
         } else {
                 ret = -1;
                 goto out;
@@ -1850,7 +1850,7 @@ glusterd_gsync_get_pid_file (char *pidfile, char *master, char *slave)
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (buffer, PATH_MAX, "%s/gsync/%s", priv->workdir, buff);
+                snprintf (buffer, PATH_MAX, "%s/"GEOREP"/%s", priv->workdir, buff);
                 strncpy (pidfolder, buffer, PATH_MAX);
         } else {
                 ret = -1;
@@ -2230,7 +2230,7 @@ glusterd_check_gsync_running_local (char *master, char *slave,
         if (ret == 0 && ret_status == 0) {
                 *is_run = _gf_true;
         } else if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "gsync start validation "
+                gf_log ("", GF_LOG_WARNING, GEOREP" start validation "
                         " failed");
                 goto out;
         }
@@ -2263,11 +2263,11 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *master,
         dict_foreach (volinfo->gsync_slaves, _compare_host_uuid, &status);
 
         if (status.ret_status == -1) {
-                gf_log ("", GF_LOG_ERROR, "Gsync has already been invoked for "
+                gf_log ("", GF_LOG_ERROR, GEOREP" has already been invoked for "
                                           "the %s (master) and %s (slave)"
                                           "from a different machine",
                                            master, slave);
-                 *op_errstr = gf_strdup ("Gsync already running in an an"
+                 *op_errstr = gf_strdup (GEOREP" already running in an an"
                                         "orhter machine");
                 ret = -1;
                 goto out;
@@ -2320,7 +2320,7 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
 
         if (GLUSTERD_STATUS_STARTED != volinfo->status) {
                 snprintf (msg, sizeof (msg), "Volume %s needs to be started "
-                          "before gsync start", volinfo->volname);
+                          "before "GEOREP" start", volinfo->volname);
                 goto out;
         }
         /*Check if the gsync is already started in cmd. inited host
@@ -2330,12 +2330,12 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
                 ret = glusterd_check_gsync_running_local (master, slave,
                                                           &is_running);
                 if (ret) {
-                        snprintf (msg, sizeof (msg), "gsync start option "
+                        snprintf (msg, sizeof (msg), GEOREP" start option "
                                   "validation failed ");
                         goto out;
                 }
                 if (_gf_true == is_running) {
-                        snprintf (msg, sizeof (msg), "gsync %s %s already "
+                        snprintf (msg, sizeof (msg), GEOREP" %s %s already "
                                   "started", master, slave);
                         ret = -1;
                         goto out;
@@ -2385,12 +2385,13 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
 
         if (GLUSTERD_STATUS_STARTED != volinfo->status) {
                 snprintf (msg, sizeof (msg), "Volume %s needs to be started "
-                          "before gsync start", volinfo->volname);
+                          "before "GEOREP" start", volinfo->volname);
+
                 goto out;
         }
         ret = glusterd_gsync_get_uuid (master, slave, volinfo, uuid);
         if (ret == -1) {
-                snprintf (msg, sizeof (msg), "Gsync session is not active");
+                snprintf (msg, sizeof (msg), GEOREP" session is not active");
                 goto out;
         }
 
@@ -4175,11 +4176,11 @@ stop_gsync (char *master, char *slave, char **op_errstr)
 
         ret = gsync_status (master, slave, &status);
         if (ret == 0 && status == -1) {
-                gf_log ("", GF_LOG_WARNING, "Gsync is not running");
-                *op_errstr = gf_strdup ("Gsync is not running");
+                gf_log ("", GF_LOG_WARNING, "gsyncd is not running");
+                *op_errstr = gf_strdup ("gsyncd is not running");
                 goto out;
         } else if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "gsync stop validation "
+                gf_log ("", GF_LOG_WARNING, GEOREP" stop validation "
                         " failed");
                 *op_errstr = gf_strdup ("command to failed, please "
                                         "check the log file");
@@ -4209,7 +4210,7 @@ stop_gsync (char *master, char *slave, char **op_errstr)
                 ret = kill (-pid, SIGTERM);
                 if (ret) {
                         gf_log ("", GF_LOG_WARNING,
-                                "failed to stop gsyncd");
+                                "failed to kill gsyncd");
                         goto out;
                 }
                 for (i = 0; i < 20; i++) {
@@ -4229,7 +4230,7 @@ stop_gsync (char *master, char *slave, char **op_errstr)
         }
         ret = 0;
 
-        *op_errstr = gf_strdup ("gsync stopped successfully");
+        *op_errstr = gf_strdup (GEOREP" stopped successfully");
 
 out:
         return ret;
@@ -4247,7 +4248,7 @@ gsync_config_set (char *master, char *slave,
 
         if (THIS == NULL) {
                 gf_log ("", GF_LOG_ERROR, "THIS of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
                 goto out;
         }
 
@@ -4255,7 +4256,7 @@ gsync_config_set (char *master, char *slave,
 
         if (priv == NULL) {
                 gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
                 goto out;
         }
 
@@ -4322,7 +4323,7 @@ gsync_config_del (char *master, char *slave,
 
         if (THIS == NULL) {
                 gf_log ("", GF_LOG_ERROR, "THIS of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
                 goto out;
         }
 
@@ -4330,7 +4331,7 @@ gsync_config_del (char *master, char *slave,
 
         if (priv == NULL) {
                 gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
                 goto out;
         }
 
@@ -4383,13 +4384,13 @@ glusterd_gsync_read_frm_status (char *path, char *data)
         GF_ASSERT (data);
         status_file = fopen (path, "r");
         if (status_file  == NULL) {
-                gf_log ("", GF_LOG_WARNING, "Unable to read the Gsync status"
+                gf_log ("", GF_LOG_WARNING, "Unable to read gsyncd status"
                         " file");
                 return -1;
         }
         ret = fread (data, PATH_MAX, 1, status_file);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "Status file of Gsync is corrupt");
+                gf_log ("", GF_LOG_WARNING, "Status file of gsyncd is corrupt");
                 return -1;
         }
 
@@ -4427,11 +4428,8 @@ glusterd_read_status_file (char *master, char *slave,
         if (ret == 0 && status == -1) {
                 strncpy (buff, "Corrupt\n", sizeof (buff));
                 goto done;
-        } else if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "Unable to determine "
-                        " Gsync's status");
+        } else if (ret == -1)
                 goto out;
-        }
 
         ret = glusterd_gsync_read_frm_status (statusfile, buff);
         if (ret) {
@@ -4520,7 +4518,7 @@ glusterd_marker_create_volfile (glusterd_volinfo_t *volinfo)
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile"
-                        " for setting of marker while 'gsync start'");
+                        " for setting of marker while '"GEOREP" start'");
                 ret = -1;
                 goto out;
         }
@@ -4785,7 +4783,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 ret = glusterd_set_marker_gsync (master);
                 if (ret != 0) {
                         gf_log ("", GF_LOG_WARNING, "marker start failed");
-                        *op_errstr = gf_strdup ("gsync start failed");
+                        *op_errstr = gf_strdup ("failed to initialize indexing");
                         ret = -1;
                         goto out;
                 }
@@ -4801,9 +4799,9 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 ret = glusterd_gsync_get_uuid (master, slave, volinfo, uuid);
                 if (ret) {
-                        gf_log ("", GF_LOG_WARNING, "Gsync is not runing for"
+                        gf_log ("", GF_LOG_WARNING, GEOREP" is not set up for"
                                 "%s(master) and %s(slave)", master, slave);
-                        *op_errstr = strdup ("Gsync is not running");
+                        *op_errstr = strdup (GEOREP" is not set up");
                         goto out;
                 }
 

@@ -238,11 +238,11 @@ configure_syncaemon (xlator_t *this, const char *workdir)
         char cmd[4096] = {0,};
         int blen = 0;
 
-        snprintf (voldir, PATH_MAX, "%s/gsync", workdir);
+        snprintf (voldir, PATH_MAX, "%s/"GEOREP, workdir);
         ret = mkdir (voldir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
-                        "Unable to create gsync directory %s (%s)",
+                        "Unable to create "GEOREP" directory %s (%s)",
                         voldir, strerror (errno));
                 return -1;
         }
