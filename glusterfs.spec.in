@@ -2,7 +2,7 @@
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
 %define release 1%{?dist}
-%define _libexecdir %{_prefix}/local/libexec/glusterfs
+%define _libexecdir %{_prefix}/local/libexec/
 
 # if you wish to compile an rpm without rdma support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
@@ -15,6 +15,10 @@
 # if you wish to compile an rpm with fusermount...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with fusermount
 %{?_with_fusermount:%define _with_fusermount --enable-fusermount}
+
+# if you wish to compile an rpm without geo-replication support, compile like this...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without geo-replication
+%{?_without_geo-replication:%define _without_geo-replication --disable-geo-replication}
 
 Summary: Cluster File System
 Name: @PACKAGE_NAME@
@@ -82,6 +86,24 @@ is in userspace and easily manageable.
 This package provides support to ib-verbs library.
 %endif
 
+%if 0%{!?_without_geo-replication:1}
+%package geo-replication
+Summary: GlusterFS Geo-replication
+Group: Applications/File
+Requires: glusterfs-core >= %{version}-%{release} , python-ctypes , rsync >= 3.0.7
+
+%description geo-replication
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package provides support to geo-replication.
+%endif
+
 %package fuse
 Summary: GlusterFS Fuse
 Group: Applications/File
@@ -104,7 +126,7 @@ This package provides support to FUSE based clients.
 
 %build
 
-%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_geo-replication}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -115,6 +137,13 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 %install
 %{__rm} -rf %{buildroot} 
 %{__make} install DESTDIR=%{buildroot}
+%{__mkdir_p} %{buildroot}/usr/sbin
+%{__mkdir_p} %{buildroot}/usr/local/libexec/glusterfs
+%{__ln_s} ../..%{_sbindir}/glusterd %{buildroot}/usr/sbin/glusterd
+%{__ln_s} ../..%{_sbindir}/glusterfsd %{buildroot}/usr/sbin/glusterfsd
+%{__ln_s} ../..%{_sbindir}/gluster %{buildroot}/usr/sbin/gluster
+%{__ln_s} ../..%{_sbindir}/glusterfs %{buildroot}/usr/sbin/glusterfs
+%{__ln_s} %{_libexecdir}/glusterfs/gsyncd %{buildroot}/usr/local/libexec/glusterfs/gsyncd
 %{__mkdir_p} %{buildroot}%{_includedir}/glusterfs
 %{__mkdir_p} %{buildroot}/var/log/glusterfs
 %{__install} -p -m 0644 libglusterfs/src/*.h \
@@ -131,13 +160,6 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 /sbin/ldconfig
 /sbin/chkconfig --add glusterd
 
-#creat symlinks
-rm -rf /usr/sbin/glusterd /usr/sbin/glusterfsd /usr/sbin/glusterfs /usr/sbin/gluster
-
-ln -s %{_sbindir}/glusterd /usr/sbin/glusterd
-ln -s %{_sbindir}/glusterfsd /usr/sbin/glusterfsd
-ln -s %{_sbindir}/gluster /usr/sbin/gluster
-ln -s %{_sbindir}/glusterfs /usr/sbin/glusterfs
 
 #update  /etc/ld.so.conf.d
 echo "%{_prefix}/lib64" > /etc/ld.so.conf.d/glusterfs.conf
@@ -146,6 +168,7 @@ echo "%{_prefix}/lib64" > /etc/ld.so.conf.d/glusterfs.conf
 pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ];
 then
+kill -9 `pgrep -f gsyncd.py` &> /dev/null
 /etc/init.d/glusterd restart &> /dev/null
 fi
 
@@ -169,6 +192,7 @@ fi
 %{_sbindir}/glusterfs*
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
+/usr/sbin
 %{_mandir}/man8/*glusterfs.8*
 %{_mandir}/man8/*glusterfsd.8*
 %{_mandir}/man8/*gluster.8*
@@ -183,14 +207,24 @@ fi
 %{_includedir}/glusterfs
 %exclude %{_includedir}/glusterfs/y.tab.h
 %{_libdir}/*.so
-%{_libexecdir}/gsyncd
-%{_libexecdir}/python/syncdaemon/*
+%exclude %{_libexecdir}/glusterfs/gsyncd
+%exclude %{_libexecdir}/glusterfs/python/syncdaemon/*
+%exclude /usr/local/libexec/glusterfs/gsyncd
 
 %if 0%{!?_without_rdma:1}
 %files rdma
 %defattr(-,root,root)
 %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %endif
+
+%if 0%{!?_without_geo-replication:1}
+%files geo-replication
+%defattr(-,root,root)
+%{_libexecdir}/glusterfs/gsyncd
+%{_libexecdir}/glusterfs/python/syncdaemon/*
+/usr/local/libexec/glusterfs/gsyncd
+%endif
+
 
 %files fuse
 %defattr(-,root,root)
