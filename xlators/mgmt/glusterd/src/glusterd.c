@@ -268,7 +268,8 @@ configure_syncaemon (xlator_t *this, const char *workdir)
         /* gluster-command */
         /* XXX $sbindir should be used (throughout the codebase) */
         strcpy (cmd + blen,
-                "gluster-command "GFS_PREFIX"/sbin/glusterfs . .");
+                "gluster-command '"GFS_PREFIX"/sbin/glusterfs "
+                "--xlator-option *-dht.assert-no-child-down=true' . .");
         ret = system (cmd);
         if (ret)
                 goto out;
