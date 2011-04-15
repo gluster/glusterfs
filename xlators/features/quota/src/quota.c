@@ -2379,6 +2379,8 @@ quota_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         local->loc.inode = inode_ref (fd->inode);
 
+        frame->local = local;
+
         STACK_WIND (frame, quota_fsync_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsync, fd, flags);
         return 0;
