@@ -306,4 +306,6 @@ gsync_status (char *master, char *slave, int *status);
 int
 glusterd_gsync_get_param_file (char *prmfile, const char *ext, char *master,
                                 char *slave, char *gl_workdir);
+int
+glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag);
 #endif
