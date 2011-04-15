@@ -112,11 +112,14 @@ class GConffile(object):
         self.update_to(d)
         if opt:
             opt = norm(opt)
-            d = {opt: d.get(opt, "")}
-        for k, v in d.iteritems():
-            if k == '__name__':
-                continue
-            print("%s: %s" % (k, v))
+            v = d.get(opt)
+            if v:
+                print v
+        else:
+            for k, v in d.iteritems():
+                if k == '__name__':
+                    continue
+                print("%s: %s" % (k, v))
 
     def write(self, trfn, opt, *a, **kw):
         def mergeconf(f):
