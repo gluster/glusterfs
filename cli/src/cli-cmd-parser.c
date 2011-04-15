@@ -1433,7 +1433,10 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         if (!ret)
                                 blk_size = atoi (value);
                         if (ret || (blk_size <= 0)) {
-                                cli_out ("block size should be an integer "
+                                if (blk_size < 0)
+                                        cli_out ("block size is an invalid number");
+                                else 
+                                        cli_out ("block size should be an integer "
                                          "greater than zero");
                                 ret = -1;
                                 goto out;
@@ -1444,8 +1447,12 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         if (!ret)
                                 count = atoi(value);
                         if (ret || (count <= 0)) {
-                                cli_out ("count should be an integer greater "
-                                         "zero");
+                                if (count < 0)
+                                        cli_out ("count is an invalid number");
+                                else 
+                                        cli_out ("count should be an integer "
+                                                 "greater than zero");
+
                                 ret = -1;
                                 goto out;
                         }
