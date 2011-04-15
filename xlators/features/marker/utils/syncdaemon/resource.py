@@ -399,7 +399,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         return True
 
     def connect(self):
-        d = tempfile.mkdtemp()
+        d = tempfile.mkdtemp(prefix='gsyncd-aux-mount-')
         try:
             argv = gconf.gluster_command.split() + \
                     (gconf.gluster_log_level and ['-L', gconf.gluster_log_level] or []) + \
@@ -469,7 +469,7 @@ class SSH(AbstractUrl, SlaveRemote):
     def connect_remote(self, go_daemon=None):
         if go_daemon == 'done':
             return self.start_fd_client(*self.fd_pair)
-        gconf.setup_ssh_ctl(tempfile.mkdtemp())
+        gconf.setup_ssh_ctl(tempfile.mkdtemp(prefix='gsyncd-aux-ssh-'))
         deferred = go_daemon == 'postconn'
         ret = sup(self, gconf.ssh_command.split() + gconf.ssh_ctl_args + [self.remote_addr], slave=self.inner_rsc.url, deferred=deferred)
         if deferred:
