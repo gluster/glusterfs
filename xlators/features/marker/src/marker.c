@@ -284,7 +284,7 @@ marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         priv = this->private;
 
-        if (priv == NULL || (priv->feature_enabled & GF_GSYNC) == 0)
+        if (priv == NULL || (priv->feature_enabled & GF_XTIME) == 0)
                 goto wind;
 
         gf_log (this->name, GF_LOG_DEBUG, "USER:PID = %d", frame->root->pid);
@@ -423,7 +423,7 @@ marker_create_frame (xlator_t *this, marker_local_t *local)
 }
 
 int32_t
-marker_gsync_update_marks (xlator_t *this, marker_local_t *local)
+marker_xtime_update_marks (xlator_t *this, marker_local_t *local)
 {
         marker_gettimeofday (local);
 
@@ -464,8 +464,8 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 quota_set_inode_xattr (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 
 out:
         marker_local_unref (local);
@@ -535,8 +535,8 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 quota_set_inode_xattr (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 
 out:
         marker_local_unref (local);
@@ -604,8 +604,8 @@ marker_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 initiate_quota_txn (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 
 out:
         marker_local_unref (local);
@@ -679,8 +679,8 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 reduce_parent_size (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -746,8 +746,8 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 reduce_parent_size (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -814,8 +814,8 @@ marker_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 initiate_quota_txn (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -889,10 +889,10 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                              oplocal->loc.inode);
         }
 
-        if (priv->feature_enabled & GF_GSYNC) {
+        if (priv->feature_enabled & GF_XTIME) {
                 //update marks on oldpath
-                marker_gsync_update_marks (this, oplocal);
-                marker_gsync_update_marks (this, local);
+                marker_xtime_update_marks (this, oplocal);
+                marker_xtime_update_marks (this, local);
         }
 out:
         marker_local_unref (local);
@@ -973,8 +973,8 @@ marker_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 initiate_quota_txn (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 
 out:
         marker_local_unref (local);
@@ -1041,8 +1041,8 @@ marker_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 initiate_quota_txn (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1109,8 +1109,8 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->feature_enabled & GF_QUOTA)
                 initiate_quota_txn (this, &local->loc);
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1175,8 +1175,8 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1299,8 +1299,8 @@ marker_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1366,8 +1366,8 @@ marker_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1435,8 +1435,8 @@ marker_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1503,8 +1503,8 @@ marker_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1566,8 +1566,8 @@ marker_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_GSYNC)
-                marker_gsync_update_marks (this, local);
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 out:
         marker_local_unref (local);
 
@@ -1695,7 +1695,7 @@ mem_acct_init (xlator_t *this)
 
 
 int32_t
-init_gsync_priv (xlator_t *this, dict_t *options)
+init_xtime_priv (xlator_t *this, dict_t *options)
 {
         data_t          *data    = NULL;
         int32_t          ret     = -1;
@@ -1762,7 +1762,7 @@ out:
 }
 
 void
-marker_gsync_priv_cleanup (xlator_t *this)
+marker_xtime_priv_cleanup (xlator_t *this)
 {
         marker_conf_t *priv = NULL;
 
@@ -1795,7 +1795,7 @@ marker_priv_cleanup (xlator_t *this)
 
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        marker_gsync_priv_cleanup (this);
+        marker_xtime_priv_cleanup (this);
 
         GF_FREE (priv);
 out:
@@ -1833,19 +1833,19 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
-        data = dict_get (options, "gsync");
+        data = dict_get (options, "xtime");
         if (data) {
                 ret = gf_string2boolean (data->data, &flag);
                 if (ret == 0 && flag == _gf_true) {
-                        marker_gsync_priv_cleanup (this);
+                        marker_xtime_priv_cleanup (this);
 
-                        ret = init_gsync_priv (this, options);
+                        ret = init_xtime_priv (this, options);
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to initialize gsync private, "
-                                        "gsync xtime updation will fail");
+                                        "failed to initialize xtime private, "
+                                        "xtime updation will fail");
                         } else {
-                                priv->feature_enabled |= GF_GSYNC;
+                                priv->feature_enabled |= GF_XTIME;
                         }
                 }
         }
@@ -1895,15 +1895,15 @@ init (xlator_t *this)
                 }
         }
 
-        data = dict_get (options, "gsync");
+        data = dict_get (options, "xtime");
         if (data) {
                 ret = gf_string2boolean (data->data, &flag);
                 if (ret == 0 && flag == _gf_true) {
-                        ret = init_gsync_priv (this, options);
+                        ret = init_xtime_priv (this, options);
                         if (ret < 0)
                                 goto err;
 
-                        priv->feature_enabled |= GF_GSYNC;
+                        priv->feature_enabled |= GF_XTIME;
                 }
         }
 
@@ -1970,6 +1970,6 @@ struct volume_options options[] = {
         {.key = {"volume-uuid"}},
         {.key = {"timestamp-file"}},
         {.key = {"quota"}},
-        {.key = {"gsync"}},
+        {.key = {"xtime"}},
         {.key = {NULL}}
 };

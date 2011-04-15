@@ -1086,7 +1086,7 @@ out:
                 dict_unref (options);
 
         if (ret && parse_err == 0)
-                cli_out ("Gsync command failed");
+                cli_out (GEOREP" start failed");
 
         return ret;
 }
@@ -1165,7 +1165,7 @@ struct cli_cmd volume_cmds[] = {
          "reset all the reconfigured options"},
 
 #if (SYNCDAEMON_COMPILE)
-        {"volume gsync <start|stop|config> <MASTER> <SLAVE> [options]",
+        {"volume "GEOREP" <start|stop|config> <MASTER> <SLAVE> [options]",
          cli_cmd_volume_gsync_set_cbk,
          "Geo-sync operations"},
 #endif

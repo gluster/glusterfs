@@ -24,7 +24,7 @@
 #endif
 
 #ifndef GSYNC_CONF
-#define GSYNC_CONF "gsync/gsyncd.conf"
+#define GSYNC_CONF GEOREP"/gsyncd.conf"
 #endif
 #define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
 
@@ -2653,7 +2653,7 @@ gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, ch
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
                 buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (prmfolder, PATH_MAX, "%s/gsync/%s", gl_workdir, buff);
+                snprintf (prmfolder, PATH_MAX, "%s/"GEOREP"/%s", gl_workdir, buff);
         } else {
                 ret = -1;
                 goto out;
@@ -2691,12 +2691,12 @@ gf_cli3_1_gsync_out_status (dict_t *dict)
 
         ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
         if (ret) {
-                cli_out ("No Gsync sessions for the selected");
+                cli_out ("No "GEOREP" sessions for the selected");
                 ret = 0;
                 goto out;
         }
 
-        cli_out ("Gsync Status:");
+        cli_out (GEOREP" Status:");
 
         for (i = 1; i <= gsync_count; i++) {
                 snprintf (mst, sizeof(mst), "master%d", i);
@@ -2802,7 +2802,7 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 else if (rsp.type == GF_GSYNC_OPTION_TYPE_STATUS)
                         ret = gf_cli3_1_gsync_out_status (dict);
                 else if (rsp.type == GF_GSYNC_OPTION_TYPE_STOP)
-                        cli_out ("Gsync session stopped successfully");
+                        cli_out (GEOREP" session stopped successfully");
                 else if (!rsp.op_errstr)
                         cli_out ("command executed successfully");
                 else

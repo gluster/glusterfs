@@ -1724,21 +1724,21 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
         ret = dict_get_str (dict, "master", &master);
         if (ret < 0) {
                 gf_log ("", GF_LOG_INFO, "master not found, while handling"
-                         "gsync options");
+                         GEOREP" options");
                 master = "(No Master)";
         }
 
         ret = dict_get_str (dict, "slave", &slave);
         if (ret < 0) {
                 gf_log ("", GF_LOG_INFO, "slave not not found, while"
-                        "handling gsync options");
+                        "handling "GEOREP" options");
                 slave = "(No Slave)";
         }
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret < 0) {
                 gf_log ("", GF_LOG_WARNING, "command type not found, while"
-                        "handling gsync options");
+                        "handling "GEOREP" options");
                 goto out;
         }
 
@@ -1761,10 +1761,10 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 break;
         }
 
-        gf_cmd_log ("volume gsync", " %s command on %s,%s", operation, master,
+        gf_cmd_log ("volume "GEOREP, " %s command on %s,%s", operation, master,
                     slave);
         ret = glusterd_op_begin (req, GD_OP_GSYNC_SET, dict, _gf_true);
-        gf_cmd_log ("volume gsync", " %s command on %s,%s %s  ", operation,
+        gf_cmd_log ("volume "GEOREP, " %s command on %s,%s %s  ", operation,
                     master, slave, (ret != 0)? "FAILED" : "SUCCEEDED");
 
 out:

@@ -68,6 +68,7 @@ void trap (void);
 #define GF_UNIT_TB_STRING    "TB"
 #define GF_UNIT_PB_STRING    "PB"
 
+#define GEOREP "geo-replication"
 
 enum _gf_boolean
 {
