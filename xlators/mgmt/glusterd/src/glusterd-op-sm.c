@@ -5208,7 +5208,7 @@ int32_t
 glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
 {
         int32_t  ret            = -1;
-        char    *quota_status   = NULL;
+        char    *quota_status   = NULL, *quota_limits = NULL;
 
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
         GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
@@ -5234,6 +5234,14 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         }
 
         *op_errstr = gf_strdup ("Disabling quota has been successful");
+
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_LIMIT_USAGE,
+                                    &quota_limits);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "failed to get the quota limits");
+        } else {
+                GF_FREE (quota_limits);
+        }
 
         dict_del (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE);
 
@@ -5314,8 +5322,8 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
 
         quota_limits = value;
 
-        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE,
-                               quota_limits);
+        ret = dict_set_str (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE,
+                            quota_limits);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
                 *op_errstr = gf_strdup ("failed to set limit");
