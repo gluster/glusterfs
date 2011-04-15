@@ -1516,7 +1516,7 @@ glusterd_store_retrieve_volume (char    *volname)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
                 } else if (strstr (key, "slave")) {
-                        ret = dict_set_str(volinfo->gsync_slaves, key,
+                        ret = dict_set_dynstr (volinfo->gsync_slaves, key,
                                                 gf_strdup (value));
                         if (ret) {
                                 gf_log ("",GF_LOG_ERROR, "Error in "

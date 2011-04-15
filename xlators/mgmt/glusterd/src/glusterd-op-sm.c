@@ -924,7 +924,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         case GF_REPLACE_OP_ABORT:
                 if ((!glusterd_is_rb_paused (volinfo)) &&
                      (!glusterd_is_rb_started (volinfo))) {
-                        gf_log ("", GF_LOG_ERROR, "Replace brick is not "
+                        gf_log ("", GF_LOG_ERROR, "Replace brick is not"
                                 " started or paused for volume ");
                         ret = -1;
                         goto out;
@@ -1713,6 +1713,7 @@ volname_from_master (char *master)
                 return NULL;
 
         return gf_strdup (master+1);
+
 }
 
 int
@@ -2441,7 +2442,7 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
         if ((ret) || (!exists)) {
                 gf_log ("", GF_LOG_WARNING, "volume name does not exist");
                 snprintf (errmsg, sizeof(errmsg), "Volume name %s does not"
-                          "exist", volname);
+                          " exist", volname);
                 *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;
@@ -2462,6 +2463,8 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
                                                 slave, op_errstr);
 
  out:
+        if (volname)
+                GF_FREE (volname);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 
@@ -2542,7 +2545,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         if ((ret) || (!exists)) {
                 gf_log ("", GF_LOG_WARNING, "volume name does not exist");
                 snprintf (errmsg, sizeof(errmsg), "Volume name %s does not"
-                          "exist", volname);
+                          " exist", volname);
                 *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;
@@ -4584,6 +4587,8 @@ glusterd_set_marker_gsync (char *master)
         }
 
 out:
+        if (volname)
+                GF_FREE (volname);
         return ret;
 
 }
@@ -4695,7 +4700,7 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if ((ret) || (!exists)) {
                 gf_log ("", GF_LOG_WARNING, "volume name does not exist");
                 snprintf (errmsg, sizeof(errmsg), "Volume name %s does not"
-                          "exist", volname);
+                          " exist", volname);
                 *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;
@@ -4715,6 +4720,8 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                  slave, rsp_dict);
 
  out:
+        if (volname)
+                GF_FREE (volname);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 
@@ -4826,6 +4833,8 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
 out:
+        if (volname)
+                GF_FREE (volname);
         gf_log ("", GF_LOG_DEBUG,"Returning %d", ret);
         return ret;
 }
@@ -5160,7 +5169,6 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                        gf_boolean_t *crawl)
 {
         int32_t         ret     = -1;
-        char            *status       = NULL;
         char            *quota_status = NULL;
 
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
@@ -5188,12 +5196,6 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
         }
 
         *op_errstr = gf_strdup ("Enabling quota has been successful");
-
-        status = gf_strdup ("on");
-        if (status == NULL) {
-                ret = -1;
-                goto out;
-        }
 
         *crawl = _gf_true;
 
@@ -5234,12 +5236,6 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         *op_errstr = gf_strdup ("Disabling quota has been successful");
 
         dict_del (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE);
-
-        quota_status = gf_strdup ("off");
-        if (quota_status == NULL) {
-                ret = -1;
-                goto out;
-        }
 
 out:
         return ret;
@@ -5318,8 +5314,8 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
 
         quota_limits = value;
 
-        ret = dict_set_str (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE,
-                            quota_limits);
+        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_LIMIT_USAGE,
+                               quota_limits);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
                 *op_errstr = gf_strdup ("failed to set limit");

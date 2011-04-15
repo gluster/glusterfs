@@ -590,7 +590,10 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
         ret = glusterd_volume_brickinfos_delete (volinfo);
         if (ret)
                 goto out;
-        dict_unref (volinfo->dict);
+        if (volinfo->dict)
+                dict_unref (volinfo->dict);
+        if (volinfo->gsync_slaves)
+                dict_unref (volinfo->gsync_slaves);
         if (volinfo->logdir)
                 GF_FREE (volinfo->logdir);
 

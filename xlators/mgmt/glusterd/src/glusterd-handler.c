@@ -1874,6 +1874,8 @@ out:
                 if (!lock_fail)
                         (void) glusterd_opinfo_unlock ();
         }
+        if (cli_req.volname)
+                free (cli_req.volname); //malloced by xdr
 
         return ret;
 }
