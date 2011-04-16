@@ -1708,7 +1708,6 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        frame->local = NULL;
         size = buf->ia_blocks * 512;
 
         quota_update_size (this, local->loc.parent, NULL, 0, size);
