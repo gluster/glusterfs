@@ -45,6 +45,7 @@
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int              cli_op_ret;
+extern int              connected;
 
 char *cli_volume_type[] = {"Distribute",
                            "Stripe",
@@ -1321,6 +1322,9 @@ print_limit_list (char *volname, char *limit_list)
 
         GF_VALIDATE_OR_GOTO ("cli", volname, out);
         GF_VALIDATE_OR_GOTO ("cli", limit_list, out);
+
+        if (!connected)
+                goto out;
 
         if (mkdtemp (mountdir) == NULL) {
                 gf_log ("cli", GF_LOG_WARNING, "failed to create a temporary "
