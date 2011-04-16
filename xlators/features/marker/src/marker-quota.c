@@ -1092,7 +1092,7 @@ quota_update_parent_size (call_frame_t *frame,
 
         QUOTA_ALLOC_OR_GOTO (size, int64_t, ret, err);
 
-        *size = ntoh64 (local->delta);
+        *size = hton64 (local->delta);
 
         ret = dict_set_bin (newdict, QUOTA_SIZE_KEY, size, 8);
         if (ret < 0)
