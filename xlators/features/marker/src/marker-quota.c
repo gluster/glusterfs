@@ -222,7 +222,7 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         QUOTA_ALLOC_OR_GOTO (delta, int64_t, ret, err);
 
-        *delta = hton64 (ntoh64 (*size) - local->sum);
+        *delta = hton64 (local->sum - ntoh64 (*size));
 
         gf_log (this->name, GF_LOG_DEBUG, "calculated size = %"PRId64", "
                 "original size = %"PRIu64
@@ -340,7 +340,7 @@ get_child_contribution (call_frame_t *frame,
 out:
         LOCK (&local->lock);
         {
-                val = local->dentry_child_count--;
+                val = --local->dentry_child_count;
         }
         UNLOCK (&local->lock);
 
