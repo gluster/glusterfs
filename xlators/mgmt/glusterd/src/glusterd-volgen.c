@@ -194,7 +194,20 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
  *********************************************/
 
 
+struct volgen_graph {
+        char **errstr;
+        glusterfs_graph_t graph;
+};
+typedef struct volgen_graph volgen_graph_t;
 
+static void
+set_graph_errstr (volgen_graph_t *graph, const char *str)
+{
+        if (!graph->errstr)
+                return;
+
+        *graph->errstr = gf_strdup (str);
+}
 
 static xlator_t *
 xlator_instantiate_va (const char *type, const char *format, va_list arg)
@@ -266,13 +279,13 @@ volgen_xlator_link (xlator_t *pxl, xlator_t *cxl)
 }
 
 static int
-volgen_graph_link (glusterfs_graph_t *graph, xlator_t *xl)
+volgen_graph_link (volgen_graph_t *graph, xlator_t *xl)
 {
         int ret = 0;
 
         /* no need to care about graph->top here */
-        if (graph->first)
-                ret = volgen_xlator_link (xl, graph->first);
+        if (graph->graph.first)
+                ret = volgen_xlator_link (xl, graph->graph.first);
         if (ret == -1) {
                 gf_log ("", GF_LOG_ERROR, "failed to add graph entry %s",
                         xl->name);
@@ -284,7 +297,7 @@ volgen_graph_link (glusterfs_graph_t *graph, xlator_t *xl)
 }
 
 static xlator_t *
-volgen_graph_add_as (glusterfs_graph_t *graph, const char *type,
+volgen_graph_add_as (volgen_graph_t *graph, const char *type,
                      const char *format, ...)
 {
         va_list arg;
@@ -302,13 +315,13 @@ volgen_graph_add_as (glusterfs_graph_t *graph, const char *type,
 
                 return NULL;
         } else
-                glusterfs_graph_set_first (graph, xl);
+                glusterfs_graph_set_first (&graph->graph, xl);
 
         return xl;
 }
 
 static xlator_t *
-volgen_graph_add_nolink (glusterfs_graph_t *graph, const char *type,
+volgen_graph_add_nolink (volgen_graph_t *graph, const char *type,
                          const char *format, ...)
 {
         va_list arg;
@@ -321,13 +334,13 @@ volgen_graph_add_nolink (glusterfs_graph_t *graph, const char *type,
         if (!xl)
                 return NULL;
 
-        glusterfs_graph_set_first (graph, xl);
+        glusterfs_graph_set_first (&graph->graph, xl);
 
         return xl;
 }
 
 static xlator_t *
-volgen_graph_add (glusterfs_graph_t *graph, char *type, char *volname)
+volgen_graph_add (volgen_graph_t *graph, char *type, char *volname)
 {
         char *shorttype = NULL;
 
@@ -360,9 +373,9 @@ xlator_set_option (xlator_t *xl, char *key, char *value)
 }
 
 static inline xlator_t *
-first_of (glusterfs_graph_t *graph)
+first_of (volgen_graph_t *graph)
 {
-        return (xlator_t *)graph->first;
+        return (xlator_t *)graph->graph.first;
 }
 
 
@@ -562,12 +575,12 @@ volopt_trie (char *key, char **hint)
  **************************/
 
 
-typedef int (*volgen_opthandler_t) (glusterfs_graph_t *graph,
+typedef int (*volgen_opthandler_t) (volgen_graph_t *graph,
                                     struct volopt_map_entry *vme,
                                     void *param);
 
 struct opthandler_data {
-        glusterfs_graph_t *graph;
+        volgen_graph_t *graph;
         volgen_opthandler_t handler;
         struct volopt_map_entry *vme;
         gf_boolean_t found;
@@ -613,7 +626,7 @@ process_option (dict_t *dict, char *key, data_t *value, void *param)
 }
 
 static int
-volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
+volgen_graph_set_options_generic (volgen_graph_t *graph, dict_t *dict,
                                   void *param, volgen_opthandler_t handler)
 {
         struct volopt_map_entry *vme = NULL;
@@ -662,7 +675,7 @@ volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
 }
 
 static int
-basic_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
+basic_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                       void *param)
 {
         xlator_t *trav;
@@ -684,14 +697,14 @@ basic_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
-volgen_graph_set_options (glusterfs_graph_t *graph, dict_t *dict)
+volgen_graph_set_options (volgen_graph_t *graph, dict_t *dict)
 {
         return volgen_graph_set_options_generic (graph, dict, NULL,
                                                  &basic_option_handler);
 }
 
 static int
-optget_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
+optget_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                        void *param)
 {
         struct volopt_map_entry *vme2 = param;
@@ -999,26 +1012,26 @@ glusterd_check_option_exists (char *key, char **completion)
 }
 
 static int
-volgen_graph_merge_sub (glusterfs_graph_t *dgraph, glusterfs_graph_t *sgraph)
+volgen_graph_merge_sub (volgen_graph_t *dgraph, volgen_graph_t *sgraph)
 {
         xlator_t *trav = NULL;
 
-        GF_ASSERT (dgraph->first);
+        GF_ASSERT (dgraph->graph.first);
 
         if (volgen_xlator_link (first_of (dgraph), first_of (sgraph)) == -1)
                 return -1;
 
         for (trav = first_of (dgraph); trav->next; trav = trav->next);
 
-        trav->next = sgraph->first;
+        trav->next = first_of (sgraph);
         trav->next->prev = trav;
-        dgraph->xl_count += sgraph->xl_count;
+        dgraph->graph.xl_count += sgraph->graph.xl_count;
 
         return 0;
 }
 
 static int
-volgen_write_volfile (glusterfs_graph_t *graph, char *filename)
+volgen_write_volfile (volgen_graph_t *graph, char *filename)
 {
         char *ftmp = NULL;
         FILE *f = NULL;
@@ -1033,7 +1046,7 @@ volgen_write_volfile (glusterfs_graph_t *graph, char *filename)
         if (!f)
                 goto error;
 
-        if (glusterfs_graph_print_file (f, graph) == -1)
+        if (glusterfs_graph_print_file (f, &graph->graph) == -1)
                 goto error;
 
         if (fclose (f) == -1)
@@ -1060,7 +1073,7 @@ volgen_write_volfile (glusterfs_graph_t *graph, char *filename)
 }
 
 static void
-volgen_graph_free (glusterfs_graph_t *graph)
+volgen_graph_free (volgen_graph_t *graph)
 {
         xlator_t *trav = NULL;
         xlator_t *trav_old = NULL;
@@ -1077,9 +1090,9 @@ volgen_graph_free (glusterfs_graph_t *graph)
 }
 
 static int
-build_graph_generic (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+build_graph_generic (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                      dict_t *mod_dict, void *param,
-                     int (*builder) (glusterfs_graph_t *graph,
+                     int (*builder) (volgen_graph_t *graph,
                                      glusterd_volinfo_t *volinfo,
                                      dict_t *set_dict, void *param))
 {
@@ -1122,7 +1135,7 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 }
 
 static int
-server_auth_option_handler (glusterfs_graph_t *graph,
+server_auth_option_handler (volgen_graph_t *graph,
                             struct volopt_map_entry *vme, void *param)
 {
         xlator_t *xl = NULL;
@@ -1154,7 +1167,7 @@ server_auth_option_handler (glusterfs_graph_t *graph,
 }
 
 static int
-loglevel_option_handler (glusterfs_graph_t *graph,
+loglevel_option_handler (volgen_graph_t *graph,
                          struct volopt_map_entry *vme, void *param)
 {
         char *role = param;
@@ -1171,7 +1184,7 @@ loglevel_option_handler (glusterfs_graph_t *graph,
 }
 
 static int
-server_check_marker_off (struct volopt_map_entry *vme,
+server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
                          glusterd_volinfo_t *volinfo)
 {
         gf_boolean_t           bool = _gf_false;
@@ -1199,9 +1212,12 @@ server_check_marker_off (struct volopt_map_entry *vme,
                 ret = glusterd_check_gsync_running (volinfo, &bool);
 
                 if (bool) {
-                        gf_log ("", GF_LOG_WARNING, "Gsync sessions active"
+                        gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
                                 "for the volume %s, cannot disable marker "
                                 ,volinfo->volname);
+                        set_graph_errstr (graph,
+                                          VKEY_MARKER_XTIME" cannot be disabled "
+                                          "while "GEOREP" sessions exist");
                         ret = -1;
                         goto out;
                 }
@@ -1221,7 +1237,7 @@ server_check_marker_off (struct volopt_map_entry *vme,
 }
 
 static int
-server_spec_option_handler (glusterfs_graph_t *graph,
+server_spec_option_handler (volgen_graph_t *graph,
                             struct volopt_map_entry *vme, void *param)
 {
         int                     ret = 0;
@@ -1231,7 +1247,7 @@ server_spec_option_handler (glusterfs_graph_t *graph,
 
         ret = server_auth_option_handler (graph, vme, NULL);
         if (!ret)
-                ret = server_check_marker_off (vme, volinfo);
+                ret = server_check_marker_off (graph, vme, volinfo);
 
         if (!ret)
                 ret = loglevel_option_handler (graph, vme, "brick");
@@ -1242,7 +1258,7 @@ server_spec_option_handler (glusterfs_graph_t *graph,
 static void get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo);
 
 static int
-server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
         char     *volname = NULL;
@@ -1339,7 +1355,7 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 
 /* builds a graph for server role , with option overrides in mod_dict */
 static int
-build_server_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+build_server_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                     dict_t *mod_dict, char *path)
 {
         return build_graph_generic (graph, volinfo, mod_dict, path,
@@ -1347,7 +1363,7 @@ build_server_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 }
 
 static int
-perfxl_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
+perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                        void *param)
 {
         char *volname = NULL;
@@ -1370,7 +1386,7 @@ perfxl_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
-client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
         int                      dist_count         = 0;
@@ -1532,7 +1548,7 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 
 /* builds a graph for client role , with option overrides in mod_dict */
 static int
-build_client_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+build_client_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                     dict_t *mod_dict)
 {
         return build_graph_generic (graph, volinfo, mod_dict, NULL,
@@ -1540,7 +1556,7 @@ build_client_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 }
 
 static int
-nfs_option_handler (glusterfs_graph_t *graph,
+nfs_option_handler (volgen_graph_t *graph,
                             struct volopt_map_entry *vme, void *param)
 {
         xlator_t *xl = NULL;
@@ -1709,7 +1725,7 @@ nfs_option_handler (glusterfs_graph_t *graph,
 }
 
 static int
-nfs_spec_option_handler (glusterfs_graph_t *graph,
+nfs_spec_option_handler (volgen_graph_t *graph,
                             struct volopt_map_entry *vme, void *param)
 {
         int ret = 0;
@@ -1722,9 +1738,9 @@ nfs_spec_option_handler (glusterfs_graph_t *graph,
 
 /* builds a graph for nfs server role, with option overrides in mod_dict */
 static int
-build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
+build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
 {
-        glusterfs_graph_t   cgraph        = {{0,},};
+        volgen_graph_t      cgraph        = {0,};
         glusterd_volinfo_t *voliter       = NULL;
         xlator_t           *this          = NULL;
         glusterd_conf_t    *priv          = NULL;
@@ -1855,7 +1871,7 @@ static int
 glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo)
 {
-        glusterfs_graph_t graph = {{0,},};
+        volgen_graph_t graph = {0,};
         char    filename[PATH_MAX] = {0,};
         int     ret = -1;
 
@@ -1971,7 +1987,7 @@ get_rdma_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
 static int
 generate_client_volfile (glusterd_volinfo_t *volinfo)
 {
-        glusterfs_graph_t graph = {{0,},};
+        volgen_graph_t graph = {0,};
         char    filename[PATH_MAX] = {0,};
         int     ret = -1;
         dict_t *dict = NULL;
@@ -2072,7 +2088,7 @@ glusterd_get_nfs_filepath (char *filename)
 int
 glusterd_create_nfs_volfile ()
 {
-        glusterfs_graph_t graph = {{0,},};
+        volgen_graph_t graph = {0,};
         char    filename[PATH_MAX] = {0,};
         int     ret = -1;
 
@@ -2110,12 +2126,14 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
                     dict_t *val_dict,
                     char **op_errstr)
 {
-        glusterfs_graph_t graph = {{0,},};
+        volgen_graph_t graph = {0,};
         int     ret = -1;
+
+        graph.errstr = op_errstr;
 
         ret = build_nfs_graph (&graph, val_dict);
         if (!ret)
-                ret = graph_reconf_validateopt (&graph, op_errstr);
+                ret = graph_reconf_validateopt (&graph.graph, op_errstr);
 
         volgen_graph_free (&graph);
 
@@ -2128,15 +2146,16 @@ validate_clientopts (glusterd_volinfo_t *volinfo,
                     dict_t *val_dict,
                     char **op_errstr)
 {
-        glusterfs_graph_t graph = {{0,},};
+        volgen_graph_t graph = {0,};
         int     ret = -1;
 
         GF_ASSERT (volinfo);
 
+        graph.errstr = op_errstr;
 
         ret = build_client_graph (&graph, volinfo, val_dict);
         if (!ret)
-                ret = graph_reconf_validateopt (&graph, op_errstr);
+                ret = graph_reconf_validateopt (&graph.graph, op_errstr);
 
         volgen_graph_free (&graph);
 
@@ -2150,16 +2169,16 @@ validate_brickopts (glusterd_volinfo_t *volinfo,
                     dict_t *val_dict,
                     char **op_errstr)
 {
-        glusterfs_graph_t graph = {{0,},};
+        volgen_graph_t graph = {0,};
         int     ret = -1;
 
         GF_ASSERT (volinfo);
 
-
+        graph.errstr = op_errstr;
 
         ret = build_server_graph (&graph, volinfo, val_dict, brickinfo_path);
         if (!ret)
-                ret = graph_reconf_validateopt (&graph, op_errstr);
+                ret = graph_reconf_validateopt (&graph.graph, op_errstr);
 
         volgen_graph_free (&graph);
 
