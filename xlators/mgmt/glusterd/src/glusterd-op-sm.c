@@ -1906,7 +1906,14 @@ gsyncd_getpidfile (char *master, char *slave, char *pidfile)
 static int
 gsync_status_byfd (int fd)
 {
-        return lockf (fd, F_TEST, 0) ? 0 : -1;
+        GF_ASSERT (fd >= -1);
+
+        if (lockf (fd, F_TEST, 0) == -1 &&
+            (errno == EAGAIN || errno == EACCES))
+                /* gsyncd keeps the pidfile locked */
+                return 0;
+
+        return -1;
 }
 
 /* status: return 0 when gsync is running
@@ -1921,10 +1928,6 @@ gsync_status (char *master, char *slave, int *status)
         fd = gsyncd_getpidfile (master, slave, pidfile);
         if (fd == -2)
                 return -1;
-        if (fd == -1) {
-                *status = -1;
-                return 0;
-        }
 
         *status = gsync_status_byfd (fd);
 
@@ -4178,7 +4181,7 @@ out:
 int
 stop_gsync (char *master, char *slave, char **op_errstr)
 {
-        int32_t         ret     = -1;
+        int32_t         ret     = 0;
         int             pfd     = -1;
         pid_t           pid     = 0;
         char            pidfile[PATH_MAX] = {0,};
@@ -4192,17 +4195,16 @@ stop_gsync (char *master, char *slave, char **op_errstr)
         priv = THIS->private;
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
-        if (pfd == -1) {
+        if (pfd == -2) {
                 gf_log ("", GF_LOG_WARNING, GEOREP" stop validation "
                         " failed");
-                *op_errstr = gf_strdup (GEOREP "stop internal error");
+                *op_errstr = gf_strdup (GEOREP" stop internal error");
+                ret = -1;
                 goto out;
         }
-        ret = 0;
-
-        if (gsync_status_byfd (pfd == -1)) {
+        if (gsync_status_byfd (pfd) == -1) {
                 gf_log ("", GF_LOG_WARNING, "gsyncd is not running");
-                *op_errstr = gf_strdup ("gsyncd is not running");
+                *op_errstr = gf_strdup ("warning: gsyncd is not running");
                 goto out;
         }
 
@@ -4221,10 +4223,10 @@ stop_gsync (char *master, char *slave, char **op_errstr)
                                  * still be alive, give some more time
                                  * before SIGKILL (hack)
                                  */
-                                sleep (0.05);
+                                usleep (50000);
                                 break;
                         }
-                        sleep (0.05);
+                        usleep (50000);
                 }
                 kill (-pid, SIGKILL);
                 unlink (pidfile);
