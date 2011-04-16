@@ -2182,6 +2182,8 @@ quota_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto unwind;
         }
 
+        frame->local = local;
+
         local->loc.inode = inode_ref (fd->inode);
 
         STACK_WIND (frame, quota_fstat_cbk, FIRST_CHILD(this),
@@ -2314,6 +2316,8 @@ quota_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (local == NULL) {
                 goto unwind;
         }
+
+        frame->local = local;
 
         local->loc.inode = inode_ref (fd->inode);
 
@@ -2515,6 +2519,8 @@ quota_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (local == NULL) {
                 goto unwind;
         }
+
+        frame->local = local;
 
         local->loc.inode = inode_ref (fd->inode);
 
