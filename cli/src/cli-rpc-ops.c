@@ -2907,8 +2907,7 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         int                     index = 0;
         int                     is_header_printed = 0;
         int                     ret = 0;
-        uint64_t                total_fop_hits = 0;
-        double                  total_avg_latency = 0;
+        double                  total_percentage_latency = 0;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-brick", count);
@@ -2949,14 +2948,14 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 ret = dict_get_double (dict, key, &profile_info[i].max_latency);
                 profile_info[i].fop_name = gf_fop_list[i];
 
-                total_fop_hits += profile_info[i].fop_hits;
-                total_avg_latency += profile_info[i].avg_latency;
+                total_percentage_latency +=
+                       (profile_info[i].fop_hits * profile_info[i].avg_latency);
         }
-        if (total_fop_hits && total_avg_latency) {
+        if (total_percentage_latency) {
                 for (i = 0; i < GF_FOP_MAXVALUE; i++) {
                         profile_info[i].percentage_avg_latency = 100 * (
                      (profile_info[i].avg_latency* profile_info[i].fop_hits) /
-                                (total_avg_latency * total_fop_hits));
+                                total_percentage_latency);
                 }
                 gf_array_insertionsort (profile_info, 1, GF_FOP_MAXVALUE - 1,
                                     sizeof (cli_profile_info_t),
@@ -3038,7 +3037,7 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                         is_header_printed = 1;
                 }
                 if (profile_info[i].fop_hits) {
-                        cli_out ("%11lf %11lf %11lf %11lf %20"PRId64" %10s",
+                        cli_out ("%9.2lf %9.2lf %9.2lf %9.2lf %20"PRId64" %10s",
                                  profile_info[i].percentage_avg_latency,
                                  profile_info[i].avg_latency,
                                  profile_info[i].min_latency,
