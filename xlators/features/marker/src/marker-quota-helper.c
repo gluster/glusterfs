@@ -362,6 +362,9 @@ quota_local_unref (xlator_t *this, quota_local_t *local)
         if (local->ref > 0)
                 goto out;
 
+        if (local->fd != NULL)
+                fd_unref (local->fd);
+
         loc_wipe (&local->loc);
 
         loc_wipe (&local->parent_loc);

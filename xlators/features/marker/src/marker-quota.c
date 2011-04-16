@@ -1791,11 +1791,14 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie,
         STACK_WIND (frame, mq_inode_remove_done, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->parent_loc,
                     GF_XATTROP_ADD_ARRAY64, dict);
+        dict_unref (dict);
         return 0;
 
 err:
         local->err = 1;
         mq_inode_remove_done (frame, NULL, this, -1, 0, NULL);
+        if (dict)
+                dict_unref (dict);
         return 0;
 }
 
@@ -1862,6 +1865,10 @@ reduce_parent_size (xlator_t *this, loc_t *loc)
         ret = 0;
 
 out:
+        if (ret < 0) {
+                quota_local_unref (this, local);
+                GF_FREE (local);
+        }
         return ret;
 }
 
