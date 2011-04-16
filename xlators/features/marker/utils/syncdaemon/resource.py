@@ -10,8 +10,6 @@ import select
 import socket
 import logging
 import tempfile
-from ctypes import *
-from ctypes.util import find_library
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR
 
 from gconf import gconf
@@ -56,62 +54,20 @@ def parse_url(ustr):
     return getattr(this, sch.upper())(path)
 
 
-class Xattr(object):
+class _MetaXattr(object):
 
-    libc = CDLL(find_library("libc"))
+    # load Xattr stuff on-demand
 
-    @classmethod
-    def geterrno(cls):
-        return c_int.in_dll(cls.libc, 'errno').value
+    def __getattr__(self, meth):
+        from libcxattr import Xattr as LXattr
+        xmeth = [ m for m in dir(LXattr) if m[0] != '_' ]
+        if not meth in xmeth:
+            return
+        for m in xmeth:
+            setattr(self, m, getattr(LXattr, m))
+        return getattr(self, meth)
 
-    @classmethod
-    def raise_oserr(cls):
-        errn = cls.geterrno()
-        raise OSError(errn, os.strerror(errn))
-
-    @classmethod
-    def _query_xattr(cls, path, siz, syscall, *a):
-        if siz:
-            buf = create_string_buffer('\0' * siz)
-        else:
-            buf = None
-        ret = getattr(cls.libc, syscall)(*((path,) + a + (buf, siz)))
-        if ret == -1:
-            cls.raise_oserr()
-        if siz:
-            return buf.raw[:ret]
-        else:
-            return ret
-
-    @classmethod
-    def lgetxattr(cls, path, attr, siz=0):
-        return cls._query_xattr( path, siz, 'lgetxattr', attr)
-
-    @classmethod
-    def llistxattr(cls, path, siz=0):
-        ret = cls._query_xattr(path, siz, 'llistxattr')
-        if isinstance(ret, str):
-            ret = ret.split('\0')
-        return ret
-
-    @classmethod
-    def lsetxattr(cls, path, attr, val):
-        ret = cls.libc.lsetxattr(path, attr, val, len(val), 0)
-        if ret == -1:
-            cls.raise_oserr()
-
-    @classmethod
-    def lremovexattr(cls, path, attr):
-        ret = cls.libc.lremovexattr(path, attr)
-        if ret == -1:
-            cls.raise_oserr()
-
-    @classmethod
-    def llistxattr_buf(cls, path):
-        size = cls.llistxattr(path)
-        if size  == -1:
-            raise_oserr()
-        return cls.llistxattr(path, size)
+Xattr = _MetaXattr()
 
 
 class Server(object):
