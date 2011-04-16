@@ -1875,15 +1875,10 @@ glusterd_gsync_get_pid_file (char *pidfile, char *master, char *slave)
         return ret ? -1 : 0;
 }
 
-/* status: return 0 when gsync is running
- * return -1 when not running
- */
-int
-gsync_status (char *master, char *slave, int *status)
+static int
+gsyncd_getpidfile (char *master, char *slave, char *pidfile)
 {
         int                ret             = -1;
-        char               pidfile[PATH_MAX]   = {0,};
-        FILE               *file           = NULL;
         glusterd_conf_t    *priv  = NULL;
 
         GF_ASSERT (THIS);
@@ -1893,28 +1888,50 @@ gsync_status (char *master, char *slave, int *status)
 
         GF_VALIDATE_OR_GOTO ("gsync", master, out);
         GF_VALIDATE_OR_GOTO ("gsync", slave, out);
-        GF_VALIDATE_OR_GOTO ("gsync", status, out);
 
         ret = glusterd_gsync_get_param_file (pidfile, "pid", master,
                                               slave, priv->workdir);
         if (ret == -1) {
+                ret = -2;
                 gf_log ("", GF_LOG_WARNING, "failed to create the pidfile string");
                 goto out;
         }
 
-        *status = -1;
-        file = fopen (pidfile, "r+");
-        if (file) {
-                ret = lockf (fileno (file), F_TEST, 0);
-                if (ret != 0)
-                        *status = 0;
-        }
-        ret = 0;
-out:
-        if (file)
-                fclose (file);
+        ret = open (pidfile, O_RDWR);
+
+ out:
         return ret;
 }
+
+static int
+gsync_status_byfd (int fd)
+{
+        return lockf (fd, F_TEST, 0) ? 0 : -1;
+}
+
+/* status: return 0 when gsync is running
+ * return -1 when not running
+ */
+int
+gsync_status (char *master, char *slave, int *status)
+{
+        char pidfile[PATH_MAX] = {0,};
+        int  fd                = -1;
+
+        fd = gsyncd_getpidfile (master, slave, pidfile);
+        if (fd == -2)
+                return -1;
+        if (fd == -1) {
+                *status = -1;
+                return 0;
+        }
+
+        *status = gsync_status_byfd (fd);
+
+        close (fd);
+        return 0;
+}
+
 
 int
 gsync_validate_config_type (int32_t config_type)
@@ -4162,9 +4179,8 @@ int
 stop_gsync (char *master, char *slave, char **op_errstr)
 {
         int32_t         ret     = -1;
-        int32_t         status  = 0;
+        int             pfd     = -1;
         pid_t           pid     = 0;
-        FILE            *file   = NULL;
         char            pidfile[PATH_MAX] = {0,};
         char            buf [1024] = {0,};
         int             i       = 0;
@@ -4175,37 +4191,22 @@ stop_gsync (char *master, char *slave, char **op_errstr)
 
         priv = THIS->private;
 
-        ret = gsync_status (master, slave, &status);
-        if (ret == 0 && status == -1) {
+        pfd = gsyncd_getpidfile (master, slave, pidfile);
+        if (pfd == -1) {
+                gf_log ("", GF_LOG_WARNING, GEOREP" stop validation "
+                        " failed");
+                *op_errstr = gf_strdup (GEOREP "stop internal error");
+                goto out;
+        }
+        ret = 0;
+
+        if (gsync_status_byfd (pfd == -1)) {
                 gf_log ("", GF_LOG_WARNING, "gsyncd is not running");
                 *op_errstr = gf_strdup ("gsyncd is not running");
                 goto out;
-        } else if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, GEOREP" stop validation "
-                        " failed");
-                *op_errstr = gf_strdup ("command to failed, please "
-                                        "check the log file");
-                goto out;
         }
 
-        ret = glusterd_gsync_get_param_file (pidfile, "pid", master,
-                                              slave, priv->workdir);
-        if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to create the pidfile"
-                        " string");
-                *op_errstr = gf_strdup ("Operation Failed! due to corrupt pid");
-                goto out;
-        }
-
-        file = fopen (pidfile, "r+");
-        if (!file) {
-                gf_log ("", GF_LOG_WARNING, "cannot open pid file");
-                *op_errstr = gf_strdup ("stop unsuccessful");
-                ret = -1;
-                goto out;
-        }
-
-        ret = read (fileno(file), buf, 1024);
+        ret = read (pfd, buf, 1024);
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
                 ret = kill (-pid, SIGTERM);
@@ -4215,8 +4216,7 @@ stop_gsync (char *master, char *slave, char **op_errstr)
                         goto out;
                 }
                 for (i = 0; i < 20; i++) {
-                        if (gsync_status (master, slave, &status) == -1 ||
-                            status == -1) {
+                        if (gsync_status_byfd (pfd) == -1) {
                                 /* monitor gsyncd is dead but worker may
                                  * still be alive, give some more time
                                  * before SIGKILL (hack)
@@ -4234,6 +4234,7 @@ stop_gsync (char *master, char *slave, char **op_errstr)
         *op_errstr = gf_strdup (GEOREP" stopped successfully");
 
 out:
+        close (pfd);
         return ret;
 }
 
