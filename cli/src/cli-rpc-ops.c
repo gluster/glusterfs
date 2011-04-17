@@ -2621,64 +2621,6 @@ gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
         return 0;
 }
 
-
-int
-gf_cli3_1_gsync_get_param_file (char *prmfile, const char *ext, char *master, char *slave, char *gl_workdir)
-{
-        FILE               *in = NULL;
-        char                buff[PATH_MAX] = {0, };
-        char                cmd[PATH_MAX] = {0, };
-        char               *ptr = NULL;
-        char                prmfolder[PATH_MAX] = {0, };
-        char               *dotp = NULL;
-        int                 ret = 0;
-
-        if (!(master && slave && gl_workdir)) {
-                GF_ASSERT (!master && !slave && !gl_workdir);
-                /* extension adjustment mode */
-
-                dotp = strrchr (prmfile, '.');
-                if (!dotp++ ||
-                    /* overflow */
-                    dotp - prmfile + strlen (ext) + 1 > PATH_MAX)
-                        return -1;
-
-                strcpy (dotp, ext);
-                return 0;
-        }
-
-        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-escape-url"
-                                     " %s %s", master, slave);
-        if (!(in = popen(cmd, "r"))) {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-                return -1;
-        }
-
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr) {
-                buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (prmfolder, PATH_MAX, "%s/"GEOREP"/%s", gl_workdir, buff);
-        } else {
-                ret = -1;
-                goto out;
-        }
-
-        memset (buff, 0, PATH_MAX);
-
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr) {
-                buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (prmfile, PATH_MAX, "%s/%s.%s", prmfolder, buff, ext);
-        }
-
- out:
-        ret |= pclose (in);
-
-        if (ret)
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-
-        return ret ? -1 : 0;
-}
 int
 gf_cli3_1_gsync_out_status (dict_t *dict)
 {
@@ -2727,36 +2669,6 @@ gf_cli3_1_gsync_out_status (dict_t *dict)
  out:
         return ret;
 
-}
-
-/* status: 0 when gsync is running
- * -1 when not running
- */
-int
-gf_cli3_1_gsync_status (char *master, char *slave,
-                        char *pidfile, int *status)
-{
-        int     ret             = -1;
-        FILE    *file           = NULL;
-
-        GF_VALIDATE_OR_GOTO ("gsync", master, out);
-        GF_VALIDATE_OR_GOTO ("gsync", slave, out);
-        GF_VALIDATE_OR_GOTO ("gsync", pidfile, out);
-        GF_VALIDATE_OR_GOTO ("gsync", status, out);
-
-        file = fopen (pidfile, "r+");
-        if (file) {
-                ret = lockf (fileno (file), F_TEST, 0);
-                if (ret == 0) {
-                        *status = -1;
-                }
-                else
-                *status = 0;
-        } else
-                *status = -1;
-        ret = 0;
-out:
-        return ret;
 }
 
 int
