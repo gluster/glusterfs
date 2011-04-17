@@ -2601,7 +2601,7 @@ gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
                 if (!rsp.op_name)
                         return -1;
 
-                snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s "
+                snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s :%s %s"
                                                    " --config-get %s ",
                                             rsp.glusterd_workdir, GSYNC_CONF,
                                             rsp.master, rsp.slave, rsp.op_name);
@@ -2611,7 +2611,7 @@ gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
                  */
         } else if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
           snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s "
-                    "%s %s --config-get-all ",
+                    ":%s %s --config-get-all ",
                     rsp.glusterd_workdir, GSYNC_CONF,
                     rsp.master, rsp.slave);
           
