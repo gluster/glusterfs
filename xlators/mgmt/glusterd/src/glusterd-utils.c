@@ -3201,7 +3201,6 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         char            *tslash = NULL;
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
-        char            master_url[GLUSTERD_MAX_VOLUME_NAME + 8] = {0};
         char            msg[3*PATH_MAX] = {0};
 
         this = THIS;
@@ -3213,11 +3212,10 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         if (strcmp (local_uuid_str, uuid_str))
                 goto out;
 
-        snprintf (master_url, sizeof (master_url), ":%s", master);
-        ret = gsync_status (master_url, slave, &status);
+        ret = gsync_status (master, slave, &status);
         if (status == 0)
                 goto out;
-        ret = glusterd_gsync_get_param_file (prmfile, "pid", master_url,
+        ret = glusterd_gsync_get_param_file (prmfile, "pid", master,
                                              slave, priv->workdir);
         if (ret == -1) {
                 snprintf (msg, sizeof (msg), "failed to create the pidfile string");
@@ -3237,39 +3235,46 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         }
 
         memset (cmd, 0, sizeof (cmd));
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s :%s %s"
                                        " --config-set pid-file %s", priv->workdir,
-                                       GSYNC_CONF, master_url, slave, prmfile);
+                                       GSYNC_CONF, master, slave, prmfile);
         if (ret <= 0) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "failed to construct the  "
-                          "config set command for %s %s", master_url, slave);
+                          "config set command for %s %s", master, slave);
+                gf_log ("", GF_LOG_WARNING, "failed to construct the  "
+                        "config set command for %s %s", master, slave);
                 goto out;
         }
 
         ret = gf_system (cmd);
         if (ret) {
                 snprintf (msg, sizeof (msg), "failed to set the pid "
-                          "option for %s %s", master_url, slave);
+                          "option for %s %s", master, slave);
+                gf_log ("", GF_LOG_WARNING, "failed to set the pid "
+                        "option for %s %s", master, slave);
                 goto out;
         }
 
         ret = glusterd_gsync_get_param_file (prmfile, "status", NULL, NULL, NULL);
         if (ret != -1)
-                ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
-                                " --config-set state-file %s", priv->workdir,
-                                GSYNC_CONF, master_url, slave, prmfile);
+                ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s "
+                                ":%s %s --config-set state-file %s",
+                                priv->workdir,GSYNC_CONF, master, slave,
+                                prmfile);
         if (ret >= PATH_MAX)
                 ret = -1;
         if (ret != -1)
                 ret = gf_system (cmd) ? -1 : 0;
         if (ret == -1) {
                 snprintf (msg, sizeof (msg), "failed to set status file "
-                          "for %s %s", master_url, slave);
+                          "for %s %s", master, slave);
+                gf_log ("", GF_LOG_WARNING, "failed to set status file "
+                        "for %s %s", master, slave);
                 goto out;
         }
 
-        ret = glusterd_gsync_get_param_file (prmfile, "log", master_url,
+        ret = glusterd_gsync_get_param_file (prmfile, "log", master,
                                              slave, DEFAULT_LOG_FILE_DIRECTORY);
         if (ret == -1) {
                 snprintf (msg, sizeof (msg), "failed to construct the "
@@ -3310,22 +3315,25 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                 *tslash = '/';
         }
 
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s %s %s"
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s :%s %s"
                         " --config-set log-file %s", priv->workdir,
-                        GSYNC_CONF, master_url, slave, prmfile);
+                        GSYNC_CONF, master, slave, prmfile);
         if (ret >= PATH_MAX)
                 ret = -1;
         if (ret != -1)
                 ret = gf_system (cmd) ? -1 : 0;
         if (ret == -1) {
                 snprintf (msg, sizeof (msg), "failed to set status file "
-                          "for %s %s", master_url, slave);
+                          "for %s %s", master, slave);
+                gf_log ("", GF_LOG_WARNING, "failed to set status file "
+                        "for %s %s", master, slave);
                 goto out;
         }
 
         memset (cmd, 0, sizeof (cmd));
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c %s/%s %s %s"
-                                       , priv->workdir, GSYNC_CONF, master_url, slave);
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c"
+                        "%s/%s :%s %s", priv->workdir, GSYNC_CONF, master,
+                        slave);
         if (ret <= 0) {
                 ret = -1;
                 goto out;

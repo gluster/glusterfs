@@ -1704,24 +1704,14 @@ out:
         return ret;
 }
 
-char *
-volname_from_master (char *master)
-{
-        if (master == NULL)
-                return NULL;
 
-        return gf_strdup (master+1);
-
-}
-
-int
-glusterd_gsync_get_cannonical_slave_name (char *cann, char *master, char *slave)
+static int
+glusterd_get_canon_url (char *cann, char *name, gf_boolean_t cann_esc)
 {
         FILE               *in = NULL;
         char                buff[PATH_MAX] = {0, };
         char                cmd[PATH_MAX] = {0, };
         char               *ptr = NULL;
-        char                buffer[PATH_MAX] = {0, };
         glusterd_conf_t    *priv  = NULL;
         int                 ret = 0;
 
@@ -1730,22 +1720,12 @@ glusterd_gsync_get_cannonical_slave_name (char *cann, char *master, char *slave)
 
         priv = THIS->private;
 
-        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd"
-                  " --canonicalize-url"
-                  " %s %s", master, slave);
+        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-%surl %s",
+                  cann_esc? "escape-": "",name);
         if (!(in = popen(cmd, "r"))) {
                 gf_log ("", GF_LOG_ERROR, "popen failed");
                 return -1;
         }
-
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr == NULL) {
-                ret = -1;
-                goto out;
-        }
-
-        memset (buff, 0, PATH_MAX);
-        memset (buffer, 0, PATH_MAX);
 
         ptr = fgets(buff, sizeof(buff), in);
         if (ptr) {
@@ -1753,7 +1733,6 @@ glusterd_gsync_get_cannonical_slave_name (char *cann, char *master, char *slave)
                 strncpy (cann, buff, PATH_MAX);
         }
 
- out:
         ret |= pclose (in);
 
         if (ret)
@@ -1767,11 +1746,7 @@ int
 glusterd_gsync_get_param_file (char *prmfile, const char *ext, char *master,
                                 char *slave, char *gl_workdir)
 {
-        FILE               *in = NULL;
         char                buff[PATH_MAX] = {0, };
-        char                cmd[PATH_MAX] = {0, };
-        char               *ptr = NULL;
-        char                prmfolder[PATH_MAX] = {0, };
         char               *dotp = NULL;
         int                 ret = 0;
 
@@ -1789,90 +1764,18 @@ glusterd_gsync_get_param_file (char *prmfile, const char *ext, char *master,
                 return 0;
         }
 
-        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd"
-                                     " --canonicalize-escape-url"
-                                     " %s %s", master, slave);
-        if (!(in = popen(cmd, "r"))) {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
+        ret = glusterd_get_canon_url (buff, slave, _gf_true);
+
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to cannonicalize slave URL"
+                        "of %s", slave);
                 return -1;
         }
 
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr) {
-                buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (prmfolder, PATH_MAX, "%s/"GEOREP"/%s", gl_workdir, buff);
-        } else {
-                ret = -1;
-                goto out;
-        }
+        snprintf (prmfile, PATH_MAX, "%s/"GEOREP"/%s/%s.%s", gl_workdir, master,
+                  buff, ext);
 
-        memset (buff, 0, PATH_MAX);
-
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr) {
-                buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (prmfile, PATH_MAX, "%s/%s.%s", prmfolder, buff, ext);
-        }
-
- out:
-        ret |= pclose (in);
-
-        if (ret)
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-
-        return ret ? -1 : 0;
-}
-
-int
-glusterd_gsync_get_pid_file (char *pidfile, char *master, char *slave)
-{
-        FILE               *in = NULL;
-        char                buff[PATH_MAX] = {0, };
-        char                cmd[PATH_MAX] = {0, };
-        char               *ptr = NULL;
-        char                buffer[PATH_MAX] = {0, };
-        char                pidfolder[PATH_MAX] = {0, };
-        glusterd_conf_t    *priv  = NULL;
-        int                 ret = 0;
-
-        GF_ASSERT (THIS);
-
-        priv = THIS->private;
-
-        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-escape-url"
-                                     " %s %s", master, slave);
-        if (!(in = popen(cmd, "r"))) {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-                return -1;
-        }
-
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr) {
-                buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (buffer, PATH_MAX, "%s/"GEOREP"/%s", priv->workdir, buff);
-                strncpy (pidfolder, buffer, PATH_MAX);
-        } else {
-                ret = -1;
-                goto out;
-        }
-
-        memset (buff, 0, PATH_MAX);
-        memset (buffer, 0, PATH_MAX);
-
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr) {
-                buff[strlen(buff)-1]='\0'; //strip off \n
-                snprintf (buffer, PATH_MAX, "%s/%s.pid", pidfolder, buff);
-                strncpy (pidfile, buffer, PATH_MAX);
-        }
-
- out:
-        ret |= pclose (in);
-
-        if (ret)
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-
-        return ret ? -1 : 0;
+        return  0;
 }
 
 static int
@@ -2036,9 +1939,11 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         glusterd_gsync_status_temp_t  *param = NULL;
         char                          *slave = NULL;
         int                           ret = 0;
-        char                          master[PATH_MAX] = {0, };
 
         param = (glusterd_gsync_status_temp_t *)data;
+
+        GF_ASSERT (param);
+        GF_ASSERT (param->volinfo);
 
         slave = strchr(value->data, ':');
         if (slave)
@@ -2046,10 +1951,7 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         else
                 return;
 
-        master[0] = ':';
-        strcat (master, param->volinfo->volname);
-
-        ret = glusterd_get_gsync_status_mst_slv(param->volinfo, master,
+        ret = glusterd_get_gsync_status_mst_slv(param->volinfo,
                                                 slave, param->rsp_dict);
 
 }
@@ -2151,20 +2053,18 @@ out:
 }
 
 static int
-glusterd_remove_slave_in_info (glusterd_volinfo_t *volinfo, char *master,
-                              char *slave,char *host_uuid, char **op_errstr)
+glusterd_remove_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
+                               char *host_uuid, char **op_errstr)
 {
         int                         ret = 0;
         glusterd_gsync_slaves_t     status = {0, };
         char                        cann_slave[PATH_MAX] = {0,  };
 
         GF_ASSERT (volinfo);
-        GF_ASSERT (master);
         GF_ASSERT (slave);
         GF_ASSERT (host_uuid);
 
-        ret = glusterd_gsync_get_cannonical_slave_name (cann_slave, master,
-                                                        slave);
+        ret = glusterd_get_canon_url (cann_slave, slave, _gf_false);
         if (ret)
                 goto out;
 
@@ -2188,7 +2088,7 @@ glusterd_remove_slave_in_info (glusterd_volinfo_t *volinfo, char *master,
 }
 
 static int
-glusterd_gsync_get_uuid (char *master, char *slave, glusterd_volinfo_t *vol,
+glusterd_gsync_get_uuid (char *slave, glusterd_volinfo_t *vol,
                          uuid_t uuid)
 {
 
@@ -2205,12 +2105,10 @@ glusterd_gsync_get_uuid (char *master, char *slave, glusterd_volinfo_t *vol,
         priv = this->private;
         GF_ASSERT (priv);
         GF_ASSERT (vol);
-        GF_ASSERT (master);
         GF_ASSERT (slave);
 
         uuid_utoa_r (priv->uuid, host_uuid_str);
-        ret = glusterd_gsync_get_cannonical_slave_name (cann_slave, master,
-                                                        slave);
+        ret = glusterd_get_canon_url (cann_slave, slave, _gf_false);
         if (ret)
                 goto out;
 
@@ -2261,8 +2159,8 @@ glusterd_check_gsync_running_local (char *master, char *slave,
 }
 
 static int
-glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *master,
-                              char *slave, char *host_uuid, char **op_errstr)
+glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
+                              char *host_uuid, char **op_errstr)
 {
         int                         ret = 0;
         glusterd_gsync_slaves_t     status = {0, };
@@ -2270,9 +2168,11 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *master,
         char                       *value = NULL;
         char                        key[512] = {0, };
 
+        GF_ASSERT (volinfo);
+        GF_ASSERT (slave);
+        GF_ASSERT (host_uuid);
 
-        ret = glusterd_gsync_get_cannonical_slave_name (cann_slave, master,
-                                                        slave);
+        ret = glusterd_get_canon_url (cann_slave, slave, _gf_false);
         if (ret)
                 goto out;
 
@@ -2285,7 +2185,7 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *master,
                 gf_log ("", GF_LOG_ERROR, GEOREP" has already been invoked for "
                                           "the %s (master) and %s (slave)"
                                           "from a different machine",
-                                           master, slave);
+                                           volinfo->volname, slave);
                  *op_errstr = gf_strdup (GEOREP" already running in an an"
                                         "orhter machine");
                 ret = -1;
@@ -2317,8 +2217,7 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *master,
 
 static int
 glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
-                                        char *master, char *slave,
-                                        char **op_errstr)
+                                        char *slave, char **op_errstr)
 {
         int                     ret = -1;
         gf_boolean_t            is_running = _gf_false;
@@ -2330,7 +2229,6 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
         this = THIS;
 
         GF_ASSERT (volinfo);
-        GF_ASSERT (master);
         GF_ASSERT (slave);
         GF_ASSERT (op_errstr);
         GF_ASSERT (this && this->private);
@@ -2344,10 +2242,10 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
         }
         /*Check if the gsync is already started in cmd. inited host
          * If so initiate add it into the glusterd's priv*/
-        ret = glusterd_gsync_get_uuid (master, slave, volinfo, uuid);
+        ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
         if ((ret == 0) && (uuid_compare (priv->uuid, uuid) == 0)) {
-                ret = glusterd_check_gsync_running_local (master, slave,
-                                                          &is_running);
+                ret = glusterd_check_gsync_running_local (volinfo->volname,
+                                                          slave, &is_running);
                 if (ret) {
                         snprintf (msg, sizeof (msg), GEOREP" start option "
                                   "validation failed ");
@@ -2355,7 +2253,7 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
                 }
                 if (_gf_true == is_running) {
                         snprintf (msg, sizeof (msg), GEOREP" %s %s already "
-                                  "started", master, slave);
+                                  "started", volinfo->volname, slave);
                         ret = -1;
                         goto out;
                 }
@@ -2386,8 +2284,7 @@ glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag)
 
 static int
 glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
-                                  char *master, char *slave,
-                                  char **op_errstr)
+                                  char *slave, char **op_errstr)
 {
         int                     ret = -1;
         char                    msg[2048] = {0};
@@ -2396,7 +2293,6 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
 
         GF_ASSERT (THIS && THIS->private);
         GF_ASSERT (volinfo);
-        GF_ASSERT (master);
         GF_ASSERT (slave);
         GF_ASSERT (op_errstr);
 
@@ -2408,7 +2304,7 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
 
                 goto out;
         }
-        ret = glusterd_gsync_get_uuid (master, slave, volinfo, uuid);
+        ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
         if (ret == -1) {
                 snprintf (msg, sizeof (msg), GEOREP" session is not active");
                 goto out;
@@ -2501,7 +2397,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         int                     ret     = 0;
         int                     type    = 0;
         char                    *volname = NULL;
-        char                    *master  = NULL;
         char                    *slave   = NULL;
         gf_boolean_t            exists   = _gf_false;
         glusterd_volinfo_t      *volinfo = NULL;
@@ -2521,16 +2416,9 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_op_gsync_args_get (dict, op_errstr, &master, &slave);
+        ret = glusterd_op_gsync_args_get (dict, op_errstr, &volname, &slave);
         if (ret)
                 goto out;
-        volname = volname_from_master (master);
-        if (volname == NULL) {
-                gf_log ("", GF_LOG_WARNING, "volname couldn't be found");
-                *op_errstr = gf_strdup ("volname not found");
-                ret = -1;
-                goto out;
-        }
 
         exists = glusterd_check_volume_exists (volname);
         ret = glusterd_volinfo_find (volname, &volinfo);
@@ -2545,14 +2433,14 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         switch (type) {
         case GF_GSYNC_OPTION_TYPE_START:
-                ret = glusterd_op_verify_gsync_start_options (volinfo, master,
-                                                              slave, op_errstr);
+                ret = glusterd_op_verify_gsync_start_options (volinfo, slave,
+                                                              op_errstr);
                 if (ret)
                         goto out;
                 break;
         case GF_GSYNC_OPTION_TYPE_STOP:
-                ret = glusterd_op_verify_gsync_running (volinfo, master,
-                                                        slave, op_errstr);
+                ret = glusterd_op_verify_gsync_running (volinfo, slave,
+                                                        op_errstr);
                 if (ret)
                         goto out;
                 break;
@@ -2564,9 +2452,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         }
         ret = 0;
 out:
-        if (volname)
-                GF_FREE (volname);
-
         return ret;
 }
 
@@ -4260,7 +4145,7 @@ gsync_config_set (char *master, char *slave,
                 goto out;
         }
 
-        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/%s %s %s"
+        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/%s :%s %s"
                                  " --config-set %s \" %s \"", priv->workdir,
                              GSYNC_CONF, master, slave, op_name, op_value);
         if (ret <= 0) {
@@ -4324,7 +4209,7 @@ gsync_config_del (char *master, char *slave,
                 goto out;
         }
 
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s %s %s"
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s :%s %s"
                                          " --config-del %s ", priv->workdir,
                                          GSYNC_CONF, master, slave, op_name);
         if (ret <= 0) {
@@ -4513,10 +4398,8 @@ out:
 }
 
 int
-glusterd_set_marker_gsync (char *master)
+glusterd_set_marker_gsync (glusterd_volinfo_t *volinfo)
 {
-        char                    *volname = NULL;
-        glusterd_volinfo_t      *volinfo = NULL;
         int                      ret     = -1;
         int                      marker_set = _gf_false;
         char                    *gsync_status = NULL;
@@ -4527,14 +4410,6 @@ glusterd_set_marker_gsync (char *master)
 
         priv = THIS->private;
 
-        volname = volname_from_master (master);
-
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Volume not Found");
-                ret = -1;
-                goto out;
-        }
         marker_set = glusterd_volinfo_get_boolean (volinfo, VKEY_MARKER_XTIME);
         if (marker_set == -1) {
                 gf_log ("", GF_LOG_ERROR, "failed to get the marker status");
@@ -4560,19 +4435,18 @@ glusterd_set_marker_gsync (char *master)
                         goto out;
                 }
         }
+        ret = 0;
 
 out:
-        if (volname)
-                GF_FREE (volname);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
-
 }
 
 
 
 
 int
-glusterd_get_gsync_status_mst_slv( glusterd_volinfo_t *volinfo, char *master,
+glusterd_get_gsync_status_mst_slv( glusterd_volinfo_t *volinfo,
                                    char *slave, dict_t *rsp_dict)
 {
         uuid_t             uuid = {0, };
@@ -4580,18 +4454,24 @@ glusterd_get_gsync_status_mst_slv( glusterd_volinfo_t *volinfo, char *master,
         int                ret = 0;
 
         GF_ASSERT (volinfo);
-        GF_ASSERT (master);
         GF_ASSERT (slave);
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
 
         priv = THIS->private;
 
-        ret = glusterd_gsync_get_uuid (master, slave, volinfo, uuid);
+        ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
         if ((ret == 0) && (uuid_compare (priv->uuid, uuid) != 0))
                 goto out;
 
-        ret = glusterd_read_status_file (master, slave, rsp_dict);
+        if (ret) {
+                ret = 0;
+                gf_log ("", GF_LOG_INFO, "geo-replication status %s %s :"
+                        "session is not active", volinfo->volname, slave);
+                goto out;
+        }
+
+        ret = glusterd_read_status_file (volinfo->volname, slave, rsp_dict);
  out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
@@ -4639,7 +4519,6 @@ out:
 static int
 glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
-        char               *master = NULL;
         char               *slave  = NULL;
         char               *volname = NULL;
         char               errmsg[PATH_MAX] = {0, };
@@ -4651,18 +4530,6 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         ret = dict_get_str (dict, "master", &volname);
         if (ret < 0){
                 ret = glusterd_get_gsync_status_all (rsp_dict);
-                goto out;
-        }
-
-        ret = dict_get_str (dict, "master", &master);
-        if (ret < 0)
-                goto out;
-
-        volname = volname_from_master (master);
-        if (volname == NULL) {
-                gf_log ("", GF_LOG_WARNING, "volname couldn't be found");
-                *op_errstr = gf_strdup ("volname not found");
-                ret = -1;
                 goto out;
         }
 
@@ -4684,16 +4551,9 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_get_str (dict, "slave", &slave);
-        if (ret < 0)
-                goto out;
-
-        ret = glusterd_get_gsync_status_mst_slv (volinfo, master,
-                                                 slave, rsp_dict);
+        ret = glusterd_get_gsync_status_mst_slv (volinfo, slave, rsp_dict);
 
  out:
-        if (volname)
-                GF_FREE (volname);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 
@@ -4704,7 +4564,6 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 int
 glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
-        char               *master = NULL;
         int32_t             ret     = -1;
         int32_t             type    = -1;
         dict_t             *ctx    = NULL;
@@ -4740,7 +4599,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         }
 
-        ret = dict_get_str (dict, "master", &master);
+        ret = dict_get_str (dict, "master", &volname);
         if (ret < 0)
                 goto out;
 
@@ -4748,43 +4607,42 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret < 0)
                 goto out;
 
-        volname = volname_from_master (master);
-
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Volinfo for %s (master) not found",
+                gf_log ("", GF_LOG_WARNING, "Volinfo for %s (master) not found",
                         volname);
                 goto out;
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_START) {
 
-                ret = glusterd_set_marker_gsync (master);
+                ret = glusterd_set_marker_gsync (volinfo);
                 if (ret != 0) {
                         gf_log ("", GF_LOG_WARNING, "marker start failed");
                         *op_errstr = gf_strdup ("failed to initialize indexing");
                         ret = -1;
                         goto out;
                 }
-                ret = glusterd_store_slave_in_info(volinfo, master, slave,
+                ret = glusterd_store_slave_in_info(volinfo, slave,
                                                    host_uuid, op_errstr);
                 if (ret)
                         goto out;
-                ret = glusterd_start_gsync (volinfo->volname, slave, host_uuid, op_errstr);
 
+                ret = glusterd_start_gsync (volname, slave, host_uuid,
+                                            op_errstr);
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_STOP) {
 
-                ret = glusterd_gsync_get_uuid (master, slave, volinfo, uuid);
+                ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
                 if (ret) {
                         gf_log ("", GF_LOG_WARNING, GEOREP" is not set up for"
-                                "%s(master) and %s(slave)", master, slave);
+                                "%s(master) and %s(slave)", volname, slave);
                         *op_errstr = strdup (GEOREP" is not set up");
                         goto out;
                 }
 
-                ret = glusterd_remove_slave_in_info(volinfo, master, slave,
+                ret = glusterd_remove_slave_in_info(volinfo, slave,
                                                     host_uuid, op_errstr);
                 if (ret)
                         goto out;
@@ -4793,20 +4651,19 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = stop_gsync (master, slave, op_errstr);
+                ret = stop_gsync (volname, slave, op_errstr);
                 if (ret)
                         goto out;
 
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_CONFIGURE) {
-                ret = glusterd_gsync_configure (master, slave, dict, op_errstr);
+                ret = glusterd_gsync_configure (volname, slave, dict,
+                                                op_errstr);
                 goto out;
         }
 
 out:
-        if (volname)
-                GF_FREE (volname);
         gf_log ("", GF_LOG_DEBUG,"Returning %d", ret);
         return ret;
 }
