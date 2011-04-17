@@ -94,7 +94,7 @@ def startup(**kw):
     GLogger.setup(label=kw.get('label'), **lkw)
 
 def main():
-    signal.signal(signal.SIGTERM, lambda *a: (finalize(*a), os._exit(1)))
+    signal.signal(signal.SIGTERM, lambda *a: finalize(*a, **{'exval': 1}))
     GLogger.setup()
     excont = FreeObject(exval = 0)
     try:
@@ -103,9 +103,7 @@ def main():
         except:
             log_raise_exception(excont)
     finally:
-        finalize()
-        # force exit in non-main thread too
-        os._exit(excont.exval)
+        finalize(excont.exval)
 
 def main_i():
     rconf = {'go_daemon': 'should'}
