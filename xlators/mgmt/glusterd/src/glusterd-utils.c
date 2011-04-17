@@ -3202,6 +3202,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
         char            msg[3*PATH_MAX] = {0};
+        int             errcode = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -3218,7 +3219,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         ret = glusterd_gsync_get_param_file (prmfile, "pid", master,
                                              slave, priv->workdir);
         if (ret == -1) {
-                snprintf (msg, sizeof (msg), "failed to create the pidfile string");
+                errcode = -1;
                 goto out;
         }
         unlink (prmfile);
@@ -3227,8 +3228,9 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                 *tslash = '\0';
                 ret = mkdir (prmfile, 0777);
                 if (ret && (errno != EEXIST)) {
-                        snprintf (msg, sizeof (msg), "mkdir %s failed, (%s)",
-                                  prmfile, strerror (errno));
+                        errcode = -1;
+                        gf_log ("", GF_LOG_WARNING, "Failed to create the"
+                                " directory %s", prmfile);
                         goto out;
                 }
                 *tslash = '/';
@@ -3240,8 +3242,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                                        GSYNC_CONF, master, slave, prmfile);
         if (ret <= 0) {
                 ret = -1;
-                snprintf (msg, sizeof (msg), "failed to construct the  "
-                          "config set command for %s %s", master, slave);
+                errcode = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to construct the  "
                         "config set command for %s %s", master, slave);
                 goto out;
@@ -3249,8 +3250,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
 
         ret = gf_system (cmd);
         if (ret) {
-                snprintf (msg, sizeof (msg), "failed to set the pid "
-                          "option for %s %s", master, slave);
+                errcode = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to set the pid "
                         "option for %s %s", master, slave);
                 goto out;
@@ -3267,8 +3267,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         if (ret != -1)
                 ret = gf_system (cmd) ? -1 : 0;
         if (ret == -1) {
-                snprintf (msg, sizeof (msg), "failed to set status file "
-                          "for %s %s", master, slave);
+                errcode = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to set status file "
                         "for %s %s", master, slave);
                 goto out;
@@ -3277,8 +3276,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         ret = glusterd_gsync_get_param_file (prmfile, "log", master,
                                              slave, DEFAULT_LOG_FILE_DIRECTORY);
         if (ret == -1) {
-                snprintf (msg, sizeof (msg), "failed to construct the "
-                          "logfile string");
+                errcode = -1;
                 goto out;
         }
         /* XXX "mkdir -p": eventually this should be made into a library routine */
@@ -3296,8 +3294,9 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                                 *slash = '\0';
                         ret = mkdir (prmfile, 0777);
                         if (ret == -1 && errno != EEXIST) {
-                                snprintf (msg, sizeof (msg), "mkdir %s failed, "
-                                          "(%s)", prmfile, strerror (errno));
+                                errcode = -1;
+                                gf_log ("", GF_LOG_WARNING, "Failed to create"
+                                        " the directory %s", prmfile);
                                 goto out;
                         }
                         if (slash) {
@@ -3308,8 +3307,9 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                 ret = stat (prmfile, &st);
                 if (ret == -1 || !S_ISDIR (st.st_mode)) {
                         ret = -1;
-                        snprintf (msg, sizeof (msg), "mkdir %s failed, "
-                                  "(%s)", prmfile, strerror (errno));
+                        errcode  = -1;
+                        gf_log ("", GF_LOG_WARNING, "Failed to create the"
+                                "directory %s", prmfile);
                         goto out;
                 }
                 *tslash = '/';
@@ -3323,8 +3323,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         if (ret != -1)
                 ret = gf_system (cmd) ? -1 : 0;
         if (ret == -1) {
-                snprintf (msg, sizeof (msg), "failed to set status file "
-                          "for %s %s", master, slave);
+                errcode = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to set status file "
                         "for %s %s", master, slave);
                 goto out;
@@ -3336,20 +3335,29 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                         slave);
         if (ret <= 0) {
                 ret = -1;
+                errcode = -1;
                 goto out;
         }
 
         ret = gf_system (cmd);
-        if (ret == -1)
+        if (ret == -1) {
+                ret = snprintf (msg, sizeof (msg), GEOREP" start failed for %s "
+                                "%s", master, slave);
+                if (ret <=0)
+                        goto out;
+                *op_errstr = gf_strdup (msg);
                 goto out;
+        }
 
         ret = 0;
 
 out:
-        if ((ret != 0) && (msg[0] != '\0')) {
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+        if ((ret != 0) && errcode == -1) {
                 if (op_errstr)
-                        *op_errstr = gf_strdup (msg);
+                        *op_errstr = gf_strdup ("internal error, cannot start"
+                                                "the " GEOREP " session");
         }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

@@ -4257,6 +4257,8 @@ glusterd_gsync_read_frm_status (char *path, char *data)
                 return -1;
         }
 
+        data[strlen(data)-1] = '\0';
+
         return 0;
 }
 
@@ -4289,7 +4291,7 @@ glusterd_read_status_file (char *master, char *slave,
 
         ret = gsync_status (master, slave, &status);
         if (ret == 0 && status == -1) {
-                strncpy (buff, "Corrupt\n", sizeof (buff));
+                strncpy (buff, "corrupt", sizeof (buff));
                 goto done;
         } else if (ret == -1)
                 goto out;

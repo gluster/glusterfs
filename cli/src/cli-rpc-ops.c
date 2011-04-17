@@ -2630,19 +2630,26 @@ gf_cli3_1_gsync_out_status (dict_t *dict)
         char             mst[PATH_MAX] = {0, };
         char             slv[PATH_MAX]= {0, };
         char             sts[PATH_MAX] = {0, };
+        char             hyphens[81] = {0, };
         char             *mst_val = NULL;
         char             *slv_val = NULL;
         char             *sts_val = NULL;
 
+        cli_out ("%-20s %-50s %-10s", "MASTER", "SLAVE", "STATUS");
+
+        for (i=0; i<sizeof(hyphens)-1; i++)
+                hyphens[i] = '-';
+
+        cli_out ("%s", hyphens);
+
 
         ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
         if (ret) {
-                cli_out ("No "GEOREP" sessions for the selected");
+                gf_log ("cli", GF_LOG_INFO, "No active geo-replication sessions"
+                        "present for the selected");
                 ret = 0;
                 goto out;
         }
-
-        cli_out (GEOREP" Status:");
 
         for (i = 1; i <= gsync_count; i++) {
                 snprintf (mst, sizeof(mst), "master%d", i);
@@ -2661,7 +2668,7 @@ gf_cli3_1_gsync_out_status (dict_t *dict)
                 if (ret)
                         goto out;
 
-                cli_out ("Master:%-20s   Slave:%-50s  Status:%-10s", mst_val,
+                cli_out ("%-20s %-50s %-10s", mst_val,
                          slv_val, sts_val);
 
         }
@@ -2707,25 +2714,36 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (rsp.op_ret) {
                 cli_out ("%s", rsp.op_errstr ? rsp.op_errstr :
-                         "command unsuccessful");
+                         GEOREP" command unsuccessful");
+                ret = rsp.op_ret;
                 goto out;
-        } else {
-                if (rsp.type == GF_GSYNC_OPTION_TYPE_START)
-                        cli_out ("Gsync started Successfully");
-                else if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL
-                         || rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET)
-                        ret = gf_cli3_1_gsync_get_command (rsp);
-                else if (rsp.type == GF_GSYNC_OPTION_TYPE_STATUS)
-                        ret = gf_cli3_1_gsync_out_status (dict);
-                else if (rsp.type == GF_GSYNC_OPTION_TYPE_STOP)
-                        cli_out (GEOREP" session stopped successfully");
-                else if (!rsp.op_errstr)
-                        cli_out ("command executed successfully");
-                else
-                        cli_out (rsp.op_errstr);
         }
+
+        switch (rsp.type) {
+                case GF_GSYNC_OPTION_TYPE_START:
+                        cli_out (GEOREP" session started Successfully");
+                break;
+
+                case GF_GSYNC_OPTION_TYPE_STOP:
+                        cli_out (GEOREP" session stopped successfully");
+                break;
+
+                case GF_GSYNC_OPTION_TYPE_CONFIGURE:
+                        if(rsp.config_type==GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL
+                           || rsp.config_type==GF_GSYNC_OPTION_TYPE_CONFIG_GET)
+                                ret = gf_cli3_1_gsync_get_command (rsp);
+                        else
+                                cli_out (GEOREP" config updated successfully");
+                break;
+
+                case GF_GSYNC_OPTION_TYPE_STATUS:
+                        ret = gf_cli3_1_gsync_out_status (dict);
+                        goto out;
+                default:
+                        cli_out (GEOREP" command executed successfully");
+        }
+
 out:
-        ret = rsp.op_ret;
 
         cli_cmd_broadcast_response (ret);
 
