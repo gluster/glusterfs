@@ -4,7 +4,7 @@ import time
 import fcntl
 import shutil
 import logging
-from threading import Thread as baseThread
+from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN
 from signal import SIGTERM, SIGKILL
 from time import sleep
@@ -88,7 +88,10 @@ def grabpidfile(fname=None, setpid=True):
         content = str(os.getpid()) + '\n'
     return grabfile(fname, content=content)
 
-def finalize(*a):
+final_lock = Lock()
+
+def finalize(*a, **kw):
+    final_lock.acquire()
     if getattr(gconf, 'pid_file', None):
         rm_pidf = gconf.pid_file_owned
         if gconf.cpid:
@@ -117,6 +120,7 @@ def finalize(*a):
         shutil.rmtree(gconf.ssh_ctl_dir)
     sys.stdout.flush()
     sys.stderr.flush()
+    os._exit(kw.get('exval', 0))
 
 def log_raise_exception(excont):
     exc = sys.exc_info()[1]
@@ -150,8 +154,7 @@ class Thread(baseThread):
                     try:
                         log_raise_exception(excont)
                     finally:
-                        finalize()
-                        os._exit(excont.exval)
+                        finalize(exval = excont.exval)
             kw['target'] = twrap
         baseThread.__init__(self, *a, **kw)
         self.setDaemon(True)
