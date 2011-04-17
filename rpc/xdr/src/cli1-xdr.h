@@ -93,9 +93,6 @@ enum gf1_cli_gsync_set {
 	GF_GSYNC_OPTION_TYPE_CONFIG_GET = 6,
 	GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL = 7,
         GF_GSYNC_OPTION_TYPE_STATUS = 8,
-        GF_GSYNC_OPTION_TYPE_STATUS_ALL = 9,
-        GF_GSYNC_OPTION_TYPE_STATUS_MASTER = 10,
-        GF_GSYNC_OPTION_TYPE_STATUS_MST_SLV = 11
 
 };
 typedef enum gf1_cli_gsync_set gf1_cli_gsync_set;

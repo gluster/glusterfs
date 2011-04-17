@@ -2426,8 +2426,6 @@ out:
 static int
 glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
 {
-        int                status_type = 0;
-        char               *master = NULL;
         char               *slave  = NULL;
         char               *volname = NULL;
         char               errmsg[PATH_MAX] = {0, };
@@ -2435,23 +2433,9 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t *volinfo = NULL;
         int                ret = 0;
 
-
-        ret = dict_get_int32 (dict, "status-type", &status_type);
-        if (ret)
-                goto out;
-
-        if (status_type == GF_GSYNC_OPTION_TYPE_STATUS_ALL)
-                goto out;
-
-        ret = dict_get_str (dict, "master", &master);
-        if (ret < 0)
-                goto out;
-
-        volname = volname_from_master (master);
-        if (volname == NULL) {
-                gf_log ("", GF_LOG_WARNING, "volname couldn't be found");
-                *op_errstr = gf_strdup ("volname not found");
-                ret = -1;
+        ret = dict_get_str (dict, "master", &volname);
+        if (ret < 0) {
+                ret = 0;
                 goto out;
         }
 
@@ -2466,23 +2450,13 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-
-        if (status_type == GF_GSYNC_OPTION_TYPE_STATUS_MASTER)
-                goto out;
-
-        if (status_type != GF_GSYNC_OPTION_TYPE_STATUS_MST_SLV)
-                goto out;
-
         ret = dict_get_str (dict, "slave", &slave);
-        if (ret < 0)
+        if (ret < 0) {
+                ret = 0;
                 goto out;
-
-        ret = glusterd_op_verify_gsync_running (volinfo, master,
-                                                slave, op_errstr);
+        }
 
  out:
-        if (volname)
-                GF_FREE (volname);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 
@@ -4665,7 +4639,6 @@ out:
 static int
 glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
-        int                status_type = 0;
         char               *master = NULL;
         char               *slave  = NULL;
         char               *volname = NULL;
@@ -4675,11 +4648,8 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         int                ret = 0;
 
 
-        ret = dict_get_int32 (dict, "status-type", &status_type);
-        if (ret)
-                goto out;
-
-        if (status_type == GF_GSYNC_OPTION_TYPE_STATUS_ALL) {
+        ret = dict_get_str (dict, "master", &volname);
+        if (ret < 0){
                 ret = glusterd_get_gsync_status_all (rsp_dict);
                 goto out;
         }
@@ -4708,7 +4678,8 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
 
-        if (status_type == GF_GSYNC_OPTION_TYPE_STATUS_MASTER) {
+        ret = dict_get_str (dict, "slave", &slave);
+        if (ret < 0) {
                 ret = glusterd_get_gsync_status_mst (volinfo, rsp_dict);
                 goto out;
         }
