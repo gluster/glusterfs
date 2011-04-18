@@ -47,16 +47,19 @@ int    connected = 0;
 int cli_cmd_log_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
                       const char **words, int wordcount);
 
-static gf_boolean_t
+static unsigned
 cli_cmd_needs_connection (struct cli_cmd_word *word)
 {
         if (!strcasecmp ("quit", word->word))
-                return _gf_false;
+                return 0;
 
         if (!strcasecmp ("help", word->word))
-                return _gf_false;
+                return 0;
 
-        return _gf_true;
+        if (!strcasecmp ("getwd", word->word))
+                return 1;
+
+        return CLI_DEFAULT_CONN_TIMEOUT;
 }
 
 int
@@ -98,7 +101,6 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
         struct cli_cmd_word *word = NULL;
         struct cli_cmd_word *next = NULL;
         int                  i = 0;
-        gf_boolean_t         await_conn = _gf_false;
 
         word = &state->tree.root;
 
@@ -130,16 +132,12 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
 	if ( strcmp (word->word,"help")==0 )
 		goto callback;
 
-        await_conn = cli_cmd_needs_connection (word);
-
-        if (await_conn) {
-                ret = cli_cmd_await_connected ();
-                if (ret) {
-                        cli_out ("Connection failed. Please check if gluster "
-                                  "daemon is operational.");
-                        gf_log ("", GF_LOG_INFO, "Exiting with: %d", ret);
-                        exit (ret);
-                }
+        ret = cli_cmd_await_connected (cli_cmd_needs_connection (word));
+        if (ret) {
+                cli_out ("Connection failed. Please check if gluster "
+                          "daemon is operational.");
+                gf_log ("", GF_LOG_INFO, "Exiting with: %d", ret);
+                exit (ret);
         }
 
 callback:
@@ -314,15 +312,18 @@ out:
 }
 
 int32_t
-cli_cmd_await_connected ()
+cli_cmd_await_connected (unsigned conn_timo)
 {
         int32_t                 ret = 0;
         struct  timespec        ts = {0,};
 
+        if (!conn_timo)
+                return 0;
+
         pthread_mutex_lock (&conn_mutex);
         {
                 time (&ts.tv_sec);
-                ts.tv_sec += CLI_DEFAULT_CONN_TIMEOUT;
+                ts.tv_sec += conn_timo;
                 while (!connected && !ret) {
                         ret = pthread_cond_timedwait (&conn, &conn_mutex,
                                                       &ts);
