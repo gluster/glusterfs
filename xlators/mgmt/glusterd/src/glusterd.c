@@ -238,6 +238,8 @@ configure_syncaemon (xlator_t *this, const char *workdir)
         char cmd[4096] = {0,};
         int blen = 0;
 
+        setenv ("_GLUSTERD_CALLED_", "1", 1);
+
         snprintf (voldir, PATH_MAX, "%s/"GEOREP, workdir);
         ret = mkdir (voldir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
