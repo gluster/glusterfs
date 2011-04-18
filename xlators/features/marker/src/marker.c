@@ -743,7 +743,7 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_QUOTA)
+        if ((priv->feature_enabled & GF_QUOTA) && (local->ia_nlink == 1))
                 reduce_parent_size (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
@@ -753,6 +753,34 @@ out:
 
         return 0;
 }
+
+
+int32_t
+marker_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        marker_local_t *local = NULL;
+
+        if (op_ret < 0) {
+                goto err;
+        }
+
+        local = frame->local;
+        if (local == NULL) {
+                goto err;
+        }
+
+        local->ia_nlink = buf->ia_nlink;
+
+        STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->unlink, &local->loc);
+        return 0;
+err:
+        STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL);
+
+        return 0;
+}
+
 
 int32_t
 marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
@@ -775,8 +803,9 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (ret == -1)
                 goto err;
 wind:
-        STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, loc);
+        STACK_WIND (frame, marker_unlink_stat_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->stat, loc);
+
         return 0;
 err:
         STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL);
