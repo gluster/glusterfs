@@ -1301,7 +1301,6 @@ out:
 void
 _add_volinfo_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
 {
-        int                     exists = 0;
         glusterd_voldict_ctx_t   *ctx = NULL;
         char                    optkey[512] = {0,};
         int                     ret = -1;
