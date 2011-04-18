@@ -796,3 +796,23 @@ xdr_gf1_cli_stats_volume_rsp (XDR *xdrs, gf1_cli_stats_volume_rsp *objp)
 		 return FALSE;
 	return TRUE;
 }
+
+bool_t
+xdr_gf1_cli_getwd_req (XDR *xdrs, gf1_cli_getwd_req *objp)
+{
+	 if (!xdr_int (xdrs, &objp->unused))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_getwd_rsp (XDR *xdrs, gf1_cli_getwd_rsp *objp)
+{
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->wd, ~0))
+		 return FALSE;
+	return TRUE;
+}

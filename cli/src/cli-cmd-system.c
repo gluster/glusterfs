@@ -154,6 +154,30 @@ out:
         return ret;
 }
 
+int
+cli_cmd_getwd_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                   const char **words, int wordcount)
+{
+        int                             ret = -1;
+        rpc_clnt_procedure_t            *proc = NULL;
+        call_frame_t                    *frame = NULL;
+
+        if (wordcount != 2) {
+                cli_usage_out (word->pattern);
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GETWD];
+        if (proc && proc->fn) {
+                frame = create_frame (THIS, THIS->ctx->pool);
+                if (!frame)
+                        goto out;
+                ret = proc->fn (frame, THIS, NULL);
+        }
+out:
+        return ret;
+}
+
 struct cli_cmd cli_system_cmds[] = {
         { "system:: getspec <VOLID>",
           cli_cmd_getspec_cbk,
@@ -166,6 +190,10 @@ struct cli_cmd cli_system_cmds[] = {
         { "system:: fsm log [<peer-name>]",
           cli_cmd_fsm_log_cbk,
           "display fsm transitions"},
+
+        { "system:: getwd",
+          cli_cmd_getwd_cbk,
+          "query glusterd work directory"},
 
         { "system:: help",
            cli_cmd_system_help_cbk,
