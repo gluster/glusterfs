@@ -2721,11 +2721,13 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
 
         switch (rsp.type) {
                 case GF_GSYNC_OPTION_TYPE_START:
-                        cli_out (GEOREP" session started Successfully");
+                        cli_out ("Starting " GEOREP " session between %s & %s"
+                                 " has been successful", rsp.master, rsp.slave);
                 break;
 
                 case GF_GSYNC_OPTION_TYPE_STOP:
-                        cli_out (GEOREP" session stopped successfully");
+                         cli_out ("Stopping " GEOREP " session between %s & %s"
+                                 " has been successful", rsp.master, rsp.slave);
                 break;
 
                 case GF_GSYNC_OPTION_TYPE_CONFIGURE:
