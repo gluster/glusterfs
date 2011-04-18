@@ -55,9 +55,6 @@
 #include "list.h"
 #include "dict.h"
 
-/* TODO: when supporting posix acl, remove this definition */
-#define DISABLE_POSIX_ACL
-
 #ifdef GF_LINUX_HOST_OS
 #define FUSE_OP_HIGH (FUSE_POLL + 1)
 #endif

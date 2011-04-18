@@ -3485,6 +3485,7 @@ init (xlator_t *this_xl)
         int                i = 0;
         int                xl_name_allocated = 0;
         int                fsname_allocated = 0;
+	char              *fuse_opts;
 
         if (this_xl == NULL)
                 return -1;
@@ -3628,9 +3629,12 @@ init (xlator_t *this_xl)
                 fsname = "glusterfs";
 
 
-        priv->fd = gf_fuse_mount (priv->mount_point, fsname,
-                                  "allow_other,default_permissions,"
-                                  "max_read=131072");
+	if (cmd_args->default_permissions) {
+		fuse_opts = "allow_other,default_permissions,max_read=131072";
+	} else {
+		fuse_opts = "allow_other,max_read=131072";
+	}
+        priv->fd = gf_fuse_mount (priv->mount_point, fsname, fuse_opts);
         if (priv->fd == -1)
                 goto cleanup_exit;
 

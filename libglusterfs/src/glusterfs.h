@@ -288,6 +288,7 @@ struct _cmd_args {
 	int              fuse_nosuid;
 	char            *dump_fuse;
         pid_t            client_pid;
+	int              default_permissions;
         int              client_pid_set;
 
 	/* key args */

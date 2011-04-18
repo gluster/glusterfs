@@ -113,6 +113,8 @@ struct posix_private {
 /* janitor thread which cleans up /.trash (created by replicate) */
         pthread_t       janitor;
         gf_boolean_t    janitor_present;
+
+	gf_boolean_t    use_set_fsid;	/* use setfs*id to deal with perms */
         char *          trash_path;
 };
 

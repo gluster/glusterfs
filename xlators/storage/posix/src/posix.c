@@ -57,19 +57,24 @@
 #include "hashfn.h"
 
 
-#undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
 
 #define DECLARE_OLD_FS_ID_VAR uid_t old_fsuid; gid_t old_fsgid;
 
-#define SET_FS_ID(uid, gid) do {                \
-                old_fsuid = setfsuid (uid);     \
-                old_fsgid = setfsgid (gid);     \
+#define SET_FS_ID(uid, gid) do {                			\
+		struct posix_private *_sfi_priv = this->private;	\
+		if (_sfi_priv->use_set_fsid) {				\
+			old_fsuid = setfsuid (uid);     		\
+			old_fsgid = setfsgid (gid);     		\
+		}							\
         } while (0)
 
-#define SET_TO_OLD_FS_ID() do {                 \
-                setfsuid (old_fsuid);           \
-                setfsgid (old_fsgid);           \
+#define SET_TO_OLD_FS_ID() do {                 			\
+		struct posix_private *_sfi_priv = this->private;	\
+		if (_sfi_priv->use_set_fsid) {				\
+			(void)setfsuid (old_fsuid);           		\
+			(void)setfsgid (old_fsgid);           		\
+		}							\
         } while (0)
 
 #else
@@ -4506,6 +4511,23 @@ init (xlator_t *this)
                 _private->janitor_sleep_duration = janitor_sleep;
         }
 
+#if defined(HAVE_SET_FSID)
+        tmp_data = dict_get (this->options, "use-set-fsid");
+        if (tmp_data) {
+                if (gf_string2boolean (tmp_data->data,
+                                       &_private->use_set_fsid) == -1) {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "wrong option provided for 'use-set-fsid'");
+                        goto out;
+                }
+                if (_private->use_set_fsid) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "use_set_fsid mode is enabled");
+		}
+        }
+#endif
+
 #ifndef GF_DARWIN_HOST_OS
         {
                 struct rlimit lim;
@@ -4625,5 +4647,9 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL },
         { .key  = {"janitor-sleep-duration"},
           .type = GF_OPTION_TYPE_INT },
+#if defined(HAVE_SET_FSID)
+	{ .key = {"use-set-fsid"},
+	  .type = GF_OPTION_TYPE_BOOL },
+#endif
         { .key  = {NULL} }
 };

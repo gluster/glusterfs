@@ -224,6 +224,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         pthread_mutex_init (&(ctx->lock), NULL);
 
         cmd_args = &ctx->cmd_args;
+	cmd_args->default_permissions = _gf_true;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
 
