@@ -33,7 +33,7 @@ def desugar(ustr):
         elif '@' in m.groups()[0] or re.search('[:/]', m.groups()[1]):
             return "ssh://" + ustr
         else:
-            return "gluster://#{str}"
+            return "gluster://" + ustr
     else:
         if ustr[0] != '/':
             raise RuntimeError("cannot resolve sugared url '%s'" % ustr)
