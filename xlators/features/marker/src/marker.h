@@ -66,7 +66,7 @@ struct marker_local{
         pid_t           pid;
         loc_t           loc;
         int32_t         ref;
-
+        int32_t         ia_nlink;
         gf_lock_t       lock;
         struct marker_local *oplocal;
 };
