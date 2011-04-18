@@ -98,7 +98,6 @@ static char *glusterd_op_sm_event_names[] = {
 static char *gsync_reserved_opts[] = {
         "gluster-command",
         "pid-file",
-        "log-file",
         "state-file",
         "session-owner",
         NULL
@@ -1724,15 +1723,35 @@ out:
 }
 
 
+int
+glusterd_query_extutil (char *resbuf, char *cmd)
+{
+        FILE               *in  = NULL;
+        char               *ptr = NULL;
+        int                 ret = 0;
+
+        if (!(in = popen(cmd, "r"))) {
+                gf_log ("", GF_LOG_ERROR, "popen failed");
+                return -1;
+        }
+
+        ptr = fgets(resbuf, PATH_MAX, in);
+        if (ptr)
+                resbuf[strlen(resbuf)-1] = '\0'; //strip off \n
+
+        ret |= pclose (in);
+
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "popen failed");
+
+        return ret ? -1 : 0;
+}
+
 static int
 glusterd_get_canon_url (char *cann, char *name, gf_boolean_t cann_esc)
 {
-        FILE               *in = NULL;
-        char                buff[PATH_MAX] = {0, };
         char                cmd[PATH_MAX] = {0, };
-        char               *ptr = NULL;
         glusterd_conf_t    *priv  = NULL;
-        int                 ret = 0;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
@@ -1741,60 +1760,27 @@ glusterd_get_canon_url (char *cann, char *name, gf_boolean_t cann_esc)
 
         snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-%surl %s",
                   cann_esc? "escape-": "",name);
-        if (!(in = popen(cmd, "r"))) {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-                return -1;
-        }
 
-        ptr = fgets(buff, sizeof(buff), in);
-        if (ptr) {
-                buff[strlen(buff)-1]='\0'; //strip off \n
-                strncpy (cann, buff, PATH_MAX);
-        }
-
-        ret |= pclose (in);
-
-        if (ret)
-                gf_log ("", GF_LOG_ERROR, "popen failed");
-
-        return ret ? -1 : 0;
-
+        return glusterd_query_extutil (cann, cmd);
 }
 
 int
-glusterd_gsync_get_param_file (char *prmfile, const char *ext, char *master,
-                                char *slave, char *gl_workdir)
+glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
+                               char *slave, char *gl_workdir)
 {
-        char                buff[PATH_MAX] = {0, };
-        char               *dotp = NULL;
-        int                 ret = 0;
+        char                cmd[PATH_MAX] = {0, };
+        glusterd_conf_t    *priv  = NULL;
 
-        if (!(master && slave && gl_workdir)) {
-                GF_ASSERT (!master && !slave && !gl_workdir);
-                /* extension adjustment mode */
+        GF_ASSERT (THIS);
+        GF_ASSERT (THIS->private);
 
-                dotp = strrchr (prmfile, '.');
-                if (!dotp++ ||
-                    /* overflow */
-                    dotp - prmfile + strlen (ext) + 1 > PATH_MAX)
-                        return -1;
+        priv = THIS->private;
 
-                strcpy (dotp, ext);
-                return 0;
-        }
+        snprintf (cmd, PATH_MAX,
+                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" :%s %s --config-get %s-file",
+                  gl_workdir, master, slave, param);
 
-        ret = glusterd_get_canon_url (buff, slave, _gf_true);
-
-        if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to cannonicalize slave URL"
-                        "of %s", slave);
-                return -1;
-        }
-
-        snprintf (prmfile, PATH_MAX, "%s/"GEOREP"/%s/%s.%s", gl_workdir, master,
-                  buff, ext);
-
-        return  0;
+        return glusterd_query_extutil (prmfile, cmd);
 }
 
 static int
@@ -4303,8 +4289,8 @@ glusterd_read_status_file (char *master, char *slave,
         GF_ASSERT (THIS->private);
 
         priv = THIS->private;
-        ret = glusterd_gsync_get_param_file (statusfile, "status", master,
-                                              slave, priv->workdir);
+        ret = glusterd_gsync_get_param_file (statusfile, "state", master,
+                                             slave, priv->workdir);
         if (ret) {
                 gf_log ("", GF_LOG_WARNING, "Unable to get the name of status"
                         "file for %s(master), %s(slave)", master, slave);
