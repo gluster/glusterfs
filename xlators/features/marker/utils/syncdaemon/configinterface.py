@@ -4,6 +4,7 @@ except ImportError:
     # py 3
     import configparser as ConfigParser
 import re
+from string import Template
 
 from syncdutils import escape, unescape, norm, update_file
 
@@ -12,6 +13,22 @@ SECT_META = '__meta__'
 config_version = 2.0
 
 re_type = type(re.compile(''))
+
+
+class MultiDict(object):
+
+    def __init__(self, *dd):
+        self.dicts = dd
+
+    def __getitem__(self, key):
+        val = None
+        for d in self.dicts:
+            if d.get(key):
+                val = d[key]
+        if not val:
+            raise KeyError(key)
+        return val
+
 
 class GConffile(object):
 
@@ -26,9 +43,10 @@ class GConffile(object):
                 s2[k] = v
             self.config._sections[n] = s2
 
-    def __init__(self, path, peers):
+    def __init__(self, path, peers, *dd):
         self.peers = peers
         self.path = path
+        self.auxdicts = dd
         self.config = ConfigParser.RawConfigParser()
         self.config.read(path)
         self._normconfig()
@@ -89,27 +107,37 @@ class GConffile(object):
         ss.sort(scmp)
         return ss
 
-    def update_to(self, dct):
+    def update_to(self, dct, allow_unresolved=False):
         if not self.peers:
             raise RuntimeError('no peers given, cannot select matching options')
-        def update_from_sect(sect):
-            dct.update(self.config._sections[sect])
+        def update_from_sect(sect, mud):
+            for k, v in self.config._sections[sect].items():
+                if k == '__name__':
+                    continue
+                if allow_unresolved:
+                    dct[k] = Template(v).safe_substitute(mud)
+                else:
+                    dct[k] = Template(v).substitute(mud)
         for sect in self.ord_sections():
             sp = self.parse_section(sect)
             if isinstance(sp[0], re_type) and len(sp) == len(self.peers):
                 match = True
+                mad = {}
                 for i in range(len(sp)):
-                    if not sp[i].search(self.peers[i]):
+                    m = sp[i].search(self.peers[i])
+                    if not m:
                         match = False
                         break
+                    for j in range(len(m.groups())):
+                        mad['match%d_%d' % (i+1, j+1)] = m.groups()[j]
                 if match:
-                    update_from_sect(sect)
+                    update_from_sect(sect, MultiDict(dct, mad, *self.auxdicts))
         if self.config.has_section(self.section()):
-            update_from_sect(self.section())
+            update_from_sect(self.section(), MultiDict(dct, mad, *self.auxdicts))
 
     def get(self, opt=None):
         d = {}
-        self.update_to(d)
+        self.update_to(d, allow_unresolved = True)
         if opt:
             opt = norm(opt)
             v = d.get(opt)

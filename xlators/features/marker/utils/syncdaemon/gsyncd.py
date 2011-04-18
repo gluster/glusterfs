@@ -183,6 +183,7 @@ def main_i():
     if getattr(confdata, 'rx', None):
         # peers are regexen, don't try to parse them
         canon_peers = args
+        namedict = {}
     else:
         rscs = [resource.parse_url(u) for u in args]
         dc = rconf.get('do_canon')
@@ -192,21 +193,35 @@ def main_i():
             return
         local = remote = None
         if rscs:
-          local = rscs[0]
-          if len(rscs) > 1:
-              remote = rscs[1]
-          if not local.can_connect_to(remote):
-              raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
-        pa = ([], [])
-        canon = [False, True]
-        for x in (local, remote):
-            if x:
-                for i in range(2):
-                    pa[i].append(x.get_url(canonical=canon[i]))
-        peers, canon_peers = pa
+            local = rscs[0]
+            if len(rscs) > 1:
+                remote = rscs[1]
+            if not local.can_connect_to(remote):
+                raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
+        pa = ([], [], [])
+        urlprms = ({}, {'canonical': True}, {'canonical': True, 'escaped': True})
+        for x in rscs:
+            for i in range(len(pa)):
+                pa[i].append(x.get_url(**urlprms[i]))
+        peers, canon_peers, canon_esc_peers = pa
+        # creating the namedict, a dict representing various ways of referring to / repreenting
+        # peers to be fillable in config templates
+        mods = (lambda x: x, lambda x: x[0].upper() + x[1:], lambda x: 'e' + x[0].upper() + x[1:])
+        if remote:
+            rmap = { local: ('local', 'master'), remote: ('remote', 'slave') }
+        else:
+            rmap = { local: ('local', 'slave') }
+        namedict = {}
+        for i in range(len(rscs)):
+            x = rscs[i]
+            for name in rmap[x]:
+                for j in range(3):
+                    namedict[mods[j](name)] = pa[j][i]
+                if x.scheme == 'gluster':
+                    namedict[name + 'vol'] = x.volume
     if not 'config_file' in rconf:
         rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd.conf")
-    gcnf = GConffile(rconf['config_file'], canon_peers)
+    gcnf = GConffile(rconf['config_file'], canon_peers, defaults.__dict__, opts.__dict__, namedict)
 
     if confdata:
         opt_ok = norm(confdata.opt) in tunables + [None]
