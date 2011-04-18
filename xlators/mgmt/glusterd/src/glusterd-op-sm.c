@@ -4059,13 +4059,17 @@ stop_gsync (char *master, char *slave, char **op_errstr)
         if (pfd == -2) {
                 gf_log ("", GF_LOG_WARNING, GEOREP" stop validation "
                         " failed");
-                *op_errstr = gf_strdup (GEOREP" stop internal error");
+                if (op_errstr)
+                        *op_errstr = gf_strdup (GEOREP" stop internal error");
                 ret = -1;
                 goto out;
         }
         if (gsync_status_byfd (pfd) == -1) {
+                ret = -1;
                 gf_log ("", GF_LOG_WARNING, "gsyncd is not running");
-                *op_errstr = gf_strdup ("warning: gsyncd is not running");
+                if (op_errstr)
+                        *op_errstr = gf_strdup ("warning: "GEOREP" session is"
+                                                "not running");
                 goto out;
         }
 
@@ -4093,8 +4097,6 @@ stop_gsync (char *master, char *slave, char **op_errstr)
                 unlink (pidfile);
         }
         ret = 0;
-
-        *op_errstr = gf_strdup (GEOREP" stopped successfully");
 
 out:
         close (pfd);
@@ -4339,29 +4341,77 @@ glusterd_read_status_file (char *master, char *slave,
 }
 
 int
-glusterd_gsync_configure (char *master, char *slave,
-                 dict_t *dict, char **op_errstr)
+glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave)
+{
+
+        int                    ret = 0;
+        uuid_t                 uuid = {0, };
+        glusterd_conf_t        *priv = NULL;
+        gf_boolean_t           is_running = _gf_false;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (slave);
+        GF_ASSERT (THIS);
+        GF_ASSERT (THIS->private);
+
+        priv = THIS->private;
+
+        ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
+        if ((ret == 0) && (uuid_compare (priv->uuid, uuid) == 0)) {
+                ret = glusterd_check_gsync_running_local (volinfo->volname,
+                                                          slave, &is_running);
+                if (ret)
+                        goto out;
+
+                if (_gf_true == is_running) {
+                        ret = stop_gsync (volinfo->volname, slave, NULL);
+                        gf_log ("", GF_LOG_INFO, GEOREP " not running,"
+                                " retart the process");
+                }
+
+                ret = glusterd_start_gsync (volinfo->volname, slave,
+                                            uuid_utoa(priv->uuid), NULL);
+                if (ret)
+                        goto out;
+        }
+
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
+                          dict_t *dict, char **op_errstr)
 {
         int32_t         ret     = -1;
         int32_t         config_type = 0;
 
+        GF_ASSERT (volinfo);
+        GF_ASSERT (slave);
+        GF_ASSERT (op_errstr);
+
         ret = dict_get_int32 (dict, "config_type", &config_type);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "couldn't get the "
-                        "config-type for %s %s", master, slave);
+                gf_log ("", GF_LOG_WARNING, "couldn't get the config-type"
+                        " for %s %s", volinfo->volname, slave);
                 *op_errstr = gf_strdup ("configure command failed, "
                                         "please check the log-file\n");
                 goto out;
         }
 
         if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_SET) {
-                ret = gsync_config_set (master, slave, dict, op_errstr);
-                goto out;
+                ret = gsync_config_set (volinfo->volname, slave, dict,
+                                        op_errstr);
+                if (ret)
+                        goto out;
+                goto config_done;
         }
 
         if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_DEL) {
-                ret = gsync_config_del (master, slave, dict, op_errstr);
-                goto out;
+                ret = gsync_config_del (volinfo->volname, slave, dict,
+                                        op_errstr);
+                goto config_done;
         }
 
         if ((config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) ||
@@ -4371,9 +4421,15 @@ glusterd_gsync_configure (char *master, char *slave,
                 gf_log ("", GF_LOG_WARNING, "Invalid config type");
                 *op_errstr = gf_strdup ("Invalid config type");
                 ret = -1;
+                goto out;
         }
 
+ config_done:
+        ret = glusterd_check_restart_gsync_session (volinfo, slave);
+        if (ret)
+                *op_errstr = gf_strdup (GEOREP" conig: Internal error");
 out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -4662,7 +4718,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_CONFIGURE) {
-                ret = glusterd_gsync_configure (volname, slave, dict,
+                ret = glusterd_gsync_configure (volinfo, slave, dict,
                                                 op_errstr);
                 goto out;
         }
