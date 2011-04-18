@@ -43,11 +43,13 @@ struct glusterd_lock_ {
         time_t  timestamp;
 };
 
-typedef struct glusterd_volopt_ctx_ {
+typedef struct glusterd_voldict_ctx_ {
         dict_t  *dict;
         int     count;
         int     opt_count;
-} glusterd_volopt_ctx_t;
+        char    *key_name;
+        char    *val_name;
+} glusterd_voldict_ctx_t;
 
 typedef int (*glusterd_condition_func) (glusterd_volinfo_t *volinfo,
                                         glusterd_brickinfo_t *brickinfo,
