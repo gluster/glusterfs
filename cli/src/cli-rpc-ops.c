@@ -2973,7 +2973,7 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                         is_header_printed = 1;
                 }
                 if (profile_info[i].fop_hits) {
-                        cli_out ("%9.2lf %9.2lf %9.2lf %9.2lf %20"PRId64" %10s",
+                        cli_out ("%11.2lf %11.2lf %11.2lf %11.2lf %20"PRId64" %10s",
                                  profile_info[i].percentage_avg_latency,
                                  profile_info[i].avg_latency,
                                  profile_info[i].min_latency,
