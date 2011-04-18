@@ -3246,18 +3246,31 @@ glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo)
 }
 
 int
+mkdir_if_missing (char *path)
+{
+        struct stat st = {0,};
+        int        ret = 0;
+
+        ret = mkdir (path, 0777);
+        if (!ret || errno == EEXIST)
+                ret = stat (path, &st);
+        if (ret == -1 || !S_ISDIR (st.st_mode))
+                gf_log ("", GF_LOG_WARNING, "Failed to create the"
+                        " directory %s", path);
+
+        return ret;
+}
+
+int
 glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                       char **op_errstr)
 {
         int32_t         ret     = 0;
         int32_t         status  = 0;
-        char            cmd[PATH_MAX] = {0,};
-        char            prmfile[PATH_MAX]   = {0,};
+        char            buf[PATH_MAX]   = {0,};
         char            local_uuid_str [64] = {0};
-        char            *tslash = NULL;
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
-        char            msg[3*PATH_MAX] = {0};
         int             errcode = 0;
 
         this = THIS;
@@ -3272,136 +3285,34 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         ret = gsync_status (master, slave, &status);
         if (status == 0)
                 goto out;
-        ret = glusterd_gsync_get_param_file (prmfile, "pid", master,
-                                             slave, priv->workdir);
-        if (ret == -1) {
-                errcode = -1;
-                goto out;
-        }
-        unlink (prmfile);
-        tslash = strrchr(prmfile, '/');
-        if (tslash) {
-                *tslash = '\0';
-                ret = mkdir (prmfile, 0777);
-                if (ret && (errno != EEXIST)) {
-                        errcode = -1;
-                        gf_log ("", GF_LOG_WARNING, "Failed to create the"
-                                " directory %s", prmfile);
-                        goto out;
-                }
-                *tslash = '/';
-        }
 
-        memset (cmd, 0, sizeof (cmd));
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s :%s %s"
-                                       " --config-set pid-file %s", priv->workdir,
-                                       GSYNC_CONF, master, slave, prmfile);
-        if (ret <= 0) {
-                ret = -1;
-                errcode = -1;
-                gf_log ("", GF_LOG_WARNING, "failed to construct the  "
-                        "config set command for %s %s", master, slave);
-                goto out;
-        }
-
-        ret = gf_system (cmd);
+        snprintf (buf, PATH_MAX, "%s/"GEOREP"/%s", priv->workdir, master);
+        ret = mkdir_if_missing (buf);
         if (ret) {
                 errcode = -1;
-                gf_log ("", GF_LOG_WARNING, "failed to set the pid "
-                        "option for %s %s", master, slave);
                 goto out;
         }
 
-        ret = glusterd_gsync_get_param_file (prmfile, "status", NULL, NULL, NULL);
-        if (ret != -1)
-                ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s "
-                                ":%s %s --config-set state-file %s",
-                                priv->workdir,GSYNC_CONF, master, slave,
-                                prmfile);
-        if (ret >= PATH_MAX)
-                ret = -1;
-        if (ret != -1)
-                ret = gf_system (cmd) ? -1 : 0;
-        if (ret == -1) {
-                errcode = -1;
-                gf_log ("", GF_LOG_WARNING, "failed to set status file "
-                        "for %s %s", master, slave);
-                goto out;
-        }
-
-        ret = glusterd_gsync_get_param_file (prmfile, "log", master,
-                                             slave, DEFAULT_LOG_FILE_DIRECTORY);
-        if (ret == -1) {
+        snprintf (buf, PATH_MAX, DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/%s",
+                  master);
+        ret = mkdir_if_missing (buf);
+        if (ret) {
                 errcode = -1;
                 goto out;
         }
-        /* XXX "mkdir -p": eventually this should be made into a library routine */
-        tslash = strrchr(prmfile, '/');
-        if (tslash) {
-                char *slash = prmfile;
-                struct stat st = {0,};
 
-                *tslash = '\0';
-                if (*slash == '/')
-                        slash++;
-                while (slash) {
-                        slash = strchr (slash, '/');
-                        if (slash)
-                                *slash = '\0';
-                        ret = mkdir (prmfile, 0777);
-                        if (ret == -1 && errno != EEXIST) {
-                                errcode = -1;
-                                gf_log ("", GF_LOG_WARNING, "Failed to create"
-                                        " the directory %s", prmfile);
-                                goto out;
-                        }
-                        if (slash) {
-                                *slash = '/';
-                                slash++;
-                        }
-                }
-                ret = stat (prmfile, &st);
-                if (ret == -1 || !S_ISDIR (st.st_mode)) {
-                        ret = -1;
-                        errcode  = -1;
-                        gf_log ("", GF_LOG_WARNING, "Failed to create the"
-                                "directory %s", prmfile);
-                        goto out;
-                }
-                *tslash = '/';
-        }
-
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s :%s %s"
-                        " --config-set log-file %s", priv->workdir,
-                        GSYNC_CONF, master, slave, prmfile);
-        if (ret >= PATH_MAX)
-                ret = -1;
-        if (ret != -1)
-                ret = gf_system (cmd) ? -1 : 0;
-        if (ret == -1) {
-                errcode = -1;
-                gf_log ("", GF_LOG_WARNING, "failed to set status file "
-                        "for %s %s", master, slave);
-                goto out;
-        }
-
-        memset (cmd, 0, sizeof (cmd));
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c"
-                        "%s/%s :%s %s", priv->workdir, GSYNC_CONF, master,
-                        slave);
+        ret = snprintf (buf, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c "
+                        "%s/"GSYNC_CONF" :%s %s", priv->workdir, master, slave);
         if (ret <= 0) {
                 ret = -1;
                 errcode = -1;
                 goto out;
         }
 
-        ret = gf_system (cmd);
+        ret = gf_system (buf);
         if (ret == -1) {
-                ret = snprintf (msg, sizeof (msg), GEOREP" start failed for %s "
-                                "%s", master, slave);
-                if (ret <=0)
-                        goto out;
-                *op_errstr = gf_strdup (msg);
+                gf_asprintf (op_errstr, GEOREP" start failed for %s %s",
+                             master, slave);
                 goto out;
         }
 

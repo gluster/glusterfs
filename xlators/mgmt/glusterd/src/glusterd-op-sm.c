@@ -100,6 +100,7 @@ static char *gsync_reserved_opts[] = {
         "pid-file",
         "log-file",
         "state-file",
+        "session-owner",
         NULL
 };
 
