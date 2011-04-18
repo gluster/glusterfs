@@ -129,6 +129,7 @@ def main_i():
     op.add_option('-L', '--log-level',     metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',   default=os.path.abspath(sys.argv[0]))
     op.add_option('--volume-id',           metavar='UUID')
+    op.add_option('--session-owner',       metavar='ID')
     op.add_option('-s', '--ssh-command',   metavar='CMD',   default='ssh')
     op.add_option('--rsync-command',       metavar='CMD',   default='rsync')
     op.add_option('--rsync-extra',         metavar='ARGS',  default='-sS', help=SUPPRESS_HELP)
