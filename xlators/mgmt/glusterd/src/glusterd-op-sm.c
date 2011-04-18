@@ -4374,8 +4374,10 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave)
 
         priv = THIS->private;
 
-        ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
-        if ((ret == 0) && (uuid_compare (priv->uuid, uuid) == 0)) {
+        if (glusterd_gsync_get_uuid (slave, volinfo, uuid))
+                /* session does not exist, nothing to do */
+                goto out;
+        if (uuid_compare (priv->uuid, uuid) == 0) {
                 ret = glusterd_check_gsync_running_local (volinfo->volname,
                                                           slave, &is_running);
                 if (ret)
