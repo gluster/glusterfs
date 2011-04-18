@@ -495,6 +495,9 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, cha
 int
 glusterd_handle_cli_profile_volume (rpcsvc_request_t *req);
 
+int
+glusterd_handle_getwd (rpcsvc_request_t *req);
+
 int32_t
 glusterd_set_volume (rpcsvc_request_t *req, dict_t *dict);
 int

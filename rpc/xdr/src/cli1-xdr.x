@@ -57,7 +57,7 @@ enum gf1_cli_stats_op {
         GF_CLI_STATS_NONE  = 0,
         GF_CLI_STATS_START = 1,
         GF_CLI_STATS_STOP  = 2,
-        GF_CLI_STATS_INFO  = 3
+        GF_CLI_STATS_INFO  = 3,
         GF_CLI_STATS_TOP = 4
 };
 
@@ -374,4 +374,14 @@ struct gf1_cli_quota_rsp {
         string  op_errstr<>;
         string  limit_list<>;
         gf_quota_type type;
+};
+
+struct gf1_cli_getwd_req {
+        int     unused;
+} ;
+
+struct gf1_cli_getwd_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  wd<>;
 };

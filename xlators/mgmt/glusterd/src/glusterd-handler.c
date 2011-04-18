@@ -3202,6 +3202,32 @@ out:
 }
 
 int
+glusterd_handle_getwd (rpcsvc_request_t *req)
+{
+        int32_t                 ret = -1;
+        gf1_cli_getwd_rsp     rsp = {0,};
+        glusterd_conf_t         *priv = NULL;
+
+        GF_ASSERT (req);
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received getwd req");
+
+        rsp.wd = priv->workdir;
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     gf_xdr_from_cli_getwd_rsp);
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        return ret;
+}
+
+
+int
 glusterd_friend_remove (uuid_t uuid, char *hostname)
 {
         int                           ret = 0;
@@ -3899,6 +3925,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_GSYNC_SET]     = { "GSYNC_SET", GLUSTER_CLI_GSYNC_SET, glusterd_handle_gsync_set, NULL, NULL},
         [GLUSTER_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GLUSTER_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL},
         [GLUSTER_CLI_QUOTA]         = { "QUOTA", GLUSTER_CLI_QUOTA, glusterd_handle_quota, NULL, NULL},
+        [GLUSTER_CLI_GETWD]         = { "GETWD", GLUSTER_CLI_GETWD, glusterd_handle_getwd, NULL, NULL},
 
 };
 

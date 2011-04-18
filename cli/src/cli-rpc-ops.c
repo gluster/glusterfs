@@ -3348,6 +3348,59 @@ out:
         return ret;
 }
 
+
+int
+gf_cli3_1_getwd_cbk (struct rpc_req *req, struct iovec *iov,
+                       int count, void *myframe)
+{
+        gf1_cli_getwd_rsp rsp   = {0,};
+        int               ret   = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_getwd_rsp (*iov, &rsp);
+        if (ret < 0 || rsp.op_ret == -1) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to getwd");
+
+        cli_out (rsp.wd);
+
+        ret = 0;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_getwd (call_frame_t *frame, xlator_t *this, void *data)
+{
+        int                      ret = -1;
+        gf1_cli_getwd_req        req = {0,};
+
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
+        if (!frame || !this)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_GETWD, NULL,
+                              gf_xdr_from_cli_getwd_req,
+                              this, gf_cli3_1_getwd_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
         [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli3_1_probe},
@@ -3376,7 +3429,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_GSYNC_SET]        = {"GSYNC_SET", gf_cli3_1_gsync_set},
         [GLUSTER_CLI_PROFILE_VOLUME]   = {"PROFILE_VOLUME", gf_cli3_1_profile_volume},
         [GLUSTER_CLI_QUOTA]            = {"QUOTA", gf_cli3_1_quota},
-        [GLUSTER_CLI_TOP_VOLUME]       = {"TOP_VOLUME", gf_cli3_1_top_volume}
+        [GLUSTER_CLI_TOP_VOLUME]       = {"TOP_VOLUME", gf_cli3_1_top_volume},
+        [GLUSTER_CLI_GETWD]            = {"GETWD", gf_cli3_1_getwd}
 };
 
 struct rpc_clnt_program cli_prog = {
