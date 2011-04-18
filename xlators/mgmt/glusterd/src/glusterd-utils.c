@@ -696,6 +696,10 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         glusterd_brickinfo_t    *brickiter = NULL;
         uuid_t                  peer_uuid = {0};
         int32_t                 ret = -1;
+        int32_t                 brick_path_len = 0;
+        int32_t                 path_len = 0;
+        int32_t                 smaller_path = 0;
+        gf_boolean_t            is_path_smaller = _gf_true;
 
         if (uuid) {
                 uuid_copy (peer_uuid, uuid);
@@ -705,6 +709,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         goto out;
         }
         ret = -1;
+        path_len = strlen (path);
         list_for_each_entry (brickiter, &volinfo->bricks, brick_list) {
 
                 if (uuid_is_null (brickiter->uuid)) {
@@ -712,6 +717,10 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         if (ret)
                                 goto out;
                 }
+                brick_path_len = strlen (brickiter->path);
+                smaller_path = min (brick_path_len, path_len);
+                if (smaller_path != path_len)
+                        is_path_smaller = _gf_false;
                 if ((!uuid_compare (peer_uuid, brickiter->uuid)) &&
                         !strcmp (brickiter->path, path)) {
                         gf_log ("", GF_LOG_INFO, "Found brick");
@@ -720,6 +729,27 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                 *brickinfo = brickiter;
                         break;
                 } else {
+                        if ((!uuid_compare (peer_uuid, brickiter->uuid)) &&
+                            !strncmp (brickiter->path, path, smaller_path)) {
+                                if (is_path_smaller == _gf_true)  {
+                                        if (brickiter->path[smaller_path] == '/') {
+                                                ret = 0;
+                                                gf_log ("", GF_LOG_INFO,
+                                                        "given path %s lies"
+                                                        " within %s", path,
+                                                        brickiter->path);
+                                                break;
+                                        }
+                                } else
+                                        if (path[smaller_path] == '/') {
+                                                gf_log ("", GF_LOG_INFO,
+                                                        "brick %s is a part of"
+                                                        " %s", brickiter->path,
+                                                        path);
+                                                ret = 0;
+                                                break;
+                                        }
+                        }
                         ret = -1;
                 }
         }
