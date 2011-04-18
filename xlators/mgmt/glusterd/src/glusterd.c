@@ -229,34 +229,67 @@ out:
         return ret;
 }
 
+/* defined in usterd-utils.c -- no
+ * glusterd header where it would be
+ * appropriate to put to, and too
+ * accidental routine to place in
+ * libglusterfs.
+ *
+ * (Indeed, XXX: we'd rather need a general
+ * "mkdir -p" like routine in
+ * libglusterfs)
+ */
+extern int mkdir_if_missing (char *path);
+
 static int
-configure_syncaemon (xlator_t *this, const char *workdir)
+configure_syncaemon (glusterd_conf_t *conf)
 {
         int ret = 0;
 #if SYNCDAEMON_COMPILE
-        char voldir[PATH_MAX] = {0,};
+        char georepdir[PATH_MAX] = {0,};
         char cmd[4096] = {0,};
+        char volid[64] = {0,};
         int blen = 0;
 
         setenv ("_GLUSTERD_CALLED_", "1", 1);
 
-        snprintf (voldir, PATH_MAX, "%s/"GEOREP, workdir);
-        ret = mkdir (voldir, 0777);
-        if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "Unable to create "GEOREP" directory %s (%s)",
-                        voldir, strerror (errno));
+        snprintf (georepdir, PATH_MAX, "%s/"GEOREP, conf->workdir);
+        ret = mkdir_if_missing (georepdir);
+        if (-1 == ret) {
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" directory %s",
+                        georepdir);
+                return -1;
+        }
+        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP);
+        if (-1 == ret) {
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" log directory");
+                return -1;
+        }
+        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves");
+        if (-1 == ret) {
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" slave log directory");
                 return -1;
         }
 
         blen = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF
-                         " --config-set-rx ", workdir);
+                         " --config-set-rx ", conf->workdir);
+
+        /* Calling out to gsyncd to configure it:
+         * - use system(3) for options with multi-word values as system
+         *   groks quotes;
+         * - use gf_system() for options with template expanders so
+         *   that they are not messed up by shell
+         */
+
+        /************
+         * master pre-configuration
+         ************/
 
         /* remote-gsyncd */
-        strcpy (cmd + blen,
-                "remote-gsyncd "
-                "'"GSYNCD_PREFIX"/gsyncd --gluster-command "GFS_PREFIX"/sbin/glusterfs' "
-                ". .");
+        strcpy (cmd + blen, "remote-gsyncd " GSYNCD_PREFIX"/gsyncd . .");
         ret = system (cmd);
         if (ret)
                 goto out;
@@ -280,15 +313,73 @@ configure_syncaemon (xlator_t *this, const char *workdir)
         sprintf (cmd + blen,
                  "ssh-command "
                  "'ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
-                 "-i %s/"GEOREP"/secret.pem' . .", workdir);
+                 "-i %s/secret.pem' . .", georepdir);
         ret = system (cmd);
+        if (ret)
+                goto out;
+
+        /* session-owner */
+        uuid_unparse (conf->uuid, volid);
+        sprintf (cmd + blen, "session-owner %s . .", volid);
+        ret = system (cmd);
+        if (ret)
+                goto out;
+
+        /* pid-file */
+        sprintf (cmd + blen, "pid-file %s/${mastervol}/${eSlave}.pid . .", georepdir);
+        ret = gf_system (cmd);
+        if (ret)
+                goto out;
+
+        /* state-file */
+        sprintf (cmd + blen, "state-file %s/${mastervol}/${eSlave}.status . .", georepdir);
+        ret = gf_system (cmd);
+        if (ret)
+                goto out;
+
+        /* log-file */
+        strcpy (cmd + blen,
+                "log-file "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.log . .");
+        ret = gf_system (cmd);
+        if (ret)
+                goto out;
+
+        /* gluster-log-file */
+        strcpy (cmd + blen, "gluster-log-file "
+                DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.gluster.log . .");
+        ret = gf_system (cmd);
+        if (ret)
+                goto out;
+
+        /************
+         * slave pre-configuration
+         ************/
+
+        /* gluster-command */
+        strcpy (cmd + blen,
+                "gluster-command '"GFS_PREFIX"/sbin/glusterfs "
+                "--xlator-option *-dht.assert-no-child-down=true' .");
+        ret = system (cmd);
+        if (ret)
+                goto out;
+
+        /* log-file */
+        strcpy (cmd + blen,
+                "log-file "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.log .");
+        ret = gf_system (cmd);
+        if (ret)
+                goto out;
+
+        /* gluster-log-file */
+        strcpy (cmd + blen, "gluster-log-file "
+                DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.gluster.log .");
+        ret = gf_system (cmd);
         if (ret)
                 goto out;
 
  out:
 #else
-        (void)this;
-        (void)workdir;
+        (void)conf;
 #endif
         return ret ? -1 : 0;
 }
@@ -403,10 +494,6 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        ret = configure_syncaemon (this, dirname);
-        if (ret)
-                goto out;
-
         ret = glusterd_rpcsvc_options_build (this->options);
         if (ret)
                 goto out;
@@ -494,6 +581,10 @@ init (xlator_t *this)
 
         ret = glusterd_uuid_init (first_time);
         if (ret < 0)
+                goto out;
+
+        ret = configure_syncaemon (conf);
+        if (ret)
                 goto out;
 
         ret = glusterd_restore ();
