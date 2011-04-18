@@ -220,7 +220,13 @@ class SlaveRemote(object):
             os.dup2(ix, sys.stdin.fileno())
             os.close(iy)
             os.dup2(oy, sys.stdout.fileno())
-            argv = rargs + gconf.remote_gsyncd.split() + ['-N', '--listen', '--timeout', str(gconf.timeout), slave]
+            so = getattr(gconf, 'session_owner', None)
+            if so:
+                so_args = ['--session-owner', so]
+            else:
+                so_args = []
+            argv = rargs + gconf.remote_gsyncd.split() + so_args + \
+                     ['-N', '--listen', '--timeout', str(gconf.timeout), slave]
             os.execvp(argv[0], argv)
         os.close(ix)
         os.close(oy)
