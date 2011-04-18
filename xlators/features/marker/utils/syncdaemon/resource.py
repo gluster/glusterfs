@@ -255,6 +255,7 @@ class AbstractUrl(object):
         self.path = path
         return m.groups()
 
+    @property
     def scheme(self):
         return type(self).__name__.lower()
 
@@ -266,7 +267,7 @@ class AbstractUrl(object):
             pa = self.canonical_path()
         else:
             pa = self.path
-        u = "://".join((self.scheme(), pa))
+        u = "://".join((self.scheme, pa))
         if escaped:
             u = syncdutils.escape(u)
         return u
