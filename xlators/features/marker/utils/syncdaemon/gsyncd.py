@@ -103,7 +103,7 @@ def main():
         except:
             log_raise_exception(excont)
     finally:
-        finalize(excont.exval)
+        finalize(exval = excont.exval)
 
 def main_i():
     rconf = {'go_daemon': 'should'}
