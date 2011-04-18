@@ -35,7 +35,9 @@ def desugar(ustr):
         else:
             return "gluster://#{str}"
     else:
-        ap = os.path.abspath(ustr)
+        if ustr[0] != '/':
+            raise RuntimeError("cannot resolve sugared url '%s'" % ustr)
+        ap = os.path.normpath(ustr)
         if ap.startswith('//'):
             ap = ap[1:]
         return "file://" + ap
