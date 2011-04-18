@@ -2252,8 +2252,9 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
                         goto out;
                 }
                 if (_gf_true == is_running) {
-                        snprintf (msg, sizeof (msg), GEOREP" %s %s already "
-                                  "started", volinfo->volname, slave);
+                        snprintf (msg, sizeof (msg), GEOREP " session between"
+                                  " %s & %s already started", volinfo->volname,
+                                  slave);
                         ret = -1;
                         goto out;
                 }
@@ -2306,7 +2307,8 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
         }
         ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
         if (ret == -1) {
-                snprintf (msg, sizeof (msg), GEOREP" session is not active");
+                snprintf (msg, sizeof (msg), GEOREP" session between %s & %s"
+                          " not active", volinfo->volname, slave);
                 goto out;
         }
 
