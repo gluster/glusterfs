@@ -838,6 +838,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         char                                    *dup_dstbrick  = NULL;
         glusterd_peerinfo_t                     *peerinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
+        gf_boolean_t                            is_run         = _gf_false;
 
         ret = dict_get_str (dict, "src-brick", &src_brick);
 
@@ -884,6 +885,23 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 snprintf (msg, sizeof (msg), "volume: %s is not started",
                           volname);
                 *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = glusterd_check_gsync_running (volinfo, &is_run);
+        if (ret && (is_run == _gf_false))
+                gf_log ("", GF_LOG_WARNING, "Unable to get the status"
+                                " of active "GEOREP" session");
+        if (is_run) {
+                gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
+                        "for the volume %s ", volname);
+                snprintf (msg, sizeof(msg), GEOREP" sessions are active "
+                                "for the volume %s.\nStop "GEOREP "sessions "
+                                "involved in this volume. Use 'volume "GEOREP
+                                " status' command for more info.",
+                                volname);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
                 goto out;
         }
 
