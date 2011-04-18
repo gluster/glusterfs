@@ -792,7 +792,7 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         priv = this->private;
 
         if (priv->feature_enabled == 0)
-                goto wind;
+                goto unlink_wind;
 
         ALLOCATE_OR_GOTO (local, marker_local_t, err);
 
@@ -802,10 +802,14 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         if (ret == -1)
                 goto err;
-wind:
+
         STACK_WIND (frame, marker_unlink_stat_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->stat, loc);
+        return 0;
 
+unlink_wind:
+        STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->unlink, loc);
         return 0;
 err:
         STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL);
@@ -951,11 +955,15 @@ marker_quota_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unwind:
         STACK_UNWIND_STRICT (rename, frame, -1, ENOMEM, NULL,
                              NULL, NULL, NULL, NULL);
-        local->oplocal = NULL;
-        marker_local_unref (local);
-        marker_local_unref (oplocal);
-        GF_FREE (local);
-        GF_FREE (oplocal);
+        if (local) {
+                local->oplocal = NULL;
+                marker_local_unref (local);
+                GF_FREE (local);
+        }
+        if (oplocal) {
+                marker_local_unref (oplocal);
+                GF_FREE (oplocal);
+        }
         return 0;
 }
 
@@ -973,7 +981,7 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         priv = this->private;
 
         if (priv->feature_enabled == 0)
-                goto wind;
+                goto rename_wind;
 
         GET_CONTRI_KEY (contri_key, oldloc->parent->gfid, ret);
         if (ret < 0)
@@ -998,10 +1006,15 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         ret = loc_copy (&oplocal->loc, oldloc);
         if (ret == -1)
                 goto err;
-wind:
 
         STACK_WIND (frame, marker_quota_removexattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->removexattr, oldloc, contri_key);
+        return 0;
+
+rename_wind:
+        STACK_WIND (frame, marker_rename_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->rename, oldloc, newloc);
+
         return 0;
 err:
         STACK_UNWIND_STRICT (rename, frame, -1, ENOMEM, NULL,
