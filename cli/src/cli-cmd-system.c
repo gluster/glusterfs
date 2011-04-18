@@ -33,8 +33,6 @@
 #include "cli-mem-types.h"
 #include "protocol-common.h"
 
-#define GETSPEC_SYNTAX "system:: getspec <VOLID>"
-#define BRICKTOPORT_SYNTAX "system:: portmap brick2port <BRICK>"
 
 extern struct rpc_clnt *global_rpc;
 
@@ -61,7 +59,7 @@ cli_cmd_getspec_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount != 3) {
-                cli_out ("Usage: " GETSPEC_SYNTAX);
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -104,7 +102,7 @@ cli_cmd_pmap_b2p_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount != 4) {
-                cli_out ("Usage: " BRICKTOPORT_SYNTAX);
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -130,21 +128,21 @@ out:
 }
 
 int
-cli_cmd_fsm_log (struct cli_state *state, struct cli_cmd_word *word,
-                 const char **words, int wordcount)
+cli_cmd_fsm_log_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                     const char **words, int wordcount)
 {
         int                             ret = -1;
         rpc_clnt_procedure_t            *proc = NULL;
         call_frame_t                    *frame = NULL;
         char                            *name = "";
 
-        if ((wordcount != 3) && (wordcount != 2)) {
+        if ((wordcount != 4) && (wordcount != 3)) {
                 cli_usage_out (word->pattern);
                 goto out;
         }
 
-        if (wordcount == 3)
-                name = (char*)words[2];
+        if (wordcount == 4)
+                name = (char*)words[3];
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_FSM_LOG];
         if (proc && proc->fn) {
                 frame = create_frame (THIS, THIS->ctx->pool);
@@ -157,21 +155,21 @@ out:
 }
 
 struct cli_cmd cli_system_cmds[] = {
-        { GETSPEC_SYNTAX,
+        { "system:: getspec <VOLID>",
           cli_cmd_getspec_cbk,
           "fetch spec for volume <VOLID>"},
 
-        { BRICKTOPORT_SYNTAX,
+        { "system:: portmap brick2port <BRICK>",
           cli_cmd_pmap_b2p_cbk,
           "query which port <BRICK> listens on"},
+
+        { "system:: fsm log [<peer-name>]",
+          cli_cmd_fsm_log_cbk,
+          "display fsm transitions"},
 
         { "system:: help",
            cli_cmd_system_help_cbk,
            "display help for system commands"},
-
-        { "fsm log [<peer-name>]",
-           cli_cmd_fsm_log,
-           "display fsm transitions"},
 
         { NULL, NULL, NULL }
 };
