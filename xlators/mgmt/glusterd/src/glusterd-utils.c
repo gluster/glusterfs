@@ -1299,30 +1299,26 @@ out:
 }
 
 void
-_add_volume_option_to_dict (dict_t *this, char *key, data_t *value, void *data)
+_add_volinfo_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
 {
         int                     exists = 0;
-        glusterd_volopt_ctx_t   *ctx = NULL;
+        glusterd_voldict_ctx_t   *ctx = NULL;
         char                    optkey[512] = {0,};
         int                     ret = -1;
 
-        exists = glusterd_check_option_exists (key, NULL);
-        if (0 == exists)
-                return;
-
         ctx = data;
-        snprintf (optkey, sizeof (optkey), "volume%d.key%d", ctx->count,
-                  ctx->opt_count);
+        snprintf (optkey, sizeof (optkey), "volume%d.%s%d", ctx->count,
+                  ctx->key_name, ctx->opt_count);
         ret = dict_set_str (ctx->dict, optkey, key);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "option add for key%d %s",
-                        ctx->count, key);
-        snprintf (optkey, sizeof (optkey), "volume%d.value%d", ctx->count,
-                  ctx->opt_count);
+                gf_log ("", GF_LOG_ERROR, "option add for %s%d %s",
+                        ctx->key_name, ctx->count, key);
+        snprintf (optkey, sizeof (optkey), "volume%d.%s%d", ctx->count,
+                  ctx->val_name, ctx->opt_count);
         ret = dict_set_str (ctx->dict, optkey, value->data);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "option add for value%d %s",
-                        ctx->count, value->data);
+                gf_log ("", GF_LOG_ERROR, "option add for %s%d %s",
+                        ctx->val_name, ctx->count, value->data);
         ctx->opt_count++;
 
         return;
@@ -1337,7 +1333,7 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t    *brickinfo = NULL;
         int32_t                 i = 1;
         char                    *volume_id_str = NULL;
-        glusterd_volopt_ctx_t   ctx = {0};
+        glusterd_voldict_ctx_t   ctx = {0};
 
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
@@ -1402,12 +1398,30 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         ctx.dict = dict;
         ctx.count = count;
         ctx.opt_count = 1;
+        ctx.key_name = "key";
+        ctx.val_name = "value";
         GF_ASSERT (volinfo->dict);
 
-        dict_foreach (volinfo->dict, _add_volume_option_to_dict, &ctx);
+        dict_foreach (volinfo->dict, _add_volinfo_dict_to_prdict, &ctx);
         ctx.opt_count--;
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.opt-count", count);
+        ret = dict_set_int32 (dict, key, ctx.opt_count);
+        if (ret)
+                goto out;
+
+        ctx.dict = dict;
+        ctx.count = count;
+        ctx.opt_count = 1;
+        ctx.key_name = "slave-num";
+        ctx.val_name = "slave-val";
+        GF_ASSERT (volinfo->gsync_slaves);
+
+        dict_foreach (volinfo->gsync_slaves, _add_volinfo_dict_to_prdict, &ctx);
+        ctx.opt_count--;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.gsync-count", count);
         ret = dict_set_int32 (dict, key, ctx.opt_count);
         if (ret)
                 goto out;
@@ -1545,17 +1559,67 @@ out:
         return ret;
 }
 
+static int32_t
+import_prdict_volinfo_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
+                            char *value_prefix, int opt_count, int count)
+{
+        char                    key[512] = {0,};
+        int32_t                 ret = -1;
+        int                     i = 1;
+        char                    *opt_key = NULL;
+        char                    *opt_val = NULL;
+        char                    *dup_opt_val = NULL;
+        char                    msg[2048] = {0};
+
+        while (i <= opt_count) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.%s%d",
+                          count, key_prefix, i);
+                ret = dict_get_str (vols, key, &opt_key);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Volume dict key not "
+                                  "specified");
+                        goto out;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.%s%d",
+                          count, value_prefix, i);
+                ret = dict_get_str (vols, key, &opt_val);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Volume dict value not "
+                                  "specified");
+                        goto out;
+                }
+                dup_opt_val = gf_strdup (opt_val);
+                if (!dup_opt_val) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_dynstr (dst_dict, opt_key, dup_opt_val);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Volume set %s %s "
+                                  "unsuccessful", opt_key, dup_opt_val);
+                        goto out;
+                }
+                i++;
+        }
+
+out:
+        if (msg[0])
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+
+}
+
 int32_t
 glusterd_import_friend_volume_opts (dict_t *vols, int count,
                                     glusterd_volinfo_t *volinfo)
 {
         char                    key[512] = {0,};
         int32_t                 ret = -1;
-        int                     i = 1;
         int                     opt_count = 0;
-        char                    *opt_key = NULL;
-        char                    *opt_val = NULL;
-        char                    *dup_opt_val = NULL;
         char                    msg[2048] = {0};
 
         memset (key, 0, sizeof (key));
@@ -1566,40 +1630,33 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
                           "specified for %s", volinfo->volname);
                 goto out;
         }
-        while (i <= opt_count) {
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.key%d",
-                          count, i);
-                ret = dict_get_str (vols, key, &opt_key);
-                if (ret) {
-                        snprintf (msg, sizeof (msg), "Volume option key not "
-                                  "specified for %s", volinfo->volname);
-                        goto out;
-                }
 
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.value%d",
-                          count, i);
-                ret = dict_get_str (vols, key, &opt_val);
-                if (ret) {
-                        snprintf (msg, sizeof (msg), "Volume option value not "
-                                  "specified for %s", volinfo->volname);
-                        goto out;
-                }
-                dup_opt_val = gf_strdup (opt_val);
-                if (!dup_opt_val) {
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_dynstr (volinfo->dict, opt_key, dup_opt_val);
-                if (ret) {
-                        snprintf (msg, sizeof (msg), "Volume set %s %s "
-                                  "unsuccessful for %s", opt_key, dup_opt_val,
-                                  volinfo->volname);
-                        goto out;
-                }
-                i++;
+        ret = import_prdict_volinfo_dict (vols, volinfo->dict, "key",
+                                          "value", opt_count, count);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Unable to import options dict "
+                          "specified for %s", volinfo->volname);
+                goto out;
         }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.gsync-count", count);
+        ret = dict_get_int32 (vols, key, &opt_count);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Gsync count not "
+                          "specified for %s", volinfo->volname);
+                goto out;
+        }
+
+        ret = import_prdict_volinfo_dict (vols, volinfo->gsync_slaves,
+                                          "slave-num", "slave-val", opt_count,
+                                          count);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Unable to import gsync sessions "
+                          "specified for %s", volinfo->volname);
+                goto out;
+        }
+
 out:
         if (msg[0])
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
