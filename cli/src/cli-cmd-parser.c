@@ -1117,6 +1117,12 @@ out:
         return ret;
 }
 
+static gf_boolean_t
+gsyncd_url_check (const char *w)
+{
+        return !!strpbrk (w, ":/");
+}
+
 int32_t
 cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 {
@@ -1126,7 +1132,10 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         char               *append_str = NULL;
         size_t             append_len = 0;
         char               *subop = NULL;
-        int                i = 0;
+        int                i       = 0;
+        unsigned           masteri = 0;
+        unsigned           slavei  = 0;
+        unsigned           cmdi    = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -1138,94 +1147,112 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         if (!dict)
                 goto out;
 
+        /* new syntax:
+         *
+         * volume geo-replication [$m [$s]] status
+         * volume geo-replication [$m] $s config [[!]$opt [$val]]
+         * volume geo-replication $m $s start|stop
+         */
+
         if (wordcount < 3)
                 goto out;
 
-        if ((strcmp (words[2], "status")) == 0) {
+        for (i = 2; i <= 3 && i < wordcount - 1; i++) {
+                if (gsyncd_url_check (words[i])) {
+                        slavei = i;
+                        break;
+                }
+        }
+
+        if (slavei) {
+                cmdi = slavei + 1;
+                if (slavei == 3)
+                        masteri = 2;
+        } else if (i == 2) {
+                /* no $s, can only be status cmd
+                 * (with either a single $m before it or nothing;
+                 * i remaining 2 is a good check for this condition)
+                 */
+                cmdi = wordcount - 1;
+                if (i < cmdi)
+                        masteri = i;
+        }
+
+        /* now check if input really complies syntax
+         * (in a somewhat redundant way, in favor
+         * transparent soundness)
+         */
+
+        if (masteri && gsyncd_url_check (words[masteri]))
+                goto out;
+        if (slavei && !gsyncd_url_check (words[slavei]))
+                goto out;
+
+        if (strcmp (words[cmdi], "status") == 0) {
                 type = GF_GSYNC_OPTION_TYPE_STATUS;
 
-                if (wordcount > 5)
+                if (slavei && !masteri)
                         goto out;
-
-                if (wordcount < 4)
-                        goto set_type;
-                ret = dict_set_str (dict, "master", (char *)words[3]);
-                if (ret < 0)
-                        goto out;
-
-                if (wordcount < 5)
-                        goto set_type;
-                ret = dict_set_str (dict, "slave", (char *)words[4]);
-                if (ret < 0)
-                        goto out;
-
-                goto set_type;
-        }
-
-        if (wordcount < 5)
-                goto out;
-
-        ret = dict_set_str (dict, "master", (char *)words[3]);
-        if (ret < 0)
-                goto out;
-
-        ret = dict_set_str (dict, "slave", (char *)words[4]);
-        if (ret < 0)
-                goto out;
-
-        if ((strcmp (words[2], "start")) == 0) {
-                if (wordcount != 5)
-                        goto out;
-
-                type = GF_GSYNC_OPTION_TYPE_START;
-
-                goto set_type;
-        }
-
-        if ((strcmp (words[2], "stop")) == 0) {
-                if (wordcount != 5)
-                        goto out;
-
-                type = GF_GSYNC_OPTION_TYPE_STOP;
-
-                goto set_type;
-        }
-
-        if ((strcmp (words[2], "config")) == 0) {
+        } else if (strcmp (words[cmdi], "config") == 0) {
                 type = GF_GSYNC_OPTION_TYPE_CONFIG;
 
-                switch (wordcount) {
-                case 5:
+                if (!slavei)
+                        goto out;
+        } else if (strcmp (words[cmdi], "start") == 0) {
+                type = GF_GSYNC_OPTION_TYPE_START;
+
+                if (!masteri || !slavei)
+                        goto out;
+        } else if (strcmp (words[cmdi], "stop") == 0) {
+                type = GF_GSYNC_OPTION_TYPE_STOP;
+
+                if (!masteri || !slavei)
+                        goto out;
+        } else
+                goto out;
+
+        if (type != GF_GSYNC_OPTION_TYPE_CONFIG && cmdi < wordcount - 1)
+                goto out;
+
+        /* If got so far, input is valid, assemble the message */
+
+        ret = 0;
+
+        if (masteri)
+                ret = dict_set_str (dict, "master", (char *)words[masteri]);
+        if (!ret && slavei)
+                ret = dict_set_str (dict, "slave", (char *)words[slavei]);
+        if (!ret)
+                ret = dict_set_int32 (dict, "type", type);
+        if (!ret && type == GF_GSYNC_OPTION_TYPE_CONFIG) {
+                switch ((wordcount - 1) - cmdi) {
+                case 0:
                         subop = gf_strdup ("get-all");
                         break;
-                case 6:
-                        if (words[5][0] == '!') {
-                                (words[5])++;
+                case 1:
+                        if (words[cmdi + 1][0] == '!') {
+                                (words[cmdi + 1])++;
                                 subop = gf_strdup ("del");
                         } else
                                 subop = gf_strdup ("get");
 
-                        ret = dict_set_str (dict, "op_name", ((char *)words[5]));
+                        ret = dict_set_str (dict, "op_name", ((char *)words[cmdi + 1]));
                         if (ret < 0)
                                 goto out;
                         break;
                 default:
-                        if (wordcount < 7) {
-                                ret = -1;
-
-                                goto out;
-                        }
-
                         subop = gf_strdup ("set");
 
-                        ret = dict_set_str (dict, "op_name", (char *)words[5]);
+                        ret = dict_set_str (dict, "op_name", ((char *)words[cmdi + 1]));
                         if (ret < 0)
                                 goto out;
-                        /*XXX hack to get around the fact, where parsing of
-                         *    args is done based on spaces  */
-                        for (i = 6; i < wordcount; i++)
+
+                        /* join the varargs by spaces to get the op_value */
+
+                        for (i = cmdi + 2; i < wordcount; i++)
                                 append_len += (strlen (words[i]) + 1);
-                        append_len++; /* trailing strcat will add two bytes, make space for that */
+                        /* trailing strcat will add two bytes, make space for that */
+                        append_len++;
 
                         append_str = GF_CALLOC (1, append_len, cli_mt_append_str);
                         if (!append_str) {
@@ -1233,39 +1260,27 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                                 goto out;
                         }
 
-                        for (i = 6; i< wordcount; i++) {
+                        for (i = cmdi + 2; i < wordcount; i++) {
                                 strcat (append_str, words[i]);
                                 strcat (append_str, " ");
                         }
                         append_str[append_len - 2] = '\0';
 
                         ret = dict_set_dynstr (dict, "op_value", append_str);
-                        if (ret < 0)
-                                goto out;
                 }
 
-                if (!subop || dict_set_dynstr (dict, "subop", subop) != 0) {
+                if (!subop || dict_set_dynstr (dict, "subop", subop) != 0)
                         ret = -1;
-                        goto out;
-                }
-        } else {
-                ret = -1;
-                goto out;
         }
 
-set_type:
-        ret = dict_set_int32 (dict, "type", type);
-        if (ret < 0)
-                goto out;
-
-        *options = dict;
 out:
         if (ret) {
                 if (dict)
                         dict_destroy (dict);
                 if (append_str)
                         GF_FREE (append_str);
-        }
+        } else
+                *options = dict;
 
         return ret;
 }
