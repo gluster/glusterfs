@@ -2586,7 +2586,7 @@ out:
 
 
 int
-gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
+gf_cli3_1_gsync_config_command (gf1_cli_gsync_set_rsp rsp)
 {
         char  cmd[PATH_MAX] = {0,};
         int ret = -1;
@@ -2597,28 +2597,21 @@ gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
         if (!rsp.gsync_prefix || !rsp.master || !rsp.slave || !rsp.glusterd_workdir)
                 return -1;
 
-        if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
-                if (!rsp.op_name)
-                        return -1;
+        if (strcmp (rsp.subop, "get") != 0 && strcmp (rsp.subop, "get-all") != 0) {
+                cli_out (GEOREP" config updated successfully");
+                return 0;
+        }
 
-                snprintf (cmd, PATH_MAX, GSYNCD_PREFIX "/gsyncd -c %s/%s :%s %s"
-                                                   " --config-get %s ",
-                                            rsp.glusterd_workdir, GSYNC_CONF,
-                                            rsp.master, rsp.slave, rsp.op_name);
-                ret = system (cmd);
+        snprintf (cmd, PATH_MAX,
+                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" :%s %s --config-%s%s%s",
+                  rsp.glusterd_workdir, rsp.master, rsp.slave, rsp.subop,
+                  *rsp.op_name ? " " : "", rsp.op_name);
+        ret = system (cmd);
                 /*
                  * gf_log() failure from system() ?
                  */
-        } else if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
-          snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s "
-                    ":%s %s --config-get-all ",
-                    rsp.glusterd_workdir, GSYNC_CONF,
-                    rsp.master, rsp.slave);
-          
-          ret = system (cmd);
-        }
 
-        return 0;
+        return ret ? -1 : 0;
 }
 
 int
@@ -2730,12 +2723,8 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                                  " has been successful", rsp.master, rsp.slave);
                 break;
 
-                case GF_GSYNC_OPTION_TYPE_CONFIGURE:
-                        if(rsp.config_type==GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL
-                           || rsp.config_type==GF_GSYNC_OPTION_TYPE_CONFIG_GET)
-                                ret = gf_cli3_1_gsync_get_command (rsp);
-                        else
-                                cli_out (GEOREP" config updated successfully");
+                case GF_GSYNC_OPTION_TYPE_CONFIG:
+                        ret = gf_cli3_1_gsync_config_command (rsp);
                 break;
 
                 case GF_GSYNC_OPTION_TYPE_STATUS:

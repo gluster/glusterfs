@@ -1844,20 +1844,6 @@ gsync_status (char *master, char *slave, int *status)
 }
 
 
-int
-gsync_validate_config_type (int32_t config_type)
-{
-        switch (config_type) {
-            case GF_GSYNC_OPTION_TYPE_CONFIG_SET:
-            case GF_GSYNC_OPTION_TYPE_CONFIG_DEL:
-            case GF_GSYNC_OPTION_TYPE_CONFIG_GET:
-            case GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL:return 0;
-            default: return -1;
-        }
-        return 0;
-}
-
-
 int32_t
 glusterd_gsync_volinfo_dict_set (glusterd_volinfo_t *volinfo,
                                  char *key, char *value)
@@ -1883,61 +1869,77 @@ out:
 }
 
 int
-gsync_validate_config_option (dict_t *dict, int32_t config_type,
-                              char **op_errstr)
+gsync_verify_config_options (dict_t *dict, char **op_errstr)
 {
         char    cmd[PATH_MAX] = {0,};
-        int     ret       = -1;
         char  **resopt    = NULL;
         int     i         = 0;
+        char   *subop     = NULL;
         char   *op_name   = NULL;
+        char   *op_value  = NULL;
         gf_boolean_t banned = _gf_true;
 
-        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL)
+        if (dict_get_str (dict, "subop", &subop) != 0) {
+                gf_log ("", GF_LOG_WARNING, "missing subop");
+                *op_errstr = gf_strdup ("Invalid config request");
+                return -1;
+        }
+
+        if (strcmp (subop, "get-all") == 0)
                 return 0;
 
-        ret = dict_get_str (dict, "op_name", &op_name);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "option not specified");
-                *op_errstr = gf_strdup ("Please specify the option");
+        if (dict_get_str (dict, "op_name", &op_name) != 0) {
+                gf_log ("", GF_LOG_WARNING, "option name missing");
+                *op_errstr = gf_strdup ("Option name missing");
                 return -1;
         }
 
         snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --config-check %s", op_name);
-        ret = system (cmd);
-        if (ret) {
+        if (system (cmd)) {
                 gf_log ("", GF_LOG_WARNING, "Invalid option %s", op_name);
                 *op_errstr = gf_strdup ("Invalid option");
 
-                ret = -1;
+                return -1;
         }
 
-        if (ret != -1 &&
-            (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_SET ||
-             config_type == GF_GSYNC_OPTION_TYPE_CONFIG_DEL)) {
-                /* match option name against reserved options, modulo -/-
-                 * difference
-                 */
-                for (resopt = gsync_reserved_opts; *resopt; resopt++) {
-                        banned = _gf_true;
-                        for (i = 0; (*resopt)[i] && op_name[i]; i++) {
-                                if ((*resopt)[i] == op_name[i] ||
-                                    ((*resopt)[i] == '-' && op_name[i] == '_'))
-                                        continue;
-                                banned = _gf_false;
-                        }
-                        if (banned) {
-                                gf_log ("", GF_LOG_WARNING, "Reserved option %s", op_name);
-                                *op_errstr = gf_strdup ("Reserved option");
+        if (strcmp (subop, "get") == 0)
+                return 0;
 
-                                ret = -1;
-                                break;
-                        }
+        if (strcmp (subop, "set") != 0 && strcmp (subop, "del") != 0) {
+                gf_log ("", GF_LOG_WARNING, "unknown subop %s", subop);
+                *op_errstr = gf_strdup ("Invalid config request");
+                return -1;
+        }
+
+        if (strcmp (subop, "set") == 0 &&
+            dict_get_str (dict, "op_value", &op_value) != 0) {
+                gf_log ("", GF_LOG_WARNING, "missing value for set");
+                *op_errstr = gf_strdup ("missing value");
+        }
+
+        /* match option name against reserved options, modulo -/_
+         * difference
+         */
+        for (resopt = gsync_reserved_opts; *resopt; resopt++) {
+                banned = _gf_true;
+                for (i = 0; (*resopt)[i] && op_name[i]; i++) {
+                        if ((*resopt)[i] == op_name[i] ||
+                            ((*resopt)[i] == '-' && op_name[i] == '_'))
+                                continue;
+                        banned = _gf_false;
+                }
+                if (banned) {
+                        gf_log ("", GF_LOG_WARNING, "Reserved option %s", op_name);
+                        *op_errstr = gf_strdup ("Reserved option");
+
+                        return -1;
+                        break;
                 }
         }
 
-        return ret;
+        return 0;
 }
+
 static void
 _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
 {
@@ -2023,38 +2025,6 @@ _remove_gsync_slave (dict_t *this, char *key, data_t *value, void *data)
         if (strncmp (slave, status->slave, PATH_MAX) == 0)
                 dict_del (this, key);
 
-}
-
-int
-gsync_verify_config_options (dict_t *dict, char **op_errstr)
-{
-        int     ret     = -1;
-        int     config_type = 0;
-
-        GF_VALIDATE_OR_GOTO ("gsync", dict, out);
-        GF_VALIDATE_OR_GOTO ("gsync", op_errstr, out);
-
-        ret = dict_get_int32 (dict, "config_type", &config_type);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "config type is missing");
-                *op_errstr = gf_strdup ("config-type missing");
-                goto out;
-        }
-
-        ret = gsync_validate_config_type (config_type);
-        if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "Invalid config type");
-                *op_errstr = gf_strdup ("Invalid config type");
-                goto out;
-        }
-
-        ret = gsync_validate_config_option (dict, config_type, op_errstr);
-        if (ret < 0)
-                goto out;
-
-        ret = 0;
-out:
-        return ret;
 }
 
 static int
@@ -2451,7 +2421,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 if (ret)
                         goto out;
                 break;
-        case GF_GSYNC_OPTION_TYPE_CONFIGURE:
+        case GF_GSYNC_OPTION_TYPE_CONFIG:
                 ret = gsync_verify_config_options (dict, op_errstr);
                 if (ret < 0)
                         goto out;
@@ -4109,140 +4079,85 @@ out:
 }
 
 int
-gsync_config_set (char *master, char *slave,
-                  dict_t *dict, char **op_errstr)
+glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave);
+
+int
+glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
+                          dict_t *dict, char **op_errstr)
 {
         int32_t         ret     = -1;
         char            *op_name = NULL;
         char            *op_value = NULL;
         char            cmd[1024] = {0,};
         glusterd_conf_t *priv   = NULL;
+        char            *subop  = NULL;
+        char            *q1 = NULL;
+        char            *q2 = NULL;
 
-        if (THIS == NULL) {
-                gf_log ("", GF_LOG_ERROR, "THIS of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
+        GF_ASSERT (volinfo);
+        GF_ASSERT (slave);
+        GF_ASSERT (op_errstr);
+
+        ret = dict_get_str (dict, "subop", &subop);
+        if (ret != 0)
                 goto out;
-        }
 
-        priv = THIS->private;
-
-        if (priv == NULL) {
-                gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
-                goto out;
+        if (strcmp (subop, "get") == 0 || strcmp (subop, "get-all") == 0) {
+                /* deferred to cli */
+                gf_log ("", GF_LOG_DEBUG, "Returning 0");
+                return 0;
         }
 
         ret = dict_get_str (dict, "op_name", &op_name);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to get the "
-                        "option name for %s %s", master, slave);
+        if (ret != 0)
+                goto out;
 
-                *op_errstr = gf_strdup ("configure command failed, "
-                                        "please check the log-file\n");
+        if (strcmp (subop, "set") == 0) {
+                ret = dict_get_str (dict, "op_value", &op_value);
+                if (ret != 0)
+                        goto out;
+                q1 = " \"";
+                q2 = "\"";
+        } else {
+                q1 = "";
+                op_value = "";
+                q2 = "";
+        }
+
+        if (THIS)
+                priv = THIS->private;
+        if (priv == NULL) {
+                gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
+                *op_errstr = gf_strdup ("glusterd defunct");
                 goto out;
         }
 
-        ret = dict_get_str (dict, "op_value", &op_value);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to get "
-                        "the option value for %s %s",
-                        master, slave);
-
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-
-        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/%s :%s %s"
-                                 " --config-set %s \" %s \"", priv->workdir,
-                             GSYNC_CONF, master, slave, op_name, op_value);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to "
-                        "construct the gsyncd command");
-
-                *op_errstr = gf_strdup ("configure command failed, "
-                                        "please check the log-file\n");
-                goto out;
-        }
-
+        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" :%s %s"
+                        " --config-%s %s" "%s%s%s", priv->workdir,
+                        volinfo->volname, slave, subop, op_name,
+                        q1, op_value, q2);
         ret = system (cmd);
-        if (ret == -1) {
+        if (ret) {
                 gf_log ("", GF_LOG_WARNING, "gsyncd failed to "
-                        "set %s option for %s %s peer",
-                        op_name, master, slave);
+                        "%s %s option for %s %s peers",
+                        subop, op_name, volinfo->volname, slave);
 
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
+                gf_asprintf (op_errstr, GEOREP" config-%s failed for %s %s",
+                             subop, volinfo->volname, slave);
+
                 goto out;
         }
         ret = 0;
-        *op_errstr = gf_strdup ("config-set successful");
+        gf_asprintf (op_errstr, "config-%s successful", subop);
 
 out:
-        return ret;
-}
-
-int
-gsync_config_del (char *master, char *slave,
-                  dict_t *dict, char **op_errstr)
-{
-        int32_t         ret     = -1;
-        char            *op_name = NULL;
-        char            cmd[PATH_MAX] = {0,};
-        glusterd_conf_t *priv   = NULL;
-
-        if (THIS == NULL) {
-                gf_log ("", GF_LOG_ERROR, "THIS of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
-                goto out;
+        if (!ret) {
+                ret = glusterd_check_restart_gsync_session (volinfo, slave);
+                if (ret)
+                        *op_errstr = gf_strdup ("internal error");
         }
 
-        priv = THIS->private;
-
-        if (priv == NULL) {
-                gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
-                *op_errstr = gf_strdup ("Error! Glusterd cannot start "GEOREP);
-                goto out;
-        }
-
-        ret = dict_get_str (dict, "op_name", &op_name);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to get "
-                        "the option for %s %s", master, slave);
-
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-
-        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s :%s %s"
-                                         " --config-del %s ", priv->workdir,
-                                         GSYNC_CONF, master, slave, op_name);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to "
-                        "construct the gsyncd command");
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-
-        ret = system (cmd);
-        if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to delete "
-                        "%s option for %s %s peer", op_name,
-                        master, slave);
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-        ret = 0;
-        *op_errstr = gf_strdup ("config-del successful");
-out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -4383,59 +4298,6 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave)
         }
 
  out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int
-glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
-                          dict_t *dict, char **op_errstr)
-{
-        int32_t         ret     = -1;
-        int32_t         config_type = 0;
-
-        GF_ASSERT (volinfo);
-        GF_ASSERT (slave);
-        GF_ASSERT (op_errstr);
-
-        ret = dict_get_int32 (dict, "config_type", &config_type);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "couldn't get the config-type"
-                        " for %s %s", volinfo->volname, slave);
-                *op_errstr = gf_strdup ("configure command failed, "
-                                        "please check the log-file\n");
-                goto out;
-        }
-
-        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_SET) {
-                ret = gsync_config_set (volinfo->volname, slave, dict,
-                                        op_errstr);
-                if (ret)
-                        goto out;
-                goto config_done;
-        }
-
-        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_DEL) {
-                ret = gsync_config_del (volinfo->volname, slave, dict,
-                                        op_errstr);
-                goto config_done;
-        }
-
-        if ((config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) ||
-           (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET))
-                goto out;
-         else {
-                gf_log ("", GF_LOG_WARNING, "Invalid config type");
-                *op_errstr = gf_strdup ("Invalid config type");
-                ret = -1;
-                goto out;
-        }
-
- config_done:
-        ret = glusterd_check_restart_gsync_session (volinfo, slave);
-        if (ret)
-                *op_errstr = gf_strdup (GEOREP" conig: Internal error");
-out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -4724,7 +4586,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         }
 
-        if (type == GF_GSYNC_OPTION_TYPE_CONFIGURE) {
+        if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
                 ret = glusterd_gsync_configure (volinfo, slave, dict,
                                                 op_errstr);
                 goto out;

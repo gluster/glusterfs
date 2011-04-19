@@ -87,12 +87,8 @@ enum gf1_cli_gsync_set {
 	GF_GSYNC_OPTION_TYPE_NONE = 0,
 	GF_GSYNC_OPTION_TYPE_START = 1,
 	GF_GSYNC_OPTION_TYPE_STOP = 2,
-	GF_GSYNC_OPTION_TYPE_CONFIGURE = 3,
-	GF_GSYNC_OPTION_TYPE_CONFIG_SET = 4,
-	GF_GSYNC_OPTION_TYPE_CONFIG_DEL = 5,
-	GF_GSYNC_OPTION_TYPE_CONFIG_GET = 6,
-	GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL = 7,
-        GF_GSYNC_OPTION_TYPE_STATUS = 8,
+	GF_GSYNC_OPTION_TYPE_CONFIG = 3,
+        GF_GSYNC_OPTION_TYPE_STATUS = 4,
 
 };
 typedef enum gf1_cli_gsync_set gf1_cli_gsync_set;
@@ -478,8 +474,8 @@ struct gf1_cli_gsync_set_rsp {
 	int op_errno;
 	char *op_errstr;
 	int type;
-	int config_type;
 	char *op_name;
+	char *subop;
 	char *master;
 	char *slave;
 	char *gsync_prefix;

@@ -1121,11 +1121,11 @@ int32_t
 cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 {
         int32_t            ret     = -1;
-        int32_t            config_type = 0;
         dict_t             *dict   = NULL;
         gf1_cli_gsync_set  type    = GF_GSYNC_OPTION_TYPE_NONE;
         char               *append_str = NULL;
         size_t             append_len = 0;
+        char               *subop = NULL;
         int                i = 0;
 
         GF_ASSERT (words);
@@ -1192,33 +1192,31 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         }
 
         if ((strcmp (words[2], "config")) == 0) {
-                type = GF_GSYNC_OPTION_TYPE_CONFIGURE;
+                type = GF_GSYNC_OPTION_TYPE_CONFIG;
 
                 switch (wordcount) {
                 case 5:
-                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL;
+                        subop = gf_strdup ("get-all");
                         break;
                 case 6:
                         if (words[5][0] == '!') {
-                                config_type = GF_GSYNC_OPTION_TYPE_CONFIG_DEL;
-                                i = 1;
-                        } else {
-                                config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET;
-                                i = 0;
-                        }
+                                (words[5])++;
+                                subop = gf_strdup ("del");
+                        } else
+                                subop = gf_strdup ("get");
 
-                        ret = dict_set_str (dict, "op_name", ((char *)words[5]) + i);
+                        ret = dict_set_str (dict, "op_name", ((char *)words[5]));
                         if (ret < 0)
                                 goto out;
                         break;
                 default:
-                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_SET;
-
                         if (wordcount < 7) {
                                 ret = -1;
 
                                 goto out;
                         }
+
+                        subop = gf_strdup ("set");
 
                         ret = dict_set_str (dict, "op_name", (char *)words[5]);
                         if (ret < 0)
@@ -1246,9 +1244,10 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                                 goto out;
                 }
 
-                ret = dict_set_int32 (dict, "config_type", config_type);
-                if (ret < 0)
+                if (!subop || dict_set_dynstr (dict, "subop", subop) != 0) {
+                        ret = -1;
                         goto out;
+                }
         } else {
                 ret = -1;
                 goto out;
