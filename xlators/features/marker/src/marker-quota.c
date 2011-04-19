@@ -396,8 +396,10 @@ quota_readdir_cbk (call_frame_t *frame,
         list_for_each_entry (entry, (&entries->list), list) {
               gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
 
-              if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name, ".."))) {
-                      gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
+              if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name,
+                                                              ".."))) {
+                      gf_log (this->name, GF_LOG_DEBUG, "entry  = %s",
+                              entry->d_name);
                       continue;
               }
               count++;
@@ -405,11 +407,22 @@ quota_readdir_cbk (call_frame_t *frame,
 
         local->frame = frame;
 
+        if (count > 0) {
+                LOCK (&local->lock);
+                {
+                        local->dentry_child_count = count;
+                }
+                UNLOCK (&local->lock);
+        }
+
+
         list_for_each_entry (entry, (&entries->list), list) {
                 gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
 
-                if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name, ".."))) {
-                        gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
+                if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name,
+                                                                ".."))) {
+                        gf_log (this->name, GF_LOG_DEBUG, "entry  = %s",
+                                entry->d_name);
                         offset = entry->d_off;
                         continue;
                 }
@@ -440,8 +453,6 @@ quota_readdir_cbk (call_frame_t *frame,
                 ret = dict_set_int64 (dict, contri_key, 0);
                 if (ret)
                         goto out;
-
-                QUOTA_SAFE_INCREMENT (&local->lock, local->dentry_child_count);
 
                 STACK_WIND (newframe,
                             get_child_contribution,
