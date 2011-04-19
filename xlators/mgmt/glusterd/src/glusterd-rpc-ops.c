@@ -258,17 +258,19 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_GSYNC_SET:
         {
                 int     type = 0;
-                int     config_type = 0;
                 char    *str = NULL;
                 char    *master = NULL;
                 char    *slave  = NULL;
                 char    *op_name = NULL;
+                char    *subop = NULL;
                 gf1_cli_gsync_set_rsp rsp = {0,};
+
                 ctx = op_ctx;
                 rsp.op_ret = op_ret;
                 rsp.op_errno = op_errno;
                 rsp.op_errstr = "";
                 rsp.op_name = "";
+                rsp.subop = "";
                 rsp.master = "";
                 rsp.slave = "";
                 rsp.glusterd_workdir = conf->workdir;
@@ -280,10 +282,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         ret = dict_get_int32 (ctx, "type", &type);
                         if (ret == 0)
                                 rsp.type = type;
-                        ret = dict_get_int32 (ctx, "config_type",
-                                              &config_type);
-                        if (ret == 0)
-                                rsp.config_type = config_type;
                         ret = dict_get_str (ctx, "master", &master);
                         if (ret == 0)
                                 rsp.master = master;
@@ -292,10 +290,11 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         if (ret == 0)
                                 rsp.slave = slave;
 
-                        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
-                                ret = dict_get_str (ctx, "op_name", &op_name);
-                                if (ret == 0)
+                        if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
+                                if (dict_get_str (ctx, "op_name", &op_name) == 0)
                                         rsp.op_name = op_name;
+                                if (dict_get_str (ctx, "subop", &subop) == 0)
+                                        rsp.subop = subop;
                         }
 
                         ret = dict_allocate_and_serialize (ctx,

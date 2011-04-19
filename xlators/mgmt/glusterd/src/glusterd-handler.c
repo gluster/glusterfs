@@ -1752,8 +1752,8 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 strncpy (operation, "stop", sizeof (operation));
                 break;
 
-        case GF_GSYNC_OPTION_TYPE_CONFIGURE:
-                strncpy (operation, "configure", sizeof (operation));
+        case GF_GSYNC_OPTION_TYPE_CONFIG:
+                strncpy (operation, "config", sizeof (operation));
                 break;
 
         case GF_GSYNC_OPTION_TYPE_STATUS:
