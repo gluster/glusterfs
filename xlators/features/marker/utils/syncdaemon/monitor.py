@@ -41,7 +41,7 @@ class Monitor(object):
             cpid = os.spawnv(os.P_NOWAIT, sys.executable, argv)
             time.sleep(60)
             ret = nwait(cpid, os.WNOHANG)
-            if not ret:
+            if ret == None:
                 self.set_state('OK')
                 ret = nwait(cpid)
             elif ret in (0, 1):
