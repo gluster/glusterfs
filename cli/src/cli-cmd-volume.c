@@ -1165,7 +1165,7 @@ struct cli_cmd volume_cmds[] = {
          "reset all the reconfigured options"},
 
 #if (SYNCDAEMON_COMPILE)
-        {"volume "GEOREP" <start|stop|config|status> [[<VOLNAME>] <SLAVE>] [options]",
+        {"volume "GEOREP" [<VOLNAME>] [<SLAVE-URL>] {start|stop|config|status} [options...]",
          cli_cmd_volume_gsync_set_cbk,
          "Geo-sync operations"},
 #endif
