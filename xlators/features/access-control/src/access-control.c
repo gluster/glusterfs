@@ -1793,7 +1793,7 @@ ac_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
                                  frame->root->groups, frame->root->ngrps,
-                                 ACCTEST_DONTCARE, ACCTEST_OWNER,
+                                 ACCTEST_WRITE, ACCTEST_ANY,
                                  &op_errno);
         if (op_ret == -1)
                 goto out;
@@ -1906,7 +1906,7 @@ ac_fsetattr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
                                  frame->root->groups, frame->root->ngrps,
-                                 ACCTEST_DONTCARE, ACCTEST_OWNER,
+                                 ACCTEST_WRITE, ACCTEST_ANY,
                                  &op_errno);
         if (op_ret == -1)
                 goto out;
