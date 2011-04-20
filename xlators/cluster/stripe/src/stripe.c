@@ -333,11 +333,14 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->postparent_size < postparent->ia_size)
                                 local->postparent_size = postparent->ia_size;
 
+                        if (uuid_is_null (local->ia_gfid))
+                                uuid_copy (local->ia_gfid, buf->ia_gfid);
+
                         /* Make sure the gfid on all the nodes are same */
-                        if (uuid_compare (local->stbuf.ia_gfid, buf->ia_gfid)) {
+                        if (uuid_compare (local->ia_gfid, buf->ia_gfid)) {
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "%s: gfid different on subvolume",
-                                        local->loc.path);
+                                        "%s: gfid different on subvolume %s",
+                                        local->loc.path, prev->this->name);
                         }
                 }
         }
