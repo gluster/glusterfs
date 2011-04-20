@@ -181,6 +181,7 @@ struct stripe_local {
         struct iobref       *iobref;
         gf_dirent_t          entries;
         dict_t              *xattr;
+        uuid_t               ia_gfid;
 };
 
 typedef struct stripe_local   stripe_local_t;
