@@ -1894,7 +1894,7 @@ init_quota_priv (xlator_t *this)
 
 
 int32_t
-quota_rename_update_newpath (xlator_t *this, loc_t *loc, inode_t *inode)
+quota_rename_update_newpath (xlator_t *this, loc_t *loc)
 {
         int32_t               ret          = -1;
         quota_inode_ctx_t    *ctx          = NULL;
@@ -1902,10 +1902,7 @@ quota_rename_update_newpath (xlator_t *this, loc_t *loc, inode_t *inode)
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
-        GF_VALIDATE_OR_GOTO ("marker", inode, out);
-
-        if (loc->inode == NULL)
-                loc->inode = inode_ref (inode);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
         ret = quota_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0)

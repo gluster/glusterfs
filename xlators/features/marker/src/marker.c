@@ -895,6 +895,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
         marker_local_t	   *oplocal = NULL;
+        loc_t               newloc  = {0, };
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "%s occured while "
@@ -918,8 +919,20 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (priv->feature_enabled & GF_QUOTA) {
                 reduce_parent_size (this, &oplocal->loc);
-                quota_rename_update_newpath (this, &local->loc,
-                                             oplocal->loc.inode);
+
+                if (local->loc.inode != NULL) {
+                        reduce_parent_size (this, &local->loc);
+                }
+
+                newloc.inode = inode_ref (oplocal->loc.inode);
+                newloc.path = gf_strdup (local->loc.path);
+                newloc.name = gf_strdup (local->loc.name);
+                newloc.parent = inode_ref (local->loc.parent);
+                newloc.ino = oplocal->loc.inode->ino;
+
+                quota_rename_update_newpath (this, &newloc);
+
+                loc_wipe (&newloc);
         }
 
         if (priv->feature_enabled & GF_XTIME) {

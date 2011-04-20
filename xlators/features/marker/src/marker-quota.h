@@ -162,7 +162,7 @@ int32_t
 reduce_parent_size (xlator_t *, loc_t *);
 
 int32_t
-quota_rename_update_newpath (xlator_t *, loc_t *, inode_t *);
+quota_rename_update_newpath (xlator_t *, loc_t *);
 
 int32_t
 quota_forget (xlator_t *, quota_inode_ctx_t *);
