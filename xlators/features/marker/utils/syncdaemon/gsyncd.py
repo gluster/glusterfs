@@ -140,6 +140,7 @@ def main_i():
     op.add_option('-c', '--config-file',   metavar='CONF',  type=str, action='callback', callback=store_local)
     # duh. need to specify dest or value will be mapped to None :S
     op.add_option('--monitor', dest='monitor', action='callback', callback=store_local_curry(True))
+    op.add_option('--feedback-fd', dest='feedback_fd', type=int, help=SUPPRESS_HELP, action='callback', callback=store_local)
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,      action='callback', callback=store_local_curry(True))
     op.add_option('-N', '--no-daemon', dest="go_daemon",    action='callback', callback=store_local_curry('dont'))
     op.add_option('--debug', dest="go_daemon",              action='callback', callback=lambda *a: (store_local_curry('dont')(*a),
@@ -245,6 +246,11 @@ def main_i():
     gcnf.update_to(gconf.__dict__)
     gconf.__dict__.update(opts.__dict__)
     gconf.configinterface = gcnf
+
+    ffd = rconf.get('feedback_fd')
+    if ffd:
+        gconf.feedback_fd = ffd
+        fcntl.fcntl(int(ffd), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
 
     #normalize loglevel
     lvl0 = gconf.log_level

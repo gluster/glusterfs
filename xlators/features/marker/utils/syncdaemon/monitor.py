@@ -2,6 +2,8 @@ import os
 import sys
 import time
 import logging
+import select
+from signal import SIGKILL
 from gconf import gconf
 from syncdutils import update_file
 
@@ -35,12 +37,30 @@ class Monitor(object):
             if os.WIFEXITED(r):
                 return os.WEXITSTATUS(r)
             return 1
+        conn_timeout = 60
         while ret in (0, 1):
-            logging.info('-' * 60)
+            logging.info('-' * conn_timeout)
             logging.info('starting gsyncd worker')
-            cpid = os.spawnv(os.P_NOWAIT, sys.executable, argv)
-            time.sleep(60)
-            ret = nwait(cpid, os.WNOHANG)
+            pr, pw = os.pipe()
+            cpid = os.fork()
+            if cpid == 0:
+                os.close(pr)
+                os.execv(sys.executable, argv + ['--feedback-fd', str(pw)])
+            os.close(pw)
+            t0 = time.time()
+            select.select((pr,), (), (), conn_timeout)
+            os.close(pr)
+            et = time.time() - t0
+            if et < conn_timeout:
+                et2 = conn_timeout - et
+                logging.debug("worker got connected in %d sec, "
+                              "waiting %d more to make sure it's fine" % (et, et2))
+                time.sleep(et2)
+                ret = nwait(cpid, os.WNOHANG)
+            else:
+                logging.debug("worker not confirmed in %d sec, aborting it" % et)
+                os.kill(cpid, SIGKILL)
+                ret = nwait(cpid)
             if ret == None:
                 self.set_state('OK')
                 ret = nwait(cpid)
