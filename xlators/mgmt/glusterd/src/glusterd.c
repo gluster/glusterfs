@@ -242,6 +242,50 @@ out:
 extern int mkdir_if_missing (char *path);
 
 static int
+glusterd_check_gsync_present ()
+{
+        FILE               *in = NULL;
+        char                buff[PATH_MAX] = {0, };
+        char                cmd[PATH_MAX + 256] = {0, };
+        char               *ptr = NULL;
+        int                 ret = 0;
+
+        if (strlen (GSYNCD_PREFIX)+1 > PATH_MAX-strlen("/gsyncd")) {
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --version");
+
+        if (!(in = popen(cmd, "r"))) {
+                gf_log ("", GF_LOG_INFO, "geo-replication module not installed"
+                        " in the system");
+                ret = -1;
+                goto out;
+        }
+
+        ptr = fgets(buff, sizeof(buff), in);
+        if (ptr) {
+                if (!strstr (buff, "gsyncd")) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+        ret = 0;
+ out:
+        if (in)
+                if (-1 == pclose (in)) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_INFO, "geo-replication module not"
+                                " installed in the system");
+                }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+int
 configure_syncaemon (glusterd_conf_t *conf)
 {
         int ret = 0;
@@ -273,6 +317,12 @@ configure_syncaemon (glusterd_conf_t *conf)
                         "Unable to create "GEOREP" slave log directory");
                 return -1;
         }
+        ret = glusterd_check_gsync_present ();
+        if (-1 == ret) {
+                ret = 0;
+                goto out;
+        }
+
 
         blen = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF
                          " --config-set-rx ", conf->workdir);
