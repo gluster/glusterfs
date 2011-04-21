@@ -585,6 +585,8 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                         "Releasing all locks from transport %p", transport);
 
                 release_inode_locks_of_transport (this, dom, inode, transport);
+
+                op_ret = 0;
                 goto unwind;
         }
 

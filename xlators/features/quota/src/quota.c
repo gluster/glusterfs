@@ -1489,8 +1489,10 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 size = buf->ia_blocks * 512;
         }
 
-        quota_update_size (this, local->oldloc.parent, NULL, 0, (-size));
-        quota_update_size (this, local->newloc.parent, NULL, 0, size);
+        if (local->oldloc.parent != local->newloc.parent) {
+                quota_update_size (this, local->oldloc.parent, NULL, 0, (-size));
+                quota_update_size (this, local->newloc.parent, NULL, 0, size);
+        }
 
         if (!(IA_ISREG (local->oldloc.inode->ia_type)
               || IA_ISLNK (local->oldloc.inode->ia_type))) {
@@ -2083,7 +2085,7 @@ quota_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
                              &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "quota context not set in inode (ino:%"PRId64
                         ", gfid:%s)", local->loc.inode->ino,
                         uuid_utoa (local->loc.inode->gfid));
@@ -2416,7 +2418,7 @@ quota_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
                              &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "quota context not set in inode (ino:%"PRId64
                         ", gfid:%s)", local->loc.inode->ino,
                         uuid_utoa (local->loc.inode->gfid));
