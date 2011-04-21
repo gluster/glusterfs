@@ -533,7 +533,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                quota_set_inode_xattr (this, &local->loc);
+                inspect_file_xattr (this, &local->loc, NULL, *buf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1199,7 +1199,7 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                initiate_quota_txn (this, &local->loc);
+                inspect_file_xattr (this, &local->loc, NULL, *buf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
