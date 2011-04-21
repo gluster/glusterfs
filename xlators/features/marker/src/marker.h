@@ -68,6 +68,7 @@ struct marker_local{
         int32_t         ref;
         int32_t         ia_nlink;
         gf_lock_t       lock;
+        mode_t          mode;
         struct marker_local *oplocal;
 };
 typedef struct marker_local marker_local_t;
