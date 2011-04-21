@@ -85,6 +85,8 @@ struct marker_conf{
         uuid_t      volume_uuid_bin;
         char        *timestamp_file;
         char        *marker_xattr;
+        uint64_t     quota_lk_owner;
+        gf_lock_t    lock;
 };
 typedef struct marker_conf marker_conf_t;
 

@@ -134,8 +134,6 @@ struct quota_local {
 };
 typedef struct quota_local quota_local_t;
 
-int32_t cn;
-
 int32_t
 get_lock_on_parent (call_frame_t *, xlator_t *);
 
