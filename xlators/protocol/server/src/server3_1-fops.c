@@ -161,7 +161,7 @@ out:
 
         if (op_ret) {
                 gf_log (this->name,
-                        (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_INFO),
+                        ((op_errno == ENOENT) ? GF_LOG_TRACE : GF_LOG_INFO),
                         "%"PRId64": LOOKUP %s (%"PRId64") ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
                         state->loc.inode ? state->loc.inode->ino : 0,
@@ -736,10 +736,9 @@ out:
         rsp.dict.dict_len = len;
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": GETXATTR %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": GETXATTR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_getxattr_rsp);
@@ -801,10 +800,9 @@ out:
         rsp.dict.dict_len = len;
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FGETXATTR %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FGETXATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_fgetxattr_rsp);

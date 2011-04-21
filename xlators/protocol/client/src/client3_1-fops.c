@@ -887,7 +887,7 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)));
+                        strerror (op_errno));
         }
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
 
@@ -970,7 +970,7 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)));
+                        strerror (op_errno));
         }
         STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
         if (rsp.dict.dict_val) {
@@ -2212,7 +2212,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 gf_log (frame->this->name, GF_LOG_DEBUG,
                         "gfid changed for %s", local->loc.path);
                 rsp.op_ret = -1;
-                rsp.op_errno = ESTALE;
+                op_errno = ESTALE;
                 goto out;
         }
 
@@ -2222,11 +2222,10 @@ out:
         rsp.op_errno = op_errno;
         frame->local = NULL;
         if (rsp.op_ret == -1) {
-                /* any error other than ENOENT or for revalidate for ENOENT too */
-                if ((gf_error_to_errno (rsp.op_errno) != ENOENT) ||
-                    !uuid_is_null (local->loc.inode->gfid))
+                /* any error other than ENOENT */
+                if (rsp.op_errno != ENOENT)
                         gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
-                                strerror (gf_error_to_errno (rsp.op_errno)));
+                                strerror (rsp.op_errno));
                 else
                         gf_log (this->name, GF_LOG_TRACE, "not found on remote node");
 

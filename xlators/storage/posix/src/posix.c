@@ -3460,8 +3460,8 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 if (op_errno != ENOATTR && op_errno != EPERM)
                         gf_log (this->name, GF_LOG_ERROR,
-                                "removexattr on %s: %s", loc->path,
-                                strerror (op_errno));
+                                "removexattr on %s (for %s): %s", loc->path,
+                                name, strerror (op_errno));
                 goto out;
         }
 
