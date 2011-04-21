@@ -504,14 +504,14 @@ nfs_init_state (xlator_t *this)
                                     &optstr);
                 if (ret < 0) {
                         gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
-                        goto free_foppool;
+                        goto free_rpcsvc;
                 }
 
                 ret = gf_string2uint (optstr, &nfs->memfactor);
                 if (ret < 0) {
                         gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse uint "
                                 "string");
-                        goto free_foppool;
+                        goto free_rpcsvc;
                 }
         }
 
