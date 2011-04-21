@@ -1194,7 +1194,8 @@ cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *cmd = NULL;
 
         for (cmd = volume_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+                if (_gf_false == cmd->disable)
+                        cli_out ("%s - %s", cmd->pattern, cmd->desc);
 
         return 0;
 }
@@ -1206,8 +1207,8 @@ cli_cmd_volume_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = volume_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk,
-                                        cmd->desc);
+
+                ret = cli_cmd_register (&state->tree, cmd);
                 if (ret)
                         goto out;
         }

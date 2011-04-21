@@ -33,9 +33,12 @@ typedef enum {
 } gf_answer_t;
 
 struct cli_cmd {
-        const char     *pattern;
-        cli_cmd_cbk_t  *cbk;
-        const char     *desc;
+        const char         *pattern;
+        cli_cmd_cbk_t      *cbk;
+        const char         *desc;
+        cli_cmd_reg_cbk_t  *reg_cbk; /* callback to check in runtime if the   *
+                                      * command should be enabled or disabled */
+        gf_boolean_t       disable;
 };
 
 struct cli_cmd_volume_get_ctx_ {

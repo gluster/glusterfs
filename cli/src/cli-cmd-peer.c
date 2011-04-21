@@ -224,8 +224,8 @@ cli_cmd_probe_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = cli_probe_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk,
-                                        cmd->desc);
+
+                ret = cli_cmd_register (&state->tree, cmd);
                 if (ret)
                         goto out;
         }

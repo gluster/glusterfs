@@ -54,23 +54,19 @@ int
 cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
                       const char **words, int wordcount)
 {
-        struct cli_cmd        *cmd = NULL;
+        struct cli_cmd        *cmd[] = {volume_cmds, cli_probe_cmds,
+                                       cli_misc_cmds, NULL};
+        struct cli_cmd        *cmd_ind = NULL;
+        int                   i = 0;
 
-        for (cmd = volume_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
-
-        for (cmd = cli_probe_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
-
-        /*
-         * commands for internal usage, don't expose
-
-        for (cmd = cli_system_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+         /* cli_systerm_cmds commands for internal usage
+           they are not exposed
          */
-
-        for (cmd = cli_misc_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+        for (i=0; cmd[i]!=NULL; i++)
+                for (cmd_ind = cmd[i]; cmd_ind->pattern; cmd_ind++)
+                        if (_gf_false == cmd_ind->disable)
+                                cli_out ("%s - %s", cmd_ind->pattern,
+                                         cmd_ind->desc);
 
         return 0;
 }
@@ -95,8 +91,8 @@ cli_cmd_misc_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = cli_misc_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk,
-                                        cmd->desc);
+
+                ret = cli_cmd_register (&state->tree, cmd);
                 if (ret)
                         goto out;
         }

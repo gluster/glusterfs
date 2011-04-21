@@ -362,31 +362,40 @@ cli_cmd_ingest (struct cli_cmd_tree *tree, char **tokens, cli_cmd_cbk_t *cbkfn,
 
 
 int
-cli_cmd_register (struct cli_cmd_tree *tree, const char *template,
-                  cli_cmd_cbk_t cbk, const char *desc)
+cli_cmd_register (struct cli_cmd_tree *tree, struct cli_cmd *cmd)
 {
         char **tokens = NULL;
         int    ret = 0;
 
-        if (!template)
-                return -1;
+        GF_ASSERT (cmd)
 
-        tokens = cli_cmd_tokenize (template);
-        if (!tokens)
-                return -1;
+        if (cmd->reg_cbk)
+                cmd->reg_cbk (cmd);
 
-        ret = cli_cmd_ingest (tree, tokens, cbk, desc, template);
-        if (ret)
-                goto err;
+        if (cmd->disable) {
+                ret = 0;
+                goto out;
+        }
 
+        tokens = cli_cmd_tokenize (cmd->pattern);
+        if (!tokens) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_ingest (tree, tokens, cmd->cbk, cmd->desc, cmd->pattern);
+        if (ret) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
         if (tokens)
                 cli_cmd_tokens_destroy (tokens);
 
-        return 0;
-err:
-        if (tokens)
-                cli_cmd_tokens_destroy (tokens);
-
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
