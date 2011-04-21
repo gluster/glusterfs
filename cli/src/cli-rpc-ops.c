@@ -2603,8 +2603,9 @@ gf_cli3_1_gsync_config_command (gf1_cli_gsync_set_rsp rsp)
         }
 
         snprintf (cmd, PATH_MAX,
-                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" :%s %s --config-%s%s%s",
-                  rsp.glusterd_workdir, rsp.master, rsp.slave, rsp.subop,
+                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" %s%s %s --config-%s%s%s",
+                  rsp.glusterd_workdir,
+                  *rsp.master ? ":" : "", rsp.master, rsp.slave, rsp.subop,
                   *rsp.op_name ? " " : "", rsp.op_name);
         ret = system (cmd);
                 /*

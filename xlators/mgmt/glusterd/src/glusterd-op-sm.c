@@ -1875,6 +1875,7 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr)
         char  **resopt    = NULL;
         int     i         = 0;
         char   *subop     = NULL;
+        char   *slave     = NULL;
         char   *op_name   = NULL;
         char   *op_value  = NULL;
         gf_boolean_t banned = _gf_true;
@@ -1882,6 +1883,12 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr)
         if (dict_get_str (dict, "subop", &subop) != 0) {
                 gf_log ("", GF_LOG_WARNING, "missing subop");
                 *op_errstr = gf_strdup ("Invalid config request");
+                return -1;
+        }
+
+        if (dict_get_str (dict, "slave", &slave) != 0) {
+                gf_log ("", GF_LOG_WARNING, GEOREP" CONFIG: no slave given");
+                *op_errstr = gf_strdup ("Slave required");
                 return -1;
         }
 
@@ -2387,8 +2394,13 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if (type == GF_GSYNC_OPTION_TYPE_STATUS) {
+        switch (type) {
+        case GF_GSYNC_OPTION_TYPE_STATUS:
                 ret = glusterd_verify_gsync_status_opts (dict, op_errstr);
+
+                goto out;
+        case GF_GSYNC_OPTION_TYPE_CONFIG:
+                ret = gsync_verify_config_options (dict, op_errstr);
 
                 goto out;
         }
@@ -2412,22 +2424,13 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         case GF_GSYNC_OPTION_TYPE_START:
                 ret = glusterd_op_verify_gsync_start_options (volinfo, slave,
                                                               op_errstr);
-                if (ret)
-                        goto out;
                 break;
         case GF_GSYNC_OPTION_TYPE_STOP:
                 ret = glusterd_op_verify_gsync_running (volinfo, slave,
                                                         op_errstr);
-                if (ret)
-                        goto out;
-                break;
-        case GF_GSYNC_OPTION_TYPE_CONFIG:
-                ret = gsync_verify_config_options (dict, op_errstr);
-                if (ret < 0)
-                        goto out;
                 break;
         }
-        ret = 0;
+
 out:
         return ret;
 }
@@ -4093,8 +4096,9 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         char            *subop  = NULL;
         char            *q1 = NULL;
         char            *q2 = NULL;
+        char            *cm = NULL;
+        char            *master = NULL;
 
-        GF_ASSERT (volinfo);
         GF_ASSERT (slave);
         GF_ASSERT (op_errstr);
 
@@ -4132,18 +4136,26 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                 goto out;
         }
 
-        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" :%s %s"
+        if (volinfo) {
+                cm = ":";
+                master = volinfo->volname;
+        } else {
+                cm = "";
+                master = "";
+        }
+
+        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" %s%s %s"
                         " --config-%s %s" "%s%s%s", priv->workdir,
-                        volinfo->volname, slave, subop, op_name,
+                        cm, master, slave, subop, op_name,
                         q1, op_value, q2);
         ret = system (cmd);
         if (ret) {
                 gf_log ("", GF_LOG_WARNING, "gsyncd failed to "
                         "%s %s option for %s %s peers",
-                        subop, op_name, volinfo->volname, slave);
+                        subop, op_name, master, slave);
 
                 gf_asprintf (op_errstr, GEOREP" config-%s failed for %s %s",
-                             subop, volinfo->volname, slave);
+                             subop, master, slave);
 
                 goto out;
         }
@@ -4151,7 +4163,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         gf_asprintf (op_errstr, "config-%s successful", subop);
 
 out:
-        if (!ret) {
+        if (!ret && volinfo) {
                 ret = glusterd_check_restart_gsync_session (volinfo, slave);
                 if (ret)
                         *op_errstr = gf_strdup ("internal error");
@@ -4528,18 +4540,27 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         }
 
-        ret = dict_get_str (dict, "master", &volname);
-        if (ret < 0)
-                goto out;
-
         ret = dict_get_str (dict, "slave", &slave);
         if (ret < 0)
                 goto out;
 
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Volinfo for %s (master) not found",
-                        volname);
+        if (dict_get_str (dict, "master", &volname) == 0) {
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_WARNING, "Volinfo for %s (master) not found",
+                                volname);
+                        goto out;
+                }
+        }
+
+        if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
+                ret = glusterd_gsync_configure (volinfo, slave, dict,
+                                                op_errstr);
+                goto out;
+        }
+
+        if (!volinfo) {
+                ret = -1;
                 goto out;
         }
 
@@ -4584,12 +4605,6 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (ret)
                         goto out;
 
-        }
-
-        if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
-                ret = glusterd_gsync_configure (volinfo, slave, dict,
-                                                op_errstr);
-                goto out;
         }
 
 out:
