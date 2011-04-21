@@ -267,6 +267,17 @@ cli_cmd_unlock ()
         return 0;
 }
 
+static void
+seconds_from_now (unsigned secs, struct timespec *ts)
+{
+        struct timeval tv = {0,};
+
+        gettimeofday (&tv, NULL);
+
+        ts->tv_sec = tv.tv_sec + secs;
+        ts->tv_nsec = tv.tv_usec * 1000;
+}
+
 int
 cli_cmd_await_response ()
 {
@@ -275,8 +286,7 @@ cli_cmd_await_response ()
 
         cli_op_ret = -1;
 
-        time (&ts.tv_sec);
-        ts.tv_sec += CLI_DEFAULT_CMD_TIMEOUT;
+        seconds_from_now (CLI_DEFAULT_CMD_TIMEOUT, &ts);
         while (!cmd_done && !ret) {
                 ret = pthread_cond_timedwait (&cond, &cond_mutex,
                                         &ts);
@@ -322,8 +332,7 @@ cli_cmd_await_connected (unsigned conn_timo)
 
         pthread_mutex_lock (&conn_mutex);
         {
-                time (&ts.tv_sec);
-                ts.tv_sec += conn_timo;
+                seconds_from_now (conn_timo, &ts);
                 while (!connected && !ret) {
                         ret = pthread_cond_timedwait (&conn, &conn_mutex,
                                                       &ts);
