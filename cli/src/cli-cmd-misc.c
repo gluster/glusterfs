@@ -59,7 +59,7 @@ cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *cmd_ind = NULL;
         int                   i = 0;
 
-         /* cli_systerm_cmds commands for internal usage
+         /* cli_system_cmds commands for internal usage
            they are not exposed
          */
         for (i=0; cmd[i]!=NULL; i++)
