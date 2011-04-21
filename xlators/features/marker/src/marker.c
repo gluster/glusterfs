@@ -1889,6 +1889,8 @@ marker_priv_cleanup (xlator_t *this)
 
         marker_xtime_priv_cleanup (this);
 
+        LOCK_DESTROY (&priv->lock);
+
         GF_FREE (priv);
 out:
         return;
@@ -1974,6 +1976,8 @@ init (xlator_t *this)
         priv = this->private;
 
         priv->feature_enabled = 0;
+
+        LOCK_INIT (&priv->lock);
 
         data = dict_get (options, "quota");
         if (data) {

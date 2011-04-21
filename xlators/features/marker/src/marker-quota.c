@@ -30,6 +30,30 @@
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 
+void
+mq_assign_lk_owner (xlator_t *this, call_frame_t *frame)
+{
+        marker_conf_t *conf     = NULL;
+        uint64_t        lk_owner = 0;
+
+        conf = this->private;
+
+        LOCK (&conf->lock);
+        {
+                if (++conf->quota_lk_owner == 0) {
+                        ++conf->quota_lk_owner;
+                }
+
+                lk_owner = conf->quota_lk_owner;
+        }
+        UNLOCK (&conf->lock);
+
+        frame->root->lk_owner = lk_owner;
+
+        return;
+}
+
+
 int32_t
 loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
                     uint64_t ino, char *name)
@@ -652,16 +676,18 @@ update_dirty_inode (xlator_t *this,
                     quota_inode_ctx_t *ctx,
                     inode_contribution_t *contribution)
 {
-        int32_t          ret    = -1;
-        quota_local_t   *local  = NULL;
-        struct gf_flock  lock;
-        call_frame_t    *frame  = NULL;
+        int32_t          ret        = -1;
+        quota_local_t   *local      = NULL;
+        struct gf_flock  lock       = {0, };
+        call_frame_t    *frame      = NULL;
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL) {
                 ret = -1;
                 goto out;
         }
+
+        mq_assign_lk_owner (this, frame);
 
         local = quota_local_new ();
         if (local == NULL)
@@ -676,8 +702,6 @@ update_dirty_inode (xlator_t *this,
         local->ctx = ctx;
 
         local->contri = contribution;
-
-        frame->root->lk_owner = cn++;
 
         lock.l_type = F_WRLCK;
         lock.l_whence = SEEK_SET;
@@ -1400,15 +1424,15 @@ start_quota_txn (xlator_t *this, loc_t *loc,
                  quota_inode_ctx_t *ctx,
                  inode_contribution_t *contri)
 {
-        int32_t          ret    = -1;
-        call_frame_t    *frame  = NULL;
-        quota_local_t   *local  = NULL;
+        int32_t        ret      = -1;
+        call_frame_t  *frame    = NULL;
+        quota_local_t *local    = NULL;
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL)
                 goto err;
 
-        frame->root->lk_owner = cn++;
+        mq_assign_lk_owner (this, frame);
 
         local = quota_local_new ();
         if (local == NULL)
@@ -1860,7 +1884,8 @@ reduce_parent_size (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        frame->root->lk_owner = cn++;
+        mq_assign_lk_owner (this, frame);
+
         frame->local = local;
 
         lock.l_len    = 0;
