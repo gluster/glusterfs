@@ -1267,6 +1267,10 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
+        if ((priv->feature_enabled & GF_QUOTA) && (S_ISREG (local->mode))) {
+                inspect_file_xattr (this, &local->loc, NULL, *buf);
+        }
+
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
 out:
@@ -1293,6 +1297,8 @@ marker_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         MARKER_INIT_LOCAL (frame, local);
 
         ret = loc_copy (&local->loc, loc);
+
+        local->mode = mode;
 
         if (ret == -1)
                 goto err;
