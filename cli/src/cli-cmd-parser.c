@@ -1168,15 +1168,18 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 cmdi = slavei + 1;
                 if (slavei == 3)
                         masteri = 2;
-        } else if (i == 2) {
+        } else if (i <= 3) {
                 /* no $s, can only be status cmd
-                 * (with either a single $m before it or nothing;
-                 * i remaining 2 is a good check for this condition)
+                 * (with either a single $m before it or nothing)
+                 * -- these conditions imply that i <= 3 after
+                 * the iteration and that i is the successor of
+                 * the (0 or 1 length) sequence of $m-s.
                  */
-                cmdi = wordcount - 1;
-                if (i < cmdi)
-                        masteri = i;
-        }
+                cmdi = i;
+                if (i == 3)
+                        masteri = 2;
+        } else
+                goto out;
 
         /* now check if input really complies syntax
          * (in a somewhat redundant way, in favor
