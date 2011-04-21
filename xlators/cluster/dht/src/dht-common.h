@@ -132,6 +132,10 @@ struct dht_local {
 
         /*Marker Related*/
         struct marker_str    marker;
+
+        /* flag used to make sure we need to return estale in
+           {lookup,revalidate}_cbk */
+        char    return_estale;
 };
 typedef struct dht_local dht_local_t;
 
