@@ -364,7 +364,12 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         return True
 
     def connect(self):
+        def umount_l(d):
+            time.sleep(0.2) # XXX temporary workaround
+            argv = ['umount', '-l', d]
+            return os.spawnvp(os.P_WAIT, argv[0], argv)
         d = tempfile.mkdtemp(prefix='gsyncd-aux-mount-')
+        mounted = False
         try:
             argv = gconf.gluster_command.split() + \
                     (gconf.gluster_log_level and ['-L', gconf.gluster_log_level] or []) + \
@@ -372,14 +377,16 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                      '--volfile-id', self.volume, '--client-pid=-1', d]
             if os.spawnvp(os.P_WAIT, argv[0], argv):
                 raise RuntimeError("command failed: " + " ".join(argv))
+            mounted = True
             logging.debug('auxiliary glusterfs mount in place')
             os.chdir(d)
-            time.sleep(0.2) # XXX temporary workaround
-            argv = ['umount', '-l', d]
-            if os.spawnvp(os.P_WAIT, argv[0], argv):
-                raise RuntimeError("command failed: " + " ".join(argv))
+            if umount_l(d) != 0:
+                raise RuntimeError("umounting %s failed" % d)
+            mounted = False
         finally:
             try:
+                if mounted:
+                    umount_l(d)
                 os.rmdir(d)
             except:
                 logging.warn('stale mount possibly left behind on ' + d)
