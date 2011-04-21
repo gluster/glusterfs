@@ -87,6 +87,9 @@ class GMaster(object):
 	self.terminate = False
 
     def crawl_loop(self):
+        ffd = getattr(gconf, 'feedback_fd', None)
+        if ffd:
+            os.close(int(ffd))
         timo = int(gconf.timeout or 0)
         if timo > 0:
             def keep_alive():
