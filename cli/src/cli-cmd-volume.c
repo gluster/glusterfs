@@ -1049,6 +1049,76 @@ out:
         return ret;
 }
 
+#if (SYNCDAEMON_COMPILE)
+static int
+cli_check_gsync_present ()
+{
+        FILE                *in = NULL;
+        char                buff[PATH_MAX] = {0, };
+        char                cmd[PATH_MAX + 256] = {0, };
+        char                *ptr = NULL;
+        int                 ret = 0;
+        struct stat         stat_buff;
+
+        if (strlen (GSYNCD_PREFIX)+1 > PATH_MAX-strlen("/gsyncd")) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX "/gsyncd");
+        if (ret < 0)
+                return 0;
+        ret = lstat (cmd, &stat_buff);
+
+        if (ret || !(stat_buff.st_mode & S_IXUSR)) {
+                gf_log ("", GF_LOG_INFO, "geo-replication not installed");
+                return -1;
+        }
+
+        ret = setenv ("_GLUSTERD_CALLED_", "1", 1);
+        if (-1 == ret) {
+                gf_log ("", GF_LOG_WARNING, "setenv syscall failed, hence could"
+                        "not assert if geo-replication is installed");
+                goto out;
+        }
+
+        memset (cmd, 0, sizeof (cmd));
+        ret = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX"/gsyncd --version");
+
+        if (!(in = popen(cmd, "r"))) {
+                gf_log ("", GF_LOG_INFO, "geo-replication not installed");
+                return -1;
+        }
+
+        ptr = fgets(buff, sizeof(buff), in);
+        if (ptr)
+                if (!strstr (buff, "gsyncd"))
+                        return -1;
+
+        ret = pclose (in);
+
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "geo-replication not installed");
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret ? -1 : 0;
+
+}
+
+void
+cli_cmd_check_gsync_exists_cbk (struct cli_cmd *this)
+{
+
+        int             ret = 0;
+
+        ret = cli_check_gsync_present ();
+        if (ret)
+                this->disable = _gf_true;
+
+}
+#endif
+
 int
 cli_cmd_volume_gsync_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
                               const char **words, int wordcount)
@@ -1167,7 +1237,8 @@ struct cli_cmd volume_cmds[] = {
 #if (SYNCDAEMON_COMPILE)
         {"volume "GEOREP" [<VOLNAME>] [<SLAVE-URL>] {start|stop|config|status} [options...]",
          cli_cmd_volume_gsync_set_cbk,
-         "Geo-sync operations"},
+         "Geo-sync operations",
+         cli_cmd_check_gsync_exists_cbk},
 #endif
 
          { "volume profile <VOLNAME> {start|info|stop}",
