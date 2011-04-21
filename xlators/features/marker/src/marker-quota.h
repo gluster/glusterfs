@@ -165,5 +165,8 @@ int32_t
 quota_rename_update_newpath (xlator_t *, loc_t *);
 
 int32_t
+inspect_file_xattr (xlator_t *this, loc_t *loc, dict_t *dict, struct iatt buf);
+
+int32_t
 quota_forget (xlator_t *, quota_inode_ctx_t *);
 #endif
