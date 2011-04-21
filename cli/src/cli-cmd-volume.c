@@ -1066,13 +1066,16 @@ cli_check_gsync_present ()
         }
 
         ret = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX "/gsyncd");
-        if (ret < 0)
-                return 0;
+        if (ret < 0) {
+               ret = 0;
+               goto out;
+        }
         ret = lstat (cmd, &stat_buff);
 
         if (ret || !(stat_buff.st_mode & S_IXUSR)) {
+                ret = -1;
                 gf_log ("", GF_LOG_INFO, "geo-replication not installed");
-                return -1;
+                goto out;
         }
 
         ret = setenv ("_GLUSTERD_CALLED_", "1", 1);
@@ -1086,14 +1089,21 @@ cli_check_gsync_present ()
         ret = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX"/gsyncd --version");
 
         if (!(in = popen(cmd, "r"))) {
+                ret = -1;
                 gf_log ("", GF_LOG_INFO, "geo-replication not installed");
-                return -1;
+                goto out;
         }
 
         ptr = fgets(buff, sizeof(buff), in);
-        if (ptr)
-                if (!strstr (buff, "gsyncd"))
-                        return -1;
+        if (ptr) {
+                if (!strstr (buff, "gsyncd")) {
+                        ret  = -1;
+                        goto out;
+                }
+        } else {
+                ret = -1;
+                goto out;
+        }
 
         ret = pclose (in);
 

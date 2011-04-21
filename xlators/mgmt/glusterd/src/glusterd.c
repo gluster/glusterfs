@@ -241,6 +241,7 @@ out:
  */
 extern int mkdir_if_missing (char *path);
 
+#if SYNCDAEMON_COMPILE
 static int
 glusterd_check_gsync_present ()
 {
@@ -255,7 +256,7 @@ glusterd_check_gsync_present ()
                 goto out;
         }
 
-        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --version");
+        snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX"/gsyncd --version");
 
         if (!(in = popen(cmd, "r"))) {
                 gf_log ("", GF_LOG_INFO, "geo-replication module not installed"
@@ -270,11 +271,13 @@ glusterd_check_gsync_present ()
                         ret = -1;
                         goto out;
                 }
+        } else {
+                ret = -1;
+                goto out;
         }
         ret = 0;
  out:
-        if (in)
-                if (-1 == pclose (in)) {
+        if ((in)&& (-1 == pclose (in))) {
                         ret = -1;
                         gf_log ("", GF_LOG_INFO, "geo-replication module not"
                                 " installed in the system");
@@ -286,16 +289,20 @@ glusterd_check_gsync_present ()
 }
 
 int
-configure_syncaemon (glusterd_conf_t *conf)
+glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
 {
         int ret = 0;
-#if SYNCDAEMON_COMPILE
-        char georepdir[PATH_MAX] = {0,};
-        char cmd[4096] = {0,};
-        char volid[64] = {0,};
-        int blen = 0;
 
-        setenv ("_GLUSTERD_CALLED_", "1", 1);
+        GF_ASSERT (georepdir);
+        GF_ASSERT (conf);
+
+        if (strlen (conf->workdir)+2 > PATH_MAX-strlen(GEOREP)) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" directory %s",
+                        georepdir);
+                goto out;
+        }
 
         snprintf (georepdir, PATH_MAX, "%s/"GEOREP, conf->workdir);
         ret = mkdir_if_missing (georepdir);
@@ -303,20 +310,60 @@ configure_syncaemon (glusterd_conf_t *conf)
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" directory %s",
                         georepdir);
-                return -1;
+                goto out;
+        }
+
+        if (strlen (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP) >= PATH_MAX) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" directory %s",
+                        georepdir);
+                goto out;
         }
         ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP);
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" log directory");
-                return -1;
+                goto out;
+        }
+
+        if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves") >= PATH_MAX) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" directory %s",
+                        georepdir);
+                goto out;
         }
         ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves");
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" slave log directory");
-                return -1;
+                goto out;
         }
+        ret = 0;
+ out:
+        gf_log("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+#endif
+
+static int
+configure_syncdaemon (glusterd_conf_t *conf)
+{
+        int ret = 0;
+#if SYNCDAEMON_COMPILE
+        char georepdir[PATH_MAX] = {0,};
+        char cmd[2*PATH_MAX + 1024] = {0,};
+        char volid[64] = {0,};
+        int blen = 0;
+
+        ret = setenv ("_GLUSTERD_CALLED_", "1", 1);
+        if (ret < 0) {
+                ret = 0;
+                goto out;
+        }
+
         ret = glusterd_check_gsync_present ();
         if (-1 == ret) {
                 ret = 0;
@@ -324,8 +371,14 @@ configure_syncaemon (glusterd_conf_t *conf)
         }
 
 
-        blen = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF
-                         " --config-set-rx ", conf->workdir);
+        glusterd_crt_georep_folders (georepdir, conf);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        blen = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX"/gsyncd -c %s/"
+                         GSYNC_CONF " --config-set-rx ", conf->workdir);
 
         /* Calling out to gsyncd to configure it:
          * - use system(3) for options with multi-word values as system
@@ -633,7 +686,7 @@ init (xlator_t *this)
         if (ret < 0)
                 goto out;
 
-        ret = configure_syncaemon (conf);
+        ret = configure_syncdaemon (conf);
         if (ret)
                 goto out;
 
