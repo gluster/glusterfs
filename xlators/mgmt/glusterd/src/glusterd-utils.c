@@ -1593,7 +1593,7 @@ import_prdict_volinfo_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
                             char *value_prefix, int opt_count, int count)
 {
         char                    key[512] = {0,};
-        int32_t                 ret = -1;
+        int32_t                 ret = 0;
         int                     i = 1;
         char                    *opt_key = NULL;
         char                    *opt_val = NULL;
