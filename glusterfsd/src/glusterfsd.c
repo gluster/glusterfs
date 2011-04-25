@@ -175,6 +175,8 @@ static struct argp_option gf_options[] = {
          "Dump fuse traffic to PATH"},
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
          "Enable strict volume file checking"},
+	{"default-permissions", ARGP_DEFAULT_PERMISSIONS_KEY, "BOOL",
+	 OPTION_HIDDEN, "use FUSE default_permissions option"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -637,6 +639,12 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 argp_failure (state, -1, 0,
                               "unknown client pid %s", arg);
                 break;
+
+	case ARGP_DEFAULT_PERMISSIONS_KEY:
+		if (gf_string2boolean(arg, &b) == 0) {
+			cmd_args->default_permissions = b;
+		}
+		break;
 
         case ARGP_VOLFILE_CHECK_KEY:
                 cmd_args->volfile_check = 1;
