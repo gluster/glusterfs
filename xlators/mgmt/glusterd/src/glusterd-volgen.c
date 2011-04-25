@@ -1238,6 +1238,39 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
+volgen_graph_set_xl_options (volgen_graph_t *graph, dict_t *dict)
+{
+        int32_t   ret               = -1;
+        char     *xlator            = NULL;
+        char     xlator_match[1024] = {0,}; /* for posix* -> *posix* */
+        char     *loglevel          = NULL;
+        xlator_t *trav              = NULL;
+
+        ret = dict_get_str (dict, "xlator", &xlator);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "loglevel", &loglevel);
+        if (ret)
+                goto out;
+
+        snprintf (xlator_match, 1024, "*%s", xlator);
+
+        for (trav = first_of (graph); trav; trav = trav->next) {
+                if (fnmatch(xlator_match, trav->type, FNM_NOESCAPE) == 0) {
+                        gf_log ("glusterd", GF_LOG_DEBUG, "Setting log level for xlator: %s",
+                                trav->type);
+                        ret = xlator_set_option (trav, "log-level", loglevel);
+                        if (ret)
+                                break;
+                }
+        }
+
+ out:
+        return ret;
+}
+
+static int
 server_spec_option_handler (volgen_graph_t *graph,
                             struct volopt_map_entry *vme, void *param)
 {
@@ -1256,26 +1289,57 @@ server_spec_option_handler (volgen_graph_t *graph,
         return ret;
 }
 
+static int
+server_spec_extended_option_handler (volgen_graph_t *graph,
+                                     struct volopt_map_entry *vme, void *param)
+{
+        int     ret           = 0;
+        dict_t *dict          = NULL;
+
+        GF_ASSERT (param);
+        dict = (dict_t *)param;
+
+        ret = server_auth_option_handler (graph, vme, NULL);
+        if (!ret)
+                ret = volgen_graph_set_xl_options (graph, dict);
+
+        return ret;
+}
+
 static void get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo);
 
 static int
 server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        char     *volname = NULL;
-        char     *path = NULL;
-        int       pump = 0;
-        xlator_t *xl = NULL;
-        xlator_t *txl = NULL;
-        xlator_t *rbxl = NULL;
-        char      transt[16] = {0,};
-        char      volume_id[64] = {0,};
+        char     *volname               = NULL;
+        char     *path                  = NULL;
+        int       pump                  = 0;
+        xlator_t *xl                    = NULL;
+        xlator_t *txl                   = NULL;
+        xlator_t *rbxl                  = NULL;
+        char      transt[16]            = {0,};
+        char      volume_id[64]         = {0,};
         char      tstamp_file[PATH_MAX] = {0,};
-        int       ret = 0;
+        int       ret                   = 0;
+        char     *xlator                = NULL;
+        char     *loglevel              = NULL;
 
         path = param;
         volname = volinfo->volname;
         get_vol_transport_type (volinfo, transt);
+
+        ret = dict_get_str (set_dict, "xlator", &xlator);
+
+        /* got a cli log level request */
+        if (!ret) {
+                ret = dict_get_str (set_dict, "loglevel", &loglevel);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "could not get both"
+                                " translator name and loglevel for log level request");
+                        goto out;
+                }
+        }
 
         xl = volgen_graph_add (graph, "storage/posix", volname);
         if (!xl)
@@ -1347,9 +1411,12 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
-        ret = volgen_graph_set_options_generic (graph, set_dict, volinfo,
-                                                &server_spec_option_handler);
+        ret = volgen_graph_set_options_generic (graph, set_dict,
+                                                (xlator && loglevel) ? (void *)set_dict : volinfo,
+                                                (xlator && loglevel) ?  &server_spec_extended_option_handler :
+                                                 &server_spec_option_handler);
 
+ out:
         return ret;
 }
 
@@ -1922,6 +1989,8 @@ glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
 
         return ret;
 }
+
+
 
 static void
 get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)

@@ -2277,6 +2277,74 @@ out:
         return ret;
 }
 
+static int
+gf_cli3_1_log_level_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        gf1_cli_log_level_rsp rsp = {0,};
+        int                   ret = -1;
+
+        if (req->rpc_status == -1)
+                goto out;
+
+        ret = gf_xdr_to_cli_log_level_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("cli", GF_LOG_ERROR, "log level response error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received response to log level cmd");
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                cli_out (rsp.op_errstr);
+        else
+                cli_out ("log level set: %s", (rsp.op_ret) ? "unsuccessful" :
+                         "successful");
+
+        ret = rsp.op_ret;
+
+ out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_log_level (call_frame_t *frame, xlator_t *this,
+                     void *data)
+{
+        gf1_cli_log_level_req  req  = {0,};
+        int                    ret  = 0;
+        dict_t                *dict = NULL;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "xlator", &req.xlator);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "loglevel", &req.loglevel);
+        if (ret)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_LOG_LEVEL, NULL,
+                              gf_xdr_from_cli_log_level_req,
+                              this, gf_cli3_1_log_level_cbk);
+
+ out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning: %d", ret);
+        return ret;
+}
+
 
 int32_t
 gf_cli3_1_log_locate (call_frame_t *frame, xlator_t *this,
@@ -3429,6 +3497,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_PROFILE_VOLUME]   = {"PROFILE_VOLUME", gf_cli3_1_profile_volume},
         [GLUSTER_CLI_QUOTA]            = {"QUOTA", gf_cli3_1_quota},
         [GLUSTER_CLI_TOP_VOLUME]       = {"TOP_VOLUME", gf_cli3_1_top_volume},
+        [GLUSTER_CLI_LOG_LEVEL]        = {"VOLUME_LOGLEVEL", gf_cli3_1_log_level},
         [GLUSTER_CLI_GETWD]            = {"GETWD", gf_cli3_1_getwd}
 };
 

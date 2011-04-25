@@ -804,3 +804,33 @@ xdr_gf1_cli_getwd_rsp (XDR *xdrs, gf1_cli_getwd_rsp *objp)
 		 return FALSE;
 	return TRUE;
 }
+
+bool_t
+xdr_gf1_cli_log_level_req (XDR *xdrs, gf1_cli_log_level_req *objp)
+{
+        if (!xdr_string (xdrs, &objp->volname, ~0))
+                return FALSE;
+
+        if (!xdr_string (xdrs, &objp->xlator, ~0))
+                return FALSE;
+
+        if (!xdr_string (xdrs, &objp->loglevel, ~0))
+                return FALSE;
+
+        return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_log_level_rsp (XDR *xdrs, gf1_cli_log_level_rsp *objp)
+{
+        if (!xdr_int (xdrs, &objp->op_ret))
+                return FALSE;
+
+        if (!xdr_int (xdrs, &objp->op_errno))
+                return FALSE;
+
+        if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+                return FALSE;
+
+        return TRUE;
+}

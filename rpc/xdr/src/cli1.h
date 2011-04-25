@@ -317,6 +317,21 @@ ssize_t
 gf_xdr_from_cli_stats_volume_rsp (struct iovec outmsg, void *args);
 
 ssize_t
+gf_xdr_serialize_cli_log_level_rsp (struct iovec outmsg, void *rsp);
+
+ssize_t
+gf_xdr_to_cli_log_level_req (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_to_cli_log_level_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_from_cli_log_level_req (struct iovec outmsg, void *req);
+
+ssize_t
+gf_xdr_serialize_cli_log_level_rsp (struct iovec outmsg, void *rsp);
+
+ssize_t
 gf_xdr_to_cli_getwd_req (struct iovec inmsg, void *args);
 
 ssize_t

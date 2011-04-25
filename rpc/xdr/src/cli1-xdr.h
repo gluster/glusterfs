@@ -514,6 +514,20 @@ struct gf1_cli_getwd_rsp {
 };
 typedef struct gf1_cli_getwd_rsp gf1_cli_getwd_rsp;
 
+struct gf1_cli_log_level_req {
+        char *volname;
+        char *xlator;
+        char *loglevel;
+};
+typedef struct gf1_cli_log_level_req gf1_cli_log_level_req;
+
+struct gf1_cli_log_level_rsp {
+        int op_ret;
+        int op_errno;
+        char *op_errstr;
+};
+typedef struct gf1_cli_log_level_rsp gf1_cli_log_level_rsp;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -574,6 +588,8 @@ extern  bool_t xdr_gf1_cli_gsync_set_req (XDR *, gf1_cli_gsync_set_req*);
 extern  bool_t xdr_gf1_cli_gsync_set_rsp (XDR *, gf1_cli_gsync_set_rsp*);
 extern  bool_t xdr_gf1_cli_stats_volume_req (XDR *, gf1_cli_stats_volume_req*);
 extern  bool_t xdr_gf1_cli_stats_volume_rsp (XDR *, gf1_cli_stats_volume_rsp*);
+extern  bool_t xdr_gf1_cli_log_level_req (XDR *, gf1_cli_log_level_req *);
+extern  bool_t xdr_gf1_cli_log_level_rsp (XDR *, gf1_cli_log_level_rsp *);
 extern  bool_t xdr_gf1_cli_getwd_req (XDR *, gf1_cli_getwd_req*);
 extern  bool_t xdr_gf1_cli_getwd_rsp (XDR *, gf1_cli_getwd_rsp*);
 
@@ -635,6 +651,8 @@ extern bool_t xdr_gf1_cli_gsync_set_req ();
 extern bool_t xdr_gf1_cli_gsync_set_rsp ();
 extern bool_t xdr_gf1_cli_stats_volume_req ();
 extern bool_t xdr_gf1_cli_stats_volume_rsp ();
+extern bool_t xdr_gf1_cli_log_level_req ();
+extern bool_t xdr_gf1_cli_log_level_rsp ();
 extern bool_t xdr_gf1_cli_getwd_req ();
 extern bool_t xdr_gf1_cli_getwd_rsp ();
 

@@ -196,19 +196,18 @@ _gf_log_nomem (const char *domain, const char *file,
         xlator_t       *this            = NULL;
         struct timeval  tv              = {0,};
         int             ret             = 0;
-        gf_loglevel_t   xlator_loglevel = 0;
         char            msg[8092];
         char            timestr[256];
         char            callstr[4096];
 
         this = THIS;
 
-        xlator_loglevel = this->loglevel;
-        if (xlator_loglevel == 0)
-                xlator_loglevel = loglevel;
-
-        if (level > xlator_loglevel)
-                goto out;
+        if (gf_log_xl_log_set) {
+                if (this->loglevel && (level > this->loglevel))
+                        goto out;
+                else if (level > gf_log_loglevel)
+                        goto out;
+        }
 
         static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */
@@ -318,17 +317,16 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         struct timeval  tv              = {0,};
         size_t          len             = 0;
         int             ret             = 0;
-        gf_loglevel_t   xlator_loglevel = 0;
         va_list         ap;
 
         this = THIS;
 
-        xlator_loglevel = this->loglevel;
-        if (xlator_loglevel == 0)
-                xlator_loglevel = loglevel;
-
-        if (level > xlator_loglevel)
-                goto out;
+        if (gf_log_xl_log_set) {
+                if (this->loglevel && (level > this->loglevel))
+                        goto out;
+                else if (level > gf_log_loglevel)
+                        goto out;
+        }
 
         static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */
@@ -465,16 +463,15 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         size_t       len  = 0;
         int          ret  = 0;
         xlator_t    *this = NULL;
-        gf_loglevel_t xlator_loglevel = 0;
 
         this = THIS;
 
-        xlator_loglevel = this->loglevel;
-        if (xlator_loglevel == 0)
-                xlator_loglevel = loglevel;
-
-        if (level > xlator_loglevel)
-                goto out;
+        if (gf_log_xl_log_set) {
+                if (this->loglevel && (level > this->loglevel))
+                        goto out;
+                else if (level > gf_log_loglevel)
+                        goto out;
+        }
 
         static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */

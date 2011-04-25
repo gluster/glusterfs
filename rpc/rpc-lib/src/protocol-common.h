@@ -108,6 +108,7 @@ enum gf_mgmt_procnum_ {
         GD_MGMT_CLI_GSYNC_SET,
         GD_MGMT_CLI_PROFILE_VOLUME,
         GD_MGMT_BRICK_OP,
+        GD_MGMT_CLI_LOG_LEVEL,
         GD_MGMT_MAXVALUE,
 };
 
@@ -199,6 +200,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_QUOTA,
         GLUSTER_CLI_TOP_VOLUME,
         GLUSTER_CLI_GETWD,
+        GLUSTER_CLI_LOG_LEVEL,
         GLUSTER_CLI_MAXVALUE,
 };
 

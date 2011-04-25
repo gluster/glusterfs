@@ -2356,6 +2356,69 @@ out:
 }
 
 int
+glusterd_handle_log_level (rpcsvc_request_t *req)
+{
+        int32_t                ret       = -1;
+        int                    lock_fail = 0;
+        dict_t                *dict      = NULL;
+        gf1_cli_log_level_req  cli_req   = {0,};
+        glusterd_op_t         cli_op    = GD_OP_LOG_LEVEL;
+
+        GF_ASSERT(req);
+
+        ret = glusterd_op_set_cli_op (cli_op);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to set cli op: %d",
+                        ret);
+                lock_fail = 1;
+                goto out;
+        }
+
+        if (!gf_xdr_to_cli_log_level_req(req->msg[0], &cli_req)) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Failed to decode rpc message");
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Got log level request for: Volume [%s]"
+                " Xlator [%s] LogLevel [\"%s\"]", cli_req.volname, cli_req.xlator, cli_req.loglevel);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_dynmstr (dict, "volname", cli_req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_dynmstr (dict, "xlator", cli_req.xlator);
+        if (ret)
+                goto out;
+
+        ret = dict_set_dynmstr (dict, "loglevel", cli_req.loglevel);
+        if (ret)
+                goto out;
+
+        ret = glusterd_op_begin (req, cli_op, dict, _gf_true);
+
+ out:
+        if (ret && dict)
+                dict_unref (dict);
+
+        glusterd_friend_sm();
+        glusterd_op_sm();
+
+        if (ret) {
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req, NULL,
+                                                     "Operation failed");
+                if (!lock_fail)
+                        (void)glusterd_opinfo_unlock ();
+        }
+
+        return ret;
+}
+
+int
 glusterd_handle_log_rotate (rpcsvc_request_t *req)
 {
         int32_t                 ret     = -1;
@@ -3923,6 +3986,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_GSYNC_SET]     = { "GSYNC_SET", GLUSTER_CLI_GSYNC_SET, glusterd_handle_gsync_set, NULL, NULL},
         [GLUSTER_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GLUSTER_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL},
         [GLUSTER_CLI_QUOTA]         = { "QUOTA", GLUSTER_CLI_QUOTA, glusterd_handle_quota, NULL, NULL},
+        [GLUSTER_CLI_LOG_LEVEL]     = {"LOG_LEVEL", GLUSTER_CLI_LOG_LEVEL, glusterd_handle_log_level, NULL, NULL},
         [GLUSTER_CLI_GETWD]         = { "GETWD", GLUSTER_CLI_GETWD, glusterd_handle_getwd, NULL, NULL},
 
 };
@@ -3967,7 +4031,8 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_RESET_VOLUME] = { "RESET_VOLUME", GD_MGMT_CLI_RESET_VOLUME, glusterd_handle_reset_volume, NULL, NULL},
         [GD_MGMT_CLI_FSM_LOG] = { "FSM_LOG", GD_MGMT_CLI_FSM_LOG, glusterd_handle_fsm_log, NULL, NULL},
         [GD_MGMT_CLI_GSYNC_SET] = {"GSYNC_SET", GD_MGMT_CLI_GSYNC_SET, glusterd_handle_gsync_set, NULL, NULL},
-        [GD_MGMT_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GD_MGMT_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL}
+        [GD_MGMT_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GD_MGMT_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL},
+        [GD_MGMT_CLI_LOG_LEVEL] = {"LOG_LEVEL", GD_MGMT_CLI_LOG_LEVEL, glusterd_handle_log_level, NULL, NULL}
 };
 
 struct rpcsvc_program glusterd1_mop_prog = {

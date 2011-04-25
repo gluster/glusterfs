@@ -1015,6 +1015,61 @@ out:
 }
 
 int32_t
+cli_cmd_log_level_parse (const char **words, int worcount, dict_t **options)
+{
+        dict_t *dict            = NULL;
+        int     ret             = -1;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        /*
+         * loglevel command format:
+         *  > volume log level <VOL> <XLATOR[*]> <LOGLEVEL>
+         *  > volume log level colon-o posix WARNING
+         *  > volume log level colon-o replicate* DEBUG
+         *  > volume log level coon-o * TRACE
+         */
+
+        GF_ASSERT ((strncmp(words[0], "volume", 6) == 0));
+        GF_ASSERT ((strncmp(words[1], "log", 3) == 0));
+        GF_ASSERT ((strncmp(words[2], "level", 5) == 0));
+
+        ret = glusterd_check_log_level(words[5]);
+        if (ret == -1) {
+                cli_out("invalid log level [%s] specified", words[4]);
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        GF_ASSERT(words[3]);
+        GF_ASSERT(words[4]);
+
+        ret = dict_set_str (dict, "volname", (char *)words[3]);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "xlator", (char *)words[4]);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "loglevel", (char *)words[5]);
+        if (ret)
+                goto out;
+
+        *options = dict;
+
+ out:
+        if (ret && dict)
+                dict_destroy (dict);
+
+        return ret;
+}
+
+int32_t
 cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t  *dict = NULL;
