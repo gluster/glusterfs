@@ -75,6 +75,7 @@ typedef enum glusterd_op_ {
         GD_OP_GSYNC_SET,
         GD_OP_PROFILE_VOLUME,
         GD_OP_QUOTA,
+        GD_OP_LOG_LEVEL,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -511,5 +512,8 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 int
 glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,
                      rpc_clnt_notify_t notify_fn, void *notify_data);
+
+int
+glusterd_handle_log_level (rpcsvc_request_t *req);
 
 #endif

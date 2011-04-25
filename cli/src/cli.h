@@ -227,10 +227,15 @@ cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 void *data);
 void
 cli_path_strip_trailing_slashes (char *path);
+
 int32_t
 cli_cmd_volume_profile_parse (const char **words, int wordcount,
                               dict_t **options);
 int32_t
 cli_cmd_volume_top_parse (const char **words, int wordcount,
                               dict_t **options);
+
+int32_t
+cli_cmd_log_level_parse (const char **words, int wordcount,
+                         dict_t **options);
 #endif /* __CLI_H__ */

@@ -1102,6 +1102,80 @@ out:
 }
 
 static int
+glusterd_op_stage_log_level (dict_t *dict, char **op_errstr)
+{
+        int                 ret            = -1;
+        gf_boolean_t        exists         = _gf_false;
+        dict_t             *val_dict       = NULL;
+        char               *volname        = NULL;
+        char               *xlator         = NULL;
+        char               *loglevel       = NULL;
+        glusterd_volinfo_t *volinfo        = NULL;
+        glusterd_conf_t    *priv           = NULL;
+        xlator_t           *this           = NULL;
+        char msg[2048]                     = {0,};
+
+        GF_ASSERT (dict);
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT(priv);
+
+        val_dict = dict_new ();
+        if (!val_dict)
+                goto out;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        /*
+         * check for existence of the gieven volume
+         */
+        exists = glusterd_check_volume_exists (volname);
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (!exists || ret) {
+                snprintf (msg, sizeof(msg), "Volume %s does not exist", volname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+
+                *op_errstr = gf_strdup(msg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "xlator", &xlator);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get translator name");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "loglevel", &loglevel);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get loglevel");
+                goto out;
+        }
+
+        ret = 0;
+
+ out:
+        if (val_dict)
+                dict_unref (val_dict);
+
+        if (ret) {
+                if (!(*op_errstr)) {
+                        *op_errstr = gf_strdup ("Error, Validation Failed");
+                        gf_log ("glusterd", GF_LOG_DEBUG, "Error, Cannot Validate option: %s",
+                                *op_errstr);
+                }
+        }
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning: %d", ret);
+        return ret;
+}
+
+static int
 glusterd_op_stage_log_filename (dict_t *dict, char **op_errstr)
 {
         int                                     ret = -1;
@@ -5368,6 +5442,78 @@ glusterd_restart_brick_servers (glusterd_volinfo_t *volinfo)
 }
 
 static int
+glusterd_op_log_level (dict_t *dict)
+{
+        int32_t             ret           = -1;
+        glusterd_volinfo_t *volinfo       = NULL;
+        char               *volname       = NULL;
+        char               *xlator        = NULL;
+        char               *loglevel      = NULL;
+        xlator_t           *this          = NULL;
+        glusterd_conf_t    *priv          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "xlator", &xlator);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get translator name");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "loglevel", &loglevel);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get Loglevel to use");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Cannot find volume: %s", volname);
+                goto out;
+        }
+
+        xlator = gf_strdup (xlator);
+
+        ret = dict_set_dynstr (volinfo->dict, "xlator", xlator);
+        if (ret)
+                goto out;
+
+        loglevel = gf_strdup (loglevel);
+
+        ret = dict_set_dynstr (volinfo->dict, "loglevel", loglevel);
+        if (ret)
+                goto out;
+
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to create volfile for command"
+                        " 'log level'");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        if (ret)
+                goto out;
+
+        ret = 0;
+
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "(cli log level) Returning: %d", ret);
+        return ret;
+}
+
+static int
 glusterd_op_set_volume (dict_t *dict)
 {
         int                                      ret = 0;
@@ -6389,6 +6535,7 @@ glusterd_op_build_payload (glusterd_op_t op, dict_t **req)
                 case GD_OP_QUOTA:
                 case GD_OP_GSYNC_SET:
                 case GD_OP_PROFILE_VOLUME:
+                case GD_OP_LOG_LEVEL:
                         {
                                 dict_t  *dict = ctx;
                                 dict_copy (dict, req_dict);
@@ -7349,6 +7496,10 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_quota (dict, op_errstr);
                         break;
 
+                case GD_OP_LOG_LEVEL:
+                        ret = glusterd_op_stage_log_level (dict, op_errstr);
+                        break;
+
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -7427,6 +7578,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 case GD_OP_QUOTA:
                         ret = glusterd_op_quota (dict, op_errstr);
                         break;
+
+               case GD_OP_LOG_LEVEL:
+                       ret = glusterd_op_log_level (dict);
+                       break;
 
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
@@ -8433,6 +8588,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
                 case GD_OP_GSYNC_SET:
                 case GD_OP_QUOTA:
                 case GD_OP_PROFILE_VOLUME:
+                case GD_OP_LOG_LEVEL:
                         dict_unref (ctx);
                         break;
                 case GD_OP_DELETE_VOLUME:

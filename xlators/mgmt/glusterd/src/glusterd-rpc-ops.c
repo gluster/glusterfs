@@ -364,6 +364,21 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 break;
         }
 
+        case GD_OP_LOG_LEVEL:
+        {
+                gf1_cli_log_level_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_log_level_rsp;
+                break;
+        }
+
         case GD_OP_NONE:
         case GD_OP_MAX:
         {

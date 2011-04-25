@@ -376,3 +376,15 @@ struct gf1_cli_getwd_rsp {
         int     op_errno;
         string  wd<>;
 };
+
+struct gf1_cli_log_level_req {
+       char *volname;
+       char *xlator;
+       char *loglevel;
+};
+
+struct gf1_cli_log_level_rsp {
+       int op_ret;
+       int op_errno;
+       char *op_errstr;
+};
