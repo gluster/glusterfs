@@ -1037,7 +1037,7 @@ mnt3svc_dump (rpcsvc_request_t *req)
         sfunc = (mnt3_serializer)xdr_serialize_mountlist;
         mlist = mnt3svc_build_mountlist (ms, &ret);
         arg = mlist;
-        
+
         if (!mlist) {
                 if (ret != 0) {
                         nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
@@ -1713,6 +1713,28 @@ mnt3_init_state (xlator_t *nfsx)
         return ms;
 }
 
+int
+mount_init_state (xlator_t *nfsx)
+{
+        int              ret = -1;
+        struct nfs_state *nfs = NULL;
+
+        if (!nfsx)
+                goto out;
+
+        nfs = (struct nfs_state *)nfs_state (nfsx);
+        /*Maintaining global state for MOUNT1 and MOUNT3*/
+        nfs->mstate =  mnt3_init_state (nfsx);
+        if (!nfs->mstate) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to allocate"
+                        "mount state");
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
 rpcsvc_actor_t  mnt3svc_actors[MOUNT3_PROC_COUNT] = {
         {"NULL", MOUNT3_NULL, mnt3svc_null, NULL, NULL},
         {"MNT", MOUNT3_MNT, mnt3svc_mnt, NULL, NULL},
@@ -1743,12 +1765,15 @@ rpcsvc_program_t *
 mnt3svc_init (xlator_t *nfsx)
 {
         struct mount3_state     *mstate = NULL;
+        struct nfs_state        *nfs = NULL;
 
-        if (!nfsx)
+        if (!nfsx || !nfsx->private)
                 return NULL;
 
+        nfs = (struct nfs_state *)nfsx->private;
+
         gf_log (GF_MNT, GF_LOG_DEBUG, "Initing Mount v3 state");
-        mstate = mnt3_init_state (nfsx);
+        mstate = (struct mount3_state *)nfs->mstate;
         if (!mstate) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount v3 state init failed");
                 goto err;
@@ -1787,12 +1812,15 @@ rpcsvc_program_t *
 mnt1svc_init (xlator_t *nfsx)
 {
         struct mount3_state     *mstate = NULL;
+        struct nfs_state        *nfs = NULL;
 
-        if (!nfsx)
+        if (!nfsx || !nfsx->private)
                 return NULL;
 
+        nfs = (struct nfs_state *)nfsx->private;
+
         gf_log (GF_MNT, GF_LOG_DEBUG, "Initing Mount v1 state");
-        mstate = mnt3_init_state (nfsx);
+        mstate = (struct mount3_state *)nfs->mstate;
         if (!mstate) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount v3 state init failed");
                 goto err;
