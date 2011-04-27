@@ -35,6 +35,7 @@
 #include "md5.h"
 #include "compat-errno.h"
 #include "statedump.h"
+#include "syscall.h"
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
@@ -2915,25 +2916,44 @@ glusterd_brick_create_path (char *host, char *path, mode_t mode,
                 snprintf (msg, sizeof (msg), "brick %s:%s, "
                           "path %s is not a directory", host, path, path);
                 gf_log ("", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
         } else if (!ret) {
-                goto out;
+                goto check_xattr;
+        } else {
+                ret = mkdir (path, mode);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "brick: %s:%s, path "
+                                  "creation failed, reason: %s",
+                                  host, path, strerror(errno));
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                        goto out;
+                } else {
+                        goto check_xattr;
+                }
         }
 
-        ret = mkdir (path, mode);
-        if ((ret == -1) && (EEXIST != errno)) {
-                snprintf (msg, sizeof (msg), "brick: %s:%s, path "
-                          "creation failed, reason: %s",
-                          host, path, strerror(errno));
-                gf_log ("glusterd",GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+/* To check if filesystem is read-only
+   and if it supports extended attributes */
+check_xattr:
+        ret = sys_lsetxattr (path, "trusted.glusterfs.test",
+                             "working", 8, 0);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "glusterfs is not"
+                          " supported on brick: %s:%s.\nSetting"
+                          " extended attributes failed, reason:"
+                          " %s.", host, path, strerror(errno));
+
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
         } else {
-                ret = 0;
+                /* Remove xattr *cannot* fail after setting it succeeded */
+                sys_lremovexattr (path, "trusted.glusterfs.test");
         }
 
 out:
+        if (msg[0] != '\0')
+                *op_errstr = gf_strdup (msg);
+
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
