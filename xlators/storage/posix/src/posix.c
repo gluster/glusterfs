@@ -4375,7 +4375,9 @@ init (xlator_t *this)
         /* Check for Extended attribute support, if not present, log it */
         op_ret = sys_lsetxattr (dir_data->data,
                                 "trusted.glusterfs.test", "working", 8, 0);
-        if (op_ret < 0) {
+        if (op_ret == 0) {
+                sys_lremovexattr (dir_data->data, "trusted.glusterfs.test");
+        } else {
                 tmp_data = dict_get (this->options,
                                      "mandate-attribute");
                 if (tmp_data) {
@@ -4551,7 +4553,6 @@ fini (xlator_t *this)
         if (!priv)
                 return;
         this->private = NULL;
-        sys_lremovexattr (priv->base_path, "trusted.glusterfs.test");
         GF_FREE (priv);
         return;
 }
