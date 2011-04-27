@@ -660,6 +660,13 @@ init (xlator_t *this) {
                 goto err;
         }
 
+        ret = mount_init_state (this);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init Mount"
+                        "state");
+                goto err;
+        }
+
         ret = nfs_init_versions (nfs, this);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to initialize "
