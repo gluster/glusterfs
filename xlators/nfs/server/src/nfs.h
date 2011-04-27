@@ -62,6 +62,7 @@ struct nfs_initer_list {
 struct nfs_state {
         rpcsvc_t                *rpcsvc;
         struct list_head        versions;
+        struct mount3_state     *mstate;
         struct mem_pool         *foppool;
         unsigned int            memfactor;
         xlator_list_t           *subvols;
