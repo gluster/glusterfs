@@ -1589,8 +1589,9 @@ marker_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
                                      GF_LOG_ERROR),
-                        "%s occured while creating symlinks for %s",
-                        strerror (op_errno), local->loc.path);
+                        "%s occured during setattr of %s",
+                        strerror (op_errno),
+                        (local ? local->loc.path : "<nul>"));
         }
 
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, statpre,
