@@ -259,22 +259,12 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         {
                 int     type = 0;
                 char    *str = NULL;
-                char    *master = NULL;
-                char    *slave  = NULL;
-                char    *op_name = NULL;
-                char    *subop = NULL;
                 gf1_cli_gsync_set_rsp rsp = {0,};
 
                 ctx = op_ctx;
                 rsp.op_ret = op_ret;
                 rsp.op_errno = op_errno;
                 rsp.op_errstr = "";
-                rsp.op_name = "";
-                rsp.subop = "";
-                rsp.master = "";
-                rsp.slave = "";
-                rsp.glusterd_workdir = conf->workdir;
-                rsp.gsync_prefix = GSYNCD_PREFIX;
                 if (ctx) {
                         ret = dict_get_str (ctx, "errstr", &str);
                         if (ret == 0)
@@ -282,27 +272,15 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         ret = dict_get_int32 (ctx, "type", &type);
                         if (ret == 0)
                                 rsp.type = type;
-                        ret = dict_get_str (ctx, "master", &master);
-                        if (ret == 0)
-                                rsp.master = master;
-
-                        ret = dict_get_str (ctx, "slave", &slave);
-                        if (ret == 0)
-                                rsp.slave = slave;
-
-                        if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
-                                if (dict_get_str (ctx, "op_name", &op_name) == 0)
-                                        rsp.op_name = op_name;
-                                if (dict_get_str (ctx, "subop", &subop) == 0)
-                                        rsp.subop = subop;
-                        }
+                        ret = dict_set_str (ctx, "glusterd_workdir", conf->workdir);
+                        /* swallow error here, that will be re-triggered in cli */
 
                         ret = dict_allocate_and_serialize (ctx,
-                                        &rsp.status_dict.status_dict_val,
-                                    (size_t*)&rsp.status_dict.status_dict_len);
+                                                           &rsp.dict.dict_val,
+                                                           (size_t*)&rsp.dict.dict_len);
 
                         if (ret == 0)
-                                free_ptr = rsp.status_dict.status_dict_val;
+                                free_ptr = rsp.dict.dict_val;
 
                 }
                 if (op_errstr)

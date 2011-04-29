@@ -749,20 +749,8 @@ xdr_gf1_cli_gsync_set_rsp (XDR *xdrs, gf1_cli_gsync_set_rsp *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->type))
 		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->op_name, ~0))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->subop, ~0))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->master, ~0))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->slave, ~0))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->gsync_prefix, ~0))
-		 return FALSE;
-        if (!xdr_string (xdrs, &objp->glusterd_workdir, ~0))
-                return FALSE;
-        if (!xdr_bytes (xdrs, (char **)&objp->status_dict.status_dict_val,
-                        (u_int *) &objp->status_dict.status_dict_len, ~0))
+        if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val,
+                        (u_int *) &objp->dict.dict_len, ~0))
                 return FALSE;
 
 	return TRUE;

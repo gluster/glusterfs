@@ -2586,33 +2586,38 @@ out:
 
 
 int
-gf_cli3_1_gsync_config_command (gf1_cli_gsync_set_rsp rsp)
+gf_cli3_1_gsync_config_command (dict_t *dict)
 {
         char  cmd[PATH_MAX] = {0,};
-        int ret = -1;
+        char *subop         = NULL;
+        char *gwd           = NULL;
+        char *slave         = NULL;
+        char *master        = NULL;
+        char *op_name       = NULL;
 
-        if (rsp.op_ret < 0)
-                return 0;
-
-        if (!rsp.gsync_prefix || !rsp.master || !rsp.slave || !rsp.glusterd_workdir)
+        if (dict_get_str (dict, "subop", &subop) != 0)
                 return -1;
 
-        if (strcmp (rsp.subop, "get") != 0 && strcmp (rsp.subop, "get-all") != 0) {
+        if (strcmp (subop, "get") != 0 && strcmp (subop, "get-all") != 0) {
                 cli_out (GEOREP" config updated successfully");
                 return 0;
         }
 
+        if (dict_get_str (dict, "glusterd_workdir", &gwd) != 0 ||
+            dict_get_str (dict, "slave", &slave) != 0)
+                return -1;
+
+        if (dict_get_str (dict, "master", &master) != 0)
+                master = "";
+        if (dict_get_str (dict, "op_name", &op_name) != 0)
+                op_name = "";
+
         snprintf (cmd, PATH_MAX,
                   GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" %s%s %s --config-%s%s%s",
-                  rsp.glusterd_workdir,
-                  *rsp.master ? ":" : "", rsp.master, rsp.slave, rsp.subop,
-                  *rsp.op_name ? " " : "", rsp.op_name);
-        ret = system (cmd);
-                /*
-                 * gf_log() failure from system() ?
-                 */
+                  gwd, *master ? ":" : "", master, slave,
+                  subop, *op_name ? " " : "", op_name);
 
-        return ret ? -1 : 0;
+        return system (cmd) ? -1 : 0;
 }
 
 int
@@ -2679,6 +2684,8 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         int                     ret     = 0;
         gf1_cli_gsync_set_rsp   rsp     = {0, };
         dict_t                  *dict   = NULL;
+        char                    *master = NULL;
+        char                    *slave  = NULL;
 
         if (req->rpc_status == -1) {
                 ret = -1;
@@ -2699,9 +2706,7 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = dict_unserialize (rsp.status_dict.status_dict_val,
-                                rsp.status_dict.status_dict_len,
-                                &dict);
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
 
         if (ret)
                 goto out;
@@ -2715,17 +2720,21 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
 
         switch (rsp.type) {
                 case GF_GSYNC_OPTION_TYPE_START:
-                        cli_out ("Starting " GEOREP " session between %s & %s"
-                                 " has been successful", rsp.master, rsp.slave);
-                break;
-
                 case GF_GSYNC_OPTION_TYPE_STOP:
-                         cli_out ("Stopping " GEOREP " session between %s & %s"
-                                 " has been successful", rsp.master, rsp.slave);
+                        if (dict_get_str (dict, "master", &master) != 0)
+                                master = "???";
+                        if (dict_get_str (dict, "slave", &slave) != 0)
+                                slave = "???";
+
+                        cli_out ("%s " GEOREP " session between %s & %s"
+                                 " has been successful",
+                                 rsp.type == GF_GSYNC_OPTION_TYPE_START ?
+                                  "Starting" : "Stopping",
+                                 master, slave);
                 break;
 
                 case GF_GSYNC_OPTION_TYPE_CONFIG:
-                        ret = gf_cli3_1_gsync_config_command (rsp);
+                        ret = gf_cli3_1_gsync_config_command (dict);
                 break;
 
                 case GF_GSYNC_OPTION_TYPE_STATUS:
