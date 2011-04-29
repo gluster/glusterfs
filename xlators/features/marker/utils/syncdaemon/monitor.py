@@ -48,17 +48,23 @@ class Monitor(object):
                 os.execv(sys.executable, argv + ['--feedback-fd', str(pw)])
             os.close(pw)
             t0 = time.time()
-            select.select((pr,), (), (), conn_timeout)
+            so = select.select((pr,), (), (), conn_timeout)[0]
             os.close(pr)
-            et = time.time() - t0
-            if et < conn_timeout:
-                et2 = conn_timeout - et
-                logging.debug("worker got connected in %d sec, "
-                              "waiting %d more to make sure it's fine" % (et, et2))
-                time.sleep(et2)
+            if so:
                 ret = nwait(cpid, os.WNOHANG)
+                if ret != None:
+                    logging.debug("worker died before establishing connection")
+                else:
+                    logging.debug("worker seems to be connected (?? racy check)")
+                    while time.time() < t0 + conn_timeout:
+                        ret = nwait(cpid, os.WNOHANG)
+                        if ret != None:
+                            logging.debug("worker died in startup phase")
+                            break
+                        time.sleep(1)
             else:
-                logging.debug("worker not confirmed in %d sec, aborting it" % et)
+                logging.debug("worker not confirmed in %d sec, aborting it" % \
+                              conn_timeout)
                 os.kill(cpid, SIGKILL)
                 ret = nwait(cpid)
             if ret == None:
