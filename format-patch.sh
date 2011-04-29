@@ -53,7 +53,7 @@ function main()
     if [ -z "$bug" ]; then
         git format-patch -s "$@";
     else
-        git format-patch -s --subject-prefix="PATCH BUG:$bug" "$@";
+        git format-patch -s --subject-prefix="PATCH BRANCH:release-3.2 BUG:$bug" "$@";
     fi
 }
 
