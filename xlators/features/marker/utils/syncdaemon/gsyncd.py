@@ -162,8 +162,9 @@ def main_i():
                           callback=store_local_obj('del', lambda vx: {'opt': vx, 'rx': rx}))
         conf_mod_opt_regex_variant(not not m)
 
-    op.add_option('--canonicalize-url',        dest='do_canon', action='callback', callback=store_local_curry('raw'))
-    op.add_option('--canonicalize-escape-url', dest='do_canon', action='callback', callback=store_local_curry('escaped'))
+    op.add_option('--normalize-url',           dest='url_print', action='callback', callback=store_local_curry('normal'))
+    op.add_option('--canonicalize-url',        dest='url_print', action='callback', callback=store_local_curry('canon'))
+    op.add_option('--canonicalize-escape-url', dest='url_print', action='callback', callback=store_local_curry('canon_esc'))
 
     tunables = [ norm(o.get_opt_string()[2:]) for o in op.option_list if o.callback in (store_abs, None) and o.get_opt_string() not in ('--version', '--help') ]
 
@@ -177,7 +178,7 @@ def main_i():
     if not (len(args) == 2 or \
             (len(args) == 1 and rconf.get('listen')) or \
             (len(args) <= 2 and confdata) or \
-            rconf.get('do_canon')):
+            rconf.get('url_print')):
         sys.stderr.write("error: incorrect number of arguments\n\n")
         sys.stderr.write(op.get_usage() + "\n")
         sys.exit(1)
@@ -188,10 +189,12 @@ def main_i():
         namedict = {}
     else:
         rscs = [resource.parse_url(u) for u in args]
-        dc = rconf.get('do_canon')
+        dc = rconf.get('url_print')
         if dc:
             for r in rscs:
-                print(r.get_url(canonical=True, escaped=(dc=='escaped')))
+                print(r.get_url(**{'normal': {},
+                                   'canon': {'canonical': True},
+                                   'canon_esc': {'canonical': True, 'escaped': True}}[dc]))
             return
         local = remote = None
         if rscs:
