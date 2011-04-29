@@ -4342,7 +4342,7 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave)
                                 " retart the process");
                 }
 
-                ret = glusterd_start_gsync (volinfo->volname, slave,
+                ret = glusterd_start_gsync (volinfo, slave,
                                             uuid_utoa(priv->uuid), NULL);
                 if (ret)
                         goto out;
@@ -4617,7 +4617,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (ret)
                         goto out;
 
-                ret = glusterd_start_gsync (volname, slave, host_uuid,
+                ret = glusterd_start_gsync (volinfo, slave, host_uuid,
                                             op_errstr);
         }
 
