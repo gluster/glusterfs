@@ -2415,7 +2415,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 
 
         strncpy (uuid_str, (char*)value->data, uuid_len);
-        glusterd_start_gsync (volinfo->volname, slave, uuid_str, NULL);
+        glusterd_start_gsync (volinfo, slave, uuid_str, NULL);
 }
 
 int
@@ -3312,13 +3312,13 @@ mkdir_if_missing (char *path)
 }
 
 int
-glusterd_start_gsync (char *master, char *slave, char *uuid_str,
-                      char **op_errstr)
+glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
+                      char *glusterd_uuid_str, char **op_errstr)
 {
         int32_t         ret     = 0;
         int32_t         status  = 0;
         char            buf[PATH_MAX]   = {0,};
-        char            local_uuid_str [64] = {0};
+        char            uuid_str [64] = {0};
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
         int             errcode = 0;
@@ -3328,15 +3328,15 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         priv = this->private;
         GF_ASSERT (priv);
 
-        uuid_utoa_r (priv->uuid, local_uuid_str);
-        if (strcmp (local_uuid_str, uuid_str))
+        uuid_utoa_r (priv->uuid, uuid_str);
+        if (strcmp (uuid_str, glusterd_uuid_str))
                 goto out;
 
-        ret = gsync_status (master, slave, &status);
+        ret = gsync_status (master_vol->volname, slave, &status);
         if (status == 0)
                 goto out;
 
-        snprintf (buf, PATH_MAX, "%s/"GEOREP"/%s", priv->workdir, master);
+        snprintf (buf, PATH_MAX, "%s/"GEOREP"/%s", priv->workdir, master_vol->volname);
         ret = mkdir_if_missing (buf);
         if (ret) {
                 errcode = -1;
@@ -3344,15 +3344,30 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         }
 
         snprintf (buf, PATH_MAX, DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/%s",
-                  master);
+                  master_vol->volname);
         ret = mkdir_if_missing (buf);
         if (ret) {
                 errcode = -1;
                 goto out;
         }
 
+        uuid_utoa_r (master_vol->volume_id, uuid_str);
+        ret = snprintf (buf, PATH_MAX,
+                        GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" "
+                        ":%s %s --config-set session-owner %s",
+                        priv->workdir, master_vol->volname, slave, uuid_str);
+        if (ret <= 0 || ret >= PATH_MAX)
+                ret = -1;
+        if (ret != -1)
+                ret = gf_system (buf) ? -1 : 0;
+        if (ret == -1) {
+                errcode = -1;
+                goto out;
+        }
+
         ret = snprintf (buf, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c "
-                        "%s/"GSYNC_CONF" :%s %s", priv->workdir, master, slave);
+                        "%s/"GSYNC_CONF" :%s %s", priv->workdir,
+                        master_vol->volname, slave);
         if (ret <= 0) {
                 ret = -1;
                 errcode = -1;
@@ -3362,7 +3377,7 @@ glusterd_start_gsync (char *master, char *slave, char *uuid_str,
         ret = gf_system (buf);
         if (ret == -1) {
                 gf_asprintf (op_errstr, GEOREP" start failed for %s %s",
-                             master, slave);
+                             master_vol->volname, slave);
                 goto out;
         }
 

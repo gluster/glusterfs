@@ -355,7 +355,6 @@ configure_syncdaemon (glusterd_conf_t *conf)
 #if SYNCDAEMON_COMPILE
         char georepdir[PATH_MAX] = {0,};
         char cmd[2*PATH_MAX + 1024] = {0,};
-        char volid[64] = {0,};
         int blen = 0;
 
         ret = setenv ("_GLUSTERD_CALLED_", "1", 1);
@@ -417,13 +416,6 @@ configure_syncdaemon (glusterd_conf_t *conf)
                  "ssh-command "
                  "'ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
                  "-i %s/secret.pem' . .", georepdir);
-        ret = system (cmd);
-        if (ret)
-                goto out;
-
-        /* session-owner */
-        uuid_unparse (conf->uuid, volid);
-        sprintf (cmd + blen, "session-owner %s . .", volid);
         ret = system (cmd);
         if (ret)
                 goto out;
