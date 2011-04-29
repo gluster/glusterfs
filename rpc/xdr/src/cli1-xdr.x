@@ -338,13 +338,7 @@ struct gf1_cli_gsync_set_rsp {
         int     op_errno;
         string  op_errstr<>;
         int     type;
-        string  op_name<>;
-        string  subop<>;
-        string  master<>;
-        string  slave<>;
-        string  gsync_prefix<>;
-        string  glusterd_workdir<>;
-        opaque  status_dict<>;
+        opaque  dict<>;
 };
 
 struct gf1_cli_stats_volume_req {

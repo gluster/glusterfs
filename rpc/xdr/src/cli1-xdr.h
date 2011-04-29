@@ -474,16 +474,10 @@ struct gf1_cli_gsync_set_rsp {
 	int op_errno;
 	char *op_errstr;
 	int type;
-	char *op_name;
-	char *subop;
-	char *master;
-	char *slave;
-	char *gsync_prefix;
-        char *glusterd_workdir;
 	struct {
-		u_int status_dict_len;
-		char *status_dict_val;
-	} status_dict;
+		u_int dict_len;
+		char *dict_val;
+	} dict;
 };
 typedef struct gf1_cli_gsync_set_rsp gf1_cli_gsync_set_rsp;
 
