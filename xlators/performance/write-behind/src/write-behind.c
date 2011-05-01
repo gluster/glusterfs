@@ -318,6 +318,8 @@ wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
         file->window_conf = conf->window_size;
         file->flags = flags;
 
+        LOCK_INIT (&file->lock);
+
         fd_ctx_set (fd, this, (uint64_t)(long)file);
 
 out:
@@ -1322,21 +1324,23 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         goto out;
                 }
 
-                /* If O_DIRECT then, we disable chaching */
-                if (((flags & O_DIRECT) == O_DIRECT)
-                    || ((flags & O_ACCMODE) == O_RDONLY)
-                    || (((flags & O_SYNC) == O_SYNC)
-                        && conf->enable_O_SYNC == _gf_true)) { 
-                        file->window_conf = 0;
-                }
+                LOCK (&file->lock);
+                {
+                        /* If O_DIRECT then, we disable chaching */
+                        if (((flags & O_DIRECT) == O_DIRECT)
+                            || ((flags & O_ACCMODE) == O_RDONLY)
+                            || (((flags & O_SYNC) == O_SYNC)
+                                && conf->enable_O_SYNC == _gf_true)) {
+                                file->window_conf = 0;
+                        }
 
-                if (wbflags & GF_OPEN_NOWB) {
-                        file->disabled = 1;
+                        if (wbflags & GF_OPEN_NOWB) {
+                                file->disabled = 1;
+                        }
                 }
- 
-                LOCK_INIT (&file->lock);
+                UNLOCK (&file->lock);
         }
-        
+
 out:
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
         return 0;
@@ -1396,22 +1400,24 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
 
-                /* If O_DIRECT then, we disable chaching */
-                if (frame->local) {
-                        if (((flags & O_DIRECT) == O_DIRECT)
-                            || ((flags & O_ACCMODE) == O_RDONLY)
-                            || (((flags & O_SYNC) == O_SYNC)
-                                && (conf->enable_O_SYNC == _gf_true))) { 
-                                file->window_conf = 0;
+                LOCK (&file->lock);
+                {
+                        /* If O_DIRECT then, we disable chaching */
+                        if (frame->local) {
+                                if (((flags & O_DIRECT) == O_DIRECT)
+                                    || ((flags & O_ACCMODE) == O_RDONLY)
+                                    || (((flags & O_SYNC) == O_SYNC)
+                                        && (conf->enable_O_SYNC == _gf_true))) {
+                                        file->window_conf = 0;
+                                }
                         }
                 }
-
-                LOCK_INIT (&file->lock);
+                UNLOCK (&file->lock);
         }
-        
+
         frame->local = NULL;
 
-out:        
+out:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
         return 0;
