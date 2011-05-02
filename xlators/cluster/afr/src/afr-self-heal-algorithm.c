@@ -92,7 +92,7 @@ sh_full_loop_driver_done (call_frame_t *frame, xlator_t *this)
 
                 local->self_heal.algo_abort_cbk (frame, this);
         } else {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_INFO,
                         "full self-heal completed on %s",
                         local->loc.path);
 
