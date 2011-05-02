@@ -1546,7 +1546,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 
         afr_self_heal_type_str_get(sh, sh_type_str,
                                    sizeof(sh_type_str));
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_INFO,
                 "background %s self-heal completed on %s", sh_type_str,
                 local->loc.path);
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
