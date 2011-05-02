@@ -840,6 +840,10 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
 
                         *lookup_buf = *buf;
 
+                        uuid_copy (local->loc.gfid, buf->ia_gfid);
+                        uuid_copy (local->loc.pargfid,
+                                   postparent->ia_gfid);
+
                         lookup_buf->ia_ino = afr_itransform (buf->ia_ino,
                                                              priv->child_count,
                                                              child_index);
@@ -869,6 +873,10 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                 local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
+
+                                uuid_copy (local->loc.gfid, buf->ia_gfid);
+                                uuid_copy (local->loc.pargfid,
+                                           postparent->ia_gfid);
                         }
 
                 }
