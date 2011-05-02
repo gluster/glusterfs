@@ -1434,7 +1434,7 @@ nfs_option_handler (glusterfs_graph_t *graph,
         if ( !volinfo || !volinfo->volname)
                 return 0;
 
-        if (! strcmp (vme->option, "!nfs.rpc-auth-addr-allow")) {
+        if (! strcmp (vme->option, "!nfs.rpc-auth.addr.allow")) {
                 ret = gf_asprintf (&aa, "rpc-auth.addr.%s.allow",
                                         volinfo->volname);
 
@@ -1447,7 +1447,7 @@ nfs_option_handler (glusterfs_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs.rpc-auth-addr-reject")) {
+        if (! strcmp (vme->option, "!nfs.rpc-auth.addr.reject")) {
                 ret = gf_asprintf (&aa, "rpc-auth.addr.%s.reject",
                                         volinfo->volname);
 
