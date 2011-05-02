@@ -564,7 +564,7 @@ afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
 
         if (afr_sh_has_metadata_pending (xattr, child_index, this)) {
                 local->self_heal.need_metadata_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_DEBUG,
+                gf_log(this->name, GF_LOG_INFO,
                        "metadata self-heal is pending for %s.",
                        local->loc.path);
         }
