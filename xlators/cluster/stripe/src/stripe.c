@@ -3750,6 +3750,18 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                                 "invalid number format \"%s\"", num);
                         goto out;
                 }
+
+                if (stripe_opt->block_size < 512) {
+                        gf_log (this->name, GF_LOG_ERROR, "Invalid Block-size: "
+                                "%s. Should be atleast 512 bytes", num);
+                        goto out;
+                }
+                if (stripe_opt->block_size % 512) {
+                        gf_log (this->name, GF_LOG_ERROR, "Block-size: %s should"
+                                " be a multiple of 512 bytes", num);
+                        goto out;
+                }
+
                 memcpy (stripe_opt->path_pattern, pattern, strlen (pattern));
 
                 gf_log (this->name, GF_LOG_DEBUG,
