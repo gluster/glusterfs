@@ -1001,9 +1001,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 if (!ret) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
-                                  " in the arguments mean the same",
-                                  tmpbrkinfo->hostname, tmpbrkinfo->path,
-                                  brick);
+                                  " one of the arguments contain the other",
+                                  tmpbrkinfo->hostname, tmpbrkinfo->path, brick);
                         goto out;
                 }
                 list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
@@ -1423,9 +1422,8 @@ brick_val:
                 if (!ret) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
-                                  " in the arguments mean the same",
-                                  tmpbrkinfo->hostname, tmpbrkinfo->path,
-                                  brick);
+                                  " one of the arguments contain the other",
+                                  tmpbrkinfo->hostname, tmpbrkinfo->path, brick);
                         goto out;
                 }
                 list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
