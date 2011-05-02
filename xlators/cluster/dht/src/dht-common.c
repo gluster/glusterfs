@@ -4022,8 +4022,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         conf = this->private;
         hashed_subvol = local->hashed_subvol;
 
-        if (uuid_is_null (local->loc.inode->gfid) && !op_ret)
-                memcpy (local->loc.inode->gfid, stbuf->ia_gfid, 16);
+        if (uuid_is_null (local->loc.gfid) && !op_ret)
+                uuid_copy (local->loc.gfid, stbuf->ia_gfid);
 
         if (dht_is_subvol_filled (this, hashed_subvol))
                 ret = dht_layout_merge (this, layout, prev->this,
