@@ -227,6 +227,41 @@ glusterd_store_brickinfopath_set (glusterd_volinfo_t *volinfo,
         snprintf (brickpath, len, "%s/%s", brickdirpath, brickfname);
 }
 
+gf_boolean_t
+glusterd_store_is_valid_brickpath (char *volname, char *brick)
+{
+        char                    brickpath[PATH_MAX] = {0};
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        int32_t                 ret = 0;
+
+        ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "brick path validation failed");
+                ret = 0;
+                goto out;
+        }
+        ret = glusterd_volinfo_new (&volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "brick path validation failed");
+                ret = 0;
+                goto out;
+        }
+        strncpy (volinfo->volname, volname, sizeof (volinfo->volname));
+        glusterd_store_brickinfopath_set (volinfo, brickinfo, brickpath,
+                                                sizeof (brickpath));
+
+        ret = (strlen (brickpath) < _POSIX_PATH_MAX);
+
+out:
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
+        if (volinfo)
+                glusterd_volinfo_delete (volinfo);
+
+        return ret;
+}
+
 int32_t
 glusterd_store_volinfo_brick_fname_write (int vol_fd,
                                          glusterd_brickinfo_t *brickinfo,
