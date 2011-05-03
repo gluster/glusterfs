@@ -2531,6 +2531,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         char                 *volname    = NULL;
         glusterd_conf_t      *priv       = NULL;
         glusterd_volinfo_t   *volinfo    = NULL;
+        gf_boolean_t          vol_added = _gf_false;
         glusterd_brickinfo_t *brickinfo  = NULL;
         xlator_t             *this       = NULL;
         char                 *brick      = NULL;
@@ -2655,6 +2656,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
+                glusterd_store_delete_volume (volinfo);
                 *op_errstr = gf_strdup ("Failed to store the Volume information");
                 goto out;
         }
@@ -2673,10 +2675,12 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         volinfo->defrag_status = 0;
         list_add_tail (&volinfo->vol_list, &priv->volumes);
+        vol_added = _gf_true;
 out:
         if (free_ptr)
                 GF_FREE(free_ptr);
-
+        if (!vol_added && volinfo)
+                glusterd_volinfo_delete (volinfo);
         return ret;
 }
 
