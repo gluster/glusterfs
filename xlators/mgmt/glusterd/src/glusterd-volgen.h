@@ -62,6 +62,7 @@ int glusterd_validate_localopts (dict_t *val_dict, char **op_errstr);
 gf_boolean_t glusterd_check_globaloption (char *key);
 gf_boolean_t
 glusterd_check_voloption_flags (char *key, int32_t flags);
-
+gf_boolean_t
+glusterd_is_valid_volfpath (char *volname, char *brick);
 
 #endif

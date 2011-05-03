@@ -355,6 +355,18 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
                 brick_list = tmpptr;
+
+                if (!glusterd_store_is_valid_brickpath (volname, brick) ||
+                        !glusterd_is_valid_volfpath (volname, brick)) {
+                        snprintf (msg, sizeof (msg), "brick path %s is too "
+                                  "long.", brick);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+
+                        ret = -1;
+                        goto out;
+                }
+
                 ret = glusterd_brickinfo_from_brick (brick, &brick_info);
                 if (ret)
                         goto out;
@@ -691,6 +703,18 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
 
 
         while ( i < count) {
+                if (!glusterd_store_is_valid_brickpath (volname, brick) ||
+                        !glusterd_is_valid_volfpath (volname, brick)) {
+                        snprintf (msg, sizeof (msg), "brick path %s is too "
+                                  "long.", brick);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+
+                        ret = -1;
+                        goto out;
+
+                }
+
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                               &brickinfo);
                 if (!ret) {
@@ -885,6 +909,17 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 snprintf (msg, sizeof (msg), "volume: %s is not started",
                           volname);
                 *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        if (!glusterd_store_is_valid_brickpath (volname, dst_brick) ||
+                !glusterd_is_valid_volfpath (volname, dst_brick)) {
+                snprintf (msg, sizeof (msg), "brick path %s is too "
+                          "long.", dst_brick);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+
+                ret = -1;
                 goto out;
         }
 

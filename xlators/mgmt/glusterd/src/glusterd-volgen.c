@@ -36,6 +36,7 @@
 #include "cli1.h"
 #include "glusterd-volgen.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-utils.h"
 
 
 /* dispatch table for VOLUME SET
@@ -1865,6 +1866,39 @@ get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
                   path, volinfo->volname,
                   brickinfo->hostname,
                   brick);
+}
+
+gf_boolean_t
+glusterd_is_valid_volfpath (char *volname, char *brick)
+{
+        char                    volfpath[PATH_MAX] = {0,};
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        int32_t                 ret = 0;
+
+        ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "brick path validation failed");
+                ret = 0;
+                goto out;
+        }
+        ret = glusterd_volinfo_new (&volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "brick path validation failed");
+                ret = 0;
+                goto out;
+        }
+        strncpy (volinfo->volname, volname, sizeof (volinfo->volname));
+        get_brick_filepath (volfpath, volinfo, brickinfo);
+
+        ret = (strlen (volfpath) < _POSIX_PATH_MAX);
+
+out:
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
+        if (volinfo)
+                glusterd_volinfo_delete (volinfo);
+        return ret;
 }
 
 static int
