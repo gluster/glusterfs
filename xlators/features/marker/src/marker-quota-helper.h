@@ -22,6 +22,7 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
+
 #include "marker-quota.h"
 
 #define QUOTA_FREE_CONTRIBUTION_NODE(_contribution)     \
@@ -37,11 +38,13 @@
                 UNLOCK (lock);                          \
         } while (0)
 
-#define QUOTA_SAFE_DECREMENT(lock, var)                 \
-        do {                                            \
-                LOCK (lock);                            \
-                        var --;                         \
-                UNLOCK (lock);                          \
+#define QUOTA_SAFE_DECREMENT(lock, var, value)  \
+        do {                                    \
+                LOCK (lock);                    \
+                {                               \
+                      value = --var;            \
+                }                               \
+                UNLOCK (lock);                  \
         } while (0)
 
 inode_contribution_t *
@@ -73,4 +76,8 @@ quota_local_unref (xlator_t *, quota_local_t *);
 
 inode_contribution_t *
 get_contribution_node (inode_t *, quota_inode_ctx_t *);
+
+inode_contribution_t *
+get_contribution_from_loc (xlator_t *this, loc_t *loc);
+
 #endif
