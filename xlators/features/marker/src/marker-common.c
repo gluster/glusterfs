@@ -42,7 +42,7 @@ int32_t
 marker_force_inode_ctx_get (inode_t *inode, xlator_t *this,
                             marker_inode_ctx_t **ctx)
 {
-        int32_t  ret = -1;
+        int32_t  ret     = -1;
         uint64_t ctx_int = 0;
 
         LOCK (&inode->lock);
@@ -71,16 +71,16 @@ unlock: UNLOCK (&inode->lock);
 
 void
 marker_filter_quota_xattr (dict_t *dict, char *key,
-			   data_t *value, void *data)
+                           data_t *value, void *data)
 {
-	int ret = -1;
+        int ret = -1;
 
-	GF_VALIDATE_OR_GOTO ("marker", dict, out);
-	GF_VALIDATE_OR_GOTO ("marker", key, out);
+        GF_VALIDATE_OR_GOTO ("marker", dict, out);
+        GF_VALIDATE_OR_GOTO ("marker", key, out);
 
-	ret = fnmatch ("trusted.glusterfs.quota*", key, 0);
-	if (ret == 0)
-		dict_del (dict, key);
+        ret = fnmatch ("trusted.glusterfs.quota*", key, 0);
+        if (ret == 0)
+                dict_del (dict, key);
 out:
-	return;
+        return;
 }
