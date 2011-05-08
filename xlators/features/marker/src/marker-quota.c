@@ -34,7 +34,7 @@ void
 mq_assign_lk_owner (xlator_t *this, call_frame_t *frame)
 {
         marker_conf_t *conf     = NULL;
-        uint64_t        lk_owner = 0;
+        uint64_t       lk_owner = 0;
 
         conf = this->private;
 
@@ -125,7 +125,7 @@ int32_t
 release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno)
 {
-        struct gf_flock   lock;
+        struct gf_flock   lock  = {0, };
         quota_local_t    *local = NULL;
 
         local = frame->local;
@@ -158,13 +158,13 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *dict)
+                    int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-        int32_t        ret       = -1;
-        int64_t       *size      = NULL;
-        dict_t        *newdict   = NULL;
-        quota_local_t *local     = NULL;
-        marker_conf_t  *priv      = NULL;
+        int32_t        ret     = -1;
+        int64_t       *size    = NULL;
+        dict_t        *newdict = NULL;
+        quota_local_t *local   = NULL;
+        marker_conf_t *priv    = NULL;
 
         local = (quota_local_t *) frame->local;
 
@@ -282,10 +282,10 @@ err:
 int32_t
 get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
 {
-        int32_t          ret            = -1;
-        dict_t          *dict           = NULL;
-        quota_local_t   *local          = NULL;
-        marker_conf_t    *priv           = NULL;
+        int32_t        ret   = -1;
+        dict_t        *dict  = NULL;
+        quota_local_t *local = NULL;
+        marker_conf_t *priv  = NULL;
 
         local = (quota_local_t *) frame->local;
 
@@ -326,11 +326,11 @@ get_child_contribution (call_frame_t *frame,
                         dict_t *dict,
                         struct iatt *postparent)
 {
-        int32_t          ret            = -1;
-	int32_t		 val	 	= 0;
-        char             contri_key [512] = {0, };
-        int64_t         *contri         = NULL;
-        quota_local_t   *local          = NULL;
+        int32_t        ret                = -1;
+        int32_t        val                = 0;
+        char           contri_key [512]   = {0, };
+        int64_t       *contri             = NULL;
+        quota_local_t *local              = NULL;
 
         local = frame->local;
 
@@ -389,15 +389,15 @@ quota_readdir_cbk (call_frame_t *frame,
                    int32_t op_errno,
                    gf_dirent_t *entries)
 {
-        char             contri_key [512] = {0, };
-        loc_t            loc;
-        int32_t          ret            = 0;
-        off_t            offset         = 0;
-        int32_t          count          = 0;
-        dict_t          *dict           = NULL;
-        quota_local_t   *local          = NULL;
-        gf_dirent_t     *entry          = NULL;
-        call_frame_t    *newframe      = NULL;
+        char           contri_key [512]   = {0, };
+        int32_t        ret                = 0;
+        off_t          offset             = 0;
+        int32_t        count              = 0;
+        dict_t        *dict               = NULL;
+        quota_local_t *local              = NULL;
+        gf_dirent_t   *entry              = NULL;
+        call_frame_t  *newframe           = NULL;
+        loc_t          loc                = {0, };
 
         local = frame->local;
 
@@ -418,15 +418,15 @@ quota_readdir_cbk (call_frame_t *frame,
         local->dentry_child_count =  0;
 
         list_for_each_entry (entry, (&entries->list), list) {
-              gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
+                gf_log (this->name, GF_LOG_DEBUG, "entry  = %s", entry->d_name);
 
-              if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name,
-                                                              ".."))) {
-                      gf_log (this->name, GF_LOG_DEBUG, "entry  = %s",
-                              entry->d_name);
-                      continue;
-              }
-              count++;
+                if ((!strcmp (entry->d_name, ".")) || (!strcmp (entry->d_name,
+                                                                ".."))) {
+                        gf_log (this->name, GF_LOG_DEBUG, "entry  = %s",
+                                entry->d_name);
+                        continue;
+                }
+                count++;
         }
 
         local->frame = frame;
@@ -586,8 +586,8 @@ check_if_still_dirty (call_frame_t *frame,
         priv = this->private;
 
         if (!dict) {
-              ret = -1;
-              goto err;
+                ret = -1;
+                goto err;
         }
 
         ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
@@ -626,10 +626,10 @@ int32_t
 get_dirty_xattr (call_frame_t *frame, void *cookie,
                  xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-        int32_t         ret             = -1;
-        dict_t          *xattr_req      = NULL;
-        quota_local_t   *local          = NULL;
-        marker_conf_t   *priv           = NULL;
+        int32_t        ret       = -1;
+        dict_t        *xattr_req = NULL;
+        quota_local_t *local     = NULL;
+        marker_conf_t *priv      = NULL;
 
         if (op_ret == -1) {
                 dirty_inode_updation_done (frame, NULL, this, 0, 0);
@@ -716,7 +716,7 @@ update_dirty_inode (xlator_t *this,
         return 0;
 
 fr_destroy:
-         QUOTA_STACK_DESTROY (frame, this);
+        QUOTA_STACK_DESTROY (frame, this);
 out:
 
         return 0;
@@ -968,9 +968,9 @@ quota_release_parent_lock (call_frame_t *frame, void *cookie,
                            int32_t op_errno)
 {
         int32_t            ret      = 0;
-        struct gf_flock    lock;
         quota_local_t     *local    = NULL;
         quota_inode_ctx_t *ctx      = NULL;
+        struct gf_flock    lock     = {0, };
 
         local = frame->local;
 
@@ -1029,7 +1029,7 @@ quota_mark_undirty (call_frame_t *frame,
 
         priv = this->private;
 
-       //update the size of the parent inode
+        //update the size of the parent inode
         if (dict != NULL) {
                 ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
                 if (ret < 0)
@@ -1160,16 +1160,16 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
                                  struct iatt *buf, dict_t *dict,
                                  struct iatt *postparent)
 {
-        int32_t               ret             = -1;
-        int64_t              *size            = NULL;
-        int64_t              *contri          = NULL;
-        int64_t              *delta           = NULL;
+        int32_t               ret              = -1;
+        int64_t              *size             = NULL;
+        int64_t              *contri           = NULL;
+        int64_t              *delta            = NULL;
         char                  contri_key [512] = {0, };
-        dict_t               *newdict         = NULL;
-        quota_local_t        *local           = NULL;
-        quota_inode_ctx_t    *ctx             = NULL;
-        marker_conf_t        *priv            = NULL;
-        inode_contribution_t *contribution    = NULL;
+        dict_t               *newdict          = NULL;
+        quota_local_t        *local            = NULL;
+        quota_inode_ctx_t    *ctx              = NULL;
+        marker_conf_t        *priv             = NULL;
+        inode_contribution_t *contribution     = NULL;
 
         local = frame->local;
 
@@ -1264,12 +1264,12 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
                                    xlator_t *this, int32_t op_ret,
                                    int32_t op_errno)
 {
-        int32_t            ret        = -1;
+        int32_t            ret              = -1;
         char               contri_key [512] = {0, };
-        dict_t            *newdict    = NULL;
-        quota_local_t     *local      = NULL;
-        marker_conf_t     *priv       = NULL;
-        quota_inode_ctx_t *ctx        = NULL;
+        dict_t            *newdict          = NULL;
+        quota_local_t     *local            = NULL;
+        marker_conf_t     *priv             = NULL;
+        quota_inode_ctx_t *ctx              = NULL;
 
         local = frame->local;
 
@@ -1390,7 +1390,7 @@ err:
 int32_t
 get_lock_on_parent (call_frame_t *frame, xlator_t *this)
 {
-        struct gf_flock  lock;
+        struct gf_flock  lock  = {0, };
         quota_local_t   *local = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", frame, fr_destroy);
@@ -1467,8 +1467,8 @@ err:
 int
 initiate_quota_txn (xlator_t *this, loc_t *loc)
 {
-        int32_t            ret    = -1;
-        quota_inode_ctx_t *ctx    = NULL;
+        int32_t               ret          = -1;
+        quota_inode_ctx_t    *ctx          = NULL;
         inode_contribution_t *contribution = NULL;
 
         VALIDATE_OR_GOTO (loc, out);
@@ -1506,19 +1506,19 @@ validate_inode_size_contribution (xlator_t *this,
 
 int32_t
 inspect_directory_xattr (xlator_t *this,
-                        loc_t *loc,
-                        dict_t *dict,
-                        struct iatt buf)
+                         loc_t *loc,
+                         dict_t *dict,
+                         struct iatt buf)
 {
-        int32_t                  ret            = 0;
-        int8_t                   dirty          = -1;
-        int64_t                 *size           = NULL;
-        int64_t                 *contri         = NULL;
-        char                     contri_key [512] = {0, };
-        marker_conf_t           *priv           = NULL;
-        gf_boolean_t             not_root       = _gf_false;
-        quota_inode_ctx_t       *ctx            = NULL;
-        inode_contribution_t    *contribution   = NULL;
+        int32_t               ret                 = 0;
+        int8_t                dirty               = -1;
+        int64_t              *size                = NULL;
+        int64_t              *contri              = NULL;
+        char                  contri_key [512]    = {0, };
+        marker_conf_t        *priv                = NULL;
+        gf_boolean_t          not_root            = _gf_false;
+        quota_inode_ctx_t    *ctx                 = NULL;
+        inode_contribution_t *contribution        = NULL;
 
         priv = this->private;
 
@@ -1590,13 +1590,13 @@ inspect_file_xattr (xlator_t *this,
                     dict_t *dict,
                     struct iatt buf)
 {
-        int32_t               ret          = -1;
-        uint64_t              contri_int   = 0;
-        int64_t              *contri_ptr   = NULL;
+        int32_t               ret              = -1;
+        uint64_t              contri_int       = 0;
+        int64_t              *contri_ptr       = NULL;
         char                  contri_key [512] = {0, };
-        marker_conf_t        *priv         = NULL;
-        quota_inode_ctx_t    *ctx          = NULL;
-        inode_contribution_t *contribution = NULL;
+        marker_conf_t        *priv             = NULL;
+        quota_inode_ctx_t    *ctx              = NULL;
+        inode_contribution_t *contribution     = NULL;
 
         priv = this->private;
 
@@ -1621,7 +1621,8 @@ inspect_file_xattr (xlator_t *this,
         }
         UNLOCK (&ctx->lock);
 
-        list_for_each_entry (contribution, &ctx->contribution_head, contri_list) {
+        list_for_each_entry (contribution, &ctx->contribution_head,
+                             contri_list) {
                 GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
                 if (ret < 0)
                         continue;
@@ -1717,9 +1718,9 @@ int32_t
 quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno)
 {
-        int32_t          ret        = 0;
-        char             contri_key [512] = {0, };
-        quota_local_t   *local      = NULL;
+        int32_t        ret                = 0;
+        char           contri_key [512]   = {0, };
+        quota_local_t *local              = NULL;
 
         local = (quota_local_t *) frame->local;
 
@@ -1732,8 +1733,8 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
 
                 STACK_WIND (frame, quota_removexattr_cbk, FIRST_CHILD(this),
-                           FIRST_CHILD(this)->fops->removexattr,
-                           &local->loc, contri_key);
+                            FIRST_CHILD(this)->fops->removexattr,
+                            &local->loc, contri_key);
                 ret = 0;
         }
 
@@ -1752,10 +1753,10 @@ int32_t
 mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-        int32_t ret;
-        struct gf_flock lock;
-        quota_inode_ctx_t *ctx;
-        quota_local_t  *local = NULL;
+        int32_t            ret   = -1;
+        struct gf_flock    lock  = {0, };
+        quota_inode_ctx_t *ctx   = NULL;
+        quota_local_t     *local = NULL;
 
         local = frame->local;
         if (op_ret == -1)
