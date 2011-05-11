@@ -260,29 +260,49 @@ err:
         return NULL;
 }
 
+void *
+cli_getunamb (const char *tok, void **choices, cli_selector_t sel)
+{
+        void  **wcon = NULL;
+        char      *w = NULL;
+        unsigned  mn = 0;
+        void    *ret = NULL;
+
+        if (!choices || !*tok)
+                return NULL;
+
+        for (wcon = choices; *wcon; wcon++) {
+                w = strtail ((char *)sel (*wcon), tok);
+                if (!w)
+                        /* no match */
+                        continue;
+                if (!*w)
+                        /* exact match */
+                        return *wcon;
+
+                ret = *wcon;
+                mn++;
+        }
+
+#ifdef FORCE_MATCH_EXACT
+        return NULL;
+#else
+        return (mn == 1) ? ret : NULL;
+#endif
+}
+
+static const char *
+sel_cmd_word (void *wcon)
+{
+        return ((struct cli_cmd_word *)wcon)->word;
+}
 
 struct cli_cmd_word *
 cli_cmd_nextword (struct cli_cmd_word *word, const char *token)
 {
-        struct cli_cmd_word    *next = NULL;
-        struct cli_cmd_word   **trav = NULL;
-        int                     ret = 0;
-
-        if (!word->nextwords)
-                return NULL;
-
-        for (trav = word->nextwords; (next = *trav); trav++) {
-                if (next->match) {
-//                        ret = next->match ();
-                } else {
-                        ret = strcmp (next->word, token);
-                }
-
-                if (ret == 0)
-                        break;
-        }
-
-        return next;
+        return (struct cli_cmd_word *)cli_getunamb (token,
+                                                    (void **)word->nextwords,
+                                                    sel_cmd_word);
 }
 
 
