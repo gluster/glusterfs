@@ -818,6 +818,33 @@ out:
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
+
+static int32_t
+glusterd_append_gsync_status (dict_t *dst, dict_t *src)
+{
+        int                ret = 0;
+        char               *stop_msg = NULL;
+
+        ret = dict_get_str (src, "gsync-status", &stop_msg);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dst, "gsync-status", gf_strdup (stop_msg));
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_WARNING, "Unable to set the stop"
+                        "message in the ctx dictionary");
+                goto out;
+        }
+
+        ret = 0;
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
 static int32_t
 glusterd_append_status_dicts (dict_t *dst, dict_t *src)
 {
@@ -906,6 +933,10 @@ glusterd_gsync_use_rsp_dict (dict_t *rsp_dict, char *op_errstr)
 
         if (rsp_dict) {
                 ret = glusterd_append_status_dicts (ctx, rsp_dict);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_append_gsync_status (ctx, rsp_dict);
                 if (ret)
                         goto out;
         }

@@ -2653,7 +2653,6 @@ out:
         return ret;
 }
 
-
 int
 gf_cli3_1_gsync_config_command (dict_t *dict)
 {
@@ -2758,6 +2757,7 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         int                     ret     = 0;
         gf1_cli_gsync_set_rsp   rsp     = {0, };
         dict_t                  *dict   = NULL;
+        char                    *gsync_status = NULL;
         char                    *master = NULL;
         char                    *slave  = NULL;
 
@@ -2791,6 +2791,13 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = rsp.op_ret;
                 goto out;
         }
+
+        ret = dict_get_str (dict, "gsync-status", &gsync_status);
+        if (!ret)
+                cli_out (gsync_status);
+        else
+                ret = 0;
+
 
         switch (rsp.type) {
                 case GF_GSYNC_OPTION_TYPE_START:
