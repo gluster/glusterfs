@@ -44,7 +44,7 @@
 #include <unistd.h>
 
 int
-os_daemon(nochdir, noclose)
+os_daemon_return(nochdir, noclose)
 	int nochdir, noclose;
 {
 	struct sigaction osa, sa;
@@ -52,6 +52,7 @@ os_daemon(nochdir, noclose)
 	pid_t newgrp;
 	int oerrno;
 	int osa_ok;
+	int ret;
 
 	/* A SIGHUP may be thrown when the parent exits below. */
 	sigemptyset(&sa.sa_mask);
@@ -59,14 +60,9 @@ os_daemon(nochdir, noclose)
 	sa.sa_flags = 0;
 	osa_ok = sigaction(SIGHUP, &sa, &osa);
 
-	switch (fork()) {
-	case -1:
-		return (-1);
-	case 0:
-		break;
-	default:
-		_exit(0);
-	}
+	ret = fork();
+	if (ret)
+		return ret;
 
 	newgrp = setsid();
 	oerrno = errno;
@@ -89,4 +85,16 @@ os_daemon(nochdir, noclose)
 			(void)close(fd);
 	}
 	return (0);
+}
+
+int
+os_daemon(int nochdir, int noclose)
+{
+	int ret;
+
+	ret = os_daemon_return(nochdir, noclose);
+	if (ret <= 0)
+		return ret;
+
+	_exit(0);
 }

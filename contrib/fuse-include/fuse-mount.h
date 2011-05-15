@@ -8,4 +8,5 @@
 */
 
 void gf_fuse_unmount (const char *mountpoint, int fd);
-int gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param);
+int gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
+                   pid_t *mtab_pid);

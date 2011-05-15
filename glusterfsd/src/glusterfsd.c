@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <sys/file.h>
+#include <sys/wait.h>
 #include <netdb.h>
 #include <signal.h>
 #include <libgen.h>
@@ -75,11 +76,7 @@
 #include <fnmatch.h>
 #include "rpc-clnt.h"
 
-#ifdef GF_DARWIN_HOST_OS
 #include "daemon.h"
-#else
-#define os_daemon(u, v) daemon (u, v)
-#endif
 
 
 /* using argp for command line parsing */
@@ -313,6 +310,16 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 gf_log ("", GF_LOG_DEBUG, "fuse direct io type %d",
                         cmd_args->fuse_direct_io_mode);
                 break;
+        }
+
+        if (!cmd_args->no_daemon_mode) {
+                 ret = dict_set_static_ptr (master->options, "sync-mtab",
+                                            "enable");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key sync-mtab");
+                        goto err;
+                }
         }
 
         ret = xlator_init (master);
@@ -1310,6 +1317,7 @@ daemonize (glusterfs_ctx_t *ctx)
 {
         int            ret = -1;
         cmd_args_t    *cmd_args = NULL;
+        int            cstatus = 0;
 
         cmd_args = &ctx->cmd_args;
 
@@ -1323,11 +1331,24 @@ daemonize (glusterfs_ctx_t *ctx)
         if (cmd_args->debug_mode)
                 goto postfork;
 
-        ret = os_daemon (0, 0);
-        if (ret == -1) {
+        ret = os_daemon_return (0, 0);
+        switch (ret) {
+        case -1:
                 gf_log ("daemonize", GF_LOG_ERROR,
                         "Daemonization failed: %s", strerror(errno));
                 goto out;
+        case 0:
+                break;
+        default:
+                if (ctx->mtab_pid > 0) {
+                        ret = waitpid (ctx->mtab_pid, &cstatus, 0);
+                        if (!(ret == ctx->mtab_pid && cstatus == 0)) {
+                                gf_log ("daemonize", GF_LOG_ERROR,
+                                        "/etc/mtab update failed");
+                                exit (1);
+                        }
+                }
+                _exit (0);
         }
 
 postfork:

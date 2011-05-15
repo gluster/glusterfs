@@ -133,7 +133,8 @@ Return:
 }
 
 int
-gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
+gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
+               pid_t *mtab_pid /* not used on OS X */)
 {
     int fd, pid;
     int result;

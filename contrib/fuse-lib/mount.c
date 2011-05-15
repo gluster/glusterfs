@@ -97,7 +97,8 @@ static
 #endif
 int
 fuse_mnt_add_mount (const char *progname, const char *fsname,
-                    const char *mnt, const char *type, const char *opts)
+                    const char *mnt, const char *type, const char *opts,
+                    pid_t *mtab_pid)
 {
         int res;
         int status;
@@ -125,19 +126,22 @@ fuse_mnt_add_mount (const char *progname, const char *fsname,
                 char templ[] = "/tmp/fusermountXXXXXX";
                 char *tmp;
 
-                /* mtab update done async, just log if fails */
-                res = fork ();
-                if (res)
-                        exit (res == -1 ? 1 : 0);
-                res = fork ();
-                if (res) {
-                        if (res != -1)
-                                res = waitpid (res, &status, 0);
-                        if (res == -1)
-                                GFFUSE_LOGERR ("%s: /etc/mtab update failed",
-                                               progname);
-
-                        exit (0);
+                if (!mtab_pid) {
+                        /* mtab update done async, just log if fails */
+                        res = fork ();
+                        if (res)
+                                exit (res == -1 ? 1 : 0);
+                        res = fork ();
+                        if (res) {
+                                if (res != -1) {
+                                        if (!(res == waitpid (res, &status, 0)
+                                              && status == 0))
+                                                GFFUSE_LOGERR ("%s: /etc/mtab "
+                                                               "update failed",
+                                                               progname);
+                                }
+                                exit (0);
+                        }
                 }
 
                 sigprocmask (SIG_SETMASK, &oldmask, NULL);
@@ -165,12 +169,15 @@ fuse_mnt_add_mount (const char *progname, const char *fsname,
                                progname, strerror (errno));
                 exit (1);
         }
-        res = waitpid (res, &status, 0);
+        if (mtab_pid) {
+                *mtab_pid = res;
+                res = 0;
+        } else {
+                if (!(res == waitpid (res, &status, 0) && status == 0))
+                        res = -1;
+        }
         if (res == -1)
                 GFFUSE_LOGERR ("%s: waitpid: %s", progname, strerror (errno));
-
-        if (status != 0)
-                res = -1;
 
  out_restore:
         sigprocmask (SIG_SETMASK, &oldmask, NULL);
@@ -519,7 +526,7 @@ gf_fuse_unmount (const char *mountpoint, int fd)
 
 #ifndef FUSE_UTIL
 static int
-fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param)
+fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, pid_t *mtab_pid)
 {
         int fd = -1, ret = -1;
         unsigned mounted = 0;
@@ -573,7 +580,7 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param)
                 }
 
                 ret = fuse_mnt_add_mount ("fuse", source, newmnt, fstype,
-                                          mnt_param);
+                                          mnt_param, mtab_pid);
                 FREE (newmnt);
                 if (ret == -1) {
                         GFFUSE_LOGERR ("failed to add mtab entry");
@@ -625,13 +632,14 @@ escape (char *s)
 }
 
 int
-gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
+gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
+               pid_t *mtab_pid)
 {
         int fd = -1, rv = -1;
         char *fm_mnt_params = NULL, *p = NULL;
         char *efsname = NULL;
 
-        fd = fuse_mount_sys (mountpoint, fsname, mnt_param);
+        fd = fuse_mount_sys (mountpoint, fsname, mnt_param, mtab_pid);
         if (fd == -1) {
                 gf_log ("glusterfs-fuse", GF_LOG_INFO,
                         "direct mount failed (%s), "
