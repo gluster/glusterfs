@@ -3485,11 +3485,17 @@ init (xlator_t *this_xl)
         int                i = 0;
         int                xl_name_allocated = 0;
         int                fsname_allocated = 0;
+        glusterfs_ctx_t   *ctx = NULL;
+        gf_boolean_t       sync_mtab = _gf_false;
 
         if (this_xl == NULL)
                 return -1;
 
         if (this_xl->options == NULL)
+                return -1;
+
+        ctx = glusterfs_ctx_get ();
+        if (!ctx)
                 return -1;
 
         options = this_xl->options;
@@ -3604,6 +3610,14 @@ init (xlator_t *this_xl)
                 priv->fuse_dump_fd = ret;
         }
 
+        sync_mtab = _gf_false;
+        ret = dict_get_str (options, "sync-mtab", &value_string);
+        if (ret == 0) {
+                ret = gf_string2boolean (value_string,
+                                         &sync_mtab);
+                GF_ASSERT (ret == 0);
+        }
+
         cmd_args = &this_xl->ctx->cmd_args;
         fsname = cmd_args->volfile;
         if (!fsname && cmd_args->volfile_server) {
@@ -3630,7 +3644,8 @@ init (xlator_t *this_xl)
 
         priv->fd = gf_fuse_mount (priv->mount_point, fsname,
                                   "allow_other,default_permissions,"
-                                  "max_read=131072");
+                                  "max_read=131072",
+                                  sync_mtab ? &ctx->mtab_pid : NULL);
         if (priv->fd == -1)
                 goto cleanup_exit;
 
@@ -3726,6 +3741,9 @@ struct volume_options options[] = {
         },
         { .key  = {"client-pid"},
           .type = GF_OPTION_TYPE_INT
+        },
+        { .key  = {"sync-mtab"},
+          .type = GF_OPTION_TYPE_BOOL
         },
         { .key = {NULL} },
 };

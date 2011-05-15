@@ -17,4 +17,5 @@
    <http://www.gnu.org/licenses/>.
 */
 
+int os_daemon_return(int nochdir, int noclose);
 int os_daemon(int nochdir, int noclose);
