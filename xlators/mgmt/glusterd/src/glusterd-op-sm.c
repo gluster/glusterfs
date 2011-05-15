@@ -2232,7 +2232,7 @@ glusterd_check_gsync_running_local (char *master, char *slave,
         if (ret == 0 && ret_status == 0) {
                 *is_run = _gf_true;
         } else if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, GEOREP" start validation "
+                gf_log ("", GF_LOG_WARNING, GEOREP" validation "
                         " failed");
                 goto out;
         }
@@ -4127,7 +4127,7 @@ out:
 }
 
 int
-stop_gsync (char *master, char *slave, char **op_errstr)
+stop_gsync (char *master, char *slave, char **msg)
 {
         int32_t         ret     = 0;
         int             pfd     = -1;
@@ -4144,19 +4144,18 @@ stop_gsync (char *master, char *slave, char **op_errstr)
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
         if (pfd == -2) {
-                gf_log ("", GF_LOG_WARNING, GEOREP" stop validation "
-                        " failed");
-                if (op_errstr)
-                        *op_errstr = gf_strdup (GEOREP" stop internal error");
+                gf_log ("", GF_LOG_ERROR, GEOREP" stop validation "
+                        " failed for %s & %s", master, slave);
                 ret = -1;
                 goto out;
         }
         if (gsync_status_byfd (pfd) == -1) {
-                ret = -1;
-                gf_log ("", GF_LOG_WARNING, "gsyncd is not running");
-                if (op_errstr)
-                        *op_errstr = gf_strdup ("warning: "GEOREP" session is"
-                                                "not running");
+                gf_log ("", GF_LOG_ERROR, "gsyncd b/w %s & %s is not"
+                        " running", master, slave);
+                if (msg)
+                        *msg = gf_strdup ("Warning: "GEOREP" session was in "
+                                          "corrupt  state");
+                /* monitor gsyncd already dead */
                 goto out;
         }
 
@@ -4191,11 +4190,12 @@ out:
 }
 
 int
-glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave);
+glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
+                                      dict_t *resp_dict);
 
 int
 glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
-                          dict_t *dict, char **op_errstr)
+                          dict_t *dict, dict_t *resp_dict, char **op_errstr)
 {
         int32_t         ret     = -1;
         char            *op_name = NULL;
@@ -4207,6 +4207,8 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
 
         GF_ASSERT (slave);
         GF_ASSERT (op_errstr);
+        GF_ASSERT (dict);
+        GF_ASSERT (resp_dict);
 
         ret = dict_get_str (dict, "subop", &subop);
         if (ret != 0)
@@ -4265,7 +4267,8 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
 
 out:
         if (!ret && volinfo) {
-                ret = glusterd_check_restart_gsync_session (volinfo, slave);
+                ret = glusterd_check_restart_gsync_session (volinfo, slave,
+                                                            resp_dict);
                 if (ret)
                         *op_errstr = gf_strdup ("internal error");
         }
@@ -4374,13 +4377,14 @@ glusterd_read_status_file (char *master, char *slave,
 }
 
 int
-glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave)
+glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
+                                      dict_t *resp_dict)
 {
 
         int                    ret = 0;
         uuid_t                 uuid = {0, };
         glusterd_conf_t        *priv = NULL;
-        gf_boolean_t           is_running = _gf_false;
+        char                   *status_msg = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
@@ -4393,21 +4397,13 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave)
                 /* session does not exist, nothing to do */
                 goto out;
         if (uuid_compare (priv->uuid, uuid) == 0) {
-                ret = glusterd_check_gsync_running_local (volinfo->volname,
-                                                          slave, &is_running);
-                if (ret)
-                        goto out;
-
-                if (_gf_true == is_running) {
-                        ret = stop_gsync (volinfo->volname, slave, NULL);
-                        gf_log ("", GF_LOG_INFO, GEOREP " not running,"
-                                " retart the process");
-                }
-
-                ret = glusterd_start_gsync (volinfo, slave,
-                                            uuid_utoa(priv->uuid), NULL);
-                if (ret)
-                        goto out;
+                ret = stop_gsync (volinfo->volname, slave, &status_msg);
+                if (ret == 0 && status_msg)
+                        ret = dict_set_str (resp_dict, "gsync-status",
+                                            status_msg);
+                if (ret == 0)
+                        ret = glusterd_start_gsync (volinfo, slave,
+                                                    uuid_utoa(priv->uuid), NULL);
         }
 
  out:
@@ -4615,6 +4611,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char               *volname = NULL;
         glusterd_volinfo_t *volinfo = NULL;
         glusterd_conf_t    *priv = NULL;
+        char               *status_msg = NULL;
         uuid_t              uuid = {0, };
 
         GF_ASSERT (THIS);
@@ -4632,13 +4629,13 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret < 0)
                 goto out;
 
-        if (type == GF_GSYNC_OPTION_TYPE_STATUS) {
-                ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
-                resp_dict = ctx ? ctx : rsp_dict;
+        ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
+        resp_dict = ctx ? ctx : rsp_dict;
+        GF_ASSERT (resp_dict);
 
+        if (type == GF_GSYNC_OPTION_TYPE_STATUS) {
                 ret = glusterd_get_gsync_status (dict, op_errstr, resp_dict);
                 goto out;
-
         }
 
         ret = dict_get_str (dict, "slave", &slave);
@@ -4655,7 +4652,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
-                ret = glusterd_gsync_configure (volinfo, slave, dict,
+                ret = glusterd_gsync_configure (volinfo, slave, dict, resp_dict,
                                                 op_errstr);
                 goto out;
         }
@@ -4702,10 +4699,12 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = stop_gsync (volname, slave, op_errstr);
-                if (ret)
-                        goto out;
-
+                ret = stop_gsync (volname, slave, &status_msg);
+                if (ret == 0 && status_msg)
+                        ret = dict_set_str (resp_dict, "gsync-status",
+                                            status_msg);
+                if (ret != 0)
+                        *op_errstr = gf_strdup ("internal error");
         }
 
 out:
