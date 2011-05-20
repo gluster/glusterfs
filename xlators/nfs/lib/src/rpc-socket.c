@@ -37,6 +37,10 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#ifndef AI_ADDRCONFIG
+#define AI_ADDRCONFIG 0
+#endif /* AI_ADDRCONFIG */
+
 static int
 nfs_rpcsvc_socket_server_get_local_socket (int addrfam, char *listenhost,
                                            uint16_t listenport,

@@ -49,6 +49,10 @@
 #include "globals.h"
 #include "md5.h"
 
+#ifndef AI_ADDRCONFIG
+#define AI_ADDRCONFIG 0
+#endif /* AI_ADDRCONFIG */
+
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 
