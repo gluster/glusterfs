@@ -40,6 +40,10 @@
 #define MAX_IOVEC 16
 #endif
 
+#ifndef AI_ADDRCONFIG
+#define AI_ADDRCONFIG 0
+#endif /* AI_ADDRCONFIG */
+
 /* Given the 4-byte fragment header, returns non-zero if this fragment
  * is the last fragment for the RPC record being assemebled.
  * RPC Record marking standard defines a 32 bit value as the fragment
