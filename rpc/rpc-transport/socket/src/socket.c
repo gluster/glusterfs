@@ -398,7 +398,7 @@ __socket_keepalive (int fd, int keepalive_intvl, int keepalive_idle)
         if (keepalive_intvl == GF_USE_DEFAULT_KEEPALIVE)
                 goto done;
 
-#ifndef GF_LINUX_HOST_OS
+#if !defined(GF_LINUX_HOST_OS) && !defined(__NetBSD__)
 #ifdef GF_SOLARIS_HOST_OS
         ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive_intvl,
                           sizeof (keepalive_intvl));
