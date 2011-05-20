@@ -83,6 +83,7 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
 {
         int32_t  ret    = -1;
         char    *parent = NULL;
+	char	*path_copy = NULL;
 
         if ((loc == NULL) || (inode == NULL) || (path == NULL)
             || (inode->table == NULL)) {
@@ -95,13 +96,13 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
         loc->path = gf_strdup (path);
         loc->ino = inode->ino;
 
-        parent = gf_strdup (path);
-        if (parent == NULL) {
+        path_copy = gf_strdup (path);
+        if (path_copy == NULL) {
                 ret = -1;
                 goto out;
         }
 
-        parent = dirname (parent);
+        parent = dirname (path_copy);
 
         loc->parent = inode_from_path (inode->table, parent);
         if (loc->parent == NULL) {
@@ -117,8 +118,8 @@ out:
 
         }
 
-        if (parent) {
-                GF_FREE (parent);
+        if (path_copy) {
+                GF_FREE (path_copy);
         }
 
         return ret;
