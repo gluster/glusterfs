@@ -165,7 +165,7 @@ main ()
 
     # TODO: use getopt. This is very much darwin specific
     volfile_loc="$1";
-    while [ "$volfile_loc" == "-o" ] ; do
+    while [ "$volfile_loc" = "-o" ] ; do
 	shift ;
 	shift ;
 	volfile_loc="$1";
