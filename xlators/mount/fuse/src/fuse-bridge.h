@@ -58,7 +58,7 @@
 /* TODO: when supporting posix acl, remove this definition */
 #define DISABLE_POSIX_ACL
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
 #define FUSE_OP_HIGH (FUSE_POLL + 1)
 #endif
 #ifdef GF_DARWIN_HOST_OS
