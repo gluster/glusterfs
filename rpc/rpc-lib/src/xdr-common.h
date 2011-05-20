@@ -30,6 +30,11 @@
 #include <rpc/xdr.h>
 #include <sys/uio.h>
 
+#ifdef __NetBSD__
+#include <dirent.h>
+#endif /* __NetBSD__ */
+
+
 enum gf_dump_procnum {
         GF_DUMP_NULL,
         GF_DUMP_DUMP,
@@ -46,6 +51,13 @@ enum gf_dump_procnum {
 #define xdr_uint32_t xdr_u_int32_t
 #define uint64_t u_int64_t
 #endif
+
+#if defined(__NetBSD__)
+#define xdr_u_quad_t xdr_u_int64_t
+#define xdr_quad_t   xdr_int64_t
+#define xdr_uint32_t xdr_u_int32_t
+#endif
+
 
 #if GF_SOLARIS_HOST_OS
 #define u_quad_t uint64_t
