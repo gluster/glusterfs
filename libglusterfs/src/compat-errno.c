@@ -858,9 +858,11 @@ init_compat_errno_arrays ()
         gf_error_to_errno_array[GF_ERROR_CODE_NOATTR] = ENOATTR;
         gf_errno_to_error_array[ENOATTR] = GF_ERROR_CODE_NOATTR;
 
+#ifndef __NetBSD__ /* Undefined on NetBSD */
         /*    EDOOFUS           88              / * Programming error */
         gf_error_to_errno_array[GF_ERROR_CODE_DOOFUS] = EDOOFUS;
         gf_errno_to_error_array[EDOOFUS] = GF_ERROR_CODE_DOOFUS;
+#endif /*  __NetBSD__ */
 
         /*      EBADMSG         89              / * Bad message */
         gf_error_to_errno_array[GF_ERROR_CODE_BADMSG] = EBADMSG;
