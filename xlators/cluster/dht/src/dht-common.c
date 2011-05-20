@@ -477,6 +477,103 @@ out:
 
 
 int
+dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
+{
+        int           ret = 0;
+        dht_local_t  *local = NULL;
+        xlator_t     *hashed_subvol = NULL;
+        xlator_t     *cached_subvol = NULL;
+
+
+        local = frame->local;
+        hashed_subvol = local->hashed_subvol;
+        cached_subvol = local->cached_subvol;
+
+        if (local->file_count && local->dir_count) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "path %s exists as a file on one subvolume "
+                        "and directory on another. "
+                        "Please fix it manually",
+                        local->loc.path);
+                DHT_STACK_UNWIND (lookup, frame, -1, EIO, NULL, NULL, NULL,
+                                  NULL);
+                return 0;
+        }
+
+        if (local->dir_count) {
+                dht_lookup_directory (frame, this, &local->loc);
+                return 0;
+        }
+
+        if (!cached_subvol) {
+                DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL, NULL,
+                                  NULL);
+                return 0;
+        }
+
+        if (!hashed_subvol) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "cannot create linkfile file for %s on %s: "
+                        "hashed subvolume cannot be found.",
+                        local->loc.path, cached_subvol->name);
+
+                local->op_ret = 0;
+                local->op_errno = 0;
+
+                ret = dht_layout_preset (frame->this, cached_subvol,
+                                         local->inode);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "failed to set layout for subvol %s",
+                                cached_subvol ? cached_subvol->name :
+                                "<nil>");
+                        local->op_ret = -1;
+                        local->op_errno = EINVAL;
+                }
+
+                if (local->loc.parent)
+                        local->postparent.ia_ino =
+                                local->loc.parent->ino;
+
+                WIPE (&local->postparent);
+
+                DHT_STACK_UNWIND (lookup, frame, local->op_ret,
+                                  local->op_errno, local->inode,
+                                  &local->stbuf, local->xattr,
+                                  &local->postparent);
+                return 0;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "linking file %s existing on %s to %s (hash)",
+                local->loc.path, cached_subvol->name,
+                hashed_subvol->name);
+
+        ret = dht_linkfile_create (frame,
+                                   dht_lookup_linkfile_create_cbk,
+                                   cached_subvol, hashed_subvol, &local->loc);
+
+        return ret;
+}
+
+
+int
+dht_lookup_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno,
+                       struct iatt *preparent, struct iatt *postparent)
+{
+        int  this_call_cnt = 0;
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                dht_lookup_everywhere_done (frame, this);
+        }
+
+        return 0;
+}
+
+
+int
 dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
                            inode_t *inode, struct iatt *buf, dict_t *xattr,
@@ -491,8 +588,6 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t     *subvol        = NULL;
         loc_t        *loc           = NULL;
         xlator_t     *link_subvol   = NULL;
-        xlator_t     *hashed_subvol = NULL;
-        xlator_t     *cached_subvol = NULL;
         int           ret = -1;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
@@ -516,8 +611,9 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->op_errno = op_errno;
                         goto unlock;
                 }
+
                 if (uuid_is_null (local->gfid))
-                        memcpy (local->gfid, buf->ia_gfid, 16);
+                        uuid_copy (local->gfid, buf->ia_gfid);
 
                 if (uuid_compare (local->gfid, buf->ia_gfid)) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -537,6 +633,9 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 link_subvol ? link_subvol->name : "''");
                         goto unlock;
                 }
+
+                /* non linkfile GFID takes precedence */
+                uuid_copy (local->gfid, buf->ia_gfid);
 
                 if (is_dir) {
                         local->dir_count++;
@@ -577,77 +676,14 @@ unlock:
                 gf_log (this->name, GF_LOG_INFO,
                         "deleting stale linkfile %s on %s",
                         loc->path, subvol->name);
-                dht_linkfile_unlink (frame, this, subvol, loc);
+                STACK_WIND (frame, dht_lookup_unlink_cbk,
+                            subvol, subvol->fops->unlink, loc);
+                return 0;
         }
 
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
-                hashed_subvol = local->hashed_subvol;
-                cached_subvol = local->cached_subvol;
-
-                if (local->file_count && local->dir_count) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "path %s exists as a file on one subvolume "
-                                "and directory on another. "
-                                "Please fix it manually",
-                                loc->path);
-                        DHT_STACK_UNWIND (lookup, frame, -1, EIO, NULL, NULL, NULL,
-                                          NULL);
-                        return 0;
-                }
-
-                if (local->dir_count) {
-                        dht_lookup_directory (frame, this, &local->loc);
-                        return 0;
-                }
-
-                if (!cached_subvol) {
-                        DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL, NULL,
-                                          NULL);
-                        return 0;
-                }
-
-                if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "cannot create linkfile file for %s on %s: "
-                                "hashed subvolume cannot be found.",
-                                loc->path, cached_subvol->name);
-
-                        local->op_ret = 0;
-                        local->op_errno = 0;
-
-                        ret = dht_layout_preset (frame->this, cached_subvol,
-                                                 local->inode);
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "failed to set layout for subvol %s",
-                                        cached_subvol ? cached_subvol->name :
-                                        "<nil>");
-                                local->op_ret = -1;
-                                local->op_errno = EINVAL;
-                        }
-
-                        if (local->loc.parent)
-                                local->postparent.ia_ino =
-                                        local->loc.parent->ino;
-
-                        WIPE (&local->postparent);
-
-                        DHT_STACK_UNWIND (lookup, frame, local->op_ret,
-                                          local->op_errno, local->inode,
-                                          &local->stbuf, local->xattr,
-                                          &local->postparent);
-                        return 0;
-                }
-
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "linking file %s existing on %s to %s (hash)",
-                        loc->path, cached_subvol->name,
-                        hashed_subvol->name);
-
-                ret = dht_linkfile_create (frame,
-                                           dht_lookup_linkfile_create_cbk,
-                                           cached_subvol, hashed_subvol, loc);
+                dht_lookup_everywhere_done (frame, this);
         }
 
 out:
@@ -743,6 +779,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: gfid different on data file on %s",
                         local->loc.path, subvol->name);
+                goto err;
         }
 
         if ((stbuf->ia_nlink == 1)
