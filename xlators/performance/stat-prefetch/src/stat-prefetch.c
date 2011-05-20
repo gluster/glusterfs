@@ -950,16 +950,22 @@ sp_get_ancestors (char *path, char **parent, char **grand_parent)
                 switch (i)
                 {
                 case 0:
-                        *parent = path;
+                        *parent = gf_strdup (path);
+			if (*parent == NULL)
+				goto out;
                         break;
                 case 1:
-                        *grand_parent = path;
+                        *grand_parent = gf_strdup (path);
+			if (*grand_parent == NULL)
+				goto out;
                         break;
                 }
         }
 
         ret = 0;
 out:
+	if (cpy != NULL)
+		GF_FREE(cpy);
         return ret;
 }
 
