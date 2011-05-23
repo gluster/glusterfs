@@ -2128,7 +2128,7 @@ reconfigure ( xlator_t *this, dict_t *options)
 
                 if (thread_count < IOT_MIN_THREADS) {
                         gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted (%d) is less then "
+                                "Number of threads opted (%d) is less than "
                                 "min (%d). Restoring it to previous value (%d)",
                                 thread_count, IOT_MIN_THREADS, conf->max_count);
 			goto out;
@@ -2191,13 +2191,13 @@ init (xlator_t *this)
                                                         "thread-count"));
                 if (thread_count < IOT_MIN_THREADS) {
                         gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted is less then min"
+                                "Number of threads opted is less than min"
                                 "threads allowed scaling it up to min");
                         thread_count = IOT_MIN_THREADS;
                 }
                 if (thread_count > IOT_MAX_THREADS) {
                         gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted is more then max"
+                                "Number of threads opted is more than max"
                                 " threads allowed scaling it down to max");
                         thread_count = IOT_MAX_THREADS;
                 }
