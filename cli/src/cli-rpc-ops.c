@@ -457,7 +457,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 }
 
                 while ( i < count) {
-                        cli_out ("");
+                        cli_out (" ");
                         snprintf (key, 256, "volume%d.name", i);
                         ret = dict_get_str (dict, key, &volname);
                         if (ret)
@@ -500,7 +500,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
                         cli_out ("Volume Name: %s", volname);
                         cli_out ("Type: %s", cli_volume_type[vol_type]);
-                        cli_out ("Status: %s", cli_volume_status[status], brick_count);
+                        cli_out ("Status: %s", cli_volume_status[status]);
                         if ((sub_count > 1) && (brick_count > sub_count))
                                 cli_out ("Number of Bricks: %d x %d = %d",
                                          brick_count / sub_count, sub_count,
@@ -580,7 +580,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         cli_cmd_broadcast_response (ret);
         if (ret)
-                cli_out (err_str);
+                cli_out ("%s", err_str);
 
         if (dict)
                 dict_destroy (dict);
@@ -670,7 +670,7 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to delete volume");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out (rsp.op_errstr);
+                cli_out ("%s", rsp.op_errstr);
         else
                 cli_out ("Deleting volume %s has been %s", volname,
                          (rsp.op_ret) ? "unsuccessful": "successful");
@@ -767,7 +767,7 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to stop volume");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out (rsp.op_errstr);
+                cli_out ("%s", rsp.op_errstr);
         else
                 cli_out ("Stopping volume %s has been %s", volname,
                         (rsp.op_ret) ? "unsuccessful": "successful");
@@ -816,7 +816,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
             (cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX) ||
             (cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA)) {
                 if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                        cli_out (rsp.op_errstr);
+                        cli_out ("%s", rsp.op_errstr);
                 else
                         cli_out ("starting rebalance on volume %s has been %s",
                                  volname, (rsp.op_ret) ? "unsuccessful":
@@ -825,7 +825,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (cmd == GF_DEFRAG_CMD_STOP) {
                 if (rsp.op_ret == -1) {
                         if (strcmp (rsp.op_errstr, ""))
-                                cli_out (rsp.op_errstr);
+                                cli_out ("%s", rsp.op_errstr);
                         else
                                 cli_out ("rebalance volume %s stop failed",
                                          volname);
@@ -838,7 +838,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (cmd == GF_DEFRAG_CMD_STATUS) {
                 if (rsp.op_ret == -1) {
                         if (strcmp (rsp.op_errstr, ""))
-                                cli_out (rsp.op_errstr);
+                                cli_out ("%s", rsp.op_errstr);
                         else
                                 cli_out ("failed to get the status of "
                                          "rebalance process");
@@ -1207,7 +1207,7 @@ gf_cli3_1_log_filename_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to log filename");
 
         if (rsp.op_ret && strcmp (rsp.errstr, ""))
-                cli_out (rsp.errstr);
+                cli_out ("%s", rsp.errstr);
         else
                 cli_out ("log filename : %s",
                          (rsp.op_ret) ? "unsuccessful": "successful");
@@ -1266,7 +1266,7 @@ gf_cli3_1_log_rotate_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to log rotate");
 
         if (rsp.op_ret && strcmp (rsp.errstr, ""))
-                cli_out (rsp.errstr);
+                cli_out ("%s", rsp.errstr);
         else
                 cli_out ("log rotate %s", (rsp.op_ret) ? "unsuccessful":
                                                          "successful");
@@ -1298,7 +1298,7 @@ gf_cli3_1_sync_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to sync");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out (rsp.op_errstr);
+                cli_out ("%s", rsp.op_errstr);
         else
                 cli_out ("volume sync: %s",
                          (rsp.op_ret) ? "unsuccessful": "successful");
@@ -2297,7 +2297,7 @@ gf_cli3_1_log_level_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received response to log level cmd");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out (rsp.op_errstr);
+                cli_out ("%s", rsp.op_errstr);
         else
                 cli_out ("log level set: %s", (rsp.op_ret) ? "unsuccessful" :
                          "successful");
@@ -2564,7 +2564,7 @@ gf_cli3_1_fsm_log_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (rsp.op_ret) {
                 if (strcmp (rsp.op_errstr, "")) {
-                        cli_out (rsp.op_errstr);
+                        cli_out ("%s", rsp.op_errstr);
                 } else if (rsp.op_ret) {
                         cli_out ("fsm log unsuccessful");
                 }
@@ -3022,10 +3022,10 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 }
                 index += 22;
                 if (per_line == 3) {
-                        cli_out (output);
-                        cli_out (read_blocks);
-                        cli_out (write_blocks);
-                        cli_out ("");
+                        cli_out ("%s", output);
+                        cli_out ("%s", read_blocks);
+                        cli_out ("%s", write_blocks);
+                        cli_out (" ");
                         per_line = 0;
                         memset (output, 0, sizeof (output));
                         memset (read_blocks, 0, sizeof (read_blocks));
@@ -3040,9 +3040,9 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         }
 
         if (per_line != 0) {
-                cli_out (output);
-                cli_out (read_blocks);
-                cli_out (write_blocks);
+                cli_out ("%s", output);
+                cli_out ("%s", read_blocks);
+                cli_out ("%s", write_blocks);
         }
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
                 if (profile_info[i].fop_hits == 0)
@@ -3062,11 +3062,11 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                                  profile_info[i].fop_name);
                 }
         }
-        cli_out ("");
+        cli_out (" ");
         cli_out ("%12s : %"PRId64, "Duration", sec);
         cli_out ("%12s : %"PRId64, "BytesRead", r_count);
         cli_out ("%12s : %"PRId64, "BytesWritten", w_count);
-        cli_out ("");
+        cli_out (" ");
 }
 
 int32_t
@@ -3121,7 +3121,7 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
-                cli_out (rsp.op_errstr);
+                cli_out ("%s", rsp.op_errstr);
         } else {
                 switch (op) {
                 case GF_CLI_STATS_START:
@@ -3252,7 +3252,7 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
-                cli_out (rsp.op_errstr);
+                cli_out ("%s", rsp.op_errstr);
         } else {
                 cli_out ("volume top %s ",
                          (rsp.op_ret) ? "unsuccessful": "successful");
@@ -3448,7 +3448,7 @@ gf_cli3_1_getwd_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to getwd");
 
-        cli_out (rsp.wd);
+        cli_out ("%s", rsp.wd);
 
         ret = 0;
 
