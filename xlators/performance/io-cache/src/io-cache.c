@@ -1528,6 +1528,7 @@ out:
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
+        data_t          *data = NULL;
 	ioc_table_t     *table = NULL;
 	int32_t		 cache_timeout;
 	int64_t		 min_file_size = 0;
@@ -1544,10 +1545,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	ioc_table_lock (table);
 	{
-		if (dict_get (options, "cache-timeout")) {
-			cache_timeout =
-				data_to_uint32 (dict_get (options,
-						    	  "cache-timeout"));
+                data = dict_get (options, "cache-timeout");
+                if (data) {
+			cache_timeout = data_to_uint32 (data);
 			if (cache_timeout < 0){
 				gf_log (this->name, GF_LOG_WARNING,
 					"cache-timeout %d seconds invalid,"
@@ -1568,15 +1568,13 @@ reconfigure (xlator_t *this, dict_t *options)
 			gf_log (this->name, GF_LOG_DEBUG,
 				"Reconfiguring %d seconds to"
 				" revalidate cache", table->cache_timeout);
-		}
-                else
+		} else
                         table->cache_timeout = 1;
 
+		data = dict_get (options, "cache-size");
+                if (data)
+			cache_size_string = data_to_str (data);
 
-
-		if (dict_get (options, "cache-size"))
-			cache_size_string = data_to_str (dict_get (options,
-							   "cache-size"));
 		if (cache_size_string) {
 			if (gf_string2bytesize (cache_size_string,
 						&cache_size) != 0) {
@@ -1611,14 +1609,13 @@ reconfigure (xlator_t *this, dict_t *options)
 			gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
 				" cache-size %"PRIu64"", cache_size);
 			table->cache_size = cache_size;
-		}
-                else
+		} else
                         table->cache_size = IOC_CACHE_SIZE;
 
+		data = dict_get (options, "priority");
+                if (data) {
+			char *option_list = data_to_str (data);
 
-		if (dict_get (options, "priority")) {
-			char *option_list = data_to_str (dict_get (options,
-							   "priority"));
 			gf_log (this->name, GF_LOG_TRACE,
 				"option path %s", option_list);
 			/* parse the list of pattern:priority */
@@ -1632,44 +1629,47 @@ reconfigure (xlator_t *this, dict_t *options)
 			table->max_pri ++;
 		}
 
-
-
 		min_file_size = table->min_file_size;
-		tmp = data_to_str (dict_get (options, "min-file-size"));
-	        if (tmp != NULL) {
-			if (gf_string2bytesize (tmp,
-                	                        (uint64_t *)&min_file_size)
-						!= 0) {
-				gf_log ("io-cache", GF_LOG_ERROR,
-					"invalid number format \"%s\" of "
-					"\"option min-file-size\"", tmp);
-                        	ret = -1;
-				goto out;
-			}
+                data = dict_get (options, "min-file-size");
+                if (data) {
+                        tmp = data_to_str (data);
+                        if (tmp != NULL) {
+                                if (gf_string2bytesize (tmp,
+                                                        (uint64_t *)&min_file_size)
+                                    != 0) {
+                                        gf_log ("io-cache", GF_LOG_ERROR,
+                                                "invalid number format \"%s\" of "
+                                                "\"option min-file-size\"", tmp);
+                                        ret = -1;
+                                        goto out;
+                                }
 
-			gf_log (this->name, GF_LOG_DEBUG,
-				"Reconfiguring min-file-size %"PRIu64"",
-				table->min_file_size);
-		}
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Reconfiguring min-file-size %"PRIu64"",
+                                        table->min_file_size);
+                        }
+                }
 
 		max_file_size = table->max_file_size;
-        	tmp = data_to_str (dict_get (options, "max-file-size"));
-       		if (tmp != NULL) {
-                	if (gf_string2bytesize (tmp,
-                        	                (uint64_t *)&max_file_size)
-						!= 0) {
-				gf_log ("io-cache", GF_LOG_ERROR,
-                                	"invalid number format \"%s\" of "
-                                	"\"option max-file-size\"", tmp);
-                        	ret = -1;
-                		goto out;
-			}
+                data = dict_get (options, "max-file-size");
+                if (data) {
+                        tmp = data_to_str (data);
+                        if (tmp != NULL) {
+                                if (gf_string2bytesize (tmp,
+                                                        (uint64_t *)&max_file_size)
+                                    != 0) {
+                                        gf_log ("io-cache", GF_LOG_ERROR,
+                                                "invalid number format \"%s\" of "
+                                                "\"option max-file-size\"", tmp);
+                                        ret = -1;
+                                        goto out;
+                                }
 
-
-                	gf_log (this->name, GF_LOG_DEBUG,
-                        	"Reconfiguring max-file-size %"PRIu64"",
-			 	table->max_file_size);
-        	}
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Reconfiguring max-file-size %"PRIu64"",
+                                        table->max_file_size);
+                        }
+                }
 
         	if ((max_file_size >= 0) & (min_file_size > max_file_size)) {
                         gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
@@ -1682,11 +1682,14 @@ reconfigure (xlator_t *this, dict_t *options)
 
 		table->min_file_size = min_file_size;
 		table->max_file_size = max_file_size;
-                if (!data_to_str (dict_get (options, "min-file-size")))
-                    table->min_file_size = 0;
-                if (data_to_str (dict_get (options, "max-file-size")))
-                    table->max_file_size = 0;
-	}
+                data = dict_get (options, "min-file-size");
+                if (data && !data_to_str (data))
+                        table->min_file_size = 0;
+
+                data = dict_get (options, "max-file-size");
+                if (data && !data_to_str (data))
+                        table->max_file_size = 0;
+        }
 
 	ioc_table_unlock (table);
 out:
