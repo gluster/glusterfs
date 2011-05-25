@@ -166,7 +166,15 @@ int cli_rl_enable (struct cli_state *state);
 int cli_rl_out (struct cli_state *state, const char *fmt, va_list ap);
 
 int cli_usage_out (const char *usage);
-int cli_out (const char *fmt, ...);
+
+int _cli_out (const char *fmt, ...);
+
+#define cli_out(fmt...) do {                       \
+                FMT_WARN (fmt);                    \
+                                                   \
+                _cli_out(fmt);                     \
+                                                   \
+        } while (0)
 
 int
 cli_submit_request (void *req, call_frame_t *frame,
