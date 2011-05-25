@@ -468,7 +468,7 @@ cli_usage_out (const char *usage)
 }
 
 int
-cli_out (const char *fmt, ...)
+_cli_out (const char *fmt, ...)
 {
         struct cli_state *state = NULL;
         va_list           ap;
