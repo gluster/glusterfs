@@ -395,7 +395,7 @@ out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Volume stop failed", req.volname);
+                        cli_out ("Volume stop on '%s' failed", req.volname);
         }
 
         return ret;
@@ -451,7 +451,7 @@ out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Volume rename failed", (char *)words[2]);
+                        cli_out ("Volume rename on '%s' failed", (char *)words[2]);
         }
 
         return ret;
