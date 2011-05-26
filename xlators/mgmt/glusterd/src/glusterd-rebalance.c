@@ -36,6 +36,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
+#include "run.h"
 
 #include "syscall.h"
 #include "cli1.h"
@@ -264,7 +265,6 @@ glusterd_defrag_start (void *data)
 {
         glusterd_volinfo_t     *volinfo = data;
         glusterd_defrag_info_t *defrag  = NULL;
-        char                    cmd_str[1024] = {0,};
         int                     ret     = -1;
         struct stat             stbuf   = {0,};
         char                    value[128] = {0,};
@@ -339,8 +339,7 @@ out:
                 gf_log ("rebalance", GF_LOG_INFO, "rebalance on %s complete",
                         defrag->mount);
 
-                snprintf (cmd_str, 1024, "umount -l %s", defrag->mount);
-                ret = system (cmd_str);
+                ret = runcmd ("umount", "-l", defrag->mount, NULL);
                 LOCK_DESTROY (&defrag->lock);
                 GF_FREE (defrag);
         }
@@ -527,7 +526,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 {
         int                    ret = -1;
         glusterd_defrag_info_t *defrag =  NULL;
-        char                   cmd_str[4096] = {0,};
+        runner_t               runner = {0,};
         glusterd_conf_t        *priv = NULL;
 
         priv    = THIS->private;
@@ -552,35 +551,41 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         snprintf (defrag->mount, 1024, "%s/mount/%s",
                   priv->workdir, volinfo->volname);
         /* Create a directory, mount glusterfs over it, start glusterfs-defrag */
-        snprintf (cmd_str, sizeof (cmd_str), "mkdir -p %s", defrag->mount);
-        ret = system (cmd_str);
-
+        runinit (&runner);
+        runner_add_args (&runner, "mkdir", "-p", defrag->mount, NULL);
+        ret = runner_run_reuse (&runner);
         if (ret) {
-                gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
+                runner_end (&runner);
                 goto out;
         }
+        runner_end (&runner);
 
-        snprintf (cmd_str, sizeof (cmd_str),
-                  "%s/sbin/glusterfs -s localhost --volfile-id %s "
-                  "--xlator-option *dht.use-readdirp=yes "
-                  "--xlator-option *dht.lookup-unhashed=yes %s",
-                  GFS_PREFIX, volinfo->volname,
-                  defrag->mount);
-        ret = gf_system (cmd_str);
+        runinit (&runner);
+        runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfs",
+                         "-s", "localhost", "--volfile-id", volinfo->volname,
+                         "--xlator-option", "*dht.use-readdirp=yes",
+                         "--xlator-option", "*dht.lookup-unhashed=yes",
+                         volinfo->volname, defrag->mount, NULL);
+        ret = runner_run_reuse (&runner);
         if (ret) {
-                gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
+                runner_end (&runner);
                 goto out;
         }
+        runner_end (&runner);
 
         volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED;
 
         ret = pthread_create (&defrag->th, NULL, glusterd_defrag_start,
                               volinfo);
         if (ret) {
-                snprintf (cmd_str, sizeof (cmd_str), "umount -l %s", defrag->mount);
-                if (system (cmd_str))
-                        gf_log("glusterd", GF_LOG_DEBUG, "command: %s "
-                               "failed", cmd_str);
+                runinit (&runner);
+                runner_add_args (&runner, "umount", "-l", defrag->mount, NULL);
+                ret = runner_run_reuse (&runner);
+                if (ret)
+                        runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
+                runner_end (&runner);
         }
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);

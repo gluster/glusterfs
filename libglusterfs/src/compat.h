@@ -378,4 +378,9 @@ dirent_size (struct dirent *entry)
 #define IXDR_PUT_U_LONG(buf, v)       IXDR_PUT_LONG(buf, (long)(v))
 #endif
 
+#if defined(__GNUC__) && !defined(RELAX_POISONING)
+/* Use run API, see run.h */
+#pragma GCC poison system popen
+#endif
+
 #endif /* __COMPAT_H__ */

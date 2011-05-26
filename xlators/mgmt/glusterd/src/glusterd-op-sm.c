@@ -49,6 +49,7 @@
 #include "syscall.h"
 #include "cli1.h"
 #include "common-utils.h"
+#include "run.h"
 
 #include <sys/types.h>
 #include <signal.h>
@@ -102,11 +103,6 @@ static char *gsync_reserved_opts[] = {
         "session-owner",
         NULL
 };
-
-typedef struct glusterd_quota_child_info {
-        pid_t pid;
-        char  mountdir [15];
-} glusterd_quota_child_info_t;
 
 static int
 glusterd_restart_brick_servers (glusterd_volinfo_t *);
@@ -1833,25 +1829,25 @@ out:
 
 
 int
-glusterd_query_extutil (char *resbuf, char *cmd)
+glusterd_query_extutil (char *resbuf, runner_t *runner)
 {
-        FILE               *in  = NULL;
         char               *ptr = NULL;
         int                 ret = 0;
 
-        if (!(in = popen(cmd, "r"))) {
-                gf_log ("", GF_LOG_ERROR, "popen failed");
+        runner_redir (runner, STDOUT_FILENO, RUN_PIPE);
+        if (runner_start (runner) != 0) {
+                gf_log ("", GF_LOG_ERROR, "spawning child failed");
+
                 return -1;
         }
 
-        ptr = fgets(resbuf, PATH_MAX, in);
+        ptr = fgets(resbuf, PATH_MAX, runner_chio (runner, STDOUT_FILENO));
         if (ptr)
                 resbuf[strlen(resbuf)-1] = '\0'; //strip off \n
 
-        ret |= pclose (in);
-
+        ret = runner_end (runner);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "popen failed");
+                gf_log ("", GF_LOG_ERROR, "reading data from child failed");
 
         return ret ? -1 : 0;
 }
@@ -1859,7 +1855,7 @@ glusterd_query_extutil (char *resbuf, char *cmd)
 static int
 glusterd_get_canon_url (char *cann, char *name, gf_boolean_t cann_esc)
 {
-        char                cmd[PATH_MAX] = {0, };
+        runner_t            runner = {0,};
         glusterd_conf_t    *priv  = NULL;
 
         GF_ASSERT (THIS);
@@ -1867,29 +1863,29 @@ glusterd_get_canon_url (char *cann, char *name, gf_boolean_t cann_esc)
 
         priv = THIS->private;
 
-        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-%surl %s",
-                  cann_esc? "escape-": "",name);
+        runinit (&runner);
+        runner_add_arg (&runner, GSYNCD_PREFIX"/gsyncd");
+        runner_argprintf (&runner, "--canonicalize-%surl",
+                          cann_esc ? "escape-" : "");
+        runner_add_arg(&runner, name);
 
-        return glusterd_query_extutil (cann, cmd);
+        return glusterd_query_extutil (cann, &runner);
 }
 
 int
 glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
                                char *slave, char *gl_workdir)
 {
-        char                cmd[PATH_MAX] = {0, };
-        glusterd_conf_t    *priv  = NULL;
+        runner_t            runner = {0,};
 
-        GF_ASSERT (THIS);
-        GF_ASSERT (THIS->private);
+        runinit (&runner);
+        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (&runner, "%s/"GSYNC_CONF, gl_workdir);
+        runner_argprintf (&runner, ":%s", master);
+        runner_add_args  (&runner, slave, "--config-get", NULL);
+        runner_argprintf (&runner, "%s-file", param);
 
-        priv = THIS->private;
-
-        snprintf (cmd, PATH_MAX,
-                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" :%s %s --config-get %s-file",
-                  gl_workdir, master, slave, param);
-
-        return glusterd_query_extutil (prmfile, cmd);
+        return glusterd_query_extutil (prmfile, &runner);
 }
 
 static int
@@ -1980,7 +1976,6 @@ out:
 int
 gsync_verify_config_options (dict_t *dict, char **op_errstr)
 {
-        char    cmd[PATH_MAX] = {0,};
         char  **resopt    = NULL;
         int     i         = 0;
         char   *subop     = NULL;
@@ -2010,8 +2005,7 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr)
                 return -1;
         }
 
-        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --config-check %s", op_name);
-        if (system (cmd)) {
+        if (runcmd (GSYNCD_PREFIX"/gsyncd", "--config-check", op_name, NULL)) {
                 gf_log ("", GF_LOG_WARNING, "Invalid option %s", op_name);
                 *op_errstr = gf_strdup ("Invalid option");
 
@@ -2990,7 +2984,7 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
                     glusterd_brickinfo_t *brickinfo)
 {
         glusterd_conf_t    *priv           = NULL;
-        char                cmd_str[8192]  = {0,};
+        runner_t            runner         = {0,};
         int                 ret            = -1;
         int32_t             port           = 0;
 
@@ -3001,16 +2995,16 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
 
         GF_ASSERT (port);
 
-        snprintf (cmd_str, 8192,
-                  "%s/sbin/glusterfs -f %s/vols/%s/%s -p %s/vols/%s/%s "
-                  "--xlator-option src-server.listen-port=%d",
-                  GFS_PREFIX, priv->workdir, volinfo->volname,
-                  RB_DSTBRICKVOL_FILENAME,
-                  priv->workdir, volinfo->volname,
-                  RB_DSTBRICK_PIDFILE,
-                  port);
+        runinit (&runner);
+        runner_add_arg (&runner, GFS_PREFIX"/sbin/glusterfs");
+        runner_argprintf (&runner, "-f" "%s/vols/%s/"RB_DSTBRICKVOL_FILENAME,
+                          priv->workdir, volinfo->volname);
+        runner_argprintf (&runner, "-p" "%s/vols/%s/"RB_DSTBRICK_PIDFILE,
+                          priv->workdir, volinfo->volname);
+        runner_add_arg (&runner, "--xlator-option");
+        runner_argprintf (&runner, "src-server.listen-port=%d", port);
 
-        ret = gf_system (cmd_str);
+        ret = runner_run (&runner);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not start glusterfs");
@@ -3033,19 +3027,20 @@ rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
 {
         glusterd_conf_t    *priv           = NULL;
         char                cmd_str[8192]  = {0,};
+        runner_t            runner         = {0,};
         struct stat         buf;
         int                 ret            = -1;
 
         priv = THIS->private;
 
-        snprintf (cmd_str, 4096,
-                  "%s/sbin/glusterfs -f %s/vols/%s/%s %s/vols/%s/%s",
-                  GFS_PREFIX, priv->workdir, volinfo->volname,
-                  RB_CLIENTVOL_FILENAME,
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
+        runinit (&runner);
+        runner_add_arg (&runner, GFS_PREFIX"/sbin/glusterfs");
+        runner_argprintf (&runner, "-f" "%s/vols/%s/"RB_CLIENTVOL_FILENAME,
+                          priv->workdir, volinfo->volname);
+        runner_argprintf (&runner, "%s/vols/%s/"RB_CLIENT_MOUNTPOINT,
+                          priv->workdir, volinfo->volname);
 
-        ret = gf_system (cmd_str);
+        ret = runner_run (&runner);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not start glusterfs");
@@ -3239,7 +3234,7 @@ rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
                                 glusterd_brickinfo_t *src_brickinfo)
 {
         glusterd_conf_t  *priv                        = NULL;
-        char              cmd_str[8192]               = {0,};
+        runner_t          runner                      = {0,};
         char              filename[PATH_MAX]          = {0,};
         struct stat       buf;
         char              mount_point_path[PATH_MAX]  = {0,};
@@ -3259,11 +3254,12 @@ rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        snprintf (cmd_str, 8192, "/bin/umount -f %s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
+        runinit (&runner);
+        runner_add_args (&runner, "/bin/umount", "-f", NULL);
+        runner_argprintf (&runner, "%s/vols/%s/"RB_CLIENT_MOUNTPOINT,
+                          priv->workdir, volinfo->volname);
 
-        ret = gf_system (cmd_str);
+        ret = runner_run (&runner);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "umount failed on maintenance client");
@@ -4204,12 +4200,9 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         int32_t         ret     = -1;
         char            *op_name = NULL;
         char            *op_value = NULL;
-        char            cmd[1024] = {0,};
+        runner_t        runner    = {0,};
         glusterd_conf_t *priv   = NULL;
         char            *subop  = NULL;
-        char            *q1 = NULL;
-        char            *q2 = NULL;
-        char            *cm = NULL;
         char            *master = NULL;
 
         GF_ASSERT (slave);
@@ -4233,12 +4226,6 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                 ret = dict_get_str (dict, "op_value", &op_value);
                 if (ret != 0)
                         goto out;
-                q1 = " \"";
-                q2 = "\"";
-        } else {
-                q1 = "";
-                op_value = "";
-                q2 = "";
         }
 
         if (THIS)
@@ -4249,19 +4236,20 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                 goto out;
         }
 
+        master = "";
+        runinit (&runner);
+        runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (&runner, "%s/"GSYNC_CONF, priv->workdir);
         if (volinfo) {
-                cm = ":";
                 master = volinfo->volname;
-        } else {
-                cm = "";
-                master = "";
+                runner_argprintf (&runner, ":%s", master);
         }
-
-        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" %s%s %s"
-                        " --config-%s %s" "%s%s%s", priv->workdir,
-                        cm, master, slave, subop, op_name,
-                        q1, op_value, q2);
-        ret = system (cmd);
+        runner_add_arg (&runner, slave);
+        runner_argprintf (&runner, "--config-%s", subop);
+        runner_add_arg (&runner, op_name);
+        if (op_value)
+                runner_add_arg (&runner, op_value);
+        ret = runner_run (&runner);
         if (ret) {
                 gf_log ("", GF_LOG_WARNING, "gsyncd failed to "
                         "%s %s option for %s %s peers",
@@ -4838,47 +4826,14 @@ out:
         return ret;
 }
 
-
-static void *
-glusterd_quota_child_waitpid (void *arg)
-{
-        char cmd [PATH_MAX] = {0,};
-        glusterd_quota_child_info_t *child_info = NULL;
-
-        GF_VALIDATE_OR_GOTO ("glusterd", arg, out);
-
-        child_info = (glusterd_quota_child_info_t *)arg;
-
-#ifdef GF_LINUX_HOST_OS
-        snprintf (cmd, sizeof (cmd), "umount -l %s",
-                  child_info->mountdir);
-        system (cmd);
-
-        waitpid (child_info->pid, NULL, 0);
-#else
-        waitpid (child_info->pid, NULL, 0);
-        snprintf (cmd, sizeof (cmd), "umount %s",
-                  child_info->mountdir);
-        system (cmd);
-#endif
-        rmdir (child_info->mountdir);
-
-        GF_FREE (child_info);
-
-out:
-        return NULL;
-}
-
 int32_t
 glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
 {
         int32_t   ret = 0;
-        pthread_t th;
         pid_t     pid;
-        int32_t   idx = 0;
         char      mountdir [] = "/tmp/mntXXXXXX";
-        char      cmd_str [PATH_MAX + 1024]  = {0, };
-        glusterd_quota_child_info_t *child_info = NULL;
+        runner_t  runner = {0,};
+        int       status = 0;
 
         if (mkdtemp (mountdir) == NULL) {
                 gf_log ("glusterd", GF_LOG_DEBUG,
@@ -4887,19 +4842,21 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                 goto out;
         }
 
-        snprintf (cmd_str, sizeof (cmd_str), "%s/sbin/glusterfs -s localhost "
-                  "--volfile-id %s %s", GFS_PREFIX, volname, mountdir);
-
-        ret = gf_system (cmd_str);
+        runinit (&runner);
+        runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfs", "-s",
+                         "localhost", "--volfile-id", volname, mountdir, NULL);
+        ret = runner_run_reuse (&runner);
         if (ret == -1) {
-                gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
+                runner_end (&runner);
                 goto out;
         }
+        runner_end (&runner);
 
         if ((pid = fork ()) < 0) {
                 gf_log ("glusterd", GF_LOG_WARNING, "fork from parent failed");
                 ret = -1;
-                goto err;
+                goto out;
         } else if (pid == 0) {//first child
                 ret = chdir (mountdir);
                 if (ret == -1) {
@@ -4908,36 +4865,30 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                         exit (EXIT_FAILURE);
                 }
 
-                /* close all fd's */
-                for (idx = 3; idx < 65536; idx++) {
-                        close (idx);
-                }
+#ifndef GF_LINUX_HOST_OS
+                /* fork one more to not hold back main process on
+                 * blocking call below
+                 */
+                pid = fork ();
+                if (pid)
+                        _exit (pid > 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+#endif
 
-                execl ("/usr/bin/find", "find", ".", (char *) 0);
-                _exit (0);
-        } else {
-                ret = -1;
-
-                child_info = GF_MALLOC (sizeof (glusterd_quota_child_info_t),
-                                        gf_common_mt_char);
-                if (child_info == NULL)
-                        goto err;
-
-                strcpy (child_info->mountdir, mountdir);
-
-                child_info->pid = pid;
-                pthread_create (&th, NULL, glusterd_quota_child_waitpid, child_info);
-
-                ret = 0;
-
-                goto out;
+                runinit (&runner);
+                runner_add_args (&runner, "/usr/bin/find", "find", ".", NULL);
+                if (runner_start (&runner) == -1)
+                        _exit (EXIT_FAILURE);
+#ifndef GF_LINUX_HOST_OS
+                runner_end (&runner); /* blocks in waitpid */
+                runcmd ("umount", mountdir, NULL);
+#else
+                runcmd ("umount", "-l", mountdir, NULL);
+#endif
+                rmdir (mountdir);
+                _exit (EXIT_SUCCESS);
         }
-err:
-        if (ret < 0) {
-                umount (mountdir);
-                if (child_info)
-                        GF_FREE (child_info);
-        }
+        ret = (waitpid (pid, &status, 0) == pid &&
+               WIFEXITED (status) && WEXITSTATUS (status) == EXIT_SUCCESS) ? 0 : -1;
 
 out:
         return ret;

@@ -45,6 +45,7 @@
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "common-utils.h"
+#include "run.h"
 
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
@@ -245,27 +246,19 @@ extern int mkdir_if_missing (char *path);
 static int
 glusterd_check_gsync_present ()
 {
-        FILE               *in = NULL;
         char                buff[PATH_MAX] = {0, };
-        char                cmd[PATH_MAX + 256] = {0, };
+        runner_t            runner = {0,};
         char               *ptr = NULL;
         int                 ret = 0;
 
-        if (strlen (GSYNCD_PREFIX)+1 > PATH_MAX-strlen("/gsyncd")) {
-                ret = -1;
+        runinit (&runner);
+        runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "--version", NULL);
+        runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
+        ret = runner_start (&runner);
+        if (ret == -1)
                 goto out;
-        }
 
-        snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX"/gsyncd --version");
-
-        if (!(in = popen(cmd, "r"))) {
-                gf_log ("", GF_LOG_INFO, "geo-replication module not installed"
-                        " in the system");
-                ret = -1;
-                goto out;
-        }
-
-        ptr = fgets(buff, sizeof(buff), in);
+        ptr = fgets(buff, sizeof(buff), runner_chio (&runner, STDOUT_FILENO));
         if (ptr) {
                 if (!strstr (buff, "gsyncd")) {
                         ret = -1;
@@ -277,11 +270,12 @@ glusterd_check_gsync_present ()
         }
         ret = 0;
  out:
-        if ((in)&& (-1 == pclose (in))) {
-                        ret = -1;
+
+        if (ret == 0)
+                ret = runner_end (&runner);
+        if (ret == -1)
                         gf_log ("", GF_LOG_INFO, "geo-replication module not"
                                 " installed in the system");
-                }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -348,14 +342,22 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
 }
 #endif
 
+static void
+runinit_gsyncd_setrx (runner_t *runner, glusterd_conf_t *conf)
+{
+        runinit (runner);
+        runner_add_args (runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (runner, "%s/"GSYNC_CONF,conf->workdir);
+        runner_add_arg (runner, "--config-set-rx");
+}
+
 static int
 configure_syncdaemon (glusterd_conf_t *conf)
 {
         int ret = 0;
 #if SYNCDAEMON_COMPILE
+        runner_t runner = {0,};
         char georepdir[PATH_MAX] = {0,};
-        char cmd[2*PATH_MAX + 1024] = {0,};
-        int blen = 0;
 
         ret = setenv ("_GLUSTERD_CALLED_", "1", 1);
         if (ret < 0) {
@@ -369,80 +371,88 @@ configure_syncdaemon (glusterd_conf_t *conf)
                 goto out;
         }
 
-
         glusterd_crt_georep_folders (georepdir, conf);
         if (ret) {
                 ret = 0;
                 goto out;
         }
 
-        blen = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX"/gsyncd -c %s/"
-                         GSYNC_CONF " --config-set-rx ", conf->workdir);
-
-        /* Calling out to gsyncd to configure it:
-         * - use system(3) for options with multi-word values as system
-         *   groks quotes;
-         * - use gf_system() for options with template expanders so
-         *   that they are not messed up by shell
-         */
-
         /************
          * master pre-configuration
          ************/
 
         /* remote-gsyncd */
-        strcpy (cmd + blen, "remote-gsyncd " GSYNCD_PREFIX"/gsyncd . .");
-        ret = system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "remote-gsyncd", GSYNCD_PREFIX"/gsyncd", ".", ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
-        strcpy (cmd + blen,
-                "remote-gsyncd /usr/local/libexec/glusterfs/gsyncd . ^ssh:");
-        ret = system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "remote-gsyncd",
+                         "/usr/local/libexec/glusterfs/gsyncd", ".", "^ssh:", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* gluster-command */
         /* XXX $sbindir should be used (throughout the codebase) */
-        strcpy (cmd + blen,
-                "gluster-command '"GFS_PREFIX"/sbin/glusterfs "
-                "--xlator-option *-dht.assert-no-child-down=true' . .");
-        ret = system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "gluster-command",
+                         GFS_PREFIX"/sbin/glusterfs "
+                          "--xlator-option *-dht.assert-no-child-down=true",
+                         "." ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* ssh-command */
-        sprintf (cmd + blen,
-                 "ssh-command "
-                 "'ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
-                 "-i %s/secret.pem' . .", georepdir);
-        ret = system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "ssh-command");
+        runner_argprintf (&runner,
+                          "ssh -oPasswordAuthentication=no "
+                           "-oStrictHostKeyChecking=no "
+                           "-i %s/secret.pem", georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* pid-file */
-        sprintf (cmd + blen, "pid-file %s/${mastervol}/${eSlave}.pid . .", georepdir);
-        ret = gf_system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "pid-file");
+        runner_argprintf (&runner, "%s/${mastervol}/${eSlave}.pid", georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* state-file */
-        sprintf (cmd + blen, "state-file %s/${mastervol}/${eSlave}.status . .", georepdir);
-        ret = gf_system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "state-file");
+        runner_argprintf (&runner, "%s/${mastervol}/${eSlave}.status", georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* log-file */
-        strcpy (cmd + blen,
-                "log-file "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.log . .");
-        ret = gf_system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner,
+                         "log-file",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.log",
+                         ".", ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* gluster-log-file */
-        strcpy (cmd + blen, "gluster-log-file "
-                DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.gluster.log . .");
-        ret = gf_system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner,
+                         "gluster-log-file",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.gluster.log",
+                         ".", ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
@@ -451,24 +461,32 @@ configure_syncdaemon (glusterd_conf_t *conf)
          ************/
 
         /* gluster-command */
-        strcpy (cmd + blen,
-                "gluster-command '"GFS_PREFIX"/sbin/glusterfs "
-                "--xlator-option *-dht.assert-no-child-down=true' .");
-        ret = system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "gluster-command",
+                         GFS_PREFIX"/sbin/glusterfs "
+                          "--xlator-option *-dht.assert-no-child-down=true",
+                         ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* log-file */
-        strcpy (cmd + blen,
-                "log-file "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.log .");
-        ret = gf_system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner,
+                         "log-file",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.log",
+                         ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
         /* gluster-log-file */
-        strcpy (cmd + blen, "gluster-log-file "
-                DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.gluster.log .");
-        ret = gf_system (cmd);
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner,
+                         "gluster-log-file",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.gluster.log",
+                         ".", NULL);
+        ret = runner_run (&runner);
         if (ret)
                 goto out;
 
@@ -701,6 +719,7 @@ out:
                         GF_FREE (this->private);
                         this->private = NULL;
                 }
+
         }
 
         return ret;

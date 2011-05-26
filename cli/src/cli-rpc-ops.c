@@ -43,6 +43,8 @@
 #include "glusterfs3.h"
 #include "portmap.h"
 
+#include "run.h"
+
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int              cli_op_ret;
 extern int              connected;
@@ -1318,7 +1320,8 @@ print_limit_list (char *volname, char *limit_list)
         char     ret_str [1024]  = {0, };
         char     value [1024]    = {0, };
         char     mountdir []     = "/tmp/mntXXXXXX";
-        char     cmd_str [PATH_MAX + 1024] = {0, };
+        char     abspath [PATH_MAX] = {0, };
+        runner_t runner          = {0,};
 
         GF_VALIDATE_OR_GOTO ("cli", volname, out);
         GF_VALIDATE_OR_GOTO ("cli", limit_list, out);
@@ -1336,10 +1339,8 @@ print_limit_list (char *volname, char *limit_list)
         /* Mount a temporary client to fetch the disk usage
          * of the directory on which the limit is set.
          */
-        snprintf (cmd_str, sizeof (cmd_str), GFS_PREFIX "/sbin/glusterfs -s localhost "
-                  "--volfile-id %s %s", volname, mountdir);
-
-        ret = system (cmd_str);
+        ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-s",
+                      "localhost", "--volfile-id", volname, mountdir, NULL);
         if (ret) {
                 gf_log ("cli", GF_LOG_WARNING, "failed to mount glusterfs client");
                 ret = -1;
@@ -1373,10 +1374,9 @@ print_limit_list (char *volname, char *limit_list)
                 }
                 value [j] = '\0';
 
-                memset (&cmd_str, 0, sizeof (cmd_str));
-                snprintf (cmd_str, sizeof (cmd_str), "%s/%s", mountdir, path);
+                snprintf (abspath, sizeof (abspath), "%s/%s", mountdir, path);
 
-                ret = getxattr (cmd_str, "trusted.limit.list", (void *) ret_str, 4096);
+                ret = getxattr (abspath, "trusted.limit.list", (void *) ret_str, 4096);
                 if (ret < 0) {
                         cli_out ("%-20s %10s", path, value);
                 } else {
@@ -1389,15 +1389,18 @@ print_limit_list (char *volname, char *limit_list)
         }
 
 unmount:
-        memset (&cmd_str, 0, sizeof (cmd_str));
+
+        runinit (&runner);
+        runner_add_args (&runner, "umount",
 #if GF_LINUX_HOST_OS
-        snprintf (cmd_str, sizeof (cmd_str), "umount -l %s", mountdir);
-#else
-        snprintf (cmd_str, sizeof (cmd_str), "umount %s", mountdir);
+                         "-l",
 #endif
-        ret = system (cmd_str);
+                         mountdir, NULL);
+        ret = runner_run_reuse (&runner);
         if (ret)
-                gf_log ("cli", GF_LOG_WARNING, "error executing: %s", cmd_str);
+                runner_log (&runner, "cli", GF_LOG_WARNING, "error executing");
+        runner_end (&runner);
+
 rm_dir:
         rmdir (mountdir);
 out:
@@ -2654,7 +2657,7 @@ out:
 int
 gf_cli3_1_gsync_config_command (dict_t *dict)
 {
-        char  cmd[PATH_MAX] = {0,};
+        runner_t runner     = {0,};
         char *subop         = NULL;
         char *gwd           = NULL;
         char *slave         = NULL;
@@ -2674,16 +2677,21 @@ gf_cli3_1_gsync_config_command (dict_t *dict)
                 return -1;
 
         if (dict_get_str (dict, "master", &master) != 0)
-                master = "";
+                master = NULL;
         if (dict_get_str (dict, "op_name", &op_name) != 0)
-                op_name = "";
+                op_name = NULL;
 
-        snprintf (cmd, PATH_MAX,
-                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" %s%s %s --config-%s%s%s",
-                  gwd, *master ? ":" : "", master, slave,
-                  subop, *op_name ? " " : "", op_name);
+        runinit (&runner);
+        runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (&runner, "%s/"GSYNC_CONF, gwd);
+        if (master)
+                runner_argprintf (&runner, ":%s", master);
+        runner_add_arg (&runner, slave);
+        runner_argprintf (&runner, "--config-%s", subop);
+        if (op_name)
+                runner_add_arg (&runner, op_name);
 
-        return system (cmd) ? -1 : 0;
+        return runner_run (&runner);
 }
 
 int
