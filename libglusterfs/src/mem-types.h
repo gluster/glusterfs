@@ -104,6 +104,8 @@ enum gf_common_mem_types_ {
         gf_common_mt_trie_node            = 79,
         gf_common_mt_trie_buf             = 80,
         gf_common_mt_trie_end             = 81,
-        gf_common_mt_end                  = 82
+        gf_common_mt_run_argv             = 82,
+        gf_common_mt_run_logbuf           = 83,
+        gf_common_mt_end                  = 84
 };
 #endif
