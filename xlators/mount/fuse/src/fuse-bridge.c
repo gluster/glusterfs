@@ -2291,7 +2291,7 @@ fuse_statfs (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t       ret = -1;
 
         GET_STATE (this, finh, state);
-        ret = fuse_loc_fill (&state->loc, state, 1, 0, NULL);
+        ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
