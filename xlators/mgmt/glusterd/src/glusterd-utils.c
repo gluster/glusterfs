@@ -33,6 +33,7 @@
 #include "defaults.h"
 #include "compat.h"
 #include "md5.h"
+#include "run.h"
 #include "compat-errno.h"
 #include "statedump.h"
 #include "syscall.h"
@@ -1022,7 +1023,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    pidfile[PATH_MAX] = {0,};
         char                    volfile[PATH_MAX] = {0,};
         char                    path[PATH_MAX] = {0,};
-        char                    cmd_str[8192] = {0,};
+        runner_t                runner = {0,};
         char                    rundir[PATH_MAX] = {0,};
         char                    exp_path[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
@@ -1110,15 +1111,19 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (!port)
                 port = pmap_registry_alloc (THIS);
 
-        snprintf (cmd_str, 8192,
-                  "%s/sbin/glusterfsd --xlator-option %s-server.listen-port=%d "
-                  "-s localhost --volfile-id %s -p %s -S %s --brick-name %s "
-                  "--brick-port %d -l %s", GFS_PREFIX, volinfo->volname,
-                  port, volfile, pidfile, socketpath, brickinfo->path, port,
-                  brickinfo->logfile);
+        runinit (&runner);
+        runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfsd",
+                         "-s", "localhost", "--volfile-id", volfile,
+                         "-p", pidfile, "-S", socketpath,
+                         "--brick-name", brickinfo->path,
+                         "-l", brickinfo->logfile, "--brick-port",  NULL);
+        runner_argprintf (&runner, "%d", port);
+        runner_add_arg (&runner, "--xlator-option");
+        runner_argprintf (&runner, "%s-server.listen-port=%d",
+                          volinfo->volname, port);
 
-	gf_log ("",GF_LOG_DEBUG,"Starting GlusterFS Command Executed: \n %s \n", cmd_str);
-        ret = gf_system (cmd_str);
+        runner_log (&runner, "", GF_LOG_DEBUG, "Starting GlusterFS");
+        ret = runner_run (&runner);
 
         if (ret == 0) {
                 //pmap_registry_bind (THIS, port, brickinfo->path);
@@ -1252,7 +1257,6 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         char                    buf[4096] = {0,};
         char                    sort_filepath[PATH_MAX] = {0};
         gf_boolean_t            unlink_sortfile = _gf_false;
-        char                    sort_cmd[2*PATH_MAX + 32];
         int                     sort_fd = 0;
 
         GF_ASSERT (volinfo);
@@ -1288,9 +1292,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
                 unlink_sortfile = _gf_true;
         }
 
-        snprintf (sort_cmd, sizeof (sort_cmd), "sort %s -o %s",
-                  filepath, sort_filepath);
-        ret = system (sort_cmd);
+        ret = runcmd ("sort", filepath, "-o", sort_filepath, NULL);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "failed to sort file %s to %s",
                         filepath, sort_filepath);
@@ -2157,7 +2159,6 @@ glusterd_nfs_server_start ()
         char                    logfile[PATH_MAX] = {0,};
         char                    volfile[PATH_MAX] = {0,};
         char                    path[PATH_MAX] = {0,};
-        char                    cmd_str[8192] = {0,};
         char                    rundir[PATH_MAX] = {0,};
 
         this = THIS;
@@ -2187,10 +2188,8 @@ glusterd_nfs_server_start ()
 
         snprintf (logfile, PATH_MAX, "%s/nfs.log", DEFAULT_LOG_FILE_DIRECTORY);
 
-        snprintf (cmd_str, 8192,
-                  "%s/sbin/glusterfs -f %s -p %s -l %s",
-                  GFS_PREFIX, volfile, pidfile, logfile);
-        ret = gf_system (cmd_str);
+        ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-f", volfile,
+                      "-p", pidfile, "-l", logfile, NULL);
 
 out:
         return ret;
@@ -3321,6 +3320,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         int32_t         status  = 0;
         char            buf[PATH_MAX]   = {0,};
         char            uuid_str [64] = {0};
+        runner_t        runner = {0,};
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
         int             errcode = 0;
@@ -3354,29 +3354,24 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         }
 
         uuid_utoa_r (master_vol->volume_id, uuid_str);
-        ret = snprintf (buf, PATH_MAX,
-                        GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" "
-                        ":%s %s --config-set session-owner %s",
-                        priv->workdir, master_vol->volname, slave, uuid_str);
-        if (ret <= 0 || ret >= PATH_MAX)
-                ret = -1;
-        if (ret != -1)
-                ret = gf_system (buf) ? -1 : 0;
+        runinit (&runner);
+        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (&runner, "%s/"GSYNC_CONF, priv->workdir);
+        runner_argprintf (&runner, ":%s", master_vol->volname);
+        runner_add_args  (&runner, slave, "--config-set", "session-owner",
+                          uuid_str, NULL);
+        ret = runner_run (&runner);
         if (ret == -1) {
                 errcode = -1;
                 goto out;
         }
 
-        ret = snprintf (buf, PATH_MAX, GSYNCD_PREFIX "/gsyncd --monitor -c "
-                        "%s/"GSYNC_CONF" :%s %s", priv->workdir,
-                        master_vol->volname, slave);
-        if (ret <= 0) {
-                ret = -1;
-                errcode = -1;
-                goto out;
-        }
-
-        ret = gf_system (buf);
+        runinit (&runner);
+        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "--monitor", "-c", NULL);
+        runner_argprintf (&runner, "%s/"GSYNC_CONF, priv->workdir);
+        runner_argprintf (&runner, ":%s", master_vol->volname);
+        runner_add_arg   (&runner, slave);
+        ret = runner_run (&runner);
         if (ret == -1) {
                 gf_asprintf (op_errstr, GEOREP" start failed for %s %s",
                              master_vol->volname, slave);

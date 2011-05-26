@@ -344,7 +344,6 @@ int gf_unlockfd (int fd);
 int get_checksum_for_file (int fd, uint32_t *checksum);
 int log_base2 (unsigned long x);
 
-int gf_system (const char *command);
 int get_checksum_for_path (char *path, uint32_t *checksum);
 
 char *strtail (char *str, const char *pattern);

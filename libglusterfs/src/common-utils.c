@@ -1485,65 +1485,6 @@ get_checksum_for_file (int fd, uint32_t *checksum)
 }
 
 
-/* One should pass the command here with command with full path,
-   otherwise, execv will fail */
-int
-gf_system (const char *command)
-{
-        int    ret    = -1;
-        pid_t  pid    = 0;
-        int    status = 0;
-        int    idx    = 0;
-        char  *dupcmd = NULL;
-        char  *arg    = NULL;
-        char  *tmp    = NULL;
-        char  *argv[100] = { NULL, };
-
-        dupcmd = gf_strdup (command);
-        if (!dupcmd)
-                goto out;
-
-        pid = fork ();
-        if (pid < 0) {
-                /* failure */
-                goto out;
-        }
-        if (pid == 0) {
-                /* Child process */
-                /* Step 0: Prepare the argv */
-                arg = strtok_r (dupcmd, " ", &tmp);
-                while (arg) {
-                        argv[idx] = arg;
-                        arg = strtok_r (NULL, " ", &tmp);
-                        idx++;
-                }
-                /* Step 1: Close all 'fd' */
-                for (idx = 3; idx < 65536; idx++) {
-                        close (idx);
-                }
-                /* Step 2: execv (); */
-                ret = execvp (argv[0], argv);
-
-                /* Code will not come here at all */
-                gf_log ("", GF_LOG_ERROR, "execv of (%s) failed", command);
-
-                kill (getpid(), SIGKILL);
-        }
-        if (pid > 0) {
-                /* Current, ie, parent process */
-                pid = waitpid (pid, &status, 0);
-                if (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS)
-                        ret = 0;
-                else
-                        ret = -1;
-        }
-out:
-        if (dupcmd)
-                GF_FREE (dupcmd);
-
-        return ret;
-}
-
 int
 get_checksum_for_path (char *path, uint32_t *checksum)
 {

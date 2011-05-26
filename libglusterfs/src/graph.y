@@ -29,6 +29,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#define RELAX_POISONING
+
 #include "xlator.h"
 #include "graph-utils.h"
 #include "logging.h"

@@ -32,6 +32,7 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 #include "cli1-xdr.h"
+#include "run.h"
 
 extern struct rpc_clnt *global_rpc;
 
@@ -1053,30 +1054,10 @@ out:
 static int
 cli_check_gsync_present ()
 {
-        FILE                *in = NULL;
         char                buff[PATH_MAX] = {0, };
-        char                cmd[PATH_MAX + 256] = {0, };
+        runner_t            runner = {0,};
         char                *ptr = NULL;
         int                 ret = 0;
-        struct stat         stat_buff;
-
-        if (strlen (GSYNCD_PREFIX)+1 > PATH_MAX-strlen("/gsyncd")) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX "/gsyncd");
-        if (ret < 0) {
-               ret = 0;
-               goto out;
-        }
-        ret = lstat (cmd, &stat_buff);
-
-        if (ret || !(stat_buff.st_mode & S_IXUSR)) {
-                ret = -1;
-                gf_log ("", GF_LOG_INFO, "geo-replication not installed");
-                goto out;
-        }
 
         ret = setenv ("_GLUSTERD_CALLED_", "1", 1);
         if (-1 == ret) {
@@ -1085,16 +1066,16 @@ cli_check_gsync_present ()
                 goto out;
         }
 
-        memset (cmd, 0, sizeof (cmd));
-        ret = snprintf (cmd, sizeof(cmd), GSYNCD_PREFIX"/gsyncd --version");
-
-        if (!(in = popen(cmd, "r"))) {
-                ret = -1;
+        runinit (&runner);
+        runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "--version", NULL);
+        runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
+        ret = runner_start (&runner);
+        if (ret == -1) {
                 gf_log ("", GF_LOG_INFO, "geo-replication not installed");
                 goto out;
         }
 
-        ptr = fgets(buff, sizeof(buff), in);
+        ptr = fgets(buff, sizeof(buff), runner_chio (&runner, STDOUT_FILENO));
         if (ptr) {
                 if (!strstr (buff, "gsyncd")) {
                         ret  = -1;
@@ -1105,7 +1086,7 @@ cli_check_gsync_present ()
                 goto out;
         }
 
-        ret = pclose (in);
+        ret = runner_end (&runner);
 
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "geo-replication not installed");
