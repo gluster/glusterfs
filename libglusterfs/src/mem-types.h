@@ -98,6 +98,12 @@ enum gf_common_mem_types_ {
         gf_common_mt_sge                  = 73,
         gf_common_mt_rpcclnt_cb_program_t = 74,
         gf_common_mt_libxl_marker_local   = 75,
-        gf_common_mt_end                  = 76
+        gf_common_mt_graph_buf            = 76,
+        gf_common_mt_trie_trie            = 77,
+        gf_common_mt_trie_data            = 78,
+        gf_common_mt_trie_node            = 79,
+        gf_common_mt_trie_buf             = 80,
+        gf_common_mt_trie_end             = 81,
+        gf_common_mt_end                  = 82
 };
 #endif

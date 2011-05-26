@@ -26,7 +26,6 @@
 
 #include "common-utils.h"
 #include "xlator.h"
-#include "graph-mem-types.h"
 #include "graph-utils.h"
 
 
@@ -180,7 +179,7 @@ glusterfs_graph_print_buf (glusterfs_graph_t *graph)
         if (len == -1)
                 return NULL;
 
-        buf = GF_CALLOC (1, len + 1, gf_graph_mt_buf);
+        buf = GF_CALLOC (1, len + 1, gf_common_mt_graph_buf);
         if (!buf) {
                 return NULL;
         }
