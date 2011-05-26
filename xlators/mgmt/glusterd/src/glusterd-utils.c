@@ -2381,6 +2381,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         glusterd_volinfo_t       *volinfo = NULL;
         glusterd_brickinfo_t     *brickinfo = NULL;
         int                      ret = 0;
+        gf_boolean_t             start_nfs = _gf_false;
 
         GF_ASSERT (conf);
 
@@ -2391,9 +2392,11 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                              brick_list) {
                                 glusterd_brick_start (volinfo, brickinfo);
                         }
-                        glusterd_check_generate_start_nfs ();
+                        start_nfs = _gf_true;
                 }
         }
+        if (start_nfs)
+                glusterd_check_generate_start_nfs ();
         return ret;
 }
 
