@@ -4850,7 +4850,6 @@ glusterd_quota_child_waitpid (void *arg)
         child_info = (glusterd_quota_child_info_t *)arg;
 
 #ifdef GF_LINUX_HOST_OS
-        usleep (200000);
         snprintf (cmd, sizeof (cmd), "umount -l %s",
                   child_info->mountdir);
         system (cmd);
