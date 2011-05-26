@@ -23,7 +23,6 @@
 #include <ctype.h>
 
 #include "common-utils.h"
-#include "trie-mem-types.h"
 #include "trie.h"
 
 #define DISTANCE_EDIT 1
@@ -53,7 +52,7 @@ trie_new ()
 {
         trie_t *trie = NULL;
 
-        trie = GF_CALLOC (1, sizeof (*trie),  gf_trie_mt_trie);
+        trie = GF_CALLOC (1, sizeof (*trie),  gf_common_mt_trie_trie);
         if (!trie)
                 return NULL;
 
@@ -70,7 +69,8 @@ trie_subnode (trienode_t *node, int id)
 
         subnode = node->subnodes[id];
         if (!subnode) {
-                subnode = GF_CALLOC (1, sizeof (*subnode), gf_trie_mt_node);
+                subnode = GF_CALLOC (1, sizeof (*subnode),
+                                     gf_common_mt_trie_node);
                 if (!subnode)
                         return NULL;
 
@@ -202,7 +202,7 @@ trienode_get_word (trienode_t *node, char **bufp)
 {
         char *buf = NULL;
 
-        buf = GF_CALLOC (1, node->depth + 1, gf_trie_mt_buf);
+        buf = GF_CALLOC (1, node->depth + 1, gf_common_mt_trie_buf);
         if (!buf)
                 return -1;
         *bufp = buf;
@@ -226,7 +226,8 @@ calc_dist (trienode_t *node, void *data)
 
         word = data;
 
-        node->data = GF_CALLOC (node->trie->len, sizeof (int), gf_trie_mt_data);
+        node->data = GF_CALLOC (node->trie->len, sizeof (int),
+                                gf_common_mt_trie_data);
         if (!node->data)
                 return -1;
         row = node->data;
