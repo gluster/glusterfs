@@ -339,7 +339,6 @@ out:
                 gf_log ("rebalance", GF_LOG_INFO, "rebalance on %s complete",
                         defrag->mount);
 
-                usleep (200000);
                 snprintf (cmd_str, 1024, "umount -l %s", defrag->mount);
                 ret = system (cmd_str);
                 LOCK_DESTROY (&defrag->lock);
@@ -578,7 +577,6 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         ret = pthread_create (&defrag->th, NULL, glusterd_defrag_start,
                               volinfo);
         if (ret) {
-                usleep (200000);
                 snprintf (cmd_str, sizeof (cmd_str), "umount -l %s", defrag->mount);
                 if (system (cmd_str))
                         gf_log("glusterd", GF_LOG_DEBUG, "command: %s "

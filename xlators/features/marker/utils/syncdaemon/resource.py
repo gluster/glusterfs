@@ -365,7 +365,6 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
     def connect(self):
         def umount_l(d):
-            time.sleep(0.2) # XXX temporary workaround
             argv = ['umount', '-l', d]
             return os.spawnvp(os.P_WAIT, argv[0], argv)
         d = tempfile.mkdtemp(prefix='gsyncd-aux-mount-')
