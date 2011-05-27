@@ -305,4 +305,12 @@ int dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name
 int dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
                                xlator_t **subvol);
 
+int dht_rename_cleanup (call_frame_t *frame);
+int dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno,
+                      inode_t *inode, struct iatt *stbuf,
+                      struct iatt *preparent, struct iatt *postparent);
+
+int dht_linkfile_recreate(call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
+                         xlator_t *tovol, xlator_t *fromvol, loc_t *loc);
 #endif /* _DHT_H */
