@@ -419,6 +419,7 @@ gf_pump_traverse_directory (loc_t *loc)
 
         char *file_path = NULL;
         int ret = 0;
+        gf_boolean_t is_directory_empty = _gf_true;
 
         INIT_LIST_HEAD (&entries.list);
         this = THIS;
@@ -468,6 +469,7 @@ gf_pump_traverse_directory (loc_t *loc)
                         if (!IS_ENTRY_CWD (entry->d_name) &&
                                            !IS_ENTRY_PARENT (entry->d_name)) {
 
+                                    is_directory_empty = _gf_false;
                                     ret = syncop_lookup (this, &entry_loc, NULL,
                                                          &iatt, &xattr_rsp, &parent);
 
@@ -524,6 +526,12 @@ gf_pump_traverse_directory (loc_t *loc)
                         "offset incremented to %d",
                         (int32_t ) offset);
 
+        }
+
+        if (is_directory_empty && IS_ROOT_PATH (loc->path)) {
+               pump_change_state (this, PUMP_STATE_RUNNING);
+               gf_log (this->name, GF_LOG_INFO, "Empty source brick. "
+                                "Nothing to be done.");
         }
 
 out:
