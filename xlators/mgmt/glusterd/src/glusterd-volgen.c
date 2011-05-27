@@ -1980,7 +1980,7 @@ get_rdma_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
-        snprintf (filename, PATH_MAX, "%s/%s-rdma-fuse.vol",
+        snprintf (filename, PATH_MAX, "%s/%s.rdma-fuse.vol",
                   path, volinfo->volname);
 }
 
