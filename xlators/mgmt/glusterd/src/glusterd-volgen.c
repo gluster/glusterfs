@@ -1901,7 +1901,7 @@ get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
                  PATH_MAX - strlen(filename) - 1);
 }
 
-static int
+int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;

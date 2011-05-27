@@ -276,4 +276,8 @@ glusterd_restart_gsyncds (glusterd_conf_t *conf);
 int
 glusterd_start_gsync (char *master, char *slave, char *uuid_str,
                       char **op_errstr);
+int32_t
+glusterd_recreate_bricks (glusterd_conf_t *conf);
+int32_t
+glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf);
 #endif

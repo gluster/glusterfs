@@ -3361,3 +3361,67 @@ out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
+
+int32_t
+glusterd_recreate_bricks (glusterd_conf_t *conf)
+{
+
+        glusterd_volinfo_t      *volinfo = NULL;
+        int                      ret = 0;
+
+        GF_ASSERT (conf);
+        list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                ret = generate_brick_volfiles (volinfo);
+        }
+        return ret;
+}
+
+int32_t
+glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
+{
+        int              ret                            = 0;
+        char            *type                           = NULL;
+        gf_boolean_t     upgrade                        = _gf_false;
+        gf_boolean_t     downgrade                      = _gf_false;
+        gf_boolean_t     regenerate_brick_volfiles      = _gf_false;
+
+        ret = dict_get_str (options, "upgrade", &type);
+        if (!ret) {
+                ret = gf_string2boolean (type, &upgrade);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "upgrade option "
+                                "%s is not a valid boolean type", type);
+                        ret = -1;
+                        goto out;
+                }
+                if (_gf_true == upgrade)
+                        regenerate_brick_volfiles = _gf_true;
+        }
+
+        ret = dict_get_str (options, "downgrade", &type);
+
+        if (!ret) {
+                ret = gf_string2boolean (type, &downgrade);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "downgrade option "
+                                "%s is not a valid boolean type", type);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (upgrade && downgrade) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Both upgrade and downgrade"
+                        " options are set. Only one should be on");
+                ret = -1;
+                goto out;
+        }
+
+        if (!upgrade && !downgrade)
+                ret = 0;
+        if (regenerate_brick_volfiles) {
+                ret = glusterd_recreate_bricks (conf);
+        }
+out:
+        return ret;
+}

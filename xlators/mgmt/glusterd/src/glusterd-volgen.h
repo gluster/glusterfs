@@ -63,5 +63,5 @@ gf_boolean_t glusterd_check_globaloption (char *key);
 gf_boolean_t
 glusterd_check_voloption_flags (char *key, int32_t flags);
 
-
+int generate_brick_volfiles (glusterd_volinfo_t *volinfo);
 #endif

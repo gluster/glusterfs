@@ -714,6 +714,10 @@ init (xlator_t *this)
         glusterd_op_sm_init ();
         glusterd_opinfo_init ();
 
+        ret = glusterd_handle_upgrade_downgrade (this->options, conf);
+        if (ret)
+                goto out;
+
         glusterd_restart_bricks (conf);
         ret = glusterd_restart_gsyncds (conf);
         if (ret)
@@ -817,6 +821,12 @@ struct volume_options options[] = {
         },
         { .key   = {"rpc-auth-allow-insecure"},
           .type  = GF_OPTION_TYPE_BOOL,
+        },
+        { .key  = {"upgrade"},
+          .type = GF_OPTION_TYPE_BOOL,
+        },
+        { .key  = {"downgrade"},
+          .type = GF_OPTION_TYPE_BOOL,
         },
 
         { .key   = {NULL} },
