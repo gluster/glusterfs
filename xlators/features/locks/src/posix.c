@@ -1573,9 +1573,11 @@ __dump_entrylks (pl_inode_t *pl_inode)
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
                                                "entrylk[%d](BLOCKED)",count );
-                        snprintf (tmp, 256," %s on %s state = Blocked",
+                        snprintf (tmp, 256," %s on %s owner=%llu, transport=%p,"
+                                  " state = Blocked",
                                   lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
-                                  "ENTRYLK_WRLCK", lock->basename);
+                                  "ENTRYLK_WRLCK", lock->basename,
+                                  (unsigned long long) lock->owner, lock->trans);
 
                         gf_proc_dump_write(key, tmp);
 
