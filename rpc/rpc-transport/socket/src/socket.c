@@ -2212,7 +2212,10 @@ socket_listen (rpc_transport_t *this)
                         goto unlock;
                 }
 
-                ret = listen (priv->sock, 10);
+                if (priv->backlog)
+                        ret = listen (priv->sock, priv->backlog);
+                else
+                        ret = listen (priv->sock, 10);
 
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2510,6 +2513,7 @@ socket_init (rpc_transport_t *this)
         uint64_t          windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
         char             *optstr = NULL;
         uint32_t          keepalive = 0;
+        uint32_t          backlog = 0;
 
         if (this->private) {
                 gf_log_callingfn (this->name, GF_LOG_ERROR,
@@ -2617,6 +2621,12 @@ socket_init (rpc_transport_t *this)
                 priv->keepaliveidle = keepalive;
         }
 
+        if (dict_get_uint32 (this->options,
+                             "transport.socket.listen-backlog",
+                             &backlog) == 0) {
+                priv->backlog = backlog;
+        }
+
         priv->windowsize = (int)windowsize;
 out:
         this->private = priv;
@@ -2717,6 +2727,9 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_INT
         },
         { .key   = {"transport.socket.keepalive-time"},
+          .type  = GF_OPTION_TYPE_INT
+        },
+        { .key   = {"transport.socket.listen-backlog"},
           .type  = GF_OPTION_TYPE_INT
         },
         { .key = {NULL} }
