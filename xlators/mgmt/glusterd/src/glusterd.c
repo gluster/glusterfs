@@ -219,12 +219,28 @@ int
 glusterd_rpcsvc_options_build (dict_t *options)
 {
         int             ret = 0;
+        uint32_t        backlog = 0;
 
         if (!dict_get (options, "rpc-auth-allow-insecure")) {
                 ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
                 if (ret)
                         goto out;
         }
+
+        ret = dict_get_uint32 (options, "transport.socket.listen-backlog",
+                               &backlog);
+
+        if (ret) {
+                backlog = GLUSTERD_SOCKET_LISTEN_BACKLOG;
+                ret = dict_set_uint32 (options,
+                                      "transport.socket.listen-backlog",
+                                      backlog);
+                if (ret)
+                        goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG, "listen-backlog value: %d", backlog);
+
 out:
         return ret;
 }
