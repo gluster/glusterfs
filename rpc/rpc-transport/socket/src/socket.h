@@ -192,6 +192,7 @@ typedef struct {
         int                    keepalive;
         int                    keepaliveidle;
         int                    keepaliveintvl;
+        uint32_t               backlog;
 } socket_private_t;
 
 
