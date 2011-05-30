@@ -51,6 +51,7 @@
 #define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
 #define GLUSTERD_TR_LOG_SIZE            50
 #define GLUSTERD_NAME                   "glusterd"
+#define GLUSTERD_SOCKET_LISTEN_BACKLOG  128
 
 
 typedef enum glusterd_op_ {
