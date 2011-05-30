@@ -36,6 +36,7 @@
 #include "stripe.h"
 #include "libxlator.h"
 #include "byte-order.h"
+#include "statedump.h"
 
 void
 stripe_local_wipe (stripe_local_t *local)
@@ -4391,7 +4392,66 @@ err:
         return 0;
 }
 
+int32_t
+stripe_priv_dump (xlator_t *this)
+{
+        char                    key_prefix[GF_DUMP_MAX_BUF_LEN];
+        char                    key[GF_DUMP_MAX_BUF_LEN];
+        int                     i = 0;
+        stripe_private_t       *priv = NULL;
+        int                     ret = -1;
+        struct stripe_options  *options = NULL;
 
+        GF_VALIDATE_OR_GOTO ("stripe", this, out);
+
+        priv = this->private;
+        if (!priv)
+                goto out;
+
+        ret = TRY_LOCK (&priv->lock);
+        if (ret != 0)
+                goto out;
+
+        gf_proc_dump_add_section("xlator.cluster.stripe.%s.priv", this->name);
+        gf_proc_dump_build_key(key_prefix,"xlator.cluster.stripe","%s.priv",
+                               this->name);
+        gf_proc_dump_build_key(key, key_prefix, "child_count");
+        gf_proc_dump_write(key,"%d", priv->child_count);
+
+        for (i = 0; i < priv->child_count; i++) {
+                gf_proc_dump_build_key (key, key_prefix, "subvolumes[%d]", i);
+                gf_proc_dump_write (key, "%s.%s", priv->xl_array[i]->type,
+                                   priv->xl_array[i]->name);
+        }
+
+        options = priv->pattern;
+        while (options != NULL) {
+                gf_proc_dump_build_key (key, key_prefix, "path_pattern");
+                gf_proc_dump_write (key, "%s", priv->pattern->path_pattern);
+
+                gf_proc_dump_build_key (key, key_prefix, "options_block_size");
+                gf_proc_dump_write (key, "%ul", options->block_size);
+
+                options = options->next;
+        }
+
+        gf_proc_dump_build_key (key, key_prefix, "block_size");
+        gf_proc_dump_write (key, "%ul", priv->block_size);
+
+        gf_proc_dump_build_key (key, key_prefix, "nodes_down");
+        gf_proc_dump_write (key, "%d", priv->nodes_down);
+
+        gf_proc_dump_build_key (key, key_prefix, "first_child_down");
+        gf_proc_dump_write (key, "%d", priv->first_child_down);
+
+        gf_proc_dump_build_key (key, key_prefix, "xatter_supported");
+        gf_proc_dump_write (key, "%d", priv->xattr_supported);
+
+        UNLOCK (&priv->lock);
+
+out:
+        return ret;
+}
 
 struct xlator_fops fops = {
         .stat        = stripe_stat,
@@ -4426,6 +4486,9 @@ struct xlator_cbks cbks = {
         .release = stripe_release,
 };
 
+struct xlator_dumpops dumpops = {
+        .priv = stripe_priv_dump,
+};
 
 struct volume_options options[] = {
         { .key  = {"block-size"},
