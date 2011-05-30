@@ -1126,11 +1126,11 @@ rpcsvc_get_listener_port (rpcsvc_listener_t *listener)
 
         switch (listener->trans->myinfo.sockaddr.ss_family) {
         case AF_INET:
-                listener_port = ((struct sockaddr_in6 *)&listener->trans->myinfo.sockaddr)->sin6_port;
+                listener_port = ((struct sockaddr_in *)&listener->trans->myinfo.sockaddr)->sin_port;
                 break;
 
         case AF_INET6:
-                listener_port = ((struct sockaddr_in *)&listener->trans->myinfo.sockaddr)->sin_port; 
+                listener_port = ((struct sockaddr_in6 *)&listener->trans->myinfo.sockaddr)->sin6_port;
                 break;
 
         default:
