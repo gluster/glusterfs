@@ -63,6 +63,8 @@ gf_auth (dict_t *input_params, dict_t *config_params)
         char           negate         = 0;
         char           match          = 0;
         char           peer_addr[UNIX_PATH_MAX];
+        char          *type           = NULL;
+        gf_boolean_t   allow_insecure = _gf_false;
 
         name = data_to_str (dict_get (input_params, "remote-subvolume"));
         if (!name) {
@@ -137,8 +139,20 @@ gf_auth (dict_t *input_params, dict_t *config_params)
                         ((struct sockaddr *) &peer_info->sockaddr)->sa_family = AF_INET_SDP;
                 }
 
+                ret = dict_get_str (config_params, "rpc-auth-allow-insecure",
+                                    &type);
+                if (ret == 0) {
+                        ret = gf_string2boolean (type, &allow_insecure);
+                        if (ret < 0) {
+                                gf_log ("auth/addr", GF_LOG_WARNING,
+                                        "rpc-auth-allow-insecure option %s "
+                                        "is not a valid bool option", type);
+                                goto out;
+                        }
+                }
+
                 peer_port = atoi (service);
-                if (peer_port >= PRIVILEGED_PORT_CEILING) {
+                if (peer_port >= PRIVILEGED_PORT_CEILING && !allow_insecure) {
                         gf_log ("auth/addr", GF_LOG_ERROR,
                                 "client is bound to port %d which is not privileged",
                                 peer_port);
