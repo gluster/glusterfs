@@ -408,7 +408,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         GF_ASSERT (options);
 
         dict = dict_new ();
-
         if (!dict)
                 goto out;
 
@@ -416,7 +415,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto out;
 
         volname = (char *)words[2];
-
         if (!volname) {
                 ret = -1;
                 goto out;
@@ -444,7 +442,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         ret = dict_set_str (dict, "volname", volname);
-        if (ret)
+        if (ret < 0)
                 goto out;
 
         w = str_getunamb (words[3], opwords);
@@ -455,11 +453,13 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
         if ((strcmp (w, "enable")) == 0 && wordcount == 4) {
                 type = GF_QUOTA_OPTION_TYPE_ENABLE;
+                ret = 0;
                 goto set_type;
         }
 
         if (strcmp (w, "disable") == 0 && wordcount == 4) {
                 type = GF_QUOTA_OPTION_TYPE_DISABLE;
+                ret = 0;
                 goto set_type;
         }
 
@@ -493,7 +493,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 }
 
                 ret = dict_set_str (dict, "limit", (char *) words[5]);
-                if (ret)
+                if (ret < 0)
                         goto out;
 
                 goto set_type;
@@ -513,49 +513,49 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 }
 
                 ret = dict_set_str (dict, "path", (char *) words[4]);
-                if (ret)
+                if (ret < 0)
                         goto out;
                 goto set_type;
         }
 
         if (strcmp (w, "list") == 0) {
-                        if (wordcount < 4) {
-                                ret = -1;
-                                goto out;
-                        }
+                if (wordcount < 4) {
+                        ret = -1;
+                        goto out;
+                }
 
-                        type = GF_QUOTA_OPTION_TYPE_LIST;
+                type = GF_QUOTA_OPTION_TYPE_LIST;
 
-                        i = 4;
-                        while (i < wordcount) {
-                                snprintf (key, 20, "path%d", i-4);
+                i = 4;
+                while (i < wordcount) {
+                        snprintf (key, 20, "path%d", i-4);
 
-                                ret = dict_set_str (dict, key, (char *) words [i++]);
-                                if (ret < 0)
-                                        goto out;
-                        }
-
-                        ret = dict_set_int32 (dict, "count", i - 4);
+                        ret = dict_set_str (dict, key, (char *) words [i++]);
                         if (ret < 0)
                                 goto out;
+                }
 
-                        goto set_type;
+                ret = dict_set_int32 (dict, "count", i - 4);
+                if (ret < 0)
+                        goto out;
+
+                goto set_type;
         }
 
         if (strcmp (w, "version") == 0) {
                 type = GF_QUOTA_OPTION_TYPE_VERSION;
-
-        } else
+        } else {
                 GF_ASSERT (!"opword mismatch");
+        }
 
 set_type:
         ret = dict_set_int32 (dict, "type", type);
-
-        if (ret)
+        if (ret < 0)
                 goto out;
+
         *options = dict;
 out:
-        if (ret) {
+        if (ret < 0) {
                 if (dict)
                         dict_destroy (dict);
         }
