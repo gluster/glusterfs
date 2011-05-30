@@ -20,13 +20,20 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
+#ifndef __NetBSD__
 #include <mntent.h>
+#endif /* __NetBSD__ */
 #include <sys/stat.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
+
+#ifdef __NetBSD__
+#include <perfuse.h>
+#define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
+#endif
 
 #ifdef FUSE_UTIL
 #define MALLOC(size) malloc (size)
@@ -58,6 +65,7 @@
  * - there are some other minor things
  */
 
+#ifndef __NetBSD__
 static int
 mtab_needs_update (const char *mnt)
 {
@@ -91,6 +99,9 @@ mtab_needs_update (const char *mnt)
 
         return 1;
 }
+#else /* __NetBSD__ */
+#define mtab_needs_update(x) 1
+#endif /* __NetBSD__ */
 
 #ifndef FUSE_UTIL
 static

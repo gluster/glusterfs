@@ -394,7 +394,6 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-GF_FUSE_LDADD="-lfuse"
 case $host_os in
      linux*)
      dnl	GF_LINUX_HOST_OS=1
