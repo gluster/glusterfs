@@ -21,8 +21,10 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
+
 #include <inttypes.h>
 #include <sys/resource.h>
+#include <sys/vfs.h>
 
 #include "globals.h"
 #include "compat.h"
@@ -56,6 +58,8 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         char                    tmp_filename[PATH_MAX] = {0,};
         char                    value[16]              = {0,};
         char                    linkinfo[PATH_MAX]     = {0,};
+        struct statfs           src_statfs = {0,};
+        struct statfs           dst_statfs = {0,};
 
         if (!volinfo->defrag)
                 goto out;
@@ -110,6 +114,31 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 dst_fd = creat (tmp_filename, stbuf.st_mode);
                 if (dst_fd == -1)
                         continue;
+
+                /* Prevent data movement from a node which has higher
+                   disk-space to a node with lesser */
+                {
+                        ret = statfs (full_path, &src_statfs);
+                        if (ret)
+                                gf_log ("", GF_LOG_INFO, "statfs on %s failed",
+                                        full_path);
+
+                        ret = statfs (tmp_filename, &dst_statfs);
+                        if (ret)
+                                gf_log ("", GF_LOG_INFO, "statfs on %s failed",
+                                        tmp_filename);
+
+                        if (dst_statfs.f_bavail < src_statfs.f_bavail) {
+                                gf_log ("", GF_LOG_INFO,
+                                        "data movement attempted from node with"
+                                        " higher disk space to a node with "
+                                        "lesser disk space (%s)", full_path);
+
+                                close (dst_fd);
+                                unlink (tmp_filename);
+                                continue;
+                        }
+                }
 
                 src_fd = open (full_path, O_RDONLY);
                 if (src_fd == -1) {
