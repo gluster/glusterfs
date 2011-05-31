@@ -249,8 +249,7 @@ def main_i():
 
     ffd = rconf.get('feedback_fd')
     if ffd:
-        gconf.feedback_fd = ffd
-        fcntl.fcntl(int(ffd), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+        fcntl.fcntl(ffd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
 
     #normalize loglevel
     lvl0 = gconf.log_level
@@ -292,6 +291,8 @@ def main_i():
             # complete remote connection in child
             remote.connect_remote(go_daemon='done')
     local.connect()
+    if ffd:
+        os.close(ffd)
     local.service_loop(*[r for r in [remote] if r])
 
     logging.info("exiting.")
