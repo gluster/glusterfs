@@ -2470,92 +2470,145 @@ int32_t
 afr_notify (xlator_t *this, int32_t event,
             void *data, ...)
 {
-        afr_private_t *     priv     = NULL;
-        unsigned char *     child_up = NULL;
-        int i           = -1;
-        int up_children = 0;
-        int down_children = 0;
+        afr_private_t   *priv               = NULL;
+        int             i                   = -1;
+        int             up_children         = 0;
+        int             down_children       = 0;
+        int             propagate           = 0;
+
+        int             had_heard_from_all  = 0;
+        int             have_heard_from_all = 0;
+        int             idx                 = -1;
+        int             ret                 = -1;
 
         priv = this->private;
 
         if (!priv)
                 return 0;
 
-        child_up = priv->child_up;
+        had_heard_from_all = 1;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!priv->last_event[i]) {
+                        had_heard_from_all = 0;
+                }
+        }
+
+        /* parent xlators dont need to know about every child_up, child_down
+         * because of afr ha. If all subvolumes go down, child_down has
+         * to be triggered. In that state when 1 subvolume comes up child_up
+         * needs to be triggered. dht optimises revalidate lookup by sending
+         * it only to one of its subvolumes. When child up/down happens
+         * for afr's subvolumes dht should be notified by child_modified. The
+         * subsequent revalidate lookup happens on all the dht's subvolumes
+         * which triggers afr self-heals if any.
+         */
+        idx = find_child_index (this, data);
+        if (idx < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Received child_up "
+                        "from invalid subvolume");
+                goto out;
+        }
 
         switch (event) {
         case GF_EVENT_CHILD_UP:
-                i = find_child_index (this, data);
-
-                /* temporarily
-                   afr_attempt_lock_recovery (this, i);
-                */
-
-                child_up[i] = 1;
-
                 LOCK (&priv->lock);
                 {
+                        priv->child_up[idx] = 1;
                         priv->up_count++;
+
+                        for (i = 0; i < priv->child_count; i++)
+                                if (priv->child_up[i] == 1)
+                                        up_children++;
+                        if (up_children == 1) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "Subvolume '%s' came back up; "
+                                        "going online.", ((xlator_t *)data)->name);
+                        } else {
+                                event = GF_EVENT_CHILD_MODIFIED;
+                        }
+
+                        priv->last_event[idx] = event;
                 }
                 UNLOCK (&priv->lock);
-
-                /*
-                  if all the children were down, and one child came up,
-                  send notify to parent
-                */
-
-                for (i = 0; i < priv->child_count; i++)
-                        if (child_up[i] == 1)
-                                up_children++;
-
-                if (up_children == 1) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "Subvolume '%s' came back up; "
-                                "going online.", ((xlator_t *)data)->name);
-
-                        default_notify (this, event, data);
-                } else {
-                        default_notify (this, GF_EVENT_CHILD_MODIFIED, data);
-                }
 
                 break;
 
         case GF_EVENT_CHILD_DOWN:
-                i = find_child_index (this, data);
-
-                child_up[i] = 0;
-
                 LOCK (&priv->lock);
                 {
+                        priv->child_up[idx] = 0;
                         priv->down_count++;
+
+                        for (i = 0; i < priv->child_count; i++)
+                                if (priv->child_up[i] == 0)
+                                        down_children++;
+                        if (down_children == priv->child_count) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "All subvolumes are down. Going offline "
+                                        "until atleast one of them comes back up.");
+                        } else {
+                                event = GF_EVENT_CHILD_MODIFIED;
+                        }
+
+                        priv->last_event[idx] = event;
                 }
                 UNLOCK (&priv->lock);
 
-                /*
-                  if all children are down, and this was the last to go down,
-                  send notify to parent
-                */
-
-                for (i = 0; i < priv->child_count; i++)
-                        if (child_up[i] == 0)
-                                down_children++;
-
-                if (down_children == priv->child_count) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "All subvolumes are down. Going offline "
-                                "until atleast one of them comes back up.");
-
-                        default_notify (this, event, data);
-                } else {
-                        default_notify (this, GF_EVENT_CHILD_MODIFIED, data);
-                }
-
                 break;
 
+        case GF_EVENT_CHILD_CONNECTING:
+                LOCK (&priv->lock);
+                {
+                        priv->last_event[idx] = event;
+                }
+                UNLOCK (&priv->lock);
+                break;
         default:
-                default_notify (this, event, data);
+                propagate = 1;
+                break;
         }
 
-        return 0;
+        /* have all subvolumes reported status once by now? */
+        have_heard_from_all = 1;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!priv->last_event[i])
+                        have_heard_from_all = 0;
+        }
 
+        /* if all subvols have reported status, no need to hide anything
+           or wait for anything else. Just propagate blindly */
+        if (have_heard_from_all)
+                propagate = 1;
+
+        if (!had_heard_from_all && have_heard_from_all) {
+                /* This is the first event which completes aggregation
+                   of events from all subvolumes. If at least one subvol
+                   had come up, propagate CHILD_UP, but only this time
+                */
+                event = GF_EVENT_CHILD_DOWN;
+
+                LOCK (&priv->lock);
+                {
+                        for (i = 0; i < priv->child_count; i++) {
+                                if (priv->last_event[i] == GF_EVENT_CHILD_UP) {
+                                        event = GF_EVENT_CHILD_UP;
+                                        break;
+                                }
+
+                                if (priv->last_event[i] ==
+                                                GF_EVENT_CHILD_CONNECTING) {
+                                        event = GF_EVENT_CHILD_CONNECTING;
+                                        /* continue to check other events for CHILD_UP */
+                                }
+                        }
+                }
+                UNLOCK (&priv->lock);
+        }
+
+        ret = 0;
+        if (propagate)
+                ret = default_notify (this, event, data);
+
+out:
+        return ret;
 }

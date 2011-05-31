@@ -93,6 +93,7 @@ typedef struct _afr_private {
         gf_boolean_t     optimistic_change_log;
 
         char                   vol_uuid[UUID_SIZE + 1];
+        int32_t                *last_event;
 } afr_private_t;
 
 typedef struct {
