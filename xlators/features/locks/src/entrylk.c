@@ -675,6 +675,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 		break;
 
 	case ENTRYLK_LOCK_NB:
+                unwind = 1;
 		pthread_mutex_lock (&pinode->mutex);
 		{
 			ret = __lock_name (pinode, basename, type,
@@ -682,11 +683,11 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
-		if (ret < 0)
+                if (ret < 0) {
 			op_errno = -ret;
+                        goto out;
+                }
 
-                unwind = 1;
-                goto out;
 		break;
 
 	case ENTRYLK_UNLOCK:
