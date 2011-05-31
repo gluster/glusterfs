@@ -1047,6 +1047,16 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
         process_mode = gf_get_process_mode (argv[0]);
 
+        /* Make sure after the parsing cli, if '--volfile-server' option is
+           given, then '--volfile-id' is mandatory */
+        if (cmd_args->volfile_server && !cmd_args->volfile_id) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "ERROR: '--volfile-id' is mandatory if '-s' OR "
+                        "'--volfile-server' option is given");
+                ret = -1;
+                goto out;
+        }
+
         if ((cmd_args->volfile_server == NULL)
             && (cmd_args->volfile == NULL)) {
                 if (process_mode == GF_SERVER_PROCESS)
@@ -1080,15 +1090,18 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                                            cmd_args->log_file);
                         if (ret == -1) {
                                 fprintf (stderr, "ERROR: symlink of logfile failed\n");
-                        } else {
-                                GF_FREE (cmd_args->log_file);
-                                cmd_args->log_file = gf_strdup (tmp_logfile);
+                                goto out;
                         }
+
+                        GF_FREE (cmd_args->log_file);
+                        cmd_args->log_file = gf_strdup (tmp_logfile);
 
                         GF_FREE (tmp_logfile_dyn);
                 }
         }
 
+        ret = 0;
+out:
         return ret;
 }
 

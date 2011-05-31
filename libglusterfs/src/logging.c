@@ -52,7 +52,7 @@ static gf_loglevel_t    loglevel = GF_LOG_INFO;
 static int              gf_log_syslog = 1;
 
 char                    gf_log_xl_log_set;
-gf_loglevel_t           gf_log_loglevel; /* extern'd */
+gf_loglevel_t           gf_log_loglevel = GF_LOG_INFO; /* extern'd */
 FILE                   *gf_log_logfile;
 
 static char            *cmd_log_filename = NULL;
