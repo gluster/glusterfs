@@ -1094,6 +1094,15 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         if (cache) {
                 ret = sp_cache_get_entry (cache, (char *)loc->name, &dirent);
                 if (ret == 0) {
+                        if (!uuid_is_null (loc->inode->gfid)
+                            && (uuid_compare (loc->inode->gfid,
+                                              dirent->d_stat.ia_gfid))
+                                != 0) {
+                                op_ret = -1;
+                                op_errno = ESTALE;
+                                goto unwind;
+                        }
+
                         ret = inode_ctx_get (loc->parent, this, &value);
                         if ((ret == 0) && (value != 0)) {
                                 parent_inode_ctx = (void *)(long)value;
