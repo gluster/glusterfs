@@ -2446,6 +2446,13 @@ init (xlator_t *this)
         priv->first_lookup = 1;
         priv->root_inode = NULL;
 
+        priv->last_event = GF_CALLOC (child_count, sizeof (*priv->last_event),
+                                      gf_afr_mt_int32_t);
+        if (!priv->last_event) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
 	pump_priv = GF_CALLOC (1, sizeof (*pump_priv),
                             gf_afr_mt_pump_priv);
 	if (!pump_priv) {
