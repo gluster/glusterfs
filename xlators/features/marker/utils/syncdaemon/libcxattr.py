@@ -55,9 +55,8 @@ class Xattr(object):
     @classmethod
     def llistxattr_buf(cls, path):
         size = cls.llistxattr(path)
-        if size  == -1:
-            raise_oserr()
+        if size == -1:
+            cls.raise_oserr()
+        if size == 0:
+            return []
         return cls.llistxattr(path, size)
-
-
-
