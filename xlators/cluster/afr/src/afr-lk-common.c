@@ -1275,7 +1275,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->entrylk,
                                                    this->name, loc, basename,
-                                                   ENTRYLK_LOCK, ENTRYLK_WRLCK);
+                                                   ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
 
                                 if (!--call_count)
                                         break;
