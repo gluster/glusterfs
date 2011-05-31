@@ -211,6 +211,7 @@ struct rpc_transport {
         uint64_t                   total_bytes_write;
 
         struct list_head           list;
+        int                        client_bind_insecure;
 };
 
 struct rpc_transport_ops {
