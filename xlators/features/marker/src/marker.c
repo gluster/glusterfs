@@ -206,7 +206,7 @@ stat_stampfile (xlator_t *this, marker_conf_t *priv, struct volume_mark **status
                 vol_mark->sec = htonl (buf.st_ctime);
                 vol_mark->usec = htonl (ST_CTIM_NSEC (&buf)/1000);
         } else
-                vol_mark->retval = 0;
+                vol_mark->retval = 1;
 
         *status = vol_mark;
 
