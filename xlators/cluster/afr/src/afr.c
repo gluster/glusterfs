@@ -972,6 +972,13 @@ init (xlator_t *this)
 		i++;
 	}
 
+        priv->last_event = GF_CALLOC (child_count, sizeof (*priv->last_event),
+                                      gf_afr_mt_int32_t);
+        if (!priv->last_event) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
         LOCK_INIT (&priv->root_inode_lk);
         priv->first_lookup = 1;
         priv->root_inode = NULL;
