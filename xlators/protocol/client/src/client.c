@@ -2248,5 +2248,8 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 1013,
         },
+        { .key   = {"client-bind-insecure"},
+          .type  = GF_OPTION_TYPE_BOOL
+        },
         { .key   = {NULL} },
 };
