@@ -591,7 +591,7 @@ dht_rename_create_links (call_frame_t *frame)
 			"linkfile %s @ %s => %s",
 			local->loc.path, dst_hashed->name, src_cached->name);
                 memcpy (local->gfid, local->loc.inode->gfid, 16);
-		dht_linkfile_create (frame, dht_rename_links_cbk,
+		dht_linkfile_recreate (frame, dht_rename_links_cbk,
 				     src_cached, dst_hashed, &local->loc);
 	}
 
