@@ -588,12 +588,17 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_dentry_t    *dentry = NULL;
         quota_priv_t      *priv   = NULL;
         int64_t           *size   = 0;
+        uint64_t           value  = 0;
 
         local = frame->local;
 
+        inode_ctx_get (inode, this, &value);
+        ctx = (quota_inode_ctx_t *)(unsigned long)value;
+
         if ((op_ret < 0) || (local == NULL)
-            || ((local->limit < 0) && !((IA_ISREG (buf->ia_type))
-                                        || (IA_ISLNK (buf->ia_type))))) {
+            || (((ctx == NULL) || (ctx->limit == local->limit))
+                && (local->limit < 0) && !((IA_ISREG (buf->ia_type))
+                                           || (IA_ISLNK (buf->ia_type))))) {
                 goto unwind;
         }
 
