@@ -595,7 +595,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                          "-s", "localhost", "--volfile-id", volinfo->volname,
                          "--xlator-option", "*dht.use-readdirp=yes",
                          "--xlator-option", "*dht.lookup-unhashed=yes",
-                         volinfo->volname, defrag->mount, NULL);
+                         defrag->mount, NULL);
         ret = runner_run_reuse (&runner);
         if (ret) {
                 runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
