@@ -2794,7 +2794,7 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_str (dict, "gsync-status", &gsync_status);
         if (!ret)
-                cli_out (gsync_status);
+                cli_out ("%s", gsync_status);
         else
                 ret = 0;
 
