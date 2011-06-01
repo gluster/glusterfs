@@ -2437,8 +2437,10 @@ nfs3_create_exclusive (nfs3_call_state_t *cs)
 
         /* Storing verifier as a mtime and atime attribute, to store it
          * in stable storage */
-        cs->stbuf.ia_atime = (cs->cookieverf & 0xFFFFFFFF00000000);
-        cs->stbuf.ia_mtime = (cs->cookieverf & 0x00000000FFFFFFFF);
+        memcpy (&cs->stbuf.ia_atime, &cs->cookieverf, sizeof (cs->stbuf.ia_atime));
+        memcpy (&cs->stbuf.ia_mtime,
+                ((char *) &cs->cookieverf) + sizeof (cs->stbuf.ia_atime),
+                sizeof (cs->stbuf.ia_mtime));
         cs->setattr_valid |= GF_SET_ATTR_ATIME;
         cs->setattr_valid |= GF_SET_ATTR_MTIME;
         nfs_request_user_init (&nfu, cs->req);
