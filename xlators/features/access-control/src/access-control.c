@@ -828,10 +828,8 @@ ac_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-        op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
-                                 frame->root->groups, frame->root->ngrps,
-                                 ACCTEST_WRITE, ACCTEST_ANY, &op_errno);
-        if (op_ret == -1) {
+        if (frame->root->uid != buf->ia_uid) {
+                op_ret = -1;
                 op_errno = EACCES;
                 goto out;
         }
@@ -841,6 +839,48 @@ out:
         if (op_ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR, "unlink failed with error: %s",
                         strerror (op_errno));
+                STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
+                if (stub)
+                        call_stub_destroy (stub);
+        }
+
+        return 0;
+}
+
+int32_t
+ac_unlink_parent_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = frame->local;
+        if (op_ret == -1)
+                goto out;
+
+        if (buf->ia_prot.sticky == 0) {
+                op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
+                                         frame->root->groups, frame->root->ngrps,
+                                         ACCTEST_WRITE, ACCTEST_ANY, &op_errno);
+                if (op_ret == -1) {
+                        op_errno = EACCES;
+                        goto out;
+                }
+        } else {
+                if ((frame->root->uid == 0) ||
+                    (frame->root->uid == buf->ia_uid))
+                        goto access;
+
+                STACK_WIND (frame, ac_unlink_stat_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->stat, &stub->args.unlink.loc);
+                goto out;
+        }
+
+access:
+        stub = __get_frame_stub (frame);
+        call_resume (stub);
+out:
+        if (op_ret < 0) {
+                stub = __get_frame_stub (frame);
                 STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -872,7 +912,7 @@ ac_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (ret < 0)
                 goto out;
 
-        STACK_WIND (frame, ac_unlink_stat_cbk, FIRST_CHILD (this),
+        STACK_WIND (frame, ac_unlink_parent_stat_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->stat, &parentloc);
         loc_wipe (&parentloc);
         ret = 0;
@@ -911,10 +951,8 @@ ac_rmdir_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-        op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
-                                 frame->root->groups, frame->root->ngrps,
-                                 ACCTEST_WRITE, ACCTEST_ANY, &op_errno);
-        if (op_ret == -1) {
+        if (frame->root->uid != buf->ia_uid) {
+                op_ret = -1;
                 op_errno = EACCES;
                 goto out;
         }
@@ -924,6 +962,48 @@ out:
         if (op_ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR, "rmdir failed with error: %s",
                         strerror (op_errno));
+                STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL);
+                if (stub)
+                        call_stub_destroy (stub);
+        }
+
+        return 0;
+}
+
+int32_t
+ac_rmdir_parent_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = frame->local;
+        if (op_ret == -1)
+                goto out;
+
+        if (buf->ia_prot.sticky == 0) {
+                op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
+                                         frame->root->groups, frame->root->ngrps,
+                                         ACCTEST_WRITE, ACCTEST_ANY, &op_errno);
+                if (op_ret == -1) {
+                        op_errno = EACCES;
+                        goto out;
+                }
+        } else {
+                if ((frame->root->uid == 0) ||
+                    (frame->root->uid == buf->ia_uid))
+                        goto access;
+
+                STACK_WIND (frame, ac_rmdir_stat_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->stat, &stub->args.rmdir.loc);
+                goto out;
+        }
+
+access:
+        stub = __get_frame_stub (frame);
+        call_resume (stub);
+out:
+        if (op_ret < 0) {
+                stub = __get_frame_stub (frame);
                 STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -955,7 +1035,7 @@ ac_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         if (ret < 0)
                 goto out;
 
-        STACK_WIND (frame, ac_rmdir_stat_cbk, FIRST_CHILD (this),
+        STACK_WIND (frame, ac_rmdir_parent_stat_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->stat, &parentloc);
         loc_wipe (&parentloc);
         ret = 0;
@@ -1080,23 +1160,68 @@ ac_rename_dst_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_stub_t     *stub = NULL;
 
         stub = __get_frame_stub (frame);
+
+        if ((op_ret == -1) && (op_errno == ENOENT))
+                goto access;
+
         if (op_ret == -1)
                 goto out;
 
-        op_ret = ac_test_access (buf, frame->root->uid,
-                                 frame->root->gid, frame->root->groups,
-                                 frame->root->ngrps, ACCTEST_WRITE,
-                                 ACCTEST_ANY, &op_errno);
-        if (op_ret == -1) {
+        if (frame->root->uid == buf->ia_uid)
+                goto access;
+        else {
+                op_ret = -1;
                 op_errno = EACCES;
-               goto out;
+                goto out;
+        }
+access:
+        call_resume (stub);
+out:
+        if (op_ret < 0) {
+                STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL,
+                                     NULL, NULL, NULL);
+                if (stub)
+                        call_stub_destroy (stub);
         }
 
+        return 0;
+}
+int32_t
+ac_rename_dst_parent_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        call_stub_t     *stub = NULL;
+
+        stub = frame->local;
+        if (op_ret == -1)
+                goto out;
+
+        if (buf->ia_prot.sticky == 0) {
+                op_ret = ac_test_access (buf, frame->root->uid,
+                                         frame->root->gid, frame->root->groups,
+                                         frame->root->ngrps, ACCTEST_WRITE,
+                                         ACCTEST_ANY, &op_errno);
+                if (op_ret == -1) {
+                        op_errno = EACCES;
+                        goto out;
+                }
+        } else {
+                if ((frame->root->uid == 0) ||
+                    (frame->root->uid == buf->ia_uid))
+                        goto access;
+                STACK_WIND (frame, ac_rename_dst_stat_cbk, FIRST_CHILD (this),
+                             FIRST_CHILD (this)->fops->stat, &stub->args.rename.new);
+                goto out;
+        }
+
+access:
+        stub = __get_frame_stub (frame);
         call_resume (stub);
 out:
         if (op_ret < 0) {
 		gf_log (this->name, GF_LOG_ERROR, "rename failed with error: %s",
                         strerror (op_errno));
+                stub = __get_frame_stub (frame);
                 STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL, NULL);
                 if (stub)
@@ -1118,11 +1243,8 @@ ac_rename_src_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-        op_ret = ac_test_access (buf, frame->root->uid,
-                                 frame->root->gid, frame->root->groups,
-                                 frame->root->ngrps, ACCTEST_WRITE,
-                                 ACCTEST_ANY, &op_errno);
-        if (op_ret == -1) {
+        if (buf->ia_uid != frame->root->uid) {
+                op_ret = -1;
                 op_errno = EACCES;
                 goto out;
         }
@@ -1133,7 +1255,59 @@ ac_rename_src_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        STACK_WIND (frame, ac_rename_dst_stat_cbk, FIRST_CHILD (this),
+        STACK_WIND (frame, ac_rename_dst_parent_stat_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->stat, &parentloc);
+        loc_wipe (&parentloc);
+
+out:
+        if (op_ret < 0) {
+                /* Erase the stored stub before unwinding. */
+                stub = __get_frame_stub (frame);
+                if (stub)
+                        call_stub_destroy (stub);
+                STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL,
+                                     NULL, NULL, NULL);
+        }
+        return 0;
+}
+
+int32_t
+ac_rename_src_parent_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        call_stub_t     *stub = NULL;
+        loc_t           parentloc = {0, };
+
+        stub = frame->local;
+        if (op_ret == -1)
+                goto out;
+
+        if (buf->ia_prot.sticky == 0) {
+                op_ret = ac_test_access (buf, frame->root->uid,
+                                         frame->root->gid, frame->root->groups,
+                                         frame->root->ngrps, ACCTEST_WRITE,
+                                         ACCTEST_ANY, &op_errno);
+                if (op_ret == -1) {
+                        op_errno = EACCES;
+                        goto out;
+                }
+        } else {
+                if ((buf->ia_uid == frame->root->uid) ||
+                    (frame->root->uid ==0))
+                        goto access;
+                STACK_WIND (frame, ac_rename_src_stat_cbk, FIRST_CHILD (this),
+                             FIRST_CHILD (this)->fops->stat, &stub->args.rename.old);
+                goto out;
+        }
+
+access:
+        op_ret = ac_parent_loc_fill (&parentloc, &stub->args.rename.new);
+        if (op_ret < 0) {
+                op_errno = -EFAULT;
+                goto out;
+        }
+
+        STACK_WIND (frame, ac_rename_dst_parent_stat_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->stat, &parentloc);
         loc_wipe (&parentloc);
 
@@ -1175,7 +1349,7 @@ ac_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         if (ret < 0)
                 goto out;
 
-        STACK_WIND (frame, ac_rename_src_stat_cbk, FIRST_CHILD (this),
+        STACK_WIND (frame, ac_rename_src_parent_stat_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->stat, &parentloc);
         loc_wipe (&parentloc);
         ret = 0;
