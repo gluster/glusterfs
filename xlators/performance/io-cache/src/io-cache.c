@@ -1499,6 +1499,7 @@ mem_acct_init (xlator_t *this)
 int
 validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 {
+	ioc_table_t     *table = NULL;
         int32_t          cache_timeout;
         int64_t          min_file_size = 0;
         int64_t          max_file_size = 0;
@@ -1507,6 +1508,10 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         char            *cache_size_string = NULL;
         int              ret = 0;
 
+        if (!this || !this->private)
+                goto out;
+
+	table = this->private;
 
         if (dict_get (options, "cache-timeout")) {
                 cache_timeout = data_to_uint32 (dict_get (options,
@@ -1581,7 +1586,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                             " cache-size %"PRIu64"", cache_size);
         }
 
-
+        min_file_size = table->min_file_size;
         tmp = data_to_str (dict_get (options, "min-file-size"));
         if (tmp != NULL) {
                 if (gf_string2bytesize (tmp,
@@ -1601,6 +1606,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         }
 
 
+        max_file_size = table->max_file_size;
         tmp = data_to_str (dict_get (options, "max-file-size"));
         if (tmp != NULL) {
                 if (gf_string2bytesize (tmp,
@@ -1620,7 +1626,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                             max_file_size);
         }
 
-        if ((max_file_size >= 0) & (min_file_size > max_file_size)) {
+        if ((max_file_size >= 0) && (min_file_size > max_file_size)) {
                 gf_log ("io-cache", GF_LOG_WARNING, "minimum size (%"
                                 PRIu64") of a file that can be cached is "
                                                 "greater than maximum size (%"PRIu64"). ",
@@ -1631,10 +1637,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 goto out;
         }
 
-
 out:
-                return ret;
-
+        return ret;
 }
 
 int
@@ -1749,8 +1753,6 @@ reconfigure (xlator_t *this, dict_t *options)
 			table->max_pri ++;
 		}
 
-
-
 		min_file_size = table->min_file_size;
 		tmp = data_to_str (dict_get (options, "min-file-size"));
 	        if (tmp != NULL) {
@@ -1788,7 +1790,7 @@ reconfigure (xlator_t *this, dict_t *options)
 			 	table->max_file_size);
         	}
 
-        	if ((max_file_size >= 0) & (min_file_size > max_file_size)) {
+        	if ((max_file_size >= 0) && (min_file_size > max_file_size)) {
                         gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
                                 PRIu64") of a file that can be cached is "
                                 "greater than maximum size (%"PRIu64"). "
