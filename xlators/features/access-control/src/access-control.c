@@ -149,7 +149,7 @@ ac_test_group_access (struct iatt *ia, gid_t gid, gid_t *auxgids, int auxcount,
          */
 
         if ((ia->ia_gid != gid) && (auxcount == 0)) {
-                gf_log (ACTRL, GF_LOG_TRACE, "GID mismatch (orig: %d, user: %d)",
+                gf_log (ACTRL, GF_LOG_DEBUG, "GID mismatch (orig: %d, user: %d)",
                         ia->ia_gid, gid);
                 ret = -1;
                 goto out;
@@ -168,7 +168,7 @@ ac_test_group_access (struct iatt *ia, gid_t gid, gid_t *auxgids, int auxcount,
 
         /* None of the gids match with the gid in the stat. */
         if (testgid == -1) {
-                gf_log (ACTRL, GF_LOG_TRACE, "None of the gids match with gid "
+                gf_log (ACTRL, GF_LOG_DEBUG, "None of the gids match with gid "
                         "on the stat");
                 ret = -1;
                 goto out;
@@ -1791,23 +1791,61 @@ ac_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-        op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
-                                 frame->root->groups, frame->root->ngrps,
-                                 ACCTEST_WRITE, ACCTEST_ANY,
-                                 &op_errno);
-        if (op_ret == -1)
-                goto out;
+        if ((frame->root->uid != buf->ia_uid) && (frame->root->uid != 0)) {
+                op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
+                                         frame->root->groups, frame->root->ngrps,
+                                         ACCTEST_WRITE, ACCTEST_ANY,
+                                         &op_errno);
+                if (op_ret == -1) {
+                        gf_log (ACTRL, GF_LOG_DEBUG, "Don't have write permision");
+                        goto out;
+                }
+        }
 
         valid = stub->args.setattr.valid;
         setbuf = &stub->args.setattr.stbuf;
-        if (gf_attr_uid_set (valid) || gf_attr_gid_set (valid)) {
-                /* chown returns EPERM if the operation would change the
-                 * ownership, but the effective user ID is not the
+        if (gf_attr_uid_set (valid) || gf_attr_gid_set (valid)
+            || gf_attr_mode_set(valid)) {
+                /* chown/chmod returns EPERM if the operation would change the
+                 * ownership/permissions, but the effective user ID is not the
                  * super-user and the process is not an owner of the file.
                  * Ref: posix-testsuite/chown/07.t
                  */
-                if ((frame->root->uid != 0) && (gf_attr_uid_set (valid))) {
-                        if (buf->ia_uid != setbuf->ia_uid) {
+                if ((frame->root->uid != 0) && gf_attr_mode_set(valid)) {
+                        if (frame->root->uid != buf->ia_uid) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Mismatch effective_uid %d file_uid %d",
+                                        frame->root->uid, buf->ia_uid);
+                                op_ret = -1;
+                                op_errno = EPERM;
+                                goto out;
+                        }
+                        /* POSIX: If the calling process does not have appropriate privileges, and if
+                        the group ID of the file does not match the effective group ID or one of the
+                        supplementary group IDs and if the file is a regular file, bit S_ISGID
+                        (set-group-ID on execution) in the file's mode shall be cleared upon
+                        successful return from chmod().*/
+
+                        if (setbuf->ia_prot.sgid == 1) {
+                                op_ret = ac_test_access (buf, 0, frame->root->gid,
+                                                         frame->root->groups,
+                                                         frame->root->ngrps,
+                                                         ACCTEST_DONTCARE,
+                                                         ACCTEST_GROUP, &op_errno);
+                                if (op_ret == -1) {
+                                        gf_log (ACTRL, GF_LOG_DEBUG, "Reseting set_gid bit");
+                                        setbuf->ia_prot.sgid = 0;
+                                        op_ret = 0;
+                                }
+                        }
+                }
+
+                if ((frame->root->uid != 0) && gf_attr_uid_set (valid)) {
+                        /*Only super user can change the owner,
+                         * for other users changing uid should match
+                         * owner uid*/
+                        if (setbuf->ia_uid != buf->ia_uid) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Mismatch set_uid %d file_uid %d",
+                                        setbuf->ia_uid, buf->ia_uid);
                                 op_ret = -1;
                                 op_errno = EPERM;
                                 goto out;
@@ -1820,6 +1858,8 @@ ac_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
                 if ((frame->root->uid != 0) && (gf_attr_gid_set (valid))) {
                         if (frame->root->uid != buf->ia_uid) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Mismatch effective_uid %d file_uid %d",
+                                        frame->root->uid, buf->ia_uid);
                                 op_ret = -1;
                                 op_errno = EPERM;
                                 goto out;
@@ -1830,8 +1870,11 @@ ac_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                  frame->root->ngrps,
                                                  ACCTEST_DONTCARE,
                                                  ACCTEST_GROUP, &op_errno);
-                        if (op_ret == -1)
+                        if (op_ret == -1) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Set_gid %d is not in aux_gid_list",
+                                        setbuf->ia_gid);
                                 goto out;
+                        }
                 }
         }
 
@@ -1904,23 +1947,62 @@ ac_fsetattr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-        op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
-                                 frame->root->groups, frame->root->ngrps,
-                                 ACCTEST_WRITE, ACCTEST_ANY,
-                                 &op_errno);
-        if (op_ret == -1)
-                goto out;
+
+        if ((frame->root->uid != buf->ia_uid) && (frame->root->uid != 0)) {
+                op_ret = ac_test_access (buf, frame->root->uid, frame->root->gid,
+                                         frame->root->groups, frame->root->ngrps,
+                                         ACCTEST_WRITE, ACCTEST_ANY,
+                                         &op_errno);
+                if (op_ret == -1) {
+                        gf_log (ACTRL, GF_LOG_DEBUG, "Don't have write permision");
+                        goto out;
+                }
+        }
 
         valid = stub->args.fsetattr.valid;
         setbuf = &stub->args.fsetattr.stbuf;
-        if (gf_attr_uid_set (valid) && gf_attr_gid_set (valid)) {
-                /* chown returns EPERM if the operation would change the
-                 * ownership, but the effective user ID is not the
+        if (gf_attr_uid_set (valid) || gf_attr_gid_set (valid)
+            || gf_attr_mode_set(valid)) {
+                /* chown/chmod returns EPERM if the operation would change the
+                 * ownership/permissions, but the effective user ID is not the
                  * super-user and the process is not an owner of the file.
                  * Ref: posix-testsuite/chown/07.t
                  */
-                if ((frame->root->uid != 0) && (gf_attr_uid_set (valid))) {
-                        if (buf->ia_uid != setbuf->ia_uid) {
+                if ((frame->root->uid != 0) && gf_attr_mode_set(valid)) {
+                        if (frame->root->uid != buf->ia_uid) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Mismatch effective_uid %d file_uid %d",
+                                        frame->root->uid, buf->ia_uid);
+                                op_ret = -1;
+                                op_errno = EPERM;
+                                goto out;
+                        }
+                        /* POSIX: If the calling process does not have appropriate privileges, and if
+                        the group ID of the file does not match the effective group ID or one of the
+                        supplementary group IDs and if the file is a regular file, bit S_ISGID
+                        (set-group-ID on execution) in the file's mode shall be cleared upon
+                        successful return from chmod().*/
+
+                        if (setbuf->ia_prot.sgid == 1) {
+                                op_ret = ac_test_access (buf, 0, frame->root->gid,
+                                                         frame->root->groups,
+                                                         frame->root->ngrps,
+                                                         ACCTEST_DONTCARE,
+                                                         ACCTEST_GROUP, &op_errno);
+                                if (op_ret == -1) {
+                                        gf_log (ACTRL, GF_LOG_DEBUG, "Reseting set_gid bit");
+                                        setbuf->ia_prot.sgid = 0;
+                                        op_ret = 0;
+                                }
+                        }
+                }
+
+                if ((frame->root->uid != 0) && gf_attr_uid_set (valid)) {
+                        /*Only super user can change the owner,
+                         * for other users changing uid should match
+                         * owner uid*/
+                        if (setbuf->ia_uid != buf->ia_uid) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Mismatch set_uid %d file_uid %d",
+                                        setbuf->ia_uid, buf->ia_uid);
                                 op_ret = -1;
                                 op_errno = EPERM;
                                 goto out;
@@ -1933,18 +2015,23 @@ ac_fsetattr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
                 if ((frame->root->uid != 0) && (gf_attr_gid_set (valid))) {
                         if (frame->root->uid != buf->ia_uid) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Mismatch effective_uid %d file_uid %d",
+                                        frame->root->uid, buf->ia_uid);
                                 op_ret = -1;
                                 op_errno = EPERM;
                                 goto out;
                         }
 
-                        op_ret = ac_test_access (buf, 0, frame->root->gid,
+                        op_ret = ac_test_access (setbuf, 0, frame->root->gid,
                                                  frame->root->groups,
                                                  frame->root->ngrps,
                                                  ACCTEST_DONTCARE,
                                                  ACCTEST_GROUP, &op_errno);
-                        if (op_ret == -1)
+                        if (op_ret == -1) {
+                                gf_log (ACTRL, GF_LOG_DEBUG, "Set_gid %d is not in aux_gid_list",
+                                        setbuf->ia_gid);
                                 goto out;
+                        }
                 }
         }
 
