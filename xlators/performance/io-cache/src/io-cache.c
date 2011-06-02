@@ -1671,7 +1671,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         }
                 }
 
-        	if ((max_file_size >= 0) & (min_file_size > max_file_size)) {
+                if ((max_file_size >= 0) && (min_file_size > max_file_size)) {
                         gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
                                 PRIu64") of a file that can be cached is "
                                 "greater than maximum size (%"PRIu64"). "
