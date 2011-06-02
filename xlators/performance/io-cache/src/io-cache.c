@@ -1632,7 +1632,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                                                 "greater than maximum size (%"PRIu64"). ",
                                                 min_file_size, max_file_size);
                 *op_errstr = gf_strdup ("Error, min-file-size greater"
-                                "than max-file-size");
+                                " than max-file-size");
                 ret = -1;
                 goto out;
         }
