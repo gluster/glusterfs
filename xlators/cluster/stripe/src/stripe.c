@@ -4354,7 +4354,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (*priv->vol_uuid) {
+        if (name &&(*priv->vol_uuid)) {
                 if ((match_uuid_local (name, priv->vol_uuid) == 0)
                     && (-1 == frame->root->pid)) {
                         local->marker.call_count = priv->child_count;
