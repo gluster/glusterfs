@@ -364,15 +364,6 @@ resolve_entry_simple (call_frame_t *frame)
                 resolve->op_ret   = -1;
                 resolve->op_errno = ENOENT;
                 ret = 1;
-
-                inode = inode_grep (state->itable, parent, resolve->bname);
-                if (inode != NULL) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%"PRId64": inode "
-                                "(pointer:%p ino: %"PRIu64") present but parent"
-                                " is NULL for path (%s)", frame->root->unique,
-                                inode, inode->ino, resolve->path);
-                        inode_unref (inode);
-                }
                 goto out;
         }
 

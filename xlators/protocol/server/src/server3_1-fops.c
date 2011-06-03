@@ -327,7 +327,7 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                        frame->root->lk_owner, GF_FOP_ENTRYLK);
         } else if (op_errno != ENOSYS) {
                 gf_log (this->name, GF_LOG_TRACE,
-                        "%"PRId64": INODELK %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": ENTRYLK %s (%"PRId64") ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
                         state->loc.inode ? state->loc.inode->ino : 0, op_ret,
                         strerror (op_errno));
