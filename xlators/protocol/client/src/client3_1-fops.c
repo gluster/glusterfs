@@ -228,7 +228,7 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         frame->local = NULL;
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                gf_log (this->name, GF_LOG_ERROR, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
         STACK_UNWIND_STRICT (mknod, frame, rsp.op_ret,
