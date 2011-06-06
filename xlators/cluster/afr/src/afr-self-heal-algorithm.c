@@ -158,7 +158,7 @@ sh_full_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
         LOCK (&sh_frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "write to %s failed on subvolume %s (%s)",
                                 sh_local->loc.path,
                                 priv->children[child_index]->name,
@@ -212,7 +212,7 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
                 op_ret, sh_local->loc.path, offset);
 
         if (op_ret <= 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "read from %s failed on subvolume %s (%s)",
                         sh_local->loc.path,
                         priv->children[sh->source]->name,
@@ -601,7 +601,7 @@ sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
         LOCK (&sh_frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "write to %s failed on subvolume %s (%s)",
                                 sh_local->loc.path,
                                 priv->children[child_index]->name,
