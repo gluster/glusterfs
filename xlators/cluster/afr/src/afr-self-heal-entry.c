@@ -75,9 +75,6 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
         /*        sh->locked_nodes[i] = 0; */
         /* } */
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "self heal of %s completed", local->loc.path);
-
         sh->completion_cbk (frame, this);
 
         return 0;
@@ -1081,7 +1078,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         child_index = (long) cookie;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "creation of %s on %s failed (%s)",
                         impunge_local->loc.path,
                         priv->children[child_index]->name,
@@ -1956,7 +1953,7 @@ afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "opendir of %s failed on child %s (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
@@ -2256,18 +2253,21 @@ afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
+        afr_self_heal_t     *sh       = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
+        sh       = &local->self_heal;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "Non Blocking entrylks failed.");
+                gf_log (this->name, GF_LOG_ERROR, "Non Blocking entrylks "
+                        "failed for %s.", local->loc.path);
+                sh->op_failed = 1;
                 afr_sh_entry_done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non Blocking entrylks done. Proceeding to FOP");
+                gf_log (this->name, GF_LOG_DEBUG, "Non Blocking entrylks done "
+                        "for %s. Proceeding to FOP", local->loc.path);
                 afr_sh_entry_lookup(frame, this);
         }
 

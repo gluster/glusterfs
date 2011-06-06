@@ -780,8 +780,9 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 
         if (local->govinda_gOvinda) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "split brain found: aborting selfheal of %s",
+                        "split brain found, aborting selfheal of %s",
                         local->loc.path);
+                sh->op_failed = 1;
                 sh->completion_cbk (frame, this);
         } else {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -1546,9 +1547,16 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 
         afr_self_heal_type_str_get(sh, sh_type_str,
                                    sizeof(sh_type_str));
-        gf_log (this->name, GF_LOG_DEBUG,
-                "background %s self-heal completed on %s", sh_type_str,
-                local->loc.path);
+        afr_self_heal_type_str_get (sh, sh_type_str,
+                                    sizeof(sh_type_str));
+        if (sh->op_failed) {
+                gf_log (this->name, GF_LOG_ERROR, "background %s self-heal "
+                        "failed on %s", sh_type_str, local->loc.path);
+        } else {
+                gf_log (this->name, GF_LOG_INFO, "background %s self-heal "
+                        "completed on %s", sh_type_str, local->loc.path);
+        }
+
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
 
         if (!sh->unwound) {
@@ -1666,7 +1674,7 @@ void
 afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
                             size_t size)
 {
-        GF_ASSERT (str && (size > 0));
+        GF_ASSERT (str && (size > strlen (" meta-data data entry")));
 
         if (self_heal_p->need_metadata_self_heal) {
                 snprintf(str, size, " meta-data");

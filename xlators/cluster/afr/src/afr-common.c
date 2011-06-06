@@ -571,13 +571,13 @@ afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
 
         if (afr_sh_has_entry_pending (xattr, child_index, this)) {
                 local->self_heal.need_entry_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_INFO,
+                gf_log(this->name, GF_LOG_DEBUG,
                        "entry self-heal is pending for %s.", local->loc.path);
         }
 
         if (afr_sh_has_data_pending (xattr, child_index, this)) {
                 local->self_heal.need_data_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_INFO,
+                gf_log(this->name, GF_LOG_DEBUG,
                        "data self-heal is pending for %s.", local->loc.path);
         }
 

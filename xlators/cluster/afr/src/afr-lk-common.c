@@ -563,7 +563,7 @@ afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                op_errno, (long) cookie);
 
         if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "%s: unlock failed %s",
                         local->loc.path, strerror (op_errno));
         }
