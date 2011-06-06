@@ -237,6 +237,10 @@ fi
 %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %endif
 
+%post geo-replication
+#restart glusterd.
+/etc/init.d/glusterd restart &> /dev/null
+
 %if 0%{!?_without_geo-replication:1}
 %files geo-replication
 %defattr(-,root,root)
