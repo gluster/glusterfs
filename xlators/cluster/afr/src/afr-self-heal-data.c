@@ -75,10 +75,6 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
         /* for (i = 0; i < priv->child_count; i++) */
         /*        sh->locked_nodes[i] = 0; */
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "self heal of %s completed",
-                local->loc.path);
-
         sh->completion_cbk (frame, this);
 
         return 0;
@@ -902,18 +898,21 @@ afr_sh_data_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
+        afr_self_heal_t     *sh       = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
+        sh       = &local->self_heal;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "Non Blocking inodelks failed.");
+                gf_log (this->name, GF_LOG_ERROR, "Non Blocking data inodelks "
+                        "failed for %s.", local->loc.path);
+                sh->op_failed = 1;
                 afr_sh_data_done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non Blocking inodelks done. Proceeding to FOP");
+                gf_log (this->name, GF_LOG_DEBUG, "Non Blocking data inodelks "
+                        "done for %s. Proceeding to FOP", local->loc.path);
                 afr_sh_data_fxattrop (frame, this);
         }
 
@@ -942,7 +941,6 @@ afr_sh_data_lock_rec (call_frame_t *frame, xlator_t *this)
         int_lock->lock_cbk         = afr_sh_data_post_nonblocking_inodelk_cbk;
 
         afr_nonblocking_inodelk (frame, this);
-
 
         return 0;
 }
@@ -995,7 +993,7 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "open of %s failed on child %s (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,

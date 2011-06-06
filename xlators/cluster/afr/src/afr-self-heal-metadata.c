@@ -77,8 +77,9 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 
         if (local->govinda_gOvinda) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "aborting selfheal of %s",
+                        "split-brain detected, aborting selfheal of %s",
                         local->loc.path);
+                sh->op_failed = 1;
                 sh->completion_cbk (frame, this);
         } else {
                 if (IA_ISREG (sh->type)) {
@@ -96,10 +97,6 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
                         afr_self_heal_entry (frame, this);
                         return 0;
                 }
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "completed self heal of %s",
-                        local->loc.path);
-
                 sh->completion_cbk (frame, this);
         }
 
@@ -661,7 +658,8 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_sh_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
+afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
+                                              xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
@@ -670,13 +668,16 @@ afr_sh_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non Blocking inodelks failed.");
+                gf_log (this->name, GF_LOG_ERROR, "Non Blocking metadata "
+                        "inodelks failed for %s.", local->loc.path);
+                gf_log (this->name, GF_LOG_ERROR, "Metadata self-heal "
+                        "failed for %s.", local->loc.path);
                 afr_sh_metadata_done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non Blocking inodelks done. Proceeding to FOP");
+                gf_log (this->name, GF_LOG_DEBUG, "Non Blocking metadata "
+                        "inodelks done for %s. Proceeding to FOP",
+                        local->loc.path);
                 afr_sh_metadata_lookup (frame, this);
         }
 
@@ -700,7 +701,7 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
         int_lock->lk_flock.l_start = 0;
         int_lock->lk_flock.l_len   = 0;
         int_lock->lk_flock.l_type  = F_WRLCK;
-        int_lock->lock_cbk         = afr_sh_post_nonblocking_inodelk_cbk;
+        int_lock->lock_cbk         = afr_sh_metadata_post_nonblocking_inodelk_cbk;
 
         afr_nonblocking_inodelk (frame, this);
 
