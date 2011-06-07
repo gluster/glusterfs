@@ -860,7 +860,8 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
         afr_local_t   *local     = NULL;
         afr_private_t *priv      = NULL;
         dict_t        *dict      = NULL;
-        char          *dst_brick = NULL;
+        data_t        *data      = NULL;
+        char          *clnt_cmd = NULL;
         loc_t loc = {0};
 
         int ret = 0;
@@ -872,8 +873,8 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 
         build_root_loc (priv->root_inode, &loc);
 
-        ret = dict_get_str (local->dict, PUMP_CMD_START, &dst_brick);
-        if (ret < 0) {
+        data = data_ref (dict_get (local->dict, PUMP_CMD_START));
+        if (!data) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not get destination brick value");
                 goto out;
@@ -887,12 +888,21 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
                 goto out;
         }
 
-        GF_ASSERT (dst_brick);
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Got destination brick as %s", dst_brick);
+        clnt_cmd = GF_CALLOC (1, data->len+1, gf_common_mt_char);
+        if (!clnt_cmd) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
 
-        ret = dict_set_str (dict, CLIENT_CMD_CONNECT, dst_brick);
+        memcpy (clnt_cmd, data->data, data->len);
+        clnt_cmd[data->len] = '\0';
+        gf_log (this->name, GF_LOG_DEBUG, "Got destination brick %s\n",
+                        clnt_cmd);
+
+        ret = dict_set_dynstr (dict, CLIENT_CMD_CONNECT, clnt_cmd);
         if (ret < 0) {
+                GF_FREE (clnt_cmd);
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not inititiate destination brick "
                         "connect");
@@ -911,6 +921,8 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 
         dict_unref (dict);
 out:
+        if (data)
+                data_unref (data);
         return ret;
 }
 
@@ -1034,10 +1046,10 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 
         dict = dict_new ();
 
-        ret = dict_set_str (dict, PUMP_CMD_STATUS, dict_str);
+        ret = dict_set_dynptr (dict, PUMP_CMD_STATUS, dict_str, PATH_MAX + 256);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "dict_set_str returned negative value");
+                        "dict_set_dynptr returned negative value");
         }
 
         op_ret = 0;
@@ -1047,7 +1059,6 @@ out:
         AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
 
         dict_unref (dict);
-        GF_FREE (dict_str);
 
         return 0;
 }
@@ -2430,7 +2441,7 @@ init (xlator_t *this)
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
 
-                ret = asprintf (&priv->pending_key[i], "%s.%s", AFR_XATTR_PREFIX,
+                ret = gf_asprintf (&priv->pending_key[i], "%s.%s", AFR_XATTR_PREFIX,
                                 trav->xlator->name);
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_ERROR,

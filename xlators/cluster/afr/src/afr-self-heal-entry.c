@@ -1056,7 +1056,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         call_frame_t    *frame            = NULL;
         int              active_src       = 0;
         int              child_index      = 0;
-        int              pending_array[3] = {0, };
+        int32_t         *pending_array    = NULL;
         dict_t          *xattr            = NULL;
         int              ret              = 0;
         int              idx              = 0;
@@ -1088,9 +1088,21 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 
         inode->ia_type = stbuf->ia_type;
 
-        xattr = get_new_dict ();
-        dict_ref (xattr);
+        xattr = dict_new ();
+        if (!xattr) {
+                sh->op_failed = 1;
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
 
+        pending_array = (int32_t*) GF_CALLOC (3, sizeof (int32_t),
+                                        gf_common_mt_int32_t);
+
+        if (!pending_array) {
+                sh->op_failed = 1;
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
         idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
         pending_array[idx] = hton32 (1);
         if (IA_ISDIR (stbuf->ia_type))
@@ -1099,11 +1111,13 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                 idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
         pending_array[idx] = hton32 (1);
 
-        ret = dict_set_static_bin (xattr, priv->pending_key[child_index],
-                                   pending_array, sizeof (pending_array));
-        if (ret < 0)
+        ret = dict_set_dynptr (xattr, priv->pending_key[child_index],
+                                   pending_array, 3 * sizeof (int32_t));
+        if (ret < 0) {
+                GF_FREE (pending_array);
                 gf_log (this->name, GF_LOG_WARNING,
                         "Unable to set dict value.");
+        }
 
         valid         = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
         parentbuf     = impunge_sh->parentbuf;
@@ -1111,6 +1125,11 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 
         parent_loc = GF_CALLOC (1, sizeof (*parent_loc),
                                 gf_afr_mt_loc_t);
+        if (!parent_loc) {
+                sh->op_failed = 1;
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
         afr_build_parent_loc (parent_loc, &impunge_local->loc);
 
         STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
@@ -1130,6 +1149,12 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         return 0;
 
 out:
+        if (xattr)
+                dict_unref (xattr);
+
+        if (pending_array)
+                GF_FREE (pending_array);
+
         LOCK (&impunge_frame->lock);
         {
                 call_count = --impunge_local->call_count;

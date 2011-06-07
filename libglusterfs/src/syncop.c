@@ -291,7 +291,7 @@ syncop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 args->iatt1  = *iatt;
-                args->xattr  = xattr;
+                args->xattr  = dict_ref (xattr);
                 args->iatt2  = *parent;
         }
 
@@ -313,10 +313,11 @@ syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
         if (iatt)
                 *iatt = args.iatt1;
         if (xattr_rsp)
-                *xattr_rsp = args.xattr;
+                *xattr_rsp = dict_ref (args.xattr);
         if (parent)
                 *parent = args.iatt2;
 
+        dict_unref (args.xattr);
         errno = args.op_errno;
         return args.op_ret;
 }

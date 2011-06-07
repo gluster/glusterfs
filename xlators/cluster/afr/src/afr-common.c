@@ -63,14 +63,26 @@
 int32_t
 afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
 {
-        int ret = 0;
+        int     ret   = 0;
+        uuid_t *pgfid = NULL;
 
         GF_ASSERT (gfid);
 
-        ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_DEBUG, "gfid set failed");
+        pgfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+        if (!pgfid) {
+                ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
+        uuid_copy (*pgfid, gfid);
 
+        ret = dict_set_dynptr (dict, "gfid-req", pgfid, 16);
+        if (ret) {
+                GF_FREE (pgfid);
+                gf_log (THIS->name, GF_LOG_DEBUG, "gfid set failed");
+        }
+
+out:
         return ret;
 }
 

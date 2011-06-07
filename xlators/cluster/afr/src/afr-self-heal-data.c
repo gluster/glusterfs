@@ -844,7 +844,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
         afr_local_t     *local = NULL;
         afr_private_t   *priv  = NULL;
         dict_t          *xattr_req = NULL;
-        int32_t zero_pending[3] = {0,};
+        int32_t         *zero_pending = NULL;
         int call_count = 0;
         int i = 0;
         int ret = 0;
@@ -859,13 +859,23 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         xattr_req = dict_new();
-        if (xattr_req) {
-                for (i = 0; i < priv->child_count; i++) {
-                        ret = dict_set_static_bin (xattr_req, priv->pending_key[i],
-                                                   zero_pending, 3 * sizeof(int32_t));
-                        if (ret < 0)
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "Unable to set dict value");
+        if (!xattr_req) {
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                zero_pending = GF_CALLOC (3, sizeof (int32_t), gf_common_mt_int32_t);
+                if (!zero_pending) {
+                        gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                        goto out;
+                }
+                ret = dict_set_dynptr (xattr_req, priv->pending_key[i],
+                                           zero_pending, 3 * sizeof (int32_t));
+                if (ret < 0) {
+                        GF_FREE (zero_pending);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Unable to set dict value");
                 }
         }
 
@@ -883,8 +893,14 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
                 }
         }
 
+        dict_unref (xattr_req);
+        return 0;
+
+out:
         if (xattr_req)
                 dict_unref (xattr_req);
+        sh->op_failed = 1;
+        afr_sh_data_done (frame, this);
 
         return 0;
 }
