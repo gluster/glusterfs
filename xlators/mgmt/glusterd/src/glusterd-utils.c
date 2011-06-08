@@ -1028,6 +1028,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    exp_path[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
         int                     port = 0;
+        int                     rdma_port = 0;
         FILE                    *file = NULL;
         gf_boolean_t            is_locked = _gf_false;
         char                    socketpath[PATH_MAX] = {0};
@@ -1117,7 +1118,19 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                          "-p", pidfile, "-S", socketpath,
                          "--brick-name", brickinfo->path,
                          "-l", brickinfo->logfile, "--brick-port",  NULL);
-        runner_argprintf (&runner, "%d", port);
+
+        if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
+                runner_argprintf (&runner, "%d", port);
+        } else {
+                rdma_port = brickinfo->rdma_port;
+                if (!rdma_port)
+                        rdma_port = pmap_registry_alloc (THIS);
+                runner_argprintf (&runner, "%d,%d", port, rdma_port);
+                runner_add_arg (&runner, "--xlator-option");
+                runner_argprintf (&runner, "%s-server.transport.rdma.listen-port=%d",
+                                  volinfo->volname, rdma_port);
+        }
+
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf (&runner, "%s-server.listen-port=%d",
                           volinfo->volname, port);
@@ -1128,6 +1141,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (ret == 0) {
                 //pmap_registry_bind (THIS, port, brickinfo->path);
                 brickinfo->port = port;
+                brickinfo->rdma_port = rdma_port;
         }
 
 connect:
