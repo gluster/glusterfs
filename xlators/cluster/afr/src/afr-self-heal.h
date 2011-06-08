@@ -45,8 +45,9 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this);
 int
 afr_self_heal_metadata (call_frame_t *frame, xlator_t *this);
 
-int
-afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr);
+void
+afr_self_heal_find_sources (xlator_t *this, afr_local_t *local, dict_t **xattr,
+                            afr_transaction_type transaction_type);
 
 int
 afr_self_heal (call_frame_t *frame, xlator_t *this);

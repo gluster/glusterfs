@@ -647,19 +647,82 @@ afr_lookup_self_heal_check (xlator_t *this, afr_local_t *local,
         }
 }
 
+int
+afr_is_valid_read_child (int *sources, int32_t child_count, int32_t read_child)
+{
+        int valid = 0;
+
+        if (!sources)
+                goto out;
+
+        if ((read_child < 0) ||
+            (read_child >= child_count))
+                goto out;
+
+        valid = sources[read_child];
+out:
+        return valid;
+}
+
+void
+afr_lookup_set_read_child (xlator_t *this, afr_local_t *local)
+{
+        ia_type_t               ia_type = IA_INVAL;
+        afr_transaction_type    transaction_type = AFR_DATA_TRANSACTION;
+        afr_private_t           *priv = NULL;
+        int32_t                 read_child = -1;
+        afr_self_heal_t         *sh = NULL;
+
+        priv = this->private;
+        sh   = &local->self_heal;
+
+        ia_type = local->cont.lookup.inode->ia_type;
+        if (IA_ISREG (ia_type)) {
+                transaction_type = AFR_DATA_TRANSACTION;
+        } else if IA_ISDIR (ia_type) {
+                transaction_type = AFR_ENTRY_TRANSACTION;
+        } else {
+                transaction_type = AFR_METADATA_TRANSACTION;
+        }
+        afr_self_heal_find_sources (this, local,
+                                    local->cont.lookup.xattrs,
+                                    transaction_type);
+        if (!sh->sources)
+                goto out;
+
+        read_child = priv->read_child;
+        if (afr_is_valid_read_child (sh->sources, priv->child_count,
+                                     read_child))
+                goto out;
+
+        read_child = afr_read_child (this, local->loc.inode);
+        if (afr_is_valid_read_child (sh->sources, priv->child_count,
+                                     read_child))
+                goto out;
+
+        read_child = afr_sh_select_source (sh->sources, priv->child_count);
+out:
+        if (read_child >= 0) {
+                afr_set_read_child (this,
+                                    local->cont.lookup.inode,
+                                    read_child);
+        }
+}
 
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
 {
-        int  unwind = 1;
-        int  source = -1;
-        int  up_count = 0;
-        char sh_type_str[256] = {0,};
-        afr_private_t *priv  = NULL;
-        afr_local_t   *local = NULL;
+        int                     unwind = 1;
+        int                     up_count = 0;
+        char                    sh_type_str[256] = {0,};
+        afr_private_t           *priv  = NULL;
+        afr_local_t             *local = NULL;
 
         priv  = this->private;
         local = frame->local;
+
+        if (local->op_ret != 0)
+                goto unwind;
 
         local->cont.lookup.postparent.ia_ino  = local->cont.lookup.parent_ino;
 
@@ -675,6 +738,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                                 local->cont.lookup.inode->ino;
                 }
         }
+
+        afr_lookup_set_read_child (this, local);
         up_count = afr_up_children_count (priv->child_count, priv->child_up);
         if (up_count == 1) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -702,27 +767,16 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                 }
         }
 
-        if ((local->self_heal.need_metadata_self_heal
+        if (local->self_heal.need_metadata_self_heal
              || local->self_heal.need_data_self_heal
              || local->self_heal.need_entry_self_heal)
-            && ((!local->cont.lookup.is_revalidate)
-                || (local->op_ret != -1))) {
+             {
 
                 if (local->inodelk_count || local->entrylk_count) {
 
                         /* Someone else is doing self-heal on this file.
-                           So just make a best effort to set the read-subvolume
-                           and return */
+                           return */
 
-                        if (IA_ISREG (local->cont.lookup.inode->ia_type)) {
-                                source = afr_self_heal_get_source (this, local, local->cont.lookup.xattrs);
-
-                                if (source >= 0) {
-                                        afr_set_read_child (this,
-                                                            local->cont.lookup.inode,
-                                                            source);
-                                }
-                        }
                         goto unwind;
                 }
 

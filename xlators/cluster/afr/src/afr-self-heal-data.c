@@ -693,13 +693,14 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 }
 
 
-int
-afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
+void
+afr_self_heal_find_sources (xlator_t *this, afr_local_t *local, dict_t **xattr,
+                            afr_transaction_type transaction_type)
 {
         afr_self_heal_t *sh   = NULL;
         afr_private_t   *priv = NULL;
-        int              source = 0;
         int              i = 0;
+        afr_self_heal_type sh_type = AFR_SELF_HEAL_DATA;
 
         sh   = &local->self_heal;
         priv = this->private;
@@ -716,13 +717,23 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
                                  gf_afr_mt_int32_t);
 
         afr_sh_build_pending_matrix (priv, sh->pending_matrix, xattr,
-                                     priv->child_count, AFR_DATA_TRANSACTION);
+                                     priv->child_count, transaction_type);
 
-        (void)afr_sh_mark_sources (sh, priv->child_count, AFR_SELF_HEAL_DATA);
-
-        source = afr_sh_select_source (sh->sources, priv->child_count);
-
-        return source;
+        switch (transaction_type) {
+        case AFR_DATA_TRANSACTION:
+                sh_type = AFR_SELF_HEAL_DATA;
+                break;
+        case AFR_ENTRY_TRANSACTION:
+                sh_type = AFR_SELF_HEAL_ENTRY;
+                break;
+        case AFR_METADATA_TRANSACTION:
+                sh_type = AFR_SELF_HEAL_METADATA;
+                break;
+        default:
+                sh_type = AFR_SELF_HEAL_METADATA;
+                break;
+        }
+        (void)afr_sh_mark_sources (sh, priv->child_count, sh_type);
 }
 
 
