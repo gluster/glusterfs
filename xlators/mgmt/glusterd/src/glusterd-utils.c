@@ -1024,6 +1024,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    exp_path[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
         int                     port = 0;
+        int                     rdma_port = 0;
         FILE                    *file = NULL;
         gf_boolean_t            is_locked = _gf_false;
         char                    socketpath[PATH_MAX] = {0};
@@ -1107,12 +1108,27 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (!port)
                 port = pmap_registry_alloc (THIS);
 
-        snprintf (cmd_str, 8192,
-                  "%s/sbin/glusterfsd --xlator-option %s-server.listen-port=%d "
-                  "-s localhost --volfile-id %s -p %s -S %s --brick-name %s "
-                  "--brick-port %d -l %s", GFS_PREFIX, volinfo->volname,
-                  port, volfile, pidfile, socketpath, brickinfo->path, port,
-                  brickinfo->logfile);
+        if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
+                snprintf (cmd_str, 8192,
+                          "%s/sbin/glusterfsd --xlator-option %s-server.listen-port=%d "
+                          "-s localhost --volfile-id %s -p %s -S %s --brick-name %s "
+                          "--brick-port %d -l %s", GFS_PREFIX, volinfo->volname,
+                          port, volfile, pidfile, socketpath, brickinfo->path, port,
+                          brickinfo->logfile);
+        } else {
+                rdma_port = brickinfo->rdma_port;
+                if (!rdma_port)
+                        rdma_port = pmap_registry_alloc (THIS);
+
+                snprintf (cmd_str, 8192,
+                          "%s/sbin/glusterfsd --xlator-option %s-server.listen-port=%d "
+                          "--xlator-option %s-server.transport.rdma.listen-port=%d -s localhost "
+                          "--volfile-id %s -p %s -S %s --brick-name %s "
+                          "--brick-port %d,%d -l %s", GFS_PREFIX, volinfo->volname,
+                          port, volinfo->volname, rdma_port, volfile, pidfile,
+                          socketpath, brickinfo->path, port, rdma_port,
+                          brickinfo->logfile);
+        }
 
 	gf_log ("",GF_LOG_DEBUG,"Starting GlusterFS Command Executed: \n %s \n", cmd_str);
         ret = gf_system (cmd_str);
@@ -1120,6 +1136,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (ret == 0) {
                 //pmap_registry_bind (THIS, port, brickinfo->path);
                 brickinfo->port = port;
+                brickinfo->rdma_port = rdma_port;
         }
 
 connect:

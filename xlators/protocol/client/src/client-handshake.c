@@ -918,6 +918,8 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         conf->connecting = 0;
         conf->connected = 1;
 
+        conf->need_different_port = 0;
+
         /* TODO: more to test */
         client_post_handshake (frame, frame->this);
 
@@ -1193,6 +1195,8 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
         clnt_conf_t             *conf            = NULL;
         dict_t                  *options         = NULL;
         char                    *remote_subvol   = NULL;
+        char                    *xprt            = NULL;
+        char                     brick_name[PATH_MAX] = {0,};
 
         options = this->options;
         conf    = this->private;
@@ -1205,6 +1209,23 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
         }
 
         req.brick = remote_subvol;
+
+        /* FIXME: Dirty work around */
+        if (!dict_get_str (options, "transport-type", &xprt)) {
+                /* This logic is required only in case of 'rdma' client
+                   transport-type and the volume is of 'tcp,rdma'
+                   transport type. */
+                if (!strcmp (xprt, "rdma")) {
+                        if (!conf->need_different_port) {
+                                snprintf (brick_name, PATH_MAX, "%s.rdma",
+                                          remote_subvol);
+                                req.brick = brick_name;
+                                conf->need_different_port = 1;
+                        } else {
+                                conf->need_different_port = 0;
+                        }
+                }
+        }
 
         fr  = create_frame (this, this->ctx->pool);
         if (!fr) {

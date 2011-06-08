@@ -899,8 +899,8 @@ out:
 }
 
 static int
-mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
-                      void *myframe)
+mgmt_pmap_signin2_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                       void *myframe)
 {
         pmap_signin_rsp  rsp   = {0,};
         call_frame_t    *frame = NULL;
@@ -927,6 +927,66 @@ mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         "failed to register the port with glusterd");
                 goto out;
         }
+out:
+        STACK_DESTROY (frame->root);
+        return 0;
+
+}
+
+static int
+mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                      void *myframe)
+{
+        pmap_signin_rsp  rsp   = {0,};
+        call_frame_t    *frame = NULL;
+        int              ret   = 0;
+        pmap_signin_req  pmap_req = {0, };
+        cmd_args_t      *cmd_args = NULL;
+        glusterfs_ctx_t *ctx      = NULL;
+        char             brick_name[PATH_MAX] = {0,};
+
+        frame = myframe;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        ret = xdr_to_pmap_signin_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "XDR decode error");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        if (-1 == rsp.op_ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to register the port with glusterd");
+                goto out;
+        }
+
+        ctx = glusterfs_ctx_get ();
+        cmd_args = &ctx->cmd_args;
+
+        if (!cmd_args->brick_port2) {
+                /* We are done with signin process */
+                goto out;
+        }
+
+        snprintf (brick_name, PATH_MAX, "%s.rdma", cmd_args->brick_name);
+        pmap_req.port  = cmd_args->brick_port2;
+        pmap_req.brick = brick_name;
+
+        ret = mgmt_submit_request (&pmap_req, frame, ctx, &clnt_pmap_prog,
+                                   GF_PMAP_SIGNIN, xdr_from_pmap_signin_req,
+                                   mgmt_pmap_signin2_cbk);
+        if (ret)
+                goto out;
+
+        return 0;
+
 out:
 
         STACK_DESTROY (frame->root);
