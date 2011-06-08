@@ -24,7 +24,7 @@
 
 #include <inttypes.h>
 #include <sys/resource.h>
-#include <sys/vfs.h>
+#include <sys/statvfs.h>
 
 #include "globals.h"
 #include "compat.h"
@@ -58,8 +58,8 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         char                    tmp_filename[PATH_MAX] = {0,};
         char                    value[16]              = {0,};
         char                    linkinfo[PATH_MAX]     = {0,};
-        struct statfs           src_statfs = {0,};
-        struct statfs           dst_statfs = {0,};
+        struct statvfs          src_statfs = {0,};
+        struct statvfs          dst_statfs = {0,};
 
         if (!volinfo->defrag)
                 goto out;
@@ -118,12 +118,12 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 /* Prevent data movement from a node which has higher
                    disk-space to a node with lesser */
                 {
-                        ret = statfs (full_path, &src_statfs);
+                        ret = statvfs (full_path, &src_statfs);
                         if (ret)
                                 gf_log ("", GF_LOG_INFO, "statfs on %s failed",
                                         full_path);
 
-                        ret = statfs (tmp_filename, &dst_statfs);
+                        ret = statvfs (tmp_filename, &dst_statfs);
                         if (ret)
                                 gf_log ("", GF_LOG_INFO, "statfs on %s failed",
                                         tmp_filename);

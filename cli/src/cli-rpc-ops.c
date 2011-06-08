@@ -40,6 +40,7 @@
 #include "cli-mem-types.h"
 #include "compat.h"
 
+#include "syscall.h"
 #include "glusterfs3.h"
 #include "portmap.h"
 
@@ -1377,7 +1378,7 @@ gf_cli3_1_print_limit_list (char *volname, char *limit_list)
 
                 snprintf (abspath, sizeof (abspath), "%s/%s", mountdir, path);
 
-                ret = getxattr (abspath, "trusted.limit.list", (void *) ret_str, 4096);
+                ret = sys_lgetxattr (abspath, "trusted.limit.list", (void *) ret_str, 4096);
                 if (ret < 0) {
                         cli_out ("%-20s %10s", path, value);
                 } else {

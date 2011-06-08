@@ -982,14 +982,14 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         /* parsing command line arguments */
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
+
+        cmd_args->mac_compat = GF_OPTION_DISABLE;
 #ifdef GF_DARWIN_HOST_OS
-        cmd_args->mac_compat = GF_OPTION_DEFERRED;
         /* On Darwin machines, O_APPEND is not handled,
          * which may corrupt the data
          */
         cmd_args->fuse_direct_io_mode = GF_OPTION_DISABLE;
 #else
-        cmd_args->mac_compat = GF_OPTION_DISABLE;
         cmd_args->fuse_direct_io_mode = GF_OPTION_DEFERRED;
 #endif
         cmd_args->fuse_attribute_timeout = -1;
@@ -1111,6 +1111,11 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                         GF_FREE (tmp_logfile_dyn);
                 }
         }
+
+#ifdef GF_DARWIN_HOST_OS
+        if (cmd_args->mount_point)
+                cmd_args->mac_compat = GF_OPTION_DEFERRED;
+#endif
 
         ret = 0;
 out:

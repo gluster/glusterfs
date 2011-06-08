@@ -1655,7 +1655,6 @@ quota_xattr_state (xlator_t *this,
 {
         if (buf.ia_type == IA_IFREG ||
             buf.ia_type == IA_IFLNK) {
-                k ++;
                 inspect_file_xattr (this, loc, dict, buf);
         } else if (buf.ia_type == IA_IFDIR)
                 inspect_directory_xattr (this, loc, dict, buf);
@@ -1913,8 +1912,6 @@ out:
 int32_t
 init_quota_priv (xlator_t *this)
 {
-        strcpy (volname, "quota");
-
         return 0;
 }
 
