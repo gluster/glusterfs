@@ -1945,10 +1945,10 @@ socket_connect (rpc_transport_t *this, int port)
         int                      ret = -1;
         int                      sock = -1;
         socket_private_t        *priv = NULL;
-        struct sockaddr_storage  sockaddr = {0, };
         socklen_t                sockaddr_len = 0;
         glusterfs_ctx_t         *ctx = NULL;
         sa_family_t              sa_family = {0, };
+        union gf_sock_union      sock_union;
 
         GF_VALIDATE_OR_GOTO ("socket", this, err);
         GF_VALIDATE_OR_GOTO ("socket", this->private, err);
@@ -1976,16 +1976,16 @@ socket_connect (rpc_transport_t *this, int port)
                 goto err;
         }
 
-        ret = socket_client_get_remote_sockaddr (this, SA (&sockaddr),
+        ret = socket_client_get_remote_sockaddr (this, &sock_union.sa,
                                                  &sockaddr_len, &sa_family);
         if (ret == -1) {
                 /* logged inside client_get_remote_sockaddr */
                 goto err;
         }
 
-        if (port > 0)
-                ((struct sockaddr_in *) (&sockaddr))->sin_port = htons (port);
-
+        if (port > 0) {
+                sock_union.sin.sin_port = htons (port);
+        }
         pthread_mutex_lock (&priv->lock);
         {
                 if (priv->sock != -1) {
@@ -1994,7 +1994,8 @@ socket_connect (rpc_transport_t *this, int port)
                         goto unlock;
                 }
 
-                memcpy (&this->peerinfo.sockaddr, &sockaddr, sockaddr_len);
+                memcpy (&this->peerinfo.sockaddr, &sock_union.storage,
+                        sockaddr_len);
                 this->peerinfo.sockaddr_len = sockaddr_len;
 
                 priv->sock = socket (sa_family, SOCK_STREAM, 0);

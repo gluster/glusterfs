@@ -312,7 +312,7 @@ runner_start (runner_t *runner)
 
                         execvp (runner->argv[0], runner->argv);
                 }
-                write (xpi[1], &errno, sizeof (errno));
+                ret = write (xpi[1], &errno, sizeof (errno));
                 _exit (1);
         }
 

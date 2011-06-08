@@ -147,6 +147,13 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
         } while (0);
 #endif
 
+union gf_sock_union {
+        struct sockaddr_storage storage;
+        struct sockaddr_in6 sin6;
+        struct sockaddr_in sin;
+        struct sockaddr sa;
+};
+
 #define GF_HIDDEN_PATH ".glusterfs"
 
 static inline void

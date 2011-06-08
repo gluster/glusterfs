@@ -4501,7 +4501,7 @@ rdma_connect (struct rpc_transport *this, int port)
 
         int32_t ret = 0;
         gf_boolean_t non_blocking = 1;
-        struct sockaddr_storage sockaddr;
+        union gf_sock_union sock_union;
         socklen_t sockaddr_len = 0;
 
         if (dict_get (options, "non-blocking-io")) {
@@ -4517,7 +4517,7 @@ rdma_connect (struct rpc_transport *this, int port)
         }
 
         ret = gf_rdma_client_get_remote_sockaddr (this,
-                                                  (struct sockaddr *)&sockaddr,
+                                                  &sock_union.sa,
                                                   &sockaddr_len, port);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -4532,8 +4532,7 @@ rdma_connect (struct rpc_transport *this, int port)
                         goto unlock;
                 }
 
-                priv->sock = socket (((struct sockaddr *)&sockaddr)->sa_family,
-                                     SOCK_STREAM, 0);
+                priv->sock = socket (sock_union.sa.sa_family, SOCK_STREAM, 0);
 
                 if (priv->sock == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -4545,12 +4544,12 @@ rdma_connect (struct rpc_transport *this, int port)
                 gf_log (this->name, GF_LOG_TRACE,
                         "socket fd = %d", priv->sock);
 
-                memcpy (&this->peerinfo.sockaddr, &sockaddr, sockaddr_len);
+                memcpy (&this->peerinfo.sockaddr, &sock_union.storage,
+                        sockaddr_len);
                 this->peerinfo.sockaddr_len = sockaddr_len;
 
                 if (port > 0)
-                        ((struct sockaddr_in *) (&sockaddr))->sin_port
-                                = htons (port);
+                        sock_union.sin.sin_port = htons (port);
 
                 ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family =
                         ((struct sockaddr *)&this->peerinfo.sockaddr)->sa_family;
@@ -4713,15 +4712,15 @@ rdma_server_event_handler (int fd, int idx, void *data,
 static int32_t
 rdma_listen (rpc_transport_t *this)
 {
-        struct sockaddr_storage sockaddr;
+        union gf_sock_union sock_union;
         socklen_t sockaddr_len;
         rdma_private_t *priv = this->private;
         int opt = 1, ret = 0;
         char service[NI_MAXSERV], host[NI_MAXHOST];
 
-        memset (&sockaddr, 0, sizeof (sockaddr));
+        memset (&sock_union, 0, sizeof (sock_union));
         ret = gf_rdma_server_get_local_sockaddr (this,
-                                                 (struct sockaddr *)&sockaddr,
+                                                 &sock_union.sa,
                                                  &sockaddr_len);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -4729,8 +4728,7 @@ rdma_listen (rpc_transport_t *this)
                 goto err;
         }
 
-        priv->sock = socket (((struct sockaddr *)&sockaddr)->sa_family,
-                             SOCK_STREAM, 0);
+        priv->sock = socket (sock_union.sa.sa_family, SOCK_STREAM, 0);
         if (priv->sock == -1) {
                 gf_log ("rdma/server", GF_LOG_CRITICAL,
                         "init: failed to create socket, error: %s",
@@ -4740,7 +4738,7 @@ rdma_listen (rpc_transport_t *this)
                 goto err;
         }
 
-        memcpy (&this->myinfo.sockaddr, &sockaddr, sockaddr_len);
+        memcpy (&this->myinfo.sockaddr, &sock_union.storage, sockaddr_len);
         this->myinfo.sockaddr_len = sockaddr_len;
 
         ret = getnameinfo ((struct sockaddr *)&this->myinfo.sockaddr,
@@ -4756,9 +4754,7 @@ rdma_listen (rpc_transport_t *this)
         sprintf (this->myinfo.identifier, "%s:%s", host, service);
 
         setsockopt (priv->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
-        if (bind (priv->sock,
-                  (struct sockaddr *)&sockaddr,
-                  sockaddr_len) != 0) {
+        if (bind (priv->sock, &sock_union.sa, sockaddr_len) != 0) {
                 ret = -1;
                 gf_log ("rdma/server", GF_LOG_ERROR,
                         "init: failed to bind to socket for %s (%s)",
