@@ -2461,7 +2461,7 @@ nfs3_create_exclusive (nfs3_call_state_t *cs)
                 ret = nfs_create (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                   O_RDWR, cs->mode, nfs3svc_create_cbk, cs);
         } else
-                ret = nfs_create (cs->nfsx, cs->vol, &nfu, &cs->oploc, O_RDWR,
+                ret = nfs_create (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc, O_RDWR,
                                   NFS_DEFAULT_CREATE_MODE, nfs3svc_create_cbk,
                                   cs);
 
@@ -2525,7 +2525,10 @@ nfs3_create (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->cookieverf = cverf;
-        cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
+        /*In Exclusive create client is supposed to send cverf instead of
+         * sattr*/
+        if (mode != EXCLUSIVE)
+                cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
                                                           &cs->mode);
         cs->createmode = mode;
         cs->parent = *dirfh;
