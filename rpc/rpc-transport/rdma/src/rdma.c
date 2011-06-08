@@ -329,6 +329,7 @@ __rdma_disconnect (rpc_transport_t *this)
                                 strerror (errno));
                         ret = -errno;
                         priv->tcp_connected = 0;
+                        priv->connected = 0;
                 }
         }
 
@@ -4502,10 +4503,6 @@ rdma_connect (struct rpc_transport *this, int port)
         gf_boolean_t non_blocking = 1;
         struct sockaddr_storage sockaddr;
         socklen_t sockaddr_len = 0;
-
-        if (priv->connected) {
-                return 0;
-        }
 
         if (dict_get (options, "non-blocking-io")) {
                 char *nb_connect = data_to_str (dict_get (this->options,
