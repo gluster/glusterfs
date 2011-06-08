@@ -1523,6 +1523,10 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
                             strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
                         volinfo->transport_type = atoi (value);
+                        volinfo->nfs_transport_type = volinfo->transport_type;
+                        if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
+                                volinfo->nfs_transport_type = GF_DEFAULT_NFS_TRANSPORT;
+                        }
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_ID,
                             strlen (GLUSTERD_STORE_KEY_VOL_ID))) {
                         ret = uuid_parse (value, volinfo->volume_id);
