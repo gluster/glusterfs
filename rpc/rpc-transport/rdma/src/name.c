@@ -577,40 +577,33 @@ fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *add
 {
         int32_t ret = 0, tmpaddr_len = 0;
         char service[NI_MAXSERV], host[NI_MAXHOST];
-        struct sockaddr_storage tmpaddr;
+        union gf_sock_union sock_union;
 
-        memset (&tmpaddr, 0, sizeof (tmpaddr));
-        tmpaddr = *addr;
+        memset (&sock_union, 0, sizeof (sock_union));
+        sock_union.storage = *addr;
         tmpaddr_len = addr_len;
 
-        if (((struct sockaddr *) &tmpaddr)->sa_family == AF_INET6) {
+        if (sock_union.sa.sa_family == AF_INET6) {
                 int32_t one_to_four, four_to_eight, twelve_to_sixteen;
                 int16_t eight_to_ten, ten_to_twelve;
 
                 one_to_four = four_to_eight = twelve_to_sixteen = 0;
                 eight_to_ten = ten_to_twelve = 0;
 
-                one_to_four = ((struct sockaddr_in6 *)
-                               &tmpaddr)->sin6_addr.s6_addr32[0];
-                four_to_eight = ((struct sockaddr_in6 *)
-                                 &tmpaddr)->sin6_addr.s6_addr32[1];
+                one_to_four = sock_union.sin6.sin6_addr.s6_addr32[0];
+                four_to_eight = sock_union.sin6.sin6_addr.s6_addr32[1];
 #ifdef GF_SOLARIS_HOST_OS
-                eight_to_ten = S6_ADDR16(((struct sockaddr_in6 *)
-                                          &tmpaddr)->sin6_addr)[4];
+                eight_to_ten = S6_ADDR16(sock_union.sin6.sin6_addr)[4];
 #else
-                eight_to_ten = ((struct sockaddr_in6 *)
-                                &tmpaddr)->sin6_addr.s6_addr16[4];
+                eight_to_ten = sock_union.sin6.sin6_addr.s6_addr16[4];
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-                ten_to_twelve = S6_ADDR16(((struct sockaddr_in6 *)
-                                           &tmpaddr)->sin6_addr)[5];
+                ten_to_twelve = S6_ADDR16(sock_union.sin6.sin6_addr)[5];
 #else
-                ten_to_twelve = ((struct sockaddr_in6 *)
-                                 &tmpaddr)->sin6_addr.s6_addr16[5];
+                ten_to_twelve = sock_union.sin6.sin6_addr.s6_addr16[5];
 #endif
-                twelve_to_sixteen = ((struct sockaddr_in6 *)
-                                     &tmpaddr)->sin6_addr.s6_addr32[3];
+                twelve_to_sixteen = sock_union.sin6.sin6_addr.s6_addr32[3];
 
                 /* ipv4 mapped ipv6 address has
                    bits 0-80: 0
@@ -622,8 +615,8 @@ fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *add
                     four_to_eight == 0 &&
                     eight_to_ten == 0 &&
                     ten_to_twelve == -1) {
-                        struct sockaddr_in *in_ptr = (struct sockaddr_in *)&tmpaddr;
-                        memset (&tmpaddr, 0, sizeof (tmpaddr));
+                        struct sockaddr_in *in_ptr = &sock_union.sin;
+                        memset (&sock_union, 0, sizeof (sock_union));
 
                         in_ptr->sin_family = AF_INET;
                         in_ptr->sin_port = ((struct sockaddr_in6 *)addr)->sin6_port;
@@ -632,7 +625,7 @@ fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *add
                 }
         }
 
-        ret = getnameinfo ((struct sockaddr *) &tmpaddr,
+        ret = getnameinfo (&sock_union.sa,
                            tmpaddr_len,
                            host, sizeof (host),
                            service, sizeof (service),

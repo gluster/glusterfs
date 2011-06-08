@@ -83,21 +83,21 @@ int
 nfs_rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport)
 {
         int                     sock = -1;
-        struct sockaddr_storage sockaddr;
         socklen_t               sockaddr_len;
         int                     flags = 0;
         int                     ret = -1;
         int                     opt = 1;
+        union gf_sock_union     sock_union;
 
         ret = nfs_rpcsvc_socket_server_get_local_socket (addrfam, listenhost,
                                                          listenport,
-                                                         SA (&sockaddr),
+                                                         &sock_union.sa,
                                                          &sockaddr_len);
 
         if (ret == -1)
                 return ret;
 
-        sock = socket (SA (&sockaddr)->sa_family, SOCK_STREAM, 0);
+        sock = socket (sock_union.sa.sa_family, SOCK_STREAM, 0);
         if (sock == -1) {
                 gf_log (GF_RPCSVC_SOCK, GF_LOG_ERROR, "socket creation failed"
                         " (%s)", strerror (errno));
@@ -125,7 +125,7 @@ nfs_rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport)
                 goto close_err;
         }
 
-        ret = bind (sock, (struct sockaddr *)&sockaddr, sockaddr_len);
+        ret = bind (sock, &sock_union.sa, sockaddr_len);
         if (ret == -1) {
                 if (errno != EADDRINUSE) {
                         gf_log (GF_RPCSVC_SOCK, GF_LOG_ERROR, "binding socket "
