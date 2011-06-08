@@ -3602,9 +3602,7 @@ rb_get_xattr_command (glusterd_volinfo_t *volinfo,
                  goto out;
          }
 
-        ret = lgetxattr (mount_point_path, xattr_key,
-                         value,
-                         8192);
+        ret = sys_lgetxattr (mount_point_path, xattr_key, value, 8192);
 
         if (ret < 0) {
                 gf_log ("", GF_LOG_DEBUG,

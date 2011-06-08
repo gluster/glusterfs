@@ -26,6 +26,7 @@
 
 #include <rpc/rpc.h>
 
+#include "xdr-common.h"
 
 #ifdef __cplusplus
 extern "C" {

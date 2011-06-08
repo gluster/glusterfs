@@ -91,5 +91,4 @@ struct marker_conf{
 };
 typedef struct marker_conf marker_conf_t;
 
-int32_t k;
 #endif
