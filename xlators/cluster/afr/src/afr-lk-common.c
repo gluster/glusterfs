@@ -556,13 +556,17 @@ static int32_t
 afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno)
 {
+        afr_local_t *local = NULL;
+        local = frame->local;
+
         afr_trace_inodelk_out (frame, AFR_INODELK_TRANSACTION,
                                AFR_UNLOCK_OP, NULL, op_ret,
                                op_errno, (long) cookie);
 
         if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Unlock failed for some reason");
+                gf_log (this->name, GF_LOG_ERROR,
+                         "%s: unlock failed %s",
+                         local->loc.path, strerror (op_errno));
         }
 
         afr_unlock_common_cbk (frame, cookie, this, op_ret, op_errno);
