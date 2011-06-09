@@ -556,7 +556,8 @@ rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
         msg->count = count;
         msg->iobref = iobref_ref (iobref);
         msg->private = private;
-        msg->hdr_iobuf = iobuf_ref (hdr_iobuf);
+        if (hdr_iobuf)
+                msg->hdr_iobuf = iobuf_ref (hdr_iobuf);
 
 out:
         return msg;
