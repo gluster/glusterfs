@@ -336,8 +336,16 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         _inode = inode_ref (inode);
 
-        just_validated = local->just_validated;
-        local->just_validated = 0;
+        LOCK (&local->lock);
+        {
+                just_validated = local->just_validated;
+                local->just_validated = 0;
+
+                if (just_validated) {
+                        local->validate_count--;
+                }
+        }
+        UNLOCK (&local->lock);
 
         do {
                 if (ctx != NULL) {
@@ -388,6 +396,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
                 inode_unref (_inode);
                 _inode = parent;
+                just_validated = 0;
 
                 if (_inode == NULL) {
                         break;
@@ -406,10 +415,6 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         LOCK (&local->lock);
         {
-                if (just_validated) {
-                        local->validate_count--;
-                }
-
                 validate_count = local->validate_count;
                 link_count = local->link_count;
                 if ((validate_count == 0) && (link_count == 0)) {
