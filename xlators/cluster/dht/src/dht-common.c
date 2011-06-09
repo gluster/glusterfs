@@ -821,6 +821,7 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int           i = 0;
         dht_conf_t   *conf = NULL;
         dht_local_t  *local = NULL;
+        int           ret = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, unwind);
@@ -843,6 +844,10 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 dict_unref (local->xattr);
                 local->xattr = NULL;
         }
+
+        if (!uuid_is_null (local->gfid))
+                ret = dict_set_static_bin (local->xattr_req, "gfid-req",
+                                           local->gfid, 16);
 
         for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_lookup_dir_cbk,
