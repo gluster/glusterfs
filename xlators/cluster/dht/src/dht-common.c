@@ -3806,9 +3806,6 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	conf = this->private;
 	hashed_subvol = local->hashed_subvol;
 
-        if (uuid_is_null (local->loc.inode->gfid) && !op_ret)
-                memcpy (local->loc.inode->gfid, stbuf->ia_gfid, 16);
-
         if (dht_is_subvol_filled (this, hashed_subvol))
                 ret = dht_layout_merge (this, layout, prev->this,
                                         -1, ENOSPC, NULL);
@@ -3991,6 +3988,7 @@ unlock:
 			/* TODO: neater interface needed below */
 			local->stbuf.ia_type = local->loc.inode->ia_type;
 
+                        uuid_copy (local->gfid, local->loc.inode->gfid);
 			dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
 					      &local->loc, local->layout);
 		} else {
