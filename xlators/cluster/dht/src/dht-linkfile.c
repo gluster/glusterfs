@@ -92,6 +92,9 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->linkfile.stbuf = *stbuf;
 
+        if (uuid_is_null (local->linkfile.loc.inode->gfid))
+                uuid_copy (local->linkfile.loc.gfid, stbuf->ia_gfid);
+
         STACK_WIND (frame, dht_linkfile_xattr_cbk,
                     prev->this, prev->this->fops->setxattr,
                     &local->linkfile.loc, local->linkfile.xattr, 0);

@@ -4028,7 +4028,8 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (prev->this == dht_first_up_subvol (this)) {
                         local->ia_ino = local->stbuf.ia_ino;
                 }
-
+                if (uuid_is_null (local->loc.gfid) && !op_ret)
+                        uuid_copy (local->loc.gfid, stbuf->ia_gfid);
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -4086,6 +4087,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         local->call_cnt = conf->subvolume_cnt - 1;
 
         if (local->call_cnt == 0) {
+                if (uuid_is_null (local->loc.gfid) && !op_ret)
+                        uuid_copy (local->loc.gfid, stbuf->ia_gfid);
                 dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
                                         &local->loc, layout);
         }

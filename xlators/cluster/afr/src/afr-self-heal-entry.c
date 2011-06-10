@@ -1591,6 +1591,8 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
         impunge_sh->parentbuf = *postparent;
 
         impunge_local->cont.lookup.buf = *buf;
+        afr_update_loc_gfids (&impunge_local->loc, buf, postparent);
+
         type = buf->ia_type;
 
         switch (type) {

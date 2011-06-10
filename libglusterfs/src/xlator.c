@@ -1663,6 +1663,9 @@ loc_copy (loc_t *dst, loc_t *src)
 
 	dst->ino = src->ino;
 
+        uuid_copy (dst->gfid, src->gfid);
+        uuid_copy (dst->pargfid, src->pargfid);
+
 	if (src->inode)
 		dst->inode = inode_ref (src->inode);
 

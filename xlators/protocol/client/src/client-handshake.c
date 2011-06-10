@@ -620,7 +620,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        memcpy (req.gfid,  inode->gfid, 16);
+        memcpy (req.gfid, inode->gfid, 16);
         req.path  = (char *)local->loc.path;
 
         gf_log (frame->this->name, GF_LOG_DEBUG,
@@ -701,7 +701,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         path            = NULL;
         frame->local    = local;
 
-        memcpy (req.gfid,  inode->gfid, 16);
+        memcpy (req.gfid, inode->gfid, 16);
         req.flags    = gf_flags_from_flags (fdctx->flags);
         req.wbflags  = fdctx->wbflags;
         req.path     = (char *)local->loc.path;

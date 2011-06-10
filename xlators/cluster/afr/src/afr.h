@@ -735,6 +735,9 @@ afr_build_parent_loc (loc_t *parent, loc_t *child);
 int
 afr_up_children_count (int child_count, unsigned char *child_up);
 
+void
+afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent);
+
 int
 afr_locked_nodes_count (unsigned char *locked_nodes, int child_count);
 
