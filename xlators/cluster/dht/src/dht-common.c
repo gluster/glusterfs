@@ -4107,6 +4107,7 @@ unlock:
                         /* TODO: neater interface needed below */
                         local->stbuf.ia_type = local->loc.inode->ia_type;
 
+                        uuid_copy (local->gfid, local->loc.inode->gfid);
                         dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
                                               &local->loc, local->layout);
                 } else {
