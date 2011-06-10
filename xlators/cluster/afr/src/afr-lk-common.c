@@ -928,8 +928,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 
                         local->op_ret           = -1;
                         int_lock->lock_op_ret   = -1;
-                        local->op_errno         = EINVAL;
-                        int_lock->lock_op_errno = EINVAL;
 
                         afr_copy_locked_nodes (frame, this);
 
@@ -963,8 +961,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 
                 local->op_ret           = -1;
                 int_lock->lock_op_ret   = -1;
-                local->op_errno         = EAGAIN;
-                int_lock->lock_op_errno = EAGAIN;
 
                 afr_copy_locked_nodes (frame, this);
 
