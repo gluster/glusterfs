@@ -1040,14 +1040,14 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                                   struct iatt *preparent,
                                   struct iatt *postparent)
 {
-	int              call_count = 0;
-	afr_private_t   *priv = NULL;
-	afr_local_t     *impunge_local = NULL;
-	afr_self_heal_t *impunge_sh = NULL;
-	call_frame_t    *frame = NULL;
-	int              active_src = 0;
-	int              child_index = 0;
-        int              pending_array[3] = {0, };
+        int              call_count = 0;
+        afr_private_t   *priv = NULL;
+        afr_local_t     *impunge_local = NULL;
+        afr_self_heal_t *impunge_sh = NULL;
+        call_frame_t    *frame = NULL;
+        int              active_src = 0;
+        int              child_index = 0;
+        int32_t         *pending_array = NULL;
         dict_t          *xattr = NULL;
         int              ret = 0;
         int              idx = 0;
@@ -1080,8 +1080,16 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 
 	inode->ia_type = stbuf->ia_type;
 
-        xattr = get_new_dict ();
-        dict_ref (xattr);
+        xattr = dict_new ();
+        if (!xattr) {
+                ret = -1;
+                goto out;
+        }
+        pending_array = GF_CALLOC (3, sizeof (int32_t), gf_common_mt_int32_t);
+        if (!pending_array) {
+                ret = -1;
+                goto out;
+        }
 
         idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
         pending_array[idx] = hton32 (1);
@@ -1101,8 +1109,11 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         parentbuf     = impunge_sh->parentbuf;
         setattr_frame = copy_frame (impunge_frame);
 
-        parent_loc = GF_CALLOC (1, sizeof (*parent_loc),
-                                gf_afr_mt_loc_t);
+        parent_loc = GF_CALLOC (1, sizeof (*parent_loc), gf_afr_mt_loc_t);
+        if (!parent_loc) {
+                ret = -1;
+                goto out;
+        }
         afr_build_parent_loc (parent_loc, &impunge_local->loc);
 
 	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
@@ -1122,6 +1133,12 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 	return 0;
 
 out:
+        if (ret) {
+                if (xattr)
+                        dict_unref (xattr);
+                if (pending_array)
+                        GF_FREE (pending_array);
+        }
 	LOCK (&impunge_frame->lock);
 	{
 		call_count = --impunge_local->call_count;
@@ -1861,7 +1878,7 @@ afr_sh_entry_impunge_readdir_cbk (call_frame_t *frame, void *cookie,
 
 	return 0;
 }
-				  
+
 
 int
 afr_sh_entry_impunge_subvol (call_frame_t *frame, xlator_t *this,

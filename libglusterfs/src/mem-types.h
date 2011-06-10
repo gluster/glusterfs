@@ -98,6 +98,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_sge                =       73,
         gf_common_mt_rpcclnt_cb_program_t =     74,
         gf_common_mt_libxl_marker_local =       75,
-        gf_common_mt_end                =       76
+        gf_common_mt_int32_t            =       76,
+        gf_common_mt_end                =       77
 };
 #endif
