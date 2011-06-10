@@ -492,6 +492,16 @@ afr_up_children_count (int child_count, unsigned char *child_up)
         return ret;
 }
 
+void
+afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
+{
+        GF_ASSERT (loc);
+        GF_ASSERT (buf);
+
+        uuid_copy (loc->gfid, buf->ia_gfid);
+        if (postparent)
+                uuid_copy (loc->pargfid, postparent->ia_gfid);
+}
 
 ino64_t
 afr_itransform (ino64_t ino, int child_count, int child_index)
@@ -887,6 +897,10 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
 
                         *lookup_buf = *buf;
 
+                        uuid_copy (local->loc.gfid, buf->ia_gfid);
+                        uuid_copy (local->loc.pargfid,
+                                   postparent->ia_gfid);
+
                         lookup_buf->ia_ino = afr_itransform (buf->ia_ino,
                                                              priv->child_count,
                                                              child_index);
@@ -916,6 +930,10 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                 local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
+
+                                uuid_copy (local->loc.gfid, buf->ia_gfid);
+                                uuid_copy (local->loc.pargfid,
+                                           postparent->ia_gfid);
                         }
 
                 }

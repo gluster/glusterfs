@@ -78,9 +78,20 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this, int32_t event, void *data,
 struct _loc {
 	const char *path;
 	const char *name;
-	ino_t       ino;
 	inode_t    *inode;
 	inode_t    *parent;
+
+        /* Currently all location based operations are through 'gfid' of inode.
+         * But the 'inode->gfid' only gets set in higher most layer (as in,
+         * 'fuse', 'protocol/server', or 'nfs/server'). So if translators want
+         * to send fops on a inode before the 'inode->gfid' is set, they have to
+         * make use of below 'gfid' fields
+         */
+        uuid_t      gfid;
+        uuid_t      pargfid;
+
+        /* ideally, should not be used */
+        ino_t       ino;
 };
 
 
