@@ -521,9 +521,6 @@ fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
-                if (conf->default_dir_layout)
-                        GF_FREE (conf->default_dir_layout);
-
                 if (conf->subvolumes)
                         GF_FREE (conf->subvolumes);
 
@@ -664,9 +661,6 @@ err:
                         }
                         GF_FREE (conf->file_layouts);
                 }
-
-                if (conf->default_dir_layout)
-                        GF_FREE (conf->default_dir_layout);
 
                 if (conf->subvolumes)
                         GF_FREE (conf->subvolumes);

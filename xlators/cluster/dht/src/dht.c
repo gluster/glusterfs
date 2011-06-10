@@ -131,9 +131,6 @@ dht_priv_dump (xlator_t *this)
 
         }
 
-        gf_proc_dump_build_key(key, key_prefix,"default_dir_layout");
-        dht_layout_dump(conf->default_dir_layout, key);
-
         gf_proc_dump_build_key(key, key_prefix, "search_unhashed");
         gf_proc_dump_write(key, "%d", conf->search_unhashed);
         gf_proc_dump_build_key(key, key_prefix, "gen");
@@ -225,9 +222,6 @@ fini (xlator_t *this)
                         }
                         GF_FREE (conf->file_layouts);
                 }
-
-                if (conf->default_dir_layout)
-                        GF_FREE (conf->default_dir_layout);
 
                 if (conf->subvolumes)
                         GF_FREE (conf->subvolumes);
@@ -467,9 +461,6 @@ err:
                         }
                         GF_FREE (conf->file_layouts);
                 }
-
-                if (conf->default_dir_layout)
-                        GF_FREE (conf->default_dir_layout);
 
                 if (conf->subvolumes)
                         GF_FREE (conf->subvolumes);
