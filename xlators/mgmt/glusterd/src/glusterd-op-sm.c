@@ -2835,7 +2835,7 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *src_brickinfo,
                         glusterd_brickinfo_t *dst_brickinfo)
 {
-        char            status[2048] = {0,};
+        char            status[8192] = {0,};
         char            *status_reply = NULL;
         dict_t          *ctx          = NULL;
         int             ret = 0;
