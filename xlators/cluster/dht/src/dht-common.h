@@ -155,7 +155,6 @@ struct dht_conf {
         int           *last_event;
         dht_layout_t **file_layouts;
         dht_layout_t **dir_layouts;
-        dht_layout_t  *default_dir_layout;
         gf_boolean_t   search_unhashed;
         int            gen;
         dht_du_t      *du_stats;
