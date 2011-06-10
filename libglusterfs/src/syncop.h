@@ -144,7 +144,7 @@ struct syncargs {
 } while (0)
 
 
-#define SYNCENV_DEFAULT_STACKSIZE (16 * 1024)
+#define SYNCENV_DEFAULT_STACKSIZE (2 * 1024 * 1024)
 
 struct syncenv * syncenv_new ();
 void syncenv_destroy (struct syncenv *);
