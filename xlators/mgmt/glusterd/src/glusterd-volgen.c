@@ -1862,20 +1862,20 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                                     nfs_xprt);
                 ret = build_client_graph (&cgraph, voliter, set_dict);
                 if (ret)
-                        goto out;;
-                ret = volgen_graph_merge_sub (graph, &cgraph);
-                if (ret)
                         goto out;
 
                 if (mod_dict) {
                         dict_copy (mod_dict, set_dict);
-                        ret = volgen_graph_set_options_generic (graph, set_dict, voliter,
-                                                        nfs_spec_option_handler);
+                        ret = volgen_graph_set_options_generic (&cgraph, set_dict, voliter,
+                                                                nfs_spec_option_handler);
+                } else {
+                        ret = volgen_graph_set_options_generic (&cgraph, voliter->dict, voliter,
+                                                                nfs_spec_option_handler);
                 }
-                else
-                        ret = volgen_graph_set_options_generic (graph, voliter->dict, voliter,
-                                                        nfs_spec_option_handler);
 
+                ret = volgen_graph_merge_sub (graph, &cgraph);
+                if (ret)
+                        goto out;
         }
 
  out:
