@@ -1674,20 +1674,20 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                 memset (&cgraph, 0, sizeof (cgraph));
                 ret = build_client_graph (&cgraph, voliter, mod_dict);
                 if (ret)
-                        goto out;;
-                ret = volgen_graph_merge_sub (graph, &cgraph);
-                if (ret)
                         goto out;
 
                 if (mod_dict) {
                         dict_copy (mod_dict, set_dict);
-                        ret = volgen_graph_set_options_generic (graph, set_dict, voliter,
-                                                        nfs_spec_option_handler);
+                        ret = volgen_graph_set_options_generic (&cgraph, set_dict, voliter,
+                                                                nfs_spec_option_handler);
+                } else {
+                        ret = volgen_graph_set_options_generic (&cgraph, voliter->dict, voliter,
+                                                                nfs_spec_option_handler);
                 }
-                else
-                        ret = volgen_graph_set_options_generic (graph, voliter->dict, voliter,
-                                                        nfs_spec_option_handler);
 
+                ret = volgen_graph_merge_sub (graph, &cgraph);
+                if (ret)
+                        goto out;
         }
 
 
