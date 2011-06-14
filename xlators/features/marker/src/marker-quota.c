@@ -108,11 +108,12 @@ dirty_inode_updation_done (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno)
 {
         quota_local_t *local = NULL;
+        int32_t        value = 0;
 
         local = frame->local;
 
         if (!local->err)
-                QUOTA_SAFE_DECREMENT (&local->lock, local->ref);
+                QUOTA_SAFE_DECREMENT (&local->lock, local->ref, value);
         else
                 frame->local = NULL;
 
@@ -374,7 +375,7 @@ out:
 
         if (val== 0) {
                 if (local->err) {
-                        QUOTA_SAFE_DECREMENT (&local->lock, local->ref);
+                        QUOTA_SAFE_DECREMENT (&local->lock, local->ref, val);
 
                         quota_local_unref (this, local);
                 } else
@@ -1867,10 +1868,6 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie,
         if (dict == NULL) {
                 ret = -1;
                 goto err;
-        }
-
-        if (local->size < 0) {
-                local->size = contribution->contribution;
         }
 
         QUOTA_ALLOC_OR_GOTO (size, int64_t, ret, err);

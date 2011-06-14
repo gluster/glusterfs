@@ -38,11 +38,13 @@
                 UNLOCK (lock);                          \
         } while (0)
 
-#define QUOTA_SAFE_DECREMENT(lock, var)                 \
-        do {                                            \
-                LOCK (lock);                            \
-                        var --;                         \
-                UNLOCK (lock);                          \
+#define QUOTA_SAFE_DECREMENT(lock, var, value)  \
+        do {                                    \
+                LOCK (lock);                    \
+                {                               \
+                      value = --var;            \
+                }                               \
+                UNLOCK (lock);                  \
         } while (0)
 
 inode_contribution_t *
