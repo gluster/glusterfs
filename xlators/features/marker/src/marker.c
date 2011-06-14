@@ -178,6 +178,7 @@ marker_local_unref (marker_local_t *local)
                 goto out;
 
         loc_wipe (&local->loc);
+        loc_wipe (&local->parent_loc);
 
         if (local->oplocal) {
                 marker_local_unref (local->oplocal);
