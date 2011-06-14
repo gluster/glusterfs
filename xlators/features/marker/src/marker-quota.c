@@ -1762,10 +1762,13 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->err = -1;
 
         ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
-        if (ret == 0)
-                ctx->size -= local->contri->contribution;
 
-        local->contri->contribution = 0;
+        if (local->contri->contribution == local->size) {
+                if (ret == 0)
+                        ctx->size -= local->contri->contribution;
+
+                local->contri->contribution = 0;
+        }
 
         lock.l_type   = F_UNLCK;
         lock.l_whence = SEEK_SET;
@@ -1813,10 +1816,13 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
+        if (local->size < 0) {
+                local->size = contribution->contribution;
+        }
+
         QUOTA_ALLOC_OR_GOTO (size, int64_t, ret, err);
 
-        *size = hton64 (-contribution->contribution);
-
+        *size = hton64 (-local->size);
 
         ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
         if (ret < 0)
@@ -1838,7 +1844,7 @@ err:
 }
 
 int32_t
-reduce_parent_size (xlator_t *this, loc_t *loc)
+reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
 {
         int32_t                  ret           = -1;
         struct gf_flock          lock          = {0,};
@@ -1864,6 +1870,17 @@ reduce_parent_size (xlator_t *this, loc_t *loc)
         local = quota_local_new ();
         if (local == NULL) {
                 ret = -1;
+                goto out;
+        }
+
+        if (contri >= 0) {
+                local->size = contri;
+        } else {
+                local->size = -1;
+        }
+
+        if (local->size == 0) {
+                ret = 0;
                 goto out;
         }
 
@@ -1898,13 +1915,15 @@ reduce_parent_size (xlator_t *this, loc_t *loc)
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->parent_loc, F_SETLKW, &lock);
+        local = NULL;
         ret = 0;
 
 out:
-        if (ret < 0) {
+        if (local != NULL) {
                 quota_local_unref (this, local);
                 GF_FREE (local);
         }
+
         return ret;
 }
 

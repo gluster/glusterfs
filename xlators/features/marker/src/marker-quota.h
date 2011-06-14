@@ -117,6 +117,7 @@ struct quota_local {
         int32_t err;
         int32_t ref;
         int64_t sum;
+        int64_t size;
         int32_t hl_count;
         int32_t dentry_child_count;
 
@@ -155,7 +156,7 @@ quota_dirty_inode_readdir (call_frame_t *, void *, xlator_t *,
                            int32_t, int32_t, fd_t *);
 
 int32_t
-reduce_parent_size (xlator_t *, loc_t *);
+reduce_parent_size (xlator_t *, loc_t *, int64_t);
 
 int32_t
 quota_rename_update_newpath (xlator_t *, loc_t *);
