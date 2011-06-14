@@ -373,3 +373,38 @@ quota_local_unref (xlator_t *this, quota_local_t *local)
 out:
         return 0;
 }
+
+
+inode_contribution_t *
+get_contribution_from_loc (xlator_t *this, loc_t *loc)
+{
+        int32_t               ret          = 0;
+        quota_inode_ctx_t    *ctx          = NULL;
+        inode_contribution_t *contribution = NULL;
+
+        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                  "cannot get marker-quota context from inode "
+                                  "(ino: %"PRId64", gfid:%s, path:%s)",
+                                  loc->inode->ino,
+                                  uuid_utoa (loc->inode->gfid),
+                                  loc->path);
+                goto err;
+        }
+
+        contribution = get_contribution_node (loc->parent, ctx);
+        if (contribution == NULL) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                  "inode (ino:%"PRId64", gfid:%s, path:%s ) has"
+                                  " no contribution towards parent (ino:%"PRId64
+                                  ", gfid:%s)", loc->inode->ino,
+                                  uuid_utoa (loc->inode->gfid),
+                                  loc->path, loc->parent->ino,
+                                  uuid_utoa (loc->parent->gfid));
+                goto err;
+        }
+
+err:
+        return contribution;
+}

@@ -28,6 +28,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "uuid.h"
+#include "call-stub.h"
 
 #define MARKER_XATTR_PREFIX "trusted.glusterfs"
 #define XTIME               "xtime"
@@ -65,10 +66,15 @@ struct marker_local{
         uint32_t        timebuf[2];
         pid_t           pid;
         loc_t           loc;
+        loc_t           parent_loc;
+        loc_t          *next_lock_on;
         int32_t         ref;
         int32_t         ia_nlink;
         gf_lock_t       lock;
         mode_t          mode;
+        int32_t         err;
+        call_stub_t    *stub;
+        int64_t         contribution;
         struct marker_local *oplocal;
 };
 typedef struct marker_local marker_local_t;
