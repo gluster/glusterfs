@@ -152,6 +152,9 @@ inode_find (inode_table_t *table, uuid_t gfid);
 int
 inode_path (inode_t *inode, const char *name, char **bufp);
 
+int
+__inode_path (inode_t *inode, const char *name, char **bufp);
+
 inode_t *
 inode_from_path (inode_table_t *table, const char *path);
 
