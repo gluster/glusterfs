@@ -3988,6 +3988,182 @@ out:
 }
 
 
+struct sp_cache_dump {
+        int i;
+        char *key_prefix;
+};
+typedef struct sp_cache_dump sp_cache_dump_t;
+
+void
+sp_cache_traverse (void *data, void *mydata)
+{
+        gf_dirent_t     *dirent                   = NULL;
+        char             key[GF_DUMP_MAX_BUF_LEN] = {0, };
+        char             uuidbuf[256]             = {0, };
+        sp_cache_dump_t *dump                     = NULL;
+
+        if ((data == NULL) || (mydata == NULL)) {
+                goto out;
+        }
+
+        dirent = data;
+        dump = mydata;
+
+        gf_proc_dump_build_key (key, dump->key_prefix, "entry[%d].name",
+                                dump->i);
+        gf_proc_dump_write (key, "%s", dirent->d_name);
+
+        uuid_unparse (dirent->d_stat.ia_gfid, uuidbuf);
+        gf_proc_dump_build_key (key, dump->key_prefix, "entry[%d].inode.gfid",
+                                dump->i);
+        gf_proc_dump_write (key, "%s", uuidbuf);
+
+        gf_proc_dump_build_key(key, dump->key_prefix, "entry[%d].inode.ino",
+                               dump->i);
+        gf_proc_dump_write(key, "%ld", dirent->d_stat.ia_ino);
+        
+        dump->i++;
+out:
+        return;
+}
+
+
+int32_t
+sp_fdctx_dump (xlator_t *this, fd_t *fd)
+{
+        char            key[GF_DUMP_MAX_BUF_LEN]        = {0, };
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        char            uuidbuf[256]                    = {0, };
+        sp_cache_t     *cache                           = NULL;
+        int32_t         ret                             = -1;
+        sp_cache_dump_t *dump                           = NULL;
+        char            *parent                         = NULL;
+
+        cache = sp_get_cache_fd (this, fd);
+        if (cache == NULL) {
+                ret = 0;
+                goto out;
+        }
+
+        dump = GF_CALLOC(1, sizeof (*dump), gf_common_mt_char);
+        if (dump == NULL) {
+                goto out;
+        }
+
+        gf_proc_dump_build_key (key_prefix,
+                                "xlator.performance.stat-prefetch",
+                                "fdctx");
+        gf_proc_dump_add_section (key_prefix);
+        
+        gf_proc_dump_build_key (key, key_prefix, "fd");
+        gf_proc_dump_write (key, "%p", fd);
+
+        ret = __inode_path (fd->inode, NULL, &parent);
+        if (parent != NULL) {
+                gf_proc_dump_build_key (key, key_prefix, "name");
+                gf_proc_dump_write (key, "%s", parent);
+                GF_FREE (parent);
+        }
+
+        uuid_unparse (fd->inode->gfid, uuidbuf);
+        gf_proc_dump_build_key (key, key_prefix, "fd.inode.gfid");
+        gf_proc_dump_write (key, "%s", uuidbuf);
+
+        gf_proc_dump_build_key (key, key_prefix, "fd.inode.ino");
+        gf_proc_dump_write (key, "%ld", fd->inode->ino);
+
+        gf_proc_dump_build_key (key, key_prefix, "miss");
+        gf_proc_dump_write (key, "%lu", cache->miss);
+
+        gf_proc_dump_build_key (key, key_prefix, "hits");
+        gf_proc_dump_write (key, "%lu", cache->hits);
+
+        gf_proc_dump_build_key (key, key_prefix, "cache"); 
+        dump->key_prefix = key;
+        
+        rbthash_table_traverse (cache->table, sp_cache_traverse, dump);
+
+        GF_FREE (dump);
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+sp_inodectx_dump (xlator_t *this, inode_t *inode)
+{
+        char            key[GF_DUMP_MAX_BUF_LEN]        = {0, };
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        char            uuidbuf[256]                    = {0, };
+        sp_inode_ctx_t *inode_ctx                       = NULL;
+        call_stub_t    *stub                            = NULL;
+        uint64_t        value                           = 0;
+        int32_t         ret                             = -1, i = 0;
+
+        if ((this == NULL) || (inode == NULL)) {
+                goto out;
+        }
+
+        ret = inode_ctx_get (inode, this, &value);
+        if (ret == 0) {
+                inode_ctx = (sp_inode_ctx_t *)(long)value;
+        }
+
+        if (inode_ctx == NULL) {
+                goto out;
+        }
+
+        gf_proc_dump_build_key (key_prefix,
+                                "xlator.performance.stat-prefetch",
+                                "inodectx");
+        gf_proc_dump_add_section (key_prefix);
+        
+        uuid_unparse (inode->gfid, uuidbuf);
+        gf_proc_dump_build_key (key, key_prefix, "inode.gfid");
+        gf_proc_dump_write (key, "%s", uuidbuf);
+
+        gf_proc_dump_build_key (key, key_prefix, "inode.ino");
+        gf_proc_dump_write (key, "%ld", inode->ino);
+
+        LOCK (&inode_ctx->lock);
+        {
+                gf_proc_dump_build_key (key, key_prefix, "looked_up");
+                gf_proc_dump_write (key, "%s",
+                                    inode_ctx->looked_up ? "yes" : "no");
+
+                gf_proc_dump_build_key (key, key_prefix, "lookup_in_progress");
+                gf_proc_dump_write (key, "%s",
+                                    inode_ctx->lookup_in_progress ?
+                                    "yes" : "no");
+
+                gf_proc_dump_build_key (key, key_prefix, "need_unwind");
+                gf_proc_dump_write (key, "%s", inode_ctx->need_unwind ?
+                                    "yes" : "no");
+
+                gf_proc_dump_build_key (key, key_prefix, "op_ret");
+                gf_proc_dump_write (key, "%d", inode_ctx->op_ret);
+
+                gf_proc_dump_build_key (key, key_prefix, "op_errno");
+                gf_proc_dump_write (key, "%d", inode_ctx->op_errno);
+
+                list_for_each_entry (stub, &inode_ctx->waiting_ops, list) {
+                        gf_proc_dump_build_key (key, key_prefix,
+                                                "waiting-ops[%d].frame", i);
+                        gf_proc_dump_write (key, "%"PRId64,
+                                            stub->frame->root->unique);
+
+                        gf_proc_dump_build_key (key, key_prefix,
+                                                "waiting-ops[%d].fop", i);
+                        gf_proc_dump_write (key, "%s", gf_fop_list[stub->fop]);
+ 
+                        i++;
+                }
+        }
+        UNLOCK (&inode_ctx->lock);
+out:
+        return ret;
+}
+
 int
 sp_priv_dump (xlator_t *this)
 {
@@ -4127,4 +4303,6 @@ struct xlator_cbks cbks = {
 
 struct xlator_dumpops dumpops = {
         .priv = sp_priv_dump,
+        .inodectx = sp_inodectx_dump,
+        .fdctx = sp_fdctx_dump
 };
