@@ -1276,6 +1276,7 @@ pl_release (xlator_t *this, fd_t *fd)
                 "Releasing all locks with fd %p", fd);
 
         delete_locks_of_fd (this, pl_inode, fd);
+        pl_update_refkeeper (this, fd->inode);
 
         ret = fd_ctx_del (fd, this, &tmp);
         if (ret) {
