@@ -180,11 +180,11 @@ mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret)
                 goto wind;
 
-	LOCK (&local->ctx->lock);
-	{
-	  local->ctx->size = ntoh64 (*size);
-	}
-	UNLOCK (&local->ctx->lock);
+        LOCK (&local->ctx->lock);
+        {
+                local->ctx->size = ntoh64 (*size);
+        }
+        UNLOCK (&local->ctx->lock);
 
 wind:
         newdict = dict_new ();
@@ -1110,11 +1110,11 @@ quota_update_parent_size (call_frame_t *frame,
                 goto err;
         }
 
-	LOCK (&local->contri->lock);
-	{
-	  local->contri->contribution += local->delta;
-	}
-	UNLOCK (&local->contri->lock);
+        LOCK (&local->contri->lock);
+        {
+                local->contri->contribution += local->delta;
+        }
+        UNLOCK (&local->contri->lock);
 
         gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
                 local->loc.path, local->ctx->size,
@@ -1213,27 +1213,27 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
                 } else
                         ctx->size = buf->ia_blocks * 512;
 
-		size_int = ctx->size;
-	}
- unlock:
-	UNLOCK  (&ctx->lock);
-
-	if (ret < 0) {
-	  goto err;
-	}
-
-	ret = dict_get_bin (dict, contri_key, (void **) &contri);
-
-	LOCK (&contribution->lock);
-	{
-	  if (ret < 0)
-	    contribution->contribution = 0;
-	  else
-	    contribution->contribution = ntoh64 (*contri);
-
-	  contri_int = contribution->contribution;
+                size_int = ctx->size;
         }
-	UNLOCK (&contribution->lock);
+unlock:
+        UNLOCK  (&ctx->lock);
+
+        if (ret < 0) {
+                goto err;
+        }
+
+        ret = dict_get_bin (dict, contri_key, (void **) &contri);
+
+        LOCK (&contribution->lock);
+        {
+                if (ret < 0)
+                        contribution->contribution = 0;
+                else
+                        contribution->contribution = ntoh64 (*contri);
+
+                contri_int = contribution->contribution;
+        }
+        UNLOCK (&contribution->lock);
 
         gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
                 local->loc.path, size_int, contri_int);
@@ -1517,7 +1517,7 @@ out:
 
 /* int32_t */
 /* validate_inode_size_contribution (xlator_t *this, loc_t *loc, int64_t size, */
-/* 				  int64_t contribution) */
+/*                                int64_t contribution) */
 /* { */
 /*   if (size != contribution) { */
 /*     initiate_quota_txn (this, loc); */
@@ -1582,29 +1582,29 @@ inspect_directory_xattr (xlator_t *this,
                 if (ret < 0)
                         goto out;
 
-		LOCK (&contribution->lock);
-		{
-		  contribution->contribution = ntoh64 (*contri);
-		  contri_int = contribution->contribution;
-		}
-		UNLOCK (&contribution->lock);
+                LOCK (&contribution->lock);
+                {
+                        contribution->contribution = ntoh64 (*contri);
+                        contri_int = contribution->contribution;
+                }
+                UNLOCK (&contribution->lock);
         }
 
-	LOCK (&ctx->lock);
-	{
-	  ctx->size = ntoh64 (*size);
-	  ctx->dirty = dirty;
-	  size_int = ctx->size;
-	}
-	UNLOCK (&ctx->lock);
+        LOCK (&ctx->lock);
+        {
+                ctx->size = ntoh64 (*size);
+                ctx->dirty = dirty;
+                size_int = ctx->size;
+        }
+        UNLOCK (&ctx->lock);
 
         gf_log (this->name, GF_LOG_DEBUG, "size=%"PRId64
                 " contri=%"PRId64, size_int, contri_int);
 
         if (dirty) {
-	  update_dirty_inode (this, loc, ctx, contribution);
-	} else if ((not_root == _gf_true) && (size_int != contri_int)) {
-	  initiate_quota_txn (this, loc);
+                update_dirty_inode (this, loc, ctx, contribution);
+        } else if ((not_root == _gf_true) && (size_int != contri_int)) {
+                initiate_quota_txn (this, loc);
         }
 
         ret = 0;
@@ -1649,7 +1649,7 @@ inspect_file_xattr (xlator_t *this,
         LOCK (&ctx->lock);
         {
                 ctx->size = 512 * buf.ia_blocks;
-		size = ctx->size;
+                size = ctx->size;
         }
         UNLOCK (&ctx->lock);
 
@@ -1663,19 +1663,19 @@ inspect_file_xattr (xlator_t *this,
                 if (ret == 0) {
                         contri_ptr = (int64_t *)(unsigned long)contri_int;
 
-			LOCK (&contribution->lock);
-			{
-			  contribution->contribution = ntoh64 (*contri_ptr);
-			  contri_int = contribution->contribution;
-			}
-			UNLOCK (&contribution->lock);
+                        LOCK (&contribution->lock);
+                        {
+                                contribution->contribution = ntoh64 (*contri_ptr);
+                                contri_int = contribution->contribution;
+                        }
+                        UNLOCK (&contribution->lock);
 
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "size=%"PRId64 " contri=%"PRId64, size, contri_int);
 
-			if (size != contri_int) {
-			  initiate_quota_txn (this, loc);
-			}
+                        if (size != contri_int) {
+                                initiate_quota_txn (this, loc);
+                        }
                 } else
                         initiate_quota_txn (this, loc);
         }
@@ -1793,7 +1793,7 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         struct gf_flock    lock  = {0, };
         quota_inode_ctx_t *ctx   = NULL;
         quota_local_t     *local = NULL;
-	int64_t contribution = 0;
+        int64_t contribution = 0;
 
         local = frame->local;
         if (op_ret == -1)
@@ -1801,26 +1801,26 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
 
-	LOCK (&local->contri->lock);
-	{
-	  contribution = local->contri->contribution;
-	}
-	UNLOCK (&local->contri->lock);
+        LOCK (&local->contri->lock);
+        {
+                contribution = local->contri->contribution;
+        }
+        UNLOCK (&local->contri->lock);
 
         if (contribution == local->size) {
-	  if (ret == 0) {
-	    LOCK (&ctx->lock);
-	    {
-	      ctx->size -= contribution;
-	    }
-	    UNLOCK (&ctx->lock);
+                if (ret == 0) {
+                        LOCK (&ctx->lock);
+                        {
+                                ctx->size -= contribution;
+                        }
+                        UNLOCK (&ctx->lock);
 
-	    LOCK (&local->contri->lock);
-	    {
-	      local->contri->contribution = 0;
-	    }
-	    UNLOCK (&local->contri->lock);
-	  }
+                        LOCK (&local->contri->lock);
+                        {
+                                local->contri->contribution = 0;
+                        }
+                        UNLOCK (&local->contri->lock);
+                }
         }
 
         lock.l_type   = F_UNLCK;
