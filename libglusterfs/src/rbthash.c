@@ -141,6 +141,7 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc,
         }
 
         LOCK_INIT (&newtab->tablelock);
+        INIT_LIST_HEAD (&newtab->list);
         newtab->numbuckets = buckets;
         ret = __rbthash_init_buckets (newtab, buckets);
 
@@ -191,6 +192,7 @@ rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
                 goto free_entry;
         }
 
+        INIT_LIST_HEAD (&entry->list);
         memcpy (entry->key, key, keylen);
         entry->keylen = keylen;
         entry->keyhash = tbl->hashfunc (entry->key, entry->keylen);
@@ -221,6 +223,13 @@ rbthash_deinit_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
         if (tbl) {
                 if ((entry->data) && (tbl->dfunc))
                         tbl->dfunc (entry->data);
+
+                LOCK (&tbl->tablelock);
+                {
+                        list_del_init (&entry->list);
+                }
+                UNLOCK (&tbl->tablelock);
+
                 mem_put (tbl->entrypool, entry);
         }
 
@@ -291,6 +300,12 @@ rbthash_insert (rbthash_table_t *tbl, void *data, void *key, int keylen)
                 gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to insert entry");
                 rbthash_deinit_entry (tbl, entry);
         }
+
+        LOCK (&tbl->tablelock);
+        {
+                list_add_tail (&entry->list, &tbl->list);
+        }
+        UNLOCK (&tbl->tablelock);
 
 err:
         return ret;
@@ -376,6 +391,13 @@ rbthash_remove (rbthash_table_t *tbl, void *key, int keylen)
 
         GF_FREE (entry->key);
         dataref = entry->data;
+
+        LOCK (&tbl->tablelock);
+        {
+                list_del_init (&entry->list);
+        }
+        UNLOCK (&tbl->tablelock);
+
         mem_put (tbl->entrypool, entry);
 
         return dataref;
@@ -420,4 +442,27 @@ rbthash_table_destroy (rbthash_table_t *tbl)
 
         GF_FREE (tbl->buckets);
         GF_FREE (tbl);
+}
+
+
+void
+rbthash_table_traverse (rbthash_table_t *tbl, rbt_traverse_t traverse,
+                        void *mydata)
+{
+        rbthash_entry_t *entry = NULL;
+
+        if ((tbl == NULL) || (traverse == NULL)) {
+                goto out;
+        }
+
+        LOCK (&tbl->tablelock);
+        {
+                list_for_each_entry (entry, &tbl->list, list) {
+                        traverse (entry->data, mydata);
+                }
+        }
+        UNLOCK (&tbl->tablelock);
+
+out:
+        return;
 }
