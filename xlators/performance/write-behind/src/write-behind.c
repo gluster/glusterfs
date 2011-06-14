@@ -2777,6 +2777,7 @@ wb_file_dump (xlator_t *this, fd_t *fd)
         wb_file_t *file                            = NULL;
         uint64_t   tmp_file                        = 0;
         int32_t    ret                             = -1;
+        char      *path                            = NULL;
         char       key[GF_DUMP_MAX_BUF_LEN]        = {0, };
         char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
 
@@ -2801,6 +2802,13 @@ wb_file_dump (xlator_t *this, fd_t *fd)
                                 "file");
 
         gf_proc_dump_add_section (key_prefix);
+
+        __inode_path (fd->inode, NULL, &path);
+        if (path != NULL) {
+                gf_proc_dump_build_key (key, key_prefix, "path");
+                gf_proc_dump_write (key, "%s", path);
+                GF_FREE (path);
+        }
 
         gf_proc_dump_build_key (key, key_prefix, "fd");
         gf_proc_dump_write (key, "%p", fd);
@@ -2846,6 +2854,7 @@ wb_file_dump (xlator_t *this, fd_t *fd)
         }
         UNLOCK (&file->lock);
 
+        ret = 0;
 out:
         return ret;
 }
