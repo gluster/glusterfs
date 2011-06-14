@@ -88,14 +88,6 @@
                 UNLOCK (lock);                  \
         } while (0)
 
-#define QUOTA_SAFE_DECREMENT(lock, var)         \
-        do {                                    \
-                LOCK (lock);                    \
-                var --;                         \
-                UNLOCK (lock);                  \
-        } while (0)
-
-
 struct quota_inode_ctx {
         int64_t                size;
         int8_t                 dirty;

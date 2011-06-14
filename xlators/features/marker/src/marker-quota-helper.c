@@ -356,12 +356,13 @@ quota_local_ref (quota_local_t *local)
 int32_t
 quota_local_unref (xlator_t *this, quota_local_t *local)
 {
+        int32_t ref = 0;
         if (local == NULL)
                 goto out;
 
-        QUOTA_SAFE_DECREMENT (&local->lock, local->ref);
+        QUOTA_SAFE_DECREMENT (&local->lock, local->ref, ref);
 
-        if (local->ref > 0)
+        if (ref > 0)
                 goto out;
 
         if (local->fd != NULL)
