@@ -945,7 +945,8 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
         gf_log (this->name, GF_LOG_DEBUG,
                 "inodelk released on %s", local->parent_loc.path);
 
-        if (strcmp (local->parent_loc.path, "/") == 0) {
+        if ((strcmp (local->parent_loc.path, "/") == 0)
+            || (local->delta == 0)) {
                 xattr_updation_done (frame, NULL, this, 0, 0, NULL);
         } else {
                 ret = get_parent_inode_local (this, local);
@@ -1219,13 +1220,19 @@ unlock:
 
         gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
                 local->loc.path, ctx->size, contribution->contribution);
+
+        local->delta = ctx->size - contribution->contribution;
+
+        if (local->delta == 0) {
+                quota_mark_undirty (frame, NULL, this, 0, 0, NULL);
+                return 0;
+        }
+
         newdict = dict_new ();
         if (newdict == NULL) {
                 ret = -1;
                 goto err;
         }
-
-        local->delta = ctx->size - contribution->contribution;
 
         QUOTA_ALLOC_OR_GOTO (delta, int64_t, ret, err);
 
