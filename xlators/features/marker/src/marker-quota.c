@@ -2134,7 +2134,11 @@ reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
         if (contri >= 0) {
                 local->size = contri;
         } else {
-                local->size = -1;
+                LOCK (&contribution->lock);
+                {
+                        local->size = contribution->contribution;
+                }
+                UNLOCK (&contribution->lock);
         }
 
         if (local->size == 0) {
