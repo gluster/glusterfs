@@ -733,17 +733,41 @@ int32_t
 quota_inode_creation_done (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno)
 {
-        quota_local_t *local = NULL;
-
         if (frame == NULL)
                 return 0;
-
-        local = frame->local;
 
         QUOTA_STACK_DESTROY (frame, this);
 
         return 0;
 }
+
+
+int32_t
+quota_xattr_creation_release_lock (call_frame_t *frame, void *cookie,
+                                   xlator_t *this, int32_t op_ret,
+                                   int32_t op_errno)
+{
+        struct gf_flock  lock  = {0, };
+        quota_local_t   *local = NULL;
+
+        local = frame->local;
+
+        lock.l_type   = F_UNLCK;
+        lock.l_whence = SEEK_SET;
+        lock.l_start  = 0;
+        lock.l_len    = 0;
+        lock.l_pid    = 0;
+
+        STACK_WIND (frame,
+                    quota_inode_creation_done,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->inodelk,
+                    this->name, &local->loc,
+                    F_SETLKW, &lock);
+
+        return 0;
+}
+
 
 int32_t
 create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -754,8 +778,9 @@ create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t   *local     = NULL;
         marker_conf_t   *priv      = NULL;
 
-        if (op_ret == -1 && op_errno == ENOTCONN)
+        if (op_ret < 0) {
                 goto err;
+        }
 
         local = frame->local;
 
@@ -763,27 +788,31 @@ create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (local->loc.inode->ia_type == IA_IFDIR) {
                 newdict = dict_new ();
-                if (!newdict)
+                if (!newdict) {
                         goto err;
+                }
 
                 ret = dict_set_int8 (newdict, QUOTA_DIRTY_KEY, 0);
-                if (ret == -1)
+                if (ret == -1) {
                         goto err;
+                }
 
-                STACK_WIND (frame, quota_inode_creation_done,
+                STACK_WIND (frame, quota_xattr_creation_release_lock,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->setxattr,
                             &local->loc, newdict, 0);
-        } else
-                quota_inode_creation_done (frame, NULL, this, 0, 0);
+        } else {
+                quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+        }
 
         ret = 0;
 
 err:
-        if (ret == -1)
-                quota_inode_creation_done (frame, NULL, this, -1, 0);
+        if (ret < 0) {
+                quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+        }
 
-        if (newdict)
+        if (newdict != NULL)
                 dict_unref (newdict);
 
         return 0;
@@ -791,27 +820,28 @@ err:
 
 
 int32_t
-quota_set_inode_xattr (xlator_t *this, loc_t *loc)
+quota_create_xattr (xlator_t *this, call_frame_t *frame)
 {
         int32_t               ret       = 0;
         int64_t              *value     = NULL;
         int64_t              *size      = NULL;
         dict_t               *dict      = NULL;
         char                  key[512]  = {0, };
-        call_frame_t         *frame     = NULL;
         quota_local_t        *local     = NULL;
         marker_conf_t        *priv      = NULL;
         quota_inode_ctx_t    *ctx       = NULL;
         inode_contribution_t *contri    = NULL;
 
-        if (loc == NULL || this == NULL)
+        if (frame == NULL || this == NULL)
                 return 0;
+
+        local = frame->local;
 
         priv = (marker_conf_t *) this->private;
 
-        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        ret = quota_inode_ctx_get (local->loc.inode, this, &ctx);
         if (ret < 0) {
-                ctx = quota_inode_ctx_new (loc->inode, this);
+                ctx = quota_inode_ctx_new (local->loc.inode, this);
                 if (ctx == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "quota_inode_ctx_new failed");
@@ -824,48 +854,23 @@ quota_set_inode_xattr (xlator_t *this, loc_t *loc)
         if (!dict)
                 goto out;
 
-        if (loc->inode->ia_type == IA_IFDIR) {
+        if (local->loc.inode->ia_type == IA_IFDIR) {
                 QUOTA_ALLOC_OR_GOTO (size, int64_t, ret, err);
                 ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
                 if (ret < 0)
                         goto free_size;
         }
 
-        //if '/' then dont set contribution xattr
-        if (strcmp (loc->path, "/") == 0)
-                goto wind;
-
-        contri = add_new_contribution_node (this, ctx, loc);
+        contri = add_new_contribution_node (this, ctx, &local->loc);
         if (contri == NULL)
                 goto err;
 
         QUOTA_ALLOC_OR_GOTO (value, int64_t, ret, err);
-        GET_CONTRI_KEY (key, loc->parent->gfid, ret);
+        GET_CONTRI_KEY (key, local->loc.parent->gfid, ret);
 
         ret = dict_set_bin (dict, key, value, 8);
         if (ret < 0)
                 goto free_value;
-
-wind:
-        frame = create_frame (this, this->ctx->pool);
-        if (!frame) {
-                ret = -1;
-                goto err;
-        }
-
-        local = quota_local_new ();
-        if (local == NULL)
-                goto free_size;
-
-        local->ctx = ctx;
-
-        local->contri = contri;
-
-        ret = loc_copy (&local->loc, loc);
-        if (ret < 0)
-                quota_local_unref (this, local);
-
-        frame->local = local;
 
         STACK_WIND (frame, create_dirty_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->loc,
@@ -873,19 +878,159 @@ wind:
         ret = 0;
 
 free_size:
-        if (ret < 0)
+        if (ret < 0) {
                 GF_FREE (size);
+        }
 
 free_value:
-        if (ret < 0)
+        if (ret < 0) {
                 GF_FREE (value);
+        }
 
 err:
         dict_unref (dict);
 
 out:
+        if (ret < 0) {
+                quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+        }
+
+        return 0;
+}
+
+
+int32_t
+quota_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
+                               xlator_t *this, int32_t op_ret, int32_t op_errno,
+                               inode_t *inode, struct iatt *buf, dict_t *dict,
+                               struct iatt *postparent)
+{
+        quota_local_t        *local           = NULL;
+        int64_t              *size            = NULL, *contri = NULL;
+        int8_t                dirty           = 0;
+        marker_conf_t        *priv            = NULL;
+        int32_t               ret             = 0;
+        char                  contri_key[512] = {0, };
+
+        if (op_ret < 0) {
+                goto out;
+        }
+
+        local = frame->local;
+        priv = this->private;
+
+        ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
         if (ret < 0)
-                quota_inode_creation_done (NULL, NULL, this, -1, 0);
+                goto create_xattr;
+
+        ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
+        if (ret < 0)
+                goto create_xattr;
+
+        //check contribution xattr if not root
+        if (strcmp (local->loc.path, "/") != 0) {
+                GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
+                if (ret < 0)
+                        goto out;
+
+                ret = dict_get_bin (dict, contri_key, (void **) &contri);
+                if (ret < 0)
+                        goto create_xattr;
+        }
+
+out:
+        quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+        return 0;
+
+create_xattr:
+        quota_create_xattr (this, frame);
+        return 0;
+}
+
+
+int32_t
+quota_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno)
+{
+        dict_t        *xattr_req = NULL;
+        quota_local_t *local     = NULL;
+        int32_t        ret       = 0;
+
+        if (op_ret < 0) {
+                goto lock_err;
+        }
+
+        local = frame->local;
+
+        xattr_req = dict_new ();
+        if (xattr_req == NULL) {
+                goto err;
+        }
+
+        ret = quota_req_xattr (this, &local->loc, xattr_req);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "cannot request xattr");
+                goto err;
+        }
+
+        STACK_WIND (frame, quota_check_n_set_inode_xattr, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, &local->loc, xattr_req);
+
+        return 0;
+
+err:
+        quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+        return 0;
+
+lock_err:
+        quota_inode_creation_done (frame, NULL, this, 0, 0);
+        return 0;
+}
+
+
+int32_t
+quota_set_inode_xattr (xlator_t *this, loc_t *loc)
+{
+        struct gf_flock  lock  = {0, };
+        quota_local_t   *local = NULL;
+        int32_t          ret   = 0;
+        call_frame_t    *frame = NULL;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                ret = -1;
+                goto err;
+        }
+
+        local = quota_local_new ();
+        if (local == NULL) {
+                goto err;
+        }
+
+        frame->local = local;
+
+        ret = loc_copy (&local->loc, loc);
+        if (ret < 0) {
+                goto err;
+        }
+
+        frame->local = local;
+
+        lock.l_len    = 0;
+        lock.l_start  = 0;
+        lock.l_type   = F_WRLCK;
+        lock.l_whence = SEEK_SET;
+
+        STACK_WIND (frame,
+                    quota_get_xattr,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->inodelk,
+                    this->name, &local->loc, F_SETLKW, &lock);
+
+        return 0;
+
+err:
+        QUOTA_STACK_DESTROY (frame, this);
 
         return 0;
 }
