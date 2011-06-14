@@ -29,6 +29,7 @@
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include "marker-common.h"
+#include "byte-order.h"
 
 void
 fini (xlator_t *this);
@@ -1119,10 +1120,116 @@ quota_err:
 
 int32_t
 marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno)
+                  int32_t op_ret, int32_t op_errno, dict_t *dict)
+
 {
-        marker_local_t       *local        = NULL, *oplocal = NULL;
-        inode_contribution_t *contribution = NULL;
+        marker_local_t       *local           = NULL, *oplocal = NULL;
+        char                  contri_key[512] = {0, };
+        int32_t               ret             = 0;
+        int64_t              *contribution    = 0;
+
+        local = frame->local;
+        oplocal = local->oplocal;
+
+        if ((op_ret < 0) && (op_errno != ENOATTR)) {
+                local->err = op_errno;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "fetching contribution values from %s (ino:%"PRId64", "
+                        "gfid:%s) failed (%s)", local->loc.path,
+                        local->loc.inode->ino,
+                        uuid_utoa (local->loc.inode->gfid),
+                        strerror (op_errno));
+                goto err;
+        }
+
+        if (local->loc.inode != NULL) {
+                GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
+                if (ret < 0) {
+                        local->err = errno;
+                        goto err;
+                }
+
+                if (dict_get_bin (dict, contri_key,
+                                  (void **) &contribution) == 0) {
+                        local->contribution = ntoh64 (*contribution);
+                }
+        }
+
+        STACK_WIND (frame, marker_rename_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->rename, &oplocal->loc,
+                    &local->loc);
+
+        return 0;
+
+err:
+        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
+        return 0;
+}
+
+
+int32_t
+marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno, dict_t *dict)
+{
+        marker_local_t *local           = NULL, *oplocal = NULL;
+        char            contri_key[512] = {0, };
+        int32_t         ret             = 0;
+        int64_t        *contribution    = 0;
+
+        local = frame->local;
+        oplocal = local->oplocal;
+
+        if ((op_ret < 0) && (op_errno != ENOATTR)) {
+                local->err = op_errno;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "fetching contribution values from %s (ino:%"PRId64", "
+                        "gfid:%s) failed (%s)", oplocal->loc.path,
+                        oplocal->loc.inode->ino,
+                        uuid_utoa (oplocal->loc.inode->gfid),
+                        strerror (op_errno));
+                goto err;
+        }
+
+        GET_CONTRI_KEY (contri_key, oplocal->loc.parent->gfid, ret);
+        if (ret < 0) {
+                local->err = errno;
+                goto err;
+        }
+
+        if (dict_get_bin (dict, contri_key, (void **) &contribution) == 0)
+                oplocal->contribution = ntoh64 (*contribution);
+
+        if (local->loc.inode != NULL) {
+                GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
+                if (ret < 0) {
+                        local->err = errno;
+                        goto err;
+                }
+
+                STACK_WIND (frame, marker_do_rename,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->getxattr, &local->loc,
+                            contri_key);
+        } else {
+                marker_do_rename (frame, NULL, this, 0, 0, NULL);
+        }
+
+        return 0;
+err:
+        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
+        return 0;
+}
+
+
+int32_t
+marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno)
+{
+        marker_local_t *local           = NULL, *oplocal = NULL;
+        char            contri_key[512] = {0, };
+        int32_t         ret             = 0;
 
         local = frame->local;
         oplocal = local->oplocal;
@@ -1139,29 +1246,19 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto lock_err;
         }
 
-        local = frame->local;
-        oplocal = local->oplocal;
-
-        if (local->loc.inode != NULL) {
-                contribution = get_contribution_from_loc (this, &local->loc);
-                if (contribution == NULL) {
-                        local->contribution = 0;
-                } else {
-                        local->contribution = contribution->contribution;
-                }
+        GET_CONTRI_KEY (contri_key, oplocal->loc.parent->gfid, ret);
+        if (ret < 0) {
+                local->err = errno;
+                goto quota_err;
         }
 
-        contribution = get_contribution_from_loc (this, &oplocal->loc);
-        if (contribution == NULL) {
-                oplocal->contribution = 0;
-        } else {
-                oplocal->contribution = contribution->contribution;
-        }
+        STACK_WIND (frame, marker_get_newpath_contribution, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getxattr, &oplocal->loc,
+                    contri_key);
+        return 0;
 
-        STACK_WIND (frame, marker_rename_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rename, &oplocal->loc,
-                    &local->loc);
-
+quota_err:
+        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
         return 0;
 
 lock_err:
@@ -1211,13 +1308,13 @@ marker_rename_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 lock.l_whence = SEEK_SET;
 
                 STACK_WIND (frame,
-                            marker_do_rename,
+                            marker_get_oldpath_contribution,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->inodelk,
                             this->name, local->next_lock_on,
                             F_SETLKW, &lock);
         } else {
-                marker_do_rename (frame, 0, this, 0, 0);
+                marker_get_oldpath_contribution (frame, 0, this, 0, 0);
         }
 
         return 0;
