@@ -157,6 +157,7 @@ struct ioc_inode {
                                              * weight of the inode, increases
                                              * on each read
                                              */
+        inode_t               *inode;      
 };
 
 struct ioc_table {

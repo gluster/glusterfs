@@ -1856,10 +1856,141 @@ out:
 	return ret;
 }
 
+void
+ioc_page_waitq_dump (ioc_page_t *page, char *prefix)
+{
+	ioc_waitq_t  *trav                     = NULL;
+        call_frame_t *frame                    = NULL;
+        int32_t       i                        = 0;
+        char          key[GF_DUMP_MAX_BUF_LEN] = {0, };
+
+	trav = page->waitq;
+
+	while (trav) {
+                frame = trav->data;
+                gf_proc_dump_build_key (key, prefix,
+                                        "waitq.frame[%d]", i++);
+                gf_proc_dump_write (key, "%"PRId64, frame->root->unique);
+
+		trav = trav->next;
+	}
+}
+
+void
+ioc_inode_waitq_dump (ioc_inode_t *ioc_inode, char *prefix)
+{
+	ioc_waitq_t *trav                     = NULL;
+        ioc_page_t  *page                     = NULL;
+        int32_t      i                        = 0;
+        char         key[GF_DUMP_MAX_BUF_LEN] = {0, };
+
+	trav = ioc_inode->waitq;
+
+	while (trav) {
+                page = trav->data;
+                gf_proc_dump_build_key (key, prefix,
+                                        "cache-validation-waitq.page[%d].offset",
+                                        i++);
+                gf_proc_dump_write (key, "%"PRId64, page->offset);
+
+		trav = trav->next;
+	}
+}
+
+void
+ioc_page_dump (ioc_page_t *page, char *prefix)
+{
+        char key[GF_DUMP_MAX_BUF_LEN] = {0, };
+
+        ioc_page_lock (page);
+        {
+                gf_proc_dump_build_key (key, prefix, "offset");
+                gf_proc_dump_write (key, "%"PRId64, page->offset);
+                gf_proc_dump_build_key (key, prefix, "size");
+                gf_proc_dump_write (key, "%"PRId64, page->size);
+                gf_proc_dump_build_key (key, prefix, "dirty");
+                gf_proc_dump_write (key, "%s", page->dirty ? "yes" : "no");
+                gf_proc_dump_build_key (key, prefix, "ready");
+                gf_proc_dump_write (key, "%s", page->ready ? "yes" : "no");
+                ioc_page_waitq_dump (page, prefix);
+        }
+        ioc_page_unlock (page);
+}
+
+void
+ioc_cache_dump (ioc_inode_t *ioc_inode, char *prefix)
+{
+        off_t        offset = 0;
+        ioc_table_t *table  = NULL;
+        ioc_page_t  *page   = NULL;
+        int          i      = 0;
+        struct tm   *tm     = NULL;
+        char         key[GF_DUMP_MAX_BUF_LEN] = {0, };
+        char         timestr[256]             = {0, };
+
+        if ((ioc_inode == NULL) || (prefix == NULL)) {
+                goto out;
+        }
+
+        table = ioc_inode->table;
+
+        tm = localtime (&ioc_inode->cache.tv.tv_sec);
+        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                  ".%"GF_PRI_SUSECONDS, ioc_inode->cache.tv.tv_usec);
+
+        gf_proc_dump_build_key (key, prefix, "last-cache-validation-time");
+        gf_proc_dump_write (key, "%s", timestr);
+
+        for (offset = 0; offset < ioc_inode->ia_size;
+             offset += table->page_size) {
+                page = ioc_page_get (ioc_inode, offset);
+                if (page == NULL) {
+                        continue;
+                }
+
+                gf_proc_dump_build_key (key, prefix,
+                                        "inode.cache.page[%d]", i++);
+
+                ioc_page_dump (page, key);
+        }
+out:
+        return;
+}
+
+
+void
+ioc_inode_dump (ioc_inode_t *ioc_inode, char *prefix)
+{
+        char            key[GF_DUMP_MAX_BUF_LEN];
+        char            uuidbuf[256] = {0, };
+
+        if ((ioc_inode == NULL) || (prefix == NULL)) {
+                goto out;
+        }
+
+        ioc_inode_lock (ioc_inode);
+        {
+                gf_proc_dump_build_key (key, prefix, "\ninode.gfid");
+                uuid_unparse (ioc_inode->inode->gfid, uuidbuf);
+                gf_proc_dump_write (key, "%s", uuidbuf);
+                gf_proc_dump_build_key (key, prefix, "inode.ino");
+                gf_proc_dump_write (key, "%ld", ioc_inode->inode->ino);
+                gf_proc_dump_build_key (key, prefix, "inode.weight");
+                gf_proc_dump_write (key, "%d", ioc_inode->weight);
+                ioc_cache_dump (ioc_inode, prefix);
+                ioc_inode_waitq_dump (ioc_inode, prefix);
+        }
+        ioc_inode_unlock (ioc_inode);
+out:
+        return;
+}
+
 int
 ioc_priv_dump (xlator_t *this)
 {
-        ioc_table_t     *priv = NULL;
+        ioc_table_t     *priv      = NULL;
+        ioc_inode_t     *ioc_inode = NULL;
         char            key_prefix[GF_DUMP_MAX_BUF_LEN];
         char            key[GF_DUMP_MAX_BUF_LEN];
 
@@ -1871,15 +2002,28 @@ ioc_priv_dump (xlator_t *this)
                                 "priv");
         gf_proc_dump_add_section (key_prefix);
 
-        gf_proc_dump_build_key (key, key_prefix, "page_size");
-        gf_proc_dump_write (key, "%ld", priv->page_size);
-        gf_proc_dump_build_key (key, key_prefix, "cache_size");
-        gf_proc_dump_write (key, "%ld", priv->cache_size);
-        gf_proc_dump_build_key (key, key_prefix, "cache_used");
-        gf_proc_dump_write (key, "%ld", priv->cache_used);
-        gf_proc_dump_build_key (key, key_prefix, "inode_count");
-        gf_proc_dump_write (key, "%u", priv->inode_count);
+        ioc_table_lock (priv);
+        {
+                gf_proc_dump_build_key (key, key_prefix, "page_size");
+                gf_proc_dump_write (key, "%ld", priv->page_size);
+                gf_proc_dump_build_key (key, key_prefix, "cache_size");
+                gf_proc_dump_write (key, "%ld", priv->cache_size);
+                gf_proc_dump_build_key (key, key_prefix, "cache_used");
+                gf_proc_dump_write (key, "%ld", priv->cache_used);
+                gf_proc_dump_build_key (key, key_prefix, "inode_count");
+                gf_proc_dump_write (key, "%u", priv->inode_count);
+                gf_proc_dump_build_key (key, key_prefix, "cache_timeout");
+                gf_proc_dump_write (key, "%u", priv->cache_timeout);
+                gf_proc_dump_build_key (key, key_prefix, "min-file-size");
+                gf_proc_dump_write (key, "%u", priv->min_file_size);
+                gf_proc_dump_build_key (key, key_prefix, "max-file-size");
+                gf_proc_dump_write (key, "%u", priv->max_file_size);
 
+                list_for_each_entry (ioc_inode, &priv->inodes, inode_list) {
+                        ioc_inode_dump (ioc_inode, key_prefix);
+                }
+        }
+        ioc_table_unlock (priv);
 out:
         return 0;
 }
