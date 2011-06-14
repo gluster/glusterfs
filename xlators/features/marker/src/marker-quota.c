@@ -133,10 +133,6 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 local->err = -1;
-
-                dirty_inode_updation_done (frame, NULL, this, 0, 0);
-
-                return 0;
         }
 
         if (op_ret == 0)
@@ -156,6 +152,40 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 }
+
+
+int32_t
+release_lock_on_dirty_inode_parent (call_frame_t *frame, void *cookie,
+                                    xlator_t *this, int32_t op_ret,
+                                    int32_t op_errno)
+{
+        struct gf_flock   lock  = {0, };
+        quota_local_t    *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret == -1) {
+                local->err = -1;
+        }
+
+        if (op_ret == 0)
+                local->ctx->dirty = 0;
+
+        lock.l_type   = F_UNLCK;
+        lock.l_whence = SEEK_SET;
+        lock.l_start  = 0;
+        lock.l_len    = 0;
+        lock.l_pid    = 0;
+
+        STACK_WIND (frame,
+                    release_lock_on_dirty_inode,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->inodelk,
+                    this->name, &local->parent_loc, F_SETLKW, &lock);
+
+        return 0;
+}
+
 
 int32_t
 mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -196,7 +226,7 @@ wind:
         if (ret)
                 goto err;
 
-        STACK_WIND (frame, release_lock_on_dirty_inode,
+        STACK_WIND (frame, release_lock_on_dirty_inode_parent,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
                     &local->loc, newdict, 0);
@@ -206,7 +236,7 @@ err:
         if (op_ret == -1 || ret == -1) {
                 local->err = -1;
 
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                release_lock_on_dirty_inode_parent (frame, NULL, this, 0, 0);
         }
 
         if (newdict)
@@ -275,7 +305,7 @@ err:
         if (op_ret == -1 || ret == -1) {
                 local->err = -1;
 
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                release_lock_on_dirty_inode_parent (frame, NULL, this, 0, 0);
         }
 
         if (new_dict)
@@ -284,8 +314,10 @@ err:
         return 0;
 }
 
+
 int32_t
-get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
+get_dirty_inode_size (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
 {
         int32_t        ret   = -1;
         dict_t        *dict  = NULL;
@@ -293,6 +325,19 @@ get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
         marker_conf_t *priv  = NULL;
 
         local = (quota_local_t *) frame->local;
+
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "inodelk on dirty inode parent failed (%s)"
+                        "path = %s, inode.ino = %"PRId64", inode.gfid = %s"
+                        "parent.ino = %"PRId64", parent.gfid = %s",
+                        strerror (errno), local->loc.path,
+                        local->loc.inode->ino,
+                        uuid_utoa (local->loc.inode->gfid),
+                        local->parent_loc.inode->ino,
+                        uuid_utoa (local->parent_loc.inode->gfid));
+                goto lock_err;
+        }
 
         priv = (marker_conf_t *) this->private;
 
@@ -308,9 +353,13 @@ get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
 
         STACK_WIND (frame, update_size_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, dict);
-        ret =0;
+        return 0;
 
 err:
+        release_lock_on_dirty_inode_parent (frame, NULL, this, 0, 0);
+        return 0;
+
+lock_err:
         if (ret) {
                 local->err = -1;
 
@@ -386,6 +435,29 @@ out:
         return 0;
 }
 
+
+int32_t
+get_lock_on_dirty_inode_parent (call_frame_t *frame, xlator_t *this)
+{
+        quota_local_t   *local = NULL;
+        struct gf_flock  lock  = {0, };
+
+        local = frame->local;
+
+        lock.l_type = F_WRLCK;
+        lock.l_whence = SEEK_SET;
+        lock.l_start = 0;
+        lock.l_len = 0;
+
+        STACK_WIND (frame,
+                    get_dirty_inode_size,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->inodelk,
+                    this->name, &local->parent_loc, F_SETLKW, &lock);
+        return 0;
+}
+
+
 int32_t
 quota_readdir_cbk (call_frame_t *frame,
                    void *cookie,
@@ -415,8 +487,7 @@ quota_readdir_cbk (call_frame_t *frame,
 
                 return 0;
         } else if (op_ret == 0) {
-                get_dirty_inode_size (frame, this);
-
+                get_lock_on_dirty_inode_parent (frame, this);
                 return 0;
         }
 
@@ -524,7 +595,7 @@ quota_readdir_cbk (call_frame_t *frame,
         if (ret) {
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         } else if (count == 0 ) {
-                get_dirty_inode_size (frame, this);
+                get_lock_on_dirty_inode_parent (frame, this);
         }
 
         return 0;
@@ -702,6 +773,10 @@ update_dirty_inode (xlator_t *this,
         frame->local = local;
 
         ret = loc_copy (&local->loc, loc);
+        if (ret < 0)
+                goto fr_destroy;
+
+        ret = quota_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
         if (ret < 0)
                 goto fr_destroy;
 
@@ -1659,18 +1734,6 @@ initiate_quota_txn (xlator_t *this, loc_t *loc)
 out:
         return 0;
 }
-
-
-/* int32_t */
-/* validate_inode_size_contribution (xlator_t *this, loc_t *loc, int64_t size, */
-/*                                int64_t contribution) */
-/* { */
-/*   if (size != contribution) { */
-/*     initiate_quota_txn (this, loc); */
-/*   } */
-
-/*   return 0; */
-/* } */
 
 
 int32_t
