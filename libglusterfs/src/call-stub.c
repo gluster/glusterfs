@@ -2695,7 +2695,6 @@ call_resume_unwind (call_stub_t *stub)
 
         case GF_FOP_RENAME:
         {
-#if 0
                 if (!stub->args.rename_cbk.fn)
                         STACK_UNWIND (stub->frame,
                                       stub->args.rename_cbk.op_ret,
@@ -2716,7 +2715,6 @@ call_resume_unwind (call_stub_t *stub)
                                                   &stub->args.rename_cbk.postoldparent,
                                                   &stub->args.rename_cbk.prenewparent,
                                                   &stub->args.rename_cbk.postnewparent);
-#endif
                 break;
         }
 
