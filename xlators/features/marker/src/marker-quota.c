@@ -180,7 +180,11 @@ mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret)
                 goto wind;
 
-        local->ctx->size = ntoh64 (*size);
+	LOCK (&local->ctx->lock);
+	{
+	  local->ctx->size = ntoh64 (*size);
+	}
+	UNLOCK (&local->ctx->lock);
 
 wind:
         newdict = dict_new ();
@@ -1106,7 +1110,11 @@ quota_update_parent_size (call_frame_t *frame,
                 goto err;
         }
 
-        local->contri->contribution += local->delta;
+	LOCK (&local->contri->lock);
+	{
+	  local->contri->contribution += local->delta;
+	}
+	UNLOCK (&local->contri->lock);
 
         gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
                 local->loc.path, local->ctx->size,
@@ -1163,7 +1171,7 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
                                  struct iatt *postparent)
 {
         int32_t               ret              = -1;
-        int64_t              *size             = NULL;
+        int64_t              *size             = NULL, size_int = 0, contri_int = 0;
         int64_t              *contri           = NULL;
         int64_t              *delta            = NULL;
         char                  contri_key [512] = {0, };
@@ -1205,24 +1213,32 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
                 } else
                         ctx->size = buf->ia_blocks * 512;
 
-                ret = dict_get_bin (dict, contri_key, (void **) &contri);
-                if (ret < 0)
-                        contribution->contribution = 0;
-                else
-                        contribution->contribution = ntoh64 (*contri);
+		size_int = ctx->size;
+	}
+ unlock:
+	UNLOCK  (&ctx->lock);
 
-                ret = 0;
+	if (ret < 0) {
+	  goto err;
+	}
+
+	ret = dict_get_bin (dict, contri_key, (void **) &contri);
+
+	LOCK (&contribution->lock);
+	{
+	  if (ret < 0)
+	    contribution->contribution = 0;
+	  else
+	    contribution->contribution = ntoh64 (*contri);
+
+	  contri_int = contribution->contribution;
         }
-unlock:
-        UNLOCK (&ctx->lock);
-
-        if (ret < 0)
-                goto err;
+	UNLOCK (&contribution->lock);
 
         gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
-                local->loc.path, ctx->size, contribution->contribution);
+                local->loc.path, size_int, contri_int);
 
-        local->delta = ctx->size - contribution->contribution;
+        local->delta = size_int - contri_int;
 
         if (local->delta == 0) {
                 quota_mark_undirty (frame, NULL, this, 0, 0, NULL);
@@ -1499,17 +1515,16 @@ out:
 }
 
 
-int32_t
-validate_inode_size_contribution (xlator_t *this,
-                                  loc_t *loc,
-                                  quota_inode_ctx_t *ctx,
-                                  inode_contribution_t *contribution)
-{
-        if (ctx->size != contribution->contribution)
-                initiate_quota_txn (this, loc);
+/* int32_t */
+/* validate_inode_size_contribution (xlator_t *this, loc_t *loc, int64_t size, */
+/* 				  int64_t contribution) */
+/* { */
+/*   if (size != contribution) { */
+/*     initiate_quota_txn (this, loc); */
+/*   } */
 
-        return 0;
-}
+/*   return 0; */
+/* } */
 
 
 int32_t
@@ -1520,8 +1535,8 @@ inspect_directory_xattr (xlator_t *this,
 {
         int32_t               ret                 = 0;
         int8_t                dirty               = -1;
-        int64_t              *size                = NULL;
-        int64_t              *contri              = NULL;
+        int64_t              *size                = NULL, size_int = 0;
+        int64_t              *contri              = NULL, contri_int = 0;
         char                  contri_key [512]    = {0, };
         marker_conf_t        *priv                = NULL;
         gf_boolean_t          not_root            = _gf_false;
@@ -1567,21 +1582,29 @@ inspect_directory_xattr (xlator_t *this,
                 if (ret < 0)
                         goto out;
 
-                contribution->contribution = ntoh64 (*contri);
+		LOCK (&contribution->lock);
+		{
+		  contribution->contribution = ntoh64 (*contri);
+		  contri_int = contribution->contribution;
+		}
+		UNLOCK (&contribution->lock);
         }
 
-        ctx->size = ntoh64 (*size);
+	LOCK (&ctx->lock);
+	{
+	  ctx->size = ntoh64 (*size);
+	  ctx->dirty = dirty;
+	  size_int = ctx->size;
+	}
+	UNLOCK (&ctx->lock);
 
         gf_log (this->name, GF_LOG_DEBUG, "size=%"PRId64
-                " contri=%"PRId64, ctx->size,
-                contribution?contribution->contribution:0);
+                " contri=%"PRId64, size_int, contri_int);
 
-        ctx->dirty = dirty;
-        if (ctx->dirty == 1) {
-                update_dirty_inode (this, loc, ctx, contribution);
-        } else if (not_root == _gf_true &&
-                   ctx->size != contribution->contribution) {
-                initiate_quota_txn (this, loc);
+        if (dirty) {
+	  update_dirty_inode (this, loc, ctx, contribution);
+	} else if ((not_root == _gf_true) && (size_int != contri_int)) {
+	  initiate_quota_txn (this, loc);
         }
 
         ret = 0;
@@ -1599,7 +1622,7 @@ inspect_file_xattr (xlator_t *this,
                     struct iatt buf)
 {
         int32_t               ret              = -1;
-        uint64_t              contri_int       = 0;
+        uint64_t              contri_int       = 0, size = 0;
         int64_t              *contri_ptr       = NULL;
         char                  contri_key [512] = {0, };
         marker_conf_t        *priv             = NULL;
@@ -1626,6 +1649,7 @@ inspect_file_xattr (xlator_t *this,
         LOCK (&ctx->lock);
         {
                 ctx->size = 512 * buf.ia_blocks;
+		size = ctx->size;
         }
         UNLOCK (&ctx->lock);
 
@@ -1639,14 +1663,19 @@ inspect_file_xattr (xlator_t *this,
                 if (ret == 0) {
                         contri_ptr = (int64_t *)(unsigned long)contri_int;
 
-                        contribution->contribution = ntoh64 (*contri_ptr);
+			LOCK (&contribution->lock);
+			{
+			  contribution->contribution = ntoh64 (*contri_ptr);
+			  contri_int = contribution->contribution;
+			}
+			UNLOCK (&contribution->lock);
 
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "size=%"PRId64 " contri=%"PRId64, ctx->size,
-                                contribution->contribution);
+                                "size=%"PRId64 " contri=%"PRId64, size, contri_int);
 
-                        ret = validate_inode_size_contribution
-                                (this, loc, ctx, contribution);
+			if (size != contri_int) {
+			  initiate_quota_txn (this, loc);
+			}
                 } else
                         initiate_quota_txn (this, loc);
         }
@@ -1764,6 +1793,7 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         struct gf_flock    lock  = {0, };
         quota_inode_ctx_t *ctx   = NULL;
         quota_local_t     *local = NULL;
+	int64_t contribution = 0;
 
         local = frame->local;
         if (op_ret == -1)
@@ -1771,11 +1801,26 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
 
-        if (local->contri->contribution == local->size) {
-                if (ret == 0)
-                        ctx->size -= local->contri->contribution;
+	LOCK (&local->contri->lock);
+	{
+	  contribution = local->contri->contribution;
+	}
+	UNLOCK (&local->contri->lock);
 
-                local->contri->contribution = 0;
+        if (contribution == local->size) {
+	  if (ret == 0) {
+	    LOCK (&ctx->lock);
+	    {
+	      ctx->size -= contribution;
+	    }
+	    UNLOCK (&ctx->lock);
+
+	    LOCK (&local->contri->lock);
+	    {
+	      local->contri->contribution = 0;
+	    }
+	    UNLOCK (&local->contri->lock);
+	  }
         }
 
         lock.l_type   = F_UNLCK;
@@ -1793,7 +1838,7 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-static int32_t
+int32_t
 mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie,
                              xlator_t *this, int32_t op_ret, int32_t op_errno)
 {

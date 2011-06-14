@@ -108,6 +108,7 @@ struct inode_contribution {
         struct list_head contri_list;
         int64_t          contribution;
         uuid_t           gfid;
+  gf_lock_t lock;
 };
 typedef struct inode_contribution inode_contribution_t;
 
