@@ -178,6 +178,8 @@ __add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 
         uuid_copy (contribution->gfid, loc->parent->gfid);
 
+	LOCK_INIT (&contribution->lock);
+
         list_add_tail (&contribution->contri_list, &ctx->contribution_head);
 
 out:
