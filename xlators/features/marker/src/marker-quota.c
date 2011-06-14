@@ -426,6 +426,8 @@ quota_readdir_cbk (call_frame_t *frame,
                                 entry->d_name);
                         continue;
                 }
+
+                offset = entry->d_off;
                 count++;
         }
 
@@ -435,6 +437,7 @@ quota_readdir_cbk (call_frame_t *frame,
                 LOCK (&local->lock);
                 {
                         local->dentry_child_count = count;
+                        local->d_off = offset;
                 }
                 UNLOCK (&local->lock);
         }
@@ -447,7 +450,6 @@ quota_readdir_cbk (call_frame_t *frame,
                                                                 ".."))) {
                         gf_log (this->name, GF_LOG_DEBUG, "entry  = %s",
                                 entry->d_name);
-                        offset = entry->d_off;
                         continue;
                 }
 
@@ -513,17 +515,12 @@ quota_readdir_cbk (call_frame_t *frame,
                         break;
                 }
         }
-        gf_log (this->name, GF_LOG_DEBUG, "offset before =%"PRIu64,
-                local->d_off);
-        local->d_off +=offset;
-        gf_log (this->name, GF_LOG_DEBUG, "offset after = %"PRIu64,
-                local->d_off);
 
-        if (ret)
+        if (ret) {
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
-
-        else if (count == 0 )
+        } else if (count == 0 ) {
                 get_dirty_inode_size (frame, this);
+        }
 
         return 0;
 }
@@ -617,6 +614,10 @@ err:
         if (op_ret == -1 || ret == -1) {
                 local->err = -1;
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+        }
+
+        if (fd != NULL) {
+                fd_unref (fd);
         }
 
         return 0;
