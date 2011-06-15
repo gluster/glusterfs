@@ -1325,7 +1325,8 @@ out:
 }
 
 int32_t
-gf_cli3_1_print_limit_list (char *volname, char *limit_list)
+gf_cli3_1_print_limit_list (char *volname, char *limit_list,
+                            char *op_errstr)
 {
         int64_t  size            = 0;
         int64_t  limit_value     = 0;
@@ -1343,6 +1344,11 @@ gf_cli3_1_print_limit_list (char *volname, char *limit_list)
 
         if (!connected)
                 goto out;
+
+        if (strcmp (limit_list, "") == 0) {
+                cli_out ("%s", op_errstr?op_errstr:"quota limit not set ");
+                goto out;
+        }
 
         if (mkdtemp (mountdir) == NULL) {
                 gf_log ("cli", GF_LOG_WARNING, "failed to create a temporary "
@@ -1455,9 +1461,11 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (rsp.type == GF_QUOTA_OPTION_TYPE_LIST) {
-                if (rsp.limit_list)
+                if (rsp.limit_list) {
                         gf_cli3_1_print_limit_list (rsp.volname,
-                                                    rsp.limit_list);
+                                                    rsp.limit_list,
+                                                    rsp.op_errstr);
+                }
         } else {
                 gf_log ("cli", GF_LOG_INFO, "Received resp to quota command ");
                 if (rsp.op_errstr)

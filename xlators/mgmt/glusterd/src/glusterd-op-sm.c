@@ -4675,8 +4675,13 @@ out:
         return ret;
 }
 
+/* At the end of the function, the variable found will be set
+ * to true if the path to be removed was present in the limit-list,
+ * else will be false.
+ */
 int32_t
-_glusterd_quota_remove_limits (char **quota_limits, char *path)
+_glusterd_quota_remove_limits (char **quota_limits, char *path,
+                               gf_boolean_t *found)
 {
         int      ret      = 0;
         int      i        = 0;
@@ -4688,6 +4693,9 @@ _glusterd_quota_remove_limits (char **quota_limits, char *path)
         char    *limits   = NULL;
         char    *qlimits  = NULL;
 
+        if (found)
+                *found = _gf_false;
+
         if (*quota_limits == NULL)
                 return -1;
 
@@ -4698,14 +4706,16 @@ _glusterd_quota_remove_limits (char **quota_limits, char *path)
         len = strlen (qlimits);
 
         limits = GF_CALLOC (len + 1, sizeof (char), gf_gld_mt_char);
-
         if (!limits)
                 return -1;
 
         while (i < len) {
                 if (!memcmp ((void *) &qlimits [i], (void *)path, pathlen))
-                        if (qlimits [i + pathlen] == ':')
+                        if (qlimits [i + pathlen] == ':') {
                                 flag = 1;
+                                if (found)
+                                        *found = _gf_true;
+                        }
 
                 while (qlimits [i + size] != ',' &&
                        qlimits [i + size] != '\0')
@@ -4929,7 +4939,7 @@ _glusterd_quota_get_limit_usages (glusterd_volinfo_t *volinfo,
                 return NULL;
         if (quota_limits == NULL) {
                 ret_str = NULL;
-                *op_errstr = gf_strdup ("Limits not set any directory");
+                *op_errstr = gf_strdup ("Limit not set on any directory");
         } else if (path == NULL)
                 ret_str = gf_strdup (quota_limits);
         else
@@ -4962,7 +4972,8 @@ glusterd_quota_get_limit_usages (glusterd_conf_t *priv,
                 goto out;
 
         if (count == 0) {
-                ret_str = _glusterd_quota_get_limit_usages (volinfo, NULL, op_errstr);
+                ret_str = _glusterd_quota_get_limit_usages (volinfo, NULL,
+                                                            op_errstr);
         } else {
                 i = 0;
                 while (count--) {
@@ -5112,7 +5123,7 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
         }
 
         if (quota_limits) {
-                ret = _glusterd_quota_remove_limits (&quota_limits, path);
+                ret = _glusterd_quota_remove_limits (&quota_limits, path, NULL);
                 if (ret == -1) {
                         gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                         *op_errstr = gf_strdup ("failed to set limit");
@@ -5159,18 +5170,21 @@ out:
 int32_t
 glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **op_errstr)
 {
-        int32_t         ret     = -1;
+        int32_t         ret                   = -1;
         char            str [PATH_MAX + 1024] = {0,};
-        char            *quota_limits = NULL;
-        char            *path   = NULL;
+        char            *quota_limits         = NULL;
+        char            *path                 = NULL;
+        gf_boolean_t     flag                 = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("glusterd", dict, out);
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
         GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
 
         ret = glusterd_check_if_quota_trans_enabled (volinfo);
-        if (ret == -1)
+        if (ret == -1) {
+                *op_errstr = gf_strdup ("Quota is disabled, please enable quota");
                 goto out;
+        }
 
         ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_LIMIT_USAGE,
                                     &quota_limits);
@@ -5185,13 +5199,22 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **
                 goto out;
         }
 
-        ret = _glusterd_quota_remove_limits (&quota_limits, path);
+        ret = _glusterd_quota_remove_limits (&quota_limits, path, &flag);
         if (ret == -1) {
-                snprintf (str, sizeof (str), "Removing limit on %s has been unsuccessful", path);
+                if (flag == _gf_true)
+                        snprintf (str, sizeof (str), "Removing limit on %s has "
+                                  "been unsuccessful", path);
+                else
+                        snprintf (str, sizeof (str), "%s has no limit set", path);
                 *op_errstr = gf_strdup (str);
                 goto out;
         } else {
-                snprintf (str, sizeof (str), "Removed quota limit on %s", path);
+                if (flag == _gf_true)
+                        snprintf (str, sizeof (str), "Removed quota limit on "
+                                  "%s", path);
+                else
+                        snprintf (str, sizeof (str), "no limit set on %s",
+                                  path);
                 *op_errstr = gf_strdup (str);
         }
 
@@ -5279,11 +5302,12 @@ glusterd_op_quota (dict_t *dict, char **op_errstr)
                 ret = glusterd_check_if_quota_trans_enabled (volinfo);
                 if (ret == -1) {
                         *op_errstr = gf_strdup ("cannot list the limits, "
-                                                "quota feature is disabled");
+                                                "quota is disabled");
                         goto out;
                 }
 
-                glusterd_quota_get_limit_usages (priv, volinfo, volname, dict, op_errstr);
+                ret = glusterd_quota_get_limit_usages (priv, volinfo, volname,
+                                                       dict, op_errstr);
 
                 goto out;
         }
