@@ -158,7 +158,7 @@ __blocked_lock_conflict (pl_dom_list_t *dom, pl_inode_lock_t *lock)
         pl_inode_lock_t *l   = NULL;
         pl_inode_lock_t *ret = NULL;
 
-        if (list_empty (&dom->blocked_entrylks))
+        if (list_empty (&dom->blocked_inodelks))
                 return NULL;
 
         list_for_each_entry (l, &dom->blocked_inodelks, blocked_locks) {
@@ -177,12 +177,12 @@ __owner_has_lock (pl_dom_list_t *dom, pl_inode_lock_t *newlock)
 {
         pl_inode_lock_t *lock = NULL;
 
-        list_for_each_entry (lock, &dom->entrylk_list, list) {
+        list_for_each_entry (lock, &dom->inodelk_list, list) {
                 if (same_inodelk_owner (lock, newlock))
                         return 1;
         }
 
-        list_for_each_entry (lock, &dom->blocked_entrylks, blocked_locks) {
+        list_for_each_entry (lock, &dom->blocked_inodelks, blocked_locks) {
                 if (same_inodelk_owner (lock, newlock))
                         return 1;
         }
