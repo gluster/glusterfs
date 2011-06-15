@@ -1,5 +1,6 @@
 ### 'NOTE'
-# This file has both server spec and client spec to get an understanding of stripe's spec file. Hence can't be used as it is, as a GlusterFS spec file. 
+# This file has both server spec and client spec to get an understanding of
+# replicate spec file. Hence can't be used as it is, as a GlusterFS spec file.
 # One need to seperate out server spec and client spec to get it working.
 
 #=========================================================================
@@ -23,8 +24,7 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp                      # For TCP/IP transport
-  option transport.socket.listen-port 24016       
-# option client-volume-filename /etc/glusterfs/glusterfs-client.vol
+  option transport.socket.listen-port 24016
   subvolumes brick1
   option auth.addr.brick1.allow * 		# access to "brick" volume
 end-volume
@@ -49,7 +49,7 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp                  # For TCP/IP transport
-  option transport.socket.listen-port 24017   
+  option transport.socket.listen-port 24017
   subvolumes brick2
   option auth.addr.brick2.allow * # Allow access to "brick" volume
 end-volume
@@ -75,7 +75,7 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp                 # For TCP/IP transport
-  option transport.socket.listen-port 24018  
+  option transport.socket.listen-port 24018
   subvolumes brick3
   option auth.addr.brick3.allow * 		# access to "brick" volume
 end-volume
@@ -90,7 +90,7 @@ volume client1
   type protocol/client
   option transport-type tcp     # for TCP/IP transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option transport.socket.remote-port 24016              
+  option transport.socket.remote-port 24016
   option remote-subvolume brick1        # name of the remote volume
 end-volume
 
@@ -99,7 +99,7 @@ volume client2
   type protocol/client
   option transport-type tcp     # for TCP/IP transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option transport.socket.remote-port 24017              
+  option transport.socket.remote-port 24017
   option remote-subvolume brick2        # name of the remote volume
 end-volume
 
@@ -107,7 +107,7 @@ volume client3
   type protocol/client
   option transport-type tcp     # for TCP/IP transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option transport.socket.remote-port 24018              
+  option transport.socket.remote-port 24018
   option remote-subvolume brick3        # name of the remote volume
 end-volume
 
@@ -116,4 +116,3 @@ volume replicate
   type cluster/replicate
   subvolumes client1 client2 client3
 end-volume
-
