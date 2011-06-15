@@ -8,19 +8,20 @@ end-volume
 ## In normal clustered storage type, any of the cluster translators can come here.
 #
 # Definition of other clients
-# 
+#
 # Definition of cluster translator (may be unify, replicate, or unify over replicate)
-# 
+#
 
 
-### 'Write-behind' translator is a performance booster for write operation. Best used on client side, as its main intension is to reduce the network latency caused for each write operation.
+# 'Write-behind' translator is a performance booster for write operation. Best
+# used on client side, as its main intension is to reduce the network latency
+# caused for each write operation.
 
 volume wb
   type performance/write-behind
-  subvolumes client         # In this example it is 'client' you may have to change it according to your spec file.
+  subvolumes client
   option flush-behind on    # default value is 'off'
   option window-size 2MB
-  option aggregate-size 1MB # default value is 0
-  option enable_O_SYNC no  # default is no
-  option disable-for-first-nbytes 128KB #default is 1 
+  option enable-O_SYNC no  # default is no
+  option disable-for-first-nbytes 128KB #default is 1
 end-volume
