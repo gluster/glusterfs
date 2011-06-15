@@ -415,8 +415,6 @@ gf_pump_traverse_directory (loc_t *loc)
 	struct iatt iatt, parent;
 	dict_t *xattr_rsp;
 
-        int source = 0;
-
         char *file_path = NULL;
         int ret = 0;
         gf_boolean_t is_directory_empty = _gf_true;
@@ -434,7 +432,7 @@ gf_pump_traverse_directory (loc_t *loc)
                 goto out;
         }
 
-        ret = syncop_opendir (priv->children[source], loc, fd);
+        ret = syncop_opendir (this, loc, fd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "opendir failed on %s", loc->path);
@@ -445,7 +443,7 @@ gf_pump_traverse_directory (loc_t *loc)
                 "pump opendir on %s returned=%d",
                 loc->path, ret);
 
-        while (syncop_readdirp (priv->children[source], fd, 131072, offset, &entries)) {
+        while (syncop_readdirp (this, fd, 131072, offset, &entries)) {
 
                 if (list_empty (&entries.list)) {
                         gf_log (this->name, GF_LOG_TRACE,
