@@ -4926,26 +4926,24 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                 ret = -1;
                 goto out;
         } else if (pid == 0) {//first child
-                ret = chdir (mountdir);
-                if (ret == -1) {
-                        gf_log ("glusterd", GF_LOG_WARNING, "chdir %s failed, "
-                                "reason: %s", mountdir, strerror (errno));
-                        exit (EXIT_FAILURE);
-                }
-
-#ifndef GF_LINUX_HOST_OS
                 /* fork one more to not hold back main process on
                  * blocking call below
                  */
                 pid = fork ();
                 if (pid)
                         _exit (pid > 0 ? EXIT_SUCCESS : EXIT_FAILURE);
-#endif
 
+                ret = chdir (mountdir);
+                if (ret == -1) {
+                        gf_log ("glusterd", GF_LOG_WARNING, "chdir %s failed, "
+                                "reason: %s", mountdir, strerror (errno));
+                        exit (EXIT_FAILURE);
+                }
                 runinit (&runner);
                 runner_add_args (&runner, "/usr/bin/find", "find", ".", NULL);
                 if (runner_start (&runner) == -1)
                         _exit (EXIT_FAILURE);
+
 #ifndef GF_LINUX_HOST_OS
                 runner_end (&runner); /* blocks in waitpid */
                 runcmd ("umount", mountdir, NULL);
