@@ -78,7 +78,7 @@ glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
          */
         iob = iobuf_get (req->svc->ctx->iobuf_pool);
         if (!iob) {
-                gf_log ("", GF_LOG_ERROR, "Failed to get iobuf");
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get iobuf");
                 goto ret;
         }
 
@@ -91,7 +91,7 @@ glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
          */
         retlen = sfunc (*outmsg, arg);
         if (retlen == -1) {
-                gf_log ("", GF_LOG_ERROR, "Failed to encode message");
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to encode message");
                 goto ret;
         }
 
@@ -124,7 +124,7 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
         if (!iobref) {
                 iobref = iobref_new ();
                 if (!iobref) {
-                        gf_log ("", GF_LOG_ERROR, "out of memory");
+                        gf_log (THIS->name, GF_LOG_ERROR, "out of memory");
                         goto out;
                 }
 
@@ -133,7 +133,7 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
 
         iob = glusterfs_serialize_reply (req, arg, sfunc, &rsp);
         if (!iob) {
-                gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to serialize reply");
                 goto out;
         }
 
@@ -148,7 +148,7 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
          */
         iobuf_unref (iob);
         if (ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "Reply submission failed");
+                gf_log (THIS->name, GF_LOG_ERROR, "Reply submission failed");
                 goto out;
         }
 
@@ -426,7 +426,7 @@ mgmt_submit_request (void *req, call_frame_t *frame,
         if (req && sfunc) {
                 ret = sfunc (iov, req);
                 if (ret == -1) {
-                        gf_log ("", GF_LOG_WARNING, "failed to create XDR payload");
+                        gf_log (THIS->name, GF_LOG_WARNING, "failed to create XDR payload");
                         goto out;
                 }
                 iov.iov_len = ret;
@@ -635,7 +635,8 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         size = rsp.op_ret;
 
         if (size == oldvollen && (memcmp (oldvolfile, rsp.spec, size) == 0)) {
-                gf_log ("", GF_LOG_INFO, "No change in volfile, continuing");
+                gf_log (frame->this->name, GF_LOG_INFO,
+                        "No change in volfile, continuing");
                 goto out;
         }
 
@@ -874,19 +875,19 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         rpc = rpc_clnt_new (options, THIS->ctx, THIS->name);
         if (!rpc) {
                 ret = -1;
-                gf_log ("", GF_LOG_WARNING, "failed to create rpc clnt");
+                gf_log (THIS->name, GF_LOG_WARNING, "failed to create rpc clnt");
                 goto out;
         }
 
         ret = rpc_clnt_register_notify (rpc, mgmt_rpc_notify, THIS);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "failed to register notify function");
+                gf_log (THIS->name, GF_LOG_WARNING, "failed to register notify function");
                 goto out;
         }
 
         ret = rpcclnt_cbk_program_register (rpc, &mgmt_cbk_prog);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "failed to register callback function");
+                gf_log (THIS->name, GF_LOG_WARNING, "failed to register callback function");
                 goto out;
         }
 
@@ -1043,14 +1044,14 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ctx = glusterfs_ctx_get ();
         ret = xdr_to_pmap_signout_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "XDR decoding failed");
+                gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
         if (-1 == rsp.op_ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to register the port with glusterd");
                 goto out;
         }

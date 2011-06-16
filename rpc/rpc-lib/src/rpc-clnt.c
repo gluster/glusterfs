@@ -1050,7 +1050,7 @@ xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms *au)
                        XDR_ENCODE);
 
         if (!xdr_auth_glusterfs_parms (&xdr, au)) {
-                gf_log ("", GF_LOG_WARNING, "failed to encode auth glusterfs elements");
+                gf_log (THIS->name, GF_LOG_WARNING, "failed to encode auth glusterfs elements");
                 ret = -1;
                 goto ret;
         }

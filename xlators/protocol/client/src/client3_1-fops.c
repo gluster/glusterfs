@@ -153,7 +153,7 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_symlink_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -212,7 +212,7 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_mknod_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -270,7 +270,7 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_mkdir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -327,7 +327,7 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_open_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -395,7 +395,7 @@ client3_1_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_stat_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -437,7 +437,7 @@ client3_1_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_readlink_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -485,7 +485,7 @@ client3_1_unlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_unlink_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -530,7 +530,7 @@ client3_1_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_rmdir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -576,7 +576,7 @@ client3_1_truncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_truncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -621,7 +621,7 @@ client3_1_statfs_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_statfs_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -666,7 +666,7 @@ client3_1_writev_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_truncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -710,7 +710,7 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -762,7 +762,7 @@ client3_1_fsync_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_truncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -806,7 +806,7 @@ client3_1_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -852,7 +852,7 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_getxattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -937,7 +937,7 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_fgetxattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -1013,7 +1013,7 @@ client3_1_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1050,7 +1050,7 @@ client3_1_fsyncdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1087,7 +1087,7 @@ client3_1_access_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1127,7 +1127,7 @@ client3_1_ftruncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_ftruncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1171,7 +1171,7 @@ client3_1_fstat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_fstat_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1213,7 +1213,7 @@ client3_1_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1251,7 +1251,7 @@ client3_1_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1289,7 +1289,7 @@ client3_1_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1328,7 +1328,7 @@ client3_1_fentrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1374,7 +1374,7 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_xattrop_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -1463,7 +1463,7 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (ret < 0) {
                 op_ret = -1;
                 op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 goto out;
         }
         op_errno = rsp.op_errno;
@@ -1537,7 +1537,7 @@ client3_1_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1576,7 +1576,7 @@ client3_1_fsetattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_fsetattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1623,7 +1623,7 @@ client3_1_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_setattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1679,7 +1679,7 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_create_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1751,7 +1751,7 @@ client3_1_rchecksum_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_rchecksum_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1800,7 +1800,7 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_lk_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1864,7 +1864,7 @@ client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_readdir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1920,7 +1920,7 @@ client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_readdirp_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1977,7 +1977,7 @@ client3_1_rename_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_rename_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -2036,7 +2036,7 @@ client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_link_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -2094,7 +2094,7 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_opendir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -2171,7 +2171,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_lookup_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -2281,7 +2281,7 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_readv_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;

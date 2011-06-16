@@ -181,7 +181,7 @@ solaris_xattr_resolve_path (const char *real_path, char **path)
                 if (lstat (export_path, &statbuf)) {
                         ret = mkdir (export_path, 0777);
                         if (ret && (errno != EEXIST)) {
-                                gf_log ("", GF_LOG_DEBUG, "mkdir failed,"
+                                gf_log (THIS->name, GF_LOG_DEBUG, "mkdir failed,"
                                         " errno: %d", errno);
                                 goto out;
                         }
@@ -195,7 +195,7 @@ solaris_xattr_resolve_path (const char *real_path, char **path)
                 if (ret) {
                         ret = mknod (xattr_path, S_IFREG|O_WRONLY, 0);
                         if (ret && (errno != EEXIST)) {
-                                gf_log ("", GF_LOG_WARNING,"Failed to create "
+                                gf_log (THIS->name, GF_LOG_WARNING,"Failed to create "
                                         "mapped file %s, error %d", xattr_path,
                                         errno);
                                 goto out;
@@ -490,13 +490,13 @@ int solaris_unlink (const char *path)
 
         if (!ret && mapped_path) {
                 if (lstat(path, &stbuf)) {
-                        gf_log ("",GF_LOG_WARNING, "Stat failed on mapped"
+                        gf_log (THIS->name, GF_LOG_WARNING, "Stat failed on mapped"
                                 " file %s with error %d", mapped_path, errno);
                         goto out;
                 }
                 if (stbuf.st_nlink == 1) {
                         if(remove (mapped_path))
-                                gf_log ("", GF_LOG_WARNING, "Failed to remove mapped "
+                                gf_log (THIS->name, GF_LOG_WARNING, "Failed to remove mapped "
                                         "file %s. Errno %d", mapped_path, errno);
                 }
 
@@ -520,7 +520,7 @@ solaris_rename (const char *old_path, const char *new_path)
 
         if (!ret && mapped_path) {
                 if (!remove (mapped_path))
-                        gf_log ("", GF_LOG_WARNING, "Failed to remove mapped "
+                        gf_log (THIS->name, GF_LOG_WARNING, "Failed to remove mapped "
                                 "file %s. Errno %d", mapped_path, errno);
                 GF_FREE (mapped_path);
         }

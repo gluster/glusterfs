@@ -348,7 +348,7 @@ rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen)
 
         if ((req->cred.flavour != AUTH_UNIX) ||
             (req->cred.flavour != AUTH_GLUSTERFS)) {
-                gf_log ("", GF_LOG_DEBUG, "auth type not unix or glusterfs");
+                gf_log ("rpc", GF_LOG_DEBUG, "auth type not unix or glusterfs");
                 return NULL;
         }
 
