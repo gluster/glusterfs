@@ -35,7 +35,7 @@ struct synctask;
 struct syncenv;
 
 
-typedef int (*synctask_cbk_t) (int ret, void *opaque);
+typedef int (*synctask_cbk_t) (int ret, call_frame_t *frame, void *opaque);
 
 typedef int (*synctask_fn_t) (void *opaque);
 
@@ -45,6 +45,7 @@ struct synctask {
         struct list_head    all_tasks;
         struct syncenv     *env;
         xlator_t           *xl;
+        call_frame_t       *frame;
         synctask_cbk_t      synccbk;
         synctask_fn_t       syncfn;
         void               *opaque;
@@ -149,7 +150,7 @@ struct syncargs {
 struct syncenv * syncenv_new ();
 void syncenv_destroy (struct syncenv *);
 
-int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, void *);
+int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, call_frame_t* frame, void *);
 void synctask_zzzz (struct synctask *task);
 void synctask_yawn (struct synctask *task);
 void synctask_wake (struct synctask *task);
@@ -172,5 +173,6 @@ int syncop_setattr (xlator_t *subvol, loc_t *loc, struct iatt *iatt, int valid,
 int syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf);
 
 int syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags);
+int syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name);
 
 #endif /* _SYNCOP_H */

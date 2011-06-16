@@ -739,21 +739,19 @@ out:
 
 
 static int
-pump_task_completion (int ret, void *data)
+pump_task_completion (int ret, call_frame_t *sync_frame, void *data)
 {
         xlator_t *this = NULL;
-        call_frame_t *frame = NULL;
         afr_private_t *priv = NULL;
         pump_private_t *pump_priv = NULL;
 
         this = THIS;
 
-        frame = (call_frame_t *) data;
-
         priv = this->private;
         pump_priv = priv->pump_private;
 
         inode_unref (priv->root_inode);
+        STACK_DESTROY (sync_frame->root);
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "Pump xlator exiting");
@@ -776,7 +774,7 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
 
 	ret = synctask_new (pump_priv->env, pump_task,
                             pump_task_completion,
-                            pump_frame);
+                            pump_frame, NULL);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "starting pump failed");
