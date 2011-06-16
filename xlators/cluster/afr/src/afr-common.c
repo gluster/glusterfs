@@ -63,13 +63,26 @@
 int32_t
 afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
 {
-        int ret = 0;
+        int ret       = 0;
+        uuid_t *pgfid = NULL;
 
         GF_ASSERT (gfid);
 
-        ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
+        pgfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+        if (!pgfid) {
+                ret = -1;
+                goto out;
+        }
+
+        uuid_copy (*pgfid, gfid);
+
+        ret = dict_set_dynptr (dict, "gfid-req", pgfid, sizeof (uuid_t));
         if (ret)
                 gf_log (THIS->name, GF_LOG_DEBUG, "gfid set failed");
+
+out:
+        if (ret && pgfid)
+                GF_FREE (pgfid);
 
         return ret;
 }
