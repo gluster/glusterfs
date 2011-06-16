@@ -43,6 +43,8 @@
 #include "syscall.h"
 #include "cli1.h"
 
+#define GF_DISK_SECTOR_SIZE 512
+
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
@@ -117,18 +119,22 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 /* Prevent data movement from a node which has higher
                    disk-space to a node with lesser */
-                {
+                if (defrag->cmd != GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE) {
                         ret = statvfs (full_path, &src_statfs);
                         if (ret)
-                                gf_log ("", GF_LOG_INFO, "statfs on %s failed",
-                                        full_path);
+                                gf_log ("", GF_LOG_WARNING,
+                                        "statfs on %s failed", full_path);
 
                         ret = statvfs (tmp_filename, &dst_statfs);
                         if (ret)
-                                gf_log ("", GF_LOG_INFO, "statfs on %s failed",
-                                        tmp_filename);
+                                gf_log ("", GF_LOG_WARNING,
+                                        "statfs on %s failed", tmp_filename);
 
-                        if (dst_statfs.f_bavail < src_statfs.f_bavail) {
+                        /* Calculate the size without the file in migration */
+                        if (((dst_statfs.f_bavail *
+                              dst_statfs.f_bsize) / GF_DISK_SECTOR_SIZE) >
+                            (((src_statfs.f_bavail * src_statfs.f_bsize) /
+                              GF_DISK_SECTOR_SIZE) - stbuf.st_blocks)) {
                                 gf_log ("", GF_LOG_INFO,
                                         "data movement attempted from node with"
                                         " higher disk space to a node with "
@@ -337,8 +343,7 @@ glusterd_defrag_start (void *data)
                 volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE;
         }
 
-        if ((defrag->cmd == GF_DEFRAG_CMD_START) ||
-            (defrag->cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA)) {
+        if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
                 /* It was used by number of layout fixes on directories */
                 defrag->total_files = 0;
 
@@ -490,6 +495,7 @@ glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
                                     volname);
                         break;
                 case GF_DEFRAG_CMD_START_MIGRATE_DATA:
+                case GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE:
                         gf_cmd_log ("Volume rebalance"," on volname: %s "
                                     "cmd: start data migrate attempted",
                                     volname);
@@ -683,6 +689,7 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_MIGRATE_DATA:
+        case GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE:
                 ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
                                                     cli_req.cmd);
                 rsp.op_ret = ret;
@@ -743,6 +750,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_MIGRATE_DATA:
+        case GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE:
         {
                 ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
                                                     cli_req.cmd);

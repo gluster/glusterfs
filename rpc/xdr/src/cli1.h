@@ -31,6 +31,7 @@ enum gf_cli_defrag_type {
         GF_DEFRAG_CMD_STATUS,
         GF_DEFRAG_CMD_START_LAYOUT_FIX,
         GF_DEFRAG_CMD_START_MIGRATE_DATA,
+        GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE,
 };
 
 ssize_t
