@@ -581,6 +581,40 @@ pump_update_resume_path (xlator_t *this)
         return 0;
 }
 
+static int32_t
+pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
+{
+        afr_private_t  *priv      = NULL;
+        pump_private_t *pump_priv = NULL;
+        loc_t           loc       = {0};
+        int             i         = 0;
+        int             ret       = 0;
+        int             source    = 0;
+        int             sink      = 1;
+
+        priv      = this->private;
+        pump_priv = priv->pump_private;
+
+        build_root_loc (priv->root_inode, &loc);
+
+        ret = syncop_removexattr (priv->children[source], &loc,
+                                          PUMP_PATH);
+
+        ret = syncop_removexattr (priv->children[sink], &loc,
+                                  PUMP_SINK_COMPLETE);
+
+        for (i = 0; i < priv->child_count; i++) {
+                ret = syncop_removexattr (priv->children[i], &loc,
+                                          PUMP_SOURCE_COMPLETE);
+                if (ret)
+                        gf_log (this->name, GF_LOG_DEBUG, "removexattr "
+                                "failed with %s", strerror (errno));
+        }
+
+        return pump_command_reply (frame, this);
+}
+
 static int
 pump_complete_migration (xlator_t *this)
 {
@@ -624,6 +658,11 @@ pump_complete_migration (xlator_t *this)
                 }
 
                 pump_save_path (this, "/");
+
+        } else if (state == PUMP_STATE_ABORT) {
+                gf_log (this->name, GF_LOG_DEBUG, "Starting cleanup "
+                        "of pump internal xattrs");
+                call_resume (pump_priv->cleaner);
         }
 
         return 0;
@@ -1107,12 +1146,73 @@ out:
 	return 0;
 }
 
+static int
+pump_cleanup_helper (void *data) {
+        call_frame_t *frame = data;
+
+        pump_xattr_cleaner (frame, 0, frame->this, 0, 0);
+
+        return 0;
+}
+
+static int
+pump_cleanup_done (int ret, call_frame_t *sync_frame, void *data)
+{
+        STACK_DESTROY (sync_frame->root);
+
+        return 0;
+}
+
+int
+pump_execute_commit (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t  *priv       = NULL;
+        pump_private_t *pump_priv  = NULL;
+        afr_local_t    *local      = NULL;
+        call_frame_t   *sync_frame = NULL;
+        int             ret        = 0;
+
+        priv      = this->private;
+        pump_priv = priv->pump_private;
+        local     = frame->local;
+
+
+        LOCK (&pump_priv->resume_path_lock);
+        {
+                pump_priv->number_files_pumped = 0;
+                pump_priv->current_file[0] = '\0';
+        }
+        UNLOCK (&pump_priv->resume_path_lock);
+
+        local->op_ret = 0;
+        if (pump_priv->pump_finished) {
+                pump_change_state (this, PUMP_STATE_COMMIT);
+                sync_frame = create_frame (this, this->ctx->pool);
+                ret = synctask_new (pump_priv->env, pump_cleanup_helper,
+                                    pump_cleanup_done, sync_frame, frame);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, "Couldn't create "
+                                "synctask for cleaning up xattrs.");
+                }
+
+        } else {
+                gf_log (this->name, GF_LOG_ERROR, "Commit can't proceed. "
+                        "Migration in progress");
+                local->op_ret = -1;
+                local->op_errno = EINPROGRESS;
+                pump_command_reply (frame, this);
+        }
+
+        return 0;
+}
 int
 pump_execute_abort (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t  *priv      = NULL;
-        pump_private_t *pump_priv = NULL;
-        afr_local_t    *local     = NULL;
+        afr_private_t  *priv       = NULL;
+        pump_private_t *pump_priv  = NULL;
+        afr_local_t    *local      = NULL;
+        call_frame_t   *sync_frame = NULL;
+        int             ret        = 0;
 
         priv      = this->private;
         pump_priv = priv->pump_private;
@@ -1128,7 +1228,20 @@ pump_execute_abort (call_frame_t *frame, xlator_t *this)
         UNLOCK (&pump_priv->resume_path_lock);
 
         local->op_ret = 0;
-        pump_command_reply (frame, this);
+        if (pump_priv->pump_finished) {
+                sync_frame = create_frame (this, this->ctx->pool);
+                ret = synctask_new (pump_priv->env, pump_cleanup_helper,
+                                    pump_cleanup_done, sync_frame, frame);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, "Couldn't create "
+                                "synctask for cleaning up xattrs.");
+                }
+
+        } else {
+                pump_priv->cleaner = fop_setxattr_cbk_stub (frame,
+                                                            pump_xattr_cleaner,
+                                                            0, 0);
+        }
 
         return 0;
 }
@@ -1174,6 +1287,30 @@ pump_command_pause (xlator_t *this, dict_t *dict)
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "Hit a pump command - pause");
+        ret = _gf_true;
+
+out:
+        return ret;
+
+}
+
+gf_boolean_t
+pump_command_commit (xlator_t *this, dict_t *dict)
+{
+        char *cmd = NULL;
+        int dict_ret = -1;
+        int ret = _gf_true;
+
+        dict_ret = dict_get_str (dict, PUMP_CMD_COMMIT, &cmd);
+        if (dict_ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Not a pump commit command");
+                ret = _gf_false;
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Hit a pump command - commit");
         ret = _gf_true;
 
 out:
@@ -1596,6 +1733,11 @@ pump_parse_command (call_frame_t *frame, xlator_t *this,
                 frame->local = local;
                 local->dict = dict_ref (dict);
                 ret = pump_execute_abort (frame, this);
+
+        } else if (pump_command_commit (this, dict)) {
+                frame->local = local;
+                local->dict = dict_ref (dict);
+                ret = pump_execute_commit (frame, this);
         }
         return ret;
 }

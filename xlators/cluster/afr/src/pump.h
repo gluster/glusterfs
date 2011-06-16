@@ -34,6 +34,7 @@
 #define IS_ENTRY_PARENT(entry) (!strcmp (entry, ".."))
 
 #define PUMP_CMD_START  "trusted.glusterfs.pump.start"
+#define PUMP_CMD_COMMIT "trusted.glusterfs.pump.commit"
 #define PUMP_CMD_ABORT  "trusted.glusterfs.pump.abort"
 #define PUMP_CMD_PAUSE  "trusted.glusterfs.pump.pause"
 #define PUMP_CMD_STATUS "trusted.glusterfs.pump.status"
@@ -51,6 +52,7 @@ typedef enum {
         PUMP_STATE_RESUME,              /* Pump is resuming from a previous pause */
         PUMP_STATE_PAUSE,               /* Pump is paused */
         PUMP_STATE_ABORT,               /* Pump is aborted */
+        PUMP_STATE_COMMIT,              /* Pump is commited */
 } pump_state_t;
 
 typedef struct _pump_private {
@@ -64,6 +66,7 @@ typedef struct _pump_private {
         gf_boolean_t pump_finished;     /* Boolean to indicate pump termination */
         char pump_start_pending;        /* Boolean to mark start pending until
                                            CHILD_UP */
+        call_stub_t *cleaner;
 } pump_private_t;
 
 void

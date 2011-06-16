@@ -245,6 +245,7 @@ enum glusterd_vol_comp_status_ {
 /*All definitions related to replace brick */
 #define RB_PUMP_START_CMD       "trusted.glusterfs.pump.start"
 #define RB_PUMP_PAUSE_CMD       "trusted.glusterfs.pump.pause"
+#define RB_PUMP_COMMIT_CMD      "trusted.glusterfs.pump.commit"
 #define RB_PUMP_ABORT_CMD       "trusted.glusterfs.pump.abort"
 #define RB_PUMP_STATUS_CMD      "trusted.glusterfs.pump.status"
 #define RB_CLIENT_MOUNTPOINT    "rb_mount"
