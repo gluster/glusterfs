@@ -591,6 +591,12 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->stripe_count);
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_STRIPE_CNT,
+                                         buf);
+        if (ret)
+                goto out;
+
         snprintf (buf, sizeof (buf), "%d", volinfo->version);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_VERSION,
                                          buf);
@@ -1555,6 +1561,9 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_SUB_COUNT,
                             strlen (GLUSTERD_STORE_KEY_VOL_SUB_COUNT))) {
                         volinfo->sub_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_STRIPE_CNT,
+                            strlen (GLUSTERD_STORE_KEY_VOL_STRIPE_CNT))) {
+                        volinfo->stripe_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
                             strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
                         volinfo->transport_type = atoi (value);
@@ -1612,6 +1621,10 @@ glusterd_store_retrieve_volume (char    *volname)
         }
         if (op_errno != GD_STORE_EOF)
                 goto out;
+
+        if (volinfo->stripe_count)
+                volinfo->replica_count = (volinfo->sub_count /
+                                          volinfo->stripe_count);
 
         ret = glusterd_store_iter_destroy (iter);
 
