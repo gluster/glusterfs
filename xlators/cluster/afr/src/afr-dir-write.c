@@ -101,11 +101,6 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
                         unwind_buf = &local->cont.create.buf;
                 }
 
-                unwind_buf->ia_ino = local->cont.create.ino;
-
-                local->cont.create.preparent.ia_ino  = local->cont.create.parent_ino;
-                local->cont.create.postparent.ia_ino = local->cont.create.parent_ino;
-
                 AFR_STACK_UNWIND (create, main_frame,
                                   local->op_ret, local->op_errno,
                                   local->cont.create.fd,
@@ -174,11 +169,6 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->success_count == 0) {
                                 local->cont.create.buf        = *buf;
 
-                                local->cont.create.ino =
-                                        afr_itransform (buf->ia_ino,
-                                                        priv->child_count,
-                                                        child_index);
-
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
                                                             priv->read_child);
@@ -186,13 +176,6 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         afr_set_read_child (this, inode,
                                                             local->read_child_index);
                                 }
-                        }
-
-                        if (child_index == local->first_up_child) {
-                                local->cont.create.ino =
-                                        afr_itransform (buf->ia_ino,
-                                                        priv->child_count,
-                                                        local->first_up_child);
                         }
 
                         if (child_index == local->read_child_index) {
@@ -382,11 +365,6 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
                         unwind_buf = &local->cont.mknod.buf;
                 }
 
-                unwind_buf->ia_ino = local->cont.mknod.ino;
-
-                local->cont.mknod.preparent.ia_ino  = local->cont.mknod.parent_ino;
-                local->cont.mknod.postparent.ia_ino = local->cont.mknod.parent_ino;
-
                 AFR_STACK_UNWIND (mknod, main_frame,
                                   local->op_ret, local->op_errno,
                                   local->cont.mknod.inode,
@@ -424,10 +402,6 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (local->success_count == 0){
                                 local->cont.mknod.buf   = *buf;
-                                local->cont.mknod.ino   =
-                                        afr_itransform (buf->ia_ino,
-                                                        priv->child_count,
-                                                        child_index);
 
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
@@ -436,13 +410,6 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         afr_set_read_child (this, inode,
                                                             local->read_child_index);
                                 }
-                        }
-
-                        if (child_index == local->first_up_child) {
-                                local->cont.mknod.ino =
-                                        afr_itransform (buf->ia_ino,
-                                                        priv->child_count,
-                                                        local->first_up_child);
                         }
 
                         if (child_index == local->read_child_index) {
@@ -625,11 +592,6 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
                         unwind_buf = &local->cont.mkdir.buf;
                 }
 
-                unwind_buf->ia_ino = local->cont.mkdir.ino;
-
-                local->cont.mkdir.preparent.ia_ino  = local->cont.mkdir.parent_ino;
-                local->cont.mkdir.postparent.ia_ino = local->cont.mkdir.parent_ino;
-
                 AFR_STACK_UNWIND (mkdir, main_frame,
                                   local->op_ret, local->op_errno,
                                   local->cont.mkdir.inode,
@@ -668,11 +630,6 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->success_count == 0) {
                                 local->cont.mkdir.buf   = *buf;
 
-                                local->cont.mkdir.ino =
-                                        afr_itransform (buf->ia_ino,
-                                                        priv->child_count,
-                                                        child_index);
-
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
                                                             priv->read_child);
@@ -680,13 +637,6 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         afr_set_read_child (this, inode,
                                                             local->read_child_index);
                                 }
-                        }
-
-                        if (child_index == local->first_up_child) {
-                                local->cont.mkdir.ino =
-                                        afr_itransform (buf->ia_ino,
-                                                        priv->child_count,
-                                                        local->first_up_child);
                         }
 
                         if (child_index == local->read_child_index) {
@@ -869,11 +819,6 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
                 } else {
                         unwind_buf = &local->cont.link.buf;
                 }
-
-                unwind_buf->ia_ino = local->cont.link.ino;
-
-                local->cont.link.preparent.ia_ino  = local->cont.link.parent_ino;
-                local->cont.link.postparent.ia_ino = local->cont.link.parent_ino;
 
                 AFR_STACK_UNWIND (link, main_frame,
                                   local->op_ret, local->op_errno,
@@ -1100,11 +1045,6 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
                         unwind_buf = &local->cont.symlink.buf;
                 }
 
-                unwind_buf->ia_ino = local->cont.symlink.ino;
-
-                local->cont.symlink.preparent.ia_ino  = local->cont.symlink.parent_ino;
-                local->cont.symlink.postparent.ia_ino = local->cont.symlink.parent_ino;
-
                 AFR_STACK_UNWIND (symlink, main_frame,
                                   local->op_ret, local->op_errno,
                                   local->cont.symlink.inode,
@@ -1142,10 +1082,6 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (local->success_count == 0) {
                                 local->cont.symlink.buf        = *buf;
-                                local->cont.symlink.ino =
-                                        afr_itransform (buf->ia_ino, priv->child_count,
-                                                        child_index);
-
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
                                                             priv->read_child);
@@ -1153,13 +1089,6 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         afr_set_read_child (this, inode,
                                                             local->read_child_index);
                                 }
-                        }
-
-                        if (child_index == local->first_up_child) {
-                                local->cont.symlink.ino =
-                                        afr_itransform (buf->ia_ino,
-                                                        priv->child_count,
-                                                        local->first_up_child);
                         }
 
                         if (child_index == local->read_child_index) {
@@ -1341,13 +1270,6 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
                 } else {
                         unwind_buf = &local->cont.rename.buf;
                 }
-
-                unwind_buf->ia_ino = local->cont.rename.ino;
-
-                local->cont.rename.preoldparent.ia_ino  = local->cont.rename.oldparent_ino;
-                local->cont.rename.postoldparent.ia_ino = local->cont.rename.oldparent_ino;
-                local->cont.rename.prenewparent.ia_ino  = local->cont.rename.newparent_ino;
-                local->cont.rename.postnewparent.ia_ino = local->cont.rename.newparent_ino;
 
                 AFR_STACK_UNWIND (rename, main_frame,
                                   local->op_ret, local->op_errno,
@@ -1559,9 +1481,6 @@ afr_unlink_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                local->cont.unlink.preparent.ia_ino  = local->cont.unlink.parent_ino;
-                local->cont.unlink.postparent.ia_ino = local->cont.unlink.parent_ino;
-
                 AFR_STACK_UNWIND (unlink, main_frame,
                                   local->op_ret, local->op_errno,
                                   &local->cont.unlink.preparent,
@@ -1759,9 +1678,6 @@ afr_rmdir_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                local->cont.rmdir.preparent.ia_ino  = local->cont.rmdir.parent_ino;
-                local->cont.rmdir.postparent.ia_ino = local->cont.rmdir.parent_ino;
-
                 AFR_STACK_UNWIND (rmdir, main_frame,
                                   local->op_ret, local->op_errno,
                                   &local->cont.rmdir.preparent,

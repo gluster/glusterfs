@@ -521,40 +521,6 @@ afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
                 uuid_copy (loc->pargfid, postparent->ia_gfid);
 }
 
-ino64_t
-afr_itransform (ino64_t ino, int child_count, int child_index)
-{
-        ino64_t scaled_ino = -1;
-
-        if (ino == ((uint64_t) -1)) {
-                scaled_ino = ((uint64_t) -1);
-                goto out;
-        }
-
-        scaled_ino = (ino * child_count) + child_index;
-
-out:
-        return scaled_ino;
-}
-
-
-int
-afr_deitransform_orig (ino64_t ino, int child_count)
-{
-        int index = -1;
-
-        index = ino % child_count;
-
-        return index;
-}
-
-
-int
-afr_deitransform (ino64_t ino, int child_count)
-{
-        return 0;
-}
-
 
 int
 afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this)
@@ -672,20 +638,6 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
         priv  = this->private;
         local = frame->local;
 
-        local->cont.lookup.postparent.ia_ino  = local->cont.lookup.parent_ino;
-
-        if (local->cont.lookup.ino) {
-                local->cont.lookup.buf.ia_ino = local->cont.lookup.ino;
-        }
-
-        if (local->op_ret == 0) {
-                /* KLUDGE: assuming DHT will not itransform in
-                   revalidate */
-                if (local->cont.lookup.inode->ino) {
-                        local->cont.lookup.buf.ia_ino =
-                                local->cont.lookup.inode->ino;
-                }
-        }
         up_count = afr_up_children_count (priv->child_count, priv->child_up);
         if (up_count == 1) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -838,13 +790,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
 
                 first_up_child = afr_first_up_child (priv);
 
-                if (child_index == first_up_child) {
-                        local->cont.lookup.ino =
-                                afr_itransform (buf->ia_ino,
-                                                priv->child_count,
-                                                first_up_child);
-                }
-
                 if (local->success_count == 0) {
                         if (local->op_errno != ESTALE)
                                 local->op_ret = op_ret;
@@ -867,9 +812,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                         uuid_copy (local->loc.pargfid,
                                    postparent->ia_gfid);
 
-                        lookup_buf->ia_ino = afr_itransform (buf->ia_ino,
-                                                             priv->child_count,
-                                                             child_index);
                         if (priv->read_child >= 0) {
                                 afr_set_read_child (this,
                                                     local->cont.lookup.inode,
@@ -959,13 +901,6 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
 
                 first_up_child = afr_first_up_child (priv);
 
-                if (child_index == first_up_child) {
-                        local->cont.lookup.ino =
-                                afr_itransform (buf->ia_ino,
-                                                priv->child_count,
-                                                first_up_child);
-                }
-
                 /* in case of revalidate, we need to send stat of the
                  * child whose stat was sent during the first lookup.
                  * (so that time stamp does not vary with revalidate.
@@ -984,10 +919,6 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                         local->cont.lookup.postparent          = *postparent;
 
                         *lookup_buf = *buf;
-
-                        lookup_buf->ia_ino = afr_itransform (buf->ia_ino,
-                                                             priv->child_count,
-                                                             child_index);
 
                         if (priv->read_child >= 0) {
                                 afr_set_read_child (this,
@@ -1527,9 +1458,6 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                local->cont.fsync.prebuf.ia_ino  = local->cont.fsync.ino;
-                local->cont.fsync.postbuf.ia_ino = local->cont.fsync.ino;
-
                 AFR_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
                                   &local->cont.fsync.prebuf,
                                   &local->cont.fsync.postbuf);

@@ -132,17 +132,6 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
         if (ret == 0) {
                 layout = local->selfheal.layout;
                 ret = dht_layout_set (this, local->inode, layout);
-
-                if (local->ia_ino) {
-                        local->stbuf.ia_ino = local->ia_ino;
-                } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "could not find hashed subvolume for %s",
-                                local->loc.path);
-                }
-
-                if (local->loc.parent)
-                        local->postparent.ia_ino = local->loc.parent->ino;
         }
 
         WIPE (&local->postparent);
@@ -234,12 +223,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
                 dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
-
-                if (!local->ia_ino &&
-                    (prev->this == dht_first_up_subvol (this))) {
-                        local->ia_ino = local->stbuf.ia_ino;
-                }
-
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -265,18 +248,6 @@ unlock:
                         }
 
                         dht_layout_set (this, local->inode, layout);
-
-                        if (local->ia_ino) {
-                                local->stbuf.ia_ino = local->ia_ino;
-                        } else {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "could not find hashed subvol for %s",
-                                        local->loc.path);
-                        }
-
-                        if (local->loc.parent)
-                                local->postparent.ia_ino =
-                                        local->loc.parent->ino;
                 }
 
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -389,10 +360,6 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 prev->this);
 
                 local->op_ret = 0;
-                local->stbuf.ia_ino = local->ia_ino;
-
-                if (local->loc.parent)
-                        local->postparent.ia_ino = local->loc.parent->ino;
 
                 if (!local->xattr) {
                         local->xattr = dict_ref (xattr);
@@ -476,9 +443,6 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                 local->stbuf.ia_prot.sticky = 1;
         }
 
-        if (local->loc.parent)
-                local->postparent.ia_ino = local->loc.parent->ino;
-
 unwind:
         WIPE (&local->postparent);
 
@@ -544,10 +508,6 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                         local->op_ret = -1;
                         local->op_errno = EINVAL;
                 }
-
-                if (local->loc.parent)
-                        local->postparent.ia_ino =
-                                local->loc.parent->ino;
 
                 WIPE (&local->postparent);
 
@@ -800,9 +760,6 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
             && (conf && conf->unhashed_sticky_bit)) {
                 stbuf->ia_prot.sticky = 1;
         }
-        dht_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
-        if (local->loc.parent)
-                postparent->ia_ino = local->loc.parent->ino;
 
         ret = dht_layout_preset (this, prev->this, inode);
         if (ret < 0) {
@@ -958,11 +915,6 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!is_linkfile) {
                 /* non-directory and not a linkfile */
 
-                dht_itransform (this, prev->this, stbuf->ia_ino,
-                                &stbuf->ia_ino);
-                if (loc->parent)
-                        postparent->ia_ino = loc->parent->ino;
-
                 ret = dht_layout_preset (this, prev->this, inode);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -1074,8 +1026,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                local->ia_ino   = loc->inode->ino;
-
                 if (layout->gen && (layout->gen < conf->gen)) {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "incomplete layout failure for path=%s",
@@ -1185,11 +1135,6 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->prebuf, prebuf, prev->this);
                 dht_iatt_merge (this, &local->stbuf, postbuf, prev->this);
 
-                if (local->inode) {
-                        local->stbuf.ia_ino = local->inode->ino;
-                        local->prebuf.ia_ino = local->inode->ino;
-                }
-
                 local->op_ret = 0;
         }
 unlock:
@@ -1233,8 +1178,6 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
 
-                if (local->inode)
-                        local->stbuf.ia_ino = local->inode->ino;
                 local->op_ret = 0;
         }
 unlock:
@@ -1463,8 +1406,6 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                preparent->ia_ino = local->loc.parent->ino;
-                postparent->ia_ino = local->loc.parent->ino;
                 local->op_ret = 0;
 
                 local->postparent = *postparent;
@@ -1562,11 +1503,6 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
 unlock:
         UNLOCK (&frame->lock);
-
-        if (local && (op_ret == 0)) {
-                prebuf->ia_ino = local->ia_ino;
-                postbuf->ia_ino = local->ia_ino;
-        }
 
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt))
@@ -1669,9 +1605,7 @@ dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto err;
 
-        if (local) {
-                sbuf->ia_ino = local->ia_ino;
-        } else {
+        if (!local) {
                 op_ret = -1;
                 op_errno = EINVAL;
         }
@@ -1710,8 +1644,6 @@ dht_readlink (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto err;
         }
-
-        local->ia_ino = loc->inode->ino;
 
         STACK_WIND (frame, dht_readlink_cbk,
                     subvol, subvol->fops->readlink,
@@ -2411,8 +2343,6 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (op_ret != -1)
-                stbuf->ia_ino = local->ia_ino;
 out:
         DHT_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                           iobref);
@@ -2447,7 +2377,6 @@ dht_readv (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->ia_ino = fd->inode->ino;
         STACK_WIND (frame, dht_readv_cbk,
                     subvol, subvol->fops->readv,
                     fd, size, off);
@@ -2479,9 +2408,6 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
-
-        prebuf->ia_ino = local->ia_ino;
-        postbuf->ia_ino = local->ia_ino;
 
 out:
         DHT_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf);
@@ -2517,8 +2443,6 @@ dht_writev (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto err;
         }
-
-        local->ia_ino = fd->inode->ino;
 
         STACK_WIND (frame, dht_writev_cbk,
                     subvol, subvol->fops->writev,
@@ -2605,8 +2529,6 @@ dht_fsync (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
         local->call_cnt = 1;
-
-        local->ia_ino = fd->inode->ino;
 
         STACK_WIND (frame, dht_fsync_cbk,
                     subvol, subvol->fops->fsync,
@@ -2905,14 +2827,12 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                 layout->search_unhashed++;
                         }
                 }
-                entry->d_stat = orig_entry->d_stat;
 
-                dht_itransform (this, prev->this, orig_entry->d_ino,
-                                &entry->d_ino);
                 dht_itransform (this, prev->this, orig_entry->d_off,
                                 &entry->d_off);
 
-                entry->d_stat.ia_ino = entry->d_ino;
+                entry->d_stat = orig_entry->d_stat;
+                entry->d_ino  = orig_entry->d_ino;
                 entry->d_type = orig_entry->d_type;
                 entry->d_len  = orig_entry->d_len;
 
@@ -3006,11 +2926,10 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 goto unwind;
                         }
 
-                        dht_itransform (this, prev->this, orig_entry->d_ino,
-                                        &entry->d_ino);
                         dht_itransform (this, prev->this, orig_entry->d_off,
                                         &entry->d_off);
 
+                        entry->d_ino  = orig_entry->d_ino;
                         entry->d_type = orig_entry->d_type;
                         entry->d_len  = orig_entry->d_len;
 
@@ -3240,11 +3159,7 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         prev = cookie;
 
-        dht_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
         if (local->loc.parent) {
-                preparent->ia_ino = local->loc.parent->ino;
-                postparent->ia_ino = local->loc.parent->ino;
-
                 WIPE (preparent);
                 WIPE (postparent);
         }
@@ -3537,11 +3452,6 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        stbuf->ia_ino = local->loc.inode->ino;
-
-        preparent->ia_ino = local->loc2.parent->ino;
-        postparent->ia_ino = local->loc2.parent->ino;
-
         WIPE (preparent);
         WIPE (postparent);
 
@@ -3679,11 +3589,7 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         prev = cookie;
 
-        dht_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
         if (local->loc.parent) {
-                preparent->ia_ino = local->loc.parent->ino;
-                postparent->ia_ino = local->loc.parent->ino;
-
                 WIPE (preparent);
                 WIPE (postparent);
         }
@@ -3843,11 +3749,7 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 
         if (op_ret == 0) {
                 dht_layout_set (this, local->inode, layout);
-                local->stbuf.ia_ino = local->ia_ino;
                 if (local->loc.parent) {
-                        local->preparent.ia_ino = local->loc.parent->ino;
-                        local->postparent.ia_ino = local->loc.parent->ino;
-
                         WIPE (&local->preparent);
                         WIPE (&local->postparent);
                 }
@@ -3898,11 +3800,6 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->preparent, preparent, prev->this);
                 dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
-
-                if (prev->this == dht_first_up_subvol (this)) {
-                        local->ia_ino = local->stbuf.ia_ino;
-                }
-
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -3957,8 +3854,6 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
         dht_iatt_merge (this, &local->preparent, preparent, prev->this);
         dht_iatt_merge (this, &local->postparent, postparent, prev->this);
-
-        local->ia_ino = local->stbuf.ia_ino;
 
         local->call_cnt = conf->subvolume_cnt - 1;
 
@@ -4063,11 +3958,6 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (local->loc.parent) {
-                local->preparent.ia_ino = local->loc.parent->ino;
-                local->postparent.ia_ino = local->loc.parent->ino;
-        }
-
         DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent);
 
@@ -4125,11 +4015,6 @@ unlock:
                                               &local->loc, local->layout);
                 } else {
                         if (local->loc.parent) {
-                                local->preparent.ia_ino =
-                                        local->loc.parent->ino;
-                                local->postparent.ia_ino =
-                                        local->loc.parent->ino;
-
                                 WIPE (&local->preparent);
                                 WIPE (&local->postparent);
                         }
@@ -4820,11 +4705,6 @@ dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 dht_iatt_merge (this, &local->prebuf, statpre, prev->this);
                 dht_iatt_merge (this, &local->stbuf, statpost, prev->this);
-
-                if (local->inode) {
-                        local->prebuf.ia_ino = local->inode->ino;
-                        local->stbuf.ia_ino = local->inode->ino;
-                }
 
                 local->op_ret = 0;
         }

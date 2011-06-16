@@ -495,10 +495,6 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
                 goto out;
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                entry->d_ino = afr_itransform (entry->d_ino,
-                                               priv->child_count,
-                                               child_index);
-
                 if ((local->fd->inode == local->fd->inode->table->root)
                     && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
                         list_del_init (&entry->list);
@@ -520,7 +516,6 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_private_t *  priv        = NULL;
         afr_local_t *    local       = NULL;
         xlator_t **      children    = NULL;
-        ino_t            inum        = 0;
         int              call_child  = 0;
         int              ret         = 0;
         gf_dirent_t *    entry       = NULL;
@@ -575,13 +570,6 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret != -1) {
                 list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                        inum = afr_itransform (entry->d_ino, priv->child_count,
-                                               child_index);
-                        entry->d_ino = inum;
-                        inum  = afr_itransform (entry->d_stat.ia_ino,
-                                                priv->child_count, child_index);
-                        entry->d_stat.ia_ino = inum;
-
                         if ((local->fd->inode == local->fd->inode->table->root)
                             && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
                                 list_del_init (&entry->list);

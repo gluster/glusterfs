@@ -142,9 +142,6 @@ switch_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!is_dir && !is_linkfile) {
                 /* non-directory and not a linkfile */
 
-                dht_itransform (this, prev->this, stbuf->ia_ino,
-                                &stbuf->ia_ino);
-
                 ret = dht_layout_preset (this, prev->this, inode);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -296,7 +293,6 @@ switch_lookup (call_frame_t *frame, xlator_t *this,
                 }
 
                 local->inode    = inode_ref (loc->inode);
-                local->ia_ino   = loc->inode->ino;
 
                 local->call_cnt = layout->cnt;
                 call_cnt = local->call_cnt;

@@ -289,9 +289,6 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
-        if (prev->this == local->hashed_subvol)
-                local->ia_ino = local->stbuf.ia_ino;
-
         dht_iatt_merge (this, &local->preparent, preparent, prev->this);
         dht_iatt_merge (this, &local->postparent, postparent, prev->this);
 

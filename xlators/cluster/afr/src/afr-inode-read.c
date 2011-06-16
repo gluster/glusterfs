@@ -221,9 +221,6 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 
 out:
         if (unwind) {
-                if (buf)
-                        buf->ia_ino = local->cont.stat.ino;
-
                 AFR_STACK_UNWIND (stat, frame, op_ret, op_errno, buf);
         }
 
@@ -343,9 +340,6 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         if (unwind) {
-                if (buf)
-                        buf->ia_ino = local->cont.fstat.ino;
-
                 AFR_STACK_UNWIND (fstat, frame, op_ret, op_errno, buf);
         }
 
@@ -468,9 +462,6 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 
 out:
         if (unwind) {
-                if (sbuf)
-                        sbuf->ia_ino = local->cont.readlink.ino;
-
                 AFR_STACK_UNWIND (readlink, frame, op_ret, op_errno, buf, sbuf);
         }
 
@@ -875,9 +866,6 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 out:
         if (unwind) {
-                if (buf && local)
-                        buf->ia_ino = local->cont.readv.ino;
-
                 AFR_STACK_UNWIND (readv, frame, op_ret, op_errno,
                                   vector, count, buf, iobref);
         }
