@@ -28,12 +28,12 @@ call_frame_t *
 syncop_create_frame ()
 {
         struct synctask *task = NULL;
-        struct call_frame_t *frame = NULL;
+        call_frame_t *frame = NULL;
 
         task = synctask_get ();
 
         if (task) {
-                frame = task->opaque;
+                frame = task->frame;
         }
 
         return (call_frame_t *)frame;
@@ -102,7 +102,7 @@ synctask_wrap (struct synctask *task)
         int              ret;
 
         ret = task->syncfn (task->opaque);
-        task->synccbk (ret, task->opaque);
+        task->synccbk (ret, task->frame, task->opaque);
 
         /* cannot destroy @task right here as we are
            in the execution stack of @task itself
@@ -128,19 +128,26 @@ synctask_destroy (struct synctask *task)
 
 int
 synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
-              void *opaque)
+              call_frame_t *frame, void *opaque)
 {
         struct synctask *newtask = NULL;
+        xlator_t        *this    = THIS;
+
+        VALIDATE_OR_GOTO (env, err);
+        VALIDATE_OR_GOTO (fn, err);
+        VALIDATE_OR_GOTO (cbk, err);
+        VALIDATE_OR_GOTO (frame, err);
 
         newtask = CALLOC (1, sizeof (*newtask));
         if (!newtask)
                 return -ENOMEM;
 
         newtask->env        = env;
-        newtask->xl         = THIS;
+        newtask->xl         = this;
         newtask->syncfn     = fn;
         newtask->synccbk    = cbk;
         newtask->opaque     = opaque;
+        newtask->frame      = frame;
 
         INIT_LIST_HEAD (&newtask->all_tasks);
 
@@ -428,6 +435,34 @@ syncop_opendir (xlator_t *subvol,
 
 }
 
+
+int
+syncop_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int op_ret, int op_errno)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_removexattr_cbk, subvol->fops->removexattr,
+                loc, name);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
 
 int
 syncop_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
