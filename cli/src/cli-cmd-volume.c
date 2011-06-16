@@ -481,7 +481,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!dict)
                 goto out;
 
-        if (!((wordcount == 4) || (wordcount == 5))) {
+        if (!((wordcount == 4) || (wordcount == 5) || (wordcount == 6))) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
@@ -490,7 +490,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (wordcount == 4) {
                 index = 3;
         } else {
-                if (strcmp (words[3], "fix-layout") && 
+                if (strcmp (words[3], "fix-layout") &&
                     strcmp (words[3], "migrate-data")) {
                         cli_usage_out (word->pattern);
                         parse_error = 1;
@@ -499,7 +499,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 index = 4;
         }
 
-	if (strcmp (words[index], "start") && strcmp (words[index], "stop") && 
+	if (strcmp (words[index], "start") && strcmp (words[index], "stop") &&
             strcmp (words[index], "status")) {
 	        cli_usage_out (word->pattern);
 		parse_error = 1;
@@ -517,6 +517,23 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
         if (wordcount == 5) {
                 ret = dict_set_str (dict, "start-type", (char *)words[3]);
+                if (ret)
+                        goto out;
+                ret = dict_set_str (dict, "command", (char *)words[4]);
+                if (ret)
+                        goto out;
+        }
+
+        /* 'force' option is valid only for the 'migrate-data' key */
+        if (wordcount == 6) {
+                if (strcmp (words[3], "migrate-data") ||
+                    strcmp (words[4], "start") ||
+                    strcmp (words[5], "force")) {
+                        cli_usage_out (word->pattern);
+                        parse_error = 1;
+                        goto out;
+                }
+                ret = dict_set_str (dict, "start-type", "migrate-data-force");
                 if (ret)
                         goto out;
                 ret = dict_set_str (dict, "command", (char *)words[4]);
@@ -1227,7 +1244,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_remove_brick_cbk,
           "remove brick from volume <VOLNAME>"},
 
-        { "volume rebalance <VOLNAME> [fix-layout|migrate-data] {start|stop|status}",
+        { "volume rebalance <VOLNAME> [fix-layout|migrate-data] {start|stop|status} [force]",
           cli_cmd_volume_defrag_cbk,
           "rebalance operations"},
 
