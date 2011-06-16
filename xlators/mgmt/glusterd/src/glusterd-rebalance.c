@@ -23,6 +23,8 @@
 #endif
 
 #include <inttypes.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <sys/resource.h>
 #include <sys/statvfs.h>
 
@@ -45,6 +47,55 @@
 
 #define GF_DISK_SECTOR_SIZE 512
 
+static int
+write_with_holes (int fd, const char *buf, int size, off_t offset)
+{
+        int ret          = -1;
+        int start_idx    = 0;
+        int tmp_offset   = 0;
+        int write_needed = 0;
+
+        for (start_idx = 0; (start_idx + GF_DISK_SECTOR_SIZE) <= size;
+             start_idx += GF_DISK_SECTOR_SIZE) {
+                /* Check if a block has full '0's. assume as hole if true */
+                if (mem_0filled (buf + start_idx, GF_DISK_SECTOR_SIZE) == 0) {
+                        write_needed = 1;
+                        continue;
+                }
+
+                if (write_needed) {
+                        ret = write (fd, buf + tmp_offset,
+                                     (start_idx - tmp_offset));
+                        if (ret < 0)
+                                goto out;
+
+                        write_needed = 0;
+                }
+                tmp_offset = start_idx + GF_DISK_SECTOR_SIZE;
+
+                ret = lseek (fd, (offset + tmp_offset), SEEK_SET);
+                if (ret < 0)
+                        goto out;
+        }
+
+        if ((start_idx < size) || write_needed) {
+                /* This means, last chunk is not yet written.. write it */
+                ret = write (fd, buf + tmp_offset, (size - tmp_offset));
+                if (ret < 0)
+                        goto out;
+        }
+
+        /* do it regardless of all the above cases as we had to 'write' the
+           given number of bytes */
+        ret = ftruncate (fd, offset + size);
+        if (ret)
+                goto out;
+
+        ret = 0;
+out:
+        return ret;
+
+}
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
@@ -60,8 +111,10 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         char                    tmp_filename[PATH_MAX] = {0,};
         char                    value[16]              = {0,};
         char                    linkinfo[PATH_MAX]     = {0,};
-        struct statvfs          src_statfs = {0,};
-        struct statvfs          dst_statfs = {0,};
+        struct statvfs          src_statfs             = {0,};
+        struct statvfs          dst_statfs             = {0,};
+        int                     file_has_holes         = 0;
+        off_t                   offset                 = 0;
 
         if (!volinfo->defrag)
                 goto out;
@@ -152,15 +205,26 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         continue;
                 }
 
+                /* Try to preserve 'holes' while migrating data */
+                if (stbuf.st_size > (stbuf.st_blocks * GF_DISK_SECTOR_SIZE))
+                        file_has_holes = 1;
+
+                offset = 0;
                 while (1) {
-                        ret = read (src_fd, defrag->databuf, 131072);
+                        ret = read (src_fd, defrag->databuf, 128 * GF_UNIT_KB);
                         if (!ret || (ret < 0)) {
                                 break;
                         }
-                        ret = write (dst_fd, defrag->databuf, ret);
-                        if (ret < 0) {
+
+                        if (!file_has_holes)
+                                ret = write (dst_fd, defrag->databuf, ret);
+                        else
+                                ret = write_with_holes (dst_fd, defrag->databuf,
+                                                        ret, offset);
+                        if (ret < 0)
                                 break;
-                        }
+
+                        offset += ret;
                 }
 
                 ret = stat (full_path, &new_stbuf);
