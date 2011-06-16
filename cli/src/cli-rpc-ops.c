@@ -53,8 +53,10 @@ extern int              connected;
 char *cli_volume_type[] = {"Distribute",
                            "Stripe",
                            "Replicate",
+                           "Striped-Replicate (RAID 01)",
                            "Distributed-Stripe",
                            "Distributed-Replicate",
+                           "Distributed-Striped-Replicate (RAID 01)",
 };
 
 
@@ -380,6 +382,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    type = 0;
         int32_t                    brick_count = 0;
         int32_t                    sub_count = 0;
+        int32_t                    stripe_count = 0;
         int32_t                    vol_type = 0;
         char                       *brick = NULL;
         int32_t                    j = 1;
@@ -484,6 +487,11 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
+                        snprintf (key, 256, "volume%d.stripe_count", i);
+                        ret = dict_get_int32 (dict, key, &stripe_count);
+                        if (ret)
+                                goto out;
+
                         snprintf (key, 256, "volume%d.transport", i);
                         ret = dict_get_int32 (dict, key, &transport);
                         if (ret)
@@ -491,23 +499,32 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
                         vol_type = type;
 
-                        // Stripe
-                        if ((type == 1) && (sub_count < brick_count))
-                                vol_type = 3;
-
-                        // Replicate
-                        if ((type == 2) && (sub_count < brick_count))
-                                vol_type = 4;
+                        // Distributed (stripe/replicate/raid01) setups
+                        if ((type > 1) && ( sub_count < brick_count))
+                                vol_type = type + 3;
 
                         cli_out ("Volume Name: %s", volname);
                         cli_out ("Type: %s", cli_volume_type[vol_type]);
                         cli_out ("Status: %s", cli_volume_status[status]);
-                        if ((sub_count > 1) && (brick_count > sub_count))
-                                cli_out ("Number of Bricks: %d x %d = %d",
-                                         brick_count / sub_count, sub_count,
-                                         brick_count);
-                        else
-                                cli_out ("Number of Bricks: %d", brick_count);
+                        if ((sub_count > 1) && (brick_count > sub_count)) {
+                                if (!stripe_count)
+                                        cli_out ("Number of Bricks: %d x %d = %d",
+                                                 brick_count / sub_count, sub_count,
+                                                 brick_count);
+                                else
+                                        cli_out ("Number of Bricks: %d x %d x %d = %d",
+                                                 brick_count / sub_count, stripe_count,
+                                                 sub_count / stripe_count, brick_count);
+                        } else {
+                                if (!stripe_count)
+                                        cli_out ("Number of Bricks: %d",
+                                                 brick_count);
+                                else
+                                        cli_out ("Number of Bricks: %d x %d = %d",
+                                                 stripe_count,
+                                                 (brick_count / stripe_count),
+                                                 brick_count);
+                        }
 
                         cli_out ("Transport-type: %s",
                                  ((transport == 0)?"tcp":
