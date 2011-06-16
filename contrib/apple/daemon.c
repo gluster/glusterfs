@@ -39,7 +39,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <paths.h>
 #include <signal.h>
 #include <unistd.h>
 
@@ -77,7 +76,9 @@ os_daemon_return(nochdir, noclose)
 	if (!nochdir)
 		(void)chdir("/");
 
-	if (!noclose && (fd = open(_PATH_DEVNULL, O_RDWR, 0)) != -1) {
+        /* Was using '_PATH_DEVNULL' earlier. As it was not defined in solaris,
+           changed to hardcoded path (and removed '#include <paths.h>' too) */
+	if (!noclose && (fd = open("/dev/null", O_RDWR, 0)) != -1) {
 		(void)dup2(fd, STDIN_FILENO);
 		(void)dup2(fd, STDOUT_FILENO);
 		(void)dup2(fd, STDERR_FILENO);
