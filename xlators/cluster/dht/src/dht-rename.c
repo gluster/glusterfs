@@ -75,14 +75,6 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unwind:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
-                local->stbuf.ia_ino = local->loc.inode->ino;
-
-                local->preoldparent.ia_ino = local->loc.parent->ino;
-                local->postoldparent.ia_ino = local->loc.parent->ino;
-
-                local->preparent.ia_ino = local->loc2.parent->ino;
-                local->postparent.ia_ino = local->loc2.parent->ino;
-
                 WIPE (&local->preoldparent);
                 WIPE (&local->postoldparent);
                 WIPE (&local->preparent);
@@ -398,14 +390,6 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_iatt_merge (this, &local->postoldparent, postoldparent, prev->this);
         dht_iatt_merge (this, &local->preparent, prenewparent, prev->this);
         dht_iatt_merge (this, &local->postparent, postnewparent, prev->this);
-
-        local->stbuf.ia_ino = local->loc.inode->ino;
-
-        local->preoldparent.ia_ino = local->loc.parent->ino;
-        local->postoldparent.ia_ino = local->loc.parent->ino;
-
-        local->preparent.ia_ino = local->loc2.parent->ino;
-        local->postparent.ia_ino = local->loc2.parent->ino;
 
         /* NOTE: rename_subvol is the same subvolume from which dht_rename_cbk
          *       is called. since rename has already happened on rename_subvol,

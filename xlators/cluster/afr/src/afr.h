@@ -741,12 +741,6 @@ afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent);
 int
 afr_locked_nodes_count (unsigned char *locked_nodes, int child_count);
 
-ino64_t
-afr_itransform (ino64_t ino, int child_count, int child_index);
-
-int
-afr_deitransform (ino64_t ino, int child_count);
-
 void
 afr_local_cleanup (afr_local_t *local, xlator_t *this);
 

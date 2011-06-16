@@ -471,8 +471,6 @@ gf_pump_traverse_directory (loc_t *loc)
                                     ret = syncop_lookup (this, &entry_loc, NULL,
                                                          &iatt, &xattr_rsp, &parent);
 
-                                    entry_loc.ino = iatt.ia_ino;
-                                    entry_loc.inode->ino = iatt.ia_ino;
                                     memcpy (entry_loc.inode->gfid, iatt.ia_gfid, 16);
 
                                     gf_log (this->name, GF_LOG_DEBUG,
