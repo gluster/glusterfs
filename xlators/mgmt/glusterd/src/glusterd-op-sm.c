@@ -3977,28 +3977,29 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         case GF_REPLACE_OP_ABORT:
         {
 
+                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                if (ctx) {
+                        ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Abort operation failed");
+                                goto out;
+                        }
+                }
+
                 ret = dict_set_int32 (volinfo->dict, "enable-pump", 0);
 		if (ret) {
-			gf_log ("", GF_LOG_CRITICAL, "Unable to disable pump");
+			gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to disable pump");
 		}
 
+
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                        gf_log ("", GF_LOG_INFO,
+                        gf_log (THIS->name, GF_LOG_INFO,
                                 "I AM THE DESTINATION HOST");
                         ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
                         if (ret) {
                                 gf_log ("", GF_LOG_DEBUG,
                                         "Failed to kill destination brick");
-                                goto out;
-                        }
-                }
-
-                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-                if (ctx) {
-                        ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
-                        if (ret) {
-                                gf_log ("", GF_LOG_ERROR,
-                                        "Abort operation failed");
                                 goto out;
                         }
                 }
