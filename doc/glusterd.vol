@@ -5,4 +5,3 @@ volume management
     option transport.socket.keepalive-time 10
     option transport.socket.keepalive-interval 2
 end-volume
-

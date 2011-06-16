@@ -8,8 +8,8 @@
 ### "#" is comment character.
 ### - Config file is case sensitive
 ### - Options within a volume block can be in any order.
-### - Spaces or tabs are used as delimitter within a line. 
-### - Multiple values to options will be : delimitted.
+### - Spaces or tabs are used as delimitter within a line.
+### - Multiple values to options will be : delimited.
 ### - Each option should end within a line.
 ### - Missing or commented fields will assume default values.
 ### - Blank/commented lines are allowed.
@@ -27,18 +27,15 @@ volume server
   option transport-type tcp
 # option transport-type unix
 # option transport-type ib-sdp
-# option transport.socket.bind-address 192.168.1.10     # Default is to listen on all interfaces
-# option transport.socket.listen-port 24016              
+# option transport.socket.bind-address 192.168.1.10     # Default is to listen
+                                                        # on all interfaces
+# option transport.socket.listen-port 24016
 
-# option transport-type ib-verbs
-# option transport.ib-verbs.bind-address 192.168.1.10     # Default is to listen on all interfaces
-# option transport.ib-verbs.listen-port 24016              
-# option transport.ib-verbs.work-request-send-size  131072
-# option transport.ib-verbs.work-request-send-count 64
-# option transport.ib-verbs.work-request-recv-size  131072
-# option transport.ib-verbs.work-request-recv-count 64
+# option transport-type rdma
+# option transport.rdma.listen-port 24016
+# option transport.rdma.work-request-send-count 64
+# option transport.rdma.work-request-recv-count 64
 
-# option client-volume-filename /etc/glusterfs/glusterfs-client.vol
   subvolumes brick
 # NOTE: Access to any volume through protocol/server is denied by
 # default. You need to explicitly grant access through # "auth"
