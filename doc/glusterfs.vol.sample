@@ -8,7 +8,7 @@
 ### "#" is comment character.
 ### - Config file is case sensitive
 ### - Options within a volume block can be in any order.
-### - Spaces or tabs are used as delimitter within a line. 
+### - Spaces or tabs are used as delimitter within a line.
 ### - Each option should end within a line.
 ### - Missing or commented fields will assume default values.
 ### - Blank/commented lines are allowed.
@@ -21,24 +21,19 @@ volume client
 # option transport-type unix
 # option transport-type ib-sdp
   option remote-host 127.0.0.1         # IP address of the remote brick
-# option transport.socket.remote-port 24016              
+# option transport.socket.remote-port 24016
 
-# option transport-type ib-verbs
-# option transport.ib-verbs.remote-port 24016              
-# option transport.ib-verbs.work-request-send-size  1048576
-# option transport.ib-verbs.work-request-send-count 16
-# option transport.ib-verbs.work-request-recv-size  1048576
-# option transport.ib-verbs.work-request-recv-count 16
+# option transport-type rdma
+# option transport.rdma.remote-port 24016
+# option transport.rdma.work-request-send-count 16
+# option transport.rdma.work-request-recv-count 16
 
-# option transport-timeout 30          # seconds to wait for a reply
-                                       # from server for each request
   option remote-subvolume brick        # name of the remote volume
 end-volume
 
 ### Add readahead feature
 #volume readahead
 #  type performance/read-ahead
-#  option page-size 1MB     # unit in bytes
 #  option page-count 2       # cache per file  = (page-count x page-size)
 #  subvolumes client
 #end-volume
@@ -46,16 +41,13 @@ end-volume
 ### Add IO-Cache feature
 #volume iocache
 #  type performance/io-cache
-#  option page-size 256KB
-#  option page-count 2
 #  subvolumes readahead
 #end-volume
 
 ### Add writeback feature
 #volume writeback
 #  type performance/write-behind
-#  option aggregate-size 1MB
 #  option window-size 2MB
 #  option flush-behind off
-#  subvolumes iocache   
+#  subvolumes iocache
 #end-volume
