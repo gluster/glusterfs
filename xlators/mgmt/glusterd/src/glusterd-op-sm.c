@@ -3475,6 +3475,53 @@ rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
 }
 
 static int
+rb_do_operation_commit (glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *src_brickinfo,
+                       glusterd_brickinfo_t *dst_brickinfo)
+{
+        int ret     = -1;
+        int cmd_ret = -1;
+
+        gf_log ("", GF_LOG_DEBUG,
+                "replace-brick sending commit xattr");
+
+        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not spawn maintenance "
+                        "client");
+                goto out;
+        }
+
+	gf_log ("", GF_LOG_DEBUG,
+		"mounted the replace brick client");
+
+        cmd_ret = rb_send_xattr_command (volinfo, src_brickinfo,
+                                     dst_brickinfo, RB_PUMP_COMMIT_CMD,
+                                     "jargon");
+        if (cmd_ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to send command to pump");
+	}
+
+        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to destroy maintenance "
+                        "client");
+                goto out;
+        }
+
+	gf_log ("", GF_LOG_DEBUG,
+		"unmounted the replace brick client");
+
+        ret = 0;
+
+out:
+        return cmd_ret || ret;
+}
+
+static int
 rb_do_operation_abort (glusterd_volinfo_t *volinfo,
                        glusterd_brickinfo_t *src_brickinfo,
                        glusterd_brickinfo_t *dst_brickinfo)
@@ -3894,6 +3941,16 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         case GF_REPLACE_OP_COMMIT:
         case GF_REPLACE_OP_COMMIT_FORCE:
         {
+                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                if (ctx) {
+                        ret = rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Commit operation failed");
+                                goto out;
+                        }
+                }
+
                 ret = dict_set_int32 (volinfo->dict, "enable-pump", 0);
                 gf_log ("", GF_LOG_DEBUG,
                         "Received commit - will be adding dst brick and "
