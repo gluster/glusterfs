@@ -94,7 +94,7 @@ __dentry_hash (dentry_t *dentry)
         int              hash = 0;
 
         if (!dentry) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "dentry not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
                 return;
         }
 
@@ -111,7 +111,7 @@ static int
 __is_dentry_hashed (dentry_t *dentry)
 {
         if (!dentry) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "dentry not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
                 return 0;
         }
 
@@ -123,7 +123,7 @@ static void
 __dentry_unhash (dentry_t *dentry)
 {
         if (!dentry) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "dentry not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
                 return;
         }
 
@@ -137,7 +137,7 @@ __dentry_unset (dentry_t *dentry)
         struct mem_pool *tmp_pool = NULL;
 
         if (!dentry) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "dentry not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
                 return;
         }
 
@@ -171,19 +171,19 @@ __foreach_ancestor_dentry (dentry_t *dentry,
         int       ret = 0;
 
         if (!dentry) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "dentry not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
                 return 0;
         }
 
         ret = per_dentry_fn (dentry, data);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "per dentry fn returned %d", ret);
+                gf_log (THIS->name, GF_LOG_WARNING, "per dentry fn returned %d", ret);
                 goto out;
         }
 
         parent = dentry->parent;
         if (!parent) {
-                gf_log ("", GF_LOG_WARNING, "parent not found");
+                gf_log (THIS->name, GF_LOG_WARNING, "parent not found");
                 goto out;
         }
 
@@ -240,7 +240,7 @@ static void
 __inode_unhash (inode_t *inode)
 {
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return;
         }
 
@@ -252,7 +252,7 @@ static int
 __is_inode_hashed (inode_t *inode)
 {
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return 0;
         }
 
@@ -267,7 +267,7 @@ __inode_hash (inode_t *inode)
         int            hash = 0;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return;
         }
 
@@ -286,7 +286,7 @@ __dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
         dentry_t *tmp = NULL;
 
         if (!inode || !name) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode || name not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode || name not found");
                 return NULL;
         }
 
@@ -310,12 +310,12 @@ __inode_destroy (inode_t *inode)
         struct mem_pool *tmp_pool = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return;
         }
 
         if (!inode->_ctx) {
-                gf_log ("", GF_LOG_WARNING, "_ctx not found");
+                gf_log (THIS->name, GF_LOG_WARNING, "_ctx not found");
                 goto noctx;
         }
 
@@ -360,7 +360,7 @@ __inode_passivate (inode_t *inode)
         dentry_t      *t = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return;
         }
 
@@ -381,7 +381,7 @@ __inode_retire (inode_t *inode)
         dentry_t      *t = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return;
         }
 
@@ -486,7 +486,7 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
         dentry_t      *newd = NULL;
 
         if (!inode || !parent || !name) {
-                gf_log_callingfn ("", GF_LOG_WARNING,
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
                                   "inode || parent || name not found");
                 return NULL;
         }
@@ -523,7 +523,7 @@ __inode_create (inode_table_t *table)
         inode_t  *newi = NULL;
 
         if (!table) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "table not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "table not found");
                 return NULL;
         }
 
@@ -567,7 +567,7 @@ inode_new (inode_table_t *table)
         inode_t *inode = NULL;
 
         if (!table) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return NULL;
         }
 
@@ -643,7 +643,7 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
         dentry_t  *dentry = NULL;
 
         if (!table || !parent || !name) {
-                gf_log_callingfn ("", GF_LOG_WARNING,
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
                                   "table || parent || name not found");
                 return NULL;
         }
@@ -694,7 +694,7 @@ __inode_find (inode_table_t *table, uuid_t gfid)
         int        hash = 0;
 
         if (!table) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "table not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "table not found");
                 goto out;
         }
 
@@ -721,7 +721,7 @@ inode_find (inode_table_t *table, uuid_t gfid)
         inode_t   *inode = NULL;
 
         if (!table) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "table not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "table not found");
                 return NULL;
         }
 
@@ -805,7 +805,7 @@ inode_link (inode_t *inode, inode_t *parent, const char *name,
         inode_t       *linked_inode = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return NULL;
         }
 
@@ -832,7 +832,7 @@ inode_lookup (inode_t *inode)
         inode_table_t *table = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return -1;
         }
 
@@ -854,7 +854,7 @@ inode_forget (inode_t *inode, uint64_t nlookup)
         inode_table_t *table = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return -1;
         }
 
@@ -894,7 +894,7 @@ inode_unlink (inode_t *inode, inode_t *parent, const char *name)
         inode_table_t *table = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return;
         }
 
@@ -916,7 +916,7 @@ inode_rename (inode_table_t *table, inode_t *srcdir, const char *srcname,
               struct iatt *iatt)
 {
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return -1;
         }
 
@@ -970,7 +970,7 @@ inode_parent (inode_t *inode, ino_t par, const char *name)
         dentry_t      *dentry = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return NULL;
         }
 
@@ -1007,7 +1007,7 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
         char          *buf   = NULL;
 
         if (!inode) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "inode not found");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
                 return -1;
         }
 
@@ -1516,10 +1516,7 @@ inode_dump (inode_t *inode, char *prefix)
         INIT_LIST_HEAD (&fd_list);
 
         ret = TRY_LOCK(&inode->lock);
-
         if (ret != 0) {
-                gf_log ("", GF_LOG_WARNING, "Unable to dump inode"
-                        " errno: %s", strerror (errno));
                 return;
         }
 
@@ -1610,8 +1607,6 @@ inode_table_dump (inode_table_t *itable, char *prefix)
         ret = pthread_mutex_trylock(&itable->lock);
 
         if (ret != 0) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump inode table"
-                       " errno: %s", strerror (errno));
                 return;
         }
 

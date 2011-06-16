@@ -375,7 +375,7 @@ __socket_nodelay (int fd)
         ret = setsockopt (fd, IPPROTO_TCP, TCP_NODELAY,
                           &on, sizeof (on));
         if (!ret)
-                gf_log ("", GF_LOG_TRACE,
+                gf_log (THIS->name, GF_LOG_TRACE,
                         "NODELAY enabled for socket %d", fd);
 
         return ret;
@@ -429,7 +429,7 @@ __socket_keepalive (int fd, int keepalive_intvl, int keepalive_idle)
 #endif
 
 done:
-        gf_log ("", GF_LOG_TRACE, "Keep-alive enabled for socket %d, interval "
+        gf_log (THIS->name, GF_LOG_TRACE, "Keep-alive enabled for socket %d, interval "
                 "%d, idle: %d", fd, keepalive_intvl, keepalive_idle);
 
 err:
@@ -1323,7 +1323,7 @@ __socket_read_reply (rpc_transport_t *this)
                 pthread_mutex_lock (&priv->lock);
 
                 if (ret == -1) {
-                        gf_log ("", GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "notify for event MAP_XID failed");
                         goto out;
                 }
@@ -1577,7 +1577,7 @@ __socket_proto_state_machine (rpc_transport_t *this,
                                 priv->incoming.iobuf = NULL;
 
                                 if (*pollin == NULL) {
-                                        gf_log ("", GF_LOG_WARNING,
+                                        gf_log (this->name, GF_LOG_WARNING,
                                                 "transport pollin allocation failed");
                                         ret = -1;
                                         goto out;
@@ -1900,7 +1900,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                         }
                         pthread_mutex_unlock (&new_priv->lock);
                         if (ret == -1) {
-                                gf_log ("", GF_LOG_WARNING,
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "failed to register the socket with event");
                                 goto unlock;
                         }
@@ -2092,7 +2092,7 @@ socket_connect (rpc_transport_t *this, int port)
                 priv->idx = event_register (ctx->event_pool, priv->sock,
                                             socket_event_handler, this, 1, 1);
                 if (priv->idx == -1) {
-                        gf_log ("", GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to register the event");
                         ret = -1;
                 }

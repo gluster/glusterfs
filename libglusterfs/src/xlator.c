@@ -1501,11 +1501,11 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
         }
 
         if (xlator_dynload (xlator))
-                gf_log ("", GF_LOG_DEBUG, "Did not load the symbols");
+                gf_log (xlator->name, GF_LOG_DEBUG, "Did not load the symbols");
 
         if (xlator->validate_options) {
                 if (xlator->validate_options (xlator, op_errstr)) {
-                        gf_log ("", GF_LOG_INFO, "%s", *op_errstr);
+                        gf_log (xlator->name, GF_LOG_INFO, "%s", *op_errstr);
                         goto out;
                 }
                 gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");
@@ -1840,7 +1840,7 @@ glusterd_check_log_level (const char *value)
         }
 
         if (log_level == -1)
-                gf_log ("", GF_LOG_ERROR, "Invalid log-level. possible values "
+                gf_log (THIS->name, GF_LOG_ERROR, "Invalid log-level. possible values "
                         "are DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
 
         return log_level;

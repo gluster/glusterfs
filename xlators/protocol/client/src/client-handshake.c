@@ -56,7 +56,7 @@ rpc_client_ping_timer_expired (void *data)
         this = data;
 
         if (!this || !this->private) {
-                gf_log ("", GF_LOG_WARNING, "xlator initialization not done");
+                gf_log (THIS->name, GF_LOG_WARNING, "xlator initialization not done");
                 goto out;
         }
 
@@ -140,7 +140,7 @@ client_start_ping (void *data)
 
         this = data;
         if (!this || !this->private) {
-                gf_log ("", GF_LOG_WARNING, "xlator not initialized");
+                gf_log (THIS->name, GF_LOG_WARNING, "xlator not initialized");
                 goto fail;
         }
 
@@ -218,7 +218,8 @@ client_start_ping (void *data)
 
         return;
 fail:
-        gf_log ("", GF_LOG_ERROR, "failed to start ping timer");
+        gf_log (THIS->name, GF_LOG_ERROR,
+                "failed to start ping timer");
 
         if (frame) {
                 STACK_DESTROY (frame->root);
@@ -239,13 +240,13 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         clnt_conf_t           *conf    = NULL;
 
         if (!myframe) {
-                gf_log ("", GF_LOG_WARNING, "frame with the request is NULL");
+                gf_log (THIS->name, GF_LOG_WARNING, "frame with the request is NULL");
                 goto out;
         }
         frame = myframe;
         this = frame->this;
         if (!this || !this->private) {
-                gf_log ("", GF_LOG_WARNING, "xlator private is not set");
+                gf_log (THIS->name, GF_LOG_WARNING, "xlator private is not set");
                 goto out;
         }
 
@@ -301,7 +302,7 @@ client3_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
 
         if (!frame || !frame->this) {
-                gf_log ("", GF_LOG_ERROR, "frame not found with the request, "
+                gf_log (THIS->name, GF_LOG_ERROR, "frame not found with the request, "
                         "returning EINVAL");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
@@ -639,7 +640,8 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
         return ret;
 
 out:
-        gf_log ("", GF_LOG_ERROR, "failed to send the re-opendir request");
+        gf_log (THIS->name, GF_LOG_ERROR,
+                "failed to send the re-opendir request");
 
         if (frame) {
                 frame->local = NULL;
@@ -719,7 +721,8 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         return ret;
 
 out:
-        gf_log ("", GF_LOG_ERROR, "failed to send the re-open request");
+        gf_log (THIS->name, GF_LOG_ERROR,
+                "failed to send the re-open request");
 
         if (frame) {
                 frame->local = NULL;
@@ -1054,7 +1057,7 @@ select_server_supported_programs (xlator_t *this, gf_prog_detail *prog)
         int             ret      = -1;
 
         if (!this || !prog) {
-                gf_log ("", GF_LOG_WARNING,
+                gf_log (THIS->name, GF_LOG_WARNING,
                         "xlator not found OR RPC program not found");
                 goto out;
         }
@@ -1093,7 +1096,7 @@ server_has_portmap (xlator_t *this, gf_prog_detail *prog)
         int             ret      = -1;
 
         if (!this || !prog) {
-                gf_log ("", GF_LOG_WARNING,
+                gf_log (THIS->name, GF_LOG_WARNING,
                         "xlator not found OR RPC program not found");
                 goto out;
         }
@@ -1128,7 +1131,7 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
 
         frame = myframe;
         if (!frame || !frame->this || !frame->this->private) {
-                gf_log ("", GF_LOG_WARNING,
+                gf_log (THIS->name, GF_LOG_WARNING,
                         "frame not found with rpc request");
                 goto out;
         }

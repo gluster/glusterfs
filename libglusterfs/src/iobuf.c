@@ -85,7 +85,7 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
         iobuf_cnt  = arena_size / page_size;
 
         if (!iobuf_arena->iobufs) {
-                gf_log_callingfn ("", GF_LOG_DEBUG, "iobufs not found");
+                gf_log_callingfn (THIS->name, GF_LOG_DEBUG, "iobufs not found");
                 return;
         }
 
@@ -148,13 +148,13 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
         iobuf_arena->mem_base = mmap (NULL, arena_size, PROT_READ|PROT_WRITE,
                                       MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         if (iobuf_arena->mem_base == MAP_FAILED) {
-                gf_log ("", GF_LOG_WARNING, "maping failed");
+                gf_log (THIS->name, GF_LOG_WARNING, "maping failed");
                 goto err;
         }
 
         __iobuf_arena_init_iobufs (iobuf_arena);
         if (!iobuf_arena->iobufs) {
-                gf_log ("", GF_LOG_DEBUG, "init failed");
+                gf_log (THIS->name, GF_LOG_DEBUG, "init failed");
                 goto err;
         }
 
@@ -202,7 +202,7 @@ __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool)
                 iobuf_arena = __iobuf_arena_alloc (iobuf_pool);
 
         if (!iobuf_arena) {
-                gf_log ("", GF_LOG_WARNING, "arena not found");
+                gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
                 return NULL;
         }
 
@@ -259,7 +259,7 @@ iobuf_pool_new (size_t arena_size, size_t page_size)
         struct iobuf_pool  *iobuf_pool = NULL;
 
         if (arena_size < page_size) {
-                gf_log ("", GF_LOG_WARNING,
+                gf_log (THIS->name, GF_LOG_WARNING,
                         "arena size (%zu) is less than page size(%zu)",
                         arena_size, page_size);
                 return NULL;
@@ -415,13 +415,13 @@ iobuf_get (struct iobuf_pool *iobuf_pool)
                 /* most eligible arena for picking an iobuf */
                 iobuf_arena = __iobuf_select_arena (iobuf_pool);
                 if (!iobuf_arena) {
-                        gf_log ("", GF_LOG_WARNING, "arena not found");
+                        gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
                         goto unlock;
                 }
 
                 iobuf = __iobuf_get (iobuf_arena);
                 if (!iobuf) {
-                        gf_log ("", GF_LOG_WARNING, "iobuf not found");
+                        gf_log (THIS->name, GF_LOG_WARNING, "iobuf not found");
                         goto unlock;
                 }
 
@@ -475,13 +475,13 @@ iobuf_put (struct iobuf *iobuf)
 
         iobuf_arena = iobuf->iobuf_arena;
         if (!iobuf_arena) {
-                gf_log ("", GF_LOG_WARNING, "arena not found");
+                gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
                 return;
         }
 
         iobuf_pool = iobuf_arena->iobuf_pool;
         if (!iobuf_pool) {
-                gf_log ("", GF_LOG_WARNING, "iobuf pool not found");
+                gf_log (THIS->name, GF_LOG_WARNING, "iobuf pool not found");
                 return;
         }
 
@@ -694,12 +694,12 @@ iobuf_size (struct iobuf *iobuf)
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         if (!iobuf->iobuf_arena) {
-                gf_log ("", GF_LOG_WARNING, "arena not found");
+                gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
                 goto out;
         }
 
         if (!iobuf->iobuf_arena->iobuf_pool) {
-                gf_log ("", GF_LOG_WARNING, "pool not found");
+                gf_log (THIS->name, GF_LOG_WARNING, "pool not found");
                 goto out;
         }
 
@@ -743,8 +743,6 @@ iobuf_info_dump (struct iobuf *iobuf, const char *key_prefix)
 
         ret = TRY_LOCK(&iobuf->lock);
         if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump iobuf"
-                       " errno: %s", strerror (errno));
                 return;
         }
         memcpy(&my_iobuf, iobuf, sizeof(my_iobuf));
@@ -800,8 +798,6 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
         ret = pthread_mutex_trylock(&iobuf_pool->mutex);
 
         if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump iobuf pool"
-                       " errno: %s", strerror (errno));
                 return;
         }
         gf_proc_dump_add_section("iobuf.global");
