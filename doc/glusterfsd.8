@@ -73,6 +73,15 @@ Makes the filesystem read-only
 \fB\-p, \fB\-\-pid\-file=PIDFILE\fR
 File to use as pid file
 .TP
+\fB\-S SOCKFILE
+Socket file to used for inter-process communication
+.TP
+\fB\-\-brick\-name DIRECTORY
+Directory to be used as export directory for GlusterFS
+.TP
+\fB\-\-brick\-port PORT
+Brick Port to be registered with Gluster portmapper
+.TP
 \fB\-\-volfile\-id=KEY\fR
 KEY of the volume file to be fetched from server
 .TP
@@ -118,6 +127,11 @@ Print program version
 .PP
 .SH FILES
 /etc/glusterfs/*.vol
+
+.SH EXAMPLES
+Start a GlusterFS server on localhost with volume name foo
+
+glusterfsd -s localhost --volfile-id foo.server.media-disk-1 -p /etc/glusterd/vols/foo/run/server-media-disk-1.pid -S /tmp/<uniqueid>.socket --brick-name /media/disk-1 -l /var/log/glusterfs/bricks/media-disk-1.log --brick-port 24009 --xlator-option foo-server.listen-port=24009
 
 .SH SEE ALSO
 .nf

@@ -102,7 +102,7 @@ Enable/Disable the direct-I/O mode in fuse module (the default is enable).
 \fB\-?, \fB\-\-help\fR
 Display this help.
 .TP
-\fB\-\-usage\fReew
+\fB\-\-usage\fR
 Display a short usage message.
 .TP
 \fB\-V, \fB\-\-version\fR
@@ -111,6 +111,11 @@ Print the program version.
 .PP
 .SH FILES
 /etc/glusterfs/*.vol, /etc/glusterd/vols/*/*.vol
+.SH EXAMPLES
+mount a volume named foo on server bar with log level DEBUG on mount point
+/mnt/foo
+
+# glusterfs --log-level=DEBUG --volfile-id=foo --volfile-server=bar /mnt/foo
 
 .SH SEE ALSO
 .nf
