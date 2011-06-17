@@ -48,4 +48,5 @@ int glusterd_validate_globalopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
 int glusterd_validate_localopts (dict_t *val_dict, char **op_errstr);
 gf_boolean_t glusterd_check_globaloption (char *key);
 
+int generate_brick_volfiles (glusterd_volinfo_t *volinfo);
 #endif
