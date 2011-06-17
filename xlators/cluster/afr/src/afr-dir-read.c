@@ -70,15 +70,19 @@ gf_boolean_t
 __checksums_differ (uint32_t *checksum, int child_count,
                     unsigned char *child_up)
 {
-        int      ret   = _gf_false;
-        int      i     = 0;
-        uint32_t cksum = 0;
-
-        cksum = checksum[0];
+        int          ret            = _gf_false;
+        int          i              = 0;
+        uint32_t     cksum          = 0;
+        gf_boolean_t activate_check = _gf_false;
 
         for (i = 0; i < child_count; i++) {
                 if (!child_up[i])
                         continue;
+                if (_gf_false == activate_check) {
+                        cksum          = checksum[i];
+                        activate_check = _gf_true;
+                        continue;
+                }
 
                 if (cksum != checksum[i]) {
                         ret = _gf_true;

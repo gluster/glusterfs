@@ -26,6 +26,7 @@ typedef enum {
         AFR_SELF_HEAL_ENTRY,
         AFR_SELF_HEAL_METADATA,
         AFR_SELF_HEAL_DATA,
+        AFR_SELF_HEAL_INVALID = -1,
 } afr_self_heal_type;
 
 int
@@ -37,17 +38,13 @@ afr_sh_sink_count (int sources[], int child_count);
 int
 afr_sh_source_count (int sources[], int child_count);
 
-int
-afr_sh_supress_errenous_children (int sources[], int child_errno[],
-				  int child_count);
-
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this);
 
-void
-afr_sh_build_pending_matrix (afr_private_t *priv,
-                             int32_t *pending_matrix[], dict_t *xattr[],
-			     int child_count, afr_transaction_type type);
+int
+afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
+                          dict_t *xattr[], afr_transaction_type type,
+                          size_t child_count);
 
 void
 afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
@@ -55,8 +52,9 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                          int child_count, afr_transaction_type type);
 
 int
-afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
-                     afr_self_heal_type type);
+afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
+                  int32_t child_count, afr_self_heal_type type,
+                  int32_t *valid_children, const char *xlator_name);
 
 int
 afr_sh_delta_to_xattr (afr_private_t *priv,
@@ -69,5 +67,8 @@ afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count);
 void
 afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
                             size_t size);
+
+afr_self_heal_type
+afr_self_heal_type_for_transaction (afr_transaction_type type);
 
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */

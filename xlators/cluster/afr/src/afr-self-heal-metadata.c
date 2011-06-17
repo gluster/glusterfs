@@ -475,17 +475,15 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        afr_sh_build_pending_matrix (priv, sh->pending_matrix, sh->xattr,
-                                     priv->child_count,
-                                     AFR_METADATA_TRANSACTION);
+        afr_build_pending_matrix (priv->pending_key, sh->pending_matrix,
+                                  sh->xattr, AFR_METADATA_TRANSACTION,
+                                  priv->child_count);
 
         afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
-        nsources = afr_sh_mark_sources (sh, priv->child_count,
-                                        AFR_SELF_HEAL_METADATA);
-
-        afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
-                                          priv->child_count);
+        nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
+                                     priv->child_count, AFR_SELF_HEAL_METADATA,
+                                     sh->child_success, this->name);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -584,6 +582,8 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         sh->buf[child_index] = *buf;
                         if (xattr)
                                 sh->xattr[child_index] = dict_ref (xattr);
+                        sh->child_success[sh->success_count] = child_index;
+                        sh->success_count++;
                 } else {
                         gf_log (this->name, GF_LOG_INFO,
                                 "path %s on subvolume %s => -1 (%s)",
@@ -614,9 +614,11 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
         int              call_count = 0;
         dict_t          *xattr_req = NULL;
         int              ret = 0;
+        afr_self_heal_t *sh = NULL;
 
         local = frame->local;
         priv = this->private;
+        sh = &local->self_heal;
 
         call_count = afr_up_children_count (priv->child_count,
                                             local->child_up);
@@ -635,6 +637,9 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
                 }
         }
 
+        for (i = 0; i < priv->child_count; i++)
+                sh->child_success[i] = -1;
+        sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         gf_log (this->name, GF_LOG_TRACE,
