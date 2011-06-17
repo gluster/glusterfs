@@ -30,11 +30,11 @@
 #define SIZE_GREATER(buf1,buf2) ((buf1)->ia_size > (buf2)->ia_size)
 
 int
-afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this);
+afr_sh_has_metadata_pending (dict_t *xattr, xlator_t *this);
 int
-afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this);
+afr_sh_has_entry_pending (dict_t *xattr, xlator_t *this);
 int
-afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this);
+afr_sh_has_data_pending (dict_t *xattr, xlator_t *this);
 
 int
 afr_self_heal_entry (call_frame_t *frame, xlator_t *this);
@@ -51,4 +51,11 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr);
 int
 afr_self_heal (call_frame_t *frame, xlator_t *this);
 
+gf_boolean_t
+afr_is_fresh_read_child (int32_t *sources, int32_t child_count,
+                         int32_t read_child);
+int
+afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
+                                          dict_t **xattr,
+                                          afr_transaction_type txn_type);
 #endif /* __AFR_SELF_HEAL_H__ */

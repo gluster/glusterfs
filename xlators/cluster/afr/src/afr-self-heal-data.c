@@ -594,16 +594,15 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        afr_sh_build_pending_matrix (priv, sh->pending_matrix, sh->xattr,
-                                     priv->child_count, AFR_DATA_TRANSACTION);
+        afr_build_pending_matrix (priv->pending_key, sh->pending_matrix,
+                                  sh->xattr, AFR_DATA_TRANSACTION,
+                                  priv->child_count);
 
         afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
-        nsources = afr_sh_mark_sources (sh, priv->child_count,
-                                        AFR_SELF_HEAL_DATA);
-
-        afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
-                                          priv->child_count);
+        nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
+                                     priv->child_count, AFR_SELF_HEAL_DATA,
+                                     sh->child_success, this->name);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -692,39 +691,165 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-
-int
-afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
+gf_boolean_t
+afr_is_fresh_read_child (int32_t *sources, int32_t child_count,
+                         int32_t read_child)
 {
-        afr_self_heal_t *sh   = NULL;
-        afr_private_t   *priv = NULL;
-        int              source = 0;
-        int              i = 0;
+        gf_boolean_t             is_fresh_child = _gf_false;
 
-        sh   = &local->self_heal;
-        priv = this->private;
+        GF_ASSERT (read_child < child_count);
 
-        sh->pending_matrix = GF_CALLOC (sizeof (int32_t *), priv->child_count,
-                                        gf_afr_mt_int32_t);
-        for (i = 0; i < priv->child_count; i++) {
-                sh->pending_matrix[i] = GF_CALLOC (sizeof (int32_t),
-                                                   priv->child_count,
-                                                   gf_afr_mt_int32_t);
+        if ((read_child >= 0) && (read_child < child_count) &&
+             sources[read_child]) {
+                is_fresh_child = _gf_true;
         }
-
-        sh->sources = GF_CALLOC (priv->child_count, sizeof (*sh->sources),
-                                 gf_afr_mt_int32_t);
-
-        afr_sh_build_pending_matrix (priv, sh->pending_matrix, xattr,
-                                     priv->child_count, AFR_DATA_TRANSACTION);
-
-        (void)afr_sh_mark_sources (sh, priv->child_count, AFR_SELF_HEAL_DATA);
-
-        source = afr_sh_select_source (sh->sources, priv->child_count);
-
-        return source;
+        return is_fresh_child;
 }
 
+static int
+afr_select_read_child_from_policy (int32_t *sources, int32_t child_count,
+                                   int32_t prev_read_child,
+                                   int32_t config_read_child,
+                                   int32_t *valid_children)
+{
+        int32_t                  read_child = -1;
+        int                      i          = 0;
+
+        GF_ASSERT (sources);
+
+        read_child = prev_read_child;
+        if (_gf_true == afr_is_fresh_read_child (sources, child_count,
+                                                 read_child))
+                goto out;
+
+        read_child = config_read_child;
+        if (_gf_true == afr_is_fresh_read_child (sources, child_count,
+                                                 read_child))
+                goto out;
+
+        for (i = 0; i < child_count; i++) {
+                read_child = valid_children[i];
+                if (read_child < 0)
+                        break;
+                if (_gf_true == afr_is_fresh_read_child (sources, child_count,
+                                                         read_child))
+                        goto out;
+        }
+        read_child = -1;
+
+out:
+        return read_child;
+}
+
+static void
+afr_destroy_pending_matrix (int32_t **pending_matrix, int32_t child_count)
+{
+        int             i = 0;
+        GF_ASSERT (child_count > 0);
+        if (pending_matrix) {
+                for (i = 0; i < child_count; i++) {
+                        if (pending_matrix[i])
+                                GF_FREE (pending_matrix[i]);
+                }
+                GF_FREE (pending_matrix);
+        }
+}
+
+static int32_t**
+afr_create_pending_matrix (int32_t child_count)
+{
+        gf_boolean_t            cleanup = _gf_false;
+        int32_t                 **pending_matrix = NULL;
+        int                     i = 0;
+
+        GF_ASSERT (child_count > 0);
+
+        pending_matrix = GF_CALLOC (sizeof (*pending_matrix), child_count,
+                                    gf_afr_mt_int32_t);
+        if (NULL == pending_matrix)
+                goto out;
+        for (i = 0; i < child_count; i++) {
+                pending_matrix[i] = GF_CALLOC (sizeof (**pending_matrix),
+                                               child_count,
+                                               gf_afr_mt_int32_t);
+                if (NULL == pending_matrix[i]) {
+                        cleanup = _gf_true;
+                        goto out;
+                }
+        }
+out:
+        if (_gf_true == cleanup) {
+                afr_destroy_pending_matrix (pending_matrix, child_count);
+                pending_matrix = NULL;
+        }
+        return pending_matrix;
+}
+
+int
+afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
+                                          dict_t **xattr,
+                                          afr_transaction_type txn_type)
+{
+        afr_private_t            *priv      = NULL;
+        int                      read_child = -1;
+        int                      ret        = -1;
+        afr_self_heal_type       sh_type    = AFR_SELF_HEAL_INVALID;
+        int32_t                  **pending_matrix = NULL;
+        int32_t                  *sources         = NULL;
+        int32_t                  *valid_children  = NULL;
+        struct iatt              *bufs            = NULL;
+        int32_t                  nsources         = 0;
+        int32_t                  prev_read_child  = -1;
+        int32_t                  config_read_child = -1;
+        afr_self_heal_t          *sh = NULL;
+
+        priv = this->private;
+        bufs = local->cont.lookup.bufs;
+        valid_children = local->cont.lookup.child_success;
+        sh = &local->self_heal;
+
+        pending_matrix = afr_create_pending_matrix (priv->child_count);
+        if (NULL == pending_matrix)
+                goto out;
+
+        sources = GF_CALLOC (sizeof (*sources), priv->child_count,
+                             gf_afr_mt_int32_t);
+        if (NULL == sources)
+                goto out;
+
+        afr_build_pending_matrix (priv->pending_key, pending_matrix,
+                                  xattr, txn_type, priv->child_count);
+
+        sh_type = afr_self_heal_type_for_transaction (txn_type);
+        if (AFR_SELF_HEAL_INVALID == sh_type)
+                goto out;
+
+        nsources = afr_mark_sources (sources, pending_matrix, bufs,
+                                     priv->child_count, sh_type,
+                                     valid_children, this->name);
+        if (nsources < 0) {
+                ret = -1;
+                goto out;
+        }
+
+        prev_read_child = local->read_child_index;
+        config_read_child = priv->read_child;
+        read_child = afr_select_read_child_from_policy (sources,
+                                                        priv->child_count,
+                                                        prev_read_child,
+                                                        config_read_child,
+                                                        valid_children);
+        ret = 0;
+        local->cont.lookup.sources = sources;
+out:
+        afr_destroy_pending_matrix (pending_matrix, priv->child_count);
+        if (-1 == ret) {
+                if (sources)
+                        GF_FREE (sources);
+        }
+        gf_log (this->name, GF_LOG_DEBUG, "returning read_child: %d", read_child);
+        return read_child;
+}
 
 int
 afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
@@ -750,6 +875,8 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                                 priv->children[child_index]->name);
 
                         sh->buf[child_index] = *buf;
+                        sh->child_success[sh->success_count] = child_index;
+                        sh->success_count++;
                 }
         }
         UNLOCK (&frame->lock);
@@ -782,6 +909,9 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
 
         local->call_count = call_count;
 
+        for (i = 0; i < priv->child_count; i++)
+                sh->child_success[i] = -1;
+        sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND_COOKIE (frame, afr_sh_data_fstat_cbk,
