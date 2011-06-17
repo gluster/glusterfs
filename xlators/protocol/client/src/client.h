@@ -63,6 +63,9 @@ typedef struct clnt_conf {
         int                    last_sent_event; /* Flag used to make sure we are
                                                    not repeating the same event
                                                    which was sent earlier */
+        char                   need_different_port; /* flag used to change the
+                                                       portmap path in case of
+                                                       'tcp,rdma' on server */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {

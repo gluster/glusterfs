@@ -118,6 +118,7 @@ struct glusterd_brickinfo {
         struct list_head  brick_list;
         uuid_t  uuid;
         int     port;
+        int     rdma_port;
         char   *logfile;
         gf_boolean_t signed_in;
         glusterd_store_handle_t *shandle;

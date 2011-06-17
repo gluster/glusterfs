@@ -426,6 +426,8 @@ parse_opts (int key, char *arg, struct argp_state *state)
         gf_boolean_t  b             = _gf_false;
         char         *pwd           = NULL;
         char          tmp_buf[2048] = {0,};
+        char         *tmp_str       = NULL;
+        char         *port_str      = NULL;
 
         cmd_args = state->input;
 
@@ -657,8 +659,18 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_BRICK_PORT_KEY:
                 n = 0;
 
-                if (gf_string2uint_base10 (arg, &n) == 0) {
+                port_str = strtok_r (arg, ",", &tmp_str);
+                if (gf_string2uint_base10 (port_str, &n) == 0) {
                         cmd_args->brick_port = n;
+                        port_str = strtok_r (NULL, ",", &tmp_str);
+                        if (port_str) {
+                                if (gf_string2uint_base10 (port_str, &n) == 0)
+                                        cmd_args->brick_port2 = n;
+                                break;
+
+                                argp_failure (state, -1, 0,
+                                              "wrong brick (listen) port %s", arg);
+                        }
                         break;
                 }
 

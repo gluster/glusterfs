@@ -157,6 +157,12 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
         if (ret)
                 gf_log ("", GF_LOG_TRACE, "failed to write brick->port");
 
+        snprintf (buf, sizeof(buf), "%s=%d", GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
+                  brickinfo->rdma_port);
+        ret = write (shandle->fd, buf, strlen (buf));
+        if (ret)
+                gf_log ("", GF_LOG_TRACE, "failed to write brick->rdma_port");
+
         ret = 0;
 
         snprintf (buf, sizeof (buf), "%s-%d",GLUSTERD_STORE_KEY_VOL_BRICK,
@@ -269,7 +275,6 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo)
         closedir (dir);
 
         ret = rmdir (brickdir);
-
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
@@ -364,6 +369,7 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 */
+
         snprintf (buf, sizeof (buf), "%d", volinfo->sub_count);
         ret = glusterd_store_save_value (volinfo->shandle,
                                         GLUSTERD_STORE_KEY_VOL_SUB_COUNT, buf);
@@ -1081,6 +1087,14 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                 pmap = pmap_registry_get (THIS);
                                 if (pmap->last_alloc <= brickinfo->port)
                                         pmap->last_alloc = brickinfo->port + 1;
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
+                                    strlen (GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
+                                gf_string2int (value, &brickinfo->rdma_port);
+                                /* This is required to have proper ports
+                                   assigned to bricks after restart */
+                                pmap = pmap_registry_get (THIS);
+                                if (pmap->last_alloc <= brickinfo->rdma_port)
+                                        pmap->last_alloc = brickinfo->rdma_port + 1;
                         } else {
                                 gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);

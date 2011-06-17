@@ -53,6 +53,7 @@
 #define GLUSTERD_STORE_KEY_BRICK_HOSTNAME "hostname"
 #define GLUSTERD_STORE_KEY_BRICK_PATH     "path"
 #define GLUSTERD_STORE_KEY_BRICK_PORT     "listen-port"
+#define GLUSTERD_STORE_KEY_BRICK_RDMA_PORT "rdma.listen-port"
 
 #define GLUSTERD_STORE_KEY_PEER_UUID      "uuid"
 #define GLUSTERD_STORE_KEY_PEER_HOSTNAME  "hostname"

@@ -286,6 +286,7 @@ struct _cmd_args {
         /* required for portmap */
         int             brick_port;
         char           *brick_name;
+        int             brick_port2;
 };
 typedef struct _cmd_args cmd_args_t;
 
