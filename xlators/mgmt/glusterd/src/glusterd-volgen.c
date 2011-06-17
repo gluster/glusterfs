@@ -163,6 +163,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.volume-access",                    "nfs/server",                "!nfs-volume-access", NULL, DOC},
         {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC},
+        {"nfs.transport-type",                   "nfs/server",                "!nfs.transport-type", NULL, DOC},
 
         {NULL,                                                                }
 };
@@ -1112,6 +1113,54 @@ server_spec_option_handler (glusterfs_graph_t *graph,
 
 static void get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo);
 
+static void
+get_vol_nfs_transport_type (glusterd_volinfo_t *volinfo, char *tt)
+{
+        switch (volinfo->nfs_transport_type) {
+        case GF_TRANSPORT_RDMA:
+                strcpy (tt, "rdma");
+                break;
+        case GF_TRANSPORT_TCP:
+                strcpy (tt, "tcp");
+                break;
+        case GF_TRANSPORT_BOTH_TCP_RDMA:
+                gf_log ("", GF_LOG_ERROR, "%s:nfs transport cannot be both"
+                        " tcp and rdma", volinfo->volname);
+                GF_ASSERT (0);
+        }
+}
+
+/*  gets the volinfo, dict, a character array for filling in
+ *  the transport type and a boolean option which says whether
+ *  the transport type is required for nfs or not. If its not
+ *  for nfs, then it is considered as the client transport
+ *  and client transport type is filled in the character array
+ */
+static void
+get_transport_type (glusterd_volinfo_t *volinfo, dict_t *set_dict,
+                    char *transt, gf_boolean_t is_nfs)
+{
+        int    ret   = -1;
+        char  *tt    = NULL;
+        char  *key   = NULL;
+        typedef void (*transport_type) (glusterd_volinfo_t *volinfo, char *tt);
+        transport_type get_transport;
+
+        if (is_nfs == _gf_false) {
+                key = "client-transport-type";
+                get_transport = get_vol_transport_type;
+        } else {
+                key = "nfs.transport-type";
+                get_transport = get_vol_nfs_transport_type;
+        }
+
+        ret = dict_get_str (set_dict, key, &tt);
+        if (ret)
+                get_transport (volinfo, transt);
+        if (!ret)
+                strcpy (transt, tt);
+}
+
 static int
 server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
@@ -1260,7 +1309,6 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
         int                      dist_count         = 0;
         char                     transt[16]         = {0,};
-        char                    *tt                 = NULL;
         char                    *volname            = NULL;
         dict_t                  *dict               = NULL;
         glusterd_brickinfo_t    *brick = NULL;
@@ -1297,11 +1345,10 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 return -1;
         }
 
-        ret = dict_get_str (set_dict, "client-transport-type", &tt);
-        if (ret)
-                get_vol_transport_type (volinfo, transt);
-        if (!ret)
-                strcpy (transt, tt);
+        get_transport_type (volinfo, set_dict, transt, _gf_false);
+
+        if (!strcmp (transt, "tcp,rdma"))
+                strcpy (transt, "tcp");
 
         i = 0;
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
@@ -1607,6 +1654,7 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
         xlator_t           *nfsxl         = NULL;
         char               *skey          = NULL;
         int                 ret           = 0;
+        char               nfs_xprt[16]   = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1664,15 +1712,15 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
 
                 /* If both RDMA and TCP are the transport_type, use RDMA
                    for NFS client protocols */
-                if (voliter->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
-                        ret = dict_set_str (set_dict, "client-transport-type",
-                                            "rdma");
-                        if (ret)
-                                goto out;
-                }
-
                 memset (&cgraph, 0, sizeof (cgraph));
-                ret = build_client_graph (&cgraph, voliter, mod_dict);
+                if (mod_dict)
+                        get_transport_type (voliter, mod_dict, nfs_xprt, _gf_true);
+                else
+                        get_transport_type (voliter, voliter->dict, nfs_xprt, _gf_true);
+
+                ret = dict_set_str (set_dict, "client-transport-type",
+                                    nfs_xprt);
+                ret = build_client_graph (&cgraph, voliter, set_dict);
                 if (ret)
                         goto out;
 
@@ -1689,8 +1737,6 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                 if (ret)
                         goto out;
         }
-
-
 
  out:
         dict_destroy (set_dict);
@@ -1987,11 +2033,35 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
 
 int
 validate_nfsopts (glusterd_volinfo_t *volinfo,
-                    dict_t *val_dict,
-                    char **op_errstr)
+                  dict_t *val_dict,
+                  char **op_errstr)
 {
         glusterfs_graph_t graph = {{0,},};
         int     ret = -1;
+        char    transport_type[16] = {0,};
+        char    *tt                = NULL;
+        char    err_str[4096]      = {0,};
+
+        get_vol_transport_type (volinfo, transport_type);
+        ret = dict_get_str (val_dict, "nfs.transport-type", &tt);
+        if (!ret) {
+                if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
+                        snprintf (err_str, sizeof (err_str), "Changing nfs "
+                                  "transport type is allowed only for volumes "
+                                  "of transport type tcp,rdma");
+                        gf_log ("", GF_LOG_ERROR, "%s", err_str);
+                        *op_errstr = gf_strdup (err_str);
+                        ret = -1;
+                        goto out;
+                }
+                if (strcmp (tt,"tcp") && strcmp (tt,"rdma")) {
+                        snprintf (err_str, sizeof (err_str), "wrong transport "
+                                  "type %s", tt);
+                        *op_errstr = gf_strdup (err_str);
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         ret = build_nfs_graph (&graph, val_dict);
         if (!ret)
@@ -1999,6 +2069,7 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
 
         volgen_graph_free (&graph);
 
+out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

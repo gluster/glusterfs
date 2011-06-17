@@ -1996,10 +1996,13 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         if (strcasecmp (trans_type, "rdma") == 0) {
                 volinfo->transport_type = GF_TRANSPORT_RDMA;
+                volinfo->nfs_transport_type = GF_TRANSPORT_RDMA;
         } else if (strcasecmp (trans_type, "tcp") == 0) {
                 volinfo->transport_type = GF_TRANSPORT_TCP;
+                volinfo->nfs_transport_type = GF_TRANSPORT_TCP;
         } else {
                 volinfo->transport_type = GF_TRANSPORT_BOTH_TCP_RDMA;
+                volinfo->nfs_transport_type = GF_DEFAULT_NFS_TRANSPORT;
         }
 
         volinfo->sub_count = sub_count;
