@@ -76,6 +76,22 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
                 gf_proc_dump_build_key(key, prefix,"parent");
                 gf_proc_dump_write(key, "%s", my_frame.parent->this->name);
         }
+        if (my_frame.wind_from) {
+                gf_proc_dump_build_key(key, prefix, "wind_from");
+                gf_proc_dump_write(key, "%s", my_frame.wind_from);
+        }
+        if (my_frame.wind_to) {
+                gf_proc_dump_build_key(key, prefix, "wind_to");
+                gf_proc_dump_write(key, "%s", my_frame.wind_to);
+        }
+        if (my_frame.unwind_from) {
+                gf_proc_dump_build_key(key, prefix, "unwind_from");
+                gf_proc_dump_write(key, "%s", my_frame.unwind_from);
+        }
+        if (my_frame.unwind_to) {
+                gf_proc_dump_build_key(key, prefix, "unwind_to");
+                gf_proc_dump_write(key, "%s", my_frame.unwind_to);
+        }
 }
 
 
