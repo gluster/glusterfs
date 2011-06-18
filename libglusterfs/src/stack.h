@@ -83,6 +83,10 @@ struct _call_frame_t {
         glusterfs_fop_t op;
         struct timeval begin;      /* when this frame was created */
         struct timeval end;        /* when this frame completed */
+        const char      *wind_from;
+        const char      *wind_to;
+        const char      *unwind_from;
+        const char      *unwind_to;
 };
 
 struct _call_stack_t {
@@ -223,6 +227,9 @@ STACK_DESTROY (call_stack_t *stack)
                 _new->parent = frame;                                   \
                 _new->cookie = _new;                                    \
                 LOCK_INIT (&_new->lock);                                \
+                _new->wind_from = __FUNCTION__;                         \
+                _new->wind_to = #fn;                                    \
+                _new->unwind_to = #rfn;                                 \
                 frame->ref_count++;                                     \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
@@ -254,6 +261,9 @@ STACK_DESTROY (call_stack_t *stack)
                 _new->parent = frame;                                   \
                 _new->cookie = cky;                                     \
                 LOCK_INIT (&_new->lock);                                \
+                _new->wind_from = __FUNCTION__;                         \
+                _new->wind_to = #fn;                                    \
+                _new->unwind_to = #rfn;                                 \
                 frame->ref_count++;                                     \
                 fn##_cbk = rfn;                                         \
                 old_THIS = THIS;                                        \
@@ -279,6 +289,7 @@ STACK_DESTROY (call_stack_t *stack)
                 old_THIS = THIS;                                        \
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
+                frame->unwind_from = __FUNCTION__;                      \
                 fn (_parent, frame->cookie, _parent->this, params);     \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -301,6 +312,7 @@ STACK_DESTROY (call_stack_t *stack)
                 old_THIS = THIS;                                        \
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
+                frame->unwind_from = __FUNCTION__;                      \
                 fn (_parent, frame->cookie, _parent->this, params);     \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -327,6 +339,8 @@ copy_frame (call_frame_t *frame)
         newstack->gid = oldstack->gid;
         newstack->pid = oldstack->pid;
         newstack->ngrps = oldstack->ngrps;
+        newstack->op  = oldstack->op;
+        newstack->type = oldstack->type;
         memcpy (newstack->groups, oldstack->groups,
                 sizeof (uint32_t) * GF_REQUEST_MAXGROUPS);
         newstack->unique = oldstack->unique;
