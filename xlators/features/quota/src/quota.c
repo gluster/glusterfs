@@ -2746,11 +2746,14 @@ reconfigure (xlator_t *this, dict_t *options)
         }
 
         ret = quota_parse_options (priv, this, options);
-
-        if (ret == -1)
-                GF_ASSERT (0);
-
-        return ret;
+        if (ret == -1) {
+                gf_log ("quota", GF_LOG_WARNING,
+                        "quota reconfigure failed, "
+                        "new changes will not take effect");
+                goto out;
+        }
+out:
+        return 0;
 }
 
 
