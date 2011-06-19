@@ -1037,7 +1037,9 @@ cli_cmd_log_level_parse (const char **words, int worcount, dict_t **options)
 
         ret = glusterd_check_log_level(words[5]);
         if (ret == -1) {
-                cli_out("invalid log level [%s] specified", words[4]);
+                cli_out("Invalid log level [%s] specified", words[5]);
+                cli_out("Valid values for loglevel: (DEBUG|WARNING|ERROR"
+                        "|CRITICAL|NONE|TRACE)");
                 goto out;
         }
 
