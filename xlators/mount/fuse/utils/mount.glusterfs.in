@@ -224,7 +224,10 @@ main ()
         }
     done
 
+    # No need to do a ! -d test, it is taken care while initializing the
+    # variable mount_point
     [ -z "$mount_point" ] && {
+        echo "ERROR: Mount point does not exist."
         usage;
         exit 0;
     }
