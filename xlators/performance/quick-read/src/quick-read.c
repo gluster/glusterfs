@@ -137,6 +137,7 @@ qr_resume_pending_ops (qr_fd_ctx_t *qr_fd_ctx)
 
         LOCK (&qr_fd_ctx->lock);
         {
+                qr_fd_ctx->open_in_transit = 0;
                 list_splice_init (&qr_fd_ctx->waiting_ops,
                                   &waiting_ops);
         }
