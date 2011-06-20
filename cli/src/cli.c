@@ -523,7 +523,7 @@ cli_rpc_init (struct cli_state *state)
         if (ret)
                 goto out;
 
-        ret = dict_set_str (options, "transport.address-family", "inet");
+        ret = dict_set_str (options, "transport.address-family", "inet/inet6");
         if (ret)
                 goto out;
 

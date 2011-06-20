@@ -172,7 +172,7 @@ main ()
     done
     
     [ -r "$volfile_loc" ] || {
-	server_ip=$(echo "$volfile_loc" | sed -n 's/\([^\:]*\).*/\1/p');
+        server_ip=$(echo "$volfile_loc" | sed -n 's/\([a-zA-Z0-9:.\-]*\):.*/\1/p');
 	volfile_loc="";
     }
     # following line is product of love towards sed

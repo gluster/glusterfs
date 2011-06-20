@@ -49,7 +49,6 @@ str_getunamb (const char *tok, char **opwords)
         return (char *)cli_getunamb (tok, (void **)opwords, id_sel);
 }
 
-
 int32_t
 cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                       char **bricks, int *brick_count)
@@ -60,11 +59,11 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
         char                *space = " ";
         char            *delimiter = NULL;
         char            *host_name = NULL;
-        char                  *tmp = NULL;
         char        *free_list_ptr = NULL;
         char               *tmpptr = NULL;
         int                      j = 0;
         int         brick_list_len = 0;
+        char             *tmp_host = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (wordcount);
@@ -75,14 +74,13 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
         strncpy (brick_list, space, strlen (space));
         brick_list_len++;
         while (brick_index < wordcount) {
-                delimiter = strchr (words[brick_index], ':');
-                if (!delimiter || delimiter == words[brick_index]
-                    || *(delimiter+1) != '/') {
+                if (validate_brick_name ((char *)words[brick_index])) {
                         cli_out ("wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
                 } else {
+                        delimiter = strrchr (words[brick_index], ':');
                         cli_path_strip_trailing_slashes (delimiter + 1);
                 }
 
@@ -94,7 +92,13 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                         goto out;
                 }
 
-                host_name = gf_strdup (words[brick_index]);
+                tmp_host = gf_strdup ((char *)words[brick_index]);
+                if (!tmp_host) {
+                        gf_log ("cli", GF_LOG_ERROR, "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+                get_host_name (tmp_host, &host_name);
                 if (!host_name) {
                         ret = -1;
                         gf_log("cli",GF_LOG_ERROR, "Unable to allocate "
@@ -102,20 +106,19 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                         goto out;
                 }
 
-                strtok_r (host_name, ":", &tmp);
                 if (!(strcmp (host_name, "localhost") &&
                       strcmp (host_name, "127.0.0.1"))) {
                         cli_out ("Please provide a valid hostname/ip other "
                                  "than localhost or 127.0.0.1");
                         ret = -1;
-                        GF_FREE (host_name);
+                        GF_FREE (tmp_host);
                         goto out;
                 }
-                if (!valid_host_name(host_name, strlen(host_name))) {
+                if (!valid_internet_address (host_name)) {
                         cli_out ("internet address '%s' does not comform to "
 			         "standards", host_name);
                 }
-                GF_FREE (host_name);
+                GF_FREE (tmp_host);
                 tmp_list = gf_strdup (brick_list + 1);
                 if (free_list_ptr) {
                         GF_FREE (free_list_ptr);
@@ -844,14 +847,13 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         }
 
         while (brick_index < wordcount) {
-                delimiter = strchr(words[brick_index], ':');
-                if (!delimiter || delimiter == words[brick_index]
-                    || *(delimiter+1) != '/') {
+                if (validate_brick_name ((char *)words[brick_index])) {
                         cli_out ("wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
                 } else {
+                        delimiter = strrchr(words[brick_index], ':');
                         cli_path_strip_trailing_slashes (delimiter + 1);
                 }
 
@@ -938,14 +940,13 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 goto out;
         }
 
-        delimiter = strchr ((char *)words[3], ':');
-        if (!delimiter || delimiter == words[3]
-            || *(delimiter+1) != '/') {
+        if (validate_brick_name ((char *)words[3])) {
                 cli_out ("wrong brick type: %s, use "
                         "<HOSTNAME>:<export-dir-abs-path>", words[3]);
                 ret = -1;
                 goto out;
         } else {
+                delimiter = strrchr ((char *)words[3], ':');
                 cli_path_strip_trailing_slashes (delimiter + 1);
         }
         ret = dict_set_str (dict, "src-brick", (char *)words[3]);
@@ -958,14 +959,13 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 goto out;
         }
 
-        delimiter = strchr ((char *)words[4], ':');
-        if (!delimiter || delimiter == words[4]
-            || *(delimiter+1) != '/') {
+        if (validate_brick_name ((char *)words[4])) {
                 cli_out ("wrong brick type: %s, use "
                         "<HOSTNAME>:<export-dir-abs-path>", words[4]);
                 ret = -1;
                 goto out;
         } else {
+                delimiter = strrchr ((char *)words[4], ':');
                 cli_path_strip_trailing_slashes (delimiter + 1);
         }
 
