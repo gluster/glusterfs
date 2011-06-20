@@ -936,16 +936,18 @@ quota_create_xattr (xlator_t *this, call_frame_t *frame)
                         goto free_size;
         }
 
-        contri = add_new_contribution_node (this, ctx, &local->loc);
-        if (contri == NULL)
-                goto err;
+        if (strcmp (local->loc.path, "/") != 0) {
+                contri = add_new_contribution_node (this, ctx, &local->loc);
+                if (contri == NULL)
+                        goto err;
 
-        QUOTA_ALLOC_OR_GOTO (value, int64_t, ret, err);
-        GET_CONTRI_KEY (key, local->loc.parent->gfid, ret);
+                QUOTA_ALLOC_OR_GOTO (value, int64_t, ret, err);
+                GET_CONTRI_KEY (key, local->loc.parent->gfid, ret);
 
-        ret = dict_set_bin (dict, key, value, 8);
-        if (ret < 0)
-                goto free_value;
+                ret = dict_set_bin (dict, key, value, 8);
+                if (ret < 0)
+                        goto free_value;
+        }
 
         STACK_WIND (frame, create_dirty_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->loc,
