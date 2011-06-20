@@ -873,12 +873,12 @@ pump_cmd_start_setxattr_cbk (call_frame_t *frame,
                 "Successfully initiated destination "
                 "brick connect");
 
+        pump_mark_start_pending (this);
+
         /* send the PARENT_UP as pump is ready now */
         prev = cookie;
         if (prev && prev->this)
                 prev->this->notify (prev->this, GF_EVENT_PARENT_UP, this);
-
-        pump_mark_start_pending (this);
 
 out:
         local->op_ret = ret;
