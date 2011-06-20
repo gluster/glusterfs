@@ -1596,12 +1596,12 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
                 LOCK (&priv->lock);
                 {
                         if (priv->background_self_heals_started
-                            > priv->background_self_heal_count) {
+                            < priv->background_self_heal_count) {
+                                priv->background_self_heals_started++;
 
-                                local->self_heal.background = _gf_false;
 
                         } else {
-                                priv->background_self_heals_started++;
+                                local->self_heal.background = _gf_false;
                         }
                 }
                 UNLOCK (&priv->lock);
