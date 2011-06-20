@@ -369,4 +369,7 @@ void gf_array_insertionsort (void *a, int l, int r, size_t elem_size,
 int gf_is_str_int (const char *value);
 
 char *gf_uint64_2human_readable (uint64_t);
+int validate_brick_name (char *brick);
+char *get_host_name (char *word, char **host);
+char *get_path_name (char *word, char **path);
 #endif /* _COMMON_UTILS_H */

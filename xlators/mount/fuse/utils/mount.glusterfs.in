@@ -210,7 +210,7 @@ main ()
     volfile_loc="$1";
 
     [ -r "$volfile_loc" ] || {
-	server_ip=$(echo "$volfile_loc" | sed -n 's/\([^\:]*\).*/\1/p');
+        server_ip=$(echo "$volfile_loc" | sed -n 's/\([a-zA-Z0-9:.\-]*\):.*/\1/p');
         test_str=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
         [ -n "$test_str" ] && {
             volume_id="$test_str";

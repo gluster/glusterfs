@@ -1004,7 +1004,7 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname, int po
                         port);
                 goto out;
         }
-        ret = dict_set_str (dict, "transport.address-family", "inet");
+        ret = dict_set_str (dict, "transport.address-family", "inet/inet6");
         if (ret) {
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set addr-family with inet");

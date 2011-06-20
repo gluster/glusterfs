@@ -128,6 +128,40 @@ glusterd_is_loopback_localhost (const struct sockaddr *sa, char *hostname)
         return is_local;
 }
 
+char *
+get_ip_from_addrinfo (struct addrinfo *addr, char **ip)
+{
+        char buf[64];
+        void *in_addr = NULL;
+        struct sockaddr_in *s4 = NULL;
+        struct sockaddr_in6 *s6 = NULL;
+
+        switch (addr->ai_family)
+        {
+                case AF_INET:
+                        s4 = (struct sockaddr_in *)addr->ai_addr;
+                        in_addr = &s4->sin_addr;
+                        break;
+
+                case AF_INET6:
+                        s6 = (struct sockaddr_in6 *)addr->ai_addr;
+                        in_addr = &s6->sin6_addr;
+                        break;
+
+                default:
+                        gf_log ("glusterd", GF_LOG_ERROR, "Invalid family");
+                        return NULL;
+        }
+
+        if (!inet_ntop(addr->ai_family, in_addr, buf, sizeof(buf))) {
+                gf_log ("glusterd", GF_LOG_ERROR, "String conversion failed");
+                return NULL;
+        }
+
+        *ip = strdup (buf);
+        return *ip;
+}
+
 int32_t
 glusterd_is_local_addr (char *hostname)
 {
@@ -135,13 +169,8 @@ glusterd_is_local_addr (char *hostname)
         struct          addrinfo *result = NULL;
         struct          addrinfo *res = NULL;
         int32_t         found = 0;
-        struct          ifconf buf = {0,};
         int             sd = -1;
-        struct ifreq    *ifr = NULL;
-        struct ifreq    *ifr_end = NULL;
-        int32_t         size = 0;
-        char            buff[1024] = {0,};
-        gf_boolean_t    need_free = _gf_false;
+        char            *ip = NULL;
 
         ret = getaddrinfo (hostname, NULL, NULL, &result);
 
@@ -157,57 +186,25 @@ glusterd_is_local_addr (char *hostname)
                         goto out;
         }
 
-
-        sd = socket (AF_INET, SOCK_DGRAM, 0);
-        if (sd == -1)
-                goto out;
-
-        buf.ifc_len = sizeof (buff);
-        buf.ifc_buf = buff;
-        size = buf.ifc_len;
-
-        ret = ioctl (sd, SIOCGIFCONF, &buf);
-        if (ret) {
-                goto out;
-        }
-
-        while (size <= buf.ifc_len) {
-                size += sizeof (struct ifreq);
-                buf.ifc_len = size;
-                if (need_free)
-                        GF_FREE (buf.ifc_req);
-                buf.ifc_req = GF_CALLOC (1, size, gf_gld_mt_ifreq);
-                need_free = 1;
-                ret = ioctl (sd, SIOCGIFCONF, &buf);
-                if (ret) {
-                        goto out;
-                }
-        }
-
-        ifr_end = (struct ifreq *)&buf.ifc_buf[buf.ifc_len];
-
         for (res = result; res != NULL; res = res->ai_next) {
-                ifr = buf.ifc_req;
-                while (ifr < ifr_end) {
-                        if ((ifr->ifr_addr.sa_family == res->ai_addr->sa_family)
-                            && (memcmp (&ifr->ifr_addr, res->ai_addr,
-                                        res->ai_addrlen) == 0)) {
-                                found = 1;
-                                goto out;
-                        }
-                        ifr++;
+                gf_log ("glusterd", GF_LOG_DEBUG, "%s ", get_ip_from_addrinfo (res, &ip));
+                sd = socket (res->ai_family, SOCK_DGRAM, 0);
+                if (sd == -1)
+                        goto out;
+                /*If bind succeeds then its a local address*/
+                ret = bind (sd, res->ai_addr, res->ai_addrlen);
+                if (ret == 0) {
+                        found = _gf_true;
+                        gf_log ("glusterd", GF_LOG_INFO, "%s is local", get_ip_from_addrinfo (res, &ip));
+                        close (sd);
+                        break;
                 }
+                close (sd);
         }
 
 out:
-        if (sd >= 0)
-                close (sd);
-
         if (result)
                 freeaddrinfo (result);
-
-        if (need_free)
-                GF_FREE (buf.ifc_req);
 
         if (found)
                 gf_log ("glusterd", GF_LOG_DEBUG, "%s is local", hostname);
@@ -653,21 +650,18 @@ glusterd_brickinfo_from_brick (char *brick,
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    *hostname = NULL;
         char                    *path = NULL;
-        char                    *tmp = NULL;
-        char                    *tmpstr = NULL;
+        char                    *tmp_host = NULL;
+        char                    *tmp_path = NULL;
 
         GF_ASSERT (brick);
         GF_ASSERT (brickinfo);
 
-        tmp = gf_strdup (brick);
-        if (!tmp) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "Out of memory");
-                goto out;
-        }
-
-        hostname = strtok_r (tmp, ":", &tmpstr);
-        path = strtok_r (NULL, ":", &tmpstr);
+        tmp_host = gf_strdup (brick);
+        if (tmp_host)
+                get_host_name (tmp_host, &hostname);
+        tmp_path = gf_strdup (brick);
+        if (tmp_path)
+                get_path_name (tmp_path, &path);
 
         GF_ASSERT (hostname);
         GF_ASSERT (path);
@@ -684,8 +678,10 @@ glusterd_brickinfo_from_brick (char *brick,
 
         ret = 0;
 out:
-        if (tmp)
-                GF_FREE (tmp);
+        if (tmp_host)
+                GF_FREE (tmp_host);
+        if (tmp_host)
+                GF_FREE (tmp_path);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -771,26 +767,20 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
         int32_t                 ret = -1;
         char                    *hostname = NULL;
         char                    *path = NULL;
-        char                    *dup_brick = NULL;
-        char                    *free_ptr = NULL;
+        char                    *tmp_host = NULL;
+        char                    *tmp_path = NULL;
 
         GF_ASSERT (brick);
         GF_ASSERT (volinfo);
 
         gf_log ("", GF_LOG_INFO, "brick: %s", brick);
 
-        dup_brick = gf_strdup (brick);
-        if (!dup_brick) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        } else {
-                free_ptr = dup_brick;
-        }
-
-        hostname = strtok (dup_brick, ":");
-        path = strtok (NULL, ":");
+        tmp_host = gf_strdup (brick);
+        if (tmp_host)
+                get_host_name (tmp_host, &hostname);
+        tmp_path = gf_strdup (brick);
+        if (tmp_path)
+                get_path_name (tmp_path, &path);
 
         if (!hostname || !path) {
                 gf_log ("", GF_LOG_ERROR,
@@ -803,9 +793,10 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
         ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
                                              brickinfo);
 out:
-        if (free_ptr)
-                GF_FREE (free_ptr);
-
+        if (tmp_host)
+                GF_FREE (tmp_host);
+        if (tmp_path)
+                GF_FREE (tmp_path);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -2259,21 +2250,29 @@ glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
         GF_ASSERT (req->trans);
 
         char *name = NULL;
-        char *delimiter = NULL;
+        char *hostname = NULL;
+        char *tmp_host = NULL;
+        int  ret = 0;
 
         name = req->trans->peerinfo.identifier;
-        strncpy (remote_host, name, len);
-        delimiter = strchr (remote_host, ':');
+        tmp_host = gf_strdup (name);
+        if (tmp_host)
+                get_host_name (tmp_host, &hostname);
 
-        GF_ASSERT (delimiter);
-        if (!delimiter) {
+        GF_ASSERT (hostname);
+        if (!hostname) {
                 memset (remote_host, 0, len);
-                return -1;
+                ret = -1;
+                goto out;
         }
 
-        *delimiter = '\0';
+        strncpy (remote_host, hostname, strlen (hostname));
 
-        return 0;
+
+out:
+        if (tmp_host)
+                GF_FREE (tmp_host);
+        return ret;
 }
 
 int

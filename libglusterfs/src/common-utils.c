@@ -1785,3 +1785,42 @@ out:
         return flag;
 }
 
+int
+validate_brick_name (char *brick)
+{
+        char *delimiter = NULL;
+        int  ret = 0;
+        delimiter = strrchr (brick, ':');
+        if (!delimiter || delimiter == brick
+            || *(delimiter+1) != '/') {
+                ret = -1;
+        }
+        return ret;
+}
+
+char *
+get_host_name (char *word, char **host)
+{
+        char *delimiter = NULL;
+        delimiter = strrchr (word, ':');
+        if (delimiter)
+                *delimiter = '\0';
+        else
+                return NULL;
+        *host = word;
+        return *host;
+}
+
+
+char *
+get_path_name (char *word, char **path)
+{
+        char *delimiter = NULL;
+        delimiter = strchr (word, '/');
+        if (!delimiter)
+                return NULL;
+        *path = delimiter;
+        return *path;
+}
+
+
