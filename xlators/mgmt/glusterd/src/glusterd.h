@@ -187,6 +187,8 @@ struct glusterd_volinfo_ {
         struct list_head        bricks;
         glusterd_volume_status  status;
         int                     sub_count;
+        int                     stripe_count;
+        int                     replica_count;
         int                     port;
         glusterd_store_handle_t *shandle;
 

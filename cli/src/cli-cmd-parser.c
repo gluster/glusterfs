@@ -158,6 +158,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 1;
+        int     sub_count = 1;
         int     brick_index = 0;
         int     i = 0;
         char    *trans_type = NULL;
@@ -204,19 +205,23 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                                 goto out;
         }
 
-
-        ret = dict_set_str (dict, "volname", volname);
-        if (ret)
-                goto out;
-
         if (wordcount < 4) {
                 ret = -1;
                 goto out;
         }
+
+        if (wordcount < 6) {
+                /* seems no options are given, go directly to the parse_brick */
+                brick_index = 3;
+                type = GF_CLUSTER_TYPE_NONE;
+                trans_type = gf_strdup ("tcp");
+                goto parse_bricks;
+        }
+
         w = str_getunamb (words[3], opwords_cl);
         if (!w) {
                 type = GF_CLUSTER_TYPE_NONE;
-                brick_index = 3;
+                index = 3;
         } else if ((strcmp (w, "replica")) == 0) {
                 type = GF_CLUSTER_TYPE_REPLICATE;
                 if (wordcount < 5) {
@@ -232,7 +237,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 ret = dict_set_int32 (dict, "replica-count", count);
                 if (ret)
                         goto out;
-                brick_index = 5;
+                index = 5;
         } else if ((strcmp (w, "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
                 if (wordcount < 5) {
@@ -248,23 +253,77 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 ret = dict_set_int32 (dict, "stripe-count", count);
                 if (ret)
                         goto out;
-                brick_index = 5;
-        } else
-                GF_ASSERT (!"opword mismatch");
-
-        ret = dict_set_int32 (dict, "type", type);
-        if (ret)
-                goto out;
-
-        if (type)
                 index = 5;
-        else
-                index = 3;
-
-        if (wordcount < (index + 1)) {
+        } else {
+                GF_ASSERT (!"opword mismatch");
                 ret = -1;
                 goto out;
         }
+
+        /* Ie, how many bricks together forms a subvolume of distribute */
+        sub_count = count;
+        /* reset the count value now */
+        count = 1;
+
+        /* It can be a 'stripe x replicate' (ie, RAID01) type of volume */
+        w = str_getunamb (words[5], opwords_cl);
+        if (w && ((strcmp (w, "replica")) == 0)) {
+                if (type == GF_CLUSTER_TYPE_REPLICATE) {
+                        cli_out ("'replica' option is already given");
+                        ret = -1;
+                        goto out;
+                }
+                /* The previous one should have been 'stripe' option */
+                type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
+
+                if (wordcount < 7) {
+                        ret = -1;
+                        goto out;
+                }
+                count = strtol (words[6], NULL, 0);
+                if (!count || (count < 2)) {
+                        cli_out ("replica count should be greater than 1");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_int32 (dict, "replica-count", count);
+                if (ret)
+                        goto out;
+                index = 7;
+        } else if (w && ((strcmp (w, "stripe")) == 0)) {
+                if (type == GF_CLUSTER_TYPE_STRIPE) {
+                        cli_out ("'stripe' option is already given");
+                        ret = -1;
+                        goto out;
+                }
+
+                /* The previous one should have been 'replica' option */
+                type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
+
+                if (wordcount < 7) {
+                        ret = -1;
+                        goto out;
+                }
+                count = strtol (words[6], NULL, 0);
+                if (!count || (count < 2)) {
+                        cli_out ("stripe count should be greater than 1");
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_int32 (dict, "stripe-count", count);
+                if (ret)
+                        goto out;
+                index = 7;
+        } else if (w) {
+                GF_ASSERT (!"opword mismatch");
+                ret = -1;
+                goto out;
+        }
+
+        sub_count *= count;
+
+        brick_index = index;
 
         if (str_getunamb (words[index], opwords_tr)) {
                 brick_index = index+2;
@@ -290,10 +349,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 trans_type = gf_strdup ("tcp");
         }
 
-        ret = dict_set_dynstr (dict, "transport", trans_type);
-        if (ret)
-                goto out;
-
+parse_bricks:
         ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
                                     &brick_count);
         if (ret)
@@ -307,16 +363,34 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 goto out;
         }
 
-        if (brick_count % count) {
+        if (brick_count % sub_count) {
                 if (type == GF_CLUSTER_TYPE_STRIPE)
                         cli_out ("number of bricks is not a multiple of "
                                  "stripe count");
                 else if (type == GF_CLUSTER_TYPE_REPLICATE)
                         cli_out ("number of bricks is not a multiple of "
                                  "replica count");
+                else
+                        cli_out ("number of bricks given doesn't match "
+                                 "required count");
+
                 ret = -1;
                 goto out;
         }
+
+        /* Everything if parsed fine. start setting info in dict */
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "type", type);
+        if (ret)
+                goto out;
+
+        ret = dict_set_dynstr (dict, "transport", trans_type);
+        if (ret)
+                goto out;
+
 
         ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)

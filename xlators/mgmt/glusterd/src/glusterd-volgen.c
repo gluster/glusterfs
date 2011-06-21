@@ -1506,6 +1506,7 @@ static int
 client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
+        int                      sub_count          = 0;
         int                      dist_count         = 0;
         char                     transt[16]         = {0,};
         char                    *volname            = NULL;
@@ -1576,13 +1577,19 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 return -1;
         }
 
-        if (volinfo->sub_count > 1) {
+        sub_count = volinfo->sub_count;
+        if (sub_count > 1) {
                 switch (volinfo->type) {
                 case GF_CLUSTER_TYPE_REPLICATE:
                         cluster_args = replicate_args;
                         break;
                 case GF_CLUSTER_TYPE_STRIPE:
                         cluster_args = stripe_args;
+                        break;
+                case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                        /* Replicate after the clients, then stripe */
+                        sub_count = volinfo->replica_count;
+                        cluster_args = replicate_args;
                         break;
                 default:
                         gf_log ("", GF_LOG_ERROR, "volume inconsistency: "
@@ -1595,7 +1602,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 txl = first_of (graph);
                 for (trav = txl; trav->next; trav = trav->next);
                 for (;; trav = trav->prev) {
-                        if (i % volinfo->sub_count == 0) {
+                        if (i % sub_count == 0) {
                                 xl = volgen_graph_add_nolink (graph,
                                                               cluster_args[0],
                                                               cluster_args[1],
@@ -1613,7 +1620,37 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                 break;
                         i++;
                 }
+
+                if (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type) {
+                        sub_count = volinfo->stripe_count;
+                        cluster_args = stripe_args;
+
+                        i = 0;
+                        txl = first_of (graph);
+                        for (trav = txl; --j; trav = trav->next);
+                        for (;; trav = trav->prev) {
+                                if (i % sub_count == 0) {
+                                        xl = volgen_graph_add_nolink (graph,
+                                                                      cluster_args[0],
+                                                                      cluster_args[1],
+                                                                      volname, j);
+                                        if (!xl)
+                                                return -1;
+                                        j++;
+                                }
+
+                                ret = volgen_xlator_link (xl, trav);
+                                if (ret)
+                                        return -1;
+
+                                if (trav == txl)
+                                        break;
+                                i++;
+                        }
+
+                }
         }
+
 
         if (volinfo->sub_count)
                 dist_count = volinfo->brick_count / volinfo->sub_count;

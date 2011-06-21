@@ -37,6 +37,7 @@ enum gf1_cluster_type {
 	GF_CLUSTER_TYPE_NONE = 0,
 	GF_CLUSTER_TYPE_STRIPE = 0 + 1,
 	GF_CLUSTER_TYPE_REPLICATE = 0 + 2,
+	GF_CLUSTER_TYPE_STRIPE_REPLICATE = 0 + 3,
 };
 typedef enum gf1_cluster_type gf1_cluster_type;
 
