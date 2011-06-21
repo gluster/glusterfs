@@ -2707,6 +2707,17 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                       &sub_count);
                 if (ret)
                         goto out;
+        } else if (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type) {
+                ret = dict_get_int32 (dict, "stripe-count",
+                                      &volinfo->stripe_count);
+                if (ret)
+                        goto out;
+                ret = dict_get_int32 (dict, "replica-count",
+                                      &volinfo->replica_count);
+                if (ret)
+                        goto out;
+
+                sub_count = volinfo->stripe_count * volinfo->replica_count;
         }
 
         ret = dict_get_str (dict, "transport", &trans_type);
