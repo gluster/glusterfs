@@ -5084,6 +5084,12 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
         GF_VALIDATE_OR_GOTO ("glusterd", crawl, out);
         GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
 
+        if (glusterd_is_volume_started (volinfo) == 0) {
+                *op_errstr = gf_strdup ("Volume is stopped, start volume "
+                                        "to enable quota.");
+                goto out;
+        }
+
         ret = glusterd_check_if_quota_trans_enabled (volinfo);
         if (ret == 0) {
                 *op_errstr = gf_strdup ("Quota is already enabled");
