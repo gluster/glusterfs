@@ -254,6 +254,10 @@ stripe_aggregate (dict_t *this, char *key, data_t *value, void *data)
                 }
 
                 *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
+        } else {
+                ret = dict_set (dst, key, value);
+                if (ret)
+                        gf_log ("stripe", GF_LOG_WARNING, "xattr dict set failed");
         }
 
         return;
