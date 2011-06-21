@@ -1161,8 +1161,8 @@ out:
                                                         op_errno = ENOMEM;
                                                         need_unwind = 1;
                                                         qr_fd_ctx->open_in_transit = 0;
+                                                        goto fdctx_unlock;
                                                 }
-                                                goto fdctx_unlock;
                                         }
 
                                         stub = fop_readv_stub (frame,
