@@ -241,8 +241,19 @@ fuse_lookup_resume (fuse_state_t *state)
                 free_fuse_state (state);
                 return;
         }
-        if (!state->loc.inode)
+
+        if (state->loc.inode) {
+                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                        "%"PRIu64": LOOKUP %s(%"PRId64")", state->finh->unique,
+                        state->loc.path, state->loc.inode->ino);
+                state->is_revalidate = 1;
+        } else {
+                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                        "%"PRIu64": LOOKUP %s", state->finh->unique,
+                        state->loc.path);
+                uuid_generate (state->gfid);
                 state->loc.inode = inode_new (state->loc.parent->table);
+        }
 
         FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
                   lookup, &state->loc, state->dict);
@@ -268,16 +279,7 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         if (state->loc.inode) {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": LOOKUP %s(%"PRId64")", finh->unique,
-                        state->loc.path, state->loc.inode->ino);
-                state->is_revalidate = 1;
                 uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
-        } else {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": LOOKUP %s", finh->unique,
-                        state->loc.path);
-                uuid_generate (state->gfid);
         }
 
         uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
