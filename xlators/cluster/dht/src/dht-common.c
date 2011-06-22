@@ -1659,15 +1659,6 @@ err:
 }
 
 
-int
-dht_fix_layout_cbk (call_frame_t *frame, void *cookie,
-                    xlator_t *this, int32_t op_ret, int32_t op_errno)
-{
-        DHT_STACK_UNWIND (getxattr, frame, -1, ENODATA, NULL);
-
-        return 0;
-}
-
 static void
 fill_layout_info (dht_layout_t *layout, char *buf)
 {
@@ -1845,7 +1836,6 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         xlator_t     **sub_volumes  = NULL;
         int           op_errno      = -1;
         int           ret           = 0;
-        int           flag          = 0;
         int           i             = 0;
         int           cnt           = 0;
 
@@ -1872,30 +1862,23 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+        ret = loc_dup (loc, &local->loc);
+        if (ret == -1) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->layout = layout;
+
         if (key && (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)) {
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
                 cached_subvol = dht_subvol_get_cached (this, loc->inode);
 
-                local = dht_local_init (frame);
-                if (!local) {
-                        op_errno = ENOMEM;
-
-                        goto err;
-                }
-
-                ret = loc_dup (loc, &local->loc);
-                if (ret == -1) {
-                        op_errno = ENOMEM;
-
-                        goto err;
-                }
                 local->key = gf_strdup (key);
                 if (!local->key) {
                         op_errno = ENOMEM;
 
                         goto err;
                 }
-                local->layout = layout;
 
                 local->call_cnt = 1;
                 if (hashed_subvol != cached_subvol) {
@@ -1919,40 +1902,6 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
                                     hashed_subvol->fops->getxattr, loc,
                                     GF_XATTR_PATHINFO_KEY);
-                        return 0;
-                }
-                op_errno = ENODATA;
-                goto err;
-        }
-        if (key && (strcmp (key, GF_XATTR_FIX_LAYOUT_KEY) == 0)) {
-                for (i = 0; i < layout->cnt; i++) {
-                        if (layout->list[i].start == layout->list[i].stop) {
-                                flag = 1;
-                                break;
-                        }
-                }
-                if ((layout->cnt < conf->subvolume_cnt) || flag) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "expanding layout of %s from %d to %d",
-                                loc->path, layout->cnt, conf->subvolume_cnt);
-                        local = dht_local_init (frame);
-                        if (!local) {
-                                op_errno = ENOMEM;
-
-                                goto err;
-                        }
-
-                        ret = loc_dup (loc, &local->loc);
-                        if (ret == -1) {
-                                op_errno = ENOMEM;
-
-                                goto err;
-                        }
-                        local->layout = layout;
-                        //layout = dht_layout_new (this, conf->subvolume_cnt);
-
-                        dht_selfheal_new_directory (frame, dht_fix_layout_cbk,
-                                                    layout);
                         return 0;
                 }
                 op_errno = ENODATA;
@@ -2007,22 +1956,13 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        ret = loc_dup (loc, &local->loc);
-        if (ret == -1) {
-                op_errno = ENOMEM;
-
-                goto err;
-        }
-
         if (key) {
                 local->key = gf_strdup (key);
                 if (!local->key) {
                         op_errno = ENOMEM;
-
                         goto err;
                 }
         }
-        local->layout = layout;
 
         if (loc->inode-> ia_type == IA_IFDIR) {
                 cnt = local->call_cnt = layout->cnt;
@@ -2088,6 +2028,15 @@ err:
 }
 
 
+static int
+dht_fix_layout_cbk (call_frame_t *frame, void *cookie,
+                    xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        DHT_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
+
+        return 0;
+}
+
 int
 dht_setxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr, int flags)
@@ -2098,6 +2047,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout   = NULL;
         int           i        = 0;
         int           op_errno = EINVAL;
+        int           flag     = 0;
+        int           ret      = -1;
+        data_t       *tmp      = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -2125,6 +2077,33 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "no layout for path=%s", loc->path);
                 op_errno = EINVAL;
+                goto err;
+        }
+
+        tmp = dict_get (xattr, GF_XATTR_FIX_LAYOUT_KEY);
+        if (tmp) {
+                for (i = 0; i < layout->cnt; i++) {
+                        if (layout->list[i].start == layout->list[i].stop) {
+                                flag = 1;
+                                break;
+                        }
+                }
+                if ((layout->cnt < conf->subvolume_cnt) || flag) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "expanding layout of %s from %d to %d",
+                                loc->path, layout->cnt, conf->subvolume_cnt);
+
+                        ret = loc_dup (loc, &local->loc);
+                        if (ret == -1) {
+                                op_errno = ENOMEM;
+                                goto err;
+                        }
+
+                        dht_selfheal_new_directory (frame, dht_fix_layout_cbk,
+                                                    layout);
+                        return 0;
+                }
+                op_errno = ENOTSUP;
                 goto err;
         }
 
