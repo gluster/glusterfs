@@ -304,7 +304,6 @@ int
 gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
 {
         int            ret             = -1;
-        char           value[128]      = {0,};
         char           full_path[1024] = {0,};
         struct stat    stbuf           = {0,};
         DIR           *fd              = NULL;
@@ -332,8 +331,8 @@ gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
 
                 if (S_ISDIR (stbuf.st_mode)) {
                         /* Fix the layout of the directory */
-                        sys_lgetxattr (full_path, "trusted.distribute.fix.layout",
-                                       &value, 128);
+                        sys_lsetxattr (full_path, "trusted.distribute.fix.layout",
+                                       "yes", 3, 0);
 
                         volinfo->defrag->total_files += 1;
 
@@ -366,7 +365,6 @@ glusterd_defrag_start (void *data)
         glusterd_defrag_info_t *defrag  = NULL;
         int                     ret     = -1;
         struct stat             stbuf   = {0,};
-        char                    value[128] = {0,};
 
         defrag = volinfo->defrag;
         if (!defrag)
@@ -388,8 +386,8 @@ glusterd_defrag_start (void *data)
         }
 
         /* Fix the root ('/') first */
-        sys_lgetxattr (defrag->mount, "trusted.distribute.fix.layout",
-                       &value, 128);
+        sys_lsetxattr (defrag->mount, "trusted.distribute.fix.layout",
+                       "yes", 3, 0);
 
         if ((defrag->cmd == GF_DEFRAG_CMD_START) ||
             (defrag->cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
