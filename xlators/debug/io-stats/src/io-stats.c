@@ -45,6 +45,7 @@
 #include "io-stats-mem-types.h"
 #include <stdarg.h>
 #include "defaults.h"
+#include "logging.h"
 
 #define MAX_LIST_MEMBERS 100
 
@@ -2306,6 +2307,8 @@ iostats_configure_options (xlator_t *this, dict_t *options,
                            struct ios_conf *conf)
 {
         int                 ret = 0;
+        int                 sys_log_level = -1;
+        char               *sys_log_str = NULL;
         char               *log_str = NULL;
 
         GF_ASSERT (this);
@@ -2359,6 +2362,23 @@ iostats_configure_options (xlator_t *this, dict_t *options,
                                "changing log-level to %s", log_str);
                 }
         }
+
+        ret = dict_get_str (options, "sys-log-level", &sys_log_str);
+        if (!ret) {
+                sys_log_level = glusterd_check_log_level (sys_log_str);
+        }
+
+        if (ret < 0 || sys_log_level == -1) {
+                sys_log_level = glusterd_check_log_level ("CRITICAL");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "setting sys-log-level to CRITICAL");
+        } else {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "setting sys-log-level to %s", sys_log_str);
+        }
+
+        set_sys_log_level (sys_log_level);
+
         return 0;
 }
 
@@ -2645,6 +2665,10 @@ struct volume_options options[] = {
         { .key = {"log-level"},
           .type = GF_OPTION_TYPE_STR,
           .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
+        },
+        { .key = {"sys-log-level"},
+          .type = GF_OPTION_TYPE_STR,
+          .value = { "WARNING", "ERROR", "CRITICAL"}
         },
                 { .key  = {NULL} },
 };
