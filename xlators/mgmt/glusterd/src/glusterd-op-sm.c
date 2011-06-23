@@ -290,6 +290,8 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *priv = NULL;
         char                                    msg[2048] = {0};
+        uuid_t                                  volume_uuid;
+        char                                    *volume_uuid_str;
 
         this = THIS;
         if (!this) {
@@ -327,6 +329,16 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                goto out;
+        }
+        ret = dict_get_str (dict, "volume-id", &volume_uuid_str);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume id");
+                goto out;
+        }
+        ret = uuid_parse (volume_uuid_str, volume_uuid);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to parse volume id");
                 goto out;
         }
 
@@ -378,6 +390,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 if (!uuid_compare (brick_info->uuid, priv->uuid)) {
                         ret = glusterd_brick_create_path (brick_info->hostname,
                                                           brick_info->path,
+                                                          volume_uuid,
                                                           0777, op_errstr);
                         if (ret)
                                 goto out;
@@ -473,6 +486,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                 if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
                         ret = glusterd_brick_create_path (brickinfo->hostname,
                                                           brickinfo->path,
+                                                          volinfo->volume_id,
                                                           0777, op_errstr);
                         if (ret)
                                 goto out;
@@ -739,6 +753,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
                         ret = glusterd_brick_create_path (brickinfo->hostname,
                                                           brickinfo->path,
+                                                          volinfo->volume_id,
                                                           0777, op_errstr);
                         if (ret)
                                 goto out;
@@ -1059,7 +1074,9 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 goto out;
        }
         if (!glusterd_is_local_addr (host)) {
-                ret = glusterd_brick_create_path (host, path, 0777, op_errstr);
+                ret = glusterd_brick_create_path (host, path,
+                                                  volinfo->volume_id, 0777,
+                                                  op_errstr);
                 if (ret)
                         goto out;
         } else {
@@ -1231,7 +1248,8 @@ glusterd_op_stage_log_filename (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_brick_create_path (hostname, path, 0777, op_errstr);
+        ret = glusterd_brick_create_path (hostname, path, volinfo->volume_id,
+                                          0777, op_errstr);
         if (ret)
                 goto out;
 out:

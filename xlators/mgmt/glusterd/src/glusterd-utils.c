@@ -2922,12 +2922,14 @@ glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
 }
 
 int
-glusterd_brick_create_path (char *host, char *path, mode_t mode,
+glusterd_brick_create_path (char *host, char *path, uuid_t uuid, mode_t mode,
                             char **op_errstr)
 {
         int     ret = -1;
         char    msg[2048] = {0};
         struct  stat st_buf = {0};
+        uuid_t  old_uuid;
+        char    old_uuid_buf[64] = {0,};
 
         ret = stat (path, &st_buf);
         if ((!ret) && (!S_ISDIR (st_buf.st_mode))) {
@@ -2966,6 +2968,37 @@ check_xattr:
         } else {
                 /* Remove xattr *cannot* fail after setting it succeeded */
                 sys_lremovexattr (path, "trusted.glusterfs.test");
+        }
+
+        if (!uuid)
+                goto out;
+
+        /* This 'key' is set when the volume is started for the first time */
+        ret = sys_lgetxattr (path, "trusted.glusterfs.volume-id",
+                             old_uuid, 16);
+        if (ret == 16) {
+                if (uuid_compare (old_uuid, uuid)) {
+                        uuid_utoa_r (old_uuid, old_uuid_buf);
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "%s: mismatching volume-id (%s) recieved. "
+                                "already is a part of volume %s ",
+                                path, uuid_utoa (uuid), old_uuid_buf);
+                        snprintf (msg, sizeof (msg), "'%s:%s' has been part of "
+                                  "a deleted volume with id %s. Please "
+                                  "re-create the brick directory.",
+                                  host, path, old_uuid_buf);
+                        ret = -1;
+                        goto out;
+                }
+                ret = 0;
+        } else if (ret == -1) {
+                /* 'volume-id' not set, seems to be a fresh directory */
+                ret = 0;
+        } else {
+                /* Wrong 'volume-id' is set, it should be error */
+                ret = -1;
+                snprintf (msg, sizeof (msg), "'%s:%s' has wrong entry"
+                          "for 'volume-id'.", host, path);
         }
 
 out:

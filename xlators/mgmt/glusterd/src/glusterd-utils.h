@@ -232,7 +232,7 @@ int
 glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *src_brick, glusterd_brickinfo_t *dst_brick);
 int
-glusterd_brick_create_path (char *host, char *path, mode_t mode,
+glusterd_brick_create_path (char *host, char *path, uuid_t uuid, mode_t mode,
                             char **op_errstr);
 int
 glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,

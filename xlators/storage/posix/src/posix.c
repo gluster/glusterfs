@@ -4355,6 +4355,8 @@ init (xlator_t *this)
         int                    ret           = 0;
         int                    op_ret        = -1;
         int32_t                janitor_sleep = 0;
+        uuid_t                 old_uuid;
+        uuid_t                 dict_uuid;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -4389,7 +4391,6 @@ init (xlator_t *this)
                 goto out;
         }
 
-
         /* Check for Extended attribute support, if not present, log it */
         op_ret = sys_lsetxattr (dir_data->data,
                                 "trusted.glusterfs.test", "working", 8, 0);
@@ -4422,6 +4423,46 @@ init (xlator_t *this)
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Extended attribute not supported, exiting.");
                         ret = -1;
+                        goto out;
+                }
+        }
+
+        tmp_data = dict_get (this->options, "volume-id");
+        if (tmp_data) {
+                op_ret = uuid_parse (tmp_data->data, dict_uuid);
+                if (op_ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "wrong volume-id (%s) set in volume file",
+                                tmp_data->data);
+                        ret = -1;
+                        goto out;
+                }
+                op_ret = sys_lgetxattr (dir_data->data,
+                                        "trusted.glusterfs.volume-id", old_uuid, 16);
+                if (op_ret == 16) {
+                        if (uuid_compare (old_uuid, dict_uuid)) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "mismatching volume-id (%s) recieved. "
+                                        "already is a part of volume %s ",
+                                        tmp_data->data, uuid_utoa (old_uuid));
+                                ret = -1;
+                                goto out;
+                        }
+                } else if (op_ret == -1) {
+                        /* Using the export for first time */
+                        op_ret = sys_lsetxattr (dir_data->data,
+                                                "trusted.glusterfs.volume-id",
+                                                dict_uuid, 16, 0);
+                        if (op_ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to set volume id on export");
+                                ret = -1;
+                                goto out;
+                        }
+                } else {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "failed to fetch volume id from export");
                         goto out;
                 }
         }
