@@ -487,8 +487,8 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         loc_copy (&local->loc, loc);
 
         local->transaction.main_frame = frame;
-        local->transaction.start   = 0;
-        local->transaction.len     = offset;
+        local->transaction.start   = offset;
+        local->transaction.len     = 0;
 
         afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
 
@@ -675,8 +675,8 @@ afr_do_ftruncate (call_frame_t *frame, xlator_t *this)
 
         local->transaction.main_frame = frame;
 
-        local->transaction.start   = 0;
-        local->transaction.len     = local->cont.ftruncate.offset;
+        local->transaction.start   = local->cont.ftruncate.offset;
+        local->transaction.len     = 0;
 
         afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
 
