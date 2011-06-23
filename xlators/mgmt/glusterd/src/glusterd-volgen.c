@@ -1398,6 +1398,11 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
+        ret = xlator_set_option (xl, "volume-id",
+                                 uuid_utoa (volinfo->volume_id));
+        if (ret)
+                return -1;
+
         xl = volgen_graph_add (graph, "features/access-control", volname);
         if (!xl)
                 return -1;
