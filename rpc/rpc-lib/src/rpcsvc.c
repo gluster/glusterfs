@@ -194,7 +194,7 @@ err:
 
 
 /* this procedure can only pass 4 arguments to registered notifyfn. To send more
- * arguements call wrapper->notify directly.
+ * arguments call wrapper->notify directly.
  */
 inline void
 rpcsvc_program_notify (rpcsvc_listener_t *listener, rpcsvc_event_t event,
