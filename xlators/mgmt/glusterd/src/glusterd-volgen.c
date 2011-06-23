@@ -122,8 +122,10 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", NO_DOC, 0      },
         {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0     },
         {VKEY_DIAG_CNT_FOP_HITS,                 "debug/io-stats",     "count-fop-hits", "off", NO_DOC, 0     },
-        {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level", NULL, DOC, 0},
-        {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level", NULL, DOC, 0},
+        {"diagnostics.brick-log-level",          "debug/io-stats",     "!log-level", NULL, DOC, 0},
+        {"diagnostics.client-log-level",         "debug/io-stats",     "!log-level", NULL, DOC, 0},
+        {"diagnostics.brick-sys-log-level",      "debug/io-stats",     "!sys-log-level", NULL, DOC, 0},
+        {"diagnostics.client-sys-log-level",     "debug/io-stats",     "!sys-log-level", NULL, DOC, 0},
 
         {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size", NULL, DOC, 0},
         {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size", NULL, DOC, 0},
@@ -1287,6 +1289,26 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
+sys_loglevel_option_handler (volgen_graph_t *graph,
+                             struct volopt_map_entry *vme,
+                             void *param)
+{
+        char  *role = NULL;
+        struct volopt_map_entry vme2 = {0,};
+
+        role = (char *) param;
+
+        if (strcmp (vme->option, "!sys-log-level") != 0 ||
+            !strstr (vme->key, role))
+                return 0;
+
+        memcpy (&vme2, vme, sizeof (vme2));
+        vme2.option = "sys-log-level";
+
+        return basic_option_handler (graph, &vme2, NULL);
+}
+
+static int
 volgen_graph_set_xl_options (volgen_graph_t *graph, dict_t *dict)
 {
         int32_t   ret               = -1;
@@ -1334,6 +1356,9 @@ server_spec_option_handler (volgen_graph_t *graph,
 
         if (!ret)
                 ret = loglevel_option_handler (graph, vme, "brick");
+
+        if (!ret)
+                ret = sys_loglevel_option_handler (graph, vme, "brick");
 
         return ret;
 }
@@ -1699,6 +1724,9 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &loglevel_option_handler);
 
+        if (!ret)
+                ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                        &sys_loglevel_option_handler);
         return ret;
 }
 
