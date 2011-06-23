@@ -79,6 +79,9 @@ struct syncargs {
         dict_t             *xattr;
         gf_dirent_t        entries;
         struct statvfs     statvfs_buf;
+        struct iovec       *vector;
+        int                 count;
+        struct iobref      *iobref;
 
         /* do not touch */
         pthread_mutex_t     mutex;
@@ -170,9 +173,27 @@ int syncop_setattr (xlator_t *subvol, loc_t *loc, struct iatt *iatt, int valid,
                     /* out */
                     struct iatt *preop, struct iatt *postop);
 
+int syncop_fsetattr (xlator_t *subvol, fd_t *fd, struct iatt *iatt, int valid,
+                    /* out */
+                    struct iatt *preop, struct iatt *postop);
+
 int syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf);
 
 int syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags);
+int syncop_listxattr (xlator_t *subvol, loc_t *loc, dict_t **dict);
 int syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name);
+
+int syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
+                   fd_t *fd, dict_t *dict);
+int syncop_open (xlator_t *subvol, loc_t *loc, int32_t flags, fd_t *fd);
+int syncop_close (fd_t *fd);
+
+int syncop_writev (xlator_t *subvol, fd_t *fd, struct iovec *vector,
+                   int32_t count, off_t offset, struct iobref *iobref);
+int syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
+                  /* out */
+                  struct iovec *vector, int *count, struct iobref *iobref);
+int syncop_unlink (xlator_t *subvol, loc_t *loc);
+
 
 #endif /* _SYNCOP_H */
