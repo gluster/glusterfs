@@ -134,6 +134,8 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
 
+        frame->local = local;
+
         read_child = afr_read_child (this, loc->inode);
 
         if ((read_child >= 0) && (priv->child_up[read_child])) {
