@@ -268,10 +268,6 @@ out:
 }
 
 
-/**
- * afr_local_cleanup - cleanup everything in frame->local
- */
-
 void
 afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 {
@@ -399,7 +395,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         if (local->xattr_req)
                 dict_unref (local->xattr_req);
 
-        GF_FREE (local->child_up);
+        if (local->child_up)
+                GF_FREE (local->child_up);
 
         { /* lookup */
                 if (local->cont.lookup.xattrs) {
@@ -2755,6 +2752,118 @@ afr_notify (xlator_t *this, int32_t event,
         if (propagate)
                 ret = default_notify (this, event, data);
 
+out:
+        return ret;
+}
+
+int
+AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
+{
+        local->child_up = GF_CALLOC (sizeof (*local->child_up),
+                                     priv->child_count,
+                                     gf_afr_mt_char);
+        if (!local->child_up) {
+                return -ENOMEM;
+        }
+
+        memcpy (local->child_up, priv->child_up,
+                sizeof (*local->child_up) * priv->child_count);
+
+        local->call_count = afr_up_children_count (priv->child_count,
+                                                   local->child_up);
+        local->op_ret = -1;
+        local->op_errno = EUCLEAN;
+
+        if (local->call_count == 0) {
+                gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
+                return -ENOTCONN;
+        }
+
+        return 0;
+}
+
+int
+afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
+                        transaction_lk_type_t lk_type)
+{
+        int             ret = -ENOMEM;
+
+        lk->inode_locked_nodes = GF_CALLOC (sizeof (*lk->inode_locked_nodes),
+                                            child_count, gf_afr_mt_char);
+        if (NULL == lk->inode_locked_nodes)
+                goto out;
+
+        lk->entry_locked_nodes = GF_CALLOC (sizeof (*lk->entry_locked_nodes),
+                                            child_count, gf_afr_mt_char);
+        if (NULL == lk->entry_locked_nodes)
+                goto out;
+
+        lk->locked_nodes = GF_CALLOC (sizeof (*lk->locked_nodes),
+                                      child_count, gf_afr_mt_char);
+        if (NULL == lk->locked_nodes)
+                goto out;
+
+        lk->lower_locked_nodes = GF_CALLOC (sizeof (*lk->lower_locked_nodes),
+                                            child_count, gf_afr_mt_char);
+        if (NULL == lk->lower_locked_nodes)
+                goto out;
+
+        lk->lock_op_ret   = -1;
+        lk->lock_op_errno = EUCLEAN;
+        lk->transaction_lk_type = lk_type;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
+{
+        int i;
+        int child_up_count = 0;
+        int ret = -ENOMEM;
+
+        ret = afr_internal_lock_init (&local->internal_lock, priv->child_count,
+                                      AFR_TRANSACTION_LK);
+        if (ret < 0)
+                goto out;
+
+        ret = -ENOMEM;
+        child_up_count = afr_up_children_count (priv->child_count, local->child_up);
+        if (priv->optimistic_change_log && child_up_count == priv->child_count)
+                local->optimistic_change_log = 1;
+
+        local->first_up_child = afr_first_up_child (priv);
+
+        local->child_errno = GF_CALLOC (sizeof (*local->child_errno),
+                                        priv->child_count,
+                                        gf_afr_mt_int32_t);
+        if (!local->child_errno)
+                goto out;
+
+        local->pending = GF_CALLOC (sizeof (*local->pending),
+                                    priv->child_count,
+                                    gf_afr_mt_int32_t);
+
+        if (!local->pending)
+                goto out;
+
+        for (i = 0; i < priv->child_count; i++) {
+                local->pending[i] = GF_CALLOC (sizeof (*local->pending[i]),
+                                               3, /* data + metadata + entry */
+                                               gf_afr_mt_int32_t);
+                if (!local->pending[i])
+                        goto out;
+        }
+
+        local->transaction.child_errno =
+                GF_CALLOC (sizeof (*local->transaction.child_errno),
+                           priv->child_count,
+                           gf_afr_mt_int32_t);
+        local->transaction.erase_pending = 1;
+
+        ret = 0;
 out:
         return ret;
 }

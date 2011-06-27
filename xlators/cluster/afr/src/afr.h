@@ -822,45 +822,19 @@ AFR_BASENAME (const char *str)
         return __basename_str;
 }
 
-/* initialize local_t */
-static inline int
-AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
-{
-        int  child_up_count = 0;
+int
+afr_transaction_local_init (afr_local_t *local, afr_private_t *priv);
 
-        local->child_up = GF_CALLOC (sizeof (*local->child_up),
-                                     priv->child_count,
-                                     gf_afr_mt_char);
-        if (!local->child_up) {
-                return -ENOMEM;
-        }
+int32_t
+afr_marker_getxattr (call_frame_t *frame, xlator_t *this,
+                     loc_t *loc, const char *name,afr_local_t *local, afr_private_t *priv );
 
-        memcpy (local->child_up, priv->child_up,
-                sizeof (*local->child_up) * priv->child_count);
+int
+AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv);
 
-        child_up_count = afr_up_children_count (priv->child_count, local->child_up);
-
-        if (priv->optimistic_change_log && child_up_count == priv->child_count)
-                local->optimistic_change_log = 1;
-
-        local->call_count = afr_up_children_count (priv->child_count, local->child_up);
-        if (local->call_count == 0) {
-                gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
-                return -ENOTCONN;
-        }
-
-        local->transaction.erase_pending = 1;
-
-        local->op_ret = -1;
-        local->op_errno = EUCLEAN;
-
-        local->internal_lock.lock_op_ret   = -1;
-        local->internal_lock.lock_op_errno = EUCLEAN;
-
-
-        return 0;
-}
-
+int
+afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
+                        transaction_lk_type_t lk_type);
 
 /**
  * first_up_child - return the index of the first child that is up
@@ -887,69 +861,5 @@ afr_first_up_child (afr_private_t *priv)
 
         return ret;
 }
-
-
-static inline int
-afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
-{
-        int i;
-
-        local->first_up_child = afr_first_up_child (priv);
-
-        local->child_errno = GF_CALLOC (sizeof (*local->child_errno),
-                                        priv->child_count,
-                                        gf_afr_mt_int32_t);
-        if (!local->child_errno) {
-                return -ENOMEM;
-        }
-
-        local->pending = GF_CALLOC (sizeof (*local->pending),
-                                    priv->child_count,
-                                    gf_afr_mt_int32_t);
-
-        if (!local->pending) {
-                return -ENOMEM;
-        }
-
-        for (i = 0; i < priv->child_count; i++) {
-                local->pending[i] = GF_CALLOC (sizeof (*local->pending[i]),
-                                               3, /* data + metadata + entry */
-                                               gf_afr_mt_int32_t);
-                if (!local->pending[i])
-                        return -ENOMEM;
-        }
-
-        local->internal_lock.inode_locked_nodes =
-                GF_CALLOC (sizeof (*local->internal_lock.inode_locked_nodes),
-                           priv->child_count,
-                           gf_afr_mt_char);
-
-        local->internal_lock.entry_locked_nodes =
-                GF_CALLOC (sizeof (*local->internal_lock.entry_locked_nodes),
-                           priv->child_count,
-                           gf_afr_mt_char);
-
-        local->internal_lock.locked_nodes =
-                GF_CALLOC (sizeof (*local->internal_lock.locked_nodes),
-                           priv->child_count,
-                           gf_afr_mt_char);
-
-        local->internal_lock.lower_locked_nodes
-                = GF_CALLOC (sizeof (*local->internal_lock.lower_locked_nodes),
-                             priv->child_count,
-                             gf_afr_mt_char);
-
-        local->transaction.child_errno = GF_CALLOC (sizeof (*local->transaction.child_errno),
-                                                    priv->child_count,
-                                                    gf_afr_mt_int32_t);
-
-        local->internal_lock.transaction_lk_type = AFR_TRANSACTION_LK;
-
-        return 0;
-}
-
-int32_t
-afr_marker_getxattr (call_frame_t *frame, xlator_t *this,
-                     loc_t *loc, const char *name,afr_local_t *local, afr_private_t *priv );
 
 #endif /* __AFR_H__ */
