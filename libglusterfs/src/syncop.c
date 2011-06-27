@@ -298,8 +298,9 @@ syncop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 args->iatt1  = *iatt;
-                args->xattr  = dict_ref (xattr);
                 args->iatt2  = *parent;
+                if (xattr)
+                        args->xattr  = dict_ref (xattr);
         }
 
         __wake (args);
@@ -673,8 +674,9 @@ syncop_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         args->op_errno = op_errno;
 
         if (args->op_ret >= 0) {
-                args->iobref = iobref;
-                args->vector = vector;
+                if (iobref)
+                        args->iobref = iobref_ref (iobref);
+                args->vector = iov_dup (vector, count);
                 args->count  = count;
         }
 
@@ -686,7 +688,7 @@ syncop_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
-              struct iovec *vector, int *count, struct iobref *iobref)
+              struct iovec **vector, int *count, struct iobref **iobref)
 {
         struct syncargs args = {0, };
 
@@ -694,14 +696,14 @@ syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
                 fd, size, off);
 
         if (vector)
-                vector = iov_dup (args.vector, args.count);
+                *vector = args.vector;
 
         if (count)
                 *count = args.count;
 
         /* Do we need a 'ref' here? */
         if (iobref)
-                iobref = args.iobref;
+                *iobref = args.iobref;
 
         errno = args.op_errno;
         return args.op_ret;
@@ -733,6 +735,22 @@ syncop_writev (xlator_t *subvol, fd_t *fd, struct iovec *vector,
 
         SYNCOP (subvol, (&args), syncop_writev_cbk, subvol->fops->writev,
                 fd, vector, count, offset, iobref);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
+                  off_t offset, struct iobref *iobref)
+{
+        struct syncargs args = {0,};
+        struct iovec    vec  = {0,};
+
+        vec.iov_len = size;
+        vec.iov_base = (void *)buf;
+
+        SYNCOP (subvol, (&args), syncop_writev_cbk, subvol->fops->writev,
+                fd, &vec, 1, offset, iobref);
 
         errno = args.op_errno;
         return args.op_ret;
@@ -805,6 +823,35 @@ syncop_unlink (xlator_t *subvol, loc_t *loc)
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_unlink_cbk, subvol->fops->unlink, loc);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
+syncop_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_ftruncate_cbk, subvol->fops->ftruncate,
+                fd, offset);
 
         errno = args.op_errno;
         return args.op_ret;
