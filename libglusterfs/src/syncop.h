@@ -188,11 +188,16 @@ int syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
 int syncop_open (xlator_t *subvol, loc_t *loc, int32_t flags, fd_t *fd);
 int syncop_close (fd_t *fd);
 
+int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
+                  off_t offset, struct iobref *iobref);
 int syncop_writev (xlator_t *subvol, fd_t *fd, struct iovec *vector,
                    int32_t count, off_t offset, struct iobref *iobref);
 int syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
                   /* out */
-                  struct iovec *vector, int *count, struct iobref *iobref);
+                  struct iovec **vector, int *count, struct iobref **iobref);
+
+int syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset);
+
 int syncop_unlink (xlator_t *subvol, loc_t *loc);
 
 
