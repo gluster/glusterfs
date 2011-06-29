@@ -50,6 +50,7 @@ static uint8_t          logrotate = 0;
 static FILE            *logfile = NULL;
 static gf_loglevel_t    loglevel = GF_LOG_INFO;
 static int              gf_log_syslog = 1;
+static gf_loglevel_t    sys_log_level = GF_LOG_CRITICAL;
 
 char                    gf_log_xl_log_set;
 gf_loglevel_t           gf_log_loglevel = GF_LOG_INFO; /* extern'd */
@@ -186,6 +187,12 @@ gf_log_cleanup (void)
         pthread_mutex_destroy (&logfile_mutex);
 }
 
+void
+set_sys_log_level (gf_loglevel_t level)
+{
+        sys_log_level = level;
+}
+
 int
 _gf_log_nomem (const char *domain, const char *file,
                const char *function, int line, gf_loglevel_t level,
@@ -291,7 +298,7 @@ _gf_log_nomem (const char *domain, const char *file,
 #ifdef GF_LINUX_HOST_OS
                 /* We want only serious log in 'syslog', not our debug
                    and trace logs */
-                if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
+                if (gf_log_syslog && level && (level <= sys_log_level))
                         syslog ((level-1), "%s\n", msg);
 #endif
         }
@@ -424,7 +431,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
 #ifdef GF_LINUX_HOST_OS
                 /* We want only serious log in 'syslog', not our debug
                    and trace logs */
-                if (gf_log_syslog && level && (level <= GF_LOG_CRITICAL))
+                if (gf_log_syslog && level && (level <= sys_log_level))
                         syslog ((level-1), "%s\n", msg);
 #endif
         }
@@ -562,7 +569,7 @@ log:
 #ifdef GF_LINUX_HOST_OS
                 /* We want only serious log in 'syslog', not our debug
                    and trace logs */
-                if (gf_log_syslog && level && (level <= GF_LOG_CRITICAL))
+                if (gf_log_syslog && level && (level <= sys_log_level))
                         syslog ((level-1), "%s\n", msg);
 #endif
         }
