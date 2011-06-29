@@ -162,6 +162,7 @@ nfs_rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
 {
         rpcsvc_t        *svc = NULL;
         int             ret = -1;
+        int             poolsize = 0;
 
         if ((!ctx) || (!options))
                 return NULL;
@@ -189,16 +190,28 @@ nfs_rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         }
 
         ret = -1;
+        poolsize = RPCSVC_POOLCOUNT_MULT * RPCSVC_DEFAULT_MEMFACTOR;
+        svc->connpool = mem_pool_new (rpcsvc_conn_t, poolsize);
+        if (!svc->connpool) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to allocate connpool");
+                goto free_svc;
+        }
+
         svc->defaultstage = nfs_rpcsvc_stage_init (svc);
         if (!svc->defaultstage) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,"RPC service init failed.");
-                goto free_svc;
+                goto free_connpool;
         }
         svc->options = options;
         svc->ctx = ctx;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC service inited.");
 
         ret = 0;
+
+free_connpool:
+        if (ret == -1)
+                mem_pool_destroy (svc->connpool);
+
 free_svc:
         if (ret == -1) {
                 GF_FREE (svc);
@@ -661,7 +674,7 @@ nfs_rpcsvc_conn_init (rpcsvc_t *svc, int sockfd)
         int             ret = -1;
         unsigned int    poolcount = 0;
 
-        conn = GF_CALLOC (1, sizeof(*conn), gf_common_mt_rpcsvc_conn_t);
+        conn = mem_get (svc->connpool);
         if (!conn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "memory allocation failed");
                 return NULL;
@@ -717,7 +730,7 @@ nfs_rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
         mem_pool_destroy (conn->rxpool);
 
         /* Need to destory record state, txlists etc. */
-        GF_FREE (conn);
+        mem_put (((rpcsvc_t *)conn->stage->svc)->connpool, conn);
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Connection destroyed");
 }
 
