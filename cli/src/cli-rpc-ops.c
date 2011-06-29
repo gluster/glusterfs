@@ -1367,7 +1367,9 @@ gf_cli3_1_print_limit_list (char *volname, char *limit_list,
          * of the directory on which the limit is set.
          */
         ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-s",
-                      "localhost", "--volfile-id", volname, mountdir, NULL);
+                      "localhost", "--volfile-id", volname, "-l",
+                      DEFAULT_LOG_FILE_DIRECTORY"/quota-list.log",
+                      mountdir, NULL);
         if (ret) {
                 gf_log ("cli", GF_LOG_WARNING, "failed to mount glusterfs client");
                 ret = -1;
