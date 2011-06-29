@@ -146,4 +146,6 @@ void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
 int gf_cmd_log (const char *domain, const char *fmt, ...);
 
 int gf_cmd_log_init (const char *filename);
+
+void set_sys_log_level (gf_loglevel_t level);
 #endif /* __LOGGING_H__ */
