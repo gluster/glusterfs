@@ -4941,7 +4941,10 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
 
         runinit (&runner);
         runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfs", "-s",
-                         "localhost", "--volfile-id", volname, mountdir, NULL);
+                         "localhost", "--volfile-id", volname, "-l",
+                         DEFAULT_LOG_FILE_DIRECTORY"/quota-crawl.log",
+                         mountdir, NULL);
+
         ret = runner_run_reuse (&runner);
         if (ret == -1) {
                 runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
@@ -5206,13 +5209,6 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
         GF_VALIDATE_OR_GOTO ("glusterd", dict, out);
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
         GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
-
-        ret = glusterd_check_if_quota_trans_enabled (volinfo);
-        if (ret == -1) {
-                *op_errstr = gf_strdup ("Quota is disabled, "
-                                        "please enable to set limit");
-                goto out;
-        }
 
         ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_LIMIT_USAGE,
                                     &quota_limits);
