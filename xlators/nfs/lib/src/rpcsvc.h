@@ -526,6 +526,9 @@ typedef struct rpc_svc_state {
         gf_boolean_t            register_portmap;
 
         struct list_head        allprograms;
+
+        /* Mempool for incoming connection objects. */
+        struct mem_pool         *connpool;
 } rpcsvc_t;
 
 
