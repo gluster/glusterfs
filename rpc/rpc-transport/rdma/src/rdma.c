@@ -3921,6 +3921,7 @@ rdma_init (rpc_transport_t *this)
         struct ibv_context *ib_ctx = NULL;
         int32_t ret = 0;
 
+        ibv_fork_init ();
         rdma_options_init (this);
 
         {
