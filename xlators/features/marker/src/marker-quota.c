@@ -1162,8 +1162,7 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         if (op_ret == -1 || local->err) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_INFO),
+                gf_log (this->name, GF_LOG_DEBUG,
                         "lock setting failed (%s)", strerror (op_errno));
                 xattr_updation_done (frame, NULL, this, 0, 0, NULL);
 
