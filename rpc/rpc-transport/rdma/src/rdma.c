@@ -3937,6 +3937,7 @@ rdma_init (rpc_transport_t *this)
 
         rdma_options_init (this);
 
+        ibv_fork_init ();
         {
                 dev_list = ibv_get_device_list (NULL);
 
