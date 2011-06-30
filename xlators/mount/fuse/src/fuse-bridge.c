@@ -3026,8 +3026,6 @@ fuse_graph_sync (xlator_t *this)
 {
         fuse_private_t   *priv = NULL;
         int               need_first_lookup = 0;
-        struct timeval    now = {0, };
-        struct timespec   timeout = {0, };
         int               ret = 0;
 
         priv = this->private;
@@ -3041,14 +3039,9 @@ fuse_graph_sync (xlator_t *this)
                 priv->next_graph = NULL;
                 need_first_lookup = 1;
 
-                gettimeofday (&now, NULL);
-                timeout.tv_sec = now.tv_sec + MAX_FUSE_PROC_DELAY;
-                timeout.tv_nsec = now.tv_usec * 1000;
-
                 while (!priv->child_up) {
-                        ret = pthread_cond_timedwait (&priv->sync_cond,
-                                                      &priv->sync_mutex,
-                                                      &timeout);
+                        ret = pthread_cond_wait (&priv->sync_cond,
+                                                 &priv->sync_mutex);
                         if (ret != 0) {
 			          gf_log (this->name, GF_LOG_DEBUG,
 					  "timedwait returned non zero value "
