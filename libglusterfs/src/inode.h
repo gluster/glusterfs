@@ -144,9 +144,6 @@ inode_t *
 inode_grep (inode_table_t *table, inode_t *parent, const char *name);
 
 inode_t *
-inode_get (inode_table_t *table, ino_t ino, uint64_t gen);
-
-inode_t *
 inode_find (inode_table_t *table, uuid_t gfid);
 
 int

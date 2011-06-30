@@ -663,14 +663,6 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
         return inode;
 }
 
-
-inode_t *
-inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
-{
-        return NULL;
-}
-
-
 int
 __is_root_gfid (uuid_t gfid)
 {
@@ -1174,7 +1166,7 @@ inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl)
 {
         inode_table_t *new = NULL;
-        int            ret = 0;
+        int            ret = -1;
         int            i = 0;
 
         new = (void *)GF_CALLOC(1, sizeof (*new), gf_common_mt_inode_table_t);
@@ -1193,41 +1185,30 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
         new->inode_pool = mem_pool_new (inode_t, lru_limit);
 
-        if (!new->inode_pool) {
-                GF_FREE (new);
-                return NULL;
-        }
+        if (!new->inode_pool)
+                goto out;
 
         new->dentry_pool = mem_pool_new (dentry_t, lru_limit);
 
-        if (!new->dentry_pool) {
-                GF_FREE (new);
-                return NULL;
-        }
+        if (!new->dentry_pool)
+                goto out;
 
         new->inode_hash = (void *)GF_CALLOC (65536,
                                              sizeof (struct list_head),
                                              gf_common_mt_list_head);
-        if (!new->inode_hash) {
-                GF_FREE (new);
-                return NULL;
-        }
+        if (!new->inode_hash)
+                goto out;
 
         new->name_hash = (void *)GF_CALLOC (new->hashsize,
                                             sizeof (struct list_head),
                                             gf_common_mt_list_head);
-        if (!new->name_hash) {
-                GF_FREE (new->inode_hash);
-                GF_FREE (new);
-                return NULL;
-        }
+        if (!new->name_hash)
+                goto out;
 
         new->fd_mem_pool = mem_pool_new (fd_t, 16384);
 
-        if (!new->fd_mem_pool) {
-                GF_FREE (new->inode_hash);
-                GF_FREE (new);
-        }
+        if (!new->fd_mem_pool)
+                goto out;
 
         for (i = 0; i < 65536; i++) {
                 INIT_LIST_HEAD (&new->inode_hash[i]);
@@ -1251,6 +1232,23 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         __inode_table_init_root (new);
 
         pthread_mutex_init (&new->lock, NULL);
+
+        ret = 0;
+out:
+        if (ret) {
+                if (new) {
+                        if (new->inode_hash)
+                                GF_FREE (new->inode_hash);
+                        if (new->name_hash)
+                                GF_FREE (new->name_hash);
+                        if (new->dentry_pool)
+                                mem_pool_destroy (new->dentry_pool);
+                        if (new->inode_pool)
+                                mem_pool_destroy (new->inode_pool);
+                        GF_FREE (new);
+                        new = NULL;
+                }
+        }
 
         return new;
 }
