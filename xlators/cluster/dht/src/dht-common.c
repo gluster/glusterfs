@@ -2080,7 +2080,6 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout   = NULL;
         int           i        = 0;
         int           op_errno = EINVAL;
-        int           flag     = 0;
         int           ret      = -1;
         data_t       *tmp      = NULL;
 
@@ -2115,29 +2114,18 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
         tmp = dict_get (xattr, GF_XATTR_FIX_LAYOUT_KEY);
         if (tmp) {
-                for (i = 0; i < layout->cnt; i++) {
-                        if (layout->list[i].start == layout->list[i].stop) {
-                                flag = 1;
-                                break;
-                        }
-                }
-                if ((layout->cnt < conf->subvolume_cnt) || flag) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "expanding layout of %s from %d to %d",
-                                loc->path, layout->cnt, conf->subvolume_cnt);
+                gf_log (this->name, GF_LOG_INFO,
+                        "fixing the layout of %s", loc->path);
 
-                        ret = loc_dup (loc, &local->loc);
-                        if (ret == -1) {
-                                op_errno = ENOMEM;
-                                goto err;
-                        }
-
-                        dht_selfheal_new_directory (frame, dht_fix_layout_cbk,
-                                                    layout);
-                        return 0;
+                ret = loc_dup (loc, &local->loc);
+                if (ret == -1) {
+                        op_errno = ENOMEM;
+                        goto err;
                 }
-                op_errno = ENOTSUP;
-                goto err;
+
+                dht_fix_directory_layout (frame, dht_fix_layout_cbk,
+                                          layout);
+                return 0;
         }
 
         local->call_cnt = layout->cnt;

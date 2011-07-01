@@ -28,6 +28,53 @@
 #include "dht-common.h"
 
 
+#define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,cnt,path)    do {       \
+                layout->list[i].start = srt;                            \
+                layout->list[i].stop  = srt + chunk - 1;                \
+                                                                        \
+                gf_log (this->name, GF_LOG_TRACE,                       \
+                        "gave fix: %u - %u on %s for %s",               \
+                        layout->list[i].start, layout->list[i].stop,    \
+                        layout->list[i].xlator->name, path);            \
+        } while (0)
+
+
+static inline uint32_t
+dht_find_overlap (int idx, int cnk_idx, uint32_t start, uint32_t stop,
+                  uint32_t chunk_size)
+{
+        uint32_t overlap = 0;
+        uint32_t chunk_begin = 0;
+
+        chunk_begin = cnk_idx * chunk_size;
+
+        /* There is no chance of overlap */
+        if ((chunk_begin > stop) ||
+            ((chunk_begin + chunk_size) < start))
+                goto out;
+
+        if ((chunk_begin <= start) &&
+            ((chunk_begin + chunk_size) <= stop)) {
+                overlap = ((chunk_begin + chunk_size) - start);
+                goto out;
+        }
+
+        if ((chunk_begin <= start) &&
+            ((chunk_begin + chunk_size) >= stop)) {
+                overlap = (stop - start);
+                goto out;
+        }
+
+        if ((chunk_begin < stop) &&
+            ((chunk_begin + chunk_size) >= stop)) {
+                overlap = (stop - chunk_begin);
+                goto out;
+        }
+
+out:
+        return overlap;
+}
+
 int
 dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 {
@@ -144,6 +191,30 @@ err:
         return 0;
 }
 
+int
+dht_fix_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
+{
+        dht_local_t *local = NULL;
+        int          i = 0;
+        int          count = 0;
+        xlator_t    *this = NULL;
+
+        local = frame->local;
+        this = frame->this;
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "writing the new range for all subvolumes");
+
+        local->call_cnt = count = layout->cnt;
+
+        for (i = 0; i < layout->cnt; i++) {
+                dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
+
+                if (--count == 0)
+                        break;
+        }
+        return 0;
+}
 
 int
 dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
@@ -385,6 +456,187 @@ dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
         return start;
 }
 
+static inline int
+dht_get_layout_count (xlator_t *this, dht_layout_t *layout)
+{
+        int i = 0;
+        int err = 0;
+        int count = 0;
+
+        for (i = 0; i < layout->cnt; i++) {
+                err = layout->list[i].err;
+                if (err == -1 || err == 0) {
+                        layout->list[i].err = -1;
+                        count++;
+                }
+        }
+
+        /* no subvolume has enough space, but can't stop directory creation */
+        if (!count) {
+                for (i = 0; i < layout->cnt; i++) {
+                        err = layout->list[i].err;
+                        if (err == ENOSPC) {
+                                layout->list[i].err = -1;
+                                count++;
+                        }
+                }
+        }
+
+        return count;
+}
+
+
+dht_layout_t *
+dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
+                             dht_layout_t *layout)
+{
+        uint32_t      chunk        = 0;
+        uint32_t      start        = 0;
+        uint32_t      stop         = 0;
+        uint32_t      overlap      = 0;
+        uint32_t      max_overlap  = 0;
+        uint32_t      chunk_begin  = 0;
+        int           count        = 0;
+        int           cnt          = 0;
+        int           i            = 0;
+        int           j            = 0;
+        int           k            = 0;
+        int           loop_cnt     = 0;
+        int           start_subvol = 0;
+        int          *fix_array    = NULL;
+        xlator_t     *this         = NULL;
+        dht_layout_t *new_layout   = NULL;
+        dht_conf_t   *priv         = NULL;
+        dht_local_t  *local        = NULL;
+
+        this  = frame->this;
+        priv  = this->private;
+        local = frame->local;
+
+        count = cnt = dht_get_layout_count (this, layout);
+
+        chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
+
+        start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
+
+        fix_array = GF_CALLOC (sizeof (int), layout->cnt, gf_common_mt_char);
+        if (!fix_array) {
+                /* No fix, use the existing layout itself */
+                goto done;
+        }
+
+        new_layout = dht_layout_new (this, priv->subvolume_cnt);
+        if (!new_layout)
+                goto done;
+
+        for (i = 0; i < new_layout->cnt; i++) {
+                /* TODO: fix this in layout_alloc() itself */
+                new_layout->list[i].err = -ENOENT;
+                if (i < layout->cnt)
+                        new_layout->list[i].xlator = layout->list[i].xlator;
+        }
+
+        /* Check if there are any overlap in layout, and give the proper fix */
+        for (i = 0; i < layout->cnt; i++) {
+                /* No need to fix if 'err' is not '-1' */
+                if (layout->list[i].err != -1)
+                        continue;
+
+                /* If already existing layout is having no range, skip it */
+                start = layout->list[i].start;
+                stop  = layout->list[i].stop;
+                if ((stop - start) == 0)
+                        continue;
+
+                max_overlap = 0;
+
+                /* 'j' is used as starting point of each chunk */
+                for (j = 1; j <= count; j++) {
+                        /* if chunk is already used, don't use it again */
+                        for (k = 0; k < i; k++)
+                                if (j == fix_array[k])
+                                        break;
+                        if (k < i)
+                                continue;
+
+                        overlap = dht_find_overlap (i, (j-1), start, stop, chunk);
+                        if (max_overlap < overlap) {
+                                max_overlap = overlap;
+                                fix_array[i] = j;
+                        }
+                }
+
+                /* If we have any overlap, then use that itself as new
+                   layout for the subvolume */
+                if (fix_array[i]) {
+                        chunk_begin = chunk * (fix_array[i] - 1);
+                        new_layout->list[i].err = -1;
+                        DHT_SET_LAYOUT_RANGE (new_layout, i, chunk_begin,
+                                              chunk, cnt, loc->path);
+                        /* make sure to give (max - 1) as 'stop' range,
+                           if it is last chunk */
+                        if (fix_array[i] == count)
+                                new_layout->list[i].stop = 0xffffffff;
+                        if (--cnt == 0)
+                                goto done;
+
+                }
+        }
+
+        /* Now, look for layouts which are not having any overlaps
+           and give it a fix */
+        for (loop_cnt = 0, i = start_subvol; loop_cnt < new_layout->cnt;
+             i++, loop_cnt++) {
+                if (i == new_layout->cnt)
+                        i = 0;
+
+                /* If 'fix_array[i]' is set, the layout is already fixed. */
+                if (fix_array[i])
+                        continue;
+
+                if (layout->list[i].err != -1) {
+                        new_layout->list[i].err = layout->list[i].err;
+                        continue;
+                }
+
+                for (k = 1; k <= count; k++) {
+                        for (j = 0; j < new_layout->cnt; j++) {
+                                if (k == fix_array[j])
+                                        break;
+                        }
+                        /* Didn't find any of the list begining with 'k' */
+                        if (j == new_layout->cnt)
+                                break;
+                }
+
+                fix_array[i] = k;
+                chunk_begin = (k - 1) * chunk;
+                new_layout->list[i].err = -1;
+                DHT_SET_LAYOUT_RANGE (new_layout, i, chunk_begin, chunk, cnt,
+                                      loc->path);
+                /* make sure to give (max - 1) as 'stop' range,
+                   if it is last chunk */
+                if (k == count)
+                        new_layout->list[i].stop = 0xffffffff;
+                if (--cnt == 0)
+                        goto done;
+        }
+
+done:
+        if (new_layout) {
+                /* Now that the new layout has all the proper layout, change the
+                   inode context */
+                dht_layout_set (this, loc->inode, new_layout);
+
+                /* Make sure the extra 'ref' for existing layout is removed */
+                dht_layout_unref (this, local->layout);
+
+                local->layout = new_layout;
+        }
+
+        return new_layout;
+}
+
 
 void
 dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
@@ -400,24 +652,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 
         this = frame->this;
 
-        for (i = 0; i < layout->cnt; i++) {
-                err = layout->list[i].err;
-                if (err == -1 || err == 0) {
-                        layout->list[i].err = -1;
-                        cnt++;
-                }
-        }
-
-        /* no subvolume has enough space, but can't stop directory creation */
-        if (!cnt) {
-                for (i = 0; i < layout->cnt; i++) {
-                        err = layout->list[i].err;
-                        if (err == ENOSPC) {
-                                layout->list[i].err = -1;
-                                cnt++;
-                        }
-                }
-        }
+        cnt = dht_get_layout_count (this, layout);
 
         chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
 
@@ -426,42 +661,32 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
         for (i = start_subvol; i < layout->cnt; i++) {
                 err = layout->list[i].err;
                 if (err == -1) {
-                        layout->list[i].start = start;
-                        layout->list[i].stop  = start + chunk - 1;
-
-                        start = start + chunk;
-
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "gave fix: %u - %u on %s for %s",
-                                layout->list[i].start, layout->list[i].stop,
-                                layout->list[i].xlator->name, loc->path);
+                        DHT_SET_LAYOUT_RANGE(layout, i, start, chunk,
+                                             cnt, loc->path);
                         if (--cnt == 0) {
                                 layout->list[i].stop = 0xffffffff;
-                                break;
+                                goto done;
                         }
+                        start += chunk;
                 }
         }
 
         for (i = 0; i < start_subvol; i++) {
                 err = layout->list[i].err;
                 if (err == -1) {
-                        layout->list[i].start = start;
-                        layout->list[i].stop  = start + chunk - 1;
-
-                        start = start + chunk;
-
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "gave fix: %u - %u on %s for %s",
-                                layout->list[i].start, layout->list[i].stop,
-                                layout->list[i].xlator->name, loc->path);
+                        DHT_SET_LAYOUT_RANGE(layout, i, start, chunk,
+                                             cnt, loc->path);
                         if (--cnt == 0) {
                                 layout->list[i].stop = 0xffffffff;
-                                break;
+                                goto done;
                         }
+                        start += chunk;
                 }
         }
-}
 
+done:
+        return;
+}
 
 int
 dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
@@ -529,6 +754,26 @@ dht_selfheal_new_directory (call_frame_t *frame,
         dht_layout_sort_volname (layout);
         dht_selfheal_layout_new_directory (frame, &local->loc, layout);
         dht_selfheal_dir_xattr (frame, &local->loc, layout);
+        return 0;
+}
+
+int
+dht_fix_directory_layout (call_frame_t *frame,
+                          dht_selfheal_dir_cbk_t dir_cbk,
+                          dht_layout_t *layout)
+{
+        dht_local_t  *local = NULL;
+        dht_layout_t *tmp_layout = NULL;
+
+        local = frame->local;
+
+        local->selfheal.dir_cbk = dir_cbk;
+        local->selfheal.layout = dht_layout_ref (frame->this, layout);
+
+        /* No layout sorting required here */
+        tmp_layout = dht_fix_layout_of_directory (frame, &local->loc, layout);
+        dht_fix_dir_xattr (frame, &local->loc, tmp_layout);
+
         return 0;
 }
 
