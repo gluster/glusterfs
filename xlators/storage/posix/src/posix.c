@@ -425,6 +425,108 @@ out:
 }
 
 
+static int
+is_fresh_file (struct stat *stat)
+{
+        struct timeval tv;
+
+        gettimeofday (&tv, NULL);
+
+        if ((stat->st_ctime >= (tv.tv_sec - 1))
+            && (stat->st_ctime <= tv.tv_sec))
+                return 1;
+
+        return 0;
+}
+
+
+int
+posix_gfid_heal (xlator_t *this, const char *path, dict_t *xattr_req)
+{
+        /* The purpose of this function is to prevent a race
+           where an inode creation FOP (like mkdir/mknod/create etc)
+           races with lookup in the following way:
+
+                   {create thread}       |    {lookup thread}
+                                         |
+                                         t0
+                      mkdir ("name")     |
+                                         t1
+                                         |     posix_gfid_set ("name", 2);
+                                         t2
+             posix_gfid_set ("name", 1); |
+                                         t3
+                      lstat ("name");    |     lstat ("name");
+
+          In the above case mkdir FOP would have resulted with GFID 2 while
+          it should have been GFID 1. It matters in the case where GFID would
+          have gotten set to 1 on other subvolumes of replciate/distribute
+
+          The "solution" here is that, if we detect lookup is attempting to
+          set a GFID on a file which is created very recently, but does not
+          yet have a GFID (i.e, between t1 and t2), then "fake" it as though
+          posix_gfid_heal was called at t0 instead.
+        */
+
+        uuid_t       uuid_curr;
+        int          ret = 0;
+        struct stat  stat = {0, };
+
+        if (!xattr_req)
+                goto out;
+
+        if (sys_lstat (path, &stat) != 0)
+                goto out;
+
+        ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
+        if (ret != 16) {
+                if (is_fresh_file (&stat)) {
+                        ret = -1;
+                        errno = ENOENT;
+                        goto out;
+                }
+        }
+
+        ret = posix_gfid_set (this, path, xattr_req);
+out:
+        return ret;
+}
+
+
+int
+posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req)
+{
+        int          ret = 0;
+        data_t      *data = NULL;
+        struct stat  stat = {0, };
+
+        if (!xattr_req)
+                goto out;
+
+        if (sys_lstat (path, &stat) != 0)
+                goto out;
+
+        data = dict_get (xattr_req, "system.posix_acl_access");
+        if (data) {
+                ret = sys_lsetxattr (path, "system.posix_acl_access",
+                                     data->data, data->len, 0);
+                if (ret != 0)
+                        goto out;
+        }
+
+        data = dict_get (xattr_req, "system.posix_acl_default");
+        if (data) {
+                ret = sys_lsetxattr (path, "system.posix_acl_default",
+                                     data->data, data->len, 0);
+                if (ret != 0)
+                        goto out;
+        }
+
+out:
+        return ret;
+}
+
+
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr_req)
@@ -1153,6 +1255,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1417,6 +1526,13 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 #endif
+
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
 
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
@@ -1722,6 +1838,14 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 #endif
+
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -2144,6 +2268,13 @@ posix_create (call_frame_t *frame, xlator_t *this,
                         real_path, strerror (op_errno));
         }
 #endif
+
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
 
         op_ret = posix_fstat_with_gfid (this, _fd, &stbuf);
         if (op_ret == -1) {
