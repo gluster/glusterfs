@@ -146,6 +146,8 @@ static struct argp_option gf_options[] = {
          "Add/override a translator option for a volume with specified value"},
         {"read-only", ARGP_READ_ONLY_KEY, 0, 0,
          "Mount the filesystem in 'read-only' mode"},
+        {"acl", ARGP_ACL_KEY, 0, 0,
+         "Mount the filesystem with POSIX ACL support"},
         {"mac-compat", ARGP_MAC_COMPAT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Provide stubs for attributes needed for seamless operation on Macs "
 #ifdef GF_DARWIN_HOST_OS
@@ -283,6 +285,15 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value for key %s",
                                 ZR_DUMP_FUSE);
+                        goto err;
+                }
+        }
+
+        if (cmd_args->acl) {
+                ret = dict_set_static_ptr (master->options, "acl", "on");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key acl");
                         goto err;
                 }
         }
@@ -477,6 +488,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_READ_ONLY_KEY:
                 cmd_args->read_only = 1;
+                break;
+
+        case ARGP_ACL_KEY:
+                cmd_args->acl = 1;
                 break;
 
         case ARGP_MAC_COMPAT_KEY:
