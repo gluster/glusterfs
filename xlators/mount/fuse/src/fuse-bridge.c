@@ -3039,7 +3039,7 @@ fuse_graph_sync (xlator_t *this)
                 priv->next_graph = NULL;
                 need_first_lookup = 1;
 
-                while (!priv->child_up) {
+                while (!priv->event_recvd) {
                         ret = pthread_cond_wait (&priv->sync_cond,
                                                  &priv->sync_mutex);
                         if (ret != 0) {
@@ -3301,7 +3301,7 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
         pthread_mutex_lock (&priv->sync_mutex);
         {
                 priv->next_graph = graph;
-                priv->child_up = 0;
+                priv->event_recvd = 0;
 
                 pthread_cond_signal (&priv->sync_cond);
         }
@@ -3344,10 +3344,11 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                         "failed to setup the graph");
                 }
 
-                if (event == GF_EVENT_CHILD_UP) {
+                if ((event == GF_EVENT_CHILD_UP)
+                    || (event == GF_EVENT_CHILD_DOWN)) {
                         pthread_mutex_lock (&private->sync_mutex);
                         {
-                                private->child_up = 1;
+                                private->event_recvd = 1;
                                 pthread_cond_broadcast (&private->sync_cond);
                         }
                         pthread_mutex_unlock (&private->sync_mutex);
@@ -3647,7 +3648,7 @@ init (xlator_t *this_xl)
         pthread_mutex_init (&priv->fuse_dump_mutex, NULL);
         pthread_cond_init (&priv->sync_cond, NULL);
         pthread_mutex_init (&priv->sync_mutex, NULL);
-        priv->child_up = 0;
+        priv->event_recvd = 0;
 
         for (i = 0; i < FUSE_OP_HIGH; i++) {
                 if (!fuse_std_ops[i])
