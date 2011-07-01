@@ -3,11 +3,11 @@ xlator_LTLIBRARIES = dht.la nufa.la switch.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
 
-dht_common_source = dht-layout.c dht-helper.c dht-linkfile.c \
+dht_common_source = dht-layout.c dht-helper.c dht-linkfile.c dht-rebalance.c \
 		dht-selfheal.c dht-rename.c dht-hashfn.c dht-diskusage.c \
 		$(top_builddir)/xlators/lib/src/libxlator.c
 
-dht_la_SOURCES = $(dht_common_source) dht.c 
+dht_la_SOURCES = $(dht_common_source) dht.c
 
 nufa_la_SOURCES = $(dht_common_source) nufa.c
 switch_la_SOURCES = $(dht_common_source) switch.c
@@ -27,7 +27,7 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS) \
 	-I$(top_srcdir)/xlators/lib/src
 
-CLEANFILES = 
+CLEANFILES =
 
 uninstall-local:
 	rm -f $(DESTDIR)$(xlatordir)/distribute.so

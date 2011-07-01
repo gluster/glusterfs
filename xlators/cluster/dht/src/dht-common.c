@@ -2084,6 +2084,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         data_t       *tmp      = NULL;
         uint32_t      dir_spread = 0;
         char          value[4096] = {0,};
+        int           forced_rebalance = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -2115,16 +2116,51 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+        ret = loc_dup (loc, &local->loc);
+        if (ret == -1) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        tmp = dict_get (xattr, "distribute.migrate-data");
+        if (tmp) {
+                if (!IA_ISREG (loc->inode->ia_type)) {
+                        op_errno = ENOTSUP;
+                        goto err;
+                }
+
+                /* TODO: need to interpret the 'value' for more meaning
+                   (ie, 'target' subvolume given there, etc) */
+                memcpy (value, tmp->data, tmp->len);
+                if (strcmp (value, "force") == 0)
+                        forced_rebalance = 1;
+
+                local->to_subvol   = dht_subvol_get_hashed (this, loc);
+                local->from_subvol = dht_subvol_get_cached (this, loc->inode);
+                if (local->to_subvol == local->from_subvol) {
+                        op_errno = ENOTSUP;
+                        goto err;
+                }
+                if (local->to_subvol) {
+                        local->flags = forced_rebalance;
+
+                        ret = dht_start_rebalance_task (this, frame);
+                        if (!ret)
+                                return 0;
+
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: failed to create a new synctask",
+                                loc->path);
+                }
+                op_errno = ENOTSUP;
+                goto err;
+
+        }
+
         tmp = dict_get (xattr, GF_XATTR_FIX_LAYOUT_KEY);
         if (tmp) {
                 gf_log (this->name, GF_LOG_INFO,
                         "fixing the layout of %s", loc->path);
-
-                ret = loc_dup (loc, &local->loc);
-                if (ret == -1) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
 
                 dht_fix_directory_layout (frame, dht_common_setxattr_cbk,
                                           layout);
@@ -2140,11 +2176,6 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                              (dir_spread > 0))) {
                         layout->spread_cnt = dir_spread;
 
-                        ret = loc_dup (loc, &local->loc);
-                        if (ret == -1) {
-                                op_errno = ENOMEM;
-                                goto err;
-                        }
                         dht_fix_directory_layout (frame,
                                                   dht_common_setxattr_cbk,
                                                   layout);
@@ -4869,7 +4900,7 @@ dht_forget (xlator_t *this, inode_t *inode)
         uint64_t      tmp_layout = 0;
         dht_layout_t *layout = NULL;
 
-        inode_ctx_get (inode, this, &tmp_layout);
+        inode_ctx_del (inode, this, &tmp_layout);
 
         if (!tmp_layout)
                 return 0;

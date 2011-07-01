@@ -24,6 +24,7 @@
 
 #include "dht-mem-types.h"
 #include "libxlator.h"
+#include "syncop.h"
 
 #ifndef _DHT_H
 #define _DHT_H
@@ -140,6 +141,10 @@ struct dht_local {
         /* flag used to make sure we need to return estale in
            {lookup,revalidate}_cbk */
         char    return_estale;
+
+        /* rebalance related */
+#define to_subvol    hashed_subvol
+#define from_subvol  cached_subvol
 };
 typedef struct dht_local dht_local_t;
 
@@ -178,6 +183,8 @@ struct dht_conf {
         /* This is the count used as the distribute layout for a directory */
         /* Will be a global flag to control the layout spread count */
         uint32_t       dir_spread_cnt;
+
+	struct syncenv *env; /* The env pointer to the rebalance synctask */
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -330,4 +337,5 @@ int dht_fix_directory_layout (call_frame_t *frame,
                               dht_selfheal_dir_cbk_t dir_cbk,
                               dht_layout_t *layout);
 
+int dht_start_rebalance_task (xlator_t *this, call_frame_t *frame);
 #endif /* _DHT_H */

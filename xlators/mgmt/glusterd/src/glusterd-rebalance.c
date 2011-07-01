@@ -96,6 +96,7 @@ out:
         return ret;
 
 }
+
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
