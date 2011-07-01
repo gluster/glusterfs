@@ -2062,8 +2062,8 @@ err:
 
 
 static int
-dht_fix_layout_cbk (call_frame_t *frame, void *cookie,
-                    xlator_t *this, int32_t op_ret, int32_t op_errno)
+dht_common_setxattr_cbk (call_frame_t *frame, void *cookie,
+                         xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
         DHT_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
 
@@ -2082,6 +2082,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         int           op_errno = EINVAL;
         int           ret      = -1;
         data_t       *tmp      = NULL;
+        uint32_t      dir_spread = 0;
+        char          value[4096] = {0,};
+
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -2123,9 +2126,34 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                dht_fix_directory_layout (frame, dht_fix_layout_cbk,
+                dht_fix_directory_layout (frame, dht_common_setxattr_cbk,
                                           layout);
                 return 0;
+        }
+
+        tmp = dict_get (xattr, "distribute.directory-spread-count");
+        if (tmp) {
+                /* Setxattr value is packed as 'binary', not string */
+                memcpy (value, tmp->data, ((tmp->len < 4095)?tmp->len:4095));
+                ret = gf_string2uint32 (value, &dir_spread);
+                if (!ret && ((dir_spread <= conf->subvolume_cnt) &&
+                             (dir_spread > 0))) {
+                        layout->spread_cnt = dir_spread;
+
+                        ret = loc_dup (loc, &local->loc);
+                        if (ret == -1) {
+                                op_errno = ENOMEM;
+                                goto err;
+                        }
+                        dht_fix_directory_layout (frame,
+                                                  dht_common_setxattr_cbk,
+                                                  layout);
+                        return 0;
+                }
+                gf_log (this->name, GF_LOG_ERROR,
+                        "wrong 'directory-spread-count' value (%s)", value);
+                op_errno = ENOTSUP;
+                goto err;
         }
 
         local->call_cnt = layout->cnt;

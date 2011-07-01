@@ -52,8 +52,11 @@ dht_layout_new (xlator_t *this, int cnt)
 
         layout->type = DHT_HASH_TYPE_DM;
         layout->cnt = cnt;
-        if (conf)
+
+        if (conf) {
+                layout->spread_cnt = conf->dir_spread_cnt;
                 layout->gen = conf->gen;
+        }
 
         layout->ref = 1;
 out:
