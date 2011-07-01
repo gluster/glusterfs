@@ -1680,28 +1680,48 @@ int
 dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int op_ret, int op_errno, dict_t *xattr)
 {
-        dht_local_t  *local = NULL;
-        int ret = 0;
-        int flag = 0;
-        int this_call_cnt = 0;
-        char *value_got = NULL;
-        char  layout_buf[8192] = {0,};
-        char  xattr_buf[8192 + 1024] = {0,};
-        dict_t *dict = NULL;
+        dht_local_t *local         = NULL;
+        int          ret           = 0;
+        int          flag          = 0;
+        int          this_call_cnt = 0;
+        char        *value_got     = NULL;
+        char  layout_buf[8192]     = {0,};
+        char        *xattr_buf     = NULL;
+        dict_t      *dict          = NULL;
+        int32_t      alloc_len     = 0;
+        int32_t      plen          = 0;
 
         local = frame->local;
 
         if (op_ret != -1) {
                 ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &value_got);
                 if (!ret) {
+                        alloc_len = strlen (value_got);
+
+                        /**
+                         * allocate the buffer:- we allocate 10 bytes extra in case we need to
+                         * append ' Link: ' in the buffer for another STACK_WIND
+                         */
                         if (!local->pathinfo)
-                                local->pathinfo = GF_CALLOC (8192, sizeof (char),
-                                                             gf_common_mt_char);
-                        if (local->pathinfo)
+                                local->pathinfo = GF_CALLOC (alloc_len + strlen (DHT_PATHINFO_HEADER) + 10,
+                                                             sizeof (char), gf_common_mt_char);
+
+                        if (local->pathinfo) {
+                                plen = strlen (local->pathinfo);
+                                if (plen) {
+                                        alloc_len += plen;
+                                        local->pathinfo = GF_REALLOC (local->pathinfo,
+                                                                      alloc_len);
+                                        if (!local->pathinfo)
+                                                goto out;
+                                }
+
                                 strcat (local->pathinfo, value_got);
+                        }
                 }
         }
 
+ out:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
                 if (local->layout->cnt > 1) {
@@ -1712,19 +1732,23 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 dict = dict_new ();
 
+                /* we would need max-to-max this many bytes to create pathinfo string */
+                alloc_len += (2 * strlen (this->name)) + strlen (layout_buf) + 40;
+                xattr_buf = GF_CALLOC (alloc_len, sizeof (char), gf_common_mt_char);
+
                 if (flag && local->pathinfo)
-                        snprintf (xattr_buf, 9216, "((%s %s) (%s-layout %s))",
+                        snprintf (xattr_buf, alloc_len, "((<"DHT_PATHINFO_HEADER"%s> %s) (%s-layout %s))",
                                   this->name, local->pathinfo, this->name,
                                   layout_buf);
                 else if (local->pathinfo)
-                        snprintf (xattr_buf, 9216, "(%s %s)",
+                        snprintf (xattr_buf, alloc_len, "(<"DHT_PATHINFO_HEADER"%s> %s)",
                                   this->name, local->pathinfo);
                 else if (flag)
-                        snprintf (xattr_buf, 9216, "(%s-layout %s)",
+                        snprintf (xattr_buf, alloc_len, "(%s-layout %s)",
                                   this->name, layout_buf);
 
-                ret = dict_set_str (dict, GF_XATTR_PATHINFO_KEY,
-                                    xattr_buf);
+                ret = dict_set_dynstr (dict, GF_XATTR_PATHINFO_KEY,
+                                       xattr_buf);
 
                 if (local->pathinfo)
                         GF_FREE (local->pathinfo);

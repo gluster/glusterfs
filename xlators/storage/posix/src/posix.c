@@ -2510,7 +2510,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
         if (loc->inode && IA_ISREG (loc->inode->ia_type) && name &&
             (strcmp (name, GF_XATTR_PATHINFO_KEY) == 0)) {
-                snprintf (host_buf, 1024, "%s:%s", priv->hostname,
+                snprintf (host_buf, 1024, "<POSIX:%s:%s>", priv->hostname,
                           real_path);
                 ret = dict_set_str (dict, GF_XATTR_PATHINFO_KEY,
                                     host_buf);

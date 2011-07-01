@@ -2630,3 +2630,99 @@ unlock:
 out:
         return ret;
 }
+
+/**
+ * _dict_serialize_value_with_delim: serialize the values in the dictionary
+ * into a buffer separated by delimiter (except the last)
+ *
+ * @this      : dictionary to serialize
+ * @buf       : the buffer to store the serialized data
+ * @serz_len  : the length of the serialized data (excluding the last delimiter)
+ * @delimiter : the delimiter to separate the values
+ *
+ * @return    : 0 -> success
+ *            : -errno -> faliure
+ */
+int
+_dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
+                                  char delimiter)
+{
+        int          ret       = -1;
+        int32_t      count     = 0;
+        int32_t      vallen    = 0;
+        int32_t      total_len = 0;
+        data_pair_t *pair      = NULL;
+
+        if (!buf) {
+                gf_log ("dict", GF_LOG_ERROR, "buf is null");
+                goto out;
+        }
+
+        count = this->count;
+        if (count < 0) {
+                gf_log ("dict", GF_LOG_ERROR, "count (%d) < 0", count);
+                goto out;
+        }
+
+        pair = this->members_list;
+
+        while (count) {
+                if (!pair) {
+                        gf_log ("dict", GF_LOG_ERROR,
+                                "less than count data pairs found");
+                        goto out;
+                }
+
+                if (!pair->key || !pair->value) {
+                        gf_log ("dict", GF_LOG_ERROR,
+                                "key or value is null");
+                        goto out;
+                }
+
+                if (!pair->value->data) {
+                        gf_log ("dict", GF_LOG_ERROR,
+                                "null value found in dict");
+                        goto out;
+                }
+
+                vallen = pair->value->len - 1; // length includes \0
+                memcpy (buf, pair->value->data, vallen);
+                buf += vallen;
+                *buf++ = delimiter;
+
+                total_len += (vallen + 1);
+
+                pair = pair->next;
+                count--;
+        }
+
+        *--buf = '\0'; // remove the last delimiter
+        total_len--;   // adjust the length
+        ret = 0;
+
+        if (serz_len)
+                *serz_len = total_len;
+
+ out:
+        return ret;
+}
+
+int
+dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
+                                 char delimiter)
+{
+        int           ret    = -1;
+
+        if (!this || !buf) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is null!");
+                goto out;
+        }
+
+        LOCK (&this->lock);
+        {
+                ret = _dict_serialize_value_with_delim (this, buf, serz_len, delimiter);
+        }
+        UNLOCK (&this->lock);
+out:
+        return ret;
+}

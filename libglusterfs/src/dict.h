@@ -185,4 +185,6 @@ GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
 
 GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val);
+GF_MUST_CHECK int dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
+                                                    char delimiter);
 #endif

@@ -4246,6 +4246,166 @@ out:
         return 0;
 }
 
+int32_t
+stripe_pathinfo_aggregate (char *buffer, stripe_local_t *local, int32_t *total)
+{
+        int32_t              i     = 0;
+        int32_t              ret   = -1;
+        int32_t              len   = 0;
+        char                *sbuf  = NULL;
+        stripe_xattr_sort_t *xattr = NULL;
+
+        if (!buffer || !local || !local->xattr_list)
+                goto out;
+
+        sbuf = buffer;
+
+        for (i = 0; i < local->nallocs; i++) {
+                xattr = local->xattr_list + i;
+                len = xattr->pathinfo_len;
+
+                if (len && xattr && xattr->pathinfo) {
+                        memcpy (buffer, xattr->pathinfo, len);
+                        buffer += len;
+                        *buffer++ = ' ';
+                }
+        }
+
+        *--buffer = '\0';
+        if (total)
+                *total = buffer - sbuf;
+        ret = 0;
+
+ out:
+        return ret;
+}
+
+int32_t
+stripe_free_pathinfo_str (stripe_local_t *local)
+{
+        int32_t              i     = 0;
+        int32_t              ret   = -1;
+        stripe_xattr_sort_t *xattr = NULL;
+
+        if (!local || !local->xattr_list)
+                goto out;
+
+        for (i = 0; i < local->nallocs; i++) {
+                xattr = local->xattr_list + i;
+
+                if (xattr && xattr->pathinfo)
+                        GF_FREE (xattr->pathinfo);
+        }
+
+        ret = 0;
+ out:
+        return ret;
+}
+
+int32_t
+stripe_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret, int32_t op_errno,
+                             dict_t *dict) {
+        stripe_local_t      *local         = NULL;
+        int32_t              callcnt       = 0;
+        int32_t              ret           = -1;
+        long                 cky           = 0;
+        char                *pathinfo      = NULL;
+        char                *pathinfo_serz = NULL;
+        int32_t              padding       = 0;
+        int32_t              tlen          = 0;
+        char stripe_size_str[20]           = {0,};
+        stripe_xattr_sort_t *xattr         = NULL;
+        dict_t              *stripe_xattr  = NULL;
+
+        if (!frame || !frame->local || !this) {
+                gf_log (this->name, GF_LOG_ERROR, "Possible NULL deref");
+                return ret;
+        }
+
+        local = frame->local;
+        cky = (long) cookie;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->wind_count;
+
+                if (!dict || (op_ret < 0))
+                        goto out;
+
+                if (!local->xattr_list)
+                        local->xattr_list = (stripe_xattr_sort_t *) GF_CALLOC (local->nallocs,
+                                                                               sizeof (stripe_xattr_sort_t),
+                                                                               gf_stripe_mt_xattr_sort_t);
+
+                if (local->xattr_list) {
+                        ret = dict_get_str (dict, GF_XATTR_PATHINFO_KEY, &pathinfo);
+                        if (ret)
+                                goto out;
+
+                        xattr = local->xattr_list + (int32_t) cky;
+
+                        pathinfo = gf_strdup (pathinfo);
+                        xattr->pos = cky;
+                        xattr->pathinfo = pathinfo;
+                        xattr->pathinfo_len = strlen (pathinfo);
+
+                        local->xattr_total_len += strlen (pathinfo) + 1;
+                }
+        }
+ out:
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (!local->xattr_total_len)
+                        goto unwind;
+
+                stripe_xattr = dict_new ();
+                if (!stripe_xattr)
+                        goto unwind;
+
+                snprintf (stripe_size_str, 20, "%ld", local->stripe_size);
+
+                /* extra bytes for decorations (brackets and <>'s) */
+                padding = strlen (this->name) + strlen (STRIPE_PATHINFO_HEADER)
+                        + strlen (stripe_size_str) + 7;
+                local->xattr_total_len += (padding + 2);
+
+                pathinfo_serz = GF_CALLOC (local->xattr_total_len, sizeof (char),
+                                           gf_common_mt_char);
+                if (!pathinfo_serz)
+                        goto unwind;
+
+                /* xlator info */
+                sprintf (pathinfo_serz, "(<"STRIPE_PATHINFO_HEADER"%s:[%s]> ", this->name, stripe_size_str);
+
+                ret = stripe_pathinfo_aggregate (pathinfo_serz + padding, local, &tlen);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Cannot aggregate pathinfo list");
+                        goto unwind;
+                }
+
+                *(pathinfo_serz + padding + tlen) = ')';
+                *(pathinfo_serz + padding + tlen + 1) = '\0';
+
+                ret = dict_set_dynstr (stripe_xattr, GF_XATTR_PATHINFO_KEY, pathinfo_serz);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo key in dict");
+
+        unwind:
+                STRIPE_STACK_UNWIND (getxattr, frame, op_ret, op_errno, stripe_xattr);
+
+                ret = stripe_free_pathinfo_str (local);
+
+                if (local->xattr_list)
+                        GF_FREE (local->xattr_list);
+
+                if (stripe_xattr)
+                        dict_unref (stripe_xattr);
+        }
+
+        return ret;
+}
 
 int32_t
 stripe_getxattr (call_frame_t *frame, xlator_t *this,
@@ -4312,6 +4472,24 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, stripe_getxattr_cbk,
                                     trav->xlator, trav->xlator->fops->getxattr,
                                     loc, name);
+                }
+
+                return 0;
+        }
+
+        if (name && (strncmp (name, GF_XATTR_PATHINFO_KEY,
+                              strlen (GF_XATTR_PATHINFO_KEY)) == 0)) {
+                local->stripe_size = stripe_get_matching_bs (loc->path,
+                                                             priv->pattern,
+                                                             priv->block_size);
+                local->nallocs = local->wind_count = priv->child_count;
+
+                for (i = 0, trav = this->children; i < priv->child_count; i++,
+                     trav = trav->next) {
+                        STACK_WIND_COOKIE (frame, stripe_getxattr_pathinfo_cbk,
+                                           (void *) (long) i, trav->xlator,
+                                           trav->xlator->fops->getxattr,
+                                           loc, name);
                 }
 
                 return 0;

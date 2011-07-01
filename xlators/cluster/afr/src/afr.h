@@ -33,6 +33,7 @@
 #include "libxlator.h"
 
 #define AFR_XATTR_PREFIX "trusted.afr"
+#define AFR_PATHINFO_HEADER "REPLICATE:"
 
 struct _pump_private;
 
@@ -395,6 +396,7 @@ typedef struct _afr_local {
                 struct {
                         char *name;
                         int last_tried;
+                        long pathinfo_len;
                 } getxattr;
 
                 struct {
