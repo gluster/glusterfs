@@ -55,9 +55,6 @@
 #include "list.h"
 #include "dict.h"
 
-/* TODO: when supporting posix acl, remove this definition */
-#define DISABLE_POSIX_ACL
-
 #ifdef GF_LINUX_HOST_OS
 #define FUSE_OP_HIGH (FUSE_POLL + 1)
 #endif
@@ -67,6 +64,8 @@
 #define GLUSTERFS_XATTR_LEN_MAX  65536
 
 #define MAX_FUSE_PROC_DELAY 1
+
+#define DISABLE_SELINUX 1
 
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
@@ -107,6 +106,7 @@ struct fuse_private {
 
         pid_t                client_pid;
         gf_boolean_t         client_pid_set;
+        gf_boolean_t         acl;
 };
 typedef struct fuse_private fuse_private_t;
 
