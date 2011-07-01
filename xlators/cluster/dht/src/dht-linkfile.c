@@ -31,81 +31,14 @@
 
 
 int
-dht_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno)
-{
-        dht_local_t *local = NULL;
-
-        local = frame->local;
-        local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
-                                      local->linkfile.inode,
-                                      &local->linkfile.stbuf, NULL, NULL);
-
-        return 0;
-}
-
-
-int
 dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, inode_t *inode,
                          struct iatt *stbuf, struct iatt *preparent,
                          struct iatt *postparent)
 {
         dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
-        dict_t       *xattr = NULL;
-        data_t       *str_data = NULL;
-        int           ret = -1;
 
         local = frame->local;
-        prev  = cookie;
-
-        if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to create link file (%s)",
-                        local->linkfile.loc.path, strerror (op_errno));
-                goto err;
-        }
-
-        xattr = get_new_dict ();
-        if (!xattr) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-
-        local->linkfile.xattr = dict_ref (xattr);
-        local->linkfile.inode = inode_ref (inode);
-
-        str_data = str_to_data (local->linkfile.srcvol->name);
-        if (!str_data) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-
-        ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", str_data);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%s: failed to initialize linkfile data",
-                        local->linkfile.loc.path);
-        }
-        str_data = NULL;
-
-        local->linkfile.stbuf = *stbuf;
-
-        if (uuid_is_null (local->linkfile.loc.inode->gfid))
-                uuid_copy (local->linkfile.loc.gfid, stbuf->ia_gfid);
-
-        STACK_WIND (frame, dht_linkfile_xattr_cbk,
-                    prev->this, prev->this->fops->setxattr,
-                    &local->linkfile.loc, local->linkfile.xattr, 0);
-
-        return 0;
-
-err:
-        if (str_data) {
-                data_destroy (str_data);
-                str_data = NULL;
-        }
 
         local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
                                       inode, stbuf, preparent, postparent);
@@ -124,22 +57,27 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         local = frame->local;
         local->linkfile.linkfile_cbk = linkfile_cbk;
         local->linkfile.srcvol = tovol;
-        loc_copy (&local->linkfile.loc, loc);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
 
         if (!uuid_is_null (local->gfid)) {
-                dict = dict_new ();
-                if (!dict)
-                        goto out;
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
                         gf_log ("dht-linkfile", GF_LOG_INFO,
                                 "%s: gfid set failed", loc->path);
-        } else if (local->params) {
-                dict = dict_ref (local->params);
         }
-        if (!dict)
+
+        ret = dict_set_str (dict, "trusted.glusterfs.dht.linkto",
+                                   tovol->name);
+
+        if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_INFO,
-                        "dict is NULL, need to make sure gfid's are same");
+                        "%s: failed to initialize linkfile data",
+                        loc->path);
+                goto out;
+        }
 
         STACK_WIND (frame, dht_linkfile_create_cbk,
                     fromvol, fromvol->fops->mknod, loc,
