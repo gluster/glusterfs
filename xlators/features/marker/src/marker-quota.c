@@ -1975,6 +1975,8 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 return 0;
         }
 
+        frame->local = NULL;
+
         if (local->hl_count > 1) {
                 GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
 
@@ -1982,6 +1984,8 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                             FIRST_CHILD(this)->fops->removexattr,
                             &local->loc, contri_key);
                 ret = 0;
+        } else {
+                quota_removexattr_cbk (frame, NULL, this, 0, 0);
         }
 
         if (strcmp (local->parent_loc.path, "/") != 0) {
@@ -1990,7 +1994,9 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 start_quota_txn (this, &local->loc, local->ctx, local->contri);
         }
 
+        /* TODO: free local in quota_local_unref only*/
         quota_local_unref (this, local);
+        GF_FREE (local);
 
         return 0;
 }
