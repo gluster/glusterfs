@@ -482,6 +482,9 @@ dht_get_layout_count (xlator_t *this, dht_layout_t *layout)
                 }
         }
 
+        count = ((layout->spread_cnt) ? layout->spread_cnt :
+                 ((count) ? count : 1));
+
         return count;
 }
 

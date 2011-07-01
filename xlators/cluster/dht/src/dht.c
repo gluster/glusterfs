@@ -290,6 +290,7 @@ reconfigure (xlator_t *this, dict_t *options)
         gf_boolean_t     search_unhashed;
         uint32_t         temp_free_disk = 0;
         int              ret = -1;
+        uint32_t         dir_spread = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO ("dht", options, out);
@@ -340,6 +341,22 @@ reconfigure (xlator_t *this, dict_t *options)
                        " min-free-disk reconfigured to %s",
                        temp_str);
         }
+
+        if (dict_get_str (options, "directory-layout-spread", &temp_str) == 0) {
+                ret = gf_string2uint32 (temp_str, &dir_spread);
+                if (ret ||
+                    (dir_spread > conf->subvolume_cnt) ||
+                    (dir_spread < 1)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "wrong 'directory-layout-spread' option given "
+                                "(%s). setting to earlier value (%d)",
+                                temp_str, conf->dir_spread_cnt);
+                        ret = -1;
+                        goto out;
+                }
+                conf->dir_spread_cnt = dir_spread;
+        }
+
         ret = 0;
 out:
         return ret;
@@ -430,6 +447,21 @@ init (xlator_t *this)
                 } else {
                         gf_string2bytesize (temp_str, &conf->min_free_disk);
                         conf->disk_unit = 'b';
+                }
+        }
+
+        conf->dir_spread_cnt = conf->subvolume_cnt;
+        if (dict_get_str (this->options, "directory-layout-spread",
+                          &temp_str) == 0) {
+                ret = gf_string2uint32 (temp_str, &conf->dir_spread_cnt);
+                if (ret ||
+                    (conf->dir_spread_cnt > conf->subvolume_cnt) ||
+                    (conf->dir_spread_cnt < 1)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "wrong 'directory-layout-spread' option given "
+                                "(%s). setting it to subvolume count",
+                                temp_str);
+                        conf->dir_spread_cnt = conf->subvolume_cnt;
                 }
         }
 
@@ -573,6 +605,9 @@ struct volume_options options[] = {
         },
         { .key = {"assert-no-child-down"},
           .type = GF_OPTION_TYPE_BOOL
+        },
+        { .key  = {"directory-layout-spread"},
+          .type = GF_OPTION_TYPE_INT,
         },
         { .key  = {NULL} },
 };

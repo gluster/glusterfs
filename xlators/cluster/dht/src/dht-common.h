@@ -41,6 +41,9 @@ typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
 
 
 struct dht_layout {
+        int               spread_cnt;  /* layout spread count per directory,
+                                          is controlled by 'setxattr()' with
+                                          special key */
         int               cnt;
         int               preset;
         int               gen;
@@ -171,6 +174,10 @@ struct dht_conf {
         char           vol_uuid[UUID_SIZE + 1];
         gf_boolean_t   assert_no_child_down;
         time_t        *subvol_up_time;
+
+        /* This is the count used as the distribute layout for a directory */
+        /* Will be a global flag to control the layout spread count */
+        uint32_t       dir_spread_cnt;
 };
 typedef struct dht_conf dht_conf_t;
 
