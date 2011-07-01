@@ -45,77 +45,17 @@
 #include "syscall.h"
 #include "cli1.h"
 
-#define GF_DISK_SECTOR_SIZE 512
-
-static int
-write_with_holes (int fd, const char *buf, int size, off_t offset)
-{
-        int ret          = -1;
-        int start_idx    = 0;
-        int tmp_offset   = 0;
-        int write_needed = 0;
-
-        for (start_idx = 0; (start_idx + GF_DISK_SECTOR_SIZE) <= size;
-             start_idx += GF_DISK_SECTOR_SIZE) {
-                /* Check if a block has full '0's. assume as hole if true */
-                if (mem_0filled (buf + start_idx, GF_DISK_SECTOR_SIZE) == 0) {
-                        write_needed = 1;
-                        continue;
-                }
-
-                if (write_needed) {
-                        ret = write (fd, buf + tmp_offset,
-                                     (start_idx - tmp_offset));
-                        if (ret < 0)
-                                goto out;
-
-                        write_needed = 0;
-                }
-                tmp_offset = start_idx + GF_DISK_SECTOR_SIZE;
-
-                ret = lseek (fd, (offset + tmp_offset), SEEK_SET);
-                if (ret < 0)
-                        goto out;
-        }
-
-        if ((start_idx < size) || write_needed) {
-                /* This means, last chunk is not yet written.. write it */
-                ret = write (fd, buf + tmp_offset, (size - tmp_offset));
-                if (ret < 0)
-                        goto out;
-        }
-
-        /* do it regardless of all the above cases as we had to 'write' the
-           given number of bytes */
-        ret = ftruncate (fd, offset + size);
-        if (ret)
-                goto out;
-
-        ret = 0;
-out:
-        return ret;
-
-}
 
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
         int                     ret                    = -1;
-        int                     dst_fd                 = -1;
-        int                     src_fd                 = -1;
         DIR                    *fd                     = NULL;
         glusterd_defrag_info_t *defrag                 = NULL;
         struct dirent          *entry                  = NULL;
         struct stat             stbuf                  = {0,};
-        struct stat             new_stbuf              = {0,};
         char                    full_path[PATH_MAX]    = {0,};
-        char                    tmp_filename[PATH_MAX] = {0,};
-        char                    value[16]              = {0,};
-        char                    linkinfo[PATH_MAX]     = {0,};
-        struct statvfs          src_statfs             = {0,};
-        struct statvfs          dst_statfs             = {0,};
-        int                     file_has_holes         = 0;
-        off_t                   offset                 = 0;
+        char                    force_string[64]       = {0,};
 
         if (!volinfo->defrag)
                 goto out;
@@ -125,6 +65,13 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         fd = opendir (dir);
         if (!fd)
                 goto out;
+
+        if (defrag->cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE) {
+                strcpy (force_string, "force");
+        } else {
+                strcpy (force_string, "not-force");
+        }
+
         while ((entry = readdir (fd))) {
                 if (!entry)
                         break;
@@ -146,121 +93,17 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (stbuf.st_nlink > 1)
                         continue;
 
-                /* if distribute is present, it will honor this key.
-                   -1 is returned if distribute is not present or file doesn't
-                   have a link-file. If file has link-file, the path of
-                   link-file will be the value  */
-                ret = sys_lgetxattr (full_path, GF_XATTR_LINKINFO_KEY,
-                                     &linkinfo, PATH_MAX);
-                if (ret <= 0)
+                ret = sys_lsetxattr (full_path, "distribute.migrate-data",
+                                     force_string, strlen (force_string), 0);
+                if (ret < 0)
                         continue;
 
-                /* If the file is open, don't run rebalance on it */
-                ret = sys_lgetxattr (full_path, GLUSTERFS_OPEN_FD_COUNT,
-                                     &value, 16);
-                if ((ret < 0) || !strncmp (value, "1", 1))
-                        continue;
-
-                /* If its a regular file, and sticky bit is set, we need to
-                   rebalance that */
-                snprintf (tmp_filename, PATH_MAX, "%s/.%s.gfs%llu", dir,
-                          entry->d_name,
-                          (unsigned long long)stbuf.st_size);
-
-                dst_fd = creat (tmp_filename, stbuf.st_mode);
-                if (dst_fd == -1)
-                        continue;
-
-                /* Prevent data movement from a node which has higher
-                   disk-space to a node with lesser */
-                if (defrag->cmd != GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE) {
-                        ret = statvfs (full_path, &src_statfs);
-                        if (ret)
-                                gf_log ("", GF_LOG_WARNING,
-                                        "statfs on %s failed", full_path);
-
-                        ret = statvfs (tmp_filename, &dst_statfs);
-                        if (ret)
-                                gf_log ("", GF_LOG_WARNING,
-                                        "statfs on %s failed", tmp_filename);
-
-                        /* Calculate the size without the file in migration */
-                        if (((dst_statfs.f_bavail *
-                              dst_statfs.f_bsize) / GF_DISK_SECTOR_SIZE) >
-                            (((src_statfs.f_bavail * src_statfs.f_bsize) /
-                              GF_DISK_SECTOR_SIZE) - stbuf.st_blocks)) {
-                                gf_log ("", GF_LOG_INFO,
-                                        "data movement attempted from node with"
-                                        " higher disk space to a node with "
-                                        "lesser disk space (%s)", full_path);
-
-                                close (dst_fd);
-                                unlink (tmp_filename);
-                                continue;
-                        }
+                LOCK (&defrag->lock);
+                {
+                        defrag->total_files += 1;
+                        defrag->total_data += stbuf.st_size;
                 }
-
-                src_fd = open (full_path, O_RDONLY);
-                if (src_fd == -1) {
-                        close (dst_fd);
-                        continue;
-                }
-
-                /* Try to preserve 'holes' while migrating data */
-                if (stbuf.st_size > (stbuf.st_blocks * GF_DISK_SECTOR_SIZE))
-                        file_has_holes = 1;
-
-                offset = 0;
-                while (1) {
-                        ret = read (src_fd, defrag->databuf, 128 * GF_UNIT_KB);
-                        if (!ret || (ret < 0)) {
-                                break;
-                        }
-
-                        if (!file_has_holes)
-                                ret = write (dst_fd, defrag->databuf, ret);
-                        else
-                                ret = write_with_holes (dst_fd, defrag->databuf,
-                                                        ret, offset);
-                        if (ret < 0)
-                                break;
-
-                        offset += ret;
-                }
-
-                ret = stat (full_path, &new_stbuf);
-                if (ret < 0) {
-                        close (dst_fd);
-                        close (src_fd);
-                        continue;
-                }
-                /* No need to rebalance, if there is some
-                   activity on source file */
-                if (new_stbuf.st_mtime != stbuf.st_mtime) {
-                        close (dst_fd);
-                        close (src_fd);
-                        continue;
-                }
-
-                ret = fchown (dst_fd, stbuf.st_uid, stbuf.st_gid);
-                if (ret) {
-                        gf_log ("", GF_LOG_WARNING,
-                                "failed to set the uid/gid of file %s: %s",
-                                tmp_filename, strerror (errno));
-                }
-
-                ret = rename (tmp_filename, full_path);
-                if (ret != -1) {
-                        LOCK (&defrag->lock);
-                        {
-                                defrag->total_files += 1;
-                                defrag->total_data += stbuf.st_size;
-                        }
-                        UNLOCK (&defrag->lock);
-                }
-
-                close (dst_fd);
-                close (src_fd);
+                UNLOCK (&defrag->lock);
 
                 if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED) {
                         closedir (fd);
