@@ -4288,7 +4288,8 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                         strcpy (entry_path + real_path_len + 1,
                                 tmp_entry->d_name);
                         posix_lstat_with_gfid (this, entry_path, &stbuf);
-                        tmp_entry->d_ino = stbuf.ia_ino;
+                        if (stbuf.ia_ino)
+                                tmp_entry->d_ino = stbuf.ia_ino;
                         tmp_entry->d_stat = stbuf;
                 }
         }
