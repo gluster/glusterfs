@@ -232,6 +232,23 @@ glusterfs_graph_readonly (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
 
 int
+glusterfs_graph_acl (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+{
+        int ret = 0;
+        cmd_args_t      *cmd_args = NULL;
+
+        cmd_args = &ctx->cmd_args;
+
+        if (!cmd_args->acl)
+                return 0;
+
+        ret = glusterfs_graph_insert (graph, ctx, "system/posix-acl",
+                                      "posix-acl-autoload");
+        return ret;
+}
+
+
+int
 glusterfs_graph_mac_compat (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
         int ret = 0;
@@ -455,6 +472,12 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         ret = glusterfs_graph_readonly (graph, ctx);
         if (ret) {
                 gf_log ("graph", GF_LOG_ERROR, "glusterfs graph readonly failed");
+                return -1;
+        }
+
+        ret = glusterfs_graph_acl (graph, ctx);
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph ACL failed");
                 return -1;
         }
 
