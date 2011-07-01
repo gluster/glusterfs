@@ -36,6 +36,7 @@ enum gf_dht_mem_types_ {
         gf_switch_mt_switch_sched_array,
         gf_switch_mt_switch_struct,
         gf_dht_mt_subvol_time,
+        gf_dht_mt_loc_t,
         gf_dht_mt_end
 };
 #endif

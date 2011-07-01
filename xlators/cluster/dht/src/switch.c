@@ -949,6 +949,15 @@ init (xlator_t *this)
                 goto err;
         }
 
+        /* Create 'syncop' environment */
+	conf->env = syncenv_new (0);
+        if (!conf->env) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create sync environment %s",
+                        strerror (errno));
+                goto err;
+        }
+
         this->private = conf;
 
         return 0;
