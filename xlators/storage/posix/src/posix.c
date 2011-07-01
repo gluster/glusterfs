@@ -4537,6 +4537,11 @@ init (xlator_t *this)
                 }
         }
 
+        op_ret = sys_lgetxattr (dir_data->data, "system.posix_acl_access",
+                                NULL, 0);
+        if ((op_ret < 0) && (errno == ENOTSUP))
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Posix access control list is not supported.");
         _private = GF_CALLOC (1, sizeof (*_private),
                               gf_posix_mt_posix_private);
         if (!_private) {

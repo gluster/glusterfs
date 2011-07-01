@@ -105,6 +105,9 @@ AC_CONFIG_FILES([Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
+                xlators/system/Makefile
+                xlators/system/posix-acl/Makefile
+                xlators/system/posix-acl/src/Makefile
                 cli/Makefile
                 cli/src/Makefile
 		doc/Makefile
