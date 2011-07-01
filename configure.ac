@@ -121,8 +121,6 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-SuSE
 		extras/benchmarking/Makefile
 		contrib/fuse-util/Makefile
-                xlators/features/access-control/Makefile
-                xlators/features/access-control/src/Makefile
                 xlators/nfs/Makefile
                 xlators/nfs/server/Makefile
                 xlators/nfs/server/src/Makefile
