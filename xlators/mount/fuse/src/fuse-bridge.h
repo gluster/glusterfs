@@ -91,7 +91,7 @@ struct fuse_private {
 
         pthread_cond_t       sync_cond;
         pthread_mutex_t      sync_mutex;
-        char                 child_up;
+        char                 event_recvd;
 
         char                 init_recvd;
 
