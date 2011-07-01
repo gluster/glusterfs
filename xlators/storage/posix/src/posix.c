@@ -472,6 +472,40 @@ out:
 }
 
 
+int
+posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req)
+{
+        int          ret = 0;
+        data_t      *data = NULL;
+        struct stat  stat = {0, };
+
+        if (!xattr_req)
+                goto out;
+
+        if (sys_lstat (path, &stat) != 0)
+                goto out;
+
+        data = dict_get (xattr_req, "system.posix_acl_access");
+        if (data) {
+                ret = sys_lsetxattr (path, "system.posix_acl_access",
+                                     data->data, data->len, 0);
+                if (ret != 0)
+                        goto out;
+        }
+
+        data = dict_get (xattr_req, "system.posix_acl_default");
+        if (data) {
+                ret = sys_lsetxattr (path, "system.posix_acl_default",
+                                     data->data, data->len, 0);
+                if (ret != 0)
+                        goto out;
+        }
+
+out:
+        return ret;
+}
+
+
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr_req)
@@ -1200,6 +1234,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1464,6 +1505,13 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 #endif
+
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
 
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
@@ -1769,6 +1817,14 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 #endif
+
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -2191,6 +2247,13 @@ posix_create (call_frame_t *frame, xlator_t *this,
                         real_path, strerror (op_errno));
         }
 #endif
+
+        op_ret = posix_acl_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
 
         op_ret = posix_fstat_with_gfid (this, _fd, &stbuf);
         if (op_ret == -1) {
