@@ -361,4 +361,6 @@ void _get_md5_str (char *out_str, size_t outlen,
 void gf_array_insertionsort (void *a, int l, int r, size_t elem_size,
                              gf_cmp cmp);
 int gf_is_str_int (const char *value);
+
+char *gf_uint64_2human_readable (uint64_t);
 #endif /* _COMMON_UTILS_H */

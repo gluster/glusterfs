@@ -1258,6 +1258,42 @@ gf_string2uint64_base10 (const char *str, uint64_t *n)
         return -1;
 }
 
+char *
+gf_uint64_2human_readable (uint64_t n)
+{
+        int   ret = 0;
+        char *str = NULL;
+
+        if (n >= GF_UNIT_PB) {
+                ret = gf_asprintf (&str, "%.1lfPB", ((double) n)/GF_UNIT_PB);
+                if (ret < 0)
+                        goto err;
+        } else if (n >= GF_UNIT_TB) {
+                ret = gf_asprintf (&str, "%.1lfTB", ((double) n)/GF_UNIT_TB);
+                if (ret < 0)
+                        goto err;
+        } else if (n >= GF_UNIT_GB) {
+                ret = gf_asprintf (&str, "%.1lfGB", ((double) n)/GF_UNIT_GB);
+                if (ret < 0)
+                        goto err;
+        } else if (n >= GF_UNIT_MB) {
+                ret = gf_asprintf (&str, "%.1lfMB", ((double) n)/GF_UNIT_MB);
+                if (ret < 0)
+                        goto err;
+        } else if (n >= GF_UNIT_KB) {
+                ret = gf_asprintf (&str, "%.1lfKB", ((double) n)/GF_UNIT_KB);
+                if (ret < 0)
+                        goto err;
+        } else {
+                ret = gf_asprintf (&str, "%luBytes", n);
+                if (ret < 0)
+                        goto err;
+        }
+        return str;
+err:
+        return NULL;
+}
+
 int
 gf_string2bytesize (const char *str, uint64_t *n)
 {
