@@ -1308,12 +1308,13 @@ out:
 }
 
 int32_t
-print_limit_list (char *volname, char *limit_list)
+gf_cli3_1_print_limit_list (char *volname, char *limit_list)
 {
         int64_t  size            = 0;
         int64_t  limit_value     = 0;
         int32_t  i, j, k;
         int32_t  len = 0, ret    = -1;
+        char     *size_str       = NULL;
         char     path [PATH_MAX] = {0, };
         char     ret_str [1024]  = {0, };
         char     value [1024]    = {0, };
@@ -1382,8 +1383,15 @@ print_limit_list (char *volname, char *limit_list)
                 } else {
                         sscanf (ret_str, "%"PRId64",%"PRId64, &size,
                                 &limit_value);
-                        cli_out ("%-20s %10"PRId64" %20"PRId64, path,
-                                 limit_value, size);
+                        size_str = gf_uint64_2human_readable ((uint64_t) size);
+                        if (size_str == NULL) {
+                                cli_out ("%-20s %10s %20"PRId64, path,
+                                         value, size);
+                        } else {
+                                cli_out ("%-20s %10s %20s", path,
+                                         value, size_str);
+                                GF_FREE (size_str);
+                        }
                 }
                 i++;
         }
@@ -1431,7 +1439,8 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (rsp.type == GF_QUOTA_OPTION_TYPE_LIST) {
                 if (rsp.limit_list)
-                        print_limit_list (rsp.volname, rsp.limit_list);
+                        gf_cli3_1_print_limit_list (rsp.volname,
+                                                    rsp.limit_list);
         } else {
                 gf_log ("cli", GF_LOG_INFO, "Received resp to quota command ");
                 if (rsp.op_errstr)
