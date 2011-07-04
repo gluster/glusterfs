@@ -353,6 +353,48 @@ err:
         return ret;
 }
 
+int32_t
+nfs_fop_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
+{
+        struct nfs_fop_local    *nfl = NULL;
+        fop_access_cbk_t        progcbk = NULL;
+
+        nfl_to_prog_data (nfl, progcbk, frame);
+        if (progcbk)
+                progcbk (frame, cookie, this, op_ret, op_errno);
+
+        nfs_stack_destroy (nfl, frame);
+        return 0;
+}
+
+int
+nfs_fop_access (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+                int32_t accesstest, fop_access_cbk_t cbk, void *local)
+{
+        call_frame_t            *frame = NULL;
+        int                     ret = -EFAULT;
+        struct nfs_fop_local    *nfl = NULL;
+
+        if ((!xl) || (!loc) || (!nfu))
+                return ret;
+
+        gf_log (GF_NFS, GF_LOG_TRACE, "Access: %s", loc->path);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
+        nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
+        nfs_fop_save_root_ino (nfl, loc);
+
+        STACK_WIND_COOKIE (frame, nfs_fop_access_cbk, xl, xl, xl->fops->access,
+                           loc, accesstest);
+        ret = 0;
+err:
+        if (ret < 0) {
+                if (frame)
+                        nfs_stack_destroy (nfl, frame);
+        }
+
+        return ret;
+}
 
 int32_t
 nfs_fop_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

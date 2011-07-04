@@ -565,171 +565,31 @@ nfs3_prep_access3args (access3args *args, struct nfs3_fh *fh)
         args->object.data.data_val = (void *)fh;
 }
 
+#define POSIX_READ      4
+#define POSIX_WRITE     2
+#define POSIX_EXEC      1
 
 uint32_t
-nfs3_owner_accessbits (ia_prot_t prot, ia_type_t type, uint32_t request)
-{
-        uint32_t accresult = 0;
-
-        if (IA_PROT_RUSR (prot) && (request & ACCESS3_READ))
-                accresult |= ACCESS3_READ;
-
-        if (request & ACCESS3_LOOKUP)
-                if ((IA_ISDIR (type)) && (IA_PROT_XUSR (prot)))
-                        accresult |= ACCESS3_LOOKUP;
-
-        if ((IA_PROT_WUSR (prot) && (request & ACCESS3_MODIFY)))
-                accresult |= ACCESS3_MODIFY;
-
-        if ((IA_PROT_WUSR (prot) && (request & ACCESS3_EXTEND)))
-                accresult |= ACCESS3_EXTEND;
-
-        /* ACCESS3_DELETE is ignored for now since that requires
-         * knowing the permissions on the parent directory.
-         */
-
-        if (request & ACCESS3_EXECUTE)
-                if (IA_PROT_XUSR (prot) && (!IA_ISDIR (type)))
-                        accresult |= ACCESS3_EXECUTE;
-
-        return accresult;
-}
-
-
-uint32_t
-nfs3_group_accessbits (ia_prot_t prot, ia_type_t type, uint32_t request)
-{
-        uint32_t accresult = 0;
-
-        if (IA_PROT_RGRP (prot) && (request & ACCESS3_READ))
-                accresult |= ACCESS3_READ;
-
-        if (request & ACCESS3_LOOKUP)
-                if ((IA_ISDIR (type)) && IA_PROT_RGRP (prot))
-                        accresult |= ACCESS3_LOOKUP;
-
-        if (IA_PROT_WGRP (prot) && (request & ACCESS3_MODIFY))
-                accresult |= ACCESS3_MODIFY;
-
-        if (IA_PROT_WGRP (prot) && (request & ACCESS3_EXTEND))
-                accresult |= ACCESS3_EXTEND;
-
-        /* ACCESS3_DELETE is ignored for now since that requires
-         * knowing the permissions on the parent directory.
-         */
-
-        if (request & ACCESS3_EXECUTE)
-                if (IA_PROT_XGRP (prot) && (!IA_ISDIR (type)))
-                        accresult |= ACCESS3_EXECUTE;
-
-        return accresult;
-}
-
-
-uint32_t
-nfs3_other_accessbits (ia_prot_t prot, ia_type_t type, uint32_t request)
-{
-        uint32_t accresult = 0;
-
-        if (IA_PROT_ROTH (prot) && (request & ACCESS3_READ))
-                accresult |= ACCESS3_READ;
-
-        if (request & ACCESS3_LOOKUP)
-                if (IA_ISDIR (type) && IA_PROT_ROTH (prot))
-                        accresult |= ACCESS3_LOOKUP;
-
-        if (IA_PROT_WOTH (prot) && (request & ACCESS3_MODIFY))
-                accresult |= ACCESS3_MODIFY;
-
-        if (IA_PROT_WOTH (prot) && (request & ACCESS3_EXTEND))
-                accresult |= ACCESS3_EXTEND;
-
-        /* ACCESS3_DELETE is ignored for now since that requires
-         * knowing the permissions on the parent directory.
-         */
-
-        if (request & ACCESS3_EXECUTE)
-                if (IA_PROT_XOTH (prot) && (!IA_ISDIR (type)))
-                        accresult |= ACCESS3_EXECUTE;
-
-        return accresult;
-}
-
-
-uint32_t
-nfs3_superuser_accessbits (ia_prot_t prot, ia_type_t type, uint32_t request)
-{
-        uint32_t accresult = 0;
-
-        if (request & ACCESS3_READ)
-                accresult |= ACCESS3_READ;
-
-        if (request & ACCESS3_LOOKUP)
-                if (IA_ISDIR (type))
-                        accresult |= ACCESS3_LOOKUP;
-
-        if (request & ACCESS3_MODIFY)
-                accresult |= ACCESS3_MODIFY;
-
-        if (request & ACCESS3_EXTEND)
-                accresult |= ACCESS3_EXTEND;
-
-        /* ACCESS3_DELETE is ignored for now since that requires
-         * knowing the permissions on the parent directory.
-         */
-
-        if (request & ACCESS3_EXECUTE)
-                if ((IA_PROT_XOTH (prot) || IA_PROT_XUSR (prot) ||
-                     IA_PROT_XGRP (prot)) && (!IA_ISDIR (type)))
-                        accresult |= ACCESS3_EXECUTE;
-
-        return accresult;
-}
-
-
-uint32_t
-nfs3_stat_to_accessbits (struct iatt *buf, uint32_t request, uid_t uid,
-                         gid_t gid, gid_t *auxgids, int gids)
+nfs3_accessbits (int32_t accbits)
 {
         uint32_t        accresult = 0;
-        ia_prot_t       prot = {0, };
-        ia_type_t       type = 0;
-        int             testgid = -1;
-        int             x = 0;
 
-        prot = buf->ia_prot;
-        type = buf->ia_type;
+        if (accbits & POSIX_READ)
+                accresult |= (ACCESS3_READ | ACCESS3_LOOKUP);
 
-        if (buf->ia_gid == gid)
-                testgid = gid;
-        else {
-                for (; x < gids; ++x) {
-                        if (buf->ia_gid == auxgids[x]) {
-                                testgid = buf->ia_gid;
-                                break;
-                        }
-                }
-        }
+        if (accbits & POSIX_WRITE)
+                accresult |= (ACCESS3_MODIFY | ACCESS3_EXTEND);
 
-        if (uid == 0)
-                accresult = nfs3_superuser_accessbits (prot, type, request);
-        else if (buf->ia_uid == uid)
-                accresult = nfs3_owner_accessbits (prot, type, request);
-        else if ((testgid != -1) && (buf->ia_gid == testgid))
-                accresult = nfs3_group_accessbits (prot, type, request);
-        else
-                accresult = nfs3_other_accessbits (prot, type, request);
+        if (accbits & POSIX_EXEC)
+                accresult |= ACCESS3_EXECUTE;
 
         return accresult;
 }
 
 
 void
-nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
-                      uint32_t accbits, uid_t uid, gid_t gid,
-                      uint64_t deviceid, gid_t *gidarr, int gids)
+nfs3_fill_access3res (access3res *res, nfsstat3 status, int32_t accbits)
 {
-        post_op_attr    objattr;
         uint32_t        accres = 0;
 
         memset (res, 0, sizeof (*res));
@@ -737,11 +597,8 @@ nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
         if (status != NFS3_OK)
                 return;
 
-        nfs3_map_deviceid_to_statdev (buf, deviceid);
-        objattr = nfs3_stat_to_post_op_attr (buf);
-        accres = nfs3_stat_to_accessbits (buf, accbits, uid, gid, gidarr, gids);
+        accres = nfs3_accessbits (accbits);
 
-        res->access3res_u.resok.obj_attributes = objattr;
         res->access3res_u.resok.access = accres;
 }
 
