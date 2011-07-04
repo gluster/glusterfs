@@ -1618,6 +1618,8 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         break;
                 case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                         /* Replicate after the clients, then stripe */
+                        if (volinfo->replica_count == 0)
+                                return -1;
                         sub_count = volinfo->replica_count;
                         cluster_args = replicate_args;
                         break;
