@@ -99,9 +99,7 @@ extern void
 nfs3_prep_access3args (access3args *args, struct nfs3_fh *fh);
 
 extern void
-nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
-                      uint32_t accbits, uid_t uid, gid_t gid,
-                      uint64_t deviceid, gid_t *auxgids, int gids);
+nfs3_fill_access3res (access3res *res, nfsstat3 status, int32_t accbits);
 
 extern char *
 nfs3_fhcache_getpath (struct nfs3_state *nfs3, struct nfs3_fh *fh);

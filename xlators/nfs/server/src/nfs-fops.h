@@ -233,4 +233,7 @@ extern int
 nfs_fop_stat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
               fop_stat_cbk_t cbk, void *local);
 
+extern int
+nfs_fop_access (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+                int32_t accesstest, fop_access_cbk_t cbk, void *local);
 #endif

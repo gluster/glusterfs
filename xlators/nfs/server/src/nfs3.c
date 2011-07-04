@@ -1367,20 +1367,13 @@ rpcerr:
 
 
 int
-nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, struct iatt *buf,
-                   uint32_t accbits)
+nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, int32_t accbits)
 {
         access3res      res;
         uint64_t        deviceid = 0;
-        gid_t           *gidarr = NULL;
-        int             gids = 0;
 
         deviceid = nfs3_request_xlator_deviceid (req);
-        gidarr = nfs_rpcsvc_auth_unix_auxgids (req, &gids);
-        nfs3_fill_access3res (&res, status, buf, accbits,
-                              nfs_rpcsvc_request_uid (req),
-                              nfs_rpcsvc_request_gid (req), deviceid, gidarr,
-                              gids);
+        nfs3_fill_access3res (&res, status, accbits);
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_access3res);
         return 0;
@@ -1389,7 +1382,7 @@ nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, struct iatt *buf,
 
 int32_t
 nfs3svc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *buf)
+                    int32_t op_ret, int32_t op_errno)
 {
         nfsstat3                status = NFS3_OK;
         nfs3_call_state_t       *cs = NULL;
@@ -1401,7 +1394,7 @@ nfs3svc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "ACCESS", status,
                              op_errno);
-        nfs3_access_reply (cs->req, status, buf, cs->accessbits);
+        nfs3_access_reply (cs->req, status, op_errno);
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -1422,8 +1415,8 @@ nfs3_access_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->fh = cs->resolvefh;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
-                        nfs3svc_access_cbk, cs);
+        ret = nfs_access (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                          cs->accessbits, nfs3svc_access_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -1431,7 +1424,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "ACCESS",
                                      stat, -ret);
-                nfs3_access_reply (cs->req, stat, NULL, 0);
+                nfs3_access_reply (cs->req, stat, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
@@ -1468,7 +1461,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (req), "ACCESS",
                                      stat, -ret);
-                nfs3_access_reply (req, stat, NULL, 0);
+                nfs3_access_reply (req, stat, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
