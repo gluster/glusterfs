@@ -92,7 +92,6 @@ posix_acl_from_xattr (xlator_t *this, const char *xattr_buf, int xattr_size)
 
                 switch (ace->tag) {
                 case POSIX_ACL_USER_OBJ:
-                case POSIX_ACL_GROUP_OBJ:
                 case POSIX_ACL_MASK:
                 case POSIX_ACL_OTHER:
                         ace->id = POSIX_ACL_UNDEFINED_ID;
@@ -100,6 +99,7 @@ posix_acl_from_xattr (xlator_t *this, const char *xattr_buf, int xattr_size)
 
                 case POSIX_ACL_GROUP:
                 case POSIX_ACL_USER:
+                case POSIX_ACL_GROUP_OBJ:
                         ace->id = letoh32 (entry->id);
                         break;
 
