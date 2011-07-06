@@ -4056,11 +4056,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 "Failed to generate nfs volume file");
 		}
 
-		ret = glusterd_store_volinfo (volinfo,
-                                              GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-
-		if (ret)
-			goto out;
 
 		ret = glusterd_fetchspec_notify (THIS);
                 glusterd_set_rb_status (volinfo, GF_RB_STATUS_NONE);
@@ -4129,6 +4124,16 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                         "received status - doing nothing");
                 ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
                 if (ctx) {
+                        if (glusterd_is_rb_paused (volinfo)) {
+                                ret = dict_set_str (ctx, "status-reply",
+                                                 "replace brick has been paused");
+                                if (ret)
+                                        gf_log (THIS->name, GF_LOG_ERROR,
+                                                "failed to set pump status"
+                                                "in ctx");
+                                goto out;
+                        }
+
                         ret = rb_do_operation_status (volinfo, src_brickinfo,
                                                       dst_brickinfo);
                         if (ret)
@@ -4142,9 +4147,12 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 ret = -1;
                 goto out;
         }
-
+        if (!ret && replace_op != GF_REPLACE_OP_STATUS)
+		ret = glusterd_store_volinfo (volinfo,
+                                              GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
-                goto out;
+                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't store"
+                        " replace brick operation's state");
 
 out:
         return ret;

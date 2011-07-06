@@ -567,8 +567,8 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         GF_ASSERT (fd > 0);
         GF_ASSERT (volinfo);
 
-        char                    buf[4096] = {0,};
-        int32_t                 ret = -1;
+        char                    buf[PATH_MAX+20] = {0,};
+        int32_t                 ret              = -1;
 
         snprintf (buf, sizeof (buf), "%d", volinfo->type);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_TYPE, buf);
@@ -613,6 +613,28 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                                          uuid_utoa (volinfo->volume_id));
         if (ret)
                 goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->rb_status);
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_RB_STATUS,
+                                         buf);
+        if (ret)
+                goto out;
+
+        if (volinfo->rb_status > GF_RB_STATUS_NONE) {
+                snprintf (buf, sizeof (buf), "%s:%s", volinfo->src_brick->hostname,
+                          volinfo->src_brick->path);
+                ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
+                                                 buf);
+                if (ret)
+                        goto out;
+
+                snprintf (buf, sizeof (buf), "%d:%s:%s", volinfo->dst_brick->port,
+                          volinfo->dst_brick->hostname, volinfo->dst_brick->path);
+                ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_RB_DST_BRICK,
+                                                 buf);
+                if (ret)
+                        goto out;
+        }
 
 out:
         if (ret)
@@ -1504,16 +1526,18 @@ out:
 int32_t
 glusterd_store_retrieve_volume (char    *volname)
 {
-        int32_t                 ret = -1;
-        glusterd_volinfo_t      *volinfo = NULL;
-        glusterd_store_iter_t   *iter = NULL;
-        char                    *key = NULL;
-        char                    *value = NULL;
-        char                    volpath[PATH_MAX] = {0,};
-        glusterd_conf_t         *priv = NULL;
-        char                    path[PATH_MAX] = {0,};
-        int                     exists = 0;
-        glusterd_store_op_errno_t op_errno = GD_STORE_SUCCESS;
+        int32_t                   ret                   = -1;
+        glusterd_volinfo_t        *volinfo              = NULL;
+        glusterd_store_iter_t     *iter                 = NULL;
+        char                      *key                  = NULL;
+        char                      *value                = NULL;
+        char                      volpath[PATH_MAX]     = {0,};
+        glusterd_conf_t           *priv                 = NULL;
+        char                      path[PATH_MAX]        = {0,};
+        char                      dst_brick[PATH_MAX]   = {0, };
+        int                       exists                = 0;
+        int                       dst_port              = -1;
+        glusterd_store_op_errno_t op_errno              = GD_STORE_SUCCESS;
 
         ret = glusterd_volinfo_new (&volinfo);
 
@@ -1547,36 +1571,70 @@ glusterd_store_retrieve_volume (char    *volname)
                               strlen (GLUSTERD_STORE_KEY_VOL_TYPE))) {
                         volinfo->type = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_COUNT,
-                            strlen (GLUSTERD_STORE_KEY_VOL_COUNT))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_COUNT))) {
                         volinfo->brick_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_STATUS,
-                            strlen (GLUSTERD_STORE_KEY_VOL_STATUS))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_STATUS))) {
                         volinfo->status = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_VERSION,
-                            strlen (GLUSTERD_STORE_KEY_VOL_VERSION))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_VERSION))) {
                         volinfo->version = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_PORT,
-                            strlen (GLUSTERD_STORE_KEY_VOL_PORT))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_PORT))) {
                         volinfo->port = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_SUB_COUNT,
-                            strlen (GLUSTERD_STORE_KEY_VOL_SUB_COUNT))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_SUB_COUNT))) {
                         volinfo->sub_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_STRIPE_CNT,
-                            strlen (GLUSTERD_STORE_KEY_VOL_STRIPE_CNT))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_STRIPE_CNT))) {
                         volinfo->stripe_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
-                            strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
                         volinfo->transport_type = atoi (value);
                         volinfo->nfs_transport_type = volinfo->transport_type;
                         if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
                                 volinfo->nfs_transport_type = GF_DEFAULT_NFS_TRANSPORT;
                         }
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_ID,
-                            strlen (GLUSTERD_STORE_KEY_VOL_ID))) {
+                                     strlen (GLUSTERD_STORE_KEY_VOL_ID))) {
                         ret = uuid_parse (value, volinfo->volume_id);
                         if (ret)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
+
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_STATUS,
+                                     strlen (GLUSTERD_STORE_KEY_RB_STATUS))) {
+                        glusterd_set_rb_status (volinfo, atoi (value));
+
+                } else if (volinfo->rb_status > GF_RB_STATUS_NONE &&
+                           !strncmp (key, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
+                                     strlen (GLUSTERD_STORE_KEY_RB_SRC_BRICK))) {
+                        ret = glusterd_brickinfo_from_brick (value,
+                                                             &volinfo->src_brick);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "Unable to create"
+                                        " src brickinfo");
+                                goto out;
+                        }
+
+                } else if (volinfo->rb_status > GF_RB_STATUS_NONE &&
+                           !strncmp (key, GLUSTERD_STORE_KEY_RB_DST_BRICK,
+                                     strlen (GLUSTERD_STORE_KEY_RB_DST_BRICK))) {
+                        sscanf (value, "%d:%s", &dst_port, dst_brick);
+                        if (dst_port == -1 || dst_brick[0] == 0) {
+                                gf_log ("", GF_LOG_ERROR, "replace brick: "
+                                        "dst brick info is invalid");
+                                goto out;
+                        }
+                        ret = glusterd_brickinfo_from_brick (dst_brick,
+                                                             &volinfo->dst_brick);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "Unable to create"
+                                        " dst brickinfo");
+                                goto out;
+                        }
+                        volinfo->dst_brick->port = dst_port;
+
                 } else if (strstr (key, "slave")) {
                         ret = dict_set_dynstr (volinfo->gsync_slaves, key,
                                                 gf_strdup (value));
