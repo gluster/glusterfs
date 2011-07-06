@@ -521,7 +521,7 @@ fd_create (inode_t *inode, pid_t pid)
         fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) * fd->xl_count),
                               gf_common_mt_fd_ctx);
         if (!fd->_ctx) {
-                GF_FREE (fd);
+                mem_put (inode->table->fd_mem_pool, fd);
                 fd = NULL;
                 goto out;
         }
