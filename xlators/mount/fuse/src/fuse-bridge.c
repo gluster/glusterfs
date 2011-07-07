@@ -251,7 +251,6 @@ fuse_lookup_resume (fuse_state_t *state)
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": LOOKUP %s", state->finh->unique,
                         state->loc.path);
-                uuid_generate (state->gfid);
                 state->loc.inode = inode_new (state->loc.parent->table);
         }
 
@@ -280,6 +279,8 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         if (state->loc.inode) {
                 uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
+        } else {
+                uuid_generate (state->gfid);
         }
 
         uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
