@@ -701,6 +701,7 @@ afr_self_heal_find_sources (xlator_t *this, afr_local_t *local, dict_t **xattr,
         afr_private_t   *priv = NULL;
         int              i = 0;
         afr_self_heal_type sh_type = AFR_SELF_HEAL_DATA;
+        int              nsources = 0;
 
         sh   = &local->self_heal;
         priv = this->private;
@@ -733,7 +734,11 @@ afr_self_heal_find_sources (xlator_t *this, afr_local_t *local, dict_t **xattr,
                 sh_type = AFR_SELF_HEAL_METADATA;
                 break;
         }
-        (void)afr_sh_mark_sources (sh, priv->child_count, sh_type);
+        nsources = afr_sh_mark_sources (sh, priv->child_count, sh_type);
+        if (nsources == 0) {
+                for (i = 0; i < priv->child_count; i++)
+                        sh->sources[i] = 1;
+        }
 }
 
 
