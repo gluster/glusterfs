@@ -168,13 +168,6 @@ typedef struct glusterd_status_rsp_conv_ {
         dict_t *dict;
 } glusterd_status_rsp_conv_t;
 
-typedef struct glusterd_gsync_slaves {
-        char *slave;
-        char *host_uuid;
-        int   ret_status;
-        char rmt_hostname[256];
-} glusterd_gsync_slaves_t;
-
 typedef struct glusterd_gsync_status_temp {
         dict_t *rsp_dict;
         glusterd_volinfo_t *volinfo;

@@ -64,7 +64,9 @@ typedef enum gf_gld_mem_types_ {
         gf_gld_mt_brick_rsp_ctx_t               = gf_common_mt_end + 38,
         gf_gld_mt_mop_brick_req_t               = gf_common_mt_end + 39,
         gf_gld_mt_op_allack_ctx_t               = gf_common_mt_end + 40,
-        gf_gld_mt_end                           = gf_common_mt_end + 41
+        gf_gld_mt_linearr                       = gf_common_mt_end + 41,
+        gf_gld_mt_linebuf                       = gf_common_mt_end + 42,
+        gf_gld_mt_end                           = gf_common_mt_end + 43
 } gf_gld_mem_types_t;
 #endif
 

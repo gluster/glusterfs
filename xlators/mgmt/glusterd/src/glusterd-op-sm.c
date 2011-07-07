@@ -1899,7 +1899,200 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         return ret;
 }
 
-int
+/*****
+ *
+ * glusterd_urltransform* internal API
+ *
+ *****/
+
+static void
+glusterd_urltransform_init (runner_t *runner, const char *transname)
+{
+        runinit (runner);
+        runner_add_arg (runner, GSYNCD_PREFIX"/gsyncd");
+        runner_argprintf (runner, "--%s-url", transname);
+}
+
+static void
+glusterd_urltransform_add (runner_t *runner, const char *url)
+{
+        runner_add_arg (runner, url);
+}
+
+static void
+_glusterd_urltransform_add_iter (dict_t *dict, char *key, data_t *value, void *data)
+{
+        runner_t *runner = (runner_t *)data;
+        char *slave = NULL;
+
+        slave = strchr (value->data, ':');
+        GF_ASSERT (slave);
+        slave++;
+        runner_add_arg (runner, slave);
+}
+
+static void
+glusterd_urltransform_free (char **linearr, unsigned n)
+{
+        int i = 0;
+
+        for (; i < n; i++)
+                GF_FREE (linearr[i]);
+
+        GF_FREE (linearr);
+}
+
+static int
+glusterd_urltransform (runner_t *runner, char ***linearrp)
+{
+        char **linearr = NULL;
+        char *line = NULL;
+        unsigned arr_len = 32;
+        unsigned arr_idx = 0;
+        gf_boolean_t error = _gf_false;
+
+        linearr = GF_CALLOC (arr_len, sizeof (char *), gf_gld_mt_linearr);
+        if (!linearr) {
+                error = _gf_true;
+                goto out;
+        }
+
+        runner_redir (runner, STDOUT_FILENO, RUN_PIPE);
+        if (runner_start (runner) != 0) {
+                gf_log ("", GF_LOG_ERROR, "spawning child failed");
+
+                error = _gf_true;
+                goto out;
+        }
+
+        arr_idx = 0;
+        for (;;) {
+                line = GF_MALLOC (1024, gf_gld_mt_linebuf);
+                if (!line) {
+                        error = _gf_true;
+                        goto out;
+                }
+
+                if (fgets (line, 1024, runner_chio (runner, STDOUT_FILENO)) ==
+                    NULL)
+                        break;
+
+                if (line[strlen (line) - 1] != '\n') {
+                        GF_FREE (line);
+                        error = _gf_true;
+                        goto out;
+                }
+                line[strlen (line) - 1] = '\0';
+
+                if (arr_idx == arr_len) {
+                        arr_len <<= 1;
+                        linearr = GF_REALLOC (linearr, arr_len);
+                        if (!linearr) {
+                                GF_FREE (line);
+                                error = _gf_true;
+                                goto out;
+                        }
+                }
+                linearr[arr_idx] = line;
+
+                arr_idx++;
+        }
+
+ out:
+
+        /* XXX chpid field is not exported by run API
+         * but runner_end() does not abort the invoked
+         * process (ie. it might block in waitpid(2))
+         * so we resort to a manual kill a the private field
+         */
+        if (error && runner->chpid > 0)
+                kill (runner->chpid, SIGKILL);
+
+        if (runner_end (runner) != 0)
+                error = _gf_true;
+
+        if (error) {
+                gf_log ("", GF_LOG_ERROR, "reading data from child failed");
+                glusterd_urltransform_free (linearr, arr_idx);
+                return -1;
+        }
+
+        *linearrp = linearr;
+        return arr_idx;
+}
+
+static int
+glusterd_urltransform_single (const char *url, const char *transname,
+                              char ***linearrp)
+{
+        runner_t runner = {0,};
+
+        glusterd_urltransform_init (&runner, transname);
+        glusterd_urltransform_add (&runner, url);
+        return glusterd_urltransform (&runner, linearrp);
+}
+
+
+struct dictidxmark {
+        unsigned isrch;
+        unsigned ithis;
+        char *ikey;
+};
+
+static void
+_dict_mark_atindex (dict_t *dict, char *key, data_t *value, void *data)
+{
+        struct dictidxmark *dim = data;
+
+        if (dim->isrch == dim->ithis)
+                dim->ikey = key;
+
+        dim->ithis++;
+}
+
+static char *
+dict_get_by_index (dict_t *dict, unsigned i)
+{
+        struct dictidxmark dim = {0,};
+
+        dim.isrch = i;
+        dict_foreach (dict, _dict_mark_atindex, &dim);
+
+        return dim.ikey;
+}
+
+static int
+glusterd_get_slave (glusterd_volinfo_t *vol, const char *slaveurl, char **slavekey)
+{
+        runner_t runner = {0,};
+        int n = 0;
+        int i = 0;
+        char **linearr = NULL;
+
+        glusterd_urltransform_init (&runner, "canonicalize");
+        dict_foreach (vol->gsync_slaves, _glusterd_urltransform_add_iter, &runner);
+        glusterd_urltransform_add (&runner, slaveurl);
+
+        n = glusterd_urltransform (&runner, &linearr);
+        if (n == -1)
+                return -2;
+
+        for (i = 0; i < n - 1; i++) {
+                if (strcmp (linearr[i], linearr[n - 1]) == 0)
+                        break;
+        }
+        glusterd_urltransform_free (linearr, i);
+
+        if (i < n - 1)
+                *slavekey = dict_get_by_index (vol->gsync_slaves, i);
+        else
+                i = -1;
+
+        return i;
+}
+
+
+static int
 glusterd_query_extutil (char *resbuf, runner_t *runner)
 {
         char               *ptr = NULL;
@@ -1921,26 +2114,6 @@ glusterd_query_extutil (char *resbuf, runner_t *runner)
                 gf_log ("", GF_LOG_ERROR, "reading data from child failed");
 
         return ret ? -1 : 0;
-}
-
-static int
-glusterd_get_canon_url (char *cann, char *name, gf_boolean_t cann_esc)
-{
-        runner_t            runner = {0,};
-        glusterd_conf_t    *priv  = NULL;
-
-        GF_ASSERT (THIS);
-        GF_ASSERT (THIS->private);
-
-        priv = THIS->private;
-
-        runinit (&runner);
-        runner_add_arg (&runner, GSYNCD_PREFIX"/gsyncd");
-        runner_argprintf (&runner, "--canonicalize-%surl",
-                          cann_esc ? "escape-" : "");
-        runner_add_arg(&runner, name);
-
-        return glusterd_query_extutil (cann, &runner);
 }
 
 int
@@ -2144,91 +2317,34 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
 
 }
 
-/* The return   status indicates success (ret_status = 0) if the host uuid
- *  matches,    status indicates failure (ret_status = -1) if the host uuid
- *  mismatches, status indicates not found if the slave is not found to be
- *  spawned for the given master */
-static void
-_compare_host_uuid (dict_t *this, char *key, data_t *value, void *data)
-{
-        glusterd_gsync_slaves_t     *status = NULL;
-        char                        *slave = NULL;
-        int                          uuid_len = 0;
-
-        status = (glusterd_gsync_slaves_t *)data;
-
-        if ((status->ret_status == -1) || (status->ret_status == 0))
-                return;
-        slave = strchr(value->data, ':');
-        if (slave)
-                slave ++;
-
-        uuid_len = (slave - value->data - 1);
-
-        if (strncmp (slave, status->slave, PATH_MAX) == 0) {
-                if (strncmp (value->data, status->host_uuid, uuid_len) == 0) {
-                        status->ret_status = 0;
-                } else {
-                        status->ret_status = -1;
-                        strncpy (status->rmt_hostname, value->data, uuid_len);
-                        status->rmt_hostname[uuid_len] = '\0';
-                }
-        }
-
-}
-
 static void
 _get_max_gsync_slave_num (dict_t *this, char *key, data_t *value, void *data)
 {
-        int                          tmp_slvnum = 0;
-        glusterd_gsync_slaves_t     *status = NULL;
-
-        status = (glusterd_gsync_slaves_t *)data;
+        int  tmp_slvnum = 0;
+        int *slvnum = (int *)data;
 
         sscanf (key, "slave%d", &tmp_slvnum);
-        if (tmp_slvnum > status->ret_status)
-                status->ret_status = tmp_slvnum;
-}
-
-static void
-_remove_gsync_slave (dict_t *this, char *key, data_t *value, void *data)
-{
-        glusterd_gsync_slaves_t     *status = NULL;
-        char                        *slave = NULL;
-
-
-        status = (glusterd_gsync_slaves_t *)data;
-
-        slave = strchr(value->data, ':');
-        if (slave)
-                slave ++;
-
-        if (strncmp (slave, status->slave, PATH_MAX) == 0)
-                dict_del (this, key);
-
+        if (tmp_slvnum > *slvnum)
+                *slvnum = tmp_slvnum;
 }
 
 static int
 glusterd_remove_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
-                               char *host_uuid, char **op_errstr)
+                               char **op_errstr)
 {
-        int                         ret = 0;
-        glusterd_gsync_slaves_t     status = {0, };
-        char                        cann_slave[PATH_MAX] = {0,  };
+        int   ret = 0;
+        char *slavekey = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
-        GF_ASSERT (host_uuid);
 
-        ret = glusterd_get_canon_url (cann_slave, slave, _gf_false);
-        if (ret)
+        ret = glusterd_get_slave (volinfo, slave, &slavekey);
+        if (ret < 0) {
+                ret++;
                 goto out;
+        }
 
-        status.slave = cann_slave;
-        status.host_uuid = host_uuid;
-        status.ret_status = 1;
-
-        dict_foreach (volinfo->gsync_slaves, _remove_gsync_slave, &status);
+        dict_del (volinfo->gsync_slaves, slavekey);
 
         ret = glusterd_store_volinfo (volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
@@ -2247,44 +2363,38 @@ static int
 glusterd_gsync_get_uuid (char *slave, glusterd_volinfo_t *vol,
                          uuid_t uuid)
 {
+        int   ret = 0;
+        char *slavekey = NULL;
+        char *slaveentry = NULL;
+        char *t = NULL;
 
-        int                         ret = 0;
-        glusterd_gsync_slaves_t     status = {0, };
-        char                        cann_slave[PATH_MAX] = {0,  };
-        char                        host_uuid_str[64] = {0};
-        xlator_t                    *this = NULL;
-        glusterd_conf_t             *priv = NULL;
-
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
         GF_ASSERT (vol);
         GF_ASSERT (slave);
 
-        uuid_utoa_r (priv->uuid, host_uuid_str);
-        ret = glusterd_get_canon_url (cann_slave, slave, _gf_false);
-        if (ret)
-                goto out;
-
-        status.slave = cann_slave;
-        status.host_uuid = host_uuid_str;
-        status.ret_status = 1;
-        dict_foreach (vol->gsync_slaves, _compare_host_uuid, &status);
-        if (status.ret_status == 0) {
-                uuid_copy (uuid, priv->uuid);
-        } else if (status.ret_status == -1) {
-                uuid_parse (status.rmt_hostname, uuid);
-        } else {
+        ret = glusterd_get_slave (vol, slave, &slavekey);
+        if (ret < 0) {
+                /* XXX colliding cases of failure and non-extant
+                 * slave... now just doing this as callers of this
+                 * function can make sense only of -1 and 0 as retvals;
+                 * getting at the proper semanticals will involve
+                 * fixing callers as well.
+                 */
                 ret = -1;
                 goto out;
         }
-        ret = 0;
+
+        ret = dict_get_str (vol->gsync_slaves, slavekey, &slaveentry);
+        GF_ASSERT (ret == 0);
+
+        t = strchr (slaveentry, ':');
+        GF_ASSERT (t);
+        *t = '\0';
+        ret = uuid_parse (slaveentry, uuid);
+        *t = ':';
+
  out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
-
 }
 
 static int
@@ -2318,51 +2428,67 @@ static int
 glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
                               char *host_uuid, char **op_errstr)
 {
-        int                         ret = 0;
-        glusterd_gsync_slaves_t     status = {0, };
-        char                        cann_slave[PATH_MAX] = {0,  };
-        char                       *value = NULL;
-        char                        key[512] = {0, };
+        int    ret = 0;
+        int    maxslv = 0;
+        char **linearr = NULL;
+        char  *value = NULL;
+        char  *slavekey = NULL;
+        char  *slaveentry = NULL;
+        char   key[512] = {0, };
+        char  *t = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
         GF_ASSERT (host_uuid);
 
-        ret = glusterd_get_canon_url (cann_slave, slave, _gf_false);
-        if (ret)
+        ret = glusterd_get_slave (volinfo, slave, &slavekey);
+        switch (ret) {
+        case -2:
+                ret = -1;
                 goto out;
+        case -1:
+                break;
+        default:
+                GF_ASSERT (ret > 0);
+                ret = dict_get_str (volinfo->gsync_slaves, slavekey, &slaveentry);
+                GF_ASSERT (ret == 0);
 
-        status.slave = cann_slave;
-        status.host_uuid = host_uuid;
-        status.ret_status = 1;
-        dict_foreach (volinfo->gsync_slaves, _compare_host_uuid, &status);
+                /* same-name + same-uuid slave entries should have been filtered
+                 * out in glusterd_op_verify_gsync_start_options(), so we can
+                 * assert an uuid mismatch
+                 */
+                t = strtail (slaveentry, host_uuid);
+                GF_ASSERT (!t || *t != ':')
 
-        if (status.ret_status == -1) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" has already been invoked for "
-                                          "the %s (master) and %s (slave)"
+                                          "the %s (master) and %s (slave) "
                                           "from a different machine",
                                            volinfo->volname, slave);
-                 *op_errstr = gf_strdup (GEOREP" already running in an an"
-                                        "orhter machine");
+                *op_errstr = gf_strdup (GEOREP" already running on an "
+                                        "another machine");
                 ret = -1;
                 goto out;
         }
 
-        memset (&status, 0, sizeof (status));
+        ret = glusterd_urltransform_single (slave, "normalize", &linearr);
+        if (ret == -1)
+                goto out;
+        ret = gf_asprintf (&value,  "%s:%s", host_uuid, linearr[0]);
+        glusterd_urltransform_free (linearr, 1);
+        if (ret  == -1)
+                goto out;
 
-        dict_foreach (volinfo->gsync_slaves, _get_max_gsync_slave_num, &status);
-
-        gf_asprintf (&value,  "%s:%s", host_uuid, cann_slave);
-        snprintf (key, 512, "slave%d", status.ret_status +1);
+        dict_foreach (volinfo->gsync_slaves, _get_max_gsync_slave_num, &maxslv);
+        snprintf (key, 512, "slave%d", maxslv + 1);
         ret = dict_set_dynstr (volinfo->gsync_slaves, key, value);
-
         if (ret)
                 goto out;
+
         ret = glusterd_store_volinfo (volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
-                 *op_errstr = gf_strdup ("Failed to store the Volume"
-                                         "information");
+                *op_errstr = gf_strdup ("Failed to store the Volume "
+                                        "information");
                 goto out;
         }
         ret = 0;
@@ -4858,8 +4984,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = glusterd_remove_slave_in_info(volinfo, slave,
-                                                    host_uuid, op_errstr);
+                ret = glusterd_remove_slave_in_info(volinfo, slave, op_errstr);
                 if (ret)
                         goto out;
 
