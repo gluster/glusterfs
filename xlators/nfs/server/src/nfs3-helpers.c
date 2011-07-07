@@ -586,7 +586,22 @@ nfs3_accessbits (int32_t accbits)
         return accresult;
 }
 
+uint32_t
+nfs3_request_to_accessbits (int32_t accbits)
+{
+        uint32_t        acc_request = 0;
 
+        if (accbits & (ACCESS3_READ | ACCESS3_LOOKUP))
+                acc_request |= POSIX_READ;
+
+        if (accbits & (ACCESS3_MODIFY | ACCESS3_EXTEND))
+                acc_request |= POSIX_WRITE;
+
+        if (accbits & ACCESS3_EXECUTE)
+                acc_request |= POSIX_EXEC;
+
+        return acc_request;
+}
 void
 nfs3_fill_access3res (access3res *res, nfsstat3 status, int32_t accbits)
 {
