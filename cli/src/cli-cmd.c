@@ -132,6 +132,8 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
 
         await_conn = cli_cmd_needs_connection (word);
 
+        state->await_connected = await_conn;
+
         if (await_conn) {
                 ret = cli_cmd_await_connected ();
                 if (ret) {
