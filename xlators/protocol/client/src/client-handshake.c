@@ -1221,8 +1221,10 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
                                           remote_subvol);
                                 req.brick = brick_name;
                                 conf->need_different_port = 1;
+                                conf->skip_notify = 1;
                         } else {
                                 conf->need_different_port = 0;
+                                conf->skip_notify = 0;
                         }
                 }
         }
