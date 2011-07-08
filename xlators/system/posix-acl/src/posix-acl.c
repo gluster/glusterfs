@@ -772,7 +772,7 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
         int  is_fuse_call = 0;
 
         is_fuse_call = __is_fuse_call (frame);
-        
+
         if (mask & R_OK)
                 perm |= POSIX_ACL_READ;
         if (mask & W_OK)
@@ -802,7 +802,7 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
                         if (acl_permits (frame, loc->inode, POSIX_ACL_READ))
                                 mode |= POSIX_ACL_READ;
                 }
-                
+
                 if (perm & POSIX_ACL_WRITE) {
                         if (acl_permits (frame, loc->inode, POSIX_ACL_WRITE))
                                 mode |= POSIX_ACL_WRITE;
@@ -814,7 +814,6 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
                 }
         }
 
-                
 unwind:
         if (is_fuse_call)
                 STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
@@ -897,6 +896,109 @@ red:
         return 0;
 }
 
+
+int
+posix_acl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, struct iovec *vector,
+                     int count, struct iatt *stbuf, struct iobref *iobref)
+{
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+                             stbuf, iobref);
+        return 0;
+}
+
+
+int
+posix_acl_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 size_t size, off_t offset)
+{
+        if (__is_fuse_call (frame))
+                goto green;
+
+        if (acl_permits (frame, fd->inode, POSIX_ACL_READ))
+                goto green;
+        else
+                goto red;
+
+green:
+        STACK_WIND (frame, posix_acl_readv_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->readv,
+                    fd, size, offset);
+        return 0;
+red:
+        STACK_UNWIND_STRICT (readv, frame, -1, EACCES, NULL, 0, NULL, NULL);
+        return 0;
+}
+
+
+int
+posix_acl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno,
+                      struct iatt *prebuf, struct iatt *postbuf)
+{
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno,
+                             prebuf, postbuf);
+        return 0;
+}
+
+
+int
+posix_acl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  struct iovec *vector, int count, off_t offset,
+                  struct iobref *iobref)
+{
+        if (__is_fuse_call (frame))
+                goto green;
+
+        if (acl_permits (frame, fd->inode, POSIX_ACL_WRITE))
+                goto green;
+        else
+                goto red;
+
+green:
+        STACK_WIND (frame, posix_acl_writev_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev,
+                    fd, vector, count, offset, iobref);
+        return 0;
+red:
+        STACK_UNWIND_STRICT (writev, frame, -1, EACCES, NULL, NULL);
+        return 0;
+}
+
+
+
+int
+posix_acl_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno,
+                         struct iatt *prebuf, struct iatt *postbuf)
+{
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
+                             prebuf, postbuf);
+        return 0;
+}
+
+
+int
+posix_acl_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                     off_t offset)
+{
+        if (__is_fuse_call (frame))
+                goto green;
+
+        if (acl_permits (frame, fd->inode, POSIX_ACL_WRITE))
+                goto green;
+        else
+                goto red;
+
+green:
+        STACK_WIND (frame, posix_acl_ftruncate_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->ftruncate,
+                    fd, offset);
+        return 0;
+red:
+        STACK_UNWIND_STRICT (ftruncate, frame, -1, EACCES, NULL, NULL);
+        return 0;
+}
 
 
 int
@@ -1802,6 +1904,9 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .lookup           = posix_acl_lookup,
         .open             = posix_acl_open,
+        .readv            = posix_acl_readv,
+        .writev           = posix_acl_writev,
+        .ftruncate        = posix_acl_ftruncate,
         .access           = posix_acl_access,
         .truncate         = posix_acl_truncate,
         .mkdir            = posix_acl_mkdir,
