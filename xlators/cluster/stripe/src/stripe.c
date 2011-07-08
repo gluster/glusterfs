@@ -267,7 +267,8 @@ stripe_aggregate (dict_t *this, char *key, data_t *value, void *data)
                 }
 
                 *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
-        } else {
+        } else if (strcmp (key, GF_CONTENT_KEY)) {
+                /* No need to aggregate 'CONTENT' data */
                 ret = dict_set (dst, key, value);
                 if (ret)
                         gf_log ("stripe", GF_LOG_WARNING, "xattr dict set failed");
@@ -334,12 +335,20 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->stbuf      = *buf;
                                 local->postparent = *postparent;
                                 local->inode = inode_ref (inode);
-                        }
-
-                        if (local->dict == NULL) {
                                 local->dict = dict_ref (dict);
-                        } else {
+                                if (local->xattr) {
+                                        stripe_aggregate_xattr (local->dict,
+                                                                local->xattr);
+                                        dict_unref (local->xattr);
+                                        local->xattr = NULL;
+                                }
+                        }
+                        if (!local->dict && !local->xattr) {
+                                local->xattr = dict_ref (dict);
+                        } else if (local->dict) {
                                 stripe_aggregate_xattr (local->dict, dict);
+                        } else if (local->xattr) {
+                                stripe_aggregate_xattr (local->xattr, dict);
                         }
 
                         local->stbuf_blocks      += buf->ia_blocks;
@@ -394,6 +403,8 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         xlator_list_t    *trav = NULL;
         stripe_private_t *priv = NULL;
         int32_t           op_errno = EINVAL;
+        int64_t           filesize = 0;
+        int               ret = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -414,6 +425,12 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         local->op_ret = -1;
         frame->local = local;
         loc_copy (&local->loc, loc);
+
+        if (xattr_req && dict_get (xattr_req, GF_CONTENT_KEY)) {
+                ret = dict_get_int64 (xattr_req, GF_CONTENT_KEY, &filesize);
+                if (!ret && (filesize > priv->block_size))
+                        dict_del (xattr_req, GF_CONTENT_KEY);
+        }
 
         /* Everytime in stripe lookup, all child nodes
            should be looked up */
