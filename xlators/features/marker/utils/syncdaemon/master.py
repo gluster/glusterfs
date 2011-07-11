@@ -73,8 +73,18 @@ class GMaster(object):
         self.slave = slave
         self.jobtab = {}
         self.syncer = Syncer(slave)
-        self.total_turns = int(gconf.turns)
+        # crawls vs. turns:
+        # - self.crawls is simply the number of crawl() invocations on root
+        # - one turn is a maximal consecutive sequence of crawls so that each
+        #   crawl in it detects a change to be synced
+        # - self.turns is the number of turns since start
+        # - self.total_turns is a limit so that if self.turns reaches it, then
+        #   we exit (for diagnostic purposes)
+        # so, eg., if the master fs changes unceasingly, self.turns will remain 0.
+        self.crawls = 0
         self.turns = 0
+        self.total_turns = int(gconf.turns)
+        self.lastreport = {'crawls': 0, 'turns': 0}
         self.start = None
         self.change_seen = None
         # the authorative (foreign, native) volinfo pair
@@ -109,6 +119,7 @@ class GMaster(object):
                     time.sleep(gap)
             t = Thread(target=keep_alive)
             t.start()
+        self.lastreport['time'] = time.time()
         while not self.terminate:
             self.crawl()
 
@@ -167,9 +178,19 @@ class GMaster(object):
     def crawl(self, path='.', xtl=None):
         if path == '.':
             if self.start:
-                logging.info("... done, took %.6f seconds" % (time.time() - self.start))
+                self.crawls += 1
+                logging.debug("... crawl #%d done, took %.6f seconds" % \
+                              (self.crawls, time.time() - self.start))
             time.sleep(1)
             self.start = time.time()
+            should_display_info = self.start - self.lastreport['time'] >= 60
+            if should_display_info:
+                logging.info("completed %d crawls, %d turns",
+                             self.crawls - self.lastreport['crawls'],
+                             self.turns - self.lastreport['turns'])
+                self.lastreport.update(crawls = self.crawls,
+                                       turns = self.turns,
+                                       time = self.start)
             volinfo_sys = self.get_sys_volinfo()
             self.volinfo_state, state_change = self.volinfo_state_machine(self.volinfo_state,
                                                                           volinfo_sys)
@@ -179,19 +200,22 @@ class GMaster(object):
                 self.volinfo = volinfo_sys[self.KNAT]
             if state_change == self.KFGN or (state_change == self.KNAT and not self.inter_master):
                 logging.info('new master is %s', self.uuid)
+                if self.volinfo:
+                    logging.info("%s master with volume id %s ..." % \
+                                 (self.inter_master and "intermediate" or "primary",
+                                  self.uuid))
             if state_change == self.KFGN:
                gconf.configinterface.set('volume_id', self.uuid)
             if self.volinfo:
                 if self.volinfo['retval']:
                     raise RuntimeError ("master is corrupt")
-                logging.info("%s master with volume id %s ..." % \
-                             (self.inter_master and "intermediate" or "primary", self.uuid))
             else:
-                if self.inter_master:
-                    logging.info("waiting for being synced from %s ..." % \
-                                 self.volinfo_state[self.KFGN]['uuid'])
-                else:
-                    logging.info("waiting for volume info ...")
+                if should_display_info or self.crawls == 0:
+                    if self.inter_master:
+                        logging.info("waiting for being synced from %s ..." % \
+                                     self.volinfo_state[self.KFGN]['uuid'])
+                    else:
+                        logging.info("waiting for volume info ...")
                 return
         logging.debug("entering " + path)
         if not xtl:
@@ -214,13 +238,15 @@ class GMaster(object):
             if xtr > xtl:
                 raise RuntimeError("timestamp corruption for " + path)
             if xtl == xtr:
-                if path == '.' and self.total_turns and self.change_seen:
+                if path == '.' and self.change_seen:
                     self.turns += 1
                     self.change_seen = False
-                    logging.info("finished turn #%s/%s" % (self.turns, self.total_turns))
-                    if self.turns == self.total_turns:
-                        logging.info("reached turn limit")
-                        self.terminate = True
+                    if self.total_turns:
+                        logging.info("finished turn #%s/%s" % \
+                                     (self.turns, self.total_turns))
+                        if self.turns == self.total_turns:
+                            logging.info("reached turn limit")
+                            self.terminate = True
                 return
         if path == '.':
             self.change_seen = True
