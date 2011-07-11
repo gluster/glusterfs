@@ -2963,8 +2963,8 @@ check_xattr:
                           " supported on brick: %s:%s.\nSetting"
                           " extended attributes failed, reason:"
                           " %s.", host, path, strerror(errno));
-
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                goto out;
         } else {
                 /* Remove xattr *cannot* fail after setting it succeeded */
                 sys_lremovexattr (path, "trusted.glusterfs.test");
