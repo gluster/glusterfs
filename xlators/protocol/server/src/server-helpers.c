@@ -767,34 +767,25 @@ server_connection_t *
 server_connection_get (xlator_t *this, const char *id)
 {
 	server_connection_t *conn = NULL;
-	server_connection_t *trav = NULL;
 	server_conf_t       *conf = NULL;
 
         conf = this->private;
 
         pthread_mutex_lock (&conf->mutex);
         {
-                list_for_each_entry (trav, &conf->conns, list) {
-                        if (!strcmp (id, trav->id)) {
-                                conn = trav;
-                                break;
-                        }
-                }
 
-                if (!conn) {
-                        conn = (void *) GF_CALLOC (1, sizeof (*conn),
-                                                   gf_server_mt_conn_t);
-                        if (!conn)
-                                goto unlock;
+                conn = (void *) GF_CALLOC (1, sizeof (*conn),
+                                           gf_server_mt_conn_t);
+                if (!conn)
+                        goto unlock;
 
-                        conn->id = gf_strdup (id);
-                        conn->fdtable = gf_fd_fdtable_alloc ();
-                        conn->ltable  = gf_lock_table_new ();
-                        conn->this    = this;
-                        pthread_mutex_init (&conn->lock, NULL);
+                conn->id = gf_strdup (id);
+                conn->fdtable = gf_fd_fdtable_alloc ();
+                conn->ltable  = gf_lock_table_new ();
+                conn->this    = this;
+                pthread_mutex_init (&conn->lock, NULL);
 
-			list_add (&conn->list, &conf->conns);
-		}
+                list_add (&conn->list, &conf->conns);
 
                 conn->ref++;
                 conn->active_transports++;
