@@ -52,15 +52,20 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 {
         dht_local_t *local = NULL;
         dict_t      *dict = NULL;
+        int          need_unref = 0;
         int          ret = 0;
 
         local = frame->local;
         local->linkfile.linkfile_cbk = linkfile_cbk;
         local->linkfile.srcvol = tovol;
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
+        dict = local->params;
+        if (!dict) {
+                dict = dict_new ();
+                if (!dict)
+                        goto out;
+                need_unref = 1;
+        }
 
         if (!uuid_is_null (local->gfid)) {
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
@@ -83,13 +88,17 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                     fromvol, fromvol->fops->mknod, loc,
                     S_IFREG | DHT_LINKFILE_MODE, 0, dict);
 
-        if (dict)
+        if (need_unref && dict)
                 dict_unref (dict);
 
         return 0;
 out:
         local->linkfile.linkfile_cbk (frame, NULL, frame->this, -1, ENOMEM,
                                       loc->inode, NULL, NULL, NULL);
+
+        if (need_unref && dict)
+                dict_unref (dict);
+
         return 0;
 }
 
