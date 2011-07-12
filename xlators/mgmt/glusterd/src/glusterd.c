@@ -417,7 +417,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runner_add_args (&runner, "gluster-command",
                          GFS_PREFIX"/sbin/glusterfs "
                           "--xlator-option *-dht.assert-no-child-down=true",
-                         "." ".", NULL);
+                         ".", ".", NULL);
         ret = runner_run (&runner);
         if (ret)
                 goto out;
