@@ -1056,7 +1056,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         call_frame_t    *frame            = NULL;
         int              active_src       = 0;
         int              child_index      = 0;
-        int              pending_array[3] = {0, };
+        int32_t         *pending_array    = NULL;
         dict_t          *xattr            = NULL;
         int              ret              = 0;
         int              idx              = 0;
@@ -1078,6 +1078,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         child_index = (long) cookie;
 
         if (op_ret == -1) {
+                ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
                         "creation of %s on %s failed (%s)",
                         impunge_local->loc.path,
@@ -1088,9 +1089,19 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 
         inode->ia_type = stbuf->ia_type;
 
-        xattr = get_new_dict ();
-        dict_ref (xattr);
+        xattr = dict_new ();
+        if (!xattr) {
+                ret = -1;
+                goto out;
+        }
 
+        pending_array = (int32_t*) GF_CALLOC (3, sizeof (*pending_array),
+                                              gf_afr_mt_int32_t);
+
+        if (!pending_array) {
+                ret = -1;
+                goto out;
+        }
         idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
         pending_array[idx] = hton32 (1);
         if (IA_ISDIR (stbuf->ia_type))
@@ -1099,11 +1110,15 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                 idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
         pending_array[idx] = hton32 (1);
 
-        ret = dict_set_static_bin (xattr, priv->pending_key[child_index],
-                                   pending_array, sizeof (pending_array));
-        if (ret < 0)
+        ret = dict_set_dynptr (xattr, priv->pending_key[child_index],
+                               pending_array,
+                               3 * sizeof (*pending_array));
+        if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "Unable to set dict value.");
+        } else {
+                pending_array = NULL;
+        }
 
         valid         = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
         parentbuf     = impunge_sh->parentbuf;
@@ -1111,6 +1126,10 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 
         parent_loc = GF_CALLOC (1, sizeof (*parent_loc),
                                 gf_afr_mt_loc_t);
+        if (!parent_loc) {
+                ret = -1;
+                goto out;
+        }
         afr_build_parent_loc (parent_loc, &impunge_local->loc);
 
         STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
@@ -1125,20 +1144,24 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                            priv->children[child_index]->fops->setattr,
                            parent_loc, &parentbuf, valid);
 
-        dict_unref (xattr);
-
-        return 0;
-
 out:
-        LOCK (&impunge_frame->lock);
-        {
-                call_count = --impunge_local->call_count;
-        }
-        UNLOCK (&impunge_frame->lock);
+        if (xattr)
+                dict_unref (xattr);
 
-        if (call_count == 0) {
-                AFR_STACK_DESTROY (impunge_frame);
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+        if (ret) {
+                if (pending_array)
+                        GF_FREE (pending_array);
+
+                LOCK (&impunge_frame->lock);
+                {
+                        call_count = --impunge_local->call_count;
+                }
+                UNLOCK (&impunge_frame->lock);
+
+                if (call_count == 0) {
+                        AFR_STACK_DESTROY (impunge_frame);
+                        afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                }
         }
 
         return 0;
