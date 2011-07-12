@@ -25,6 +25,11 @@
 
 #include <fnmatch.h>
 
+#if (HAVE_LIB_XML)
+#include <libxml/encoding.h>
+#include <libxml/xmlwriter.h>
+#endif
+
 #include "xlator.h"
 #include "glusterd.h"
 #include "defaults.h"
@@ -122,8 +127,9 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", NO_DOC, 0      },
         {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0     },
         {VKEY_DIAG_CNT_FOP_HITS,                 "debug/io-stats",     "count-fop-hits", "off", NO_DOC, 0     },
-        {"diagnostics.brick-log-level",          "debug/io-stats",     "!log-level", NULL, DOC, 0},
-        {"diagnostics.client-log-level",         "debug/io-stats",     "!log-level", NULL, DOC, 0},
+
+        {"diagnostics.brick-log-level",          "debug/io-stats",     "!brick-log-level", NULL, DOC, 0},
+        {"diagnostics.client-log-level",         "debug/io-stats",     "!client-log-level", NULL, DOC, 0},
         {"diagnostics.brick-sys-log-level",      "debug/io-stats",     "!sys-log-level", NULL, DOC, 0},
         {"diagnostics.client-sys-log-level",     "debug/io-stats",     "!sys-log-level", NULL, DOC, 0},
 
@@ -166,26 +172,26 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.export-dirs",                      "nfs/server",                "nfs3.export-dirs", NULL, GLOBAL_DOC, 0},
         {"nfs.export-volumes",                   "nfs/server",                "nfs3.export-volumes", NULL, GLOBAL_DOC, 0},
         {"nfs.addr-namelookup",                  "nfs/server",                "rpc-auth.addr.namelookup", NULL, GLOBAL_DOC, 0},
-        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_DOC, 0},
+        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_NO_DOC, 0},
         {"nfs.register-with-portmap",            "nfs/server",                "rpc.register-with-portmap", NULL, GLOBAL_DOC, 0},
         {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC, 0},
 
-        {"nfs.rpc-auth-unix",                    "nfs/server",                "!nfs.rpc-auth-auth-unix", NULL, DOC, 0},
-        {"nfs.rpc-auth-null",                    "nfs/server",                "!nfs.rpc-auth-auth-null", NULL, DOC, 0},
-        {"nfs.rpc-auth-allow",                   "nfs/server",                "!nfs.rpc-auth.addr.allow", NULL, DOC, 0},
-        {"nfs.rpc-auth-reject",                  "nfs/server",                "!nfs.rpc-auth.addr.reject", NULL, DOC, 0},
-        {"nfs.ports-insecure",                   "nfs/server",                "!nfs.auth.ports.insecure", NULL, DOC, 0},
+        {"nfs.rpc-auth-unix",                    "nfs/server",                "!rpc-auth.auth-unix.*", NULL, DOC, 0},
+        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth.null.*", NULL, DOC, 0},
+        {"nfs.rpc-auth-allow",                   "nfs/server",                "!rpc-auth.addr.*.allow", NULL, DOC, 0},
+        {"nfs.rpc-auth-reject",                  "nfs/server",                "!rpc-auth.addr.*.reject", NULL, DOC, 0},
+        {"nfs.ports-insecure",                   "nfs/server",                "!rpc-auth.ports.*.insecure", NULL, DOC, 0},
         {"nfs.transport-type",                   "nfs/server",                "!nfs.transport-type", NULL, DOC, 0},
 
-        {"nfs.trusted-sync",                     "nfs/server",                "!nfs-trusted-sync", NULL, DOC, 0},
-        {"nfs.trusted-write",                    "nfs/server",                "!nfs-trusted-write", NULL, DOC, 0},
-        {"nfs.volume-access",                    "nfs/server",                "!nfs-volume-access", NULL, DOC, 0},
-        {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC, 0},
+        {"nfs.trusted-sync",                     "nfs/server",                "!nfs3.*.trusted-sync", NULL, DOC, 0},
+        {"nfs.trusted-write",                    "nfs/server",                "!nfs3.*.trusted-write", NULL, DOC, 0},
+        {"nfs.volume-access",                    "nfs/server",                "!nfs3.*.volume-access", NULL, DOC, 0},
+        {"nfs.export-dir",                       "nfs/server",                "!nfs3.*.export-dir", NULL, DOC, 0},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
 
         {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0},
-        {"features.quota-timeout",               "features/quota",            "timeout", "0", NO_DOC, 0},
+        {"features.quota-timeout",               "features/quota",            "timeout", "0", DOC, 0},
         {NULL,                                                                }
 };
 
@@ -1225,8 +1231,9 @@ loglevel_option_handler (volgen_graph_t *graph,
         char *role = param;
         struct volopt_map_entry vme2 = {0,};
 
-        if (strcmp (vme->option, "!log-level") != 0 ||
-            !strstr (vme->key, role))
+        if ( (strcmp (vme->option, "!client-log-level") != 0 &&
+               strcmp (vme->option, "!brick-log-level") != 0)
+            || !strstr (vme->key, role))
                 return 0;
 
         memcpy (&vme2, vme, sizeof (vme2));
@@ -1532,6 +1539,282 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                 return -1;
 }
 
+#if (HAVE_LIB_XML)
+static int
+end_sethelp_xml_doc (xmlTextWriterPtr writer)
+{
+        int             ret = -1;
+
+        ret = xmlTextWriterEndElement(writer);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not end an "
+                        "xmlElemetnt");
+                ret = -1;
+                goto out;
+        }
+        ret = xmlTextWriterEndDocument (writer);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not end an "
+                        "xmlDocument");
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+static int
+init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
+{
+        int ret;
+
+        *buf = xmlBufferCreateSize (8192);
+        if (buf == NULL) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Error creating the xml "
+                          "buffer");
+                ret = -1;
+                goto out;
+        }
+
+        xmlBufferSetAllocationScheme (*buf,XML_BUFFER_ALLOC_DOUBLEIT);
+
+        *writer = xmlNewTextWriterMemory(*buf, 0);
+        if (writer == NULL) {
+                gf_log ("glusterd", GF_LOG_ERROR, " Error creating the xml "
+                         "writer");
+                ret = -1;
+                goto out;
+        }
+
+        ret = xmlTextWriterStartDocument(*writer, "1.0", "UTF-8", "yes");
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Error While starting the "
+                         "xmlDoc");
+                goto out;
+        }
+
+        ret = xmlTextWriterStartElement(*writer,
+                                        (xmlChar *)"volumeOptionsDefaults");
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                        "xmlElemetnt");
+                ret = -1;
+                goto out;
+        }
+
+
+        ret = 0;
+
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+static int
+xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
+                                 const char *def_val, const char *dscrpt)
+{
+
+        int                     ret = -1;
+
+        GF_ASSERT (name);
+
+        ret = xmlTextWriterStartElement(writer, (xmlChar *) "volumeOption");
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                        "xmlElemetnt");
+                ret = -1;
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement(writer, (xmlChar*)"defaultValue",
+                                              "%s", def_val);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                        "xmlElemetnt");
+                ret = -1;
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"Description",
+                                              "%s",  dscrpt );
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                        "xmlElemetnt");
+                ret = -1;
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *) "name", "%s",
+                                               name);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                        "xmlElemetnt");
+                ret = -1;
+                goto out;
+        }
+
+        ret = xmlTextWriterEndElement(writer);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not end an "
+                        "xmlElemetnt");
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+#endif
+
+static int
+get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
+{
+        int ret = 0;
+
+        GF_ASSERT (vme);
+        GF_ASSERT (key);
+
+
+        if (vme->option) {
+                if  (vme->option[0] == '!') {
+                        *key = vme->option + 1;
+                        if (!*key[0])
+                                ret = -1;
+                } else {
+                        *key = vme->option;
+                }
+        } else  {
+                *key = strchr (vme->key, '.');
+                if (*key) {
+                        (*key) ++;
+                        if (!*key[0])
+                                ret = -1;
+                } else {
+                        ret = -1;
+                }
+        }
+
+        if (ret)
+                gf_log ("glusterd", GF_LOG_ERROR, "Wrong entry found in  "
+                        "glusterd_volopt_map entry %s", vme->key);
+        else
+                gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
+int
+glusterd_get_volopt_content (gf_boolean_t xml_out)
+{
+
+        char                    *xlator_type = NULL;
+        void                    *dl_handle = NULL;
+        volume_opt_list_t          vol_opt_handle;
+        char                    *key = NULL;
+        struct volopt_map_entry *vme = NULL;
+        int                      ret = -1;
+        char                    *def_val = NULL;
+        char                    *descr = NULL;
+        char                     output_string[8192] = {0, };
+        char                    *output = NULL;
+        char                     tmp_str[1024] = {0, };
+        dict_t                  *ctx = NULL;
+#if (HAVE_LIB_XML)
+        xmlTextWriterPtr         writer = NULL;
+        xmlBufferPtr             buf = NULL;
+
+        if (xml_out) {
+                ret = init_sethelp_xml_doc (&writer, &buf);
+                if (ret) /*logging done in init_xml_lib*/
+                        goto out;
+        }
+#endif
+
+        ctx = glusterd_op_get_ctx (GD_OP_SET_VOLUME);
+
+        if (!ctx) {
+                /*extract the vol-set-help output only in host glusterd*/
+                ret = 0;
+                goto out;
+        }
+
+        for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
+
+                if ( ( vme->type == NO_DOC) || (vme->type == GLOBAL_NO_DOC) )
+                        continue;
+
+                if (get_key_from_volopt (vme, &key))
+                                goto out; /*Some error while getin key*/
+
+                if (!xlator_type || strcmp (vme->voltype, xlator_type)){
+                        ret = xlator_volopt_dynload (vme->voltype,
+                                                        &dl_handle,
+                                                        &vol_opt_handle);
+                                if (ret)
+                                continue;
+                }
+
+                ret = xlator_get_volopt_info (&vol_opt_handle.list, key,
+                                                &def_val, &descr);
+                if (ret) /*Swallow Error i.e if option not found*/
+                        continue;
+
+                if (xml_out) {
+#if (HAVE_LIB_XML)
+                        if (xml_add_volset_element (writer,vme->key,
+                                                        def_val, descr))
+                                goto out;
+#else
+                        gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+#endif
+                } else {
+                        snprintf (tmp_str, 1024, "Option: %s\nDefault "
+                                        "Value: %s\nDescription: %s\n\n",
+                                        vme->key, def_val, descr);
+                        strcat (output_string, tmp_str);
+                }
+        }
+
+#if (HAVE_LIB_XML)
+        if ((xml_out) &&
+            (ret = end_sethelp_xml_doc (writer)))
+                goto out;
+#else
+        if (xml_out)
+                gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+#endif
+
+        if (!xml_out)
+                output = gf_strdup (output_string);
+        else
+#if (HAVE_LIB_XML)
+                output = gf_strdup ((char *)buf->content);
+#else
+                gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+#endif
+
+        if (NULL == output) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (ctx, "help-str", output);
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
 static int
 client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
@@ -1762,7 +2045,7 @@ nfs_option_handler (volgen_graph_t *graph,
         if ( !volinfo || !volinfo->volname)
                 return 0;
 
-        if (! strcmp (vme->option, "!nfs.rpc-auth.addr.allow")) {
+        if (! strcmp (vme->option, "!rpc-auth.addr.*.allow")) {
                 ret = gf_asprintf (&aa, "rpc-auth.addr.%s.allow",
                                         volinfo->volname);
 
@@ -1775,7 +2058,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs.rpc-auth.addr.reject")) {
+        if (! strcmp (vme->option, "!rpc-auth.addr.%s.reject")) {
                 ret = gf_asprintf (&aa, "rpc-auth.addr.%s.reject",
                                         volinfo->volname);
 
@@ -1788,7 +2071,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs.rpc-auth-auth-unix")) {
+        if (! strcmp (vme->option, "!rpc-auth.auth-unix.*")) {
                 ret = gf_asprintf (&aa, "rpc-auth.auth.unix.%s",
                                         volinfo->volname);
 
@@ -1800,7 +2083,7 @@ nfs_option_handler (volgen_graph_t *graph,
                 if (ret)
                         return -1;
         }
-        if (! strcmp (vme->option, "!nfs.rpc-auth-auth-null")) {
+        if (! strcmp (vme->option, "!rpc-auth.auth.null.*")) {
                 ret = gf_asprintf (&aa, "rpc-auth.auth.null.%s",
                                         volinfo->volname);
 
@@ -1813,7 +2096,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs-trusted-sync")) {
+        if (! strcmp (vme->option, "!nfs3.%s.trusted-sync")) {
                 ret = gf_asprintf (&aa, "nfs3.%s.trusted-sync",
                                         volinfo->volname);
 
@@ -1826,7 +2109,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs-trusted-write")) {
+        if (! strcmp (vme->option, "!nfs3.*.trusted-write")) {
                 ret = gf_asprintf (&aa, "nfs3.%s.trusted-write",
                                         volinfo->volname);
 
@@ -1839,7 +2122,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs-volume-access")) {
+        if (! strcmp (vme->option, "!nfs3.*.volume-access")) {
                 ret = gf_asprintf (&aa, "nfs3.%s.volume-access",
                                         volinfo->volname);
 
@@ -1852,7 +2135,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs-export-dir")) {
+        if (! strcmp (vme->option, "!nfs3.*.export-dir")) {
                 ret = gf_asprintf (&aa, "nfs3.%s.export-dir",
                                         volinfo->volname);
 
@@ -1867,7 +2150,7 @@ nfs_option_handler (volgen_graph_t *graph,
 
 
 
-        if (! strcmp (vme->option, "!nfs.ports-insecure")) {
+        if (! strcmp (vme->option, "!rpc-auth.ports.*.insecure")) {
                 ret = gf_asprintf (&aa, "rpc-auth.ports.%s.insecure",
                                         volinfo->volname);
 
