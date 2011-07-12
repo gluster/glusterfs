@@ -23,6 +23,7 @@
 int32_t
 quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                    char *name, ino_t par);
+struct volume_options options[];
 
 int
 quota_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
@@ -2626,7 +2627,7 @@ out:
 }
 
 int32_t
-quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *options)
+quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *xl_options)
 {
         int32_t       ret       = -1;
         char         *str       = NULL;
@@ -2634,8 +2635,9 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *options)
         char         *path      = NULL;
         uint64_t      value     = 0;
         limits_t     *quota_lim = NULL;
+        char         *def_val   = NULL;
 
-        ret = dict_get_str (options, "limit-set", &str);
+        ret = dict_get_str (xl_options, "limit-set", &str);
 
         if (str) {
                 path = strtok (str, ":");
@@ -2666,7 +2668,22 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *options)
                         "no \"limit-set\" option provided");
         }
 
-        ret = dict_get_str (options, "timeout", &str);
+        if (xlator_get_volopt_info (&this->volume_options, "timeout", &def_val,
+                                     NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of timeout"
+                         "not found");
+                ret = -1;
+                goto err;
+        } else {
+                if (gf_string2bytesize (def_val,(uint64_t *) &priv->timeout )) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 " timeout corrupt");
+                        ret = -1;
+                        goto err;
+                }
+        }
+
+        ret = dict_get_str (xl_options, "timeout", &str);
         if (str) {
                 ret = gf_string2bytesize (str, &value);
                 if (ret < 0) {
@@ -2680,10 +2697,6 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *options)
                                 "quota timeout value = %"PRId64,
                                 priv->timeout);
                 }
-        } else {
-                gf_log (this->name, GF_LOG_INFO, "timeout option not provided, "
-                        "taking default as 0");
-                priv->timeout = 0;
         }
 
         list_for_each_entry (quota_lim, &priv->limit_head, limit_list) {
@@ -2797,7 +2810,11 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
         {.key = {"limit-set"}},
-        {.key = {"timeout"}
+        {.key = {"timeout"},
+         .type = GF_OPTION_TYPE_SIZET,
+         .default_value = "0",
+         .description = "quota caches the directory sizes on client. Timeout "
+                        "indicates the timeout for the cache to be revalidated."
         },
         {.key = {NULL}}
 };
