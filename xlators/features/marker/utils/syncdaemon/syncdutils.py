@@ -118,6 +118,8 @@ def finalize(*a, **kw):
                     raise
     if gconf.ssh_ctl_dir and not gconf.cpid:
         shutil.rmtree(gconf.ssh_ctl_dir)
+    if gconf.log_exit:
+        logging.info("exiting.")
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(kw.get('exval', 0))
