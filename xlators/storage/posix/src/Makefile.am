@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/storage
 
 posix_la_LDFLAGS = -module -avoidversion
 
-posix_la_SOURCES = posix.c
+posix_la_SOURCES = posix.c posix-helpers.c
 posix_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = posix.h posix-mem-types.h
