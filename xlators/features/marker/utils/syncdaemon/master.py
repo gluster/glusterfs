@@ -9,7 +9,7 @@ from errno import ENOENT, ENODATA
 from threading import currentThread, Condition, Lock
 
 from gconf import gconf
-from syncdutils import FreeObject, Thread
+from syncdutils import FreeObject, Thread, GsyncdError
 
 URXTIME = (-1, 0)
 
@@ -24,7 +24,7 @@ class GMaster(object):
         fgn_vi = None
         if fgn_vis:
             if len(fgn_vis) > 1:
-                raise RuntimeError("cannot work with multiple foreign masters")
+                raise GsyncdError("cannot work with multiple foreign masters")
             fgn_vi = fgn_vis[0]
         return fgn_vi, nat_vi
 
@@ -165,7 +165,7 @@ class GMaster(object):
                 return vi
             if vi0 and vi and vi0['uuid'] != vi['uuid'] and not param.relax_mismatch:
                 # uuid mismatch for master candidate, bail out
-                raise RuntimeError("aborting on uuid change from %s to %s" % \
+                raise GsyncdError("aborting on uuid change from %s to %s" % \
                                    (vi0['uuid'], vi['uuid']))
             # fall back to old
             return vi0
@@ -208,7 +208,7 @@ class GMaster(object):
                gconf.configinterface.set('volume_id', self.uuid)
             if self.volinfo:
                 if self.volinfo['retval']:
-                    raise RuntimeError ("master is corrupt")
+                    raise GsyncdError ("master is corrupt")
             else:
                 if should_display_info or self.crawls == 0:
                     if self.inter_master:
@@ -236,7 +236,7 @@ class GMaster(object):
         else:
             xtr = xtr0
             if xtr > xtl:
-                raise RuntimeError("timestamp corruption for " + path)
+                raise GsyncdError("timestamp corruption for " + path)
             if xtl == xtr:
                 if path == '.' and self.change_seen:
                     self.turns += 1

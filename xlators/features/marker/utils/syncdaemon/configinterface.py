@@ -6,7 +6,7 @@ except ImportError:
 import re
 from string import Template
 
-from syncdutils import escape, unescape, norm, update_file
+from syncdutils import escape, unescape, norm, update_file, GsyncdError
 
 SECT_ORD = '__section_order__'
 SECT_META = '__meta__'
@@ -109,7 +109,7 @@ class GConffile(object):
 
     def update_to(self, dct, allow_unresolved=False):
         if not self.peers:
-            raise RuntimeError('no peers given, cannot select matching options')
+            raise GsyncdError('no peers given, cannot select matching options')
         def update_from_sect(sect, mud):
             for k, v in self.config._sections[sect].items():
                 if k == '__name__':

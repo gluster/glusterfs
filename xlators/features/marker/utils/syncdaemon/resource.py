@@ -17,6 +17,7 @@ import repce
 from repce import RepceServer, RepceClient
 from master import GMaster
 import syncdutils
+from syncdutils import GsyncdError
 
 UrlRX  = re.compile('\A(\w+)://(.*)')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -36,11 +37,19 @@ def desugar(ustr):
             return "gluster://" + ustr
     else:
         if ustr[0] != '/':
-            raise RuntimeError("cannot resolve sugared url '%s'" % ustr)
+            raise GsyncdError("cannot resolve sugared url '%s'" % ustr)
         ap = os.path.normpath(ustr)
         if ap.startswith('//'):
             ap = ap[1:]
         return "file://" + ap
+
+def gethostbyname(hnam):
+    try:
+        return socket.gethostbyname(hnam)
+    except socket.gaierror:
+        ex = sys.exc_info()[1]
+        raise GsyncdError("failed to resolve %s: %s" % \
+                          (hnam, ex.strerror))
 
 def parse_url(ustr):
     m = UrlRX.match(ustr)
@@ -48,11 +57,11 @@ def parse_url(ustr):
         ustr = desugar(ustr)
     m = UrlRX.match(ustr)
     if not m:
-        raise RuntimeError("malformed url")
+        raise GsyncdError("malformed url")
     sch, path = m.groups()
     this = sys.modules[__name__]
     if not hasattr(this, sch.upper()):
-        raise RuntimeError("unknown url scheme " + sch)
+        raise GsyncdError("unknown url scheme " + sch)
     return getattr(this, sch.upper())(path)
 
 
@@ -243,11 +252,11 @@ class SlaveRemote(object):
             for k, v in da0[i].iteritems():
                 da1[i][k] = int(v)
         if da1[0] != da1[1]:
-            raise RuntimeError("RePCe major version mismatch: local %s, remote %s" % (exrv, rv))
+            raise GsyncdError("RePCe major version mismatch: local %s, remote %s" % (exrv, rv))
 
     def rsync(self, files, *args):
         if not files:
-            raise RuntimeError("no files to sync")
+            raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
         argv = gconf.rsync_command.split() + gconf.rsync_extra.split() + ['-aR'] + files + list(args)
         return os.spawnvp(os.P_WAIT, argv[0], argv) == 0
@@ -258,7 +267,7 @@ class AbstractUrl(object):
     def __init__(self, path, pattern):
         m = re.search(pattern, path)
         if not m:
-            raise RuntimeError("malformed path")
+            raise GsyncdError("malformed path")
         self.path = path
         return m.groups()
 
@@ -359,7 +368,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         self.host, self.volume = sup(self, path, '^(%s):(.+)' % HostRX.pattern)
 
     def canonical_path(self):
-        return ':'.join([socket.gethostbyname(self.host), self.volume])
+        return ':'.join([gethostbyname(self.host), self.volume])
 
     def can_connect_to(self, remote):
         return True
@@ -376,12 +385,12 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     ['-l', gconf.gluster_log_file, '-s', self.host,
                      '--volfile-id', self.volume, '--client-pid=-1', d]
             if os.spawnvp(os.P_WAIT, argv[0], argv):
-                raise RuntimeError("command failed: " + " ".join(argv))
+                raise GsyncdError("command failed: " + " ".join(argv))
             mounted = True
             logging.debug('auxiliary glusterfs mount in place')
             os.chdir(d)
             if umount_l(d) != 0:
-                raise RuntimeError("umounting %s failed" % d)
+                raise GsyncdError("umounting %s failed" % d)
             mounted = False
         finally:
             try:
@@ -419,7 +428,7 @@ class SSH(AbstractUrl, SlaveRemote):
             u, h = m.groups()
         else:
             u, h = pwd.getpwuid(os.geteuid()).pw_name, self.remote_addr
-        remote_addr = '@'.join([u, socket.gethostbyname(h)])
+        remote_addr = '@'.join([u, gethostbyname(h)])
         return ':'.join([remote_addr, self.inner_rsc.get_url(canonical=True)])
 
     def can_connect_to(self, remote):
