@@ -2986,6 +2986,7 @@ init (xlator_t *this)
         wb_conf_t *conf    = NULL;
         char      *str     = NULL;
         int32_t    ret     = -1;
+        char      *def_val = NULL;
 
         if ((this->children == NULL)
             || this->children->next) {
@@ -3038,7 +3039,21 @@ init (xlator_t *this)
                 conf->disable_till);
 
         /* configure 'option window-size <size>' */
-        conf->window_size = WB_WINDOW_SIZE;
+        if (xlator_get_volopt_info (&this->volume_options, "cache-size",
+                                   &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "cache-size not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2bytesize (def_val, &conf->window_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "cache-size corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         ret = dict_get_str (options, "cache-size", &str);
         if (ret == 0) {
                 ret = gf_string2bytesize (str, &conf->window_size);
@@ -3069,7 +3084,22 @@ init (xlator_t *this)
         }
 
         /* configure 'option flush-behind <on/off>' */
-        conf->flush_behind = 1;
+
+        if (xlator_get_volopt_info (&this->volume_options, "flush-behind",
+                                   &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "cache-size not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2boolean (def_val, &conf->flush_behind)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "cache-size corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         ret = dict_get_str (options, "flush-behind", &str);
         if (ret == 0) {
                 ret = gf_string2boolean (str, &conf->flush_behind);
@@ -3150,12 +3180,21 @@ struct xlator_dumpops dumpops = {
 
 struct volume_options options[] = {
         { .key  = {"flush-behind"},
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "If this option is set ON, instructs write-behind "
+                          "translator to perform flush in background, by "
+                          "returning success (or any errors, if any of "
+                          "previous  writes were failed) to application even "
+                          "before flush is sent to backend filesystem. "
         },
         { .key  = {"cache-size", "window-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 512 * GF_UNIT_KB,
-          .max  = 1 * GF_UNIT_GB
+          .max  = 1 * GF_UNIT_GB,
+          .default_value = "1MB",
+          .description = "Size of the per-file write-behind buffer. "
+
         },
         { .key = {"disable-for-first-nbytes"},
           .type = GF_OPTION_TYPE_SIZET,
