@@ -92,6 +92,7 @@ def startup(**kw):
         else:
             lkw['filename'] = kw['log_file']
     GLogger.setup(label=kw.get('label'), **lkw)
+    gconf.log_exit = True
 
 def main():
     signal.signal(signal.SIGTERM, lambda *a: finalize(*a, **{'exval': 1}))
@@ -297,8 +298,6 @@ def main_i():
     if ffd:
         os.close(ffd)
     local.service_loop(*[r for r in [remote] if r])
-
-    logging.info("exiting.")
 
 
 if __name__ == "__main__":
