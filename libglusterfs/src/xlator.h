@@ -786,6 +786,7 @@ typedef struct volume_options {
         char                *value[ZR_OPTION_MAX_ARRAY_SIZE];
         /* If specified, will check for one of
            the value from this array */
+        char                *default_value;
         char                *description; /* about the key */
 } volume_option_t;
 
@@ -881,7 +882,8 @@ int _volume_option_value_validate_attacherr (xlator_t *xl,
                                data_pair_t *pair, 
                                volume_option_t *opt, 
                                char **op_errstr);
-
-
-
+int32_t xlator_volopt_dynload (char *xlator_type, void **dl_handle,
+                    volume_opt_list_t *vol_opt_handle);
+int xlator_get_volopt_info (struct list_head *opt_list, char *key,
+                            char **def_val, char **descr);
 #endif /* _XLATOR_H */

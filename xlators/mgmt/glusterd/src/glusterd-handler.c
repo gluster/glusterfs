@@ -1938,17 +1938,22 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
 
         ret = dict_get_str (dict, "key1", &key);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to get key, while"
-                        "handling volume set for %s",volname);
-                goto out;
+                if (strcmp (volname, "help-xml") && strcmp (volname, "help")) {
+                        gf_log ("", GF_LOG_WARNING, "Unable to get key, while"
+                                "handling volume set for %s",volname);
+                        goto out;
+                }
         }
 
         ret = dict_get_str (dict, "value1", &value);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to get value, while"
-                        "handling volume set for %s",volname);
-                goto out;
+                if (strcmp (volname, "help-xml") && strcmp (volname, "help")) {
+                        gf_log ("", GF_LOG_WARNING, "Unable to get value, while"
+                                "handling volume set for %s",volname);
+                        goto out;
+                }
         }
+
 
         gf_cmd_log ("volume set", "volume-name:%s: key:%s, value:%s",volname,
                     key, value);

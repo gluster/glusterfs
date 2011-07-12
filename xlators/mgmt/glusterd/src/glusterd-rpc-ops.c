@@ -191,10 +191,20 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 rsp.op_ret = op_ret;
                 rsp.op_errno = op_errno;
                 rsp.volname = "";
+                ctx = op_ctx;
+
                 if (op_errstr)
                         rsp.op_errstr = op_errstr;
                 else
                         rsp.op_errstr = "";
+                if (ctx) {
+                        ret = dict_allocate_and_serialize (ctx,
+                                                           &rsp.dict.dict_val,
+                                                           (size_t*)&rsp.dict.dict_len);
+                        if (ret == 0)
+                                free_ptr = rsp.dict.dict_val;
+                }
+
                 cli_rsp = &rsp;
                 sfunc = gf_xdr_serialize_cli_set_vol_rsp;
                 break;
