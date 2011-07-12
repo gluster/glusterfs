@@ -908,16 +908,20 @@ int32_t
 glusterd_store_save_value (int fd, char *key, char *value)
 {
         int32_t         ret = -1;
-        char            buf[4096] = {0,};
 
         GF_ASSERT (fd > 0);
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        snprintf (buf, sizeof (buf), "%s=%s\n", key, value);
-        ret = write (fd, buf, strlen (buf));
+        ret = write (fd, key, strlen (key));
+        if (ret > 0)
+                ret = write (fd, "=", strlen ("="));
+        if (ret > 0)
+                ret = write (fd, value, strlen (value));
+        if (ret > 0)
+                ret = write (fd, "\n", strlen ("\n"));
 
-        if (ret < 0) {
+        if (ret <= 0) {
                 gf_log ("", GF_LOG_CRITICAL, "Unable to store key: %s,"
                         "value: %s, error: %s", key, value,
                         strerror (errno));
