@@ -126,4 +126,24 @@ struct posix_private {
                 strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);		\
         } while (0)
 
+
+/* Helper functions */
+int setgid_override (xlator_t *this, char *real_path, gid_t *gid);
+int posix_gfid_set (xlator_t *this, const char *path, dict_t *xattr_req);
+int posix_fstat_with_gfid (xlator_t *this, int fd, struct iatt *stbuf_p);
+int posix_lstat_with_gfid (xlator_t *this, const char *path, struct iatt *buf);
+dict_t *posix_lookup_xattr_fill (xlator_t *this, const char *path,
+                                 loc_t *loc, dict_t *xattr, struct iatt *buf);
+int posix_handle_pair (xlator_t *this, char *real_path,
+                       data_pair_t *trav, int flags);
+int posix_fhandle_pair (xlator_t *this, int fd, data_pair_t *trav, int flags);
+void posix_spawn_janitor_thread (xlator_t *this);
+int posix_get_file_contents (xlator_t *this, char *path,
+                             const char *name, char **contents);
+int posix_set_file_contents (xlator_t *this, char *path,
+                             data_pair_t *trav, int flags);
+int posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req);
+int posix_gfid_heal (xlator_t *this, const char *path, dict_t *xattr_req);
+
+
 #endif /* _POSIX_H */
