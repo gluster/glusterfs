@@ -133,7 +133,7 @@ class GConffile(object):
                 if match:
                     update_from_sect(sect, MultiDict(dct, mad, *self.auxdicts))
         if self.config.has_section(self.section()):
-            update_from_sect(self.section(), MultiDict(dct, mad, *self.auxdicts))
+            update_from_sect(self.section(), MultiDict(dct, *self.auxdicts))
 
     def get(self, opt=None):
         d = {}
