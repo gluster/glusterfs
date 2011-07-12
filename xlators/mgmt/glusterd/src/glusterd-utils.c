@@ -2928,7 +2928,8 @@ glusterd_brick_create_path (char *host, char *path, uuid_t uuid, mode_t mode,
         int     ret = -1;
         char    msg[2048] = {0};
         struct  stat st_buf = {0};
-        uuid_t  old_uuid;
+        uuid_t  gfid = {0,};
+        uuid_t  old_uuid = {0,};
         char    old_uuid_buf[64] = {0,};
 
         ret = stat (path, &st_buf);
@@ -2970,6 +2971,34 @@ check_xattr:
                 sys_lremovexattr (path, "trusted.glusterfs.test");
         }
 
+        /* Now check if the export directory has some other 'gfid',
+           other than that of root '/' */
+        ret = sys_lgetxattr (path, "trusted.gfid", gfid, 16);
+        if (ret == 16) {
+                if (__is_root_gfid (gfid) != 0) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "%s: gfid (%s) is not that of glusterfs '/' ",
+                                path, uuid_utoa (gfid));
+                        snprintf (msg, sizeof (msg),
+                                  "'%s:%s' gfid (%s) is not that of "
+                                  "glusterfs '/' ", host, path, uuid_utoa (gfid));
+                        ret = -1;
+                        goto out;
+                }
+        } else if (ret != -1) {
+                /* Wrong 'gfid' is set, it should be error */
+                ret = -1;
+                snprintf (msg, sizeof (msg), "'%s:%s' has wrong entry"
+                          "for 'gfid'.", host, path);
+                goto out;
+        } else if ((ret == -1) && (errno != ENODATA)) {
+                /* Wrong 'gfid' is set, it should be error */
+                snprintf (msg, sizeof (msg), "'%s:%s' has failed to fetch "
+                          "'gfid' (%s)", host, path, strerror (errno));
+                goto out;
+        }
+
+        ret = 0;
         if (!uuid)
                 goto out;
 
@@ -2990,17 +3019,23 @@ check_xattr:
                         ret = -1;
                         goto out;
                 }
-                ret = 0;
-        } else if (ret == -1) {
-                /* 'volume-id' not set, seems to be a fresh directory */
-                ret = 0;
-        } else {
+        } else if (ret != -1) {
                 /* Wrong 'volume-id' is set, it should be error */
                 ret = -1;
                 snprintf (msg, sizeof (msg), "'%s:%s' has wrong entry"
                           "for 'volume-id'.", host, path);
-        }
+                goto out;
+        } else if ((ret == -1) && (errno != ENODATA)) {
+                /* Wrong 'volume-id' is set, it should be error */
+                snprintf (msg, sizeof (msg), "'%s:%s' : failed to fetch "
+                          "'volume-id' (%s)", host, path, strerror (errno));
+                goto out;
 
+        }
+        /* if 'ret == -1' then 'volume-id' not set, seems to be a fresh
+           directory */
+
+        ret = 0;
 out:
         if (msg[0] != '\0')
                 *op_errstr = gf_strdup (msg);
