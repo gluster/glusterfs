@@ -1902,6 +1902,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         struct iatt           postoldparent = {0, };
         struct iatt           prenewparent  = {0, };
         struct iatt           postnewparent = {0, };
+        char                  olddirid[64];
+        char                  newdirid[64];
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1950,6 +1952,27 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         op_ret = posix_lstat_with_gfid (this, real_newpath, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
+        }
+
+        if (was_present && IA_ISDIR(stbuf.ia_type) && !newloc->inode) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "found directory at %s while expecting ENOENT",
+                        real_newpath);
+                op_ret = -1;
+                op_errno = EEXIST;
+                goto out;
+        }
+
+        if (was_present && IA_ISDIR(stbuf.ia_type) &&
+            uuid_compare (newloc->inode->gfid, stbuf.ia_gfid)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "found directory %s at %s while renaming %s",
+                        uuid_utoa_r (newloc->inode->gfid, olddirid),
+                        real_newpath,
+                        uuid_utoa_r (stbuf.ia_gfid, newdirid));
+                op_ret = -1;
+                op_errno = EEXIST;
+                goto out;
         }
 
         op_ret = sys_rename (real_oldpath, real_newpath);
