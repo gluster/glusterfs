@@ -624,7 +624,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         snprintf (cmd_str, sizeof (cmd_str),
                   "%s/sbin/glusterfs -s localhost --volfile-id %s "
-                  "--xlator-option *dht.use-readdirp=yes "
+                  "--acl --xlator-option *dht.use-readdirp=yes "
                   "--xlator-option *dht.lookup-unhashed=yes %s",
                   GFS_PREFIX, volinfo->volname,
                   defrag->mount);
