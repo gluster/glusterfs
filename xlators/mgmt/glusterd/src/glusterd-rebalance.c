@@ -40,6 +40,60 @@
 #include "syscall.h"
 #include "cli1.h"
 
+static int
+migrate_xattrs_of_file (int src, int dst)
+{
+        int      ret  = -1;
+        ssize_t  len = 0;
+        ssize_t  size = 0;
+        ssize_t  size_processed = 0;
+        char    *key = NULL;
+        char     value[4096] = {0,};
+        char     list[4096] = {0,};
+
+        /* Get the size of xattr list */
+        size = flistxattr (src, list, 4096);
+        if (size < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to fetch the extended attribute list (%s)",
+                        strerror (errno));
+                goto out;
+        }
+        if (size == 0) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "there are no extended attributes for the file");
+                ret = 0;
+                goto out;
+        }
+
+        while (size > size_processed) {
+                key = &list[size_processed];
+                len = fgetxattr (src, key, value, 4096);
+                if (len < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to get the xattr for key %s (%s)",
+                                key, strerror (errno));
+                        goto out;
+                }
+
+                ret = fsetxattr (dst, key, value, len, 0);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to set the xattr for key %s (%s)",
+                                key, strerror (errno));
+                        goto out;
+                }
+                /* Exclude the NULL character */
+                size_processed += strlen (key) + 1;
+        }
+
+        ret = 0;
+out:
+
+        return ret;
+}
+
+
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
@@ -139,6 +193,13 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         close (dst_fd);
                         close (src_fd);
                         continue;
+                }
+
+                ret = migrate_xattrs_of_file (src_fd, dst_fd);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to copy the extended attributes "
+                                "from source file %s", full_path);
                 }
 
                 ret = fchown (dst_fd, stbuf.st_uid, stbuf.st_gid);
