@@ -5,9 +5,10 @@ import fcntl
 import shutil
 import logging
 from threading import Lock, Thread as baseThread
-from errno import EACCES, EAGAIN
+from errno import EACCES, EAGAIN, EPIPE, ENOTCONN
 from signal import SIGTERM, SIGKILL
 from time import sleep
+from cPickle import PickleError
 
 from gconf import gconf
 
@@ -125,13 +126,35 @@ def finalize(*a, **kw):
     os._exit(kw.get('exval', 0))
 
 def log_raise_exception(excont):
+    is_filelog = False
+    for h in logging.getLogger().handlers:
+        fno = getattr(getattr(h, 'stream', None), 'fileno', None)
+        if fno and not os.isatty(fno()):
+            is_filelog = True
+
     exc = sys.exc_info()[1]
     if isinstance(exc, SystemExit):
         excont.exval = exc.code or 0
         raise
     else:
-        logging.exception("FAIL: ")
-        sys.stderr.write("failed with %s.\n" % type(exc).__name__)
+        logtag = None
+        if isinstance(exc, GsyncdError):
+            if is_filelog:
+                logging.error(exc.message)
+            sys.stderr.write('failure: ' + exc.message + "\n")
+        elif isinstance(exc, PickleError) or isinstance(exc, EOFError) or \
+             ((isinstance(exc, OSError) or isinstance(exc, IOError)) and \
+              exc.errno == EPIPE):
+            logging.error('connection to peer is broken')
+        elif isinstance(exc, OSError) and exc.errno == ENOTCONN:
+            logging.error('glusterfs session went down')
+        else:
+            logtag = "FAIL"
+        if not logtag and logging.getLogger().isEnabledFor(logging.DEBUG):
+            logtag = "FULL EXCEPTION TRACE"
+        if logtag:
+            logging.exception(logtag + ": ")
+            sys.stderr.write("failed with %s.\n" % type(exc).__name__)
         excont.exval = 1
         sys.exit(excont.exval)
 
@@ -160,3 +183,6 @@ class Thread(baseThread):
             kw['target'] = twrap
         baseThread.__init__(self, *a, **kw)
         self.setDaemon(True)
+
+class GsyncdError(StandardError):
+    pass

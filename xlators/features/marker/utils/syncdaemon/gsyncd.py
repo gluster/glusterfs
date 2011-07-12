@@ -15,6 +15,7 @@ from errno import EEXIST, ENOENT
 
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
+from syncdutils import GsyncdError
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -72,7 +73,7 @@ def startup(**kw):
             os.dup2(dn, f.fileno())
         if getattr(gconf, 'pid_file', None):
             if not grabpidfile(gconf.pid_file + '.tmp'):
-                raise RuntimeError("cannot grap temporary pidfile")
+                raise GsyncdError("cannot grab temporary pidfile")
             os.rename(gconf.pid_file + '.tmp', gconf.pid_file)
         # wait for parent to terminate
         # so we can start up with
@@ -203,7 +204,7 @@ def main_i():
             if len(rscs) > 1:
                 remote = rscs[1]
             if not local.can_connect_to(remote):
-                raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
+                raise GsyncdError("%s cannot work with %s" % (local.path, remote and remote.path))
         pa = ([], [], [])
         urlprms = ({}, {'canonical': True}, {'canonical': True, 'escaped': True})
         for x in rscs:
@@ -237,7 +238,7 @@ def main_i():
             else:
                 sys.exit(1)
         elif not opt_ok:
-            raise RuntimeError("not a valid option: " + confdata.opt)
+            raise GsyncdError("not a valid option: " + confdata.opt)
         if confdata.op == 'get':
             gcnf.get(confdata.opt)
         elif confdata.op == 'set':
@@ -263,7 +264,7 @@ def main_i():
         # I have _never_ _ever_ seen such an utterly braindead
         # error condition
         if lvl2 == "Level " + lvl1:
-            raise RuntimeError('cannot recognize log level "%s"' % lvl0)
+            raise GsyncdError('cannot recognize log level "%s"' % lvl0)
         gconf.log_level = lvl2
 
     go_daemon = rconf['go_daemon']
