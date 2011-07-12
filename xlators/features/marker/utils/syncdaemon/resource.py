@@ -195,7 +195,8 @@ class SlaveLocal(object):
 
     def service_loop(self):
         repce = RepceServer(self.server, sys.stdin, sys.stdout, int(gconf.sync_jobs))
-        t = syncdutils.Thread(target=repce.service_loop)
+        t = syncdutils.Thread(target=lambda: (repce.service_loop(),
+                                              syncdutils.finalize()))
         t.start()
         logging.info("slave listening")
         if gconf.timeout and int(gconf.timeout) > 0:
