@@ -3713,8 +3713,9 @@ init (xlator_t *this)
         int                    ret           = 0;
         int                    op_ret        = -1;
         int32_t                janitor_sleep = 0;
-        uuid_t                 old_uuid;
-        uuid_t                 dict_uuid;
+        uuid_t                 old_uuid      = {0,};
+        uuid_t                 dict_uuid     = {0,};
+        uuid_t                 gfid          = {0,};
 
         dir_data = dict_get (this->options, "directory");
 
@@ -3806,7 +3807,7 @@ init (xlator_t *this)
                                 ret = -1;
                                 goto out;
                         }
-                } else if (op_ret == -1) {
+                } else if ((op_ret == -1) && (errno == ENODATA)) {
                         /* Using the export for first time */
                         op_ret = sys_lsetxattr (dir_data->data,
                                                 "trusted.glusterfs.volume-id",
@@ -3817,12 +3818,44 @@ init (xlator_t *this)
                                 ret = -1;
                                 goto out;
                         }
+                }  else if ((op_ret == -1) && (errno != ENODATA)) {
+                        /* Wrong 'volume-id' is set, it should be error */
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: failed to fetch volume-id (%s)",
+                                dir_data->data, strerror (errno));
+                        goto out;
                 } else {
                         ret = -1;
                         gf_log (this->name, GF_LOG_ERROR,
-                                "failed to fetch volume id from export");
+                                "failed to fetch proper volume id from export");
                         goto out;
                 }
+        }
+
+        /* Now check if the export directory has some other 'gfid',
+           other than that of root '/' */
+        ret = sys_lgetxattr (dir_data->data, "trusted.gfid", gfid, 16);
+        if (ret == 16) {
+                if (__is_root_gfid (gfid) != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: gfid (%s) is not that of glusterfs '/' ",
+                                dir_data->data, uuid_utoa (gfid));
+                        ret = -1;
+                        goto out;
+                }
+        } else if (ret != -1) {
+                /* Wrong 'gfid' is set, it should be error */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: wrong value set as gfid",
+                        dir_data->data);
+                ret = -1;
+                goto out;
+        } else if ((ret == -1) && (errno != ENODATA)) {
+                /* Wrong 'gfid' is set, it should be error */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to fetch gfid (%s)",
+                        dir_data->data, strerror (errno));
+                goto out;
         }
 
         op_ret = sys_lgetxattr (dir_data->data, "system.posix_acl_access",
@@ -3831,6 +3864,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "Posix access control list is not supported.");
 
+        ret = 0;
         _private = GF_CALLOC (1, sizeof (*_private),
                               gf_posix_mt_posix_private);
         if (!_private) {
@@ -4049,5 +4083,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL },
         { .key  = {"janitor-sleep-duration"},
           .type = GF_OPTION_TYPE_INT },
+        { .key  = {"volume-id"},
+          .type = GF_OPTION_TYPE_ANY },
         { .key  = {NULL} }
 };
