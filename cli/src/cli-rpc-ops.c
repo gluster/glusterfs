@@ -500,7 +500,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         vol_type = type;
 
                         // Distributed (stripe/replicate/raid01) setups
-                        if ((type > 1) && ( sub_count < brick_count))
+                        if ((type > 0) && ( sub_count < brick_count))
                                 vol_type = type + 3;
 
                         cli_out ("Volume Name: %s", volname);
