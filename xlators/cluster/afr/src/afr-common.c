@@ -679,7 +679,7 @@ afr_lookup_set_read_child (xlator_t *this, afr_local_t *local)
         if (!sh->sources)
                 goto out;
 
-        read_child = priv->read_child;
+        read_child = local->read_child_index;
         if (afr_is_valid_read_child (sh->sources, priv->child_count,
                                      read_child))
                 goto out;
@@ -912,6 +912,8 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                 afr_set_read_child (this,
                                                     local->cont.lookup.inode,
                                                     child_index);
+                                //prefer fast child
+                                local->read_child_index = child_index;
                         }
 
                 } else {
