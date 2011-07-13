@@ -917,6 +917,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                 } else {
                         afr_lookup_self_heal_check (this, local, buf, lookup_buf);
 
+                        local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                         if (child_index == local->read_child_index) {
                                 /*
                                    lookup has succeeded on the read child.
@@ -926,7 +927,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                         dict_unref (local->cont.lookup.xattr);
 
                                 local->cont.lookup.xattr = dict_ref (xattr);
-                                local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                                 local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
@@ -1037,6 +1037,7 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                 } else {
                         afr_lookup_self_heal_check (this, local, buf, lookup_buf);
 
+                        local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                         if (child_index == local->read_child_index) {
 
                                 /*
@@ -1048,7 +1049,6 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                         dict_unref (local->cont.lookup.xattr);
 
                                 local->cont.lookup.xattr               = dict_ref (xattr);
-                                local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                                 local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
