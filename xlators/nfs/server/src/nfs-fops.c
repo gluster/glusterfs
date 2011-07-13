@@ -31,7 +31,7 @@
 #include "nfs-fops.h"
 #include "inode.h"
 #include "nfs-common.h"
-
+#include "nfs3-helpers.h"
 #include <libgen.h>
 #include <semaphore.h>
 
@@ -375,6 +375,7 @@ nfs_fop_access (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         call_frame_t            *frame = NULL;
         int                     ret = -EFAULT;
         struct nfs_fop_local    *nfl = NULL;
+        uint32_t                accessbits = 0;
 
         if ((!xl) || (!loc) || (!nfu))
                 return ret;
@@ -384,8 +385,9 @@ nfs_fop_access (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
 
+        accessbits = nfs3_request_to_accessbits (accesstest);
         STACK_WIND_COOKIE (frame, nfs_fop_access_cbk, xl, xl, xl->fops->access,
-                           loc, accesstest);
+                           loc, accessbits);
         ret = 0;
 err:
         if (ret < 0) {
