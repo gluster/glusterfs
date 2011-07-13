@@ -1018,7 +1018,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 cli_out ("Set volume %s", (rsp.op_ret) ? "unsuccessful":
                                                          "successful");
         else 
-                cli_out (help_str);
+                cli_out ("%s", help_str);
 
         ret = rsp.op_ret;
 
