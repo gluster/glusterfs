@@ -221,19 +221,26 @@ mask_check:
         for (i = 0; i < acl->count; i++, ace++) {
                 if (ace->tag != POSIX_ACL_MASK)
                         continue;
-                if ((ace->perm & perm & want) == want)
+                if ((ace->perm & perm & want) == want) {
+                        verdict = ace->perm & perm;
                         goto green;
+                }
                 goto red;
         }
 
 perm_check:
-        if ((perm & want) == want)
+        if ((perm & want) == want) {
+                verdict = perm & want;
                 goto green;
-        else
+        } else {
                 goto red;
+        }
 
 green:
-        verdict = 1;
+        if (!want)
+                verdict = 1;
+        if (!verdict)
+                verdict = want;
         goto out;
 red:
         verdict = 0;
@@ -759,7 +766,7 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
         int  op_ret = 0;
         int  op_errno = 0;
         int  perm = 0;
-
+        int  mode = 0;
 
         if (mask & R_OK)
                 perm |= POSIX_ACL_READ;
@@ -773,7 +780,8 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
                 goto unwind;
         }
 
-        if (acl_permits (frame, loc->inode, perm)) {
+        mode = acl_permits (frame, loc->inode, perm);
+        if (mode) {
                 op_ret = 0;
                 op_errno = 0;
         } else {
@@ -782,8 +790,10 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
         }
 
 unwind:
-        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
-
+        if (__is_fuse_call (frame))
+                STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
+        else
+                STACK_UNWIND_STRICT (access, frame, 0, mode);
         return 0;
 }
 
