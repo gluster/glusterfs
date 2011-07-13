@@ -89,6 +89,10 @@ typedef struct {
 } posix_xattr_filler_t;
 
 int
+handle_pair (xlator_t *this, const char *real_path,
+             data_pair_t *trav, int flags);
+
+int
 posix_forget (xlator_t *this, inode_t *inode)
 {
         uint64_t tmp_cache = 0;
@@ -504,6 +508,39 @@ posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req)
 out:
         return ret;
 }
+
+int
+posix_entry_create_xattr_set (xlator_t *this, const char *path,
+                              dict_t *dict)
+{
+        data_pair_t *trav = NULL;
+        int ret = -1;
+
+        trav = dict->members_list;
+        while (trav) {
+                if (!strcmp (GFID_XATTR_KEY, trav->key) ||
+                    !strcmp ("gfid-req", trav->key) ||
+                    !strcmp ("system.posix_acl_default", trav->key) ||
+                    !strcmp ("system.posix_acl_access", trav->key) ||
+                    ZR_FILE_CONTENT_REQUEST(trav->key)) {
+                        trav = trav->next;
+                        continue;
+                }
+
+                ret = handle_pair (this, path, trav, XATTR_CREATE);
+                if (ret < 0) {
+                        errno = -ret;
+                        ret = -1;
+                        goto out;
+                }
+                trav = trav->next;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 
 
 int32_t
@@ -1241,6 +1278,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                         strerror (errno));
         }
 
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1510,6 +1554,13 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
                         strerror (errno));
         }
 
@@ -1822,6 +1873,13 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
                         strerror (errno));
         }
 
@@ -2275,6 +2333,13 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
                         strerror (errno));
         }
 
@@ -2956,7 +3021,7 @@ out:
 static int gf_posix_xattr_enotsup_log;
 
 int
-set_file_contents (xlator_t *this, char *real_path,
+set_file_contents (xlator_t *this, const char *real_path,
                    data_pair_t *trav, int flags)
 {
         char *      key                        = NULL;
@@ -3037,7 +3102,7 @@ out:
 }
 
 int
-handle_pair (xlator_t *this, char *real_path,
+handle_pair (xlator_t *this, const char *real_path,
              data_pair_t *trav, int flags)
 {
         int sys_ret = -1;
