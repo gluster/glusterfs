@@ -605,9 +605,9 @@ glusterd_defrag_start_validate (glusterd_volinfo_t *volinfo, char *op_errstr,
         if (glusterd_is_rb_started (volinfo) ||
             glusterd_is_rb_paused (volinfo)) {
                 gf_log ("glusterd", GF_LOG_DEBUG,
-                        "Replace brick is in progress on volume %s",
+                        "Rebalance failed as replace brick is in progress on volume %s",
                         volinfo->volname);
-                snprintf (op_errstr, len, "Replace brick is in progress on "
+                snprintf (op_errstr, len, "Rebalance failed as replace brick is in progress on "
                           "volume %s", volinfo->volname);
                 goto out;
         }
