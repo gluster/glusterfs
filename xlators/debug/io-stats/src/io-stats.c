@@ -158,6 +158,8 @@ struct ios_local {
         struct timeval  unwind_at;
 };
 
+struct volume_options options[];
+
 inline static int
 is_fop_latency_started (call_frame_t *frame)
 {
@@ -2303,19 +2305,36 @@ io_stats_forget (xlator_t *this, inode_t *inode)
 }
 
 int
-iostats_configure_options (xlator_t *this, dict_t *options,
+iostats_configure_options (xlator_t *this, dict_t *xl_options,
                            struct ios_conf *conf)
 {
         int                 ret = 0;
         int                 sys_log_level = -1;
         char               *sys_log_str = NULL;
         char               *log_str = NULL;
+        char               *def_val = NULL;
+        gf_boolean_t        def_bool = _gf_false;
 
         GF_ASSERT (this);
-        GF_ASSERT (options);
+        GF_ASSERT (xl_options);
         GF_ASSERT (conf);
 
-        ret = dict_get_str_boolean (options, "dump-fd-stats", _gf_false);
+        if (xlator_get_volopt_info (&this->volume_options, "dump-fd-stats", &def_val,
+                                     NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         " dump-fd-stats not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2boolean (def_val, &def_bool)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "dump-fd-stats corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str_boolean (xl_options, "dump-fd-stats", def_bool);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "'dump-fd-stats' takes only boolean arguments");
@@ -2327,7 +2346,7 @@ iostats_configure_options (xlator_t *this, dict_t *options,
 			gf_log (this->name, GF_LOG_DEBUG, "disabling dump-fd-stats");
         }
 
-        ret = dict_get_str_boolean (options, "count-fop-hits", _gf_false);
+        ret = dict_get_str_boolean (xl_options, "count-fop-hits", _gf_false);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "'count-fop-hits' takes only boolean arguments");
@@ -2341,7 +2360,23 @@ iostats_configure_options (xlator_t *this, dict_t *options,
                                 "disabling count-fop-hits");
         }
 
-        ret = dict_get_str_boolean (options, "latency-measurement", 0);
+        if (xlator_get_volopt_info (&this->volume_options, "latency-measurement",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "latency-measurement not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2boolean (def_val, &def_bool)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "latency-measurement corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str_boolean (xl_options, "latency-measurement",
+                                     def_bool);
         if (ret != -1) {
                 if (conf->measure_latency != ret) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -2354,7 +2389,7 @@ iostats_configure_options (xlator_t *this, dict_t *options,
                         "'latency-measurement' takes only boolean arguments");
         }
 
-        ret = dict_get_str (options, "log-level", &log_str);
+        ret = dict_get_str (xl_options, "log-level", &log_str);
         if (!ret) {
                 if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level",
                                        log_str)) {
@@ -2363,7 +2398,7 @@ iostats_configure_options (xlator_t *this, dict_t *options,
                 }
         }
 
-        ret = dict_get_str (options, "sys-log-level", &sys_log_str);
+        ret = dict_get_str (xl_options, "sys-log-level", &sys_log_str);
         if (!ret) {
                 sys_log_level = glusterd_check_log_level (sys_log_str);
         }
@@ -2379,7 +2414,10 @@ iostats_configure_options (xlator_t *this, dict_t *options,
 
         set_sys_log_level (sys_log_level);
 
-        return 0;
+        ret = 0;
+ out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
 }
 
 int
@@ -2655,9 +2693,15 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
         { .key  = {"dump-fd-stats"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "If on stats related to file-operations would be "
+                         "tracked inside GlusterFS data-structures."
         },
         { .key  = { "latency-measurement" },
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "If on stats related to the latency of each operation "
+                         "would be tracked inside GlusterFS data-structures. "
         },
         { .key  = {"count-fop-hits"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -2666,9 +2710,27 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
         },
+
+        /* These are synthetic entries to assist validation of CLI's  *
+         *  volume set  command                                       */
+        { .key = {"client-log-level"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "INFO",
+          .description = "Changes the log-level of the clients",
+          .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
+        },
         { .key = {"sys-log-level"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "CRITICAL",
+          .description = "Gluster's syslog log-level",
           .value = { "WARNING", "ERROR", "CRITICAL"}
         },
-                { .key  = {NULL} },
+        { .key = {"brick-log-level"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "INFO",
+          .description = "Changes the log-level of the bricks",
+          .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
+        },
+        { .key  = {NULL} },
+
 };
