@@ -580,7 +580,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	int32_t ret = -1;
 	int8_t is_tcp = 0, is_unix = 0, is_ibsdp = 0;
 	volume_opt_list_t *vol_opt = NULL;
-        gf_boolean_t client_bind_insecure = _gf_false;
+        gf_boolean_t bind_insecure = _gf_false;
 
 	GF_VALIDATE_OR_GOTO("rpc-transport", options, fail);
 	GF_VALIDATE_OR_GOTO("rpc-transport", ctx, fail);
@@ -645,19 +645,26 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		}
 	}
 
+        /* client-bind-insecure is for clients protocol, and
+         * bind-insecure for glusterd. Both mutually exclusive
+        */
         ret = dict_get_str (options, "client-bind-insecure", &type);
+        if (ret)
+                ret = dict_get_str (options, "bind-insecure", &type);
         if (ret == 0) {
-                ret = gf_string2boolean (type, &client_bind_insecure);
+                ret = gf_string2boolean (type, &bind_insecure);
                 if (ret < 0) {
                         gf_log ("rcp-transport", GF_LOG_WARNING,
-                                "client-bind-insecure option %s is not a"
+                                "bind-insecure option %s is not a"
                                 " valid bool option", type);
                         goto fail;
                 }
-                if (_gf_true == client_bind_insecure)
-                        trans->client_bind_insecure = 1;
+                if (_gf_true == bind_insecure)
+                        trans->bind_insecure = 1;
+                else
+                        trans->bind_insecure = 0;
         } else {
-                trans->client_bind_insecure = 0;
+                trans->bind_insecure = 0;
         }
 
 	ret = dict_get_str (options, "transport-type", &type);

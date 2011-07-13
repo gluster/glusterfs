@@ -840,5 +840,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
         },
 
+        { .key = {"bind-insecure"},
+          .type = GF_OPTION_TYPE_BOOL,
+        },
         { .key   = {NULL} },
 };

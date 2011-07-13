@@ -438,7 +438,7 @@ client_bind (rpc_transport_t *this,
                 *sockaddr_len = sizeof (struct sockaddr_in);
 
         case AF_INET6:
-                if (!this->client_bind_insecure) {
+                if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
                                                        *sockaddr_len, CLIENT_PORT_CEILING);
                 }
