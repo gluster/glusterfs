@@ -344,4 +344,7 @@ nfs3_fdcache_remove (struct nfs3_state *nfs3, fd_t *fd);
 
 extern int
 nfs3_is_parentdir_entry (char *entry);
+
+uint32_t
+nfs3_request_to_accessbits (int32_t accbits);
 #endif
