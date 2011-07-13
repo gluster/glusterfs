@@ -155,6 +155,7 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
         int                     i = 0;
         int                     perm = 0;
         int                     found = 0;
+        int                     acl_present = 0;
 
         conf = frame->this->private;
 
@@ -173,6 +174,9 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
 
         ace = acl->entries;
 
+        if (acl->count > 3)
+                acl_present = 1;
+        
         for (i = 0; i < acl->count; i++) {
                 switch (ace->tag) {
                 case POSIX_ACL_USER_OBJ:
@@ -186,7 +190,10 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
                                 goto mask_check;
                         break;
                 case POSIX_ACL_GROUP_OBJ:
-                        perm = ((ctx->perm & S_IRWXG) >> 3);
+                        if (acl_present)
+                                perm = ace->perm;
+                        else
+                                perm = ((ctx->perm & S_IRWXG) >> 3);
                         if (frame_in_group (frame, ctx->gid)) {
                                 found = 1;
                                 if ((perm & want) == want)
