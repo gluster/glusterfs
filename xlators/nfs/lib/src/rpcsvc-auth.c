@@ -56,19 +56,19 @@ nfs_rpcsvc_auth_add_initers (rpcsvc_t *svc)
 {
         int     ret = -1;
 
-        ret = nfs_rpcsvc_auth_add_initer (&svc->authschemes, "auth-unix",
-                                          (rpcsvc_auth_initer_t)
-                                          nfs_rpcsvc_auth_unix_init);
-        if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add AUTH_UNIX");
-                goto err;
-        }
-
         ret = nfs_rpcsvc_auth_add_initer (&svc->authschemes, "auth-null",
                                           (rpcsvc_auth_initer_t)
                                           nfs_rpcsvc_auth_null_init);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add AUTH_NULL");
+                goto err;
+        }
+
+        ret = nfs_rpcsvc_auth_add_initer (&svc->authschemes, "auth-unix",
+                                          (rpcsvc_auth_initer_t)
+                                          nfs_rpcsvc_auth_unix_init);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add AUTH_UNIX");
                 goto err;
         }
 
