@@ -827,6 +827,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                         strerror (errno));
         }
 
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -950,6 +957,13 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
                         strerror (errno));
         }
 
@@ -1262,6 +1276,13 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
                         strerror (errno));
         }
 
@@ -1715,6 +1736,13 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", loc->path,
+                        strerror (errno));
+        }
+
+        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting xattrs on %s failed (%s)", loc->path,
                         strerror (errno));
         }
 
