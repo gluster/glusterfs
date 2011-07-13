@@ -394,7 +394,7 @@ out:
 
 
 int
-posix_set_file_contents (xlator_t *this, char *real_path,
+posix_set_file_contents (xlator_t *this, const char *real_path,
                          data_pair_t *trav, int flags)
 {
         char *      key                        = NULL;
@@ -476,7 +476,7 @@ out:
 
 
 int
-posix_get_file_contents (xlator_t *this, char *real_path,
+posix_get_file_contents (xlator_t *this, const char *real_path,
                          const char *name, char **contents)
 {
         char        real_filepath[ZR_PATH_MAX] = {0,};
@@ -546,7 +546,7 @@ out:
 static int gf_xattr_enotsup_log;
 
 int
-posix_handle_pair (xlator_t *this, char *real_path,
+posix_handle_pair (xlator_t *this, const char *real_path,
                    data_pair_t *trav, int flags)
 {
         int sys_ret = -1;
@@ -885,3 +885,35 @@ out:
         return ret;
 }
 
+int
+posix_entry_create_xattr_set (xlator_t *this, const char *path,
+                             dict_t *dict)
+{
+        data_pair_t *trav = NULL;
+        int ret = -1;
+
+        trav = dict->members_list;
+        while (trav) {
+                if (!strcmp (GFID_XATTR_KEY, trav->key) ||
+                    !strcmp ("gfid-req", trav->key) ||
+                    !strcmp ("system.posix_acl_default", trav->key) ||
+                    !strcmp ("system.posix_acl_access", trav->key) ||
+                    ZR_FILE_CONTENT_REQUEST(trav->key)) {
+                        trav = trav->next;
+                        continue;
+                }
+
+                ret = posix_handle_pair (this, path, trav, XATTR_CREATE);
+                if (ret < 0) {
+                        errno = -ret;
+                        ret = -1;
+                        goto out;
+                }
+                trav = trav->next;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
