@@ -779,6 +779,9 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
                 perm |= POSIX_ACL_WRITE;
         if (mask & X_OK)
                 perm |= POSIX_ACL_EXECUTE;
+        if (!mask) {
+                goto unwind;
+        }
         if (!perm) {
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -871,6 +874,8 @@ posix_acl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
                 perm = POSIX_ACL_READ;
                 break;
         case O_WRONLY:
+        case O_APPEND:
+        case O_TRUNC:
                 perm = POSIX_ACL_WRITE;
                 break;
         case O_RDWR:
