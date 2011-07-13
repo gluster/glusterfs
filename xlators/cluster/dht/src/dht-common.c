@@ -1551,6 +1551,15 @@ unlock:
 
 
 int
+dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+             int op_ret, int op_errno)
+{
+        DHT_STACK_UNWIND (access, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
 dht_access (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int32_t mask)
 {
@@ -1581,7 +1590,7 @@ dht_access (call_frame_t *frame, xlator_t *this,
 
         local->call_cnt = 1;
 
-        STACK_WIND (frame, dht_err_cbk,
+        STACK_WIND (frame, dht_access_cbk,
                     subvol, subvol->fops->access,
                     loc, mask);
 
