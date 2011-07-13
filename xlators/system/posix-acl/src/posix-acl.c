@@ -229,7 +229,6 @@ mask_check:
                 if (ace->tag != POSIX_ACL_MASK)
                         continue;
                 if ((ace->perm & perm & want) == want) {
-                        verdict = ace->perm & perm;
                         goto green;
                 }
                 goto red;
@@ -237,17 +236,13 @@ mask_check:
 
 perm_check:
         if ((perm & want) == want) {
-                verdict = perm & want;
                 goto green;
         } else {
                 goto red;
         }
 
 green:
-        if (!want)
-                verdict = 1;
-        if (!verdict)
-                verdict = want;
+        verdict = 1;
         goto out;
 red:
         verdict = 0;
@@ -774,7 +769,10 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
         int  op_errno = 0;
         int  perm = 0;
         int  mode = 0;
+        int  is_fuse_call = 0;
 
+        is_fuse_call = __is_fuse_call (frame);
+        
         if (mask & R_OK)
                 perm |= POSIX_ACL_READ;
         if (mask & W_OK)
@@ -787,17 +785,35 @@ posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask)
                 goto unwind;
         }
 
-        mode = acl_permits (frame, loc->inode, perm);
-        if (mode) {
-                op_ret = 0;
-                op_errno = 0;
+        if (is_fuse_call) {
+                mode = acl_permits (frame, loc->inode, perm);
+                if (mode) {
+                        op_ret = 0;
+                        op_errno = 0;
+                } else {
+                        op_ret = -1;
+                        op_errno = EACCES;
+                }
         } else {
-                op_ret = -1;
-                op_errno = EACCES;
+                if (perm & POSIX_ACL_READ) {
+                        if (acl_permits (frame, loc->inode, POSIX_ACL_READ))
+                                mode |= POSIX_ACL_READ;
+                }
+                
+                if (perm & POSIX_ACL_WRITE) {
+                        if (acl_permits (frame, loc->inode, POSIX_ACL_WRITE))
+                                mode |= POSIX_ACL_WRITE;
+                }
+
+                if (perm & POSIX_ACL_EXECUTE) {
+                        if (acl_permits (frame, loc->inode, POSIX_ACL_EXECUTE))
+                                mode |= POSIX_ACL_EXECUTE;
+                }
         }
 
+                
 unwind:
-        if (__is_fuse_call (frame))
+        if (is_fuse_call)
                 STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
         else
                 STACK_UNWIND_STRICT (access, frame, 0, mode);
