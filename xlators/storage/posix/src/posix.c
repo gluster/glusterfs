@@ -113,7 +113,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        posix_gfid_heal (this, real_path, xattr_req);
+        posix_gfid_set (this, real_path, xattr_req);
 
         op_ret   = posix_lstat_with_gfid (this, real_path, &buf);
         op_errno = errno;
