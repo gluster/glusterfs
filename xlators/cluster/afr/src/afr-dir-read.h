@@ -38,11 +38,6 @@ afr_readdirp (call_frame_t *frame, xlator_t *this,
 	     fd_t *fd, size_t size, off_t offset);
 
 int32_t
-afr_getdents (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, size_t size, off_t offset, int32_t flag);
-
-
-int32_t
 afr_checksum (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, int32_t flags);
 

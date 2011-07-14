@@ -428,10 +428,10 @@ afr_update_read_child (call_frame_t *frame, xlator_t *this, inode_t *inode,
         if (pending[curr_read_child][idx] != 0)
                 goto out;
 
-        fresh_children = GF_CALLOC (priv->child_count, sizeof (*fresh_children),
-                                    gf_afr_mt_int32_t);
+        fresh_children = afr_fresh_children_create (priv->child_count);
         if (!fresh_children)
                 goto out;
+
         for (new_read_child = 0; new_read_child < priv->child_count;
              new_read_child++) {
 

@@ -49,7 +49,6 @@
 #include "afr-self-heal.h"
 #include "afr-self-heal-common.h"
 
-
 int
 afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this)
 {
@@ -517,24 +516,38 @@ int32_t
 afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
-        afr_private_t *  priv        = NULL;
-        afr_local_t *    local       = NULL;
-        xlator_t **      children    = NULL;
-        int              call_child  = 0;
-        int              ret         = 0;
-        gf_dirent_t *    entry       = NULL;
-        gf_dirent_t *    tmp         = NULL;
-        int              child_index = -1;
-        uint64_t         ctx         = 0;
-        afr_fd_ctx_t    *fd_ctx      = NULL;
-        off_t            offset      = 0;
+        afr_private_t *  priv            = NULL;
+        afr_local_t *    local           = NULL;
+        xlator_t **      children        = NULL;
+        int32_t          next_call_child = -1;
+        int              ret             = 0;
+        gf_dirent_t *    entry           = NULL;
+        gf_dirent_t *    tmp             = NULL;
+        int32_t          *last_index     = NULL;
+        int32_t          read_child      = -1;
+        int32_t         *fresh_children   = NULL;
+        uint64_t         ctx             = 0;
+        afr_fd_ctx_t    *fd_ctx          = NULL;
+        off_t            offset          = 0;
+        int32_t         call_child       = -1;
 
         priv     = this->private;
         children = priv->children;
 
         local = frame->local;
 
-        child_index = (long) cookie;
+        read_child = (long) cookie;
+        last_index = &local->cont.readdir.last_index;
+        fresh_children = local->fresh_children;
+
+        /* the value of the last_index changes if afr_next_call_child is
+         * called. So to find the call_child of this callback use last_index
+         * before the next_call_child call.
+         */
+        if (*last_index == -1)
+                call_child = read_child;
+        else
+                call_child = fresh_children[*last_index];
 
         if (priv->strict_readdir) {
                 ret = fd_ctx_get (local->fd, this, &ctx);
@@ -548,25 +561,25 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-                if (child_went_down (op_ret, op_errno)) {
-                        if (all_tried (child_index, priv->child_count)) {
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "all options tried going out");
+                if (op_ret == -1) {
+                        next_call_child = afr_next_call_child (fresh_children,
+                                                               local->child_up,
+                                                               priv->child_count,
+                                                               last_index,
+                                                               read_child);
+                        if (next_call_child < 0)
                                 goto out;
-                        }
-
-                        call_child = ++child_index;
-
                         gf_log (this->name, GF_LOG_TRACE,
                                 "starting readdir afresh on child %d, offset %"PRId64,
-                                call_child, (uint64_t) 0);
+                                next_call_child, (uint64_t) 0);
 
                         fd_ctx->failed_over = _gf_true;
 
                         STACK_WIND_COOKIE (frame, afr_readdirp_cbk,
-                                           (void *) (long) call_child,
-                                           children[call_child],
-                                           children[call_child]->fops->readdirp, local->fd,
+                                           (void *) (long) read_child,
+                                           children[next_call_child],
+                                           children[next_call_child]->fops->readdirp,
+                                           local->fd,
                                            local->cont.readdir.size, 0);
                         return 0;
                 }
@@ -603,12 +616,12 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 gf_log (this->name, GF_LOG_TRACE,
                                         "trying to fetch non-duplicate entries "
                                         "from offset %"PRId64", child %s",
-                                        offset, children[child_index]->name);
+                                        offset, children[call_child]->name);
 
                                 STACK_WIND_COOKIE (frame, afr_readdirp_cbk,
-                                                   (void *) (long) child_index,
-                                                   children[child_index],
-                                                   children[child_index]->fops->readdirp,
+                                                   (void *) (long) read_child,
+                                                   children[call_child],
+                                                   children[call_child]->fops->readdirp,
                                                    local->fd, local->cont.readdir.size, offset);
                                 return 0;
                         }
@@ -623,7 +636,6 @@ out:
         return 0;
 }
 
-
 int32_t
 afr_do_readdir (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, size_t size, off_t offset, int whichop)
@@ -637,6 +649,7 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
         int              ret        = -1;
         int32_t          op_ret     = -1;
         int32_t          op_errno   = 0;
+        uint64_t         read_child = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -646,19 +659,29 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
         children = priv->children;
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
+        frame->local = local;
+
         ret = AFR_LOCAL_INIT (local, priv);
         if (ret < 0) {
                 op_errno = -ret;
                 goto out;
         }
 
-        frame->local = local;
+        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        if (!local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
 
-        call_child = afr_first_up_child (priv);
-        if (call_child == -1) {
-                op_errno = ENOTCONN;
-                gf_log (this->name, GF_LOG_INFO,
-                        "no child is up");
+        read_child = afr_inode_get_read_ctx (this, fd->inode,
+                                             local->fresh_children);
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.readdir.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
                 goto out;
         }
 

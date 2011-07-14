@@ -452,8 +452,9 @@ afr_set_read_ctx_from_policy (xlator_t *this, inode_t *inode,
  * in execution there is a chance for inode's read_ctx to change.
  */
 int32_t
-afr_next_call_child (int32_t *fresh_children, size_t child_count,
-                     int32_t *last_index, int32_t read_child)
+afr_next_call_child (int32_t *fresh_children, unsigned char *child_up,
+                     size_t child_count, int32_t *last_index,
+                     int32_t read_child)
 {
         int             next_index      = 0;
         int32_t         next_call_child = -1;
@@ -463,12 +464,12 @@ afr_next_call_child (int32_t *fresh_children, size_t child_count,
         next_index = *last_index;
 retry:
         next_index++;
-        if (next_index >= child_count)
+        if ((next_index >= child_count) ||
+           (fresh_children[next_index] == -1))
                 goto out;
-        if (fresh_children[next_index] == read_child)
+        if ((fresh_children[next_index] == read_child) ||
+           (!child_up[fresh_children[next_index]]))
                 goto retry;
-        if (fresh_children[next_index] == -1)
-                goto out;
         *last_index = next_index;
         next_call_child = fresh_children[next_index];
 out:
@@ -1475,7 +1476,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         if (ret == 0) {
                 /* lookup is a revalidate */
 
-                local->read_child_index = afr_inode_get_read_ctx (this, loc->inode,
+                local->read_child_index = afr_inode_get_read_ctx (this,
+                                                                  loc->inode,
                                                                   NULL);
         } else {
                 LOCK (&priv->read_child_lock);
@@ -3070,6 +3072,24 @@ out:
 }
 
 int
+afr_first_up_child (unsigned char *child_up, size_t child_count)
+{
+        int         ret      = -1;
+        int         i        = 0;
+
+        GF_ASSERT (child_up);
+
+        for (i = 0; i < child_count; i++) {
+                if (child_up[i]) {
+                        ret = i;
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
         local->op_ret = -1;
@@ -3147,7 +3167,8 @@ afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
         if (priv->optimistic_change_log && child_up_count == priv->child_count)
                 local->optimistic_change_log = 1;
 
-        local->first_up_child = afr_first_up_child (priv);
+        local->first_up_child = afr_first_up_child (local->child_up,
+                                                    priv->child_count);
 
         local->child_errno = GF_CALLOC (sizeof (*local->child_errno),
                                         priv->child_count,
