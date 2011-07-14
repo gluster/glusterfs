@@ -50,7 +50,8 @@
 #include "afr-self-heal-common.h"
 
 int
-afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this)
+afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this, int32_t op_ret,
+                           int32_t op_errno)
 {
         afr_local_t *local  = NULL;
 

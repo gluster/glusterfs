@@ -1663,7 +1663,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
 
         if (!sh->unwound) {
-                sh->unwind (sh->orig_frame, this);
+                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno);
         }
 
         if (sh->background) {
@@ -1723,7 +1723,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         sh_local        = afr_local_copy (local, this);
         sh_frame->local = sh_local;
         sh              = &sh_local->self_heal;
-        sh->inode       = inode;
+
+        sh->inode       = inode_ref (inode);
 
         sh->orig_frame  = frame;
 
@@ -1731,6 +1732,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
         sh->buf = GF_CALLOC (priv->child_count, sizeof (struct iatt),
                              gf_afr_mt_iatt);
+        sh->parentbufs = GF_CALLOC (priv->child_count, sizeof (struct iatt),
+                                    gf_afr_mt_iatt);
         sh->child_errno = GF_CALLOC (priv->child_count, sizeof (int),
                                      gf_afr_mt_int);
         sh->success = GF_CALLOC (priv->child_count, sizeof (int),
