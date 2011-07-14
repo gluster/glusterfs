@@ -44,6 +44,9 @@ typedef int (*afr_expunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
 typedef int (*afr_impunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
                                        int child, int32_t op_error,
                                        int32_t op_errno);
+typedef int (*afr_post_remove_call_t) (call_frame_t *frame, xlator_t *this);
+
+typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
 typedef struct afr_inode_params_ {
         uint64_t mask_type;
@@ -128,6 +131,8 @@ typedef struct {
         gf_boolean_t need_data_self_heal;
         gf_boolean_t need_metadata_self_heal;
         gf_boolean_t need_entry_self_heal;
+        gf_boolean_t need_gfid_self_heal;
+        gf_boolean_t need_missing_entry_self_heal;
 
         gf_boolean_t forced_merge;        /* Is this a self-heal triggered to
                                              forcibly merge the directories? */
@@ -147,17 +152,21 @@ typedef struct {
                                              self-heal on */
         inode_t   *inode;                 /* inode on which the self-heal is
                                              performed on */
+        uuid_t  sh_gfid_req;                 /* gfid self-heal needs to be done
+                                             with this gfid if it is not null */
 
         /* Function to call to unwind. If self-heal is being done in the
            background, this function will be called as soon as possible. */
 
-        int (*unwind) (call_frame_t *frame, xlator_t *this);
+        int (*unwind) (call_frame_t *frame, xlator_t *this, int32_t op_ret,
+                       int32_t op_errno);
 
         /* End of external interface members */
 
 
         /* array of stat's, one for each child */
         struct iatt *buf;
+        struct iatt *parentbufs;
         struct iatt parentbuf;
         struct iatt entrybuf;
 
@@ -174,11 +183,16 @@ typedef struct {
         int     success_count;
         /* array containing the fresh children found in the self-heal process */
         int32_t *fresh_children;
+        /* array containing the fresh children found in the parent lookup */
+        int32_t *fresh_parent_dirs;
         /* array of errno's, one for each child */
         int *child_errno;
 
         int32_t **pending_matrix;
         int32_t **delta_matrix;
+
+        int32_t op_ret;
+        int32_t op_errno;
 
         int *sources;
         int source;
@@ -197,6 +211,7 @@ typedef struct {
         blksize_t block_size;
         off_t file_size;
         off_t offset;
+        afr_post_remove_call_t post_remove_call;
 
         loc_t parent_loc;
 
@@ -211,6 +226,7 @@ typedef struct {
         int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
+        void (*gfid_sh_success_cbk) (call_frame_t *sh_frame, xlator_t *this);
 
         call_frame_t *sh_frame;
 } afr_self_heal_t;
@@ -376,6 +392,7 @@ typedef struct _afr_local {
                 } statfs;
 
                 struct {
+                        uuid_t  gfid_req;
                         inode_t *inode;
                         struct iatt buf;
                         struct iatt postparent;
@@ -891,4 +908,37 @@ afr_fresh_children_add_child (int32_t *fresh_children, int32_t child,
                               int32_t child_count);
 void
 afr_reset_children (int32_t *fresh_children, int32_t child_count);
+gf_boolean_t
+afr_error_more_important (int32_t old_errno, int32_t new_errno);
+int
+afr_errno_count (int32_t *children, int *child_errno,
+                 unsigned int child_count, int32_t op_errno);
+int
+afr_get_children_count (int32_t *fresh_children, unsigned int child_count);
+gf_boolean_t
+afr_is_child_present (int32_t *success_children, int32_t child_count,
+                      int32_t child);
+void
+afr_update_gfid_from_iatts (uuid_t uuid, struct iatt *bufs,
+                            int32_t *success_children,
+                            unsigned int child_count);
+void
+afr_reset_xattr (dict_t **xattr, unsigned int child_count);
+gf_boolean_t
+afr_conflicting_iattrs (struct iatt *bufs, int32_t *success_children,
+                        unsigned int child_count, const char *path,
+                        const char *xlator_name);
+int
+afr_gfid_missing_count (const char *xlator_name, int32_t *children,
+                        struct iatt *bufs, unsigned int child_count,
+                        const char *path);
+void
+afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req, const char *path);
+void
+afr_children_copy (int32_t *dst, int32_t *src, unsigned int child_count);
+afr_transaction_type
+afr_transaction_type_get (ia_type_t ia_type);
+int32_t
+afr_resultant_errno_get (int32_t *children,
+                         int *child_errno, unsigned int child_count);
 #endif /* __AFR_H__ */

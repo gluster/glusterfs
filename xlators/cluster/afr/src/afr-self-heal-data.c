@@ -699,7 +699,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                 orig_local->cont.lookup.xattr = dict_ref (orig_local->cont.lookup.xattrs[sh->source]);
 
         if (sh->background) {
-                sh->unwind (sh->orig_frame, this);
+                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno);
                 sh->unwound = _gf_true;
         }
 
