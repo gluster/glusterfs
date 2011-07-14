@@ -615,7 +615,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                                       can_block, dom);
 
                 if (ret < 0) {
-                        if ((can_block) && (F_UNLCK != reqlock->fl_type)) {
+                        if ((can_block) && (F_UNLCK != flock->l_type)) {
                                 pl_trace_block (this, frame, fd, loc,
                                                 cmd, flock, volume);
                                 goto out;
