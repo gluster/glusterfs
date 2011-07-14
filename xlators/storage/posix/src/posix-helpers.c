@@ -188,7 +188,7 @@ posix_fill_gfid_path (xlator_t *this, const char *path, struct iatt *iatt)
 
         ret = sys_lgetxattr (path, GFID_XATTR_KEY, iatt->ia_gfid, 16);
         /* Return value of getxattr */
-        if (ret == 16)
+        if ((ret == 16) || (ret == -1))
                 ret = 0;
 
         return ret;
@@ -205,7 +205,7 @@ posix_fill_gfid_fd (xlator_t *this, int fd, struct iatt *iatt)
 
         ret = sys_fgetxattr (fd, GFID_XATTR_KEY, iatt->ia_gfid, 16);
         /* Return value of getxattr */
-        if (ret == 16)
+        if ((ret == 16) || (ret == -1))
                 ret = 0;
 
         return ret;
