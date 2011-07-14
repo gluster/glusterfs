@@ -282,7 +282,7 @@ afr_sh_data_finish (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
-        gf_log (this->name, GF_LOG_TRACE,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "finishing data selfheal of %s", local->loc.path);
 
         if (!sh->data_lock_held)
@@ -607,18 +607,11 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        afr_build_pending_matrix (priv->pending_key, sh->pending_matrix,
-                                  sh->xattr, AFR_DATA_TRANSACTION,
-                                  priv->child_count);
-
-        afr_sh_print_pending_matrix (sh->pending_matrix, this);
-
-        nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
-                                     priv->child_count, AFR_SELF_HEAL_DATA,
-                                     sh->success_children, this->name);
-
+        nsources = afr_build_sources (this, sh->xattr, sh->buf, sh->pending_matrix,
+                                      sh->sources, sh->success_children,
+                                      AFR_DATA_TRANSACTION);
         if (nsources == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "No self-heal needed for %s",
                         local->loc.path);
 
@@ -760,7 +753,6 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         afr_private_t            *priv      = NULL;
         int                      read_child = -1;
         int                      ret        = -1;
-        afr_self_heal_type       sh_type    = AFR_SELF_HEAL_INVALID;
         int32_t                  **pending_matrix = NULL;
         int32_t                  *sources         = NULL;
         int32_t                  *success_children   = NULL;
@@ -784,16 +776,8 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         if (NULL == sources)
                 goto out;
 
-        afr_build_pending_matrix (priv->pending_key, pending_matrix,
-                                  xattr, txn_type, priv->child_count);
-
-        sh_type = afr_self_heal_type_for_transaction (txn_type);
-        if (AFR_SELF_HEAL_INVALID == sh_type)
-                goto out;
-
-        nsources = afr_mark_sources (sources, pending_matrix, bufs,
-                                     priv->child_count, sh_type,
-                                     success_children, this->name);
+        nsources = afr_build_sources (this, xattr, bufs, pending_matrix,
+                                      sources, success_children, txn_type);
         if (nsources < 0) {
                 ret = -1;
                 goto out;

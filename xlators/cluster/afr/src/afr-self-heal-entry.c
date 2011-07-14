@@ -50,9 +50,6 @@
 #include "afr-self-heal-common.h"
 
 int
-afr_sh_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this);
-
-int
 afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
@@ -2267,16 +2264,10 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
                 goto heal;
         }
 
-        afr_build_pending_matrix (priv->pending_key, sh->pending_matrix,
-                                  sh->xattr, AFR_ENTRY_TRANSACTION,
-                                  priv->child_count);
-
-        afr_sh_print_pending_matrix (sh->pending_matrix, this);
-
-        nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
-                                     priv->child_count, AFR_SELF_HEAL_ENTRY,
-                                     sh->success_children, this->name);
-
+        nsources = afr_build_sources (this, sh->xattr, sh->buf,
+                                      sh->pending_matrix, sh->sources,
+                                      sh->success_children,
+                                      AFR_ENTRY_TRANSACTION);
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "No self-heal needed for %s",
@@ -2340,62 +2331,6 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
-
-
-int
-afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t    *  local = NULL;
-        afr_private_t  *  priv  = NULL;
-        dict_t         *xattr_req = NULL;
-        int ret = 0;
-        int call_count = 0;
-        int i = 0;
-        afr_self_heal_t *sh = NULL;
-
-        priv  = this->private;
-        local = frame->local;
-        sh = &local->self_heal;
-
-        call_count = afr_up_children_count (priv->child_count,
-                                            local->child_up);
-
-        local->call_count = call_count;
-
-        xattr_req = dict_new();
-        if (xattr_req) {
-                for (i = 0; i < priv->child_count; i++) {
-                        ret = dict_set_uint64 (xattr_req,
-                                               priv->pending_key[i],
-                                               3 * sizeof(int32_t));
-                        if (ret < 0)
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "%s: Unable to set dict value.",
-                                        local->loc.path);
-                }
-        }
-
-        afr_reset_children (sh->success_children, priv->child_count);
-        sh->success_count = 0;
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND_COOKIE (frame,
-                                           afr_sh_entry_lookup_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->lookup,
-                                           &local->loc, xattr_req);
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-        if (xattr_req)
-                dict_unref (xattr_req);
-
-        return 0;
-}
-
 int
 afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
 {
@@ -2416,36 +2351,12 @@ afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
 
                 gf_log (this->name, GF_LOG_DEBUG, "Non Blocking entrylks done "
                         "for %s. Proceeding to FOP", local->loc.path);
-                afr_sh_entry_lookup(frame, this);
+                afr_sh_common_lookup (frame, this, &local->loc,
+                                      afr_sh_entry_lookup_cbk, _gf_false);
         }
 
         return 0;
 }
-
-int
-afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
-        int_lock->selfheal_lk_type    = AFR_ENTRY_SELF_HEAL_LK;
-
-        afr_set_lock_number (frame, this);
-
-        int_lock->lk_basename = NULL;
-        int_lock->lk_loc      = &local->loc;
-        int_lock->lock_cbk    = afr_sh_post_nonblocking_entry_cbk;
-
-        afr_nonblocking_entrylk (frame, this);
-
-
-        return 0;
-}
-
 
 int
 afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
@@ -2458,7 +2369,8 @@ afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if (local->self_heal.need_entry_self_heal && priv->entry_self_heal) {
-                afr_sh_entry_lock (frame, this);
+                afr_sh_entrylk (frame, this, &local->loc, NULL,
+                                afr_sh_post_nonblocking_entry_cbk);
         } else {
                 gf_log (this->name, GF_LOG_TRACE,
                         "proceeding to completion on %s",
