@@ -457,7 +457,7 @@ dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
 }
 
 static inline int
-dht_get_layout_count (xlator_t *this, dht_layout_t *layout)
+dht_get_layout_count (xlator_t *this, dht_layout_t *layout, int new_layout)
 {
         int i = 0;
         int err = 0;
@@ -472,7 +472,7 @@ dht_get_layout_count (xlator_t *this, dht_layout_t *layout)
         }
 
         /* no subvolume has enough space, but can't stop directory creation */
-        if (!count) {
+        if (!count || !new_layout) {
                 for (i = 0; i < layout->cnt; i++) {
                         err = layout->list[i].err;
                         if (err == ENOSPC) {
@@ -516,7 +516,7 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         priv  = this->private;
         local = frame->local;
 
-        count = cnt = dht_get_layout_count (this, layout);
+        count = cnt = dht_get_layout_count (this, layout, 0);
 
         chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
 
@@ -655,7 +655,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 
         this = frame->this;
 
-        cnt = dht_get_layout_count (this, layout);
+        cnt = dht_get_layout_count (this, layout, 1);
 
         chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
 
