@@ -40,6 +40,109 @@
 #include "syscall.h"
 #include "cli1.h"
 
+static int
+migrate_xattrs_of_file (int src, int dst)
+{
+        int      ret  = -1;
+        ssize_t  len = 0;
+        ssize_t  size = 0;
+        ssize_t  size_processed = 0;
+        char    *key = NULL;
+        char    *value = NULL;
+        char    *list = NULL;
+        int      value_size = 0;
+
+        /* Get the size of xattr list */
+        size = sys_flistxattr (src, NULL, 0);
+        if (size < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to fetch the xattr list size (%s)",
+                        strerror (errno));
+                goto out;
+        }
+        if (size == 0) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "there are no extended attributes for the file");
+                ret = 0;
+                goto out;
+        }
+
+        list = GF_CALLOC (size + 1, sizeof (char), gf_common_mt_char);
+        if (!list)
+                goto out;
+
+        size = sys_flistxattr (src, list, size);
+        if (size < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to fetch the xattr list (%s)",
+                        strerror (errno));
+                goto out;
+        }
+        if (size == 0) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "there are no extended attributes for the file");
+                ret = 0;
+                goto out;
+        }
+
+        value_size = 4096;
+        value = GF_CALLOC (value_size, sizeof (char), gf_common_mt_char);
+        if (!value)
+                goto out;
+
+        while (size > size_processed) {
+                key = &list[size_processed];
+
+                len = sys_fgetxattr (src, key, value, value_size);
+                if (len < 0) {
+                        if (errno != ERANGE) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "failed to get xattr for key %s (%s)",
+                                        key, strerror (errno));
+                                goto out;
+                        }
+                        /* need bigger buffer */
+                        value_size *= 4;
+                        value = GF_REALLOC (value, value_size);
+                        if (!value)
+                                goto out;
+
+                        /* go back and check the same key */
+                        continue;
+                }
+
+                len = sys_fgetxattr (src, key, value, len);
+                if (len < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to get the xattr for key %s (%s)",
+                                key, strerror (errno));
+                        goto out;
+                }
+
+                ret = sys_fsetxattr (dst, key, value, len, 0);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to set the xattr for key %s (%s)",
+                                key, strerror (errno));
+                        goto out;
+                }
+
+                /* Exclude the NULL character */
+                size_processed += strlen (key) + 1;
+        }
+
+        ret = 0;
+out:
+        if (list)
+                GF_FREE (list);
+
+        if (value)
+                GF_FREE (value);
+
+        return ret;
+}
+
+
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
@@ -135,6 +238,13 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         gf_log ("", GF_LOG_WARNING,
                                 "failed to set the mode of file %s: %s",
                                 tmp_filename, strerror (errno));
+                }
+
+                ret = migrate_xattrs_of_file (src_fd, dst_fd);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to copy the extended attributes "
+                                "from source file %s", full_path);
                 }
 
                 ret = fchown (dst_fd, stbuf.st_uid, stbuf.st_gid);
