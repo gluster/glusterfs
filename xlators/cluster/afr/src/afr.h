@@ -37,6 +37,14 @@
 
 struct _pump_private;
 
+typedef int (*afr_expunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
+                                       int child, int32_t op_error,
+                                       int32_t op_errno);
+
+typedef int (*afr_impunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
+                                       int child, int32_t op_error,
+                                       int32_t op_errno);
+
 typedef struct afr_inode_params_ {
         uint64_t mask_type;
         union {
@@ -152,6 +160,10 @@ typedef struct {
         struct iatt *buf;
         struct iatt parentbuf;
         struct iatt entrybuf;
+
+        afr_expunge_done_cbk_t expunge_done;
+        afr_impunge_done_cbk_t impunge_done;
+        int32_t impunge_ret_child;
 
         /* array of xattr's, one for each child */
         dict_t **xattr;

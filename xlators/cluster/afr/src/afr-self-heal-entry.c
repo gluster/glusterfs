@@ -372,7 +372,8 @@ afr_sh_entry_expunge_subvol (call_frame_t *frame, xlator_t *this,
 
 int
 afr_sh_entry_expunge_entry_done (call_frame_t *frame, xlator_t *this,
-                                 int active_src)
+                                 int active_src, int32_t op_ret,
+                                 int32_t op_errno)
 {
         int              call_count = 0;
 
@@ -395,21 +396,25 @@ afr_sh_entry_expunge_parent_setattr_cbk (call_frame_t *expunge_frame,
         afr_self_heal_t *expunge_sh    = NULL;
         call_frame_t    *frame         = NULL;
         int              active_src    = (long) cookie;
+        afr_self_heal_t *sh            = NULL;
+        afr_local_t     *local         = NULL;
 
         priv          = this->private;
         expunge_local = expunge_frame->local;
         expunge_sh    = &expunge_local->self_heal;
         frame         = expunge_sh->sh_frame;
+        local         = frame->local;
+        sh            = &local->self_heal;
 
         if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "setattr on parent directory of %s on subvolume %s failed: %s",
                         expunge_local->loc.path,
                         priv->children[active_src]->name, strerror (op_errno));
         }
 
         AFR_STACK_DESTROY (expunge_frame);
-        afr_sh_entry_expunge_entry_done (frame, this, active_src);
+        sh->expunge_done (frame, this, active_src, op_ret, op_errno);
 
         return 0;
 }
@@ -520,15 +525,17 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
         afr_private_t   *priv = NULL;
         afr_local_t     *expunge_local = NULL;
         afr_self_heal_t *expunge_sh = NULL;
-        int              source = 0;
         call_frame_t    *frame = NULL;
         int              type = 0;
+        afr_self_heal_t *sh            = NULL;
+        afr_local_t     *local         = NULL;
 
         priv = this->private;
         expunge_local = expunge_frame->local;
         expunge_sh = &expunge_local->self_heal;
         frame = expunge_sh->sh_frame;
-        source = expunge_sh->source;
+        local         = frame->local;
+        sh            = &local->self_heal;
 
         type = buf->ia_type;
 
@@ -548,7 +555,7 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s has unknown file type on %s: 0%o",
                         expunge_local->loc.path,
-                        priv->children[source]->name, type);
+                        priv->children[active_src]->name, type);
                 goto out;
                 break;
         }
@@ -556,7 +563,7 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
         return 0;
 out:
         AFR_STACK_DESTROY (expunge_frame);
-        afr_sh_entry_expunge_entry_done (frame, this, active_src);
+        sh->expunge_done (frame, this, active_src, -1, EINVAL);
 
         return 0;
 }
@@ -574,15 +581,19 @@ afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
         afr_self_heal_t *expunge_sh = NULL;
         call_frame_t    *frame = NULL;
         int              active_src = 0;
+        afr_self_heal_t *sh            = NULL;
+        afr_local_t     *local         = NULL;
 
         priv = this->private;
         expunge_local = expunge_frame->local;
         expunge_sh = &expunge_local->self_heal;
         frame = expunge_sh->sh_frame;
         active_src = (long) cookie;
+        local         = frame->local;
+        sh            = &local->self_heal;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_ERROR,
                         "lookup of %s on %s failed (%s)",
                         expunge_local->loc.path,
                         priv->children[active_src]->name,
@@ -595,7 +606,7 @@ afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
         return 0;
 out:
         AFR_STACK_DESTROY (expunge_frame);
-        afr_sh_entry_expunge_entry_done (frame, this, active_src);
+        sh->expunge_done (frame, this, active_src, op_ret, op_errno);
 
         return 0;
 }
@@ -638,7 +649,8 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
         call_frame_t    *frame = NULL;
         int              active_src = 0;
         int              need_expunge = 0;
-
+        afr_self_heal_t *sh            = NULL;
+        afr_local_t     *local         = NULL;
 
         priv = this->private;
         expunge_local = expunge_frame->local;
@@ -646,6 +658,8 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
         frame = expunge_sh->sh_frame;
         active_src = expunge_sh->active_source;
         source = (long) cookie;
+        local         = frame->local;
+        sh            = &local->self_heal;
 
         if (op_ret == -1 && op_errno == ENOENT)
                 need_expunge = 1;
@@ -695,7 +709,7 @@ out:
         }
 
         AFR_STACK_DESTROY (expunge_frame);
-        afr_sh_entry_expunge_entry_done (frame, this, active_src);
+        sh->expunge_done (frame, this, active_src, op_ret, op_errno);
 
         return 0;
 }
@@ -716,6 +730,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         int              source = 0;
         int              op_errno = 0;
         char            *name = NULL;
+        int             op_ret = -1;
 
         priv = this->private;
         local = frame->local;
@@ -723,6 +738,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 
         active_src = sh->active_source;
         source = sh->source;
+        sh->expunge_done = afr_sh_entry_expunge_entry_done;
 
         name = entry->d_name;
 
@@ -734,6 +750,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_TRACE,
                         "skipping inspection of %s under %s",
                         name, local->loc.path);
+                op_ret = 0;
                 goto out;
         }
 
@@ -743,6 +760,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 
         expunge_frame = copy_frame (frame);
         if (!expunge_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
@@ -756,6 +774,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 
         ret = build_child_loc (this, &expunge_local->loc, &local->loc, name);
         if (ret != 0) {
+                op_errno = EINVAL;
                 goto out;
         }
 
@@ -773,7 +792,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (ret == -1)
-                afr_sh_entry_expunge_entry_done (frame, this, active_src);
+                sh->expunge_done (frame, this, active_src, op_ret, op_errno);
 
         return 0;
 }
@@ -906,7 +925,8 @@ out:
 
 int
 afr_sh_entry_impunge_entry_done (call_frame_t *frame, xlator_t *this,
-                                 int active_src)
+                                 int active_src, int32_t op_ret,
+                                 int32_t op_errno)
 {
         int              call_count = 0;
 
@@ -934,6 +954,7 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         call_frame_t    *frame = NULL;
         int              active_src = 0;
         int              child_index = 0;
+        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
@@ -941,7 +962,7 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         frame = impunge_sh->sh_frame;
         local = frame->local;
         sh    = &local->self_heal;
-        active_src = sh->active_source;
+        active_src = impunge_sh->active_source;
         child_index = (long) cookie;
 
         if (op_ret == 0) {
@@ -964,8 +985,10 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         UNLOCK (&impunge_frame->lock);
 
         if (call_count == 0) {
+                impunge_ret_child = impunge_sh->impunge_ret_child;
                 AFR_STACK_DESTROY (impunge_frame);
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
+                                  op_errno);
         }
 
         return 0;
@@ -982,9 +1005,8 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
         afr_local_t     *impunge_local = NULL;
         afr_self_heal_t *impunge_sh = NULL;
         int              child_index = 0;
-
-        struct iatt stbuf;
-        int32_t     valid = 0;
+        struct iatt      stbuf = {0};
+        int32_t          valid = 0;
 
         priv          = this->private;
         impunge_local = impunge_frame->local;
@@ -1076,6 +1098,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         int32_t          valid            = 0;
         loc_t           *parent_loc       = NULL;
         struct iatt      parentbuf        = {0,};
+        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
@@ -1083,7 +1106,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         frame = impunge_sh->sh_frame;
         local = frame->local;
         sh    = &local->self_heal;
-        active_src = sh->active_source;
+        active_src = impunge_sh->active_source;
 
         child_index = (long) cookie;
 
@@ -1169,8 +1192,10 @@ out:
                 UNLOCK (&impunge_frame->lock);
 
                 if (call_count == 0) {
+                        impunge_ret_child = impunge_sh->impunge_ret_child;
                         AFR_STACK_DESTROY (impunge_frame);
-                        afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                        sh->impunge_done (frame, this, impunge_ret_child, -1,
+                                          op_errno);
                 }
         }
 
@@ -1270,14 +1295,23 @@ int
 afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
                               int child_index, const char *linkname)
 {
-        afr_private_t *priv          = NULL;
-        afr_local_t   *impunge_local = NULL;
-        dict_t        *dict          = NULL;
-        struct iatt   *buf           = NULL;
-        int            ret           = 0;
+        afr_private_t   *priv          = NULL;
+        afr_local_t     *impunge_local = NULL;
+        dict_t          *dict          = NULL;
+        struct iatt     *buf           = NULL;
+        int              ret           = 0;
+        call_frame_t    *frame         = NULL;
+        afr_local_t     *local         = NULL;
+        afr_self_heal_t *sh            = NULL;
+        afr_self_heal_t *impunge_sh    = NULL;
+        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
+        impunge_sh    = &impunge_local->self_heal;
+        frame         = impunge_sh->sh_frame;
+        local         = frame->local;
+        sh            = &local->self_heal;
 
         buf = &impunge_local->cont.symlink.buf;
 
@@ -1285,7 +1319,11 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
         if (!dict) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
-                afr_sh_entry_impunge_entry_done (impunge_frame, this, 0);
+                impunge_ret_child = impunge_sh->impunge_ret_child;
+                AFR_STACK_DESTROY (impunge_frame);
+                sh->impunge_done (impunge_frame, this, impunge_ret_child, -1,
+                                  ENOMEM);
+                goto out;
         }
 
         ret = afr_set_dict_gfid (dict, buf->ia_gfid);
@@ -1307,7 +1345,7 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 
         if (dict)
                 dict_unref (dict);
-
+out:
         return 0;
 }
 
@@ -1326,11 +1364,16 @@ afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
         call_frame_t    *frame = NULL;
         int              call_count = -1;
         int              active_src = -1;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        int32_t          impunge_ret_child = 0;
 
         priv          = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh    = &impunge_local->self_heal;
         frame         = impunge_sh->sh_frame;
+        local         = frame->local;
+        sh            = &local->self_heal;
         active_src    = impunge_sh->active_source;
 
         child_index = (long) cookie;
@@ -1356,8 +1399,10 @@ out:
         UNLOCK (&impunge_frame->lock);
 
         if (call_count == 0) {
+                impunge_ret_child = impunge_sh->impunge_ret_child;
                 AFR_STACK_DESTROY (impunge_frame);
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
+                                  op_errno);
         }
 
         return 0;
@@ -1402,11 +1447,16 @@ afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cooki
         call_frame_t    *frame = NULL;
         int              call_count = -1;
         int              active_src = -1;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        int32_t          impunge_ret_child = 0;
 
         priv          = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh    = &impunge_local->self_heal;
         frame         = impunge_sh->sh_frame;
+        local         = frame->local;
+        sh            = &local->self_heal;
         active_src    = impunge_sh->active_source;
 
         child_index = (long) cookie;
@@ -1452,8 +1502,10 @@ out:
         UNLOCK (&impunge_frame->lock);
 
         if (call_count == 0) {
+                impunge_ret_child = impunge_sh->impunge_ret_child;
                 AFR_STACK_DESTROY (impunge_frame);
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
+                                  op_errno);
         }
 
         return 0;
@@ -1497,11 +1549,16 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
         call_frame_t    *frame = NULL;
         int              call_count = -1;
         int              active_src = -1;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
         frame = impunge_sh->sh_frame;
+        local         = frame->local;
+        sh            = &local->self_heal;
         active_src = impunge_sh->active_source;
 
         child_index = (long) cookie;
@@ -1528,8 +1585,10 @@ out:
         UNLOCK (&impunge_frame->lock);
 
         if (call_count == 0) {
+                impunge_ret_child = impunge_sh->impunge_ret_child;
                 AFR_STACK_DESTROY (impunge_frame);
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
+                                  op_errno);
         }
 
         return 0;
@@ -1560,44 +1619,22 @@ afr_sh_entry_impunge_readlink (call_frame_t *impunge_frame, xlator_t *this,
         return 0;
 }
 
-
 int
-afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
-                                          void *cookie, xlator_t *this,
-                                          int32_t op_ret, int32_t op_errno,
-                                          inode_t *inode, struct iatt *buf,
-                                          dict_t *xattr,struct iatt *postparent)
+afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
+                             int child_index, struct iatt *buf,
+                             struct iatt *postparent)
 {
-        afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
         afr_self_heal_t *impunge_sh = NULL;
-        int              active_src = 0;
-        int              type = 0;
-        int              child_index = 0;
-        call_frame_t    *frame = NULL;
-        int              call_count = 0;
+        afr_private_t   *priv = NULL;
+        ia_type_t       type = IA_INVAL;
+        int             ret = 0;
+        int             active_src = 0;
 
-        priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
-        frame = impunge_sh->sh_frame;
-
-        child_index = (long) cookie;
-
-        active_src = impunge_sh->active_source;
-
-        if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "looking up %s on %s (for %s) failed (%s)",
-                        impunge_local->loc.path,
-                        priv->children[active_src]->name,
-                        priv->children[child_index]->name,
-                        strerror (op_errno));
-                goto out;
-        }
-
         impunge_sh->parentbuf = *postparent;
-
+        active_src = impunge_sh->active_source;
         impunge_local->cont.lookup.buf = *buf;
         afr_update_loc_gfids (&impunge_local->loc, buf, postparent);
 
@@ -1625,9 +1662,57 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
                         "%s has unknown file type on %s: 0%o",
                         impunge_local->loc.path,
                         priv->children[active_src]->name, type);
-                goto out;
+                ret = -1;
                 break;
         }
+
+        return ret;
+}
+
+int
+afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
+                                          void *cookie, xlator_t *this,
+                                          int32_t op_ret, int32_t op_errno,
+                                          inode_t *inode, struct iatt *buf,
+                                          dict_t *xattr,struct iatt *postparent)
+{
+        afr_private_t   *priv = NULL;
+        afr_local_t     *impunge_local = NULL;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *impunge_sh = NULL;
+        afr_self_heal_t *sh = NULL;
+        int              active_src = 0;
+        int              child_index = 0;
+        call_frame_t    *frame = NULL;
+        int              call_count = 0;
+        int              ret = 0;
+        int32_t          impunge_ret_child = 0;
+
+        priv = this->private;
+        impunge_local = impunge_frame->local;
+        impunge_sh = &impunge_local->self_heal;
+        frame = impunge_sh->sh_frame;
+        local = frame->local;
+        sh    = &local->self_heal;
+
+        child_index = (long) cookie;
+
+        active_src = impunge_sh->active_source;
+
+        if (op_ret != 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "looking up %s on %s (for %s) failed (%s)",
+                        impunge_local->loc.path,
+                        priv->children[active_src]->name,
+                        priv->children[child_index]->name,
+                        strerror (op_errno));
+                goto out;
+        }
+
+        ret = afr_sh_entry_impunge_create (impunge_frame, this, child_index, buf,
+                                           postparent);
+        if (ret)
+                goto out;
 
         return 0;
 
@@ -1639,8 +1724,10 @@ out:
         UNLOCK (&impunge_frame->lock);
 
         if (call_count == 0) {
+                impunge_ret_child = impunge_sh->impunge_ret_child;
                 AFR_STACK_DESTROY (impunge_frame);
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
+                                  op_errno);
         }
 
         return 0;
@@ -1688,11 +1775,16 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
         int              child_index = 0;
         call_frame_t    *frame = NULL;
         int              active_src = 0;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
         frame = impunge_sh->sh_frame;
+        local         = frame->local;
+        sh            = &local->self_heal;
         child_index = (long) cookie;
         active_src = impunge_sh->active_source;
 
@@ -1738,8 +1830,10 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
         UNLOCK (&impunge_frame->lock);
 
         if (call_count == 0) {
+                impunge_ret_child = impunge_sh->impunge_ret_child;
                 AFR_STACK_DESTROY (impunge_frame);
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
+                                  op_errno);
         }
 
         return 0;
@@ -1761,12 +1855,14 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         int              i = 0;
         int              call_count = 0;
         int              op_errno = 0;
+        int              op_ret = -1;
 
         priv = this->private;
         local = frame->local;
         sh = &local->self_heal;
 
         active_src = sh->active_source;
+        sh->impunge_done = afr_sh_entry_impunge_entry_done;
 
         if ((strcmp (entry->d_name, ".") == 0)
             || (strcmp (entry->d_name, "..") == 0)
@@ -1776,6 +1872,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_TRACE,
                         "skipping inspection of %s under %s",
                         entry->d_name, local->loc.path);
+                op_ret = 0;
                 goto out;
         }
 
@@ -1787,6 +1884,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         if (!impunge_frame) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
+                op_errno = ENOMEM;
                 goto out;
         }
 
@@ -1796,12 +1894,14 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         impunge_sh = &impunge_local->self_heal;
         impunge_sh->sh_frame = frame;
         impunge_sh->active_source = active_src;
+        impunge_sh->impunge_ret_child = active_src;
 
         impunge_sh->impunging_entry_mode =
                 st_mode_from_ia (entry->d_stat.ia_prot, entry->d_stat.ia_type);
 
         ret = build_child_loc (this, &impunge_local->loc, &local->loc, entry->d_name);
         if (ret != 0) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
@@ -1843,7 +1943,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (ret == -1)
-                afr_sh_entry_impunge_entry_done (frame, this, active_src);
+                sh->impunge_done (frame, this, active_src, op_ret, op_errno);
 
         return 0;
 }
