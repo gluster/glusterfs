@@ -395,28 +395,28 @@ typedef struct _afr_local {
 
                 struct {
                         int32_t mask;
-                        int last_tried;  /* index of the child we tried previously */
+                        int last_index;  /* index of the child we tried previously */
                 } access;
 
                 struct {
-                        int last_tried;
+                        int last_index;
                         ino_t ino;
                 } stat;
 
                 struct {
-                        int last_tried;
+                        int last_index;
                         ino_t ino;
                 } fstat;
 
                 struct {
                         size_t size;
-                        int last_tried;
+                        int last_index;
                         ino_t ino;
                 } readlink;
 
                 struct {
                         char *name;
-                        int last_tried;
+                        int last_index;
                         long pathinfo_len;
                 } getxattr;
 
@@ -424,7 +424,7 @@ typedef struct _afr_local {
                         ino_t ino;
                         size_t size;
                         off_t offset;
-                        int last_tried;
+                        int last_index;
                 } readv;
 
                 /* dir read */
@@ -444,20 +444,8 @@ typedef struct _afr_local {
                         off_t offset;
 
                         gf_boolean_t failed;
-                        int last_tried;
+                        int last_index;
                 } readdir;
-
-                struct {
-                        int32_t op_ret;
-                        int32_t op_errno;
-
-                        size_t size;
-                        off_t offset;
-                        int32_t flag;
-
-                        int last_tried;
-                } getdents;
-
                 /* inode write */
 
                 struct {
@@ -860,6 +848,10 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv);
 int
 afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
                         transaction_lk_type_t lk_type);
+
+int
+afr_first_up_child (unsigned char *child_up, size_t child_count);
+
 int
 afr_select_read_child_from_policy (int32_t *fresh_children, int32_t child_count,
                                    int32_t prev_read_child,
@@ -870,35 +862,15 @@ afr_set_read_ctx_from_policy (xlator_t *this, inode_t *inode,
                               int32_t *fresh_children, int32_t prev_read_child,
                               int32_t config_read_child);
 
-/**
- * first_up_child - return the index of the first child that is up
- */
-
-static inline int
-afr_first_up_child (afr_private_t *priv)
-{
-        xlator_t ** children = NULL;
-        int         ret      = -1;
-        int         i        = 0;
-
-        LOCK (&priv->lock);
-        {
-                children = priv->children;
-                for (i = 0; i < priv->child_count; i++) {
-                        if (priv->child_up[i]) {
-                                ret = i;
-                                break;
-                        }
-                }
-        }
-        UNLOCK (&priv->lock);
-
-        return ret;
-}
+int32_t
+afr_get_call_child (xlator_t *this, unsigned char *child_up, int32_t read_child,
+                    int32_t *fresh_children,
+                    int32_t *call_child, int32_t *last_index);
 
 int32_t
-afr_next_call_child (int32_t *fresh_children, size_t child_count,
-                     int32_t *last_index, int32_t read_child);
+afr_next_call_child (int32_t *fresh_children, unsigned char *child_up,
+                     size_t child_count, int32_t *last_index,
+                     int32_t read_child);
 void
 afr_get_fresh_children (int32_t *success_children, int32_t *sources,
                         int32_t *fresh_children, unsigned int child_count);

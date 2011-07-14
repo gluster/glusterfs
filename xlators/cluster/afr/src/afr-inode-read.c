@@ -63,13 +63,14 @@ int32_t
 afr_access_cbk (call_frame_t *frame, void *cookie,
                 xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t *   local      = NULL;
-        xlator_t **     children   = NULL;
-        int             unwind     = 1;
-        int             last_tried = -1;
-        int             this_try   = -1;
-        int             read_child = -1;
+        afr_private_t * priv            = NULL;
+        afr_local_t *   local           = NULL;
+        xlator_t **     children        = NULL;
+        int             unwind          = 1;
+        int32_t         *last_index     = NULL;
+        int32_t         next_call_child = -1;
+        int32_t         read_child      = -1;
+        int32_t         *fresh_children  = NULL;
 
         priv     = this->private;
         children = priv->children;
@@ -79,27 +80,21 @@ afr_access_cbk (call_frame_t *frame, void *cookie,
         read_child = (long) cookie;
 
         if (op_ret == -1) {
-        retry:
-                last_tried = local->cont.access.last_tried;
-
-                if (all_tried (last_tried, priv->child_count)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%s: all subvolumes tried, going out",
-                                local->loc.path);
+                last_index = &local->cont.access.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
                         goto out;
-                }
-                this_try    = ++local->cont.access.last_tried;
-
-                if (this_try == read_child) {
-                        goto retry;
-                }
 
                 unwind = 0;
 
                 STACK_WIND_COOKIE (frame, afr_access_cbk,
                                    (void *) (long) read_child,
-                                   children[this_try],
-                                   children[this_try]->fops->access,
+                                   children[next_call_child],
+                                   children[next_call_child]->fops->access,
                                    &local->loc, local->cont.access.mask);
         }
 
@@ -115,13 +110,13 @@ out:
 int32_t
 afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 {
-        afr_private_t *  priv       = NULL;
-        xlator_t **      children   = NULL;
-        int              call_child = 0;
-        afr_local_t     *local      = NULL;
-        int32_t          read_child = -1;
-        int32_t          op_ret     = -1;
-        int32_t          op_errno   = 0;
+        afr_private_t   *priv      = NULL;
+        xlator_t        **children = NULL;
+        int             call_child = 0;
+        afr_local_t     *local     = NULL;
+        int32_t         op_ret     = -1;
+        int32_t         op_errno   = 0;
+        int32_t         read_child = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -133,32 +128,31 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         children = priv->children;
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
+        frame->local = local;
 
-        local->fresh_children = GF_CALLOC (priv->child_count,
-                                          sizeof (*local->fresh_children),
-                                          gf_afr_mt_int32_t);
-        if (local->fresh_children) {
+        op_ret = AFR_LOCAL_INIT (local, priv);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
+
+        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
         }
 
-        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
 
-        if ((read_child >= 0) && (priv->child_up[read_child])) {
-                call_child = read_child;
-
-                local->cont.access.last_tried = -1;
-
-        } else {
-                call_child = afr_first_up_child (priv);
-                if (call_child == -1) {
-                        op_errno = ENOTCONN;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: no child is up", loc->path);
-                        goto out;
-                }
-
-                local->cont.access.last_tried = call_child;
+        read_child = afr_inode_get_read_ctx (this, loc->inode,
+                                             local->fresh_children);
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.access.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
         }
 
         loc_copy (&local->loc, loc);
@@ -166,7 +160,8 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         STACK_WIND_COOKIE (frame, afr_access_cbk,
                            (void *) (long) call_child,
-                           children[call_child], children[call_child]->fops->access,
+                           children[call_child],
+                           children[call_child]->fops->access,
                            loc, mask);
 
         op_ret = 0;
@@ -187,13 +182,14 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
               xlator_t *this, int32_t op_ret, int32_t op_errno,
               struct iatt *buf)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t *   local      = NULL;
-        xlator_t **     children   = NULL;
-        int             unwind     = 1;
-        int             last_tried = -1;
-        int             this_try   = -1;
-        int             read_child = -1;
+        afr_private_t * priv            = NULL;
+        afr_local_t *   local           = NULL;
+        xlator_t **     children        = NULL;
+        int             unwind          = 1;
+        int32_t         *last_index     = NULL;
+        int32_t         next_call_child = -1;
+        int32_t         read_child      = -1;
+        int32_t         *fresh_children  = NULL;
 
         priv     = this->private;
         children = priv->children;
@@ -203,27 +199,21 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         if (op_ret == -1) {
-        retry:
-                last_tried = local->cont.stat.last_tried;
-
-                if (all_tried (last_tried, priv->child_count)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%s: all subvolumes tried, going out",
-                                local->loc.path);
+                last_index = &local->cont.stat.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
                         goto out;
-                }
-                this_try = ++local->cont.stat.last_tried;
-
-                if (this_try == read_child) {
-                        goto retry;
-                }
 
                 unwind = 0;
 
                 STACK_WIND_COOKIE (frame, afr_stat_cbk,
                                    (void *) (long) read_child,
-                                   children[this_try],
-                                   children[this_try]->fops->stat,
+                                   children[next_call_child],
+                                   children[next_call_child]->fops->stat,
                                    &local->loc);
         }
 
@@ -239,13 +229,13 @@ out:
 int32_t
 afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t   * local      = NULL;
-        xlator_t **     children   = NULL;
-        int32_t         read_child = -1;
+        afr_private_t   *priv      = NULL;
+        afr_local_t     *local     = NULL;
+        xlator_t        **children = NULL;
         int             call_child = 0;
         int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
+        int32_t         read_child = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -257,35 +247,30 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         children = priv->children;
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
-
         frame->local = local;
+        op_ret = AFR_LOCAL_INIT (local, priv);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
 
-        local->fresh_children = GF_CALLOC (priv->child_count,
-                                          sizeof (*local->fresh_children),
-                                          gf_afr_mt_int32_t);
-        if (local->fresh_children) {
+        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
         }
-        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
 
-        if ((read_child >= 0) && (priv->child_up[read_child])) {
-                call_child = read_child;
-
-                local->cont.stat.last_tried = -1;
-
-        } else {
-                call_child = afr_first_up_child (priv);
-                if (call_child == -1) {
-                        op_errno = ENOTCONN;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: no child is up", loc->path);
-                        goto out;
-                }
-
-                local->cont.stat.last_tried = call_child;
+        read_child = afr_inode_get_read_ctx (this, loc->inode,
+                                             local->fresh_children);
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.stat.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
         }
-
         loc_copy (&local->loc, loc);
 
         local->cont.stat.ino = loc->inode->ino;
@@ -313,13 +298,14 @@ int32_t
 afr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t *   local      = NULL;
-        xlator_t **     children   = NULL;
-        int             unwind     = 1;
-        int             last_tried = -1;
-        int             this_try   = -1;
-        int             read_child = -1;
+        afr_private_t   *priv           = NULL;
+        afr_local_t     *local          = NULL;
+        xlator_t        **children      = NULL;
+        int             unwind          = 1;
+        int32_t         *last_index     = NULL;
+        int32_t         next_call_child = -1;
+        int32_t         read_child      = -1;
+        int32_t         *fresh_children  = NULL;
 
         priv     = this->private;
         children = priv->children;
@@ -329,27 +315,21 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         read_child = (long) cookie;
 
         if (op_ret == -1) {
-        retry:
-                last_tried = local->cont.fstat.last_tried;
-
-                if (all_tried (last_tried, priv->child_count)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%p: all subvolumes tried, going out",
-                                local->fd);
+                last_index = &local->cont.fstat.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
                         goto out;
-                }
-                this_try   = ++local->cont.fstat.last_tried;
-
-                if (this_try == read_child) {
-                        goto retry;
-                }
 
                 unwind = 0;
 
                 STACK_WIND_COOKIE (frame, afr_fstat_cbk,
                                    (void *) (long) read_child,
-                                   children[this_try],
-                                   children[this_try]->fops->fstat,
+                                   children[next_call_child],
+                                   children[next_call_child]->fops->fstat,
                                    local->fd);
         }
 
@@ -366,13 +346,13 @@ int32_t
 afr_fstat (call_frame_t *frame, xlator_t *this,
            fd_t *fd)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t   * local      = NULL;
-        xlator_t **     children   = NULL;
+        afr_private_t   *priv      = NULL;
+        afr_local_t     *local     = NULL;
+        xlator_t        **children = NULL;
         int             call_child = 0;
-        int32_t         read_child = -1;
         int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
+        int32_t         read_child = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -384,36 +364,36 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-
-        frame->local = local;
-
         VALIDATE_OR_GOTO (fd->inode, out);
 
-        local->fresh_children = GF_CALLOC (priv->child_count,
-                                          sizeof (*local->fresh_children),
-                                          gf_afr_mt_int32_t);
-        if (local->fresh_children) {
+        ALLOC_OR_GOTO (local, afr_local_t, out);
+        frame->local = local;
+
+        op_ret = AFR_LOCAL_INIT (local, priv);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
+
+        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
         }
-        read_child = afr_inode_get_read_ctx (this, fd->inode, local->fresh_children);
 
-        if ((read_child >= 0) && (priv->child_up[read_child])) {
-                call_child = read_child;
+        read_child = afr_inode_get_read_ctx (this, fd->inode,
+                                             local->fresh_children);
 
-                local->cont.fstat.last_tried = -1;
-        } else {
-                call_child = afr_first_up_child (priv);
 
-                if (call_child == -1) {
-                        op_errno = ENOTCONN;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%p: no child is up", fd);
-                        goto out;
-                }
 
-                local->cont.fstat.last_tried = call_child;
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.fstat.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
         }
 
         local->cont.fstat.ino = fd->inode->ino;
@@ -442,13 +422,14 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
                   const char *buf, struct iatt *sbuf)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t *   local      = NULL;
-        xlator_t **     children   = NULL;
-        int             unwind     = 1;
-        int             last_tried = -1;
-        int             this_try   = -1;
-        int             read_child = -1;
+        afr_private_t * priv                  = NULL;
+        afr_local_t *   local                 = NULL;
+        xlator_t **     children              = NULL;
+        int             unwind                = 1;
+        int32_t         *last_index           = NULL;
+        int32_t         next_call_child       = -1;
+        int32_t         read_child            = -1;
+        int32_t         *fresh_children        = NULL;
 
         priv     = this->private;
         children = priv->children;
@@ -458,26 +439,20 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
         read_child = (long) cookie;
 
         if (op_ret == -1) {
-        retry:
-                last_tried = local->cont.readlink.last_tried;
-
-                if (all_tried (last_tried, priv->child_count)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%s: all subvolumes tried, going out",
-                                local->loc.path);
+                last_index = &local->cont.readlink.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
                         goto out;
-                }
-                this_try = ++local->cont.readlink.last_tried;
-
-                if (this_try == read_child) {
-                        goto retry;
-                }
 
                 unwind = 0;
                 STACK_WIND_COOKIE (frame, afr_readlink_cbk,
                                    (void *) (long) read_child,
-                                   children[this_try],
-                                   children[this_try]->fops->readlink,
+                                   children[next_call_child],
+                                   children[next_call_child]->fops->readlink,
                                    &local->loc,
                                    local->cont.readlink.size);
         }
@@ -495,13 +470,13 @@ int32_t
 afr_readlink (call_frame_t *frame, xlator_t *this,
               loc_t *loc, size_t size)
 {
-        afr_private_t *  priv       = NULL;
-        xlator_t **      children   = NULL;
-        int              call_child = 0;
-        afr_local_t     *local      = NULL;
-        int32_t          read_child = -1;
-        int32_t          op_ret     = -1;
-        int32_t          op_errno   = 0;
+        afr_private_t   *priv      = NULL;
+        xlator_t        **children = NULL;
+        int             call_child = 0;
+        afr_local_t     *local     = NULL;
+        int32_t         op_ret     = -1;
+        int32_t         op_errno   = 0;
+        int32_t         read_child = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -513,34 +488,28 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
         children = priv->children;
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
-
         frame->local = local;
+        op_ret = AFR_LOCAL_INIT (local, priv);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
 
-        local->fresh_children = GF_CALLOC (priv->child_count,
-                                          sizeof (*local->fresh_children),
-                                          gf_afr_mt_int32_t);
-        if (local->fresh_children) {
+        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
         }
-        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
-
-        if ((read_child >= 0) && (priv->child_up[read_child])) {
-                call_child = read_child;
-
-                local->cont.readlink.last_tried = -1;
-
-        } else {
-                call_child = afr_first_up_child (priv);
-
-                if (call_child == -1) {
-                        op_errno = ENOTCONN;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: no child is up", loc->path);
-                        goto out;
-                }
-
-                local->cont.readlink.last_tried = call_child;
+        read_child = afr_inode_get_read_ctx (this, loc->inode,
+                                             local->fresh_children);
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.readlink.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
         }
 
         loc_copy (&local->loc, loc);
@@ -550,7 +519,8 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
         STACK_WIND_COOKIE (frame, afr_readlink_cbk,
                            (void *) (long) call_child,
-                           children[call_child], children[call_child]->fops->readlink,
+                           children[call_child],
+                           children[call_child]->fops->readlink,
                            loc, size);
 
         op_ret = 0;
@@ -622,13 +592,14 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
                   dict_t *dict)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t *   local      = NULL;
-        xlator_t **     children   = NULL;
-        int             unwind     = 1;
-        int             last_tried = -1;
-        int             this_try   = -1;
-        int             read_child = -1;
+        afr_private_t * priv            = NULL;
+        afr_local_t *   local           = NULL;
+        xlator_t **     children        = NULL;
+        int             unwind          = 1;
+        int32_t         *last_index     = NULL;
+        int32_t         next_call_child = -1;
+        int32_t         read_child      = -1;
+        int32_t         *fresh_children  = NULL;
 
         priv     = this->private;
         children = priv->children;
@@ -638,26 +609,20 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
         read_child = (long) cookie;
 
         if (op_ret == -1) {
-        retry:
-                last_tried = local->cont.getxattr.last_tried;
-
-                if (all_tried (last_tried, priv->child_count)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%s: all subvolumes tried, going out",
-                                local->loc.path);
+                last_index = &local->cont.getxattr.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
                         goto out;
-                }
-                this_try = ++local->cont.getxattr.last_tried;
-
-                if (this_try == read_child) {
-                        goto retry;
-                }
 
                 unwind = 0;
                 STACK_WIND_COOKIE (frame, afr_getxattr_cbk,
                                    (void *) (long) read_child,
-                                   children[this_try],
-                                   children[this_try]->fops->getxattr,
+                                   children[next_call_child],
+                                   children[next_call_child]->fops->getxattr,
                                    &local->loc,
                                    local->cont.getxattr.name);
         }
@@ -790,16 +755,16 @@ int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *name)
 {
-        afr_private_t *   priv        = NULL;
-        xlator_t **       children    = NULL;
-        int               call_child  = 0;
-        afr_local_t     * local       = NULL;
-        xlator_list_t   * trav        = NULL;
-        xlator_t       ** sub_volumes = NULL;
-        int               read_child  = -1;
-        int               i           = 0;
-        int32_t           op_ret      = -1;
-        int32_t           op_errno    = 0;
+        afr_private_t   *priv         = NULL;
+        xlator_t        **children    = NULL;
+        int             call_child    = 0;
+        afr_local_t     *local        = NULL;
+        xlator_list_t   *trav         = NULL;
+        xlator_t        **sub_volumes = NULL;
+        int             i             = 0;
+        int32_t         op_ret        = -1;
+        int32_t         op_errno      = 0;
+        int32_t         read_child    = -1;
 
 
         VALIDATE_OR_GOTO (frame, out);
@@ -813,6 +778,12 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
         frame->local = local;
+
+        op_ret = AFR_LOCAL_INIT (local, priv);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
 
         loc_copy (&local->loc, loc);
         if (name)
@@ -908,36 +879,27 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        local->fresh_children = GF_CALLOC (priv->child_count,
-                                          sizeof (*local->fresh_children),
-                                          gf_afr_mt_int32_t);
-        if (local->fresh_children) {
+        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
         }
+
         read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
-
-        if ((read_child >= 0) && (priv->child_up[read_child])) {
-                call_child = read_child;
-
-                local->cont.getxattr.last_tried = -1;
-        } else {
-                call_child = afr_first_up_child (priv);
-
-                if (call_child == -1) {
-                        op_errno = ENOTCONN;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: no child is up", loc->path);
-                        goto out;
-                }
-
-                local->cont.getxattr.last_tried = call_child;
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.getxattr.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
         }
-
 
         STACK_WIND_COOKIE (frame, afr_getxattr_cbk,
                            (void *) (long) call_child,
-                           children[call_child], children[call_child]->fops->getxattr,
+                           children[call_child],
+                           children[call_child]->fops->getxattr,
                            loc, name);
 
         op_ret = 0;
@@ -971,13 +933,14 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
                struct iovec *vector, int32_t count, struct iatt *buf,
                struct iobref *iobref)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t *   local      = NULL;
-        xlator_t **     children   = NULL;
-        int             unwind     = 1;
-        int             last_tried = -1;
-        int             this_try   = -1;
-        int             read_child = -1;
+        afr_private_t * priv            = NULL;
+        afr_local_t *   local           = NULL;
+        xlator_t **     children        = NULL;
+        int             unwind          = 1;
+        int32_t         *last_index     = NULL;
+        int32_t         next_call_child = -1;
+        int32_t         *fresh_children  = NULL;
+        int32_t         read_child      = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -993,31 +956,21 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
         read_child = (long) cookie;
 
         if (op_ret == -1) {
-        retry:
-                last_tried = local->cont.readv.last_tried;
-
-                if (all_tried (last_tried, priv->child_count)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%p: all subvolumes tried, going out",
-                                local->fd);
+                last_index = &local->cont.readv.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
                         goto out;
-                }
-                this_try = ++local->cont.readv.last_tried;
-
-                if (this_try == read_child) {
-                        /*
-                          skip the read child since if we are here
-                          we must have already tried that child
-                        */
-                        goto retry;
-                }
 
                 unwind = 0;
 
                 STACK_WIND_COOKIE (frame, afr_readv_cbk,
                                    (void *) (long) read_child,
-                                   children[this_try],
-                                   children[this_try]->fops->readv,
+                                   children[next_call_child],
+                                   children[next_call_child]->fops->readv,
                                    local->fd, local->cont.readv.size,
                                    local->cont.readv.offset);
         }
@@ -1039,10 +992,10 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         afr_private_t * priv       = NULL;
         afr_local_t   * local      = NULL;
         xlator_t **     children   = NULL;
-        int32_t         read_child = -1;
         int             call_child = 0;
         int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
+        int32_t         read_child = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1053,37 +1006,28 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         children = priv->children;
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
-
         frame->local = local;
+        op_ret = AFR_LOCAL_INIT (local, priv);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
 
-        local->fresh_children = GF_CALLOC (priv->child_count,
-                                          sizeof (*local->fresh_children),
-                                          gf_afr_mt_int32_t);
-        if (local->fresh_children) {
+        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
         }
+
         read_child = afr_inode_get_read_ctx (this, fd->inode, local->fresh_children);
-
-        if ((read_child >= 0) && (priv->child_up[read_child])) {
-                call_child = read_child;
-
-                /*
-                  if read fails from the read child, we try
-                  all children starting with the first one
-                */
-                local->cont.readv.last_tried = -1;
-
-        } else {
-                call_child = afr_first_up_child (priv);
-                if (call_child == -1) {
-                        op_errno = ENOTCONN;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%p: no child is up", fd);
-                        goto out;
-                }
-
-                local->cont.readv.last_tried = call_child;
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.readv.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
         }
 
         local->fd                    = fd_ref (fd);

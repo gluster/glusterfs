@@ -1435,14 +1435,15 @@ pump_getxattr_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno,
 		  dict_t *dict)
 {
-	afr_private_t * priv     = NULL;
-	afr_local_t *   local    = NULL;
-	xlator_t **     children = NULL;
+	afr_private_t   *priv           = NULL;
+	afr_local_t     *local          = NULL;
+	xlator_t        **children      = NULL;
+	int             unwind          = 1;
+        int32_t         *last_index     = NULL;
+        int32_t         next_call_child = -1;
+        int32_t         read_child      = -1;
+        int32_t         *fresh_children = NULL;
 
-	int unwind     = 1;
-	int last_tried = -1;
-	int this_try = -1;
-        int read_child = -1;
 
 	priv     = this->private;
 	children = priv->children;
@@ -1452,23 +1453,20 @@ pump_getxattr_cbk (call_frame_t *frame, void *cookie,
         read_child = (long) cookie;
 
 	if (op_ret == -1) {
-        retry:
-		last_tried = local->cont.getxattr.last_tried;
-
-		if (all_tried (last_tried, priv->child_count)) {
-			goto out;
-		}
-		this_try = ++local->cont.getxattr.last_tried;
-
-                if (this_try == read_child) {
-                        goto retry;
-                }
+		last_index = &local->cont.getxattr.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
+                        goto out;
 
 		unwind = 0;
 		STACK_WIND_COOKIE (frame, pump_getxattr_cbk,
 				   (void *) (long) read_child,
-				   children[this_try],
-				   children[this_try]->fops->getxattr,
+				   children[next_call_child],
+				   children[next_call_child]->fops->getxattr,
 				   &local->loc,
 				   local->cont.getxattr.name);
 	}
@@ -1491,12 +1489,10 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
 	afr_private_t *   priv       = NULL;
 	xlator_t **       children   = NULL;
 	int               call_child = 0;
-	afr_local_t     * local      = NULL;
-
-        int               read_child = -1;
-
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
+	afr_local_t       *local     = NULL;
+	int32_t           op_ret     = -1;
+	int32_t           op_errno   = 0;
+        uint64_t          read_child = 0;
 
 
 	VALIDATE_OR_GOTO (frame, out);
@@ -1510,6 +1506,12 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
+
+        op_ret = AFR_LOCAL_INIT (local, priv);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
 
         if (name) {
                 if (!strncmp (name, AFR_XATTR_PREFIX,
@@ -1543,25 +1545,17 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto out;
         }
+
         read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
-
-        if (read_child >= 0) {
-                call_child = read_child;
-
-                local->cont.getxattr.last_tried = -1;
-        } else {
-                call_child = afr_first_up_child (priv);
-
-                if (call_child == -1) {
-                        op_errno = ENOTCONN;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "no child is up");
-                        goto out;
-                }
-
-                local->cont.getxattr.last_tried = call_child;
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.getxattr.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
         }
-
 	loc_copy (&local->loc, loc);
 	if (name)
 	  local->cont.getxattr.name       = gf_strdup (name);
