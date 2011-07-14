@@ -29,6 +29,11 @@ typedef enum {
         AFR_SELF_HEAL_INVALID = -1,
 } afr_self_heal_type;
 
+typedef int
+(*afr_lookup_cbk_t) (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, inode_t *inode,
+                     struct iatt *buf, dict_t *xattr,
+                     struct iatt *postparent);
 int
 afr_sh_select_source (int sources[], int child_count);
 
@@ -71,4 +76,23 @@ afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
 afr_self_heal_type
 afr_self_heal_type_for_transaction (afr_transaction_type type);
 
+int
+afr_build_sources (xlator_t *xlator, dict_t **xattr, struct iatt *bufs,
+                   int32_t **pending_matrix, int32_t *sources,
+                   int32_t *success_children, afr_transaction_type type);
+void
+afr_sh_common_reset (afr_self_heal_t *sh, unsigned int child_count);
+int
+afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      afr_lookup_cbk_t lookup_cbk, gf_boolean_t set_gfid);
+int
+afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
+                             int active_src, struct iatt *buf);
+int
+afr_sh_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                char *base_name, afr_lock_cbk_t lock_cbk);
+int
+afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
+                             int child_index, struct iatt *buf,
+                             struct iatt *postparent);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */

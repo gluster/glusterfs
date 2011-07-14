@@ -54,6 +54,8 @@ afr_build_parent_loc (loc_t *parent, loc_t *child)
         char *tmp = NULL;
 
         if (!child->parent) {
+                //this should never be called with root as the child
+                GF_ASSERT (0);
                 loc_copy (parent, child);
                 return;
         }

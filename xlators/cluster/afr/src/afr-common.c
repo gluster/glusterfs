@@ -1357,6 +1357,11 @@ afr_post_gfid_sh_success (call_frame_t *sh_frame, xlator_t *this)
                 priv->child_count * sizeof (*sh->parentbufs));
 
         afr_reset_xattr (local->cont.lookup.xattrs, priv->child_count);
+        if (local->cont.lookup.xattr) {
+                dict_unref (local->cont.lookup.xattr);
+                local->cont.lookup.xattr = NULL;
+        }
+
         for (i = 0; i < priv->child_count; i++) {
                 if (sh->xattr[i])
                         local->cont.lookup.xattrs[i] = dict_ref (sh->xattr[i]);
