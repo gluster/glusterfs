@@ -604,64 +604,6 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
-int
-afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t     *local = NULL;
-        afr_private_t   *priv = NULL;
-        int              i = 0;
-        int              call_count = 0;
-        dict_t          *xattr_req = NULL;
-        int              ret = 0;
-        afr_self_heal_t *sh = NULL;
-
-        local = frame->local;
-        priv = this->private;
-        sh = &local->self_heal;
-
-        call_count = afr_up_children_count (priv->child_count,
-                                            local->child_up);
-        local->call_count = call_count;
-
-        xattr_req = dict_new();
-
-        if (xattr_req) {
-                for (i = 0; i < priv->child_count; i++) {
-                        ret = dict_set_uint64 (xattr_req,
-                                               priv->pending_key[i],
-                                               3 * sizeof(int32_t));
-                        if (ret < 0)
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "Unable to set dict value.");
-                }
-        }
-
-        for (i = 0; i < priv->child_count; i++)
-                sh->child_success[i] = -1;
-        sh->success_count = 0;
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "looking up %s on %s",
-                                local->loc.path, priv->children[i]->name);
-
-                        STACK_WIND_COOKIE (frame, afr_sh_metadata_lookup_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->lookup,
-                                           &local->loc, xattr_req);
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-        if (xattr_req)
-                dict_unref (xattr_req);
-
-        return 0;
-}
-
 int
 afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
                                               xlator_t *this)
@@ -683,7 +625,8 @@ afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
                 gf_log (this->name, GF_LOG_DEBUG, "Non Blocking metadata "
                         "inodelks done for %s. Proceeding to FOP",
                         local->loc.path);
-                afr_sh_metadata_lookup (frame, this);
+                afr_sh_common_lookup (frame, this, &local->loc,
+                                      afr_sh_metadata_lookup_cbk, _gf_false);
         }
 
         return 0;

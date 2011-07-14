@@ -277,7 +277,8 @@ __unopened_count (int child_count, unsigned int *opened_on, unsigned char *child
 
 
 int
-afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this)
+afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this, int32_t op_ret,
+                      int32_t op_errno)
 {
         afr_local_t   *local      = NULL;
         afr_private_t *priv       = NULL;
@@ -418,9 +419,8 @@ afr_openfd_sh (call_frame_t *frame, xlator_t *this)
         GF_ASSERT (local->loc.path);
         /* forcibly trigger missing-entries self-heal */
 
-        local->success_count    = 1;
-        local->enoent_count     = 1;
-
+        sh->need_missing_entry_self_heal = _gf_true;
+        sh->need_gfid_self_heal = _gf_true;
         sh->data_lock_held      = _gf_true;
         sh->need_data_self_heal = _gf_true;
         sh->type                = local->fd->inode->ia_type;
@@ -434,7 +434,7 @@ afr_openfd_sh (call_frame_t *frame, xlator_t *this)
                 "path: %s, reason: Replicate up down flush, data lock is held",
                 sh_type_str, local->loc.path);
 
-        afr_self_heal (frame, this);
+        afr_self_heal (frame, this, local->fd->inode);
 
         return 0;
 }

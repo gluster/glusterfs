@@ -282,7 +282,7 @@ afr_sh_data_finish (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
-        gf_log (this->name, GF_LOG_TRACE,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "finishing data selfheal of %s", local->loc.path);
 
         if (!sh->data_lock_held)
@@ -605,7 +605,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                                      sh->child_success, this->name);
 
         if (nsources == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "No self-heal needed for %s",
                         local->loc.path);
 
@@ -682,7 +682,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                 orig_local->cont.lookup.xattr = dict_ref (orig_local->cont.lookup.xattrs[sh->source]);
 
         if (sh->background) {
-                sh->unwind (sh->orig_frame, this);
+                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno);
                 sh->unwound = _gf_true;
         }
 
@@ -793,7 +793,6 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         afr_private_t            *priv      = NULL;
         int                      read_child = -1;
         int                      ret        = -1;
-        afr_self_heal_type       sh_type    = AFR_SELF_HEAL_INVALID;
         int32_t                  **pending_matrix = NULL;
         int32_t                  *sources         = NULL;
         int32_t                  *valid_children  = NULL;
@@ -802,6 +801,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         int32_t                  prev_read_child  = -1;
         int32_t                  config_read_child = -1;
         afr_self_heal_t          *sh = NULL;
+        afr_self_heal_type       sh_type = AFR_SELF_HEAL_INVALID;
 
         priv = this->private;
         bufs = local->cont.lookup.bufs;

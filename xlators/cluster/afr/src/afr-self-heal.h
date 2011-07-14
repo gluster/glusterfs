@@ -50,7 +50,7 @@ afr_self_heal_find_sources (xlator_t *this, afr_local_t *local, dict_t **xattr,
                             afr_transaction_type transaction_type);
 
 int
-afr_self_heal (call_frame_t *frame, xlator_t *this);
+afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode);
 
 gf_boolean_t
 afr_is_fresh_read_child (int32_t *sources, int32_t child_count,

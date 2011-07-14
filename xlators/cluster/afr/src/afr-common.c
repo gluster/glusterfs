@@ -60,6 +60,117 @@
 #define AFR_ICTX_SPLIT_BRAIN_MASK      0x0000000100000000ULL
 #define AFR_ICTX_READ_CHILD_MASK       0x00000000FFFFFFFFULL
 
+int
+afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
+                                gf_boolean_t fail_conflict);
+gf_boolean_t
+afr_is_child_present (int32_t *success_children, int32_t child_count,
+                      int32_t child)
+{
+        gf_boolean_t             success_child = _gf_false;
+        int                      i = 0;
+
+        GF_ASSERT (child < child_count);
+
+        for (i = 0; i < child_count; i++) {
+                if (success_children[i] == -1)
+                        break;
+                if (child == success_children[i]) {
+                        success_child = _gf_true;
+                        break;
+                }
+        }
+        return success_child;
+}
+
+gf_boolean_t
+afr_is_source_child (int32_t *sources, int32_t child_count, int32_t child)
+{
+        gf_boolean_t             source_xattrs = _gf_false;
+
+        GF_ASSERT (child < child_count);
+
+        if ((child >= 0) && (child < child_count) &&
+             sources[child]) {
+                source_xattrs = _gf_true;
+        }
+        return source_xattrs;
+}
+
+gf_boolean_t
+afr_is_read_child (int32_t *success_children, int32_t *sources,
+                   int32_t child_count, int32_t child)
+{
+        gf_boolean_t             success_child = _gf_false;
+        gf_boolean_t             source        = _gf_false;
+
+        GF_ASSERT (success_children);
+        GF_ASSERT (child_count > 0);
+
+        success_child = afr_is_child_present (success_children, child_count,
+                                              child);
+        if (!success_child)
+                goto out;
+        if (NULL == sources) {
+                source = _gf_true;
+                goto out;
+        }
+        source = afr_is_source_child (sources, child_count, child);
+out:
+        return (success_child && source);
+}
+
+void
+afr_children_copy (int32_t *dst, int32_t *src, unsigned int child_count)
+{
+        int     i = 0;
+
+        for (i = 0; i < child_count; i++)
+                dst[i] = src[i];
+}
+
+void
+afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req, const char *path)
+{
+        int             i           = 0;
+        afr_private_t   *priv       = NULL;
+        int             ret         = 0;
+
+        priv   = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_set_uint64 (xattr_req, priv->pending_key[i],
+                                       3 * sizeof(int32_t));
+                if (ret < 0)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: Unable to set dict value for %s",
+                                path, priv->pending_key[i]);
+                /* 3 = data+metadata+entry */
+        }
+}
+
+int
+afr_errno_count (int32_t *children, int *child_errno,
+                 unsigned int child_count, int32_t op_errno)
+{
+        int i = 0;
+        int errno_count = 0;
+        int child = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (children) {
+                        child = children[i];
+                        if (child == -1)
+                                break;
+                } else {
+                        child = i;
+                }
+                if (child_errno[child] == op_errno)
+                        errno_count++;
+        }
+        return errno_count;
+}
+
 int32_t
 afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
 {
@@ -267,9 +378,22 @@ out:
 }
 
 
-/**
- * afr_local_cleanup - cleanup everything in frame->local
- */
+void
+afr_reset_xattr (dict_t **xattr, unsigned int child_count)
+{
+        unsigned int i = 0;
+
+        if (!xattr)
+                goto out;
+        for (i = 0; i < child_count; i++) {
+                if (xattr[i]) {
+                        dict_unref (xattr[i]);
+                        xattr[i] = NULL;
+                }
+        }
+out:
+        return;
+}
 
 void
 afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
@@ -285,13 +409,14 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         if (sh->buf)
                 GF_FREE (sh->buf);
 
+        if (sh->parentbufs)
+                GF_FREE (sh->parentbufs);
+
+        if (sh->inode)
+                inode_unref (sh->inode);
+
         if (sh->xattr) {
-                for (i = 0; i < priv->child_count; i++) {
-                        if (sh->xattr[i]) {
-                                dict_unref (sh->xattr[i]);
-                                sh->xattr[i] = NULL;
-                        }
-                }
+                afr_reset_xattr (sh->xattr, priv->child_count);
                 GF_FREE (sh->xattr);
         }
 
@@ -330,6 +455,9 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE ((char *)sh->linkname);
         if (sh->child_success)
                 GF_FREE (sh->child_success);
+
+        if (sh->fresh_parent_dirs)
+                GF_FREE (sh->fresh_parent_dirs);
 
         loc_wipe (&sh->parent_loc);
 }
@@ -374,10 +502,13 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 }
 
 
+/**
+ * afr_local_cleanup - cleanup everything in frame->local
+ */
+
 void
 afr_local_cleanup (afr_local_t *local, xlator_t *this)
 {
-        int i = 0;
         afr_private_t * priv = NULL;
 
         if (!local)
@@ -402,12 +533,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         { /* lookup */
                 if (local->cont.lookup.xattrs) {
-                        for (i = 0; i < priv->child_count; i++) {
-                                if (local->cont.lookup.xattrs[i]) {
-                                        dict_unref (local->cont.lookup.xattrs[i]);
-                                        local->cont.lookup.xattrs[i] = NULL;
-                                }
-                        }
+                        afr_reset_xattr (local->cont.lookup.xattrs,
+                                         priv->child_count);
                         GF_FREE (local->cont.lookup.xattrs);
                         local->cont.lookup.xattrs = NULL;
                 }
@@ -585,25 +712,6 @@ afr_deitransform (ino64_t ino, int child_count)
 }
 
 
-int
-afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t *local = NULL;
-
-        local = frame->local;
-
-        if (local->govinda_gOvinda && local->cont.lookup.inode) {
-                afr_set_split_brain (this, local->cont.lookup.inode, _gf_true);
-        }
-
-        AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
-                          local->cont.lookup.inode, &local->cont.lookup.buf,
-                          local->cont.lookup.xattr,
-                          &local->cont.lookup.postparent);
-
-        return 0;
-}
-
 void
 afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
 {
@@ -613,13 +721,14 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
         dict_t          **xattr = NULL;
 
         GF_ASSERT (local);
-        GF_ASSERT (local->cont.lookup.read_child >= 0);
 
         buf = &local->cont.lookup.buf;
         postparent = &local->cont.lookup.postparent;
         xattr = &local->cont.lookup.xattr;
 
-        read_child = local->cont.lookup.read_child;
+        read_child = afr_read_child (this, local->cont.lookup.inode);
+        gf_log (this->name, GF_LOG_DEBUG, "Building lookup response from %d",
+                read_child);
         *xattr = dict_ref (local->cont.lookup.xattrs[read_child]);
         *buf = local->cont.lookup.bufs[read_child];
         *postparent = local->cont.lookup.postparents[read_child];
@@ -630,8 +739,7 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
         }
 }
 
-
- static void
+static void
 afr_lookup_update_lk_counts (afr_local_t *local, xlator_t *this,
                             int child_index, dict_t *xattr)
 {
@@ -742,6 +850,8 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this)
                 local->self_heal.need_metadata_self_heal = _gf_true;
                 local->self_heal.need_data_self_heal     = _gf_true;
                 local->self_heal.need_entry_self_heal    = _gf_true;
+                local->self_heal.need_gfid_self_heal    = _gf_true;
+                local->self_heal.need_missing_entry_self_heal    = _gf_true;
                 gf_log(this->name, GF_LOG_INFO,
                        "entries are missing in lookup of %s.",
                        local->loc.path);
@@ -749,14 +859,15 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this)
                 goto out;
         }
 
-        if (local->success_count > 0) {
-                if (afr_is_split_brain (this, local->cont.lookup.inode) &&
-                    IA_ISREG (local->cont.lookup.inode->ia_type)) {
-                        local->self_heal.need_data_self_heal = _gf_true;
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "split brain detected during lookup of %s.",
-                                local->loc.path);
-                }
+        if ((local->success_count > 0) &&
+            afr_is_split_brain (this, local->cont.lookup.inode) &&
+            IA_ISREG (local->cont.lookup.inode->ia_type)) {
+                local->self_heal.need_data_self_heal = _gf_true;
+                local->self_heal.need_gfid_self_heal    = _gf_true;
+                local->self_heal.need_missing_entry_self_heal    = _gf_true;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "split brain detected during lookup of %s.",
+                        local->loc.path);
         }
 
 out:
@@ -769,49 +880,62 @@ afr_can_self_heal_proceed (afr_self_heal_t *sh, afr_private_t *priv)
         GF_ASSERT (sh);
         GF_ASSERT (priv);
 
-        return ((priv->data_self_heal && sh->need_data_self_heal)
+        return (sh->need_gfid_self_heal
+                || sh->need_missing_entry_self_heal
+                || (priv->data_self_heal && sh->need_data_self_heal)
                 || (priv->metadata_self_heal && sh->need_metadata_self_heal)
                 || (priv->entry_self_heal && sh->need_entry_self_heal));
 }
 
-gf_boolean_t
-afr_is_self_heal_enabled (afr_private_t *priv)
+afr_transaction_type
+afr_transaction_type_get (ia_type_t ia_type)
 {
-        GF_ASSERT (priv);
+        afr_transaction_type    type = AFR_METADATA_TRANSACTION;
 
-        return (priv->data_self_heal || priv->metadata_self_heal
-                || priv->entry_self_heal);
+        GF_ASSERT (ia_type != IA_INVAL);
+
+        if (IA_ISDIR (ia_type)) {
+                type = AFR_ENTRY_TRANSACTION;
+        } else if (IA_ISREG (ia_type)) {
+                type = AFR_DATA_TRANSACTION;
+        }
+        return type;
 }
 
 int
 afr_lookup_select_read_child (afr_local_t *local, xlator_t *this,
                               int32_t *read_child)
 {
-        int32_t                 source = -1;
-        ia_type_t               ia_type = 0;
-        int                     ret = -1;
-        afr_transaction_type    type = AFR_METADATA_TRANSACTION;
-        dict_t                  **xattrs = NULL;
-        int32_t                 *child_success = NULL;
-        struct iatt             *bufs = NULL;
+        ia_type_t               ia_type        = IA_INVAL;
+        int32_t                 source         = -1;
+        int                     ret            = -1;
+        dict_t                  **xattrs       = NULL;
+        int32_t                 *success_children = NULL;
+        struct iatt             *bufs          = NULL;
+        afr_transaction_type    type           = AFR_METADATA_TRANSACTION;
 
         GF_ASSERT (local);
         GF_ASSERT (this);
 
         bufs = local->cont.lookup.bufs;
-        child_success = local->cont.lookup.child_success;
-        ia_type = local->cont.lookup.bufs[child_success[0]].ia_type;
-        if (IA_ISDIR (ia_type)) {
-                type = AFR_ENTRY_TRANSACTION;
-        } else if (IA_ISREG (ia_type)) {
-                type = AFR_DATA_TRANSACTION;
-        }
+        success_children = local->cont.lookup.child_success;
+        /*We can take the success_children[0] only because we already
+         *handle the conflicting children other wise, we could select the
+         *read_child based on wrong file type
+         */
+        ia_type = local->cont.lookup.bufs[success_children[0]].ia_type;
+        type = afr_transaction_type_get (ia_type);
         xattrs = local->cont.lookup.xattrs;
         source = afr_lookup_select_read_child_by_txn_type (this, local, xattrs,
                                                            type);
-        if (source < 0)
+        if (source < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "failed to select source "
+                        "for %s", local->loc.path);
                 goto out;
+        }
 
+        gf_log (this->name, GF_LOG_DEBUG, "Source selected as %d for %s",
+                source, local->loc.path);
         *read_child = source;
         ret = 0;
 out:
@@ -828,7 +952,10 @@ afr_is_self_heal_running (afr_local_t *local)
 static void
 afr_launch_self_heal (call_frame_t *frame, xlator_t *this,
                       gf_boolean_t is_background, ia_type_t ia_type,
-                      int (*unwind) (call_frame_t *frame, xlator_t *this))
+                      inode_t *inode,
+                      void (*gfid_sh_success_cbk) (call_frame_t*, xlator_t*),
+                      int (*unwind) (call_frame_t *frame, xlator_t *this,
+                                     int32_t op_ret, int32_t op_errno))
 {
         afr_local_t             *local = NULL;
         char                    sh_type_str[256] = {0,};
@@ -840,6 +967,7 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this,
         local->self_heal.background = is_background;
         local->self_heal.type       = ia_type;
         local->self_heal.unwind     = unwind;
+        local->self_heal.gfid_sh_success_cbk = gfid_sh_success_cbk;
 
         afr_self_heal_type_str_get (&local->self_heal,
                                     sh_type_str,
@@ -849,11 +977,142 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this,
                 "background %s self-heal triggered. path: %s",
                 sh_type_str, local->loc.path);
 
-        afr_self_heal (frame, this);
+        afr_self_heal (frame, this, inode);
+}
+
+int
+afr_gfid_missing_count (const char *xlator_name, int32_t *success_children,
+                        struct iatt *bufs, unsigned int child_count,
+                        const char *path)
+{
+        int             gfid_miss_count   = 0;
+        int             i              = 0;
+        struct iatt     *child1        = NULL;
+
+        for (i = 0; i < child_count; i++) {
+                if (success_children[i] == -1)
+                        break;
+                child1 = &bufs[success_children[i]];
+                if (uuid_is_null (child1->ia_gfid)) {
+                        gf_log (xlator_name, GF_LOG_DEBUG, "%s: gfid is null"
+                                " on subvolume %d", path, success_children[i]);
+                        gfid_miss_count++;
+                }
+        }
+
+        return gfid_miss_count;
+}
+
+static int
+afr_lookup_gfid_missing_count (afr_local_t *local, xlator_t *this)
+{
+        int32_t         *success_children = NULL;
+        afr_private_t   *priv          = NULL;
+        struct iatt     *bufs          = NULL;
+        int             miss_count     = 0;
+
+        priv = this->private;
+        bufs = local->cont.lookup.bufs;
+        success_children = local->cont.lookup.child_success;
+
+        miss_count =  afr_gfid_missing_count (this->name, success_children,
+                                              bufs, priv->child_count,
+                                              local->loc.path);
+        return miss_count;
+}
+
+gf_boolean_t
+afr_conflicting_iattrs (struct iatt *bufs, int32_t *success_children,
+                        unsigned int child_count, const char *path,
+                        const char *xlator_name)
+{
+        gf_boolean_t    conflicting    = _gf_false;
+        int             i              = 0;
+        struct iatt     *child1        = NULL;
+        struct iatt     *child2        = NULL;
+        uuid_t          *gfid          = NULL;
+        char            gfid_str[64]   = {0};
+
+        for (i = 0; i < child_count; i++) {
+                if (success_children[i] == -1)
+                        break;
+                child1 = &bufs[success_children[i]];
+                if ((!gfid) && (!uuid_is_null (child1->ia_gfid)))
+                        gfid = &child1->ia_gfid;
+
+                if (i == 0)
+                        continue;
+
+                child2 = &bufs[success_children[i-1]];
+                if (FILETYPE_DIFFERS (child1, child2)) {
+                        gf_log (xlator_name, GF_LOG_WARNING, "%s: filetype "
+                                "differs on subvolumes (%d, %d)", path,
+                                success_children[i-1], success_children[i]);
+                        conflicting = _gf_true;
+                        goto out;
+                }
+                if (!gfid || uuid_is_null (child1->ia_gfid))
+                        continue;
+                if (uuid_compare (*gfid, child1->ia_gfid)) {
+                        uuid_utoa_r (*gfid, gfid_str);
+                        gf_log (xlator_name, GF_LOG_WARNING, "%s: gfid differs"
+                                " on subvolume %d (%s, %s)", path,
+                                success_children[i], gfid_str,
+                                uuid_utoa (child1->ia_gfid));
+                        conflicting = _gf_true;
+                        goto out;
+                }
+        }
+out:
+        return conflicting;
+}
+
+/* afr_update_gfid_from_iatts: This function should be called only if the
+ * iatts are not conflicting.
+ */
+void
+afr_update_gfid_from_iatts (uuid_t uuid, struct iatt *bufs,
+                            int32_t *success_children, unsigned int child_count)
+{
+        uuid_t          *gfid = NULL;
+        int             i = 0;
+        int             child = 0;
+
+        for (i = 0; i < child_count; i++) {
+                child = success_children[i];
+                if (child == -1)
+                        break;
+                if ((!gfid) && (!uuid_is_null (bufs[child].ia_gfid))) {
+                        gfid = &bufs[child].ia_gfid;
+                } else if (gfid && (!uuid_is_null (bufs[child].ia_gfid))) {
+                        if (uuid_compare (*gfid, bufs[child].ia_gfid)) {
+                                GF_ASSERT (0);
+                                goto out;
+                        }
+                }
+        }
+        if (gfid && (!uuid_is_null (*gfid)))
+                uuid_copy (uuid, *gfid);
+out:
+        return;
+}
+
+static gf_boolean_t
+afr_lookup_conflicting_entries (afr_local_t *local, xlator_t *this)
+{
+        afr_private_t           *priv = NULL;
+        gf_boolean_t            conflict = _gf_false;
+
+        priv = this->private;
+        conflict =  afr_conflicting_iattrs (local->cont.lookup.bufs,
+                                            local->cont.lookup.child_success,
+                                            priv->child_count, local->loc.path,
+                                            this->name);
+        return conflict;
 }
 
 static void
-afr_lookup_detect_self_heal (afr_local_t *local, xlator_t *this)
+afr_lookup_set_self_heal_data (afr_local_t *local, xlator_t *this)
 {
         int                     i = 0;
         struct iatt             *bufs = NULL;
@@ -862,7 +1121,19 @@ afr_lookup_detect_self_heal (afr_local_t *local, xlator_t *this)
         int32_t                 child1 = -1;
         int32_t                 child2 = -1;
 
+        priv  = this->private;
         afr_detect_self_heal_by_lookup_status (local, this);
+
+        if (afr_lookup_gfid_missing_count (local, this))
+                local->self_heal.need_gfid_self_heal    = _gf_true;
+
+        if (_gf_true == afr_lookup_conflicting_entries (local, this))
+                local->self_heal.need_missing_entry_self_heal    = _gf_true;
+        else
+                afr_update_gfid_from_iatts (local->self_heal.sh_gfid_req,
+                                            local->cont.lookup.bufs,
+                                            local->cont.lookup.child_success,
+                                            priv->child_count);
 
         bufs = local->cont.lookup.bufs;
         for (i = 1; i < local->success_count; i++) {
@@ -873,12 +1144,79 @@ afr_lookup_detect_self_heal (afr_local_t *local, xlator_t *this)
         }
 
         xattr = local->cont.lookup.xattrs;
-        priv  = this->private;
         for (i = 0; i < local->success_count; i++) {
                 child1 = local->cont.lookup.child_success[i];;
                 afr_lookup_detect_self_heal_by_xattr (local, this,
                                                       xattr[child1]);
         }
+}
+
+int
+afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno)
+{
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret == -1) {
+                local->op_ret = -1;
+                if (afr_error_more_important (local->op_errno, op_errno))
+                        local->op_errno = op_errno;
+
+                goto out;
+        } else {
+                local->op_ret = 0;
+        }
+
+        afr_lookup_done_success_action (frame, this, _gf_true);
+out:
+        AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
+                          local->cont.lookup.inode, &local->cont.lookup.buf,
+                          local->cont.lookup.xattr,
+                          &local->cont.lookup.postparent);
+
+        return 0;
+}
+
+//TODO: At the moment only lookup needs this, so not doing any checks, in the
+// future we will have to do fop specific operations
+void
+afr_post_gfid_sh_success (call_frame_t *sh_frame, xlator_t *this)
+{
+        afr_local_t             *local = NULL;
+        afr_local_t             *sh_local = NULL;
+        afr_private_t           *priv = NULL;
+        afr_self_heal_t         *sh = NULL;
+        int                     i = 0;
+        struct iatt             *lookup_bufs = NULL;
+        struct iatt             *lookup_parentbufs = NULL;
+
+        sh_local = sh_frame->local;
+        sh       = &sh_local->self_heal;
+        local = sh->orig_frame->local;
+        lookup_bufs = local->cont.lookup.bufs;
+        lookup_parentbufs = local->cont.lookup.postparents;
+        priv = this->private;
+
+        memcpy (lookup_bufs, sh->buf, priv->child_count * sizeof (*sh->buf));
+        memcpy (lookup_parentbufs, sh->parentbufs,
+                priv->child_count * sizeof (*sh->parentbufs));
+
+        afr_reset_xattr (local->cont.lookup.xattrs, priv->child_count);
+        if (local->cont.lookup.xattr) {
+                dict_unref (local->cont.lookup.xattr);
+                local->cont.lookup.xattr = NULL;
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->xattr[i])
+                        local->cont.lookup.xattrs[i] = dict_ref (sh->xattr[i]);
+        }
+        afr_reset_children (local->cont.lookup.child_success,
+                            priv->child_count);
+        afr_children_copy (local->cont.lookup.child_success,
+                           sh->fresh_children, priv->child_count);
 }
 
 static void
@@ -901,65 +1239,20 @@ afr_lookup_perform_self_heal_if_needed (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (_gf_false == afr_is_self_heal_enabled (priv)) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Self heal is not enabled");
-                goto out;
-        }
-
-        afr_lookup_detect_self_heal (local, this);
+        afr_lookup_set_self_heal_data (local, this);
         if (afr_can_self_heal_proceed (&local->self_heal, priv)) {
-                if  (afr_is_self_heal_running (local)) {
+                if  (afr_is_self_heal_running (local))
                         goto out;
-                }
 
                 afr_launch_self_heal (frame, this, _gf_true,
                                       local->cont.lookup.buf.ia_type,
+                                      local->cont.lookup.inode,
+                                      afr_post_gfid_sh_success,
                                       afr_self_heal_lookup_unwind);
                 *sh_launched = _gf_true;
         }
 out:
         return;
-}
-
-static gf_boolean_t
-afr_lookup_split_brain (afr_local_t *local, xlator_t *this)
-{
-        int             i              = 0;
-        gf_boolean_t    symptom        = _gf_false;
-        struct iatt     *bufs          = NULL;
-        int32_t         *child_success = NULL;
-        struct iatt     *child1        = NULL;
-        struct iatt     *child2        = NULL;
-        const char      *path          = NULL;
-
-        bufs = local->cont.lookup.bufs;
-        child_success = local->cont.lookup.child_success;
-        for (i = 1; i < local->success_count; i++) {
-                child1 = &bufs[child_success[i-1]];
-                child2 = &bufs[child_success[i]];
-                /*
-                 * TODO: gfid self-heal
-                 * if (uuid_compare (child1->ia_gfid, child2->ia_gfid)) {
-                 *        gf_log (this->name, GF_LOG_WARNING, "%s: gfid differs"
-                 *                " on subvolumes (%d, %d)", local->loc.path,
-                 *                child_success[i-1], child_success[i]);
-                 *        symptom = _gf_true;
-                 * }
-                 */
-
-                if (FILETYPE_DIFFERS (child1, child2)) {
-                        path = local->loc.path;
-                        gf_log (this->name, GF_LOG_WARNING, "%s: filetype "
-                                "differs on subvolumes (%d, %d)", path,
-                                child_success[i-1], child_success[i]);
-                        symptom = _gf_true;
-                        local->govinda_gOvinda = 1;
-                }
-                if (symptom)
-                        break;
-        }
-        return symptom;
 }
 
 static int
@@ -973,6 +1266,60 @@ afr_lookup_set_read_child (afr_local_t *local, xlator_t *this, int32_t read_chil
         return 0;
 }
 
+int
+afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
+                                gf_boolean_t fail_conflict)
+{
+        int32_t             read_child = -1;
+        int32_t             ret        = -1;
+        afr_local_t         *local     = NULL;
+        afr_private_t       *priv      = NULL;
+
+        local   = frame->local;
+        priv    = this->private;
+
+        if (local->loc.parent == NULL)
+                fail_conflict = _gf_true;
+
+        if (afr_conflicting_iattrs (local->cont.lookup.bufs,
+                                    local->cont.lookup.child_success,
+                                    priv->child_count, local->loc.path,
+                                     this->name)) {
+                if (fail_conflict == _gf_false) {
+                        ret = 0;
+                } else {
+                        local->op_ret = -1;
+                        local->op_errno = EIO;
+                }
+                goto out;
+        }
+
+        ret = afr_lookup_select_read_child (local, this, &read_child);
+        if (ret) {
+                local->op_ret = -1;
+                local->op_errno = EIO;
+                goto out;
+        }
+
+        ret = afr_lookup_set_read_child (local, this, read_child);
+        if (ret) {
+                local->op_ret = -1;
+                local->op_errno = EIO;
+                goto out;
+        }
+
+        afr_lookup_build_response_params (local, this);
+        if (afr_is_fresh_lookup (&local->loc, this)) {
+                afr_update_loc_gfids (&local->loc,
+                                      &local->cont.lookup.buf,
+                                      &local->cont.lookup.postparent);
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this)
 {
@@ -981,44 +1328,44 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local = NULL;
         int                 ret = -1;
         gf_boolean_t        sh_launched = _gf_false;
-        int32_t             read_child = -1;
+        int                 gfid_miss_count = 0;
+        int                 enotconn_count = 0;
+        int                 up_children_count = 0;
 
         priv  = this->private;
         local = frame->local;
 
         if (local->op_ret < 0)
                 goto unwind;
-
-        if (_gf_true == afr_lookup_split_brain (local, this)) {
+        gfid_miss_count = afr_lookup_gfid_missing_count (local, this);
+        up_children_count = afr_up_children_count (priv->child_count,
+                                                   local->child_up);
+        enotconn_count = priv->child_count - up_children_count;
+        if ((gfid_miss_count == local->success_count) &&
+            (enotconn_count > 0)) {
                 local->op_ret = -1;
                 local->op_errno = EIO;
+                gf_log (this->name, GF_LOG_ERROR, "Failing lookup for %s, "
+                        "LOOKUP on a file without gfid is not allowed when "
+                        "some of the children are down", local->loc.path);
                 goto unwind;
         }
 
-        ret = afr_lookup_select_read_child (local, this, &read_child);
-        if (ret) {
-                local->op_ret = -1;
-                local->op_errno = EIO;
-                goto unwind;
-        }
-
-        ret = afr_lookup_set_read_child (local, this, read_child);
+        ret = afr_lookup_done_success_action (frame, this, _gf_false);
         if (ret)
                 goto unwind;
-
-        afr_lookup_build_response_params (local, this);
-        if (afr_is_fresh_lookup (&local->loc, this)) {
-                afr_update_loc_gfids (&local->loc, &local->cont.lookup.buf,
-                                      &local->cont.lookup.postparent);
-        }
+        uuid_copy (local->self_heal.sh_gfid_req, local->cont.lookup.gfid_req);
 
         afr_lookup_perform_self_heal_if_needed (frame, this, &sh_launched);
-        if (sh_launched)
+        if (sh_launched) {
                 unwind = 0;
+                goto unwind;
+        }
+
  unwind:
          if (unwind) {
                  AFR_STACK_UNWIND (lookup, frame, local->op_ret,
-                                  local->op_errno, local->cont.lookup.inode,
+                                   local->op_errno, local->cont.lookup.inode,
                                    &local->cont.lookup.buf,
                                    local->cont.lookup.xattr,
                                    &local->cont.lookup.postparent);
@@ -1034,8 +1381,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
  *
  */
 
-static gf_boolean_t
-__error_more_important (int32_t old_errno, int32_t new_errno)
+gf_boolean_t
+afr_error_more_important (int32_t old_errno, int32_t new_errno)
 {
         gf_boolean_t ret = _gf_true;
 
@@ -1050,6 +1397,28 @@ __error_more_important (int32_t old_errno, int32_t new_errno)
         return ret;
 }
 
+int32_t
+afr_resultant_errno_get (int32_t *children,
+                         int *child_errno, unsigned int child_count)
+{
+        int     i = 0;
+        int32_t op_errno = 0;
+        int     child = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (children) {
+                        child = children[i];
+                        if (child == -1)
+                                break;
+                } else {
+                        child = i;
+                }
+                if (afr_error_more_important (op_errno, child_errno[child]))
+                                op_errno = child_errno[child];
+        }
+        return op_errno;
+}
+
 static void
 afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno)
 {
@@ -1057,7 +1426,7 @@ afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno)
         if (op_errno == ENOENT)
                 local->enoent_count++;
 
-        if (__error_more_important (local->op_errno, op_errno))
+        if (afr_error_more_important (local->op_errno, op_errno))
                 local->op_errno = op_errno;
         if (local->op_errno == ESTALE) {
                 local->op_ret = -1;
@@ -1196,7 +1565,6 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
 
         local->cont.lookup.child_success = child_success;
 
-        local->cont.lookup.read_child = -1;
         ret = 0;
 out:
         return ret;
@@ -1208,6 +1576,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 {
         afr_private_t    *priv           = NULL;
         afr_local_t      *local          = NULL;
+        void              *gfid_req      = NULL;
         int               ret            = -1;
         int               i              = 0;
         int               call_count     = 0;
@@ -1277,29 +1646,29 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         else
                 local->xattr_req = dict_ref (xattr_req);
 
-        for (i = 0; i < priv->child_count; i++) {
-                ret = dict_set_uint64 (local->xattr_req, priv->pending_key[i],
-                                       3 * sizeof(int32_t));
-                if (ret < 0)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s: Unable to set dict value for %s",
-                                loc->path, priv->pending_key[i]);
-                /* 3 = data+metadata+entry */
-        }
-
+        afr_xattr_req_prepare (this, local->xattr_req, loc->path);
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_INODELK_COUNT);
         }
-
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_ENTRYLK_COUNT);
         }
+
+        ret = dict_get_ptr (xattr_req, "gfid-req", &gfid_req);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to get the gfid from dict");
+        } else {
+                uuid_copy (local->cont.lookup.gfid_req, gfid_req);
+        }
+        if (local->loc.parent != NULL)
+                dict_del (xattr_req, "gfid-req");
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2809,4 +3178,87 @@ afr_notify (xlator_t *this, int32_t event,
 
 out:
         return ret;
+}
+void
+afr_reset_children (int32_t *fresh_children, int32_t child_count)
+{
+        unsigned int i = 0;
+        for (i = 0; i < child_count; i++)
+                fresh_children[i] = -1;
+}
+
+int32_t*
+afr_fresh_children_create (int32_t child_count)
+{
+        int32_t           *fresh_children = NULL;
+        int               i               = 0;
+
+        GF_ASSERT (child_count > 0);
+
+        fresh_children = GF_CALLOC (child_count, sizeof (*fresh_children),
+                                    gf_afr_mt_int32_t);
+        if (NULL == fresh_children)
+                goto out;
+        for (i = 0; i < child_count; i++)
+                fresh_children[i] = -1;
+out:
+        return fresh_children;
+}
+
+void
+afr_fresh_children_add_child (int32_t *fresh_children, int32_t child,
+                              int32_t child_count)
+{
+        gf_boolean_t child_found = _gf_false;
+        int          i               = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (fresh_children[i] == -1)
+                        break;
+                if (fresh_children[i] == child) {
+                        child_found = _gf_true;
+                        break;
+                }
+        }
+        if (!child_found) {
+                GF_ASSERT (i < child_count);
+                fresh_children[i] = child;
+        }
+}
+
+int
+afr_get_children_count (int32_t *fresh_children, unsigned int child_count)
+{
+        int count = 0;
+        int i = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (fresh_children[i] == -1)
+                        break;
+                count++;
+        }
+        return count;
+}
+
+void
+afr_get_fresh_children (int32_t *success_children, int32_t *sources,
+                        int32_t *fresh_children, unsigned int child_count)
+{
+        unsigned int i = 0;
+        unsigned int j = 0;
+
+        GF_ASSERT (success_children);
+        GF_ASSERT (sources);
+        GF_ASSERT (fresh_children);
+
+        afr_reset_children (fresh_children, child_count);
+        for (i = 0; i < child_count; i++) {
+                if (success_children[i] == -1)
+                        break;
+                if (afr_is_read_child (success_children, sources, child_count,
+                                       success_children[i])) {
+                        fresh_children[j] = success_children[i];
+                        j++;
+                }
+        }
 }
