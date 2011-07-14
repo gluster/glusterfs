@@ -147,15 +147,32 @@ afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
                                    xlator_t *this, int32_t op_ret,
                                    int32_t op_errno, dict_t *xattr)
 {
-        afr_local_t     *local = NULL;
+        afr_local_t     *local     = NULL;
         int             call_count = 0;
+        long            i          = 0;
+        afr_self_heal_t *sh        = NULL;
+        afr_private_t   *priv      = NULL;
 
         local = frame->local;
+        priv  = this->private;
+        sh = &local->self_heal;
+        i = (long)cookie;
 
+        if ((!IA_ISREG (sh->buf[sh->source].ia_type)) &&
+            (!IA_ISDIR (sh->buf[sh->source].ia_type))) {
+                afr_fresh_children_add_child (sh->fresh_children, i,
+                                              priv->child_count);
+        }
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0)
+        if (call_count == 0) {
+                if ((!IA_ISREG (sh->buf[sh->source].ia_type)) &&
+                    (!IA_ISDIR (sh->buf[sh->source].ia_type))) {
+                        afr_inode_set_read_ctx (this, sh->inode, sh->source,
+                                                sh->fresh_children);
+                }
                 afr_sh_metadata_finish (frame, this);
+        }
 
         return 0;
 }
@@ -483,7 +500,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
         nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
                                      priv->child_count, AFR_SELF_HEAL_METADATA,
-                                     sh->child_success, this->name);
+                                     sh->success_children, this->name);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -545,6 +562,16 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
                         sh->sources[i] = 0;
         }
 
+        if ((!IA_ISREG (sh->buf[source].ia_type)) &&
+            (!IA_ISDIR (sh->buf[source].ia_type))) {
+                afr_reset_children (sh->fresh_children,
+                                          priv->child_count);
+                afr_get_fresh_children (sh->success_children, sh->sources,
+                                        sh->fresh_children, priv->child_count);
+                afr_inode_set_read_ctx (this, sh->inode, sh->source,
+                                        sh->fresh_children);
+        }
+
         afr_sh_metadata_sync_prepare (frame, this);
 
         return 0;
@@ -582,7 +609,7 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         sh->buf[child_index] = *buf;
                         if (xattr)
                                 sh->xattr[child_index] = dict_ref (xattr);
-                        sh->child_success[sh->success_count] = child_index;
+                        sh->success_children[sh->success_count] = child_index;
                         sh->success_count++;
                 } else {
                         gf_log (this->name, GF_LOG_INFO,
@@ -637,8 +664,7 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-        for (i = 0; i < priv->child_count; i++)
-                sh->child_success[i] = -1;
+        afr_reset_children (sh->success_children, priv->child_count);
         sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {

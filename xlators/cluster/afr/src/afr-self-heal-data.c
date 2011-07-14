@@ -299,12 +299,25 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret,
                                int32_t op_errno, dict_t *xattr)
 {
+        afr_local_t     *local     = NULL;
         int             call_count = 0;
+        long            i          = 0;
+        afr_self_heal_t *sh        = NULL;
+        afr_private_t   *priv      = NULL;
 
+        local = frame->local;
+        priv  = this->private;
+        sh = &local->self_heal;
+        i = (long)cookie;
+
+        afr_fresh_children_add_child (sh->fresh_children, i, priv->child_count);
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0)
+        if (call_count == 0) {
+                afr_inode_set_read_ctx (this, sh->inode, sh->source,
+                                        sh->fresh_children);
                 afr_sh_data_finish (frame, this);
+        }
 
         return 0;
 }
@@ -602,7 +615,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
         nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
                                      priv->child_count, AFR_SELF_HEAL_DATA,
-                                     sh->child_success, this->name);
+                                     sh->success_children, this->name);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -670,7 +683,11 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                         sh->sources[i] = 0;
         }
 
-        afr_set_read_child (this, local->loc.inode, sh->source);
+        afr_reset_children (sh->fresh_children, priv->child_count);
+        afr_get_fresh_children (sh->success_children, sh->sources,
+                                sh->fresh_children, priv->child_count);
+        afr_inode_set_read_ctx (this, sh->inode, sh->source,
+                                sh->fresh_children);
 
         /*
           quick-read might have read the file, so send xattr from
@@ -689,56 +706,6 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         afr_sh_data_sync_prepare (frame, this);
 
         return 0;
-}
-
-gf_boolean_t
-afr_is_fresh_read_child (int32_t *sources, int32_t child_count,
-                         int32_t read_child)
-{
-        gf_boolean_t             is_fresh_child = _gf_false;
-
-        GF_ASSERT (read_child < child_count);
-
-        if ((read_child >= 0) && (read_child < child_count) &&
-             sources[read_child]) {
-                is_fresh_child = _gf_true;
-        }
-        return is_fresh_child;
-}
-
-static int
-afr_select_read_child_from_policy (int32_t *sources, int32_t child_count,
-                                   int32_t prev_read_child,
-                                   int32_t config_read_child,
-                                   int32_t *valid_children)
-{
-        int32_t                  read_child = -1;
-        int                      i          = 0;
-
-        GF_ASSERT (sources);
-
-        read_child = prev_read_child;
-        if (_gf_true == afr_is_fresh_read_child (sources, child_count,
-                                                 read_child))
-                goto out;
-
-        read_child = config_read_child;
-        if (_gf_true == afr_is_fresh_read_child (sources, child_count,
-                                                 read_child))
-                goto out;
-
-        for (i = 0; i < child_count; i++) {
-                read_child = valid_children[i];
-                if (read_child < 0)
-                        break;
-                if (_gf_true == afr_is_fresh_read_child (sources, child_count,
-                                                         read_child))
-                        goto out;
-        }
-        read_child = -1;
-
-out:
-        return read_child;
 }
 
 static void
@@ -796,7 +763,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         afr_self_heal_type       sh_type    = AFR_SELF_HEAL_INVALID;
         int32_t                  **pending_matrix = NULL;
         int32_t                  *sources         = NULL;
-        int32_t                  *valid_children  = NULL;
+        int32_t                  *success_children   = NULL;
         struct iatt              *bufs            = NULL;
         int32_t                  nsources         = 0;
         int32_t                  prev_read_child  = -1;
@@ -805,7 +772,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
 
         priv = this->private;
         bufs = local->cont.lookup.bufs;
-        valid_children = local->cont.lookup.child_success;
+        success_children = local->cont.lookup.success_children;
         sh = &local->self_heal;
 
         pending_matrix = afr_create_pending_matrix (priv->child_count);
@@ -826,7 +793,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
 
         nsources = afr_mark_sources (sources, pending_matrix, bufs,
                                      priv->child_count, sh_type,
-                                     valid_children, this->name);
+                                     success_children, this->name);
         if (nsources < 0) {
                 ret = -1;
                 goto out;
@@ -834,11 +801,11 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
 
         prev_read_child = local->read_child_index;
         config_read_child = priv->read_child;
-        read_child = afr_select_read_child_from_policy (sources,
+        read_child = afr_select_read_child_from_policy (success_children,
                                                         priv->child_count,
                                                         prev_read_child,
                                                         config_read_child,
-                                                        valid_children);
+                                                        sources);
         ret = 0;
         local->cont.lookup.sources = sources;
 out:
@@ -875,7 +842,7 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                                 priv->children[child_index]->name);
 
                         sh->buf[child_index] = *buf;
-                        sh->child_success[sh->success_count] = child_index;
+                        sh->success_children[sh->success_count] = child_index;
                         sh->success_count++;
                 }
         }
@@ -909,8 +876,7 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
 
         local->call_count = call_count;
 
-        for (i = 0; i < priv->child_count; i++)
-                sh->child_success[i] = -1;
+        afr_reset_children (sh->success_children, priv->child_count);
         sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {

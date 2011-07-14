@@ -177,7 +177,7 @@ out:
                                 " forced merge option set",
                                 sh_type_str, local->loc.path);
 
-                        afr_self_heal (frame, this);
+                        afr_self_heal (frame, this, local->fd->inode);
                 } else {
                         afr_set_opendir_done (this, local->fd->inode);
 

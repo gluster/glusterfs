@@ -434,7 +434,7 @@ afr_openfd_sh (call_frame_t *frame, xlator_t *this)
                 "path: %s, reason: Replicate up down flush, data lock is held",
                 sh_type_str, local->loc.path);
 
-        afr_self_heal (frame, this);
+        afr_self_heal (frame, this, local->fd->inode);
 
         return 0;
 }

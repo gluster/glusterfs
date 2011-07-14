@@ -49,11 +49,8 @@ int
 afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr);
 
 int
-afr_self_heal (call_frame_t *frame, xlator_t *this);
+afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode);
 
-gf_boolean_t
-afr_is_fresh_read_child (int32_t *sources, int32_t child_count,
-                         int32_t read_child);
 int
 afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                           dict_t **xattr,

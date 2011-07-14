@@ -814,6 +814,7 @@ struct xlator_dumpops dumpops = {
 struct xlator_cbks cbks = {
         .release     = afr_release,
         .releasedir  = afr_releasedir,
+        .forget      = afr_forget,
 };
 
 
