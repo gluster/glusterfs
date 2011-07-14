@@ -87,7 +87,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        read_child = afr_read_child (this, local->fd->inode);
+        read_child = afr_inode_get_read_ctx (this, local->fd->inode, NULL);
 
         LOCK (&frame->lock);
         {
@@ -343,7 +343,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         priv  = this->private;
 
-        read_child = afr_read_child (this, local->loc.inode);
+        read_child = afr_inode_get_read_ctx (this, local->loc.inode, NULL);
 
         LOCK (&frame->lock);
         {
@@ -550,7 +550,7 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         priv  = this->private;
 
-        read_child = afr_read_child (this, local->fd->inode);
+        read_child = afr_inode_get_read_ctx (this, local->fd->inode, NULL);
 
         LOCK (&frame->lock);
         {
@@ -712,8 +712,8 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
-
         ret = AFR_LOCAL_INIT (local, priv);
+
         if (ret < 0) {
                 op_errno = -ret;
                 goto out;
@@ -797,7 +797,7 @@ afr_setattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         priv  = this->private;
 
-        read_child = afr_read_child (this, local->loc.inode);
+        read_child = afr_inode_get_read_ctx (this, local->loc.inode, NULL);
 
         LOCK (&frame->lock);
         {
@@ -1004,7 +1004,7 @@ afr_fsetattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         priv  = this->private;
 
-        read_child = afr_read_child (this, local->fd->inode);
+        read_child = afr_inode_get_read_ctx (this, local->fd->inode, NULL);
 
         LOCK (&frame->lock);
         {

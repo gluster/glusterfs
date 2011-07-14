@@ -1640,18 +1640,15 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         afr_local_t *     local = NULL;
         afr_self_heal_t * sh    = NULL;
         char              sh_type_str[256] = {0,};
+        gf_boolean_t      split_brain = _gf_false;
 
         priv  = this->private;
         local = bgsh_frame->local;
         sh    = &local->self_heal;
 
-        if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode,
-                                     _gf_true);
-        } else {
-                afr_set_split_brain (this, local->cont.lookup.inode,
-                                     _gf_false);
-        }
+        if (local->govinda_gOvinda)
+                split_brain = _gf_true;
+        afr_set_split_brain (this, sh->inode, split_brain);
 
         afr_self_heal_type_str_get (sh, sh_type_str,
                                     sizeof(sh_type_str));
@@ -1683,7 +1680,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 }
 
 int
-afr_self_heal (call_frame_t *frame, xlator_t *this)
+afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -1726,6 +1723,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
         sh_local        = afr_local_copy (local, this);
         sh_frame->local = sh_local;
         sh              = &sh_local->self_heal;
+        sh->inode       = inode;
 
         sh->orig_frame  = frame;
 
@@ -1761,8 +1759,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
                                                  priv->child_count,
                                                  gf_afr_mt_int32_t);
         }
-        sh->child_success = GF_CALLOC (sizeof (*sh->child_success),
-                                       priv->child_count, gf_afr_mt_int32_t);
+        sh->success_children = afr_fresh_children_create (priv->child_count);
+        sh->fresh_children = afr_fresh_children_create (priv->child_count);
 
 
         FRAME_SU_DO (sh_frame, afr_local_t);

@@ -37,6 +37,22 @@
 
 struct _pump_private;
 
+typedef struct afr_inode_params_ {
+        uint64_t mask_type;
+        union {
+                gf_boolean_t value;
+                struct {
+                        int32_t read_child;
+                        int32_t *fresh_children;
+                } read_ctx;
+        } u;
+} afr_inode_params_t;
+
+typedef struct afr_inode_ctx_ {
+        uint64_t masks;
+        int32_t  *fresh_children;//increasing order of latency
+} afr_inode_ctx_t;
+
 typedef struct _afr_private {
         gf_lock_t lock;               /* to guard access to child_count, etc */
         unsigned int child_count;     /* total number of children   */
@@ -121,6 +137,8 @@ typedef struct {
 
         ia_type_t type;                   /* st_mode of the entry we're doing
                                              self-heal on */
+        inode_t   *inode;                 /* inode on which the self-heal is
+                                             performed on */
 
         /* Function to call to unwind. If self-heal is being done in the
            background, this function will be called as soon as possible. */
@@ -140,8 +158,10 @@ typedef struct {
 
         /* array containing if the lookups succeeded in the order of response
          */
-        int32_t *child_success;
+        int32_t *success_children;
         int     success_count;
+        /* array containing the fresh children found in the self-heal process */
+        int32_t *fresh_children;
         /* array of errno's, one for each child */
         int *child_errno;
 
@@ -311,6 +331,7 @@ typedef struct _afr_local {
         glusterfs_fop_t fop;
 
         unsigned char *child_up;
+        int32_t       *fresh_children; //in the order of response
 
         int32_t *child_errno;
 
@@ -354,8 +375,8 @@ typedef struct _afr_local {
                         struct iatt *postparents;
                         struct iatt *bufs;
                         int32_t read_child;
-                        int32_t *child_success;//in the order of response
                         int32_t *sources;
+                        int32_t *success_children;
                 } lookup;
 
                 struct {
@@ -732,11 +753,12 @@ int pump_start (call_frame_t *frame, xlator_t *this);
 int
 afr_fd_ctx_set (xlator_t *this, fd_t *fd);
 
-uint64_t
-afr_read_child (xlator_t *this, inode_t *inode);
+int32_t
+afr_inode_get_read_ctx (xlator_t *this, inode_t *inode, int32_t *fresh_children);
 
 void
-afr_set_read_child (xlator_t *this, inode_t *inode, int32_t read_child);
+afr_inode_set_read_ctx (xlator_t *this, inode_t *inode, int32_t read_child,
+                        int32_t *fresh_children);
 
 void
 afr_build_parent_loc (loc_t *parent, loc_t *child);
@@ -772,7 +794,7 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 void
 afr_set_opendir_done (xlator_t *this, inode_t *inode);
 
-uint64_t
+gf_boolean_t
 afr_is_opendir_done (xlator_t *this, inode_t *inode);
 
 void
@@ -829,12 +851,24 @@ int32_t
 afr_marker_getxattr (call_frame_t *frame, xlator_t *this,
                      loc_t *loc, const char *name,afr_local_t *local, afr_private_t *priv );
 
+int32_t *
+afr_fresh_children_create (int32_t child_count);
+
 int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv);
 
 int
 afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
                         transaction_lk_type_t lk_type);
+int
+afr_select_read_child_from_policy (int32_t *fresh_children, int32_t child_count,
+                                   int32_t prev_read_child,
+                                   int32_t config_read_child, int32_t *sources);
+
+void
+afr_set_read_ctx_from_policy (xlator_t *this, inode_t *inode,
+                              int32_t *fresh_children, int32_t prev_read_child,
+                              int32_t config_read_child);
 
 /**
  * first_up_child - return the index of the first child that is up
@@ -862,4 +896,15 @@ afr_first_up_child (afr_private_t *priv)
         return ret;
 }
 
+int32_t
+afr_next_call_child (int32_t *fresh_children, size_t child_count,
+                     int32_t *last_index, int32_t read_child);
+void
+afr_get_fresh_children (int32_t *success_children, int32_t *sources,
+                        int32_t *fresh_children, unsigned int child_count);
+void
+afr_fresh_children_add_child (int32_t *fresh_children, int32_t child,
+                              int32_t child_count);
+void
+afr_reset_children (int32_t *fresh_children, int32_t child_count);
 #endif /* __AFR_H__ */

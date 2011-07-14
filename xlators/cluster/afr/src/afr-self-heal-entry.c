@@ -125,12 +125,16 @@ afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
         afr_local_t         *orig_local = NULL;
         call_frame_t        *orig_frame = NULL;
         afr_private_t       *priv       = NULL;
+        int32_t             read_child  = -1;
 
         local = frame->local;
         priv  = this->private;
+        sh = &local->self_heal;
+        i = (long)cookie;
 
+
+        afr_fresh_children_add_child (sh->fresh_children, i, priv->child_count);
         if (op_ret == -1) {
-                i = (long)cookie;
                 gf_log (this->name, GF_LOG_INFO,
                         "%s: failed to erase pending xattrs on %s (%s)",
                         local->loc.path, priv->children[i]->name,
@@ -140,8 +144,14 @@ afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                sh = &local->self_heal;
-
+                if (sh->source == -1) {
+                        //this happens if the forced merge option is set
+                        read_child = sh->fresh_children[0];
+                } else {
+                        read_child = sh->source;
+                }
+                afr_inode_set_read_ctx (this, sh->inode, read_child,
+                                        sh->fresh_children);
                 orig_frame = sh->orig_frame;
                 orig_local = orig_frame->local;
 
@@ -2165,7 +2175,7 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 
         nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
                                      priv->child_count, AFR_SELF_HEAL_ENTRY,
-                                     sh->child_success, this->name);
+                                     sh->success_children, this->name);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -2179,6 +2189,13 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
         source = afr_sh_select_source (sh->sources, priv->child_count);
 
         sh->source = source;
+
+        afr_reset_children (sh->fresh_children, priv->child_count);
+        afr_get_fresh_children (sh->success_children, sh->sources,
+                                sh->fresh_children, priv->child_count);
+        afr_inode_set_read_ctx (this, sh->inode, sh->source,
+                                sh->fresh_children);
+
 
 heal:
         afr_sh_entry_sync_prepare (frame, this);
@@ -2208,7 +2225,7 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                 if (op_ret != -1) {
                         sh->xattr[child_index] = dict_ref (xattr);
                         sh->buf[child_index] = *buf;
-                        sh->child_success[sh->success_count] = child_index;
+                        sh->success_children[sh->success_count] = child_index;
                         sh->success_count++;
                 }
         }
@@ -2258,8 +2275,7 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-        for (i = 0; i < priv->child_count; i++)
-                sh->child_success[i] = -1;
+        afr_reset_children (sh->success_children, priv->child_count);
         sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {

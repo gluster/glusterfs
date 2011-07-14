@@ -407,24 +407,31 @@ void
 afr_update_read_child (call_frame_t *frame, xlator_t *this, inode_t *inode,
                        afr_transaction_type type)
 {
-        int           curr_read_child = -1;
-        int           new_read_child = -1;
+        int             curr_read_child = -1;
+        int             new_read_child = -1;
         afr_private_t   *priv = NULL;
-        afr_local_t  *local = NULL;
-        int         **pending = NULL;
-        int           idx = 0;
+        afr_local_t     *local = NULL;
+        int             **pending = NULL;
+        int             idx = 0;
+        int32_t         *fresh_children = NULL;
+        size_t          success_count = 0;
 
         idx = afr_index_for_transaction_type (type);
 
         priv = this->private;
         local = frame->local;
-        curr_read_child = afr_read_child (this, inode);
+        curr_read_child = afr_inode_get_read_ctx (this, inode, NULL);
         pending = local->pending;
 
-        if (pending[curr_read_child][idx] != 0)
-                return;
+        GF_ASSERT (curr_read_child >= 0);
 
-        /* need to set new read_child */
+        if (pending[curr_read_child][idx] != 0)
+                goto out;
+
+        fresh_children = GF_CALLOC (priv->child_count, sizeof (*fresh_children),
+                                    gf_afr_mt_int32_t);
+        if (!fresh_children)
+                goto out;
         for (new_read_child = 0; new_read_child < priv->child_count;
              new_read_child++) {
 
@@ -435,15 +442,16 @@ afr_update_read_child (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 if (pending[new_read_child][idx] == 0)
                         /* op just failed */
                         continue;
-
-                break;
+                fresh_children[success_count] = new_read_child;
+                success_count++;
         }
 
-        if (new_read_child == priv->child_count)
-                /* all children uneligible. leave as-is */
-                return;
-
-        afr_set_read_child (this, inode, new_read_child);
+        afr_inode_set_read_ctx (this, inode, fresh_children[0],
+                                fresh_children);
+out:
+        if (fresh_children)
+                GF_FREE (fresh_children);
+        return;
 }
 
 

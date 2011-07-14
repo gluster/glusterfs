@@ -134,7 +134,15 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
 
-        read_child = afr_read_child (this, loc->inode);
+        local->fresh_children = GF_CALLOC (priv->child_count,
+                                          sizeof (*local->fresh_children),
+                                          gf_afr_mt_int32_t);
+        if (local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
 
         if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
@@ -252,7 +260,14 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         frame->local = local;
 
-        read_child = afr_read_child (this, loc->inode);
+        local->fresh_children = GF_CALLOC (priv->child_count,
+                                          sizeof (*local->fresh_children),
+                                          gf_afr_mt_int32_t);
+        if (local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
 
         if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
@@ -375,7 +390,14 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
         VALIDATE_OR_GOTO (fd->inode, out);
 
-        read_child = afr_read_child (this, fd->inode);
+        local->fresh_children = GF_CALLOC (priv->child_count,
+                                          sizeof (*local->fresh_children),
+                                          gf_afr_mt_int32_t);
+        if (local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        read_child = afr_inode_get_read_ctx (this, fd->inode, local->fresh_children);
 
         if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
@@ -494,7 +516,14 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
         frame->local = local;
 
-        read_child = afr_read_child (this, loc->inode);
+        local->fresh_children = GF_CALLOC (priv->child_count,
+                                          sizeof (*local->fresh_children),
+                                          gf_afr_mt_int32_t);
+        if (local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
 
         if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
@@ -879,7 +908,14 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        read_child = afr_read_child (this, loc->inode);
+        local->fresh_children = GF_CALLOC (priv->child_count,
+                                          sizeof (*local->fresh_children),
+                                          gf_afr_mt_int32_t);
+        if (local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
 
         if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
@@ -1020,7 +1056,14 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
         frame->local = local;
 
-        read_child = afr_read_child (this, fd->inode);
+        local->fresh_children = GF_CALLOC (priv->child_count,
+                                          sizeof (*local->fresh_children),
+                                          gf_afr_mt_int32_t);
+        if (local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        read_child = afr_inode_get_read_ctx (this, fd->inode, local->fresh_children);
 
         if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;

@@ -1536,7 +1536,14 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        read_child = afr_read_child (this, loc->inode);
+        local->fresh_children = GF_CALLOC (priv->child_count,
+                                          sizeof (*local->fresh_children),
+                                          gf_afr_mt_int32_t);
+        if (local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
 
         if (read_child >= 0) {
                 call_child = read_child;
