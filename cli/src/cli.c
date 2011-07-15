@@ -328,6 +328,11 @@ cli_opt_parse (char *opt, struct cli_state *state)
 {
         char *oarg;
 
+        if (strcmp (opt, "version") == 0) {
+                puts (argp_program_version);
+                exit (0);
+        }
+
         oarg = strtail (opt, "mode=");
         if (oarg) {
                 if (strcmp (oarg, "script") == 0) {
