@@ -569,6 +569,65 @@ xlator_set_type_virtual (xlator_t *xl, const char *type)
                 return -1;
 }
 
+int32_t
+xlator_volopt_dynload (char *xlator_type, void **dl_handle,
+                    volume_opt_list_t *opt_list)
+{
+        int                     ret = -1;
+        char                    *name = NULL;
+        void                    *handle = NULL;
+        volume_opt_list_t       *vol_opt = NULL;
+
+        GF_VALIDATE_OR_GOTO ("xlator", xlator_type, out);
+
+        GF_ASSERT (dl_handle);
+
+        if (*dl_handle)
+                if (dlclose (*dl_handle))
+                        gf_log ("xlator", GF_LOG_WARNING, "Unable to close "
+                                  "previously opened handle( may be stale)."
+                                  "Ignoring the invalid handle");
+
+        ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xlator_type);
+        if (-1 == ret) {
+                gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
+                goto out;
+        }
+
+        ret = -1;
+
+        gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
+
+        handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
+        if (!handle) {
+                gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
+                goto out;
+        }
+        *dl_handle = handle;
+
+        INIT_LIST_HEAD (&opt_list->list);
+
+        vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                         gf_common_mt_volume_opt_list_t);
+
+        if (!vol_opt) {
+                goto out;
+        }
+
+        if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
+                dlerror ();
+                gf_log ("xlator", GF_LOG_DEBUG,
+                         "Strict option validation not enforced -- neglecting");
+        }
+        list_add_tail (&vol_opt->list, &opt_list->list);
+
+        ret = 0;
+ out:
+        gf_log ("xlator", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
 
 int32_t
 xlator_dynload (xlator_t *xl)
@@ -1225,4 +1284,52 @@ glusterd_check_log_level (const char *value)
                         "are DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
 
         return log_level;
+}
+
+int
+xlator_get_volopt_info (struct list_head *opt_list, char *key, char **def_val,
+                         char **descr)
+{
+
+        int                     index = 0;
+        int                     ret = -1;
+        volume_opt_list_t       *vol_list = NULL;
+        volume_option_t         *opt = NULL;
+
+        if (!opt_list || !key || !def_val ) {
+                gf_log ("", GF_LOG_WARNING, " Parameters to the function not "
+                         "valid");
+                ret = -1;
+                goto out;
+        }
+
+        if (list_empty (opt_list)) {
+                gf_log ("xlator", GF_LOG_WARNING, "No elements in Volume option"
+                         " list");
+                ret = -1;
+                goto out;
+        }
+
+
+        vol_list = list_entry (opt_list->next, volume_opt_list_t, list);
+
+        opt = vol_list->given_opt;
+
+        for (index = 0; opt[index].key && opt[index].key[0] ; index++) {
+                if (strncmp (key, opt[index].key[0], strlen (key)))
+                        continue;
+
+                *def_val = opt[index].default_value;
+                if (descr)
+                        *descr = opt[index].description;
+                ret = 0;
+                goto out;
+        }
+
+        ret = -1;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
 }

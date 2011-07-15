@@ -1,4 +1,5 @@
 dnl Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
+
 dnl This file is part of GlusterFS.
 dnl
 dnl GlusterFS is free software; you can redistribute it and/or modify
@@ -318,6 +319,15 @@ AC_SUBST(SYNCDAEMON_COMPILE)
 AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
 
+#check if libxml is present if so enable HAVE_LIB_XML
+echo -n "checking if libxml2 is present... "
+
+PKG_CHECK_MODULES([LIBXML2], [libxml-2.0 >= 2.6.19],
+                  [echo "yes (features requiring libxml2 enabled)"  AC_DEFINE(HAVE_LIB_XML, 1, [define if libxml2 is present])],
+                  [echo "no"] )
+
+AC_SUBST(LIBXML2_CFLAGS)
+AC_SUBST(LIBXML2_LIBS)
 
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality

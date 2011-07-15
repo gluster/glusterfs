@@ -370,7 +370,7 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (!dict)
                 goto out;
 
-        if (wordcount < 4)
+        if (wordcount < 3)
                 goto out;
 
         volname = (char *)words[2];
@@ -382,6 +382,11 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
+        if (!strcmp (volname, "help") && !words[3] && !words[4])
+                ret = dict_set_str (dict, "help", volname);
+
+        if (!strcmp (volname, "help-xml") && !words[3] && !words[4])
+                ret = dict_set_str (dict, "help-xml", volname);
 
         for (i = 3; i < wordcount; i+=2) {
 

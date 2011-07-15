@@ -1113,6 +1113,39 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         if (!val_dict)
                 goto out;
 
+        ret = dict_get_int32 (dict, "count", &dict_count);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
+                goto out;
+        }
+
+        if ( dict_count == 0 ) {
+                /*No options would be specified of volume set help */
+                if (dict_get (dict, "help" ))  {
+                        ret = 0;
+                        goto out;
+                }
+
+                if (dict_get (dict, "help-xml" )) {
+
+#if (HAVE_LIB_XML)
+                        ret = 0;
+                        goto out;
+#else
+                        ret  = -1;
+                        gf_log ("", GF_LOG_ERROR, "libxml not present in the"
+                                   "system");
+                        *op_errstr = gf_strdup ("Error: xml libraries not "
+                                                "present to produce xml-output");
+                        goto out;
+#endif
+                }
+                gf_log ("", GF_LOG_ERROR, "No options received ");
+                *op_errstr = gf_strdup ("Options not specified");
+                ret = -1;
+                goto out;
+        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -1121,7 +1154,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         }
 
         exists = glusterd_check_volume_exists (volname);
-
         if (!exists) {
                 snprintf (errstr, sizeof (errstr), "Volume %s does not exist",
                           volname);
@@ -1136,27 +1168,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
         }
-
-        ret = dict_get_int32 (dict, "count", &dict_count);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
-                goto out;
-        }
-
-        if ( dict_count == 1 ) {
-                if (dict_get (dict, "history" )) {
-                        ret = 0;
-                        goto out;
-                }
-
-                gf_log ("", GF_LOG_ERROR, "No options received ");
-                *op_errstr = gf_strdup ("Options not specified");
-                ret = -1;
-                goto out;
-        }
-
-
 
 	for ( count = 1; ret != 1 ; count++ ) {
                 global_opt = _gf_false;
@@ -3874,6 +3885,25 @@ glusterd_restart_brick_servers (glusterd_volinfo_t *volinfo)
 }
 
 static int
+glusterd_volset_help (dict_t *dict)
+{
+        int                     ret = -1;
+        gf_boolean_t            xml_out = _gf_false;
+
+        if (dict_get (dict, "help" ))
+                xml_out = _gf_false;
+        else if (dict_get (dict, "help-xml" ))
+                xml_out = _gf_true;
+        else
+                goto out;
+
+        ret = glusterd_get_volopt_content (xml_out);
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static int
 glusterd_op_set_volume (dict_t *dict)
 {
         int                                      ret = 0;
@@ -3888,7 +3918,8 @@ glusterd_op_set_volume (dict_t *dict)
 	char					*value = NULL;
 	char					 str[50] = {0, };
         gf_boolean_t                             global_opt    = _gf_false;
-        glusterd_volinfo_t                       *voliter = NULL;
+        glusterd_volinfo_t                      *voliter = NULL;
+        int32_t                                  dict_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -3896,8 +3927,21 @@ glusterd_op_set_volume (dict_t *dict)
         priv = this->private;
         GF_ASSERT (priv);
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_int32 (dict, "count", &dict_count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
+                goto out;
+        }
 
+        if ( dict_count == 0 ) {
+                ret = glusterd_volset_help (dict);
+                if (ret)
+                        gf_log ("glusterd", GF_LOG_ERROR, "Volume set help"
+                                                        "internal error");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
@@ -3983,7 +4027,6 @@ glusterd_op_set_volume (dict_t *dict)
                 }
         }
 
-
         if ( count == 1 ) {
                 gf_log ("", GF_LOG_ERROR, "No options received ");
                 ret = -1;
@@ -4061,11 +4104,8 @@ glusterd_op_set_volume (dict_t *dict)
                 }
         }
 
-
-
         ret = 0;
-
-out:
+ out:
         if (key_fixed)
                 GF_FREE (key_fixed);
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);

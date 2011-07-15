@@ -787,6 +787,7 @@ typedef struct volume_options {
         char                *value[ZR_OPTION_MAX_ARRAY_SIZE];
                                    /* If specified, will check for one of
 				      the value from this array */
+        char                *default_value;
 	char                *description; /* about the key */
 } volume_option_t;
 
@@ -876,6 +877,11 @@ int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 int xlator_validate_rec (xlator_t *xlator, char **op_errstr);
 int graph_reconf_validateopt (glusterfs_graph_t *graph, char **op_errstr);
 int glusterd_check_log_level (const char *value);
+int32_t xlator_volopt_dynload (char *xlator_type, void **dl_handle,
+                    volume_opt_list_t *vol_opt_handle);
+int xlator_get_volopt_info (struct list_head *opt_list, char *key,
+                            char **def_val, char **descr);
+
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 
