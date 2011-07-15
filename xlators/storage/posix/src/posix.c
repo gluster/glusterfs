@@ -4037,6 +4037,97 @@ posix_fentrylk (call_frame_t *frame, xlator_t *this,
 }
 
 
+int
+__posix_fill_readdir (DIR *dir, off_t off, size_t size, gf_dirent_t *entries,
+                      const char *real_path, const char *base_path)
+{
+        off_t     in_case = -1;
+        size_t    filled = 0;
+        int           ret = 0;
+        int             count = 0;
+        struct dirent  *entry          = NULL;
+        int32_t               this_size      = -1;
+        gf_dirent_t          *this_entry     = NULL;
+        char                  hidden_path[PATH_MAX] = {0, };
+        struct stat           statbuf        = {0, };
+
+        if (!off) {
+                rewinddir (dir);
+        } else {
+                seekdir (dir, off);
+        }
+
+        while (filled <= size) {
+                in_case = telldir (dir);
+
+                if (in_case == -1) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "telldir failed on dir=%p: %s",
+                                dir, strerror (errno));
+                        goto out;
+                }
+
+                errno = 0;
+                entry = readdir (dir);
+
+                if (!entry) {
+                        if (errno == EBADF) {
+                                gf_log (THIS->name, GF_LOG_WARNING,
+                                        "readdir failed on dir=%p: %s",
+                                        dir, strerror (errno));
+                                goto out;
+                        }
+                        break;
+                }
+
+                if ((!strcmp (real_path, base_path))
+                    && (!strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)))
+                        continue;
+
+                if ((!strcmp (real_path, base_path))
+                    && (!strncmp (GF_HIDDEN_PATH, entry->d_name,
+                                  strlen (GF_HIDDEN_PATH)))) {
+                        snprintf (hidden_path, PATH_MAX, "%s/%s", real_path,
+                                  entry->d_name);
+                        ret = lstat (hidden_path, &statbuf);
+                        if (!ret && S_ISDIR (statbuf.st_mode))
+                                continue;
+                }
+
+                this_size = max (sizeof (gf_dirent_t),
+                                 sizeof (gfs3_dirplist))
+                        + strlen (entry->d_name) + 1;
+
+                if (this_size + filled > size) {
+                        seekdir (dir, in_case);
+                        break;
+                }
+
+                this_entry = gf_dirent_for_name (entry->d_name);
+
+                if (!this_entry) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "could not create gf_dirent for entry %s: (%s)",
+                                entry->d_name, strerror (errno));
+                        goto out;
+                }
+                this_entry->d_off = telldir (dir);
+                this_entry->d_ino = entry->d_ino;
+
+                list_add_tail (&this_entry->list, &entries->list);
+
+                filled += this_size;
+                count ++;
+        }
+
+        if ((!readdir (dir) && (errno == 0)))
+                /* Indicate EOF */
+                errno = ENOENT;
+out:
+        return count;
+}
+
+
 int32_t
 posix_do_readdir (call_frame_t *frame, xlator_t *this,
                   fd_t *fd, size_t size, off_t off, int whichop)
@@ -4045,15 +4136,10 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         struct posix_fd      *pfd            = NULL;
         DIR                  *dir            = NULL;
         int                   ret            = -1;
-        size_t                filled         = 0;
-	int                   count          = 0;
+        int                   count          = 0;
         int32_t               op_ret         = -1;
         int32_t               op_errno       = 0;
-        gf_dirent_t          *this_entry     = NULL;
-	gf_dirent_t           entries;
-        struct dirent        *entry          = NULL;
-        off_t                 in_case        = -1;
-        int32_t               this_size      = -1;
+        gf_dirent_t           entries;
         char                 *real_path      = NULL;
         int                   real_path_len  = -1;
         char                 *entry_path     = NULL;
@@ -4062,8 +4148,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         struct iatt           stbuf          = {0, };
         char                  base_path[PATH_MAX] = {0,};
         gf_dirent_t          *tmp_entry      = NULL;
-        struct stat           statbuf        = {0, };
-        char                  hidden_path[PATH_MAX] = {0, };
+
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -4117,93 +4202,26 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-
-        if (!off) {
-                rewinddir (dir);
-        } else {
-                seekdir (dir, off);
+        LOCK (&fd->lock);
+        {
+                count = __posix_fill_readdir (dir, off, size, &entries,
+                                              real_path, base_path);
         }
+        UNLOCK (&fd->lock);
 
-        while (filled <= size) {
-                in_case = telldir (dir);
-
-                if (in_case == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-				"telldir failed on dir=%p: %s",
-                                dir, strerror (errno));
-                        goto out;
-                }
-
-                errno = 0;
-                entry = readdir (dir);
-
-                if (!entry) {
-                        if (errno == EBADF) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_DEBUG,
-					"readdir failed on dir=%p: %s",
-                                        dir, strerror (op_errno));
-                                goto out;
-                        }
-                        break;
-                }
-
-                if ((!strcmp(real_path, base_path))
-                    && (!strcmp(entry->d_name, GF_REPLICATE_TRASH_DIR)))
-                        continue;
-
-                if ((!strcmp (real_path, base_path))
-                    && (!strncmp (GF_HIDDEN_PATH, entry->d_name, 
-                        strlen(GF_HIDDEN_PATH)))) {
-                        snprintf (hidden_path, PATH_MAX, "%s/%s", real_path,
-                                  entry->d_name);
-                        ret = lstat (hidden_path, &statbuf);
-                        if (!ret && S_ISDIR (statbuf.st_mode))
-                                continue;
-                }
-                this_size = max (sizeof (gf_dirent_t),
-                                 sizeof (gfs3_dirplist))
-                        + strlen (entry->d_name) + 1;
-
-                if (this_size + filled > size) {
-                        seekdir (dir, in_case);
-                        break;
-                }
-
-                stbuf.ia_ino = entry->d_ino;
-
-                entry->d_ino = stbuf.ia_ino;
-
-                this_entry = gf_dirent_for_name (entry->d_name);
-
-                if (!this_entry) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "could not create gf_dirent for entry %s: (%s)",
-                                entry->d_name, strerror (errno));
-                        goto out;
-                }
-                this_entry->d_off = telldir (dir);
-                this_entry->d_ino = entry->d_ino;
-
-                list_add_tail (&this_entry->list, &entries.list);
-
-                filled += this_size;
-                count ++;
-        }
+        /* pick ENOENT to indicate EOF */
+        op_errno = errno;
 
         if (whichop == GF_FOP_READDIRP) {
                 list_for_each_entry (tmp_entry, &entries.list, list) {
-                        strcpy (entry_path + real_path_len + 1, 
+                        strcpy (entry_path + real_path_len + 1,
                                 tmp_entry->d_name);
                         posix_lstat_with_gfid (this, entry_path, &stbuf);
                         tmp_entry->d_stat = stbuf;
                 }
         }
+
         op_ret = count;
-        errno = 0;
-        if ((!readdir (dir) && (errno == 0)))
-                op_errno = ENOENT;
 
  out:
         STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries);
