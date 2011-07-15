@@ -40,6 +40,8 @@ ioc_get_priority (ioc_table_t *table, const char *path);
 uint32_t
 ioc_get_priority (ioc_table_t *table, const char *path);
 
+struct volume_options options[];
+
 
 inline uint32_t
 ioc_hashfn (void *data, int len)
@@ -553,7 +555,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 ioc_inode_lock (ioc_inode);
                 {
                         if ((table->min_file_size > ioc_inode->ia_size)
-                            || ((table->max_file_size >= 0)
+                            || ((table->max_file_size > 0)
                                 && (table->max_file_size < ioc_inode->ia_size))) {
                                 fd_ctx_set (fd, this, 1);
                         }
@@ -638,7 +640,7 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ioc_inode->ia_size = buf->ia_size;
 
                         if ((table->min_file_size > ioc_inode->ia_size)
-                            || ((table->max_file_size >= 0)
+                            || ((table->max_file_size > 0)
                                 && (table->max_file_size < ioc_inode->ia_size))) {
                                 ret = fd_ctx_set (fd, this, 1);
                         }
@@ -1823,11 +1825,12 @@ int32_t
 init (xlator_t *this)
 {
 	ioc_table_t     *table = NULL;
-	dict_t          *options = this->options;
+	dict_t          *xl_options = this->options;
 	uint32_t         index = 0;
 	char            *cache_size_string = NULL, *tmp = NULL;
         int32_t          ret = -1;
         glusterfs_ctx_t *ctx = NULL;
+        char            *def_val = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1849,10 +1852,23 @@ init (xlator_t *this)
 
 	table->xl = this;
 	table->page_size = this->ctx->page_size;
-	table->cache_size = IOC_CACHE_SIZE;
+        if (xlator_get_volopt_info (&this->volume_options, "cache-size",
+                                     &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of cache-size "
+                         "not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2bytesize (def_val, &table->cache_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "cache-size corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
-	if (dict_get (options, "cache-size"))
-		cache_size_string = data_to_str (dict_get (options,
+        if (dict_get (xl_options, "cache-size"))
+		cache_size_string = data_to_str (dict_get (xl_options,
 							   "cache-size"));
 	if (cache_size_string) {
 		if (gf_string2bytesize (cache_size_string,
@@ -1868,11 +1884,24 @@ init (xlator_t *this)
 			"using cache-size %"PRIu64"", table->cache_size);
 	}
 
-	table->cache_timeout = 1;
+        if (xlator_get_volopt_info (&this->volume_options, "cache-timeout",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "cache-timeout not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2int32 (def_val, &table->cache_timeout)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "cache-timeout corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
-	if (dict_get (options, "cache-timeout")) {
+        if (dict_get (xl_options, "cache-timeout")){
 		table->cache_timeout =
-			data_to_uint32 (dict_get (options,
+			data_to_uint32 (dict_get (xl_options,
 						  "cache-timeout"));
 		gf_log (this->name, GF_LOG_TRACE,
 			"Using %d seconds to revalidate cache",
@@ -1881,8 +1910,8 @@ init (xlator_t *this)
 
 	INIT_LIST_HEAD (&table->priority_list);
 	table->max_pri = 1;
-	if (dict_get (options, "priority")) {
-		char *option_list = data_to_str (dict_get (options,
+        if (dict_get (xl_options, "priority")) {
+		char *option_list = data_to_str (dict_get (xl_options,
 							   "priority"));
 		gf_log (this->name, GF_LOG_TRACE,
 			"option path %s", option_list);
@@ -1896,9 +1925,25 @@ init (xlator_t *this)
 	}
 	table->max_pri ++;
 
-        table->min_file_size = 0;
+        if (xlator_get_volopt_info (&this->volume_options, "min-file-size",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "min-file-size not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2bytesize (def_val,
+                                        (uint64_t *) &table->min_file_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "min-file-size corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
-        tmp = data_to_str (dict_get (options, "min-file-size"));
+        tmp = NULL;
+        if (dict_get (xl_options, "min-file-size"))
+                tmp = data_to_str (dict_get (xl_options, "min-file-size"));
         if (tmp != NULL) {
 		if (gf_string2bytesize (tmp,
                                         (uint64_t *)&table->min_file_size) != 0) {
@@ -1912,8 +1957,25 @@ init (xlator_t *this)
 			"using min-file-size %"PRIu64"", table->min_file_size);
         }
 
-        table->max_file_size = -1;
-        tmp = data_to_str (dict_get (options, "max-file-size"));
+        if (xlator_get_volopt_info (&this->volume_options, "max-file-size",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "max-file-size not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2bytesize (def_val,
+                                        (uint64_t *) &table->max_file_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "max-file-size corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        tmp = NULL;
+        if (dict_get (xl_options, "max-file-size"))
+                tmp = data_to_str (dict_get (xl_options, "max-file-size"));
         if (tmp != NULL) {
                 if (gf_string2bytesize (tmp,
                                         (uint64_t *)&table->max_file_size) != 0) {
@@ -2046,27 +2108,40 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
 	{ .key  = {"priority"},
-	  .type = GF_OPTION_TYPE_ANY
+	  .type = GF_OPTION_TYPE_ANY,
+          .default_value = "",
+          .description = "Assigns priority to filenames with specific "
+                         "patterns so that when a page needs to be ejected "
+                         "out of the cache, the page of a file whose "
+                         "priority is the lowest will be ejected earlier"
 	},
 	{ .key  = {"cache-timeout", "force-revalidate-timeout"},
 	  .type = GF_OPTION_TYPE_INT,
 	  .min  = 0,
-	  .max  = 60
+	  .max  = 60,
+          .default_value = "1",
+          .description = "The cached data for a file will be retained till "
+                         "'cache-refresh-timeout' seconds, after which data "
+                         "re-validation is performed."
 	},
 	{ .key  = {"cache-size"},
 	  .type = GF_OPTION_TYPE_SIZET,
 	  .min  = 4 * GF_UNIT_MB,
-	  .max  = 6 * GF_UNIT_GB
+          .max  = 6 * GF_UNIT_GB,
+          .default_value = "32MB",
+          .description = "Size of the read cache."
 	},
         { .key  = {"min-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
-          .min  = -1,
-          .max  = -1
+          .default_value = "0",
+          .description = "Minimum file size which would be cached by the "
+                         "io-cache translator."
         },
         { .key  = {"max-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
-          .min  = -1,
-          .max  = -1
+          .default_value = "0",
+          .description = "Maximum file size which would be cached by the "
+                         "io-cache translator."
         },
 	{ .key = {NULL} },
 };
