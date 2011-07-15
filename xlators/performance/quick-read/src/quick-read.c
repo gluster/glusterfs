@@ -22,6 +22,8 @@
 
 #define QR_DEFAULT_CACHE_SIZE 134217728
 
+struct volume_options options[];
+
 void
 qr_local_free (qr_local_t *local)
 {
@@ -2653,6 +2655,7 @@ init (xlator_t *this)
         int32_t       ret  = -1, i = 0;
         qr_private_t *priv = NULL;
         qr_conf_t    *conf = NULL;
+        char         *def_val = NULL;
 
         if (!this->children || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2705,7 +2708,21 @@ init (xlator_t *this)
                 }
         }
 
-        conf->cache_size = QR_DEFAULT_CACHE_SIZE;
+        if (xlator_get_volopt_info (&this->volume_options, "cache-size",
+                                   &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "cache-size not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2bytesize (def_val, &conf->cache_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "cache-size corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         ret = dict_get_str (this->options, "cache-size", &str);
         if (ret == 0) {
                 ret = gf_string2bytesize (str, &conf->cache_size);
@@ -2802,6 +2819,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 0,
           .max  = 6 * GF_UNIT_GB,
+          .default_value = "128MB",
+          .description = "Size of the read cache."
         },
         { .key  = {"cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
