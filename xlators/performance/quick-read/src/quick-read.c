@@ -572,8 +572,6 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
         local = frame->local;
         if (local != NULL) {
-                local->op_ret = op_ret;
-                local->op_errno = op_errno;
                 is_open = local->is_open;
         }
 
@@ -642,6 +640,8 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 out:
         if (is_open) {
                 QR_STACK_UNWIND (open, frame, op_ret, op_errno, fd);
+        } else {
+                STACK_DESTROY (frame->root);
         }
 
         return 0;
@@ -879,6 +879,10 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
         /* this is actually unwind of readv */
+        if ((local != NULL) && (local->stub != NULL)) {
+                call_stub_destroy (local->stub);
+        }
+
         QR_STACK_UNWIND (readv, frame, op_ret, op_errno, NULL, -1, NULL, NULL);
         return 0;
 }
@@ -919,15 +923,16 @@ int
 qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
                    call_stub_t *stub)
 {
-        int          ret           = -1;
-        int          flags         = 0;
-        uint64_t     value         = 0;
-        loc_t        loc           = {0, };
-        char        *path          = NULL;
-        qr_local_t  *local         = NULL;
-        qr_fd_ctx_t *qr_fd_ctx     = NULL;
-        call_stub_t *validate_stub = NULL;
-        char         need_open     = 0, can_wind = 0;
+        int           ret           = -1;
+        int           flags         = 0;
+        uint64_t      value         = 0;
+        loc_t         loc           = {0, };
+        char         *path          = NULL;
+        qr_local_t   *local         = NULL;
+        qr_fd_ctx_t  *qr_fd_ctx     = NULL;
+        call_stub_t  *validate_stub = NULL;
+        char          need_open     = 0, can_wind = 0, validate_cbk_called = 0;
+        call_frame_t *open_frame    = NULL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, out);
@@ -972,7 +977,9 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                                                 fd);
                                 if (validate_stub == NULL) {
                                         ret = -1;
-                                        qr_fd_ctx->open_in_transit = 0;
+                                        if (need_open) {
+                                                qr_fd_ctx->open_in_transit = 0;
+                                        }
                                         goto unlock;
                                 }
 
@@ -991,13 +998,22 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
         if (need_open) {
-                ret = qr_loc_fill (&loc, fd->inode, path);
-                if (ret == -1) {
-                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        validate_cbk_called = 1;
                         goto out;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                ret = qr_loc_fill (&loc, fd->inode, path);
+                if (ret == -1) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, errno);
+                        validate_cbk_called = 1;
+                        STACK_DESTROY (open_frame->root);
+                        goto out;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open,
                             &loc, flags, fd, qr_fd_ctx->wbflags);
 
@@ -1009,6 +1025,13 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = 0;
 out:
+        if ((ret < 0) && !validate_cbk_called) {
+                if (frame->local == NULL) {
+                        call_stub_destroy (stub);
+                }
+
+                qr_validate_cache_cbk (frame, NULL, this, -1, errno, NULL);
+        }
         return ret;
 }
 
@@ -1093,6 +1116,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         char               just_validated = 0;
         qr_private_t      *priv           = NULL;
         qr_inode_table_t  *table          = NULL;
+        call_frame_t      *open_frame     = NULL;
 
         op_ret = 0;
 
@@ -1239,13 +1263,7 @@ out:
                         goto out;
                 }
 
-                op_ret = qr_validate_cache (frame, this, fd, stub);
-                if (op_ret == -1) {
-                        need_unwind = 1;
-                        op_errno = errno;
-                        call_stub_destroy (stub);
-                        goto out;
-                }
+                qr_validate_cache (frame, this, fd, stub);
         } else {
                 if (qr_fd_ctx) {
                         LOCK (&qr_fd_ctx->lock);
@@ -1309,7 +1327,14 @@ out:
                                 goto ret;
                         }
 
-                        STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                        open_frame = create_frame (this, this->ctx->pool);
+                        if (open_frame == NULL) {
+                                qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                                qr_loc_wipe (&loc);
+                                goto ret;
+                        }
+
+                        STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->open,
                                     &loc, flags, fd, qr_fd_ctx->wbflags);
 
@@ -1393,17 +1418,18 @@ int32_t
 qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
            int32_t count, off_t off, struct iobref *iobref)
 {
-        uint64_t          value     = 0;
-        int               flags     = 0;
-        call_stub_t      *stub      = NULL;
-        char             *path      = NULL;
-        loc_t             loc       = {0, };
-        qr_inode_t       *qr_inode  = NULL;
-        qr_fd_ctx_t      *qr_fd_ctx = NULL;
-        int32_t           op_ret    = -1, op_errno = -1, ret = -1;
-        char              can_wind  = 0, need_unwind = 0, need_open = 0;
-        qr_private_t     *priv      = NULL;
-        qr_inode_table_t *table     = NULL;
+        uint64_t          value      = 0;
+        int               flags      = 0;
+        call_stub_t      *stub       = NULL;
+        char             *path       = NULL;
+        loc_t             loc        = {0, };
+        qr_inode_t       *qr_inode   = NULL;
+        qr_fd_ctx_t      *qr_fd_ctx  = NULL;
+        int32_t           op_ret     = -1, op_errno = -1, ret = -1;
+        char              can_wind   = 0, need_unwind = 0, need_open = 0;
+        qr_private_t     *priv       = NULL;
+        qr_inode_table_t *table      = NULL;
+        call_frame_t     *open_frame = NULL;
 
         priv = this->private;
         table = &priv->table;
@@ -1487,7 +1513,14 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
@@ -1551,14 +1584,15 @@ unwind:
 int32_t
 qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
-        uint64_t     value     = 0;
-        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
-        call_stub_t *stub      = NULL;
-        loc_t        loc       = {0, };
-        char        *path      = NULL;
-        int          flags     = 0;
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        uint64_t      value      = 0;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        call_stub_t  *stub       = NULL;
+        loc_t         loc        = {0, };
+        char         *path       = NULL;
+        int           flags      = 0;
+        call_frame_t *open_frame = NULL;
 
         GF_ASSERT (frame);
         if ((this == NULL) || (fd == NULL)) {
@@ -1633,7 +1667,14 @@ unwind:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
@@ -1703,14 +1744,15 @@ int32_t
 qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
              struct iatt *stbuf, int32_t valid)
 {
-        uint64_t     value     = 0;
-        int          flags     = 0;
-        call_stub_t *stub      = NULL;
-        char        *path      = NULL;
-        loc_t        loc       = {0, };
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
+        uint64_t      value      = 0;
+        int           flags      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         GF_ASSERT (frame);
         if ((this == NULL) || (fd == NULL)) {
@@ -1786,7 +1828,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
@@ -1854,14 +1903,15 @@ int32_t
 qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
               int32_t flags)
 {
-        uint64_t     value      = 0;
-        call_stub_t *stub       = NULL;
-        char        *path       = NULL;
-        loc_t        loc        = {0, };
-        int          open_flags = 0;
-        qr_fd_ctx_t *qr_fd_ctx  = NULL;
-        int32_t      ret        = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open  = 0, can_wind = 0, need_unwind = 0;
+        uint64_t      value      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        int           open_flags = 0;
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         GF_ASSERT (frame);
         if ((this == NULL) || (fd == NULL)) {
@@ -1938,7 +1988,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, open_flags,
                             fd, qr_fd_ctx->wbflags);
 
@@ -2005,14 +2062,15 @@ unwind:
 int32_t
 qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
 {
-        int          flags     = 0;
-        uint64_t     value     = 0;
-        call_stub_t *stub      = NULL;
-        char        *path      = NULL;
-        loc_t        loc       = {0, };
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
+        int           flags      = 0;
+        uint64_t      value      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         /*
          * FIXME: Can quick-read use the extended attributes stored in the
@@ -2093,7 +2151,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
@@ -2288,14 +2353,15 @@ int32_t
 qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
              const char *basename, entrylk_cmd cmd, entrylk_type type)
 {
-        int          flags     = 0;
-        uint64_t     value     = 0;
-        call_stub_t *stub      = NULL;
-        char        *path      = NULL;
-        loc_t        loc       = {0, };
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
+        int           flags      = 0;
+        uint64_t      value      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         if ((this == NULL) || (fd == NULL)) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
@@ -2372,7 +2438,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
@@ -2441,14 +2514,15 @@ int32_t
 qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
              int32_t cmd, struct gf_flock *lock)
 {
-        int          flags     = 0;
-        uint64_t     value     = 0;
-        call_stub_t *stub      = NULL;
-        char        *path      = NULL;
-        loc_t        loc       = {0, };
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
+        int           flags      = 0;
+        uint64_t      value      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         if ((this == NULL) || (fd == NULL)) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
@@ -2525,7 +2599,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
@@ -2590,14 +2671,15 @@ unwind:
 int32_t
 qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
-        uint64_t     value      = 0;
-        call_stub_t *stub       = NULL;
-        char        *path       = NULL;
-        loc_t        loc        = {0, };
-        int          open_flags = 0;
-        qr_fd_ctx_t *qr_fd_ctx  = NULL;
-        int32_t      ret        = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open  = 0, can_wind = 0, need_unwind = 0;
+        uint64_t      value      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        int           open_flags = 0;
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         if ((this == NULL) || (fd == NULL)) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
@@ -2671,7 +2753,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, open_flags,
                             fd, qr_fd_ctx->wbflags);
 
@@ -2793,15 +2882,16 @@ unwind:
 int32_t
 qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
-        int          flags     = 0;
-        uint64_t     value     = 0;
-        call_stub_t *stub      = NULL;
-        char        *path      = NULL;
-        loc_t        loc       = {0, };
-        qr_local_t  *local     = NULL;
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
+        int           flags      = 0;
+        uint64_t      value      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        qr_local_t   *local      = NULL;
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         GF_ASSERT (frame);
         if ((this == NULL) || (fd == NULL)) {
@@ -2878,7 +2968,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
@@ -2946,14 +3043,15 @@ int32_t
 qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
        struct gf_flock *lock)
 {
-        int          flags     = 0;
-        uint64_t     value     = 0;
-        call_stub_t *stub      = NULL;
-        char        *path      = NULL;
-        loc_t        loc       = {0, };
-        qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
-        char         need_open = 0, can_wind = 0, need_unwind = 0;
+        int           flags      = 0;
+        uint64_t      value      = 0;
+        call_stub_t  *stub       = NULL;
+        char         *path       = NULL;
+        loc_t         loc        = {0, };
+        qr_fd_ctx_t  *qr_fd_ctx  = NULL;
+        int32_t       ret        = -1, op_ret = -1, op_errno = EINVAL;
+        char          need_open  = 0, can_wind = 0, need_unwind = 0;
+        call_frame_t *open_frame = NULL;
 
         GF_ASSERT (frame);
         if ((this == NULL) || (fd == NULL)) {
@@ -3028,7 +3126,14 @@ out:
                         goto ret;
                 }
 
-                STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
+                open_frame = create_frame (this, this->ctx->pool);
+                if (open_frame == NULL) {
+                        qr_resume_pending_ops (qr_fd_ctx, -1, ENOMEM);
+                        qr_loc_wipe (&loc);
+                        goto ret;
+                }
+
+                STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, flags, fd,
                             qr_fd_ctx->wbflags);
 
