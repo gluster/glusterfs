@@ -30,6 +30,8 @@
 #endif
 #include "afr-common.c"
 
+struct volume_options options[];
+
 int32_t
 notify (xlator_t *this, int32_t event,
 	void *data, ...)
@@ -634,6 +636,7 @@ init (xlator_t *this)
 	char * strict_readdir  = NULL;
         char * inodelk_trace   = NULL;
         char * entrylk_trace   = NULL;
+        char * def_val         = NULL;
 
         int32_t background_count  = 0;
 	int32_t lock_server_count = 1;
@@ -697,7 +700,16 @@ init (xlator_t *this)
 		}
 	}
 
-        priv->data_self_heal_algorithm = "";
+        if (xlator_get_volopt_info (&this->volume_options,
+                                    "data-self-heal-algorithm", &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                " data-self-heal-algorithm not found");
+                ret = -1;
+                goto out;
+        } else {
+                priv->data_self_heal_algorithm = def_val;
+        }
+
 
         dict_ret = dict_get_str (this->options, "data-self-heal-algorithm",
                                  &algo);
@@ -706,7 +718,22 @@ init (xlator_t *this)
         }
 
 
-        priv->data_self_heal_window_size = 16;
+        if (xlator_get_volopt_info (&this->volume_options,
+                                    "data-self-heal-window-size",&def_val,
+                                    NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                          "data-self-heal-window-size not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2int32 (def_val,
+                                    (int *)&priv->data_self_heal_window_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "data-self-heal-window-size  corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
 	dict_ret = dict_get_int32 (this->options, "data-self-heal-window-size",
 				   &window_size);
@@ -1074,10 +1101,19 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL
 	},
         { .key  = {"data-self-heal-algorithm"},
-          .type = GF_OPTION_TYPE_STR
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
+          .description   = "Select between \"full\", \"diff\". The "
+                           "\"full\" algorithm copies the entire file from "
+                           "source to sink. The \"diff\" algorithm copies to "
+                           "sink only those blocks whose checksums don't match "
+                           "with those of source.",
+          .value = { "diff", "full" }
         },
         { .key  = {"data-self-heal-window-size"},
-          .type = GF_OPTION_TYPE_INT,
+          .default_value = "16",
+          .description = "Maximum number blocks per file for which self-heal "
+                         "process would be applied simultaneously.",
           .min  = 1,
           .max  = 1024
         },
