@@ -2182,6 +2182,18 @@ init (xlator_t *this)
                 goto out;
         }
 
+        if ((ret = pthread_cond_init(&conf->cond, NULL)) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pthread_cond_init failed (%d)", ret);
+                goto out;
+        }
+
+        if ((ret = pthread_mutex_init(&conf->mutex, NULL)) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pthread_mutex_init failed (%d)", ret);
+                goto out;
+        }
+
         set_stack_size (conf);
 
         thread_count = IOT_DEFAULT_THREADS;
