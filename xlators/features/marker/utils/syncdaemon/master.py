@@ -381,7 +381,15 @@ class Syncer(object):
                     break
                 time.sleep(0.5)
             pb.close()
-            pb.wakeup(self.slave.rsync(pb))
+            po = self.slave.rsync(pb)
+            if po.returncode == 0:
+                ret = True
+            elif po.returncode in (23, 24):
+                # partial transfer (cf. rsync(1)), that's normal
+                ret = False
+            else:
+                po.errfail()
+            pb.wakeup(ret)
 
     def add(self, e):
         while True:
