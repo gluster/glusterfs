@@ -2854,6 +2854,130 @@ qr_forget (xlator_t *this, inode_t *inode)
 }
 
 
+int32_t
+qr_inodectx_dump (xlator_t *this, inode_t *inode)
+{
+        qr_inode_t *qr_inode = NULL;
+        uint64_t    value    = 0;
+        int32_t     ret      = -1;
+        char        key[GF_DUMP_MAX_BUF_LEN]        = {0, };
+        char        key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        char        buf[256]                        = {0, };
+        struct tm  *tm                              = NULL;
+        ret = inode_ctx_get (inode, this, &value);
+        if (ret != 0) {
+                goto out;
+        }
+
+        qr_inode = (qr_inode_t *)(long)value;
+        if (qr_inode == NULL) {
+                goto out;
+        }
+
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.quick-read",
+                                "inodectx");
+        gf_proc_dump_add_section (key_prefix);
+
+        gf_proc_dump_build_key (key, key_prefix, "inode.gfid");
+        uuid_unparse (inode->gfid, buf);
+        gf_proc_dump_write (key, "%s", buf);
+
+        gf_proc_dump_build_key (key, key_prefix, "inode.ino");
+        gf_proc_dump_write (key, "%ld", inode->ino);
+
+        gf_proc_dump_build_key (key, key_prefix, "entire-file-cached");
+        gf_proc_dump_write (key, "%s", qr_inode->xattr ? "yes" : "no");
+
+        tm = localtime (&qr_inode->tv.tv_sec);
+        strftime (buf, 256, "%Y-%m-%d %H:%M:%S", tm);
+        snprintf (buf + strlen (buf), 256 - strlen (buf),
+                  ".%"GF_PRI_SUSECONDS, qr_inode->tv.tv_usec);
+
+        gf_proc_dump_build_key (key, key_prefix, "last-cache-validation-time");
+        gf_proc_dump_write (key, "%s", buf);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+qr_fdctx_dump (xlator_t *this, fd_t *fd)
+{
+        qr_fd_ctx_t *fdctx = NULL;
+        uint64_t     value = 0;
+        int32_t      ret   = 0, i = 0;
+        char         uuidbuf[256]                    = {0, };
+        char         key[GF_DUMP_MAX_BUF_LEN]        = {0, };
+        char         key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        call_stub_t *stub                            = NULL;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret != 0) {
+                goto out;
+        }
+
+        fdctx = (qr_fd_ctx_t *)(long)value;
+        if (fdctx == NULL) {
+                goto out;
+        }
+
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.quick-read",
+                                "fdctx");
+        gf_proc_dump_add_section (key_prefix);
+
+        gf_proc_dump_build_key (key, key_prefix, "fd");
+        gf_proc_dump_write (key, "%p", fd);
+
+        gf_proc_dump_build_key (key, key_prefix, "path");
+        gf_proc_dump_write (key, "%s", fdctx->path);
+
+        gf_proc_dump_build_key (key, key_prefix, "fd.inode.gfid");
+        uuid_unparse (fd->inode->gfid, uuidbuf);
+        gf_proc_dump_write (key, "%s", uuidbuf);
+
+        gf_proc_dump_build_key (key, key_prefix, "fd.inode.ino");
+        gf_proc_dump_write (key, "%ld", fd->inode->ino);
+
+        LOCK (&fdctx->lock);
+        {
+                gf_proc_dump_build_key (key, key_prefix, "opened");
+                gf_proc_dump_write (key, "%s", fdctx->opened ? "yes" : "no");
+
+                gf_proc_dump_build_key (key, key_prefix, "open-in-progress");
+                gf_proc_dump_write (key, "%s", fdctx->open_in_transit ?
+                                    "yes" : "no");
+
+                gf_proc_dump_build_key (key, key_prefix,
+                                        "caching-disabled (for this fd)");
+                gf_proc_dump_write (key, "%s", fdctx->disabled ? "yes" : "no");
+
+                gf_proc_dump_build_key (key, key_prefix, "flags");
+                gf_proc_dump_write (key, "%d", fdctx->flags);
+
+                gf_proc_dump_build_key (key, key_prefix, "wbflags");
+                gf_proc_dump_write (key, "%d", fdctx->wbflags);
+
+                list_for_each_entry (stub, &fdctx->waiting_ops, list) {
+                        gf_proc_dump_build_key (key, key_prefix,
+                                                "waiting-ops[%d].frame", i);
+                        gf_proc_dump_write (key, "%"PRId64,
+                                            stub->frame->root->unique);
+
+                        gf_proc_dump_build_key (key, key_prefix,
+                                                "waiting-ops[%d].fop", i);
+                        gf_proc_dump_write (key, "%s", gf_fop_list[stub->fop]);
+
+                        i++;
+                }
+        }
+        UNLOCK (&fdctx->lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 qr_priv_dump (xlator_t *this)
 {
@@ -3318,6 +3442,8 @@ struct xlator_cbks cbks = {
 
 struct xlator_dumpops dumpops = {
         .priv      =  qr_priv_dump,
+        .inodectx  =  qr_inodectx_dump,
+        .fdctx     =  qr_fdctx_dump
 };
 
 struct volume_options options[] = {
