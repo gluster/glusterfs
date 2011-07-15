@@ -1671,10 +1671,26 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 int
 build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
-        int ret = 0;
+        int                     ret = 0;
+        char                    *def_val = NULL;
 
         if (!conf)
                 return -1;
+
+        if (xlator_get_volopt_info (&this->volume_options, "frame-timeout",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "frame-timeout not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2int32 (def_val, &conf->rpc_conf.rpc_timeout)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "frame-timeout corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         ret = dict_get_int32 (this->options, "frame-timeout",
                               &conf->rpc_conf.rpc_timeout);
@@ -1682,10 +1698,6 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "setting frame-timeout to %d",
                         conf->rpc_conf.rpc_timeout);
-        } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "defaulting frame-timeout to 30mins");
-                conf->rpc_conf.rpc_timeout = 1800;
         }
 
         ret = dict_get_int32 (this->options, "remote-port",
@@ -1698,15 +1710,27 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                         "defaulting remote-port to 'auto'");
         }
 
+
+        if (xlator_get_volopt_info (&this->volume_options, "ping-timeout",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "ping-timeout not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2int32 (def_val, &conf->opt.ping_timeout)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "ping-timeout corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         ret = dict_get_int32 (this->options, "ping-timeout",
                               &conf->opt.ping_timeout);
         if (ret >= 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "setting ping-timeout to %d", conf->opt.ping_timeout);
-        } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "defaulting ping-timeout to 42");
-                conf->opt.ping_timeout = GF_UNIVERSAL_ANSWER;
         }
 
         ret = dict_get_str (this->options, "remote-subvolume",
@@ -2242,11 +2266,18 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_TIME,
           .min   = 0,
           .max   = 86400,
+          .default_value = "1800",
+          .description = "Time frame after which the (file) operation would be "
+                         "declared as dead, if the server does not respond for "
+                         "a particular (file) operation."
         },
         { .key   = {"ping-timeout"},
           .type  = GF_OPTION_TYPE_TIME,
           .min   = 1,
           .max   = 1013,
+          .default_value = "42",
+          .description = "Time duration for which the client waits to "
+                         "check if the server is responsive."
         },
         { .key   = {"client-bind-insecure"},
           .type  = GF_OPTION_TYPE_BOOL
