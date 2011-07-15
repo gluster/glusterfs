@@ -289,6 +289,7 @@ def main_i():
         return monitor()
 
     logging.info("syncing: %s" % " -> ".join(peers))
+    resource.Popen.init_errhandler()
     if remote:
         go_daemon = remote.connect_remote(go_daemon=go_daemon)
         if go_daemon:

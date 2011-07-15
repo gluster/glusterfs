@@ -146,6 +146,9 @@ def log_raise_exception(excont):
              ((isinstance(exc, OSError) or isinstance(exc, IOError)) and \
               exc.errno == EPIPE):
             logging.error('connection to peer is broken')
+            if hasattr(gconf, 'transport'):
+                gconf.transport.wait()
+                gconf.transport.terminate_geterr()
         elif isinstance(exc, OSError) and exc.errno == ENOTCONN:
             logging.error('glusterfs session went down')
         else:
