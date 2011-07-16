@@ -75,13 +75,15 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
         brick_list_len++;
         while (brick_index < wordcount) {
                 if (validate_brick_name ((char *)words[brick_index])) {
-                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                        cli_out ("Wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
                 } else {
                         delimiter = strrchr (words[brick_index], ':');
-                        cli_path_strip_trailing_slashes (delimiter + 1);
+                        ret = cli_canonicalize_path (delimiter + 1);
+                        if (ret)
+                                goto out;
                 }
 
                 if ((brick_list_len + strlen (words[brick_index]) + 1) > sizeof (brick_list)) {
