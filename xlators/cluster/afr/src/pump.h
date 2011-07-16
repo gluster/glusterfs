@@ -26,9 +26,6 @@
 #define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
 
-#define PUMP_PID 696969
-#define PUMP_LK_OWNER 696969
-
 #define IS_ROOT_PATH(path) (!strcmp (path, "/"))
 #define IS_ENTRY_CWD(entry) (!strcmp (entry, "."))
 #define IS_ENTRY_PARENT(entry) (!strcmp (entry, ".."))

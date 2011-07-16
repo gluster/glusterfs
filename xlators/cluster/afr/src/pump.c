@@ -29,6 +29,7 @@
 #include "afr-common.c"
 #include "defaults.c"
 
+static uint64_t pump_pid = 0;
 static int
 pump_mark_start_pending (xlator_t *this)
 {
@@ -425,7 +426,7 @@ gf_pump_traverse_directory (loc_t *loc)
 
         GF_ASSERT (loc->inode);
 
-	fd = fd_create (loc->inode, PUMP_PID);
+	fd = fd_create (loc->inode, pump_pid);
         if (!fd) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to create fd for %s", loc->path);
@@ -804,21 +805,22 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
 	priv = this->private;
         pump_priv = priv->pump_private;
 
-        if (!pump_frame->root->lk_owner)
-                pump_frame->root->lk_owner = PUMP_LK_OWNER;
+	pump_frame->root->lk_owner = (uint64_t) (unsigned long)pump_frame->root;
+	pump_pid = (uint64_t) (unsigned long)pump_frame->root;
 
 	ret = synctask_new (pump_priv->env, pump_task,
                             pump_task_completion,
                             pump_frame, NULL);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_ERROR,
                         "starting pump failed");
                 pump_change_state (this, PUMP_STATE_ABORT);
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "setting pump as started");
+        gf_log (this->name, GF_LOG_DEBUG,
+                "setting pump as started lk_owner: %"PRIu64" %"PRIu64,
+                pump_frame->root->lk_owner, pump_pid);
 
         priv->use_afr_in_pump = 1;
 out:
