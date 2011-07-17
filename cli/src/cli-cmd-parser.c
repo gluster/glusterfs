@@ -856,7 +856,9 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         goto out;
                 } else {
                         delimiter = strrchr(words[brick_index], ':');
-                        cli_path_strip_trailing_slashes (delimiter + 1);
+                        ret = cli_canonicalize_path (delimiter + 1);
+                        if (ret)
+                                goto out;
                 }
 
                 j = tmp_index;
@@ -944,12 +946,14 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
 
         if (validate_brick_name ((char *)words[3])) {
                 cli_out ("wrong brick type: %s, use "
-                        "<HOSTNAME>:<export-dir-abs-path>", words[3]);
+                         "<HOSTNAME>:<export-dir-abs-path>", words[3]);
                 ret = -1;
                 goto out;
         } else {
                 delimiter = strrchr ((char *)words[3], ':');
-                cli_path_strip_trailing_slashes (delimiter + 1);
+                ret = cli_canonicalize_path (delimiter + 1);
+                if (ret)
+                        goto out;
         }
         ret = dict_set_str (dict, "src-brick", (char *)words[3]);
 
@@ -963,12 +967,14 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
 
         if (validate_brick_name ((char *)words[4])) {
                 cli_out ("wrong brick type: %s, use "
-                        "<HOSTNAME>:<export-dir-abs-path>", words[4]);
+                         "<HOSTNAME>:<export-dir-abs-path>", words[4]);
                 ret = -1;
                 goto out;
         } else {
                 delimiter = strrchr ((char *)words[4], ':');
-                cli_path_strip_trailing_slashes (delimiter + 1);
+                ret = cli_canonicalize_path (delimiter + 1);
+                if (ret)
+                        goto out;
         }
 
 
@@ -1071,7 +1077,9 @@ cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options)
                         ret = -1;
                         goto out;
                 } else {
-                        cli_path_strip_trailing_slashes (delimiter + 1);
+                        ret = cli_canonicalize_path (delimiter + 1);
+                        if (ret)
+                                goto out;
                 }
                 ret = dict_set_str (dict, "brick", str);
                 if (ret)
@@ -1185,7 +1193,9 @@ cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
                         ret = -1;
                         goto out;
                 } else {
-                        cli_path_strip_trailing_slashes (delimiter + 1);
+                        ret = cli_canonicalize_path (delimiter + 1);
+                        if (ret)
+                                goto out;
                 }
                 str = (char *)words[4];
                 ret = dict_set_str (dict, "brick", str);
@@ -1234,7 +1244,9 @@ cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options)
                         ret = -1;
                         goto out;
                 } else {
-                        cli_path_strip_trailing_slashes (delimiter + 1);
+                        ret = cli_canonicalize_path (delimiter + 1);
+                        if (ret)
+                                goto out;
                 }
                 str = (char *)words[4];
                 ret = dict_set_str (dict, "brick", str);
@@ -1562,7 +1574,9 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 ret = -1;
                                 goto out;
                         } else {
-                                cli_path_strip_trailing_slashes (delimiter + 1);
+                                ret = cli_canonicalize_path (delimiter + 1);
+                                if (ret)
+                                        goto out;
                         }
                         ret = dict_set_str (dict, "brick", value);
 
@@ -1582,7 +1596,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         if (ret || (blk_size <= 0)) {
                                 if (blk_size < 0)
                                         cli_out ("block size is an invalid number");
-                                else 
+                                else
                                         cli_out ("block size should be an integer "
                                          "greater than zero");
                                 ret = -1;
@@ -1632,4 +1646,3 @@ out:
                 dict_destroy (dict);
         return ret;
 }
-
