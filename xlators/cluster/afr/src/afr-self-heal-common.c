@@ -70,23 +70,6 @@ afr_sh_source_count (int sources[], int child_count)
         return nsource;
 }
 
-
-int
-afr_sh_supress_errenous_children (int sources[], int child_errno[],
-                                  int child_count)
-{
-        int i = 0;
-
-        for (i = 0; i < child_count; i++) {
-                if (child_errno[i] && sources[i]) {
-                        sources[i] = 0;
-                }
-        }
-
-        return 0;
-}
-
-
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 {
@@ -113,11 +96,46 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
         GF_FREE (buf);
 }
 
+void
+afr_init_pending_matrix (int32_t **pending_matrix, size_t child_count)
+{
+        int             i   = 0;
+        int             j   = 0;
+
+        GF_ASSERT (pending_matrix);
+
+        for (i = 0; i < child_count; i++) {
+                for (j = 0; j < child_count; j++) {
+                        pending_matrix[i][j] = 0;
+                }
+        }
+}
 
 void
-afr_sh_build_pending_matrix (afr_private_t *priv,
-                             int32_t *pending_matrix[], dict_t *xattr[],
-                             int child_count, afr_transaction_type type)
+afr_mark_ignorant_subvols_as_pending (int32_t **pending_matrix,
+                                      unsigned char *ignorant_subvols,
+                                      size_t  child_count)
+{
+        int            i                = 0;
+        int            j                = 0;
+
+        GF_ASSERT (pending_matrix);
+        GF_ASSERT (ignorant_subvols);
+
+        for (i = 0; i < child_count; i++) {
+                if (ignorant_subvols[i]) {
+                        for (j = 0; j < child_count; j++) {
+                                if (!ignorant_subvols[j])
+                                        pending_matrix[j][i] += 1;
+                        }
+                }
+        }
+}
+
+int
+afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
+                          dict_t *xattr[], afr_transaction_type type,
+                          size_t child_count)
 {
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
         int32_t        pending[3]       = {0,};
@@ -130,19 +148,16 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
 
         ignorant_subvols = GF_CALLOC (sizeof (*ignorant_subvols), child_count,
                                       gf_afr_mt_char);
+        if (NULL == ignorant_subvols)
+                goto out;
 
-        /* start clean */
-        for (i = 0; i < child_count; i++) {
-                for (j = 0; j < child_count; j++) {
-                        pending_matrix[i][j] = 0;
-                }
-        }
+        afr_init_pending_matrix (pending_matrix, child_count);
 
         for (i = 0; i < child_count; i++) {
                 pending_raw = NULL;
 
                 for (j = 0; j < child_count; j++) {
-                        ret = dict_get_ptr (xattr[i], priv->pending_key[j],
+                        ret = dict_get_ptr (xattr[i], pending_key[j],
                                             &pending_raw);
 
                         if (ret != 0) {
@@ -163,21 +178,12 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
                 }
         }
 
-        /*
-         * Make all non-ignorant subvols point towards the ignorant
-         * subvolumes.
-         */
-
-        for (i = 0; i < child_count; i++) {
-                if (ignorant_subvols[i]) {
-                        for (j = 0; j < child_count; j++) {
-                                if (!ignorant_subvols[j])
-                                        pending_matrix[j][i] += 1;
-                        }
-                }
-        }
-
+        afr_mark_ignorant_subvols_as_pending (pending_matrix,
+                                              ignorant_subvols,
+                                              child_count);
         GF_FREE (ignorant_subvols);
+out:
+        return ret;
 }
 
 
@@ -208,7 +214,8 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
 typedef enum {
         AFR_NODE_INNOCENT,
         AFR_NODE_FOOL,
-        AFR_NODE_WISE
+        AFR_NODE_WISE,
+        AFR_NODE_INVALID = -1,
 } afr_node_type;
 
 typedef struct {
@@ -353,182 +360,276 @@ afr_sh_mark_wisest_as_sources (int sources[],
         return nsources;
 }
 
-
-static int
-afr_sh_mark_if_size_differs (afr_self_heal_t *sh, int child_count)
-{
-        int32_t ** pending_matrix = NULL;
-        int        i              = 0;
-        int        j              = 0;
-        int        size_differs   = 0;
-
-        pending_matrix = sh->pending_matrix;
-
-        for (i = 0; i < child_count; i++) {
-                for (j = 0; j < child_count; j++) {
-                        if (!sh->buf)
-                                break;
-
-                        if (SIZE_DIFFERS (&sh->buf[i], &sh->buf[j])
-                            && (pending_matrix[i][j] == 0)
-                            && (pending_matrix[j][i] == 0)) {
-
-                                pending_matrix[i][j] = 1;
-                                pending_matrix[j][i] = 1;
-
-                                size_differs = 1;
-                        }
-                }
-        }
-
-        return size_differs;
-}
-
-
-static int
-afr_sh_mark_biggest_fool_as_source (afr_self_heal_t *sh,
-                                    afr_node_character *characters,
-                                    int child_count)
+static void
+afr_compute_witness_of_fools (int32_t *witnesses, int32_t **pending_matrix,
+                              afr_node_character *characters,
+                              int32_t child_count)
 {
         int i       = 0;
-        int biggest = 0;
+        int j       = 0;
+        int witness = 0;
 
-        for (i = 0; i < child_count; i++) {
-                if (characters[i].type == AFR_NODE_FOOL) {
-                        biggest = i;
-                        break;
-                }
-        }
+        GF_ASSERT (witnesses);
+        GF_ASSERT (pending_matrix);
+        GF_ASSERT (characters);
+        GF_ASSERT (child_count > 0);
 
         for (i = 0; i < child_count; i++) {
                 if (characters[i].type != AFR_NODE_FOOL)
                         continue;
 
-                if (!sh->buf)
-                        break;
-
-                if (SIZE_GREATER (&sh->buf[i], &sh->buf[biggest])) {
-                        biggest = i;
+                witness = 0;
+                for (j = 0; j < child_count; j++) {
+                        if (i == j)
+                                continue;
+                        witness += pending_matrix[i][j];
                 }
+                witnesses[i] = witness;
         }
-
-        sh->sources[biggest] = 1;
-
-        return 1;
 }
 
-
-static int
-afr_sh_mark_biggest_as_source (afr_self_heal_t *sh, int child_count)
+static int32_t
+afr_find_biggest_witness_among_fools (int32_t *witnesses,
+                                      afr_node_character *characters,
+                                      int32_t child_count)
 {
-        int biggest = 0;
-        int i       = 0;
+        int i               = 0;
+        int biggest_witness = -1;
+
+        GF_ASSERT (witnesses);
+        GF_ASSERT (characters);
+        GF_ASSERT (child_count > 0);
 
         for (i = 0; i < child_count; i++) {
-                if (!sh->buf)
-                        break;
+                if (characters[i].type != AFR_NODE_FOOL)
+                        continue;
 
-                if (SIZE_GREATER (&sh->buf[i], &sh->buf[biggest])) {
-                        biggest = i;
-                }
+                if (biggest_witness < witnesses[i])
+                        biggest_witness = witnesses[i];
         }
-
-        sh->sources[biggest] = 1;
-
-        return 1;
+        return biggest_witness;
 }
-
-
-static int
-afr_sh_mark_loweia_uid_as_source (afr_self_heal_t *sh, int child_count)
-{
-        uid_t smallest = 0;
-        int   i        = 0;
-
-        for (i = 0; i < child_count; i++) {
-                if (!sh->buf)
-                        break;
-
-                if (sh->buf[i].ia_uid < sh->buf[smallest].ia_uid) {
-                        smallest = i;
-                }
-        }
-
-        sh->sources[smallest] = 1;
-
-        return 1;
-}
-
 
 int
-afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
-                     afr_self_heal_type type)
+afr_mark_fool_as_source_by_witness (int32_t *sources, int32_t *witnesses,
+                                    afr_node_character *characters,
+                                    int32_t child_count, int32_t witness)
+{
+        int i        = 0;
+        int nsources = 0;
+
+        GF_ASSERT (sources);
+        GF_ASSERT (witnesses);
+        GF_ASSERT (characters);
+        GF_ASSERT (child_count > 0);
+
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].type != AFR_NODE_FOOL)
+                        continue;
+
+                if (witness == witnesses[i]) {
+                        sources[i] = 1;
+                        nsources++;
+                }
+        }
+        return nsources;
+}
+
+static int
+afr_mark_biggest_of_fools_as_source (int32_t *sources, int32_t **pending_matrix,
+                                     afr_node_character *characters,
+                                     int child_count)
+{
+        int32_t       biggest_witness = 0;
+        int           nsources        = 0;
+        int32_t       *witnesses      = NULL;
+
+        GF_ASSERT (child_count > 0);
+
+        witnesses = GF_CALLOC (child_count, sizeof (*witnesses),
+                               gf_afr_mt_int32_t);
+        if (NULL == witnesses) {
+                nsources = -1;
+                goto out;
+        }
+
+        afr_compute_witness_of_fools (witnesses, pending_matrix, characters,
+                                      child_count);
+        biggest_witness = afr_find_biggest_witness_among_fools (witnesses,
+                                                                characters,
+                                                                child_count);
+        nsources = afr_mark_fool_as_source_by_witness (sources, witnesses,
+                                                       characters, child_count,
+                                                       biggest_witness);
+out:
+        if (witnesses)
+                GF_FREE (witnesses);
+        return nsources;
+}
+
+int
+afr_mark_child_as_source_by_uid (int32_t *sources, struct iatt *bufs,
+                                 int32_t *valid_children, int child_count,
+                                 uint32_t uid)
+{
+        int     i        = 0;
+        int     nsources = 0;
+        int     child    = 0;
+
+        GF_ASSERT (bufs);
+        GF_ASSERT (valid_children);
+        GF_ASSERT (sources);
+        GF_ASSERT (child_count > 0);
+
+        for (i = 0; i < child_count; i++) {
+                if (-1 == valid_children[i])
+                        continue;
+
+                child = valid_children[i];
+                if (uid == bufs[child].ia_uid) {
+                        sources[child] = 1;
+                        nsources++;
+                }
+        }
+        return nsources;
+}
+
+int
+afr_get_child_with_lowest_uid (struct iatt *bufs, int32_t *valid_children,
+                               int child_count)
+{
+        int     i        = 0;
+        int     smallest = -1;
+        int     child    = 0;
+
+        GF_ASSERT (bufs);
+        GF_ASSERT (valid_children);
+        GF_ASSERT (child_count > 0);
+
+        for (i = 0; i < child_count; i++) {
+                if (-1 == valid_children[i])
+                        continue;
+                child = valid_children[i];
+                if ((smallest == -1) ||
+                    (bufs[child].ia_uid < bufs[smallest].ia_uid)) {
+                        smallest = child;
+                }
+        }
+        return smallest;
+}
+
+static int
+afr_sh_mark_lowest_uid_as_source (struct iatt *bufs, int32_t *valid_children,
+                                  int child_count, int32_t *sources)
+{
+        int   nsources              = 0;
+        int   smallest              = 0;
+
+        smallest = afr_get_child_with_lowest_uid (bufs, valid_children,
+                                                  child_count);
+        if (smallest < 0) {
+                nsources = -1;
+                goto out;
+        }
+        nsources = afr_mark_child_as_source_by_uid (sources, bufs,
+                                                    valid_children, child_count,
+                                                    bufs[smallest].ia_uid);
+out:
+        return nsources;
+}
+
+char *
+afr_get_character_str (afr_node_type type)
+{
+        char *character = NULL;
+
+        switch (type) {
+        case AFR_NODE_INNOCENT:
+                character = "innocent";
+                break;
+        case AFR_NODE_FOOL:
+                character = "fool";
+                break;
+        case AFR_NODE_WISE:
+                character = "wise";
+                break;
+        default:
+                character = "invalid";
+                break;
+        }
+        return character;
+}
+
+afr_node_type
+afr_find_child_character_type (int32_t *pending_row, int32_t child,
+                               int32_t child_count, const char *xlator_name)
+{
+        afr_node_type type = AFR_NODE_INVALID;
+
+        GF_ASSERT (pending_row);
+        GF_ASSERT (child_count > 0);
+        GF_ASSERT ((child >= 0) && (child < child_count));
+
+        if (afr_sh_is_innocent (pending_row, child_count))
+                type = AFR_NODE_INNOCENT;
+        else if (afr_sh_is_fool (pending_row, child, child_count))
+                type = AFR_NODE_FOOL;
+        else if (afr_sh_is_wise (pending_row, child, child_count))
+                type = AFR_NODE_WISE;
+        else
+                GF_ASSERT (0);
+
+        gf_log (xlator_name, GF_LOG_DEBUG, "child %d character %s",
+                child, afr_get_character_str (type));
+        return type;
+}
+
+int
+afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
+                  int32_t child_count, afr_self_heal_type type,
+                  int32_t *valid_children, const char *xlator_name)
 {
         /* stores the 'characters' (innocent, fool, wise) of the nodes */
-        afr_node_character *characters =  NULL;
 
+        afr_node_character *characters =  NULL;
         int            i              = 0;
-        int32_t **     pending_matrix = NULL;
-        int *          sources        = NULL;
-        int            size_differs   = 0;
-        int            nsources       = 0;
+        int            nsources       = -1;
         xlator_t      *this           = NULL;
-        afr_private_t *priv           = NULL;
 
         characters = GF_CALLOC (sizeof (afr_node_character),
-                                        child_count,
-                                        gf_afr_mt_afr_node_character) ;
+                                child_count, gf_afr_mt_afr_node_character);
         if (!characters)
                 goto out;
 
         this = THIS;
-        priv = this->private;
-        pending_matrix = sh->pending_matrix;
-        sources        = sh->sources;
 
         /* start clean */
         for (i = 0; i < child_count; i++) {
                 sources[i] = 0;
         }
 
+        nsources = 0;
         for (i = 0; i < child_count; i++) {
-                if (afr_sh_is_innocent (pending_matrix[i], child_count)) {
-                        characters[i].type = AFR_NODE_INNOCENT;
-
-                } else if (afr_sh_is_fool (pending_matrix[i], i, child_count)) {
-                        characters[i].type = AFR_NODE_FOOL;
-
-                } else if (afr_sh_is_wise (pending_matrix[i], i, child_count)) {
-                        characters[i].type = AFR_NODE_WISE;
-
-                } else {
-                        gf_log (this->name, GF_LOG_CRITICAL,
-                                "Could not determine the state of subvolume %s!"
-                                " (This message should never appear."
-                                " Please file a bug report to "
-                                "<gluster-devel@nongnu.org>.)",
-                                priv->children[i]->name);
-                }
-        }
-
-        if (type == AFR_SELF_HEAL_DATA) {
-                size_differs = afr_sh_mark_if_size_differs (sh, child_count);
+                characters[i].type =
+                        afr_find_child_character_type (pending_matrix[i], i,
+                                                       child_count,
+                                                       xlator_name);
+                if (AFR_NODE_INVALID == characters[i].type)
+                        gf_log (xlator_name, GF_LOG_WARNING,
+                                "child %d had invalid xattrs", i);
         }
 
         if ((type == AFR_SELF_HEAL_METADATA)
             && afr_sh_all_nodes_innocent (characters, child_count)) {
 
-                nsources = afr_sh_mark_loweia_uid_as_source (sh, child_count);
+                nsources = afr_sh_mark_lowest_uid_as_source (bufs,
+                                                             valid_children,
+                                                             child_count,
+                                                             sources);
                 goto out;
         }
 
-        if (afr_sh_all_nodes_innocent (characters, child_count)) {
-                if (size_differs) {
-                        nsources = afr_sh_mark_biggest_as_source (sh,
-                                                                  child_count);
-                }
-
-        } else if (afr_sh_wise_nodes_exist (characters, child_count)) {
+        if (afr_sh_wise_nodes_exist (characters, child_count)) {
                 afr_sh_compute_wisdom (pending_matrix, characters, child_count);
 
                 if (afr_sh_wise_nodes_conflict (characters, child_count)) {
@@ -536,7 +637,6 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                         gf_log (this->name, GF_LOG_INFO,
                                 "split-brain possible, no source detected");
                         nsources = -1;
-                        goto out;
 
                 } else {
                         nsources = afr_sh_mark_wisest_as_sources (sources,
@@ -544,17 +644,25 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                                                                   child_count);
                 }
         } else {
-                nsources = afr_sh_mark_biggest_fool_as_source (sh, characters,
-                                                               child_count);
+                nsources = afr_mark_biggest_of_fools_as_source (sources,
+                                                                pending_matrix,
+                                                                characters,
+                                                                child_count);
         }
 
 out:
+        if (nsources == 0) {
+                for (i = 0; i < child_count; i++) {
+                        if (valid_children[i] != -1)
+                                sources[valid_children[i]] = 1;
+                }
+        }
         if (characters)
                 GF_FREE (characters);
 
+        gf_log (this->name, GF_LOG_DEBUG, "Number of sources: %d", nsources);
         return nsources;
 }
-
 
 void
 afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
@@ -643,7 +751,7 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
 
 
 int
-afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
+afr_sh_has_metadata_pending (dict_t *xattr, xlator_t *this)
 {
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
         int32_t        pending[3]  = {0,};
@@ -674,7 +782,7 @@ afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
 
 
 int
-afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
+afr_sh_has_data_pending (dict_t *xattr, xlator_t *this)
 {
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
         int32_t        pending[3]  = {0,};
@@ -705,7 +813,7 @@ afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 
 
 int
-afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
+afr_sh_has_entry_pending (dict_t *xattr, xlator_t *this)
 {
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
         int32_t        pending[3]  = {0,};
@@ -1655,6 +1763,9 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
                                                  priv->child_count,
                                                  gf_afr_mt_int32_t);
         }
+        sh->child_success = GF_CALLOC (sizeof (*sh->child_success),
+                                       priv->child_count, gf_afr_mt_int32_t);
+
 
         FRAME_SU_DO (sh_frame, afr_local_t);
         if (local->success_count && local->enoent_count) {
@@ -1687,4 +1798,26 @@ afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
         if (self_heal_p->need_entry_self_heal) {
                 snprintf(str + strlen(str), size - strlen(str), " entry");
         }
+}
+
+afr_self_heal_type
+afr_self_heal_type_for_transaction (afr_transaction_type type)
+{
+        afr_self_heal_type sh_type = AFR_SELF_HEAL_INVALID;
+
+        switch (type) {
+        case AFR_DATA_TRANSACTION:
+                sh_type = AFR_SELF_HEAL_DATA;
+                break;
+        case AFR_METADATA_TRANSACTION:
+                sh_type = AFR_SELF_HEAL_METADATA;
+                break;
+        case AFR_ENTRY_TRANSACTION:
+                sh_type = AFR_SELF_HEAL_ENTRY;
+                break;
+        case AFR_ENTRY_RENAME_TRANSACTION:
+                GF_ASSERT (0);
+                break;
+        }
+        return sh_type;
 }

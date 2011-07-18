@@ -138,6 +138,10 @@ typedef struct {
         /* array of xattr's, one for each child */
         dict_t **xattr;
 
+        /* array containing if the lookups succeeded in the order of response
+         */
+        int32_t *child_success;
+        int     success_count;
         /* array of errno's, one for each child */
         int *child_errno;
 
@@ -341,14 +345,17 @@ typedef struct _afr_local {
                 struct {
                         inode_t *inode;
                         struct iatt buf;
-                        struct iatt read_child_buf;
                         struct iatt postparent;
                         ino_t ino;
                         uint64_t gen;
                         ino_t parent_ino;
-                        dict_t *xattr;
                         dict_t **xattrs;
-                        gf_boolean_t is_revalidate;
+                        dict_t *xattr;
+                        struct iatt *postparents;
+                        struct iatt *bufs;
+                        int32_t read_child;
+                        int32_t *child_success;//in the order of response
+                        int32_t *sources;
                 } lookup;
 
                 struct {
@@ -736,6 +743,9 @@ afr_build_parent_loc (loc_t *parent, loc_t *child);
 
 int
 afr_up_children_count (int child_count, unsigned char *child_up);
+
+gf_boolean_t
+afr_is_fresh_lookup (loc_t *loc, xlator_t *this);
 
 void
 afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent);

@@ -2159,13 +2159,15 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
                 goto heal;
         }
 
-        afr_sh_build_pending_matrix (priv, sh->pending_matrix, sh->xattr,
-                                     priv->child_count, AFR_ENTRY_TRANSACTION);
+        afr_build_pending_matrix (priv->pending_key, sh->pending_matrix,
+                                  sh->xattr, AFR_ENTRY_TRANSACTION,
+                                  priv->child_count);
 
         afr_sh_print_pending_matrix (sh->pending_matrix, this);
 
-        nsources = afr_sh_mark_sources (sh, priv->child_count,
-                                        AFR_SELF_HEAL_ENTRY);
+        nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
+                                     priv->child_count, AFR_SELF_HEAL_ENTRY,
+                                     sh->child_success, this->name);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -2175,9 +2177,6 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
                 afr_sh_entry_finish (frame, this);
                 return 0;
         }
-
-        afr_sh_supress_errenous_children (sh->sources, sh->child_errno,
-                                          priv->child_count);
 
         source = afr_sh_select_source (sh->sources, priv->child_count);
 
@@ -2211,6 +2210,8 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                 if (op_ret != -1) {
                         sh->xattr[child_index] = dict_ref (xattr);
                         sh->buf[child_index] = *buf;
+                        sh->child_success[sh->success_count] = child_index;
+                        sh->success_count++;
                 }
         }
         UNLOCK (&frame->lock);
@@ -2235,9 +2236,11 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
         int ret = 0;
         int call_count = 0;
         int i = 0;
+        afr_self_heal_t *sh = NULL;
 
         priv  = this->private;
         local = frame->local;
+        sh = &local->self_heal;
 
         call_count = afr_up_children_count (priv->child_count,
                                             local->child_up);
@@ -2257,6 +2260,9 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
                 }
         }
 
+        for (i = 0; i < priv->child_count; i++)
+                sh->child_success[i] = -1;
+        sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND_COOKIE (frame,
