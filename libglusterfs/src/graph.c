@@ -247,6 +247,21 @@ glusterfs_graph_acl (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         return ret;
 }
 
+int
+glusterfs_graph_worm (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+{
+        int ret = 0;
+        cmd_args_t      *cmd_args = NULL;
+
+        cmd_args = &ctx->cmd_args;
+
+        if (!cmd_args->worm)
+                return 0;
+
+        ret = glusterfs_graph_insert (graph, ctx, "features/worm",
+                                      "worm-autoload");
+        return ret;
+}
 
 int
 glusterfs_graph_mac_compat (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
@@ -475,6 +490,12 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
                 return -1;
         }
 
+        /* XXX: WORM VOLUME */
+        ret = glusterfs_graph_worm (graph, ctx);
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph worm failed");
+                return -1;
+        }
         ret = glusterfs_graph_acl (graph, ctx);
         if (ret) {
                 gf_log ("graph", GF_LOG_ERROR, "glusterfs graph ACL failed");
