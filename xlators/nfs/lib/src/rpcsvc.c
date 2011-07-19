@@ -658,10 +658,13 @@ nfs_rpcsvc_volume_allowed (dict_t *options, char *volname)
                 GF_FREE (srchstr);
                 srchstr = globalrule;
                 ret = dict_get_str (options, srchstr, &addrstr);
+                srchstr = NULL;
         } else
                 ret = dict_get_str (options, srchstr, &addrstr);
 
 out:
+        if (srchstr != NULL)
+                GF_FREE (srchstr);
         return addrstr;
 }
 
