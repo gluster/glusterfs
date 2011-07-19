@@ -78,6 +78,10 @@
 
 #include "daemon.h"
 
+/* process mode definitions */
+#define GF_SERVER_PROCESS   0
+#define GF_CLIENT_PROCESS   1
+#define GF_GLUSTERD_PROCESS 2
 
 /* using argp for command line parsing */
 static char gf_doc[] = "";
@@ -199,6 +203,12 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 gf_log ("", GF_LOG_TRACE,
                         "mount point not found, not a client process");
                 return 0;
+        }
+
+        if (ctx->process_mode != GF_CLIENT_PROCESS) {
+                gf_log("glusterfsd", GF_LOG_ERROR,
+                       "Not a client process, not performing mount operation");
+                return -1;
         }
 
         master = GF_CALLOC (1, sizeof (*master),
@@ -834,9 +844,6 @@ generate_uuid ()
         return gf_strdup (tmp_str);
 }
 
-#define GF_SERVER_PROCESS   0
-#define GF_CLIENT_PROCESS   1
-#define GF_GLUSTERD_PROCESS 2
 
 static uint8_t
 gf_get_process_mode (char *exec_name)
@@ -1073,6 +1080,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         }
 
         process_mode = gf_get_process_mode (argv[0]);
+        ctx->process_mode = process_mode;
 
         /* Make sure after the parsing cli, if '--volfile-server' option is
            given, then '--volfile-id' is mandatory */

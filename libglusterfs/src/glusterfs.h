@@ -343,6 +343,7 @@ struct _glusterfs_ctx {
                                          indicate how many times the graph has
                                          got changed */
         pid_t               mtab_pid; /* pid of the process which updates the mtab */
+        int                 process_mode; /*mode in which process is runninng*/
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
