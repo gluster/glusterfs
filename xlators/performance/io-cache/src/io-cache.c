@@ -46,7 +46,7 @@ struct volume_options options[];
 inline uint32_t
 ioc_hashfn (void *data, int len)
 {
-        off_t offset;
+        off_t offset = 0;
 
         offset = *(off_t *) data;
 
@@ -56,50 +56,56 @@ ioc_hashfn (void *data, int len)
 inline ioc_inode_t *
 ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 {
-	ioc_table_t *table = ioc_inode->table;
+        ioc_table_t *table = NULL;
 
-	list_add_tail (&ioc_inode->inode_lru,
-		       &table->inode_lru[ioc_inode->weight]);
+        table = ioc_inode->table;
 
-	return ioc_inode;
+        list_add_tail (&ioc_inode->inode_lru,
+                       &table->inode_lru[ioc_inode->weight]);
+
+        return ioc_inode;
 }
 
 inline ioc_inode_t *
 ioc_get_inode (dict_t *dict, char *name)
 {
-	ioc_inode_t *ioc_inode = NULL;
-	data_t      *ioc_inode_data = dict_get (dict, name);
-	ioc_table_t *table = NULL;
+        ioc_inode_t *ioc_inode      = NULL;
+        data_t      *ioc_inode_data = NULL;
+        ioc_table_t *table          = NULL;
 
-	if (ioc_inode_data) {
-		ioc_inode = data_to_ptr (ioc_inode_data);
-		table = ioc_inode->table;
+        ioc_inode_data = dict_get (dict, name);
 
-		ioc_table_lock (table);
-		{
-			if (list_empty (&ioc_inode->inode_lru)) {
-				ioc_inode = ioc_inode_reupdate (ioc_inode);
-			}
-		}
-		ioc_table_unlock (table);
-	}
+        if (ioc_inode_data) {
+                ioc_inode = data_to_ptr (ioc_inode_data);
+                table = ioc_inode->table;
 
-	return ioc_inode;
+                ioc_table_lock (table);
+                {
+                        if (list_empty (&ioc_inode->inode_lru)) {
+                                ioc_inode = ioc_inode_reupdate (ioc_inode);
+                        }
+                }
+                ioc_table_unlock (table);
+        }
+
+        return ioc_inode;
 }
 
 int32_t
 ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
 {
-	int8_t         need_revalidate = 0;
-	struct timeval tv = {0,};
-	ioc_table_t    *table = ioc_inode->table;
+        int8_t          need_revalidate = 0;
+        struct timeval  tv              = {0,};
+        ioc_table_t    *table           = NULL;
 
-	gettimeofday (&tv, NULL);
+        table = ioc_inode->table;
 
-	if (time_elapsed (&tv, &ioc_inode->cache.tv) >= table->cache_timeout)
-		need_revalidate = 1;
+        gettimeofday (&tv, NULL);
 
-	return need_revalidate;
+        if (time_elapsed (&tv, &ioc_inode->cache.tv) >= table->cache_timeout)
+                need_revalidate = 1;
+
+        return need_revalidate;
 }
 
 /*
@@ -112,41 +118,41 @@ ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
 int64_t
 __ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
-	ioc_page_t *curr = NULL, *next = NULL;
-	int64_t    destroy_size = 0;
-	int64_t    ret = 0;
+        ioc_page_t *curr         = NULL, *next = NULL;
+        int64_t     destroy_size = 0;
+        int64_t     ret          = 0;
 
-	list_for_each_entry_safe (curr, next, &ioc_inode->cache.page_lru,
+        list_for_each_entry_safe (curr, next, &ioc_inode->cache.page_lru,
                                   page_lru) {
-		ret = ioc_page_destroy (curr);
+                ret = __ioc_page_destroy (curr);
 
-		if (ret != -1)
-			destroy_size += ret;
-	}
+                if (ret != -1)
+                        destroy_size += ret;
+        }
 
-	return destroy_size;
+        return destroy_size;
 }
 
 void
 ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
-	int64_t destroy_size = 0;
+        int64_t destroy_size = 0;
 
-	ioc_inode_lock (ioc_inode);
-	{
-		destroy_size = __ioc_inode_flush (ioc_inode);
-	}
-	ioc_inode_unlock (ioc_inode);
+        ioc_inode_lock (ioc_inode);
+        {
+                destroy_size = __ioc_inode_flush (ioc_inode);
+        }
+        ioc_inode_unlock (ioc_inode);
 
-	if (destroy_size) {
-		ioc_table_lock (ioc_inode->table);
-		{
-			ioc_inode->table->cache_used -= destroy_size;
-		}
-		ioc_table_unlock (ioc_inode->table);
-	}
+        if (destroy_size) {
+                ioc_table_lock (ioc_inode->table);
+                {
+                        ioc_inode->table->cache_used -= destroy_size;
+                }
+                ioc_table_unlock (ioc_inode->table);
+        }
 
-	return;
+        return;
 }
 
 int32_t
@@ -154,44 +160,44 @@ ioc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
                  struct iatt *preop, struct iatt *postop)
 {
- 	STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
- 	return 0;
+        STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
+        return 0;
 }
 
 int32_t
 ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              struct iatt *stbuf, int32_t valid)
 {
- 	uint64_t ioc_inode = 0;
+        uint64_t ioc_inode = 0;
 
- 	inode_ctx_get (loc->inode, this, &ioc_inode);
+        inode_ctx_get (loc->inode, this, &ioc_inode);
 
- 	if (ioc_inode
+        if (ioc_inode
             && ((valid & GF_SET_ATTR_ATIME)
                 || (valid & GF_SET_ATTR_MTIME)))
- 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+                ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
- 	STACK_WIND (frame, ioc_setattr_cbk, FIRST_CHILD (this),
+        STACK_WIND (frame, ioc_setattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid);
 
- 	return 0;
+        return 0;
 }
 
 int32_t
 ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret,	int32_t op_errno, inode_t *inode,
-		struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
+                int32_t op_ret,	int32_t op_errno, inode_t *inode,
+                struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
 {
-	ioc_inode_t   *ioc_inode = NULL;
-	ioc_table_t   *table = NULL;
-	uint8_t       cache_still_valid = 0;
-	uint64_t      tmp_ioc_inode = 0;
-	uint32_t      weight = 0xffffffff;
-	const char   *path = NULL;
-        ioc_local_t  *local = NULL;
+        ioc_inode_t *ioc_inode         = NULL;
+        ioc_table_t *table             = NULL;
+        uint8_t      cache_still_valid = 0;
+        uint64_t     tmp_ioc_inode     = 0;
+        uint32_t     weight            = 0xffffffff;
+        const char  *path              = NULL;
+        ioc_local_t *local             = NULL;
 
-	if (op_ret != 0)
-		goto out;
+        if (op_ret != 0)
+                goto out;
 
         local = frame->local;
         if (local == NULL) {
@@ -258,16 +264,16 @@ out:
                 loc_wipe (&local->file_loc);
         }
 
-	STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, stbuf,
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, stbuf,
                              dict, postparent);
-	return 0;
+        return 0;
 }
 
 int32_t
 ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
-	    dict_t *xattr_req)
+            dict_t *xattr_req)
 {
-        ioc_local_t *local = NULL;
+        ioc_local_t *local    = NULL;
         int32_t      op_errno = -1, ret = -1;
 
         local = GF_CALLOC (1, sizeof (*local),
@@ -287,16 +293,16 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         frame->local = local;
 
-	STACK_WIND (frame, ioc_lookup_cbk, FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->lookup, loc, xattr_req);
+        STACK_WIND (frame, ioc_lookup_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->lookup, loc, xattr_req);
 
         return 0;
 
 unwind:
-	STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL,
+        STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL,
                              NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 /*
@@ -310,14 +316,14 @@ unwind:
 int32_t
 ioc_forget (xlator_t *this, inode_t *inode)
 {
-	uint64_t ioc_inode = 0;
+        uint64_t ioc_inode = 0;
 
-	inode_ctx_get (inode, this, &ioc_inode);
+        inode_ctx_get (inode, this, &ioc_inode);
 
-	if (ioc_inode)
-		ioc_inode_destroy ((ioc_inode_t *)(long)ioc_inode);
+        if (ioc_inode)
+                ioc_inode_destroy ((ioc_inode_t *)(long)ioc_inode);
 
-	return 0;
+        return 0;
 }
 
 
@@ -334,86 +340,87 @@ ioc_forget (xlator_t *this, inode_t *inode)
  */
 int32_t
 ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
+                        int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
 {
-	ioc_local_t *local = NULL;
-	ioc_inode_t *ioc_inode = NULL;
-	size_t      destroy_size = 0;
-	struct iatt *local_stbuf = NULL;
+        ioc_local_t *local        = NULL;
+        ioc_inode_t *ioc_inode    = NULL;
+        size_t       destroy_size = 0;
+        struct iatt *local_stbuf  = NULL;
 
         local = frame->local;
-	ioc_inode = local->inode;
+        ioc_inode = local->inode;
         local_stbuf = stbuf;
 
-	if ((op_ret == -1) ||
-	    ((op_ret >= 0) && !ioc_cache_still_valid(ioc_inode, stbuf))) {
-		gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
-			"cache for inode(%p) is invalid. flushing all pages",
-			ioc_inode);
-		/* NOTE: only pages with no waiting frames are flushed by
-		 * ioc_inode_flush. page_fault will be generated for all
-		 * the pages which have waiting frames by ioc_inode_wakeup()
-		 */
-		ioc_inode_lock (ioc_inode);
-		{
-			destroy_size = __ioc_inode_flush (ioc_inode);
-			if (op_ret >= 0) {
-				ioc_inode->cache.mtime = stbuf->ia_mtime;
-                                ioc_inode->cache.mtime_nsec = stbuf->ia_mtime_nsec;
+        if ((op_ret == -1) ||
+            ((op_ret >= 0) && !ioc_cache_still_valid(ioc_inode, stbuf))) {
+                gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
+                        "cache for inode(%p) is invalid. flushing all pages",
+                        ioc_inode);
+                /* NOTE: only pages with no waiting frames are flushed by
+                 * ioc_inode_flush. page_fault will be generated for all
+                 * the pages which have waiting frames by ioc_inode_wakeup()
+                 */
+                ioc_inode_lock (ioc_inode);
+                {
+                        destroy_size = __ioc_inode_flush (ioc_inode);
+                        if (op_ret >= 0) {
+                                ioc_inode->cache.mtime = stbuf->ia_mtime;
+                                ioc_inode->cache.mtime_nsec
+                                        = stbuf->ia_mtime_nsec;
                         }
-		}
-		ioc_inode_unlock (ioc_inode);
-		local_stbuf = NULL;
-	}
+                }
+                ioc_inode_unlock (ioc_inode);
+                local_stbuf = NULL;
+        }
 
-	if (destroy_size) {
-		ioc_table_lock (ioc_inode->table);
-		{
-			ioc_inode->table->cache_used -= destroy_size;
-		}
-		ioc_table_unlock (ioc_inode->table);
-	}
+        if (destroy_size) {
+                ioc_table_lock (ioc_inode->table);
+                {
+                        ioc_inode->table->cache_used -= destroy_size;
+                }
+                ioc_table_unlock (ioc_inode->table);
+        }
 
-	if (op_ret < 0)
-		local_stbuf = NULL;
+        if (op_ret < 0)
+                local_stbuf = NULL;
 
-	ioc_inode_lock (ioc_inode);
-	{
-		gettimeofday (&ioc_inode->cache.tv, NULL);
-	}
-	ioc_inode_unlock (ioc_inode);
+        ioc_inode_lock (ioc_inode);
+        {
+                gettimeofday (&ioc_inode->cache.tv, NULL);
+        }
+        ioc_inode_unlock (ioc_inode);
 
-	ioc_inode_wakeup (frame, ioc_inode, local_stbuf);
+        ioc_inode_wakeup (frame, ioc_inode, local_stbuf);
 
-	/* any page-fault initiated by ioc_inode_wakeup() will have its own
-	 * fd_ref on fd, safe to unref validate frame's private copy
-	 */
-	fd_unref (local->fd);
+        /* any page-fault initiated by ioc_inode_wakeup() will have its own
+         * fd_ref on fd, safe to unref validate frame's private copy
+         */
+        fd_unref (local->fd);
 
-	STACK_DESTROY (frame->root);
+        STACK_DESTROY (frame->root);
 
-	return 0;
+        return 0;
 }
 
 int32_t
 ioc_wait_on_inode (ioc_inode_t *ioc_inode, ioc_page_t *page)
 {
-	ioc_waitq_t *waiter = NULL, *trav = NULL;
-	uint32_t    page_found = 0;
-        int32_t     ret = 0;
+        ioc_waitq_t *waiter     = NULL, *trav = NULL;
+        uint32_t     page_found = 0;
+        int32_t      ret        = 0;
 
-	trav = ioc_inode->waitq;
+        trav = ioc_inode->waitq;
 
-	while (trav) {
-		if (trav->data == page) {
-			page_found = 1;
-			break;
-		}
-		trav = trav->next;
-	}
+        while (trav) {
+                if (trav->data == page) {
+                        page_found = 1;
+                        break;
+                }
+                trav = trav->next;
+        }
 
-	if (!page_found) {
-		waiter = GF_CALLOC (1, sizeof (ioc_waitq_t),
+        if (!page_found) {
+                waiter = GF_CALLOC (1, sizeof (ioc_waitq_t),
                                     gf_ioc_mt_ioc_waitq_t);
                 if (waiter == NULL) {
                         gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
@@ -422,13 +429,13 @@ ioc_wait_on_inode (ioc_inode_t *ioc_inode, ioc_page_t *page)
                         goto out;
                 }
 
-		waiter->data = page;
-		waiter->next = ioc_inode->waitq;
-		ioc_inode->waitq = waiter;
-	}
+                waiter->data = page;
+                waiter->next = ioc_inode->waitq;
+                ioc_inode->waitq = waiter;
+        }
 
 out:
-	return ret;
+        return ret;
 }
 
 /*
@@ -441,15 +448,15 @@ out:
  */
 int32_t
 ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
-		    ioc_page_t *page)
+                    ioc_page_t *page)
 {
-	call_frame_t *validate_frame = NULL;
-	ioc_local_t  *validate_local = NULL;
-        ioc_local_t  *local = NULL;
-        int32_t      ret = 0;
+        call_frame_t *validate_frame = NULL;
+        ioc_local_t  *validate_local = NULL;
+        ioc_local_t  *local          = NULL;
+        int32_t       ret            = 0;
 
         local = frame->local;
-	validate_local = GF_CALLOC (1, sizeof (ioc_local_t),
+        validate_local = GF_CALLOC (1, sizeof (ioc_local_t),
                                     gf_ioc_mt_ioc_local_t);
         if (validate_local == NULL) {
                 ret = -1;
@@ -460,7 +467,7 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                 goto out;
         }
 
-	validate_frame = copy_frame (frame);
+        validate_frame = copy_frame (frame);
         if (validate_frame == NULL) {
                 ret = -1;
                 local->op_ret = -1;
@@ -471,44 +478,44 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                 goto out;
         }
 
-	validate_local->fd = fd_ref (fd);
-	validate_local->inode = ioc_inode;
-	validate_frame->local = validate_local;
+        validate_local->fd = fd_ref (fd);
+        validate_local->inode = ioc_inode;
+        validate_frame->local = validate_local;
 
-	STACK_WIND (validate_frame, ioc_cache_validate_cbk,
+        STACK_WIND (validate_frame, ioc_cache_validate_cbk,
                     FIRST_CHILD (frame->this),
                     FIRST_CHILD (frame->this)->fops->fstat, fd);
 
 out:
-	return ret;
+        return ret;
 }
 
 inline uint32_t
 is_match (const char *path, const char *pattern)
 {
-	int32_t ret = 0;
+        int32_t ret = 0;
 
-	ret = fnmatch (pattern, path, FNM_NOESCAPE);
+        ret = fnmatch (pattern, path, FNM_NOESCAPE);
 
-	return (ret == 0);
+        return (ret == 0);
 }
 
 uint32_t
 ioc_get_priority (ioc_table_t *table, const char *path)
 {
-	uint32_t            priority = 1;
-	struct ioc_priority *curr = NULL;
+        uint32_t             priority = 1;
+        struct ioc_priority *curr     = NULL;
 
-	if (list_empty(&table->priority_list))
-            return priority;
+        if (list_empty(&table->priority_list))
+                return priority;
 
-    priority = 0;
-    list_for_each_entry (curr, &table->priority_list, list) {
-            if (is_match (path, curr->pattern))
-                    priority = curr->priority;
-    }
+        priority = 0;
+        list_for_each_entry (curr, &table->priority_list, list) {
+                if (is_match (path, curr->pattern))
+                        priority = curr->priority;
+        }
 
-	return priority;
+        return priority;
 }
 
 /*
@@ -524,13 +531,13 @@ ioc_get_priority (ioc_table_t *table, const char *path)
  */
 int32_t
 ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-	          int32_t op_errno, fd_t *fd)
+              int32_t op_errno, fd_t *fd)
 {
-        uint64_t    tmp_ioc_inode = 0;
-        ioc_local_t *local = NULL;
-        ioc_table_t *table = NULL;
-        ioc_inode_t *ioc_inode = NULL;
-        uint32_t    weight = 0xffffffff;
+        uint64_t     tmp_ioc_inode = 0;
+        ioc_local_t *local         = NULL;
+        ioc_table_t *table         = NULL;
+        ioc_inode_t *ioc_inode     = NULL;
+        uint32_t     weight        = 0xffffffff;
 
         local = frame->local;
         if (!this || !this->private) {
@@ -556,7 +563,8 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 {
                         if ((table->min_file_size > ioc_inode->ia_size)
                             || ((table->max_file_size > 0)
-                                && (table->max_file_size < ioc_inode->ia_size))) {
+                                && (table->max_file_size
+                                    < ioc_inode->ia_size))) {
                                 fd_ctx_set (fd, this, 1);
                         }
                 }
@@ -567,7 +575,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         /* O_DIRECT is only for one fd, not the inode
                          * as a whole
                          */
-                    fd_ctx_set (fd, this, 1);
+                        fd_ctx_set (fd, this, 1);
                 }
                 if ((local->wbflags & GF_OPEN_NOWB) != 0) {
                         /* disable caching as asked by NFS */
@@ -577,7 +585,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 /* weight = 0, we disable caching on it */
                 if (weight == 0) {
                         /* we allow a pattern-matched cache disable this way
-                        */
+                         */
                         fd_ctx_set (fd, this, 1);
                 }
         }
@@ -588,7 +596,7 @@ out:
 
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 
-	return 0;
+        return 0;
 }
 
 /*
@@ -607,15 +615,15 @@ out:
 int32_t
 ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret,	int32_t op_errno, fd_t *fd,
-		inode_t *inode,	struct iatt *buf, struct iatt *preparent,
+                inode_t *inode,	struct iatt *buf, struct iatt *preparent,
                 struct iatt *postparent)
 {
-	ioc_local_t     *local = NULL;
-	ioc_table_t     *table = NULL;
-	ioc_inode_t     *ioc_inode = NULL;
-	uint32_t        weight = 0xffffffff;
-	const char      *path = NULL;
-        int             ret = -1;
+        ioc_local_t *local     = NULL;
+        ioc_table_t *table     = NULL;
+        ioc_inode_t *ioc_inode = NULL;
+        uint32_t     weight    = 0xffffffff;
+        const char  *path      = NULL;
+        int          ret       = -1;
 
         local = frame->local;
         if (!this || !this->private) {
@@ -627,7 +635,7 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         table = this->private;
         path = local->file_loc.path;
 
-	if (op_ret != -1) {
+        if (op_ret != -1) {
                 /* assign weight */
                 weight = ioc_get_priority (table, path);
 
@@ -641,7 +649,8 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if ((table->min_file_size > ioc_inode->ia_size)
                             || ((table->max_file_size > 0)
-                                && (table->max_file_size < ioc_inode->ia_size))) {
+                                && (table->max_file_size
+                                    < ioc_inode->ia_size))) {
                                 ret = fd_ctx_set (fd, this, 1);
                         }
                 }
@@ -650,28 +659,28 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_ctx_put (fd->inode, this,
                                (uint64_t)(long)ioc_inode);
 
-		/* If O_DIRECT open, we disable caching on it */
-		if (local->flags & O_DIRECT)
-			/*
+                /* If O_DIRECT open, we disable caching on it */
+                if (local->flags & O_DIRECT)
+                        /*
                          * O_DIRECT is only for one fd, not the inode
-			 * as a whole */
-			ret = fd_ctx_set (fd, this, 1);
+                         * as a whole */
+                        ret = fd_ctx_set (fd, this, 1);
 
                 /* if weight == 0, we disable caching on it */
-		if (!weight)
-			/* we allow a pattern-matched cache disable this way */
-			ret = fd_ctx_set (fd, this, 1);
+                if (!weight)
+                        /* we allow a pattern-matched cache disable this way */
+                        ret = fd_ctx_set (fd, this, 1);
 
-	}
+        }
 
 out:
-	frame->local = NULL;
-	GF_FREE (local);
+        frame->local = NULL;
+        GF_FREE (local);
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
 
-	return 0;
+        return 0;
 }
 
 
@@ -682,10 +691,10 @@ ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *postparent)
 {
         ioc_local_t *local     = NULL;
-	ioc_table_t *table     = NULL;
-	ioc_inode_t *ioc_inode = NULL;
-	uint32_t     weight    = 0xffffffff;
-	const char  *path      = NULL;
+        ioc_table_t *table     = NULL;
+        ioc_inode_t *ioc_inode = NULL;
+        uint32_t     weight    = 0xffffffff;
+        const char  *path      = NULL;
 
         local = frame->local;
         if (!this || !this->private) {
@@ -697,7 +706,7 @@ ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         table = this->private;
         path = local->file_loc.path;
 
-	if (op_ret != -1) {
+        if (op_ret != -1) {
                 /* assign weight */
                 weight = ioc_get_priority (table, path);
 
@@ -713,17 +722,17 @@ ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 inode_ctx_put (inode, this,
                                (uint64_t)(long)ioc_inode);
-	}
+        }
 
 out:
-	frame->local = NULL;
+        frame->local = NULL;
 
         loc_wipe (&local->file_loc);
-	GF_FREE (local);
+        GF_FREE (local);
 
-	STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
+        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
-	return 0;
+        return 0;
 }
 
 
@@ -731,7 +740,7 @@ int
 ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
            dev_t rdev, dict_t *params)
 {
-        ioc_local_t *local = NULL;
+        ioc_local_t *local    = NULL;
         int32_t      op_errno = -1, ret = -1;
 
         local = GF_CALLOC (1, sizeof (*local),
@@ -751,10 +760,10 @@ ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         frame->local = local;
 
-	STACK_WIND (frame, ioc_mknod_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->mknod,
-		    loc, mode, rdev, params);
+        STACK_WIND (frame, ioc_mknod_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->mknod,
+                    loc, mode, rdev, params);
         return 0;
 
 unwind:
@@ -763,10 +772,10 @@ unwind:
                 GF_FREE (local);
         }
 
-	STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL,
+        STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL,
                              NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -780,10 +789,10 @@ unwind:
  */
 int32_t
 ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-	  fd_t *fd, int32_t wbflags)
+          fd_t *fd, int32_t wbflags)
 {
 
-	ioc_local_t *local = NULL;
+        ioc_local_t *local = NULL;
 
         local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
@@ -792,17 +801,17 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 return 0;
         }
 
-	local->flags = flags;
-	local->file_loc.path = loc->path;
-	local->file_loc.inode = loc->inode;
+        local->flags = flags;
+        local->file_loc.path = loc->path;
+        local->file_loc.inode = loc->inode;
         local->wbflags = wbflags;
 
-	frame->local = local;
+        frame->local = local;
 
-	STACK_WIND (frame, ioc_open_cbk, FIRST_CHILD(this),
+        STACK_WIND (frame, ioc_open_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open, loc, flags, fd, wbflags);
 
-	return 0;
+        return 0;
 }
 
 /*
@@ -817,9 +826,9 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
  */
 int32_t
 ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-	    mode_t mode, fd_t *fd, dict_t *params)
+            mode_t mode, fd_t *fd, dict_t *params)
 {
-	ioc_local_t *local = NULL;
+        ioc_local_t *local = NULL;
 
         local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
@@ -829,15 +838,15 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 return 0;
         }
 
-	local->flags = flags;
-	local->file_loc.path = loc->path;
-	frame->local = local;
+        local->flags = flags;
+        local->file_loc.path = loc->path;
+        frame->local = local;
 
-	STACK_WIND (frame, ioc_create_cbk, FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->create, loc, flags, mode,
+        STACK_WIND (frame, ioc_create_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->create, loc, flags, mode,
                     fd, params);
 
-	return 0;
+        return 0;
 }
 
 
@@ -854,7 +863,7 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 int32_t
 ioc_release (xlator_t *this, fd_t *fd)
 {
-	return 0;
+        return 0;
 }
 
 /*
@@ -871,30 +880,30 @@ ioc_release (xlator_t *this, fd_t *fd)
 int32_t
 ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret,	int32_t op_errno, struct iovec *vector,
-			int32_t count, struct iatt *stbuf,
+                        int32_t count, struct iatt *stbuf,
                         struct iobref *iobref)
 {
-	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
                              stbuf, iobref);
-	return 0;
+        return 0;
 }
 
 
 int32_t
 ioc_need_prune (ioc_table_t *table)
 {
-	int64_t cache_difference = 0;
+        int64_t cache_difference = 0;
 
-	ioc_table_lock (table);
-	{
-		cache_difference = table->cache_used - table->cache_size;
-	}
-	ioc_table_unlock (table);
+        ioc_table_lock (table);
+        {
+                cache_difference = table->cache_used - table->cache_size;
+        }
+        ioc_table_unlock (table);
 
-	if (cache_difference > 0)
-		return 1;
-	else
-		return 0;
+        if (cache_difference > 0)
+                return 1;
+        else
+                return 0;
 }
 
 /*
@@ -909,122 +918,129 @@ void
 ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                        off_t offset, size_t size)
 {
-	ioc_local_t *local = NULL;
-	ioc_table_t *table = NULL;
-	ioc_page_t  *trav = NULL;
-	ioc_waitq_t *waitq = NULL;
-	off_t       rounded_offset = 0;
-	off_t       rounded_end = 0;
-	off_t       trav_offset = 0;
-	int32_t     fault = 0;
-        size_t      trav_size = 0;
-        off_t       local_offset = 0;
-        int32_t     ret = -1;
-	int8_t      need_validate = 0;
-	int8_t      might_need_validate = 0;  /*
-                                               * if a page exists, do we need
-                                               * to validate it?
-                                               */
+        ioc_local_t *local               = NULL;
+        ioc_table_t *table               = NULL;
+        ioc_page_t  *trav                = NULL;
+        ioc_waitq_t *waitq               = NULL;
+        off_t        rounded_offset      = 0;
+        off_t        rounded_end         = 0;
+        off_t        trav_offset         = 0;
+        int32_t      fault               = 0;
+        size_t       trav_size           = 0;
+        off_t        local_offset        = 0;
+        int32_t      ret                 = -1;
+        int8_t       need_validate       = 0;
+        int8_t       might_need_validate = 0;  /*
+                                                * if a page exists, do we need
+                                                * to validate it?
+                                                */
         local = frame->local;
         table = ioc_inode->table;
 
-	rounded_offset = floor (offset, table->page_size);
-	rounded_end = roof (offset + size, table->page_size);
-	trav_offset = rounded_offset;
+        rounded_offset = floor (offset, table->page_size);
+        rounded_end = roof (offset + size, table->page_size);
+        trav_offset = rounded_offset;
 
-	/* once a frame does read, it should be waiting on something */
-	local->wait_count++;
+        /* once a frame does read, it should be waiting on something */
+        local->wait_count++;
 
-	/* Requested region can fall in three different pages,
-	 * 1. Ready - region is already in cache, we just have to serve it.
-	 * 2. In-transit - page fault has been generated on this page, we need
-	 *    to wait till the page is ready
-	 * 3. Fault - page is not in cache, we have to generate a page fault
-	 */
+        /* Requested region can fall in three different pages,
+         * 1. Ready - region is already in cache, we just have to serve it.
+         * 2. In-transit - page fault has been generated on this page, we need
+         *    to wait till the page is ready
+         * 3. Fault - page is not in cache, we have to generate a page fault
+         */
 
-	might_need_validate = ioc_inode_need_revalidate (ioc_inode);
+        might_need_validate = ioc_inode_need_revalidate (ioc_inode);
 
-	while (trav_offset < rounded_end) {
-		ioc_inode_lock (ioc_inode);
-		//{
+        while (trav_offset < rounded_end) {
+                ioc_inode_lock (ioc_inode);
+                {
+                        /* look for requested region in the cache */
+                        trav = __ioc_page_get (ioc_inode, trav_offset);
 
-		/* look for requested region in the cache */
-		trav = ioc_page_get (ioc_inode, trav_offset);
+                        local_offset = max (trav_offset, offset);
+                        trav_size = min (((offset+size) - local_offset),
+                                         table->page_size);
 
-		local_offset = max (trav_offset, offset);
-		trav_size = min (((offset+size) - local_offset),
-				 table->page_size);
-
-		if (!trav) {
-			/* page not in cache, we need to generate page fault */
-			trav = ioc_page_create (ioc_inode, trav_offset);
-			fault = 1;
-			if (!trav) {
-				gf_log (frame->this->name, GF_LOG_CRITICAL,
-					"out of memory");
-                                local->op_ret = -1;
-                                local->op_errno = ENOMEM;
-                                goto out;
-			}
-		}
-
-		ioc_wait_on_page (trav, frame, local_offset, trav_size);
-
-		if (trav->ready) {
-			/* page found in cache */
-			if (!might_need_validate && !ioc_inode->waitq) {
-				/* fresh enough */
-				gf_log (frame->this->name, GF_LOG_TRACE,
-					"cache hit for trav_offset=%"PRId64""
-					"/local_offset=%"PRId64"",
-					trav_offset, local_offset);
-				waitq = ioc_page_wakeup (trav);
-			} else {
-				/* if waitq already exists, fstat revalidate is
-				   already on the way */
-				if (!ioc_inode->waitq) {
-					need_validate = 1;
-				}
-
-				ret = ioc_wait_on_inode (ioc_inode, trav);
-                                if (ret < 0) {
+                        if (!trav) {
+                                /* page not in cache, we need to generate page
+                                 * fault
+                                 */
+                                trav = __ioc_page_create (ioc_inode,
+                                                          trav_offset);
+                                fault = 1;
+                                if (!trav) {
+                                        gf_log (frame->this->name,
+                                                GF_LOG_CRITICAL,
+                                                "out of memory");
                                         local->op_ret = -1;
-                                        local->op_errno = -ret;
-                                        need_validate = 0;
-
-                                        waitq = ioc_page_wakeup (trav);
-                                        ioc_inode_unlock (ioc_inode);
-
-                                        ioc_waitq_return (waitq);
-                                        waitq = NULL;
+                                        local->op_errno = ENOMEM;
                                         goto out;
                                 }
-			}
-		}
+                        }
 
-		//}
-		ioc_inode_unlock (ioc_inode);
+                        __ioc_wait_on_page (trav, frame, local_offset,
+                                            trav_size);
 
-		ioc_waitq_return (waitq);
-		waitq = NULL;
+                        if (trav->ready) {
+                                /* page found in cache */
+                                if (!might_need_validate && !ioc_inode->waitq) {
+                                        /* fresh enough */
+                                        gf_log (frame->this->name, GF_LOG_TRACE,
+                                                "cache hit for trav_offset=%"
+                                                PRId64"/local_offset=%"PRId64"",
+                                                trav_offset, local_offset);
+                                        waitq = __ioc_page_wakeup (trav);
+                                } else {
+                                        /* if waitq already exists, fstat
+                                         * revalidate is
+                                         * already on the way
+                                         */
+                                        if (!ioc_inode->waitq) {
+                                                need_validate = 1;
+                                        }
 
-		if (fault) {
-			fault = 0;
-			/* new page created, increase the table->cache_used */
-			ioc_page_fault (ioc_inode, frame, fd, trav_offset);
-		}
+                                        ret = ioc_wait_on_inode (ioc_inode,
+                                                                 trav);
+                                        if (ret < 0) {
+                                                local->op_ret = -1;
+                                                local->op_errno = -ret;
+                                                need_validate = 0;
 
-		if (need_validate) {
-			need_validate = 0;
-			gf_log (frame->this->name, GF_LOG_TRACE,
-				"sending validate request for "
-				"inode(%"PRId64") at offset=%"PRId64"",
-				fd->inode->ino, trav_offset);
-			ret = ioc_cache_validate (frame, ioc_inode, fd, trav);
+                                                waitq = __ioc_page_wakeup (trav);
+                                                ioc_inode_unlock (ioc_inode);
+
+                                                ioc_waitq_return (waitq);
+                                                waitq = NULL;
+                                                goto out;
+                                        }
+                                }
+                        }
+
+                }
+                ioc_inode_unlock (ioc_inode);
+
+                ioc_waitq_return (waitq);
+                waitq = NULL;
+
+                if (fault) {
+                        fault = 0;
+                        /* new page created, increase the table->cache_used */
+                        ioc_page_fault (ioc_inode, frame, fd, trav_offset);
+                }
+
+                if (need_validate) {
+                        need_validate = 0;
+                        gf_log (frame->this->name, GF_LOG_TRACE,
+                                "sending validate request for "
+                                "inode(%"PRId64") at offset=%"PRId64"",
+                                fd->inode->ino, trav_offset);
+                        ret = ioc_cache_validate (frame, ioc_inode, fd, trav);
                         if (ret == -1) {
                                 ioc_inode_lock (ioc_inode);
                                 {
-                                        waitq = ioc_page_wakeup (trav);
+                                        waitq = __ioc_page_wakeup (trav);
                                 }
                                 ioc_inode_unlock (ioc_inode);
 
@@ -1032,19 +1048,19 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                                 waitq = NULL;
                                 goto out;
                         }
-		}
+                }
 
-		trav_offset += table->page_size;
-	}
+                trav_offset += table->page_size;
+        }
 
 out:
-	ioc_frame_return (frame);
+        ioc_frame_return (frame);
 
-	if (ioc_need_prune (ioc_inode->table)) {
-		ioc_prune (ioc_inode->table);
-	}
+        if (ioc_need_prune (ioc_inode->table)) {
+                ioc_prune (ioc_inode->table);
+        }
 
-	return;
+        return;
 }
 
 
@@ -1060,30 +1076,30 @@ out:
  */
 int32_t
 ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
-	   size_t size, off_t offset)
+           size_t size, off_t offset)
 {
-	uint64_t     tmp_ioc_inode = 0;
-	ioc_inode_t  *ioc_inode = NULL;
-	ioc_local_t  *local = NULL;
-	uint32_t     weight = 0;
-        ioc_table_t  *table = NULL;
-        uint32_t     num_pages = 0;
-        int32_t      op_errno = -1;
+        uint64_t     tmp_ioc_inode = 0;
+        ioc_inode_t *ioc_inode     = NULL;
+        ioc_local_t *local         = NULL;
+        uint32_t     weight        = 0;
+        ioc_table_t *table         = NULL;
+        uint32_t     num_pages     = 0;
+        int32_t      op_errno      = -1;
 
         if (!this) {
                 goto out;
         }
 
-	inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
-	ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
-	if (!ioc_inode) {
-		/* caching disabled, go ahead with normal readv */
-		STACK_WIND (frame, ioc_readv_disabled_cbk,
+        inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
+        ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
+        if (!ioc_inode) {
+                /* caching disabled, go ahead with normal readv */
+                STACK_WIND (frame, ioc_readv_disabled_cbk,
                             FIRST_CHILD (frame->this),
-			    FIRST_CHILD (frame->this)->fops->readv, fd, size,
+                            FIRST_CHILD (frame->this)->fops->readv, fd, size,
                             offset);
-		return 0;
-	}
+                return 0;
+        }
 
 
         table = this->private;
@@ -1101,7 +1117,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                         num_pages = (table->cache_size / table->page_size)
                                 + ((table->cache_size % table->page_size)
-                                ? 1 : 0);
+                                   ? 1 : 0);
 
                         table->mem_pool
                                 =  mem_pool_new (rbthash_entry_t, num_pages);
@@ -1122,9 +1138,9 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 if (!ioc_inode->cache.page_table) {
                         ioc_inode->cache.page_table
                                 = rbthash_table_init
-                                                (IOC_PAGE_TABLE_BUCKET_COUNT,
-                                                 ioc_hashfn, NULL, 0,
-                                                 table->mem_pool);
+                                (IOC_PAGE_TABLE_BUCKET_COUNT,
+                                 ioc_hashfn, NULL, 0,
+                                 table->mem_pool);
 
                         if (ioc_inode->cache.page_table == NULL) {
                                 op_errno = ENOMEM;
@@ -1135,47 +1151,47 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         ioc_inode_unlock (ioc_inode);
 
-	if (!fd_ctx_get (fd, this, NULL)) {
-		/* disable caching for this fd, go ahead with normal readv */
-		STACK_WIND (frame, ioc_readv_disabled_cbk,
+        if (!fd_ctx_get (fd, this, NULL)) {
+                /* disable caching for this fd, go ahead with normal readv */
+                STACK_WIND (frame, ioc_readv_disabled_cbk,
                             FIRST_CHILD (frame->this),
-			    FIRST_CHILD (frame->this)->fops->readv, fd, size,
+                            FIRST_CHILD (frame->this)->fops->readv, fd, size,
                             offset);
-		return 0;
-	}
+                return 0;
+        }
 
-	local = (ioc_local_t *) GF_CALLOC (1, sizeof (ioc_local_t),
-                                            gf_ioc_mt_ioc_local_t);
+        local = (ioc_local_t *) GF_CALLOC (1, sizeof (ioc_local_t),
+                                           gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
                 goto out;
         }
 
-	INIT_LIST_HEAD (&local->fill_list);
+        INIT_LIST_HEAD (&local->fill_list);
 
-	frame->local = local;
-	local->pending_offset = offset;
-	local->pending_size = size;
-	local->offset = offset;
-	local->size = size;
-	local->inode = ioc_inode;
+        frame->local = local;
+        local->pending_offset = offset;
+        local->pending_size = size;
+        local->offset = offset;
+        local->size = size;
+        local->inode = ioc_inode;
 
-	gf_log (this->name, GF_LOG_TRACE,
-		"NEW REQ (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET"",
-		frame, offset, size);
+        gf_log (this->name, GF_LOG_TRACE,
+                "NEW REQ (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET"",
+                frame, offset, size);
 
-	weight = ioc_inode->weight;
+        weight = ioc_inode->weight;
 
-	ioc_table_lock (ioc_inode->table);
-	{
-		list_move_tail (&ioc_inode->inode_lru,
-				&ioc_inode->table->inode_lru[weight]);
-	}
-	ioc_table_unlock (ioc_inode->table);
+        ioc_table_lock (ioc_inode->table);
+        {
+                list_move_tail (&ioc_inode->inode_lru,
+                                &ioc_inode->table->inode_lru[weight]);
+        }
+        ioc_table_unlock (ioc_inode->table);
 
-	ioc_dispatch_requests (frame, ioc_inode, fd, offset, size);
-	return 0;
+        ioc_dispatch_requests (frame, ioc_inode, fd, offset, size);
+        return 0;
 
 out:
         STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
@@ -1194,20 +1210,20 @@ out:
  */
 int32_t
 ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret,	int32_t op_errno, struct iatt *prebuf,
+                int32_t op_ret,	int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf)
 {
-	ioc_local_t *local     = NULL;
-	uint64_t    ioc_inode = 0;
+        ioc_local_t *local     = NULL;
+        uint64_t     ioc_inode = 0;
 
         local = frame->local;
-	inode_ctx_get (local->fd->inode, this, &ioc_inode);
+        inode_ctx_get (local->fd->inode, this, &ioc_inode);
 
-	if (ioc_inode)
-		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+        if (ioc_inode)
+                ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
-	return 0;
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+        return 0;
 }
 
 /*
@@ -1223,13 +1239,13 @@ ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int32_t
 ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-	    struct iovec *vector, int32_t count, off_t offset,
+            struct iovec *vector, int32_t count, off_t offset,
             struct iobref *iobref)
 {
-	ioc_local_t *local     = NULL;
-	uint64_t    ioc_inode = 0;
+        ioc_local_t *local     = NULL;
+        uint64_t     ioc_inode = 0;
 
-	local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
+        local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
 
@@ -1237,19 +1253,19 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 return 0;
         }
 
-	/* TODO: why is it not fd_ref'ed */
-	local->fd = fd;
-	frame->local = local;
+        /* TODO: why is it not fd_ref'ed */
+        local->fd = fd;
+        frame->local = local;
 
-	inode_ctx_get (fd->inode, this, &ioc_inode);
-	if (ioc_inode)
-		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+        inode_ctx_get (fd->inode, this, &ioc_inode);
+        if (ioc_inode)
+                ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_WIND (frame, ioc_writev_cbk, FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
+        STACK_WIND (frame, ioc_writev_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
                     iobref);
 
-	return 0;
+        return 0;
 }
 
 /*
@@ -1269,9 +1285,9 @@ ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *postbuf)
 {
 
-	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
                              postbuf);
-	return 0;
+        return 0;
 }
 
 
@@ -1288,13 +1304,13 @@ ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int32_t
 ioc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                  struct iatt *postbuf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
 
-	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
                              postbuf);
-	return 0;
+        return 0;
 }
 
 
@@ -1310,15 +1326,16 @@ ioc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 ioc_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
-	uint64_t ioc_inode = 0;
-	inode_ctx_get (loc->inode, this, &ioc_inode);
+        uint64_t ioc_inode = 0;
 
-	if (ioc_inode)
-		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+        inode_ctx_get (loc->inode, this, &ioc_inode);
 
-	STACK_WIND (frame, ioc_truncate_cbk, FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->truncate, loc, offset);
-	return 0;
+        if (ioc_inode)
+                ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+
+        STACK_WIND (frame, ioc_truncate_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->truncate, loc, offset);
+        return 0;
 }
 
 /*
@@ -1333,66 +1350,67 @@ ioc_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 int32_t
 ioc_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
-	uint64_t ioc_inode = 0;
-	inode_ctx_get (fd->inode, this, &ioc_inode);
+        uint64_t ioc_inode = 0;
 
-	if (ioc_inode)
-		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+        inode_ctx_get (fd->inode, this, &ioc_inode);
 
-	STACK_WIND (frame, ioc_ftruncate_cbk, FIRST_CHILD(this),
+        if (ioc_inode)
+                ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+
+        STACK_WIND (frame, ioc_ftruncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset);
-	return 0;
+        return 0;
 }
 
 int32_t
 ioc_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-	    int32_t op_errno, struct gf_flock *lock)
+            int32_t op_errno, struct gf_flock *lock)
 {
-	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
-	return 0;
+        STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
+        return 0;
 }
 
 int32_t
 ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         struct gf_flock *lock)
 {
-	ioc_inode_t  *ioc_inode = NULL;
-	uint64_t     tmp_inode = 0;
+        ioc_inode_t *ioc_inode = NULL;
+        uint64_t     tmp_inode = 0;
 
-	inode_ctx_get (fd->inode, this, &tmp_inode);
-	ioc_inode = (ioc_inode_t *)(long)tmp_inode;
-	if (!ioc_inode) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"inode context is NULL: returning EBADFD");
-		STACK_UNWIND_STRICT (lk, frame, -1, EBADFD, NULL);
-		return 0;
-	}
+        inode_ctx_get (fd->inode, this, &tmp_inode);
+        ioc_inode = (ioc_inode_t *)(long)tmp_inode;
+        if (!ioc_inode) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "inode context is NULL: returning EBADFD");
+                STACK_UNWIND_STRICT (lk, frame, -1, EBADFD, NULL);
+                return 0;
+        }
 
-	ioc_inode_lock (ioc_inode);
-	{
-		gettimeofday (&ioc_inode->cache.tv, NULL);
-	}
-	ioc_inode_unlock (ioc_inode);
+        ioc_inode_lock (ioc_inode);
+        {
+                gettimeofday (&ioc_inode->cache.tv, NULL);
+        }
+        ioc_inode_unlock (ioc_inode);
 
-	STACK_WIND (frame, ioc_lk_cbk, FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->lk, fd, cmd, lock);
+        STACK_WIND (frame, ioc_lk_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->lk, fd, cmd, lock);
 
-	return 0;
+        return 0;
 }
 
 int32_t
 ioc_get_priority_list (const char *opt_str, struct list_head *first)
 {
-	int32_t              max_pri = 1;
-	char                *tmp_str = NULL;
-	char                *tmp_str1 = NULL;
-	char                *tmp_str2 = NULL;
-	char                *dup_str = NULL;
-	char                *stripe_str = NULL;
-	char                *pattern = NULL;
-	char                *priority = NULL;
-	char                *string = NULL;
-	struct ioc_priority *curr = NULL, *tmp = NULL;
+        int32_t              max_pri    = 1;
+        char                *tmp_str    = NULL;
+        char                *tmp_str1   = NULL;
+        char                *tmp_str2   = NULL;
+        char                *dup_str    = NULL;
+        char                *stripe_str = NULL;
+        char                *pattern    = NULL;
+        char                *priority   = NULL;
+        char                *string     = NULL;
+        struct ioc_priority *curr       = NULL, *tmp = NULL;
 
         string = gf_strdup (opt_str);
         if (string == NULL) {
@@ -1400,65 +1418,65 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
                 goto out;
         }
 
-	/* Get the pattern for cache priority.
-	 * "option priority *.jpg:1,abc*:2" etc
-	 */
-	/* TODO: inode_lru in table is statically hard-coded to 5,
-	 * should be changed to run-time configuration
-	 */
-	stripe_str = strtok_r (string, ",", &tmp_str);
-	while (stripe_str) {
-		curr = GF_CALLOC (1, sizeof (struct ioc_priority),
+        /* Get the pattern for cache priority.
+         * "option priority *.jpg:1,abc*:2" etc
+         */
+        /* TODO: inode_lru in table is statically hard-coded to 5,
+         * should be changed to run-time configuration
+         */
+        stripe_str = strtok_r (string, ",", &tmp_str);
+        while (stripe_str) {
+                curr = GF_CALLOC (1, sizeof (struct ioc_priority),
                                   gf_ioc_mt_ioc_priority);
                 if (curr == NULL) {
                         max_pri = -1;
                         goto out;
                 }
 
-		list_add_tail (&curr->list, first);
+                list_add_tail (&curr->list, first);
 
-		dup_str = gf_strdup (stripe_str);
+                dup_str = gf_strdup (stripe_str);
                 if (dup_str == NULL) {
                         max_pri = -1;
                         goto out;
                 }
 
-		pattern = strtok_r (dup_str, ":", &tmp_str1);
-		if (!pattern) {
+                pattern = strtok_r (dup_str, ":", &tmp_str1);
+                if (!pattern) {
                         max_pri = -1;
                         goto out;
                 }
 
-		priority = strtok_r (NULL, ":", &tmp_str1);
-		if (!priority) {
+                priority = strtok_r (NULL, ":", &tmp_str1);
+                if (!priority) {
                         max_pri = -1;
                         goto out;
                 }
 
-		gf_log ("io-cache", GF_LOG_TRACE,
-			"ioc priority : pattern %s : priority %s",
-			pattern,
-			priority);
+                gf_log ("io-cache", GF_LOG_TRACE,
+                        "ioc priority : pattern %s : priority %s",
+                        pattern,
+                        priority);
 
-		curr->pattern = gf_strdup (pattern);
+                curr->pattern = gf_strdup (pattern);
                 if (curr->pattern == NULL) {
                         max_pri = -1;
                         goto out;
                 }
 
-		curr->priority = strtol (priority, &tmp_str2, 0);
-		if (tmp_str2 && (*tmp_str2)) {
+                curr->priority = strtol (priority, &tmp_str2, 0);
+                if (tmp_str2 && (*tmp_str2)) {
                         max_pri = -1;
                         goto out;
                 } else {
- 			max_pri = max (max_pri, curr->priority);
+                        max_pri = max (max_pri, curr->priority);
                 }
 
                 GF_FREE (dup_str);
                 dup_str = NULL;
 
-		stripe_str = strtok_r (NULL, ",", &tmp_str);
-	}
+                stripe_str = strtok_r (NULL, ",", &tmp_str);
+        }
 out:
         if (string != NULL) {
                 GF_FREE (string);
@@ -1476,7 +1494,7 @@ out:
                 }
         }
 
-	return max_pri;
+        return max_pri;
 }
 
 int32_t
@@ -1491,7 +1509,7 @@ mem_acct_init (xlator_t *this)
 
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                                "failed");
+                        "failed");
                 return ret;
         }
 
@@ -1501,27 +1519,27 @@ mem_acct_init (xlator_t *this)
 int
 validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 {
-	ioc_table_t     *table = NULL;
-        int32_t          cache_timeout;
-        int64_t          min_file_size = 0;
-        int64_t          max_file_size = 0;
-        char            *tmp = NULL;
-        uint64_t         cache_size;
-        char            *cache_size_string = NULL;
-        int              ret = 0;
+        ioc_table_t *table             = NULL;
+        int32_t      cache_timeout     = 0;
+        int64_t      min_file_size     = 0;
+        int64_t      max_file_size     = 0;
+        char        *tmp               = NULL;
+        uint64_t     cache_size        = 0;
+        char        *cache_size_string = NULL;
+        int          ret               = 0;
 
         if (!this || !this->private)
                 goto out;
 
-	table = this->private;
+        table = this->private;
 
         if (dict_get (options, "cache-timeout")) {
                 cache_timeout = data_to_uint32 (dict_get (options,
-                                "cache-timeout"));
+                                                          "cache-timeout"));
                 if (cache_timeout < 0){
                         gf_log (this->name, GF_LOG_WARNING,
                                 "cache-timeout %d seconds invalid,"
-                                                " has to be  >=0", cache_timeout);
+                                " has to be  >=0", cache_timeout);
                         *op_errstr = gf_strdup ("Error, should be >= 0");
                         ret = -1;
                         goto out;
@@ -1531,7 +1549,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 if (cache_timeout > 60){
                         gf_log (this->name, GF_LOG_WARNING,
                                 "cache-timeout %d seconds invalid,"
-                                                " has to be  <=60", cache_timeout);
+                                " has to be  <=60", cache_timeout);
                         *op_errstr = gf_strdup ("Error, should be <= 60");
                         ret = -1;
                         goto out;
@@ -1546,65 +1564,65 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
         if (dict_get (options, "cache-size"))
                 cache_size_string = data_to_str (dict_get (options,
-                                "cache-size"));
+                                                           "cache-size"));
         if (cache_size_string) {
                 if (gf_string2bytesize (cache_size_string,
-                    &cache_size) != 0) {
-                            gf_log ("io-cache", GF_LOG_ERROR,
-                                    "invalid number format \"%s\" of "
-                                    "\"option cache-size\" Defaulting"
-                                    "to old value", cache_size_string);
-                            *op_errstr = gf_strdup ("Error, Invalid Format");
-                            ret = -1;
-                            goto out;
-                    }
+                                        &cache_size) != 0) {
+                        gf_log ("io-cache", GF_LOG_ERROR,
+                                "invalid number format \"%s\" of "
+                                "\"option cache-size\" Defaulting"
+                                "to old value", cache_size_string);
+                        *op_errstr = gf_strdup ("Error, Invalid Format");
+                        ret = -1;
+                        goto out;
+                }
 
-                    if (cache_size < ( 4 * GF_UNIT_MB)) {
-                            gf_log(this->name, GF_LOG_WARNING, "Reconfiguration"
-                                   "'option cache-size %s' failed , Max value"
-                                   "can be 4MiB, Defaulting to old value "
-                                   "(%"PRIu64")", cache_size_string,
-                                   cache_size);
-                            *op_errstr = gf_strdup ("Error, "
-                                                    "Cannot be less than 4MB");
-                            ret = -1;
-                            goto out;
-                    }
+                if (cache_size < ( 4 * GF_UNIT_MB)) {
+                        gf_log(this->name, GF_LOG_WARNING, "Reconfiguration"
+                               "'option cache-size %s' failed , Max value"
+                               "can be 4MiB, Defaulting to old value "
+                               "(%"PRIu64")", cache_size_string,
+                               cache_size);
+                        *op_errstr = gf_strdup ("Error, "
+                                                "Cannot be less than 4MB");
+                        ret = -1;
+                        goto out;
+                }
 
-                    if (cache_size > ( 6 * GF_UNIT_GB)) {
-                            gf_log(this->name, GF_LOG_WARNING, "Validation"
-                                   "'option cache-size %s' failed , Max value"
-                                   "can be 6GiB, Defaulting to old value "
-                                   "(%"PRIu64")", cache_size_string,
-                                   cache_size);
-                            *op_errstr = gf_strdup ("Error, Cannot be more "
-                                                    "than 6GB");
-                            ret = -1;
-                            goto out;
-                    }
+                if (cache_size > ( 6 * GF_UNIT_GB)) {
+                        gf_log(this->name, GF_LOG_WARNING, "Validation"
+                               "'option cache-size %s' failed , Max value"
+                               "can be 6GiB, Defaulting to old value "
+                               "(%"PRIu64")", cache_size_string,
+                               cache_size);
+                        *op_errstr = gf_strdup ("Error, Cannot be more "
+                                                "than 6GB");
+                        ret = -1;
+                        goto out;
+                }
 
 
-                    gf_log (this->name, GF_LOG_DEBUG, "Validated "
-                            " cache-size %"PRIu64"", cache_size);
+                gf_log (this->name, GF_LOG_DEBUG, "Validated "
+                        " cache-size %"PRIu64"", cache_size);
         }
 
         min_file_size = table->min_file_size;
         tmp = data_to_str (dict_get (options, "min-file-size"));
         if (tmp != NULL) {
                 if (gf_string2bytesize (tmp,
-                    (uint64_t *)&min_file_size)
+                                        (uint64_t *)&min_file_size)
                     != 0) {
                         gf_log ("io-cache", GF_LOG_WARNING,
                                 "invalid number format \"%s\" of "
-                                                "\"option min-file-size\"", tmp);
+                                "\"option min-file-size\"", tmp);
                         *op_errstr = gf_strdup ("Error, Invalid Format");
                         ret = -1;
                         goto out;
-                    }
+                }
 
-                    gf_log (this->name, GF_LOG_DEBUG,
-                            "Validated min-file-size %"PRIu64"",
-                            min_file_size);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated min-file-size %"PRIu64"",
+                        min_file_size);
         }
 
 
@@ -1612,29 +1630,29 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         tmp = data_to_str (dict_get (options, "max-file-size"));
         if (tmp != NULL) {
                 if (gf_string2bytesize (tmp,
-                    (uint64_t *)&max_file_size)
+                                        (uint64_t *)&max_file_size)
                     != 0) {
                         gf_log ("io-cache", GF_LOG_WARNING,
                                 "invalid number format \"%s\" of "
-                                                "\"option max-file-size\"", tmp);
+                                "\"option max-file-size\"", tmp);
                         *op_errstr = gf_strdup ("Error, Invalid Format");
                         ret = -1;
                         goto out;
-                    }
+                }
 
 
-                    gf_log (this->name, GF_LOG_WARNING,
-                            "Validated max-file-size %"PRIu64"",
-                            max_file_size);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Validated max-file-size %"PRIu64"",
+                        max_file_size);
         }
 
         if ((max_file_size >= 0) && (min_file_size > max_file_size)) {
                 gf_log ("io-cache", GF_LOG_WARNING, "minimum size (%"
-                                PRIu64") of a file that can be cached is "
-                                                "greater than maximum size (%"PRIu64"). ",
-                                                min_file_size, max_file_size);
+                        PRIu64") of a file that can be cached is "
+                        "greater than maximum size (%"PRIu64"). ",
+                        min_file_size, max_file_size);
                 *op_errstr = gf_strdup ("Error, min-file-size greater"
-                                " than max-file-size");
+                                        " than max-file-size");
                 ret = -1;
                 goto out;
         }
@@ -1646,173 +1664,175 @@ out:
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-	ioc_table_t     *table = NULL;
-	int32_t		 cache_timeout;
-	int64_t		 min_file_size = 0;
-	int64_t		 max_file_size = 0;
-	char		*tmp = NULL;
-	uint64_t         cache_size;
-	char		*cache_size_string = NULL;
-	int		 ret = 0;
+        ioc_table_t *table             = NULL;
+        int32_t      cache_timeout     = 0;
+        int64_t      min_file_size     = 0;
+        int64_t      max_file_size     = 0;
+        char	    *tmp               = NULL;
+        uint64_t     cache_size        = 0;
+        char	    *cache_size_string = NULL;
+        int          ret               = 0;
 
         if (!this || !this->private)
                 goto out;
 
-	table = this->private;
+        table = this->private;
 
-	ioc_table_lock (table);
-	{
-		if (dict_get (options, "cache-timeout")) {
-			cache_timeout =
-				data_to_uint32 (dict_get (options,
-						    	  "cache-timeout"));
-			if (cache_timeout < 0){
-				gf_log (this->name, GF_LOG_WARNING,
-					"cache-timeout %d seconds invalid,"
-					" has to be  >=0", cache_timeout);
-				ret = -1;
-				goto out;
-			}
+        ioc_table_lock (table);
+        {
+                if (dict_get (options, "cache-timeout")) {
+                        cache_timeout =
+                                data_to_uint32 (dict_get (options,
+                                                          "cache-timeout"));
+                        if (cache_timeout < 0){
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cache-timeout %d seconds invalid,"
+                                        " has to be  >=0", cache_timeout);
+                                ret = -1;
+                                goto out;
+                        }
 
 
-			if (cache_timeout > 60){
-				gf_log (this->name, GF_LOG_WARNING,
-				"cache-timeout %d seconds invalid,"
-				" has to be  <=60", cache_timeout);
-				ret = -1;
-				goto out;
-			}
+                        if (cache_timeout > 60){
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cache-timeout %d seconds invalid,"
+                                        " has to be  <=60", cache_timeout);
+                                ret = -1;
+                                goto out;
+                        }
 
-			table->cache_timeout = cache_timeout;
+                        table->cache_timeout = cache_timeout;
 
-			gf_log (this->name, GF_LOG_DEBUG,
-				"Reconfiguring %d seconds to"
-				" revalidate cache", table->cache_timeout);
-		}
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Reconfiguring %d seconds to"
+                                " revalidate cache", table->cache_timeout);
+                }
                 else
                         table->cache_timeout = 1;
 
 
 
-		if (dict_get (options, "cache-size"))
-			cache_size_string = data_to_str (dict_get (options,
-							   "cache-size"));
-		if (cache_size_string) {
-			if (gf_string2bytesize (cache_size_string,
-						&cache_size) != 0) {
-				gf_log ("io-cache", GF_LOG_ERROR,
-					"invalid number format \"%s\" of "
-					"\"option cache-size\" Defaulting"
-					"to old value", cache_size_string);
-                        	ret = -1;
-				goto out;
-			}
+                if (dict_get (options, "cache-size"))
+                        cache_size_string
+                                = data_to_str (dict_get (options,
+                                                         "cache-size"));
+                if (cache_size_string) {
+                        if (gf_string2bytesize (cache_size_string,
+                                                &cache_size) != 0) {
+                                gf_log ("io-cache", GF_LOG_ERROR,
+                                        "invalid number format \"%s\" of "
+                                        "\"option cache-size\" Defaulting"
+                                        "to old value", cache_size_string);
+                                ret = -1;
+                                goto out;
+                        }
 
-			if (cache_size < (4 * GF_UNIT_MB)) {
-	                        gf_log(this->name, GF_LOG_ERROR,
+                        if (cache_size < (4 * GF_UNIT_MB)) {
+                                gf_log(this->name, GF_LOG_ERROR,
                                        "Reconfiguration"
                                        "'option cache-size %s' failed , "
                                        "Max value can be 4MiB, Defaulting to "
                                        "old value (%"PRIu64")",
                                        cache_size_string, table->cache_size);
-				ret = -1;
-				goto out;
-       		        }
+                                ret = -1;
+                                goto out;
+                        }
 
-			if (cache_size > (6 * GF_UNIT_GB)) {
-        	                gf_log (this->name, GF_LOG_ERROR,
+                        if (cache_size > (6 * GF_UNIT_GB)) {
+                                gf_log (this->name, GF_LOG_ERROR,
                                         "Reconfiguration"
                                         "'option cache-size %s' failed , "
                                         "Max value can be 6GiB, Defaulting to "
                                         "old value (%"PRIu64")",
                                         cache_size_string, table->cache_size);
-				ret = -1;
-				goto out;
-                	}
+                                ret = -1;
+                                goto out;
+                        }
 
 
-			gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
-				" cache-size %"PRIu64"", cache_size);
-			table->cache_size = cache_size;
-		}
+                        gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
+                                " cache-size %"PRIu64"", cache_size);
+                        table->cache_size = cache_size;
+                }
                 else
                         table->cache_size = IOC_CACHE_SIZE;
 
 
-		if (dict_get (options, "priority")) {
-			char *option_list = data_to_str (dict_get (options,
-							   "priority"));
-			gf_log (this->name, GF_LOG_TRACE,
-				"option path %s", option_list);
-			/* parse the list of pattern:priority */
-			table->max_pri = ioc_get_priority_list (option_list,
-								&table->priority_list);
+                if (dict_get (options, "priority")) {
+                        char *option_list = data_to_str (dict_get (options,
+                                                                   "priority"));
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "option path %s", option_list);
+                        /* parse the list of pattern:priority */
+                        table->max_pri
+                                = ioc_get_priority_list (option_list,
+                                                         &table->priority_list);
 
-			if (table->max_pri == -1) {
-        	                ret = -1;
-				goto out;
-                	}
-			table->max_pri ++;
-		}
+                        if (table->max_pri == -1) {
+                                ret = -1;
+                                goto out;
+                        }
+                        table->max_pri ++;
+                }
 
-		min_file_size = table->min_file_size;
-		tmp = data_to_str (dict_get (options, "min-file-size"));
-	        if (tmp != NULL) {
-			if (gf_string2bytesize (tmp,
-                	                        (uint64_t *)&min_file_size)
-						!= 0) {
-				gf_log ("io-cache", GF_LOG_ERROR,
-					"invalid number format \"%s\" of "
-					"\"option min-file-size\"", tmp);
-                        	ret = -1;
-				goto out;
-			}
+                min_file_size = table->min_file_size;
+                tmp = data_to_str (dict_get (options, "min-file-size"));
+                if (tmp != NULL) {
+                        if (gf_string2bytesize (tmp,
+                                                (uint64_t *)&min_file_size)
+                            != 0) {
+                                gf_log ("io-cache", GF_LOG_ERROR,
+                                        "invalid number format \"%s\" of "
+                                        "\"option min-file-size\"", tmp);
+                                ret = -1;
+                                goto out;
+                        }
 
-			gf_log (this->name, GF_LOG_DEBUG,
-				"Reconfiguring min-file-size %"PRIu64"",
-				table->min_file_size);
-		}
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Reconfiguring min-file-size %"PRIu64"",
+                                table->min_file_size);
+                }
 
-		max_file_size = table->max_file_size;
-        	tmp = data_to_str (dict_get (options, "max-file-size"));
-       		if (tmp != NULL) {
-                	if (gf_string2bytesize (tmp,
-                        	                (uint64_t *)&max_file_size)
-						!= 0) {
-				gf_log ("io-cache", GF_LOG_ERROR,
-                                	"invalid number format \"%s\" of "
-                                	"\"option max-file-size\"", tmp);
-                        	ret = -1;
-                		goto out;
-			}
+                max_file_size = table->max_file_size;
+                tmp = data_to_str (dict_get (options, "max-file-size"));
+                if (tmp != NULL) {
+                        if (gf_string2bytesize (tmp,
+                                                (uint64_t *)&max_file_size)
+                            != 0) {
+                                gf_log ("io-cache", GF_LOG_ERROR,
+                                        "invalid number format \"%s\" of "
+                                        "\"option max-file-size\"", tmp);
+                                ret = -1;
+                                goto out;
+                        }
 
 
-                	gf_log (this->name, GF_LOG_DEBUG,
-                        	"Reconfiguring max-file-size %"PRIu64"",
-			 	table->max_file_size);
-        	}
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Reconfiguring max-file-size %"PRIu64"",
+                                table->max_file_size);
+                }
 
-        	if ((max_file_size >= 0) && (min_file_size > max_file_size)) {
+                if ((max_file_size >= 0) && (min_file_size > max_file_size)) {
                         gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
                                 PRIu64") of a file that can be cached is "
                                 "greater than maximum size (%"PRIu64"). "
-				"Hence Defaulting to old value",
+                                "Hence Defaulting to old value",
                                 table->min_file_size, table->max_file_size);
                         ret = -1;
-			goto out;
-		}
+                        goto out;
+                }
 
-		table->min_file_size = min_file_size;
-		table->max_file_size = max_file_size;
+                table->min_file_size = min_file_size;
+                table->max_file_size = max_file_size;
                 if (!data_to_str (dict_get (options, "min-file-size")))
-                    table->min_file_size = 0;
+                        table->min_file_size = 0;
                 if (data_to_str (dict_get (options, "max-file-size")))
-                    table->max_file_size = 0;
-	}
+                        table->max_file_size = 0;
+        }
 
-	ioc_table_unlock (table);
+        ioc_table_unlock (table);
 out:
-	return ret;
+        return ret;
 
 }
 
@@ -1824,118 +1844,119 @@ out:
 int32_t
 init (xlator_t *this)
 {
-	ioc_table_t     *table = NULL;
-	dict_t          *xl_options = this->options;
-	uint32_t         index = 0;
-	char            *cache_size_string = NULL, *tmp = NULL;
-        int32_t          ret = -1;
-        glusterfs_ctx_t *ctx = NULL;
-        char            *def_val = NULL;
+        ioc_table_t     *table             = NULL;
+        dict_t          *xl_options        = NULL;
+        uint32_t         index             = 0;
+        char            *cache_size_string = NULL, *tmp = NULL;
+        int32_t          ret               = -1;
+        glusterfs_ctx_t *ctx               = NULL;
+        char            *def_val           = NULL;
 
-	if (!this->children || this->children->next) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"FATAL: io-cache not configured with exactly "
-			"one child");
+        xl_options = this->options;
+        if (!this->children || this->children->next) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "FATAL: io-cache not configured with exactly "
+                        "one child");
                 goto out;
-	}
+        }
 
-	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
-	}
+        if (!this->parents) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dangling volume. check volfile ");
+        }
 
-	table = (void *) GF_CALLOC (1, sizeof (*table), gf_ioc_mt_ioc_table_t);
+        table = (void *) GF_CALLOC (1, sizeof (*table), gf_ioc_mt_ioc_table_t);
         if (table == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
-	table->xl = this;
-	table->page_size = this->ctx->page_size;
+        table->xl = this;
+        table->page_size = this->ctx->page_size;
         if (xlator_get_volopt_info (&this->volume_options, "cache-size",
-                                     &def_val, NULL)) {
+                                    &def_val, NULL)) {
                 gf_log (this->name, GF_LOG_ERROR, "Default value of cache-size "
-                         "not found");
+                        "not found");
                 ret = -1;
                 goto out;
         } else {
                 if (gf_string2bytesize (def_val, &table->cache_size)) {
                         gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "cache-size corrupt");
+                                "cache-size corrupt");
                         ret = -1;
                         goto out;
                 }
         }
 
         if (dict_get (xl_options, "cache-size"))
-		cache_size_string = data_to_str (dict_get (xl_options,
-							   "cache-size"));
-	if (cache_size_string) {
-		if (gf_string2bytesize (cache_size_string,
-					&table->cache_size) != 0) {
-			gf_log ("io-cache", GF_LOG_ERROR,
-				"invalid number format \"%s\" of "
-				"\"option cache-size\"",
-				cache_size_string);
+                cache_size_string = data_to_str (dict_get (xl_options,
+                                                           "cache-size"));
+        if (cache_size_string) {
+                if (gf_string2bytesize (cache_size_string,
+                                        &table->cache_size) != 0) {
+                        gf_log ("io-cache", GF_LOG_ERROR,
+                                "invalid number format \"%s\" of "
+                                "\"option cache-size\"",
+                                cache_size_string);
                         goto out;
-		}
+                }
 
-		gf_log (this->name, GF_LOG_TRACE,
-			"using cache-size %"PRIu64"", table->cache_size);
-	}
+                gf_log (this->name, GF_LOG_TRACE,
+                        "using cache-size %"PRIu64"", table->cache_size);
+        }
 
         if (xlator_get_volopt_info (&this->volume_options, "cache-timeout",
                                     &def_val, NULL)) {
                 gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "cache-timeout not found");
+                        "cache-timeout not found");
                 ret = -1;
                 goto out;
         } else {
                 if (gf_string2int32 (def_val, &table->cache_timeout)) {
                         gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "cache-timeout corrupt");
+                                "cache-timeout corrupt");
                         ret = -1;
                         goto out;
                 }
         }
 
         if (dict_get (xl_options, "cache-timeout")){
-		table->cache_timeout =
-			data_to_uint32 (dict_get (xl_options,
-						  "cache-timeout"));
-		gf_log (this->name, GF_LOG_TRACE,
-			"Using %d seconds to revalidate cache",
-			table->cache_timeout);
-	}
+                table->cache_timeout =
+                        data_to_uint32 (dict_get (xl_options,
+                                                  "cache-timeout"));
+                gf_log (this->name, GF_LOG_TRACE,
+                        "Using %d seconds to revalidate cache",
+                        table->cache_timeout);
+        }
 
-	INIT_LIST_HEAD (&table->priority_list);
-	table->max_pri = 1;
+        INIT_LIST_HEAD (&table->priority_list);
+        table->max_pri = 1;
         if (dict_get (xl_options, "priority")) {
-		char *option_list = data_to_str (dict_get (xl_options,
-							   "priority"));
-		gf_log (this->name, GF_LOG_TRACE,
-			"option path %s", option_list);
-		/* parse the list of pattern:priority */
-		table->max_pri = ioc_get_priority_list (option_list,
-							&table->priority_list);
+                char *option_list = data_to_str (dict_get (xl_options,
+                                                           "priority"));
+                gf_log (this->name, GF_LOG_TRACE,
+                        "option path %s", option_list);
+                /* parse the list of pattern:priority */
+                table->max_pri = ioc_get_priority_list (option_list,
+                                                        &table->priority_list);
 
-		if (table->max_pri == -1) {
+                if (table->max_pri == -1) {
                         goto out;
                 }
-	}
-	table->max_pri ++;
+        }
+        table->max_pri ++;
 
         if (xlator_get_volopt_info (&this->volume_options, "min-file-size",
                                     &def_val, NULL)) {
                 gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "min-file-size not found");
+                        "min-file-size not found");
                 ret = -1;
                 goto out;
         } else {
                 if (gf_string2bytesize (def_val,
                                         (uint64_t *) &table->min_file_size)) {
                         gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "min-file-size corrupt");
+                                "min-file-size corrupt");
                         ret = -1;
                         goto out;
                 }
@@ -1945,29 +1966,30 @@ init (xlator_t *this)
         if (dict_get (xl_options, "min-file-size"))
                 tmp = data_to_str (dict_get (xl_options, "min-file-size"));
         if (tmp != NULL) {
-		if (gf_string2bytesize (tmp,
-                                        (uint64_t *)&table->min_file_size) != 0) {
-			gf_log ("io-cache", GF_LOG_ERROR,
-				"invalid number format \"%s\" of "
-				"\"option min-file-size\"", tmp);
+                if (gf_string2bytesize (tmp,
+                                        (uint64_t *)&table->min_file_size)
+                    != 0) {
+                        gf_log ("io-cache", GF_LOG_ERROR,
+                                "invalid number format \"%s\" of "
+                                "\"option min-file-size\"", tmp);
                         goto out;
-		}
+                }
 
-		gf_log (this->name, GF_LOG_TRACE,
-			"using min-file-size %"PRIu64"", table->min_file_size);
+                gf_log (this->name, GF_LOG_TRACE,
+                        "using min-file-size %"PRIu64"", table->min_file_size);
         }
 
         if (xlator_get_volopt_info (&this->volume_options, "max-file-size",
                                     &def_val, NULL)) {
                 gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "max-file-size not found");
+                        "max-file-size not found");
                 ret = -1;
                 goto out;
         } else {
                 if (gf_string2bytesize (def_val,
                                         (uint64_t *) &table->max_file_size)) {
                         gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "max-file-size corrupt");
+                                "max-file-size corrupt");
                         ret = -1;
                         goto out;
                 }
@@ -1978,7 +2000,8 @@ init (xlator_t *this)
                 tmp = data_to_str (dict_get (xl_options, "max-file-size"));
         if (tmp != NULL) {
                 if (gf_string2bytesize (tmp,
-                                        (uint64_t *)&table->max_file_size) != 0) {
+                                        (uint64_t *)&table->max_file_size)
+                    != 0) {
                         gf_log ("io-cache", GF_LOG_ERROR,
                                 "invalid number format \"%s\" of "
                                 "\"option max-file-size\"", tmp);
@@ -1988,29 +2011,29 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_TRACE,
                         "using max-file-size %"PRIu64"", table->max_file_size);
         }
-	INIT_LIST_HEAD (&table->inodes);
+        INIT_LIST_HEAD (&table->inodes);
 
         if ((table->max_file_size >= 0)
             && (table->min_file_size > table->max_file_size)) {
-                        gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
-                                PRIu64") of a file that can be cached is "
-                                "greater than maximum size (%"PRIu64")",
-                                table->min_file_size, table->max_file_size);
-                        goto out;
+                gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
+                        PRIu64") of a file that can be cached is "
+                        "greater than maximum size (%"PRIu64")",
+                        table->min_file_size, table->max_file_size);
+                goto out;
         }
 
-	table->inode_lru = GF_CALLOC (table->max_pri,
+        table->inode_lru = GF_CALLOC (table->max_pri,
                                       sizeof (struct list_head),
                                       gf_ioc_mt_list_head);
         if (table->inode_lru == NULL) {
                 goto out;
         }
 
-	for (index = 0; index < (table->max_pri); index++)
-		INIT_LIST_HEAD (&table->inode_lru[index]);
+        for (index = 0; index < (table->max_pri); index++)
+                INIT_LIST_HEAD (&table->inode_lru[index]);
 
-	pthread_mutex_init (&table->table_lock, NULL);
-	this->private = table;
+        pthread_mutex_init (&table->table_lock, NULL);
+        this->private = table;
         ret = 0;
 
         ctx = this->ctx;
@@ -2024,15 +2047,15 @@ out:
                 }
         }
 
-	return ret;
+        return ret;
 }
 
 int
 ioc_priv_dump (xlator_t *this)
 {
-        ioc_table_t     *priv = NULL;
-        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
-        char            key[GF_DUMP_MAX_BUF_LEN];
+        ioc_table_t *priv                            = NULL;
+        char         key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        char         key[GF_DUMP_MAX_BUF_LEN]        = {0, };
 
         if (!this || !this->private)
                 goto out;
@@ -2064,7 +2087,7 @@ out:
 void
 fini (xlator_t *this)
 {
-	ioc_table_t *table = NULL;
+        ioc_table_t *table = NULL;
 
         table = this->private;
 
@@ -2076,22 +2099,22 @@ fini (xlator_t *this)
                 table->mem_pool = NULL;
         }
 
-	pthread_mutex_destroy (&table->table_lock);
-	GF_FREE (table);
+        pthread_mutex_destroy (&table->table_lock);
+        GF_FREE (table);
 
-	this->private = NULL;
-	return;
+        this->private = NULL;
+        return;
 }
 
 struct xlator_fops fops = {
-	.open        = ioc_open,
-	.create      = ioc_create,
-	.readv       = ioc_readv,
-	.writev      = ioc_writev,
-	.truncate    = ioc_truncate,
-	.ftruncate   = ioc_ftruncate,
-	.lookup      = ioc_lookup,
-	.lk          = ioc_lk,
+        .open        = ioc_open,
+        .create      = ioc_create,
+        .readv       = ioc_readv,
+        .writev      = ioc_writev,
+        .truncate    = ioc_truncate,
+        .ftruncate   = ioc_ftruncate,
+        .lookup      = ioc_lookup,
+        .lk          = ioc_lk,
         .setattr     = ioc_setattr,
         .mknod       = ioc_mknod
 };
@@ -2102,46 +2125,46 @@ struct xlator_dumpops dumpops = {
 };
 
 struct xlator_cbks cbks = {
-	.forget      = ioc_forget,
-  	.release     = ioc_release
+        .forget      = ioc_forget,
+        .release     = ioc_release
 };
 
 struct volume_options options[] = {
-	{ .key  = {"priority"},
-	  .type = GF_OPTION_TYPE_ANY,
+        { .key  = {"priority"},
+          .type = GF_OPTION_TYPE_ANY,
           .default_value = "",
           .description = "Assigns priority to filenames with specific "
-                         "patterns so that when a page needs to be ejected "
-                         "out of the cache, the page of a file whose "
-                         "priority is the lowest will be ejected earlier"
-	},
-	{ .key  = {"cache-timeout", "force-revalidate-timeout"},
-	  .type = GF_OPTION_TYPE_INT,
-	  .min  = 0,
-	  .max  = 60,
+          "patterns so that when a page needs to be ejected "
+          "out of the cache, the page of a file whose "
+          "priority is the lowest will be ejected earlier"
+        },
+        { .key  = {"cache-timeout", "force-revalidate-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0,
+          .max  = 60,
           .default_value = "1",
           .description = "The cached data for a file will be retained till "
-                         "'cache-refresh-timeout' seconds, after which data "
-                         "re-validation is performed."
-	},
-	{ .key  = {"cache-size"},
-	  .type = GF_OPTION_TYPE_SIZET,
-	  .min  = 4 * GF_UNIT_MB,
+          "'cache-refresh-timeout' seconds, after which data "
+          "re-validation is performed."
+        },
+        { .key  = {"cache-size"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min  = 4 * GF_UNIT_MB,
           .max  = 6 * GF_UNIT_GB,
           .default_value = "32MB",
           .description = "Size of the read cache."
-	},
+        },
         { .key  = {"min-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .default_value = "0",
           .description = "Minimum file size which would be cached by the "
-                         "io-cache translator."
+          "io-cache translator."
         },
         { .key  = {"max-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .default_value = "0",
           .description = "Maximum file size which would be cached by the "
-                         "io-cache translator."
+          "io-cache translator."
         },
-	{ .key = {NULL} },
+        { .key = {NULL} },
 };
