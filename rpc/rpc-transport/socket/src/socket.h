@@ -193,6 +193,7 @@ typedef struct {
         int                    keepaliveidle;
         int                    keepaliveintvl;
         uint32_t               backlog;
+        gf_boolean_t           read_fail_log;
 } socket_private_t;
 
 

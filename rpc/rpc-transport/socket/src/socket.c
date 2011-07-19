@@ -43,7 +43,6 @@
 #include <errno.h>
 #include <netinet/tcp.h>
 #include <rpc/xdr.h>
-
 #define GF_LOG_ERRNO(errno) ((errno == ENOTCONN) ? GF_LOG_DEBUG : GF_LOG_ERROR)
 #define SA(ptr) ((struct sockaddr *)ptr)
 
@@ -1486,12 +1485,14 @@ __socket_proto_state_machine (rpc_transport_t *this,
                                               &priv->incoming.pending_count,
                                               NULL);
                         if (ret == -1) {
-                                gf_log (this->name,
-                                        ((priv->connected == 1) ?
-                                         GF_LOG_WARNING : GF_LOG_DEBUG),
-                                        "reading from socket failed. Error (%s)"
-                                        ", peer (%s)", strerror (errno),
-                                        this->peerinfo.identifier);
+                                if (priv->read_fail_log == 1) {
+                                        gf_log (this->name,
+                                                ((priv->connected == 1) ?
+                                                 GF_LOG_WARNING : GF_LOG_DEBUG),
+                                                "reading from socket failed. Error (%s)"
+                                                ", peer (%s)", strerror (errno),
+                                                this->peerinfo.identifier);
+                                }
                                 goto out;
                         }
 
@@ -2536,7 +2537,6 @@ socket_init (rpc_transport_t *this)
         priv->nodelay = 1;
         priv->bio = 0;
         priv->windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
-
         INIT_LIST_HEAD (&priv->ioq);
 
         /* All the below section needs 'this->options' to be present */
@@ -2627,6 +2627,22 @@ socket_init (rpc_transport_t *this)
                              "transport.socket.listen-backlog",
                              &backlog) == 0) {
                 priv->backlog = backlog;
+        }
+
+        optstr = NULL;
+
+         /* Check if socket read failures are to be logged */
+        priv->read_fail_log = 1;
+        if (dict_get (this->options, "transport.socket.read-fail-log")) {
+                optstr = data_to_str (dict_get (this->options, "transport.socket.read-fail-log"));
+                if (gf_string2boolean (optstr, &tmp_bool) == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                   "'transport.socket.read-fail-log' takes only "
+                                   "boolean options; logging socket read fails");
+                }
+                else if (tmp_bool == _gf_false) {
+                        priv->read_fail_log = 0;
+                }
         }
 
         priv->windowsize = (int)windowsize;
@@ -2733,6 +2749,9 @@ struct volume_options options[] = {
         },
         { .key   = {"transport.socket.listen-backlog"},
           .type  = GF_OPTION_TYPE_INT
+        },
+        { .key   = {"transport.socket.read-fail-log"},
+          .type  = GF_OPTION_TYPE_BOOL
         },
         { .key = {NULL} }
 };
