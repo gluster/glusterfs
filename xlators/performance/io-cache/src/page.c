@@ -46,7 +46,7 @@ out:
 
 
 ioc_page_t *
-ioc_page_get (ioc_inode_t *ioc_inode, off_t offset)
+__ioc_page_get (ioc_inode_t *ioc_inode, off_t offset)
 {
         ioc_page_t   *page           = NULL;
         ioc_table_t  *table          = NULL;
@@ -72,14 +72,34 @@ out:
 }
 
 
+ioc_page_t *
+ioc_page_get (ioc_inode_t *ioc_inode, off_t offset)
+{
+        ioc_page_t *page = NULL;
+
+        if (ioc_inode == NULL) {
+                goto out;
+        }
+
+        ioc_inode_lock (ioc_inode);
+        {
+                page = __ioc_page_get (ioc_inode, offset);
+        }
+        ioc_inode_unlock (ioc_inode);
+
+out:
+        return page;
+}
+
+
 /*
- * ioc_page_destroy -
+ * __ioc_page_destroy -
  *
  * @page:
  *
  */
 int64_t
-ioc_page_destroy (ioc_page_t *page)
+__ioc_page_destroy (ioc_page_t *page)
 {
         int64_t  page_size = 0;
 
@@ -119,6 +139,63 @@ out:
         return page_size;
 }
 
+
+int64_t
+ioc_page_destroy (ioc_page_t *page)
+{
+        int64_t ret = 0;
+
+        if (page == NULL) {
+                goto out;
+        }
+
+        ioc_inode_lock (page->inode);
+        {
+                ret = __ioc_page_destroy (page);
+        }
+        ioc_inode_unlock (page->inode);
+
+out:
+        return ret;
+}
+
+int32_t
+__ioc_inode_prune (ioc_inode_t *curr, uint64_t *size_pruned,
+                   uint64_t size_to_prune, uint32_t index)
+{
+        ioc_page_t  *page  = NULL, *next = NULL;
+        int32_t      ret   = 0;
+        ioc_table_t *table = NULL;
+
+        if (curr == NULL) {
+                goto out;
+        }
+
+        table = curr->table;
+
+        list_for_each_entry_safe (page, next, &curr->cache.page_lru, page_lru) {
+                *size_pruned += page->size;
+                ret = __ioc_page_destroy (page);
+
+                if (ret != -1)
+                        table->cache_used -= ret;
+
+                gf_log (table->xl->name, GF_LOG_TRACE,
+                        "index = %d && table->cache_used = %"PRIu64" && table->"
+                        "cache_size = %"PRIu64, index, table->cache_used,
+                        table->cache_size);
+
+                if ((*size_pruned) >= size_to_prune)
+                        break;
+        }
+
+        if (ioc_empty (&curr->cache)) {
+                list_del_init (&curr->inode_lru);
+        }
+
+out:
+        return 0;
+}
 /*
  * ioc_prune - prune the cache. we have a limit to the number of pages we
  *             can have in-memory.
@@ -130,8 +207,6 @@ int32_t
 ioc_prune (ioc_table_t *table)
 {
         ioc_inode_t *curr          = NULL, *next_ioc_inode = NULL;
-        ioc_page_t  *page          = NULL, *next = NULL;
-        int32_t      ret           = -1;
         int32_t      index         = 0;
         uint64_t     size_to_prune = 0;
         uint64_t     size_pruned   = 0;
@@ -149,37 +224,11 @@ ioc_prune (ioc_table_t *table)
                                 /* prune page-by-page for this inode, till
                                  * we reach the equilibrium */
                                 ioc_inode_lock (curr);
-                                /* { */
-
-                                list_for_each_entry_safe (page, next,
-                                                          &curr->cache.page_lru,
-                                                          page_lru) {
-                                        /* done with all pages, and not
-                                         * reached equilibrium yet??
-                                         * continue with next inode in
-                                         * lru_list */
-                                        size_pruned += page->size;
-                                        ret = ioc_page_destroy (page);
-
-                                        if (ret != -1)
-                                                table->cache_used -= ret;
-
-                                        gf_log (table->xl->name, GF_LOG_TRACE,
-                                                "index = %d && table->cache_"
-                                                "used = %"PRIu64" && table->"
-                                                "cache_size = %"PRIu64,
-                                                index, table->cache_used,
-                                                table->cache_size);
-
-                                        if (size_pruned >= size_to_prune)
-                                                break;
-                                } /* list_for_each_entry_safe(page...) */
-
-                                if (ioc_empty (&curr->cache)) {
-                                        list_del_init (&curr->inode_lru);
+                                {
+                                        __ioc_inode_prune (curr, &size_pruned,
+                                                           size_to_prune,
+                                                           index);
                                 }
-
-                                /* } */
                                 ioc_inode_unlock (curr);
 
                                 if (size_pruned >= size_to_prune)
@@ -198,14 +247,14 @@ out:
 }
 
 /*
- * ioc_page_create - create a new page.
+ * __ioc_page_create - create a new page.
  *
  * @ioc_inode:
  * @offset:
  *
  */
 ioc_page_t *
-ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
+__ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
 {
         ioc_table_t *table          = NULL;
         ioc_page_t  *page           = NULL;
@@ -258,8 +307,8 @@ out:
  *
  */
 void
-ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
-                  size_t size)
+__ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
+                    size_t size)
 {
         ioc_waitq_t *waitq = NULL;
         ioc_local_t *local = NULL;
@@ -414,14 +463,14 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (op_ret < 0) {
                         /* error, readv returned -1 */
-                        page = ioc_page_get (ioc_inode, offset);
+                        page = __ioc_page_get (ioc_inode, offset);
                         if (page)
-                                waitq = ioc_page_error (page, op_ret,
-                                                        op_errno);
+                                waitq = __ioc_page_error (page, op_ret,
+                                                          op_errno);
                 } else {
                         gf_log (ioc_inode->table->xl->name, GF_LOG_TRACE,
                                 "op_ret = %d", op_ret);
-                        page = ioc_page_get (ioc_inode, offset);
+                        page = __ioc_page_get (ioc_inode, offset);
                         if (!page) {
                                 /* page was flushed */
                                 /* some serious bug ? */
@@ -439,11 +488,12 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 /* keep a copy of the page for our cache */
                                 page->vector = iov_dup (vector, count);
                                 if (page->vector == NULL) {
-                                        page = ioc_page_get (ioc_inode, offset);
+                                        page = __ioc_page_get (ioc_inode,
+                                                               offset);
                                         if (page != NULL)
-                                                waitq = ioc_page_error (page,
-                                                                        -1,
-                                                                        ENOMEM);
+                                                waitq = __ioc_page_error (page,
+                                                                          -1,
+                                                                          ENOMEM);
                                         goto unlock;
                                 }
 
@@ -474,7 +524,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         /* wake up all the frames waiting on
                                          * this page, including
                                          * the frame which triggered fault */
-                                        waitq = ioc_page_wakeup (page);
+                                        waitq = __ioc_page_wakeup (page);
                                 } /* if(page->waitq) */
                         } /* if(!page)...else */
                 } /* if(op_ret < 0)...else */
@@ -584,19 +634,24 @@ ioc_page_fault (ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
         return;
 
 err:
-        page = ioc_page_get (ioc_inode, offset);
-        if (page != NULL) {
-                waitq = ioc_page_error (page, op_ret, op_errno);
-                if (waitq != NULL) {
-                        ioc_waitq_return (waitq);
+        ioc_inode_lock (ioc_inode);
+        {
+                page = __ioc_page_get (ioc_inode, offset);
+                if (page != NULL) {
+                        waitq = __ioc_page_error (page, op_ret, op_errno);
                 }
+        }
+        ioc_inode_unlock (ioc_inode);
+
+        if (waitq != NULL) {
+                ioc_waitq_return (waitq);
         }
 }
 
 
 int32_t
-ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
-                size_t size)
+__ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
+                  size_t size)
 {
         ioc_local_t *local      = NULL;
         ioc_fill_t  *fill       = NULL;
@@ -720,6 +775,7 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
                                 }
                         }
                 }
+
                 local->op_ret += copy_size;
         }
 
@@ -867,7 +923,7 @@ ioc_frame_return (call_frame_t *frame)
  * to be called only when a frame is waiting on an in-transit page
  */
 ioc_waitq_t *
-ioc_page_wakeup (ioc_page_t *page)
+__ioc_page_wakeup (ioc_page_t *page)
 {
         ioc_waitq_t  *waitq = NULL, *trav = NULL;
         call_frame_t *frame = NULL;
@@ -885,8 +941,8 @@ ioc_page_wakeup (ioc_page_t *page)
 
         for (trav = waitq; trav; trav = trav->next) {
                 frame = trav->data;
-                ret = ioc_frame_fill (page, frame, trav->pending_offset,
-                                      trav->pending_size);
+                ret = __ioc_frame_fill (page, frame, trav->pending_offset,
+                                        trav->pending_size);
                 if (ret == -1) {
                         break;
                 }
@@ -897,6 +953,7 @@ out:
 }
 
 
+
 /*
  * ioc_page_error -
  * @page:
@@ -905,7 +962,7 @@ out:
  *
  */
 ioc_waitq_t *
-ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
+__ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
 {
         ioc_waitq_t  *waitq = NULL, *trav = NULL;
         call_frame_t *frame = NULL;
@@ -937,11 +994,37 @@ ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
         }
 
         table = page->inode->table;
-        ret = ioc_page_destroy (page);
+        ret = __ioc_page_destroy (page);
 
         if (ret != -1) {
                 table->cache_used -= ret;
         }
+
+out:
+        return waitq;
+}
+
+/*
+ * ioc_page_error -
+ * @page:
+ * @op_ret:
+ * @op_errno:
+ *
+ */
+ioc_waitq_t *
+ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
+{
+        ioc_waitq_t  *waitq = NULL;
+
+        if (page == NULL) {
+                goto out;
+        }
+
+        ioc_inode_lock (page->inode);
+        {
+                waitq = __ioc_page_error (page, op_ret, op_errno);
+        }
+        ioc_inode_unlock (page->inode);
 
 out:
         return waitq;

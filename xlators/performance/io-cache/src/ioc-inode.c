@@ -36,6 +36,7 @@ void *
 str_to_ptr (char *string)
 {
         void *ptr = NULL;
+
         GF_VALIDATE_OR_GOTO ("io-cache", string, out);
 
         ptr = (void *)strtoul (string, NULL, 16);
@@ -122,9 +123,10 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                                 ioc_inode_lock (ioc_inode);
                                 {
                                         page_waitq =
-                                                ioc_page_wakeup (waiter_page);
+                                                __ioc_page_wakeup (waiter_page);
                                 }
                                 ioc_inode_unlock (ioc_inode);
+
                                 if (page_waitq)
                                         ioc_waitq_return (page_waitq);
                         } else {
@@ -132,17 +134,19 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                                  * page->ready = 0, to avoid double faults
                                  */
                                 ioc_inode_lock (ioc_inode);
-
-                                if (waiter_page->ready) {
-                                        waiter_page->ready = 0;
-                                        need_fault = 1;
-                                } else {
-                                        gf_log (frame->this->name, GF_LOG_TRACE,
-                                                "validate frame(%p) is waiting"
-                                                "for in-transit page = %p",
-                                                frame, waiter_page);
+                                {
+                                        if (waiter_page->ready) {
+                                                waiter_page->ready = 0;
+                                                need_fault = 1;
+                                        } else {
+                                                gf_log (frame->this->name,
+                                                        GF_LOG_TRACE,
+                                                        "validate frame(%p) is "
+                                                        "waiting for "
+                                                        "in-transit page = %p",
+                                                        frame, waiter_page);
+                                        }
                                 }
-
                                 ioc_inode_unlock (ioc_inode);
 
                                 if (need_fault) {
