@@ -105,10 +105,12 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         struct dirent          *entry                  = NULL;
         struct stat             stbuf                  = {0,};
         struct stat             new_stbuf              = {0,};
+        struct stat             dst_stbuf              = {0,};
         char                    full_path[PATH_MAX]    = {0,};
         char                    tmp_filename[PATH_MAX] = {0,};
         char                    value[16]              = {0,};
         char                    linkinfo[PATH_MAX]     = {0,};
+        char                    file_not_copied_fully  = 0;
 
         if (!volinfo->defrag)
                 goto out;
@@ -172,24 +174,25 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 while (1) {
                         ret = read (src_fd, defrag->databuf, 131072);
-                        if (!ret || (ret < 0)) {
+                        if (ret < 0) {
+                                file_not_copied_fully = 1;
                                 break;
                         }
+                        /* If EOF is hit, then we get 'ret == 0' */
+                        if (!ret)
+                                break;
+
                         ret = write (dst_fd, defrag->databuf, ret);
                         if (ret < 0) {
+                                file_not_copied_fully = 1;
                                 break;
                         }
                 }
 
-                ret = lstat (full_path, &new_stbuf);
-                if (ret < 0) {
-                        close (dst_fd);
-                        close (src_fd);
-                        continue;
-                }
-                /* No need to rebalance, if there is some
-                   activity on source file */
-                if (new_stbuf.st_mtime != stbuf.st_mtime) {
+                if (file_not_copied_fully) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to copy the file fully : %s (%s)",
+                                full_path, strerror (errno));
                         close (dst_fd);
                         close (src_fd);
                         continue;
@@ -207,6 +210,46 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         gf_log ("", GF_LOG_WARNING,
                                 "failed to set the uid/gid of file %s: %s",
                                 tmp_filename, strerror (errno));
+                }
+
+                ret = fstat (src_fd, &new_stbuf);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to get stat: %s (%s)",
+                                full_path, strerror (errno));
+                        close (dst_fd);
+                        close (src_fd);
+                        continue;
+                }
+
+                ret = fstat (dst_fd, &dst_stbuf);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to get stat on temp file: %s (%s)",
+                                tmp_filename, strerror (errno));
+                        close (dst_fd);
+                        close (src_fd);
+                        continue;
+                }
+
+                /* No need to rebalance, if there is some
+                   activity on source file */
+                if (new_stbuf.st_mtime != stbuf.st_mtime) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "file got changed after we started copying %s",
+                                full_path);
+                        close (dst_fd);
+                        close (src_fd);
+                        continue;
+                }
+
+                if (new_stbuf.st_size != dst_stbuf.st_size) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "file sizes are not same : %s",
+                                full_path);
+                        close (dst_fd);
+                        close (src_fd);
+                        continue;
                 }
 
                 ret = rename (tmp_filename, full_path);
