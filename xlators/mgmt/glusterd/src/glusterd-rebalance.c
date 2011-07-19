@@ -81,7 +81,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 snprintf (full_path, PATH_MAX, "%s/%s", dir, entry->d_name);
 
-                ret = stat (full_path, &stbuf);
+                ret = lstat (full_path, &stbuf);
                 if (ret == -1)
                         continue;
 
@@ -125,7 +125,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
 
-                ret = stat (full_path, &stbuf);
+                ret = lstat (full_path, &stbuf);
                 if (ret == -1)
                         continue;
 
@@ -169,7 +169,7 @@ gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
 
                 snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
 
-                ret = stat (full_path, &stbuf);
+                ret = lstat (full_path, &stbuf);
                 if (ret == -1)
                         continue;
 
@@ -215,11 +215,11 @@ glusterd_defrag_start (void *data)
                 goto out;
 
         sleep (1);
-        ret = stat (defrag->mount, &stbuf);
+        ret = lstat (defrag->mount, &stbuf);
         if ((ret == -1) && (errno == ENOTCONN)) {
                 /* Wait for some more time before starting rebalance */
                 sleep (2);
-                ret = stat (defrag->mount, &stbuf);
+                ret = lstat (defrag->mount, &stbuf);
                 if (ret == -1) {
                         volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
                         volinfo->rebalance_files = 0;
