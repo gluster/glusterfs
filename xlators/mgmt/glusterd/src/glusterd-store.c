@@ -901,17 +901,57 @@ out:
 }
 
 
+int
+glusterd_store_read_and_tokenize (FILE *file, char *str,
+                                  char **iter_key, char **iter_val,
+                                  glusterd_store_op_errno_t *store_errno)
+{
+        int32_t  ret = -1;
+
+        GF_ASSERT (file);
+        GF_ASSERT (str);
+        GF_ASSERT (iter_key);
+        GF_ASSERT (iter_val);
+        GF_ASSERT (store_errno);
+
+        ret = fscanf (file, "%s", str);
+        if (ret <= 0 || feof (file)) {
+                ret = -1;
+                *store_errno = GD_STORE_EOF;
+                goto out;
+        }
+
+        *iter_key = strtok (str, "=");
+        if (*iter_key == NULL) {
+                ret = -1;
+                *store_errno = GD_STORE_KEY_NULL;
+                goto out;
+        }
+
+        *iter_val = strtok (NULL, "=");
+        if (*iter_key == NULL) {
+                ret = -1;
+                *store_errno = GD_STORE_VALUE_NULL;
+                goto out;
+        }
+
+        *store_errno = GD_STORE_SUCCESS;
+        ret = 0;
+out:
+        return ret;
+}
 
 int32_t
 glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
                                char *key, char **value)
 {
         int32_t         ret = -1;
-        char            scan_str[4096] = {0,};
+        char            *scan_str = NULL;
         char            *iter_key = NULL;
         char            *iter_val = NULL;
-        char            *str = NULL;
         char            *free_str = NULL;
+        struct stat     st        = {0,};
+        glusterd_store_op_errno_t store_errno = GD_STORE_SUCCESS;
 
         GF_ASSERT (handle);
 
@@ -926,35 +966,43 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
                 goto out;
         }
 
-        ret = fscanf (handle->read, "%s", scan_str);
+        ret = fstat (handle->fd, &st);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_WARNING,
+                        "stat on file failed");
+                ret = -1;
+                store_errno = GD_STORE_STAT_FAILED;
+                goto out;
+        }
 
-        while (ret != EOF) {
-                if (free_str) {
-                        GF_FREE (free_str);
-                        free_str = NULL;
-                }
-                str = gf_strdup (scan_str);
-                if (!str)
+        scan_str = GF_CALLOC (1, st.st_size,
+                              gf_gld_mt_char);
+        if (scan_str == NULL) {
+                ret = -1;
+                store_errno = GD_STORE_ENOMEM;
+                goto out;
+        }
+
+        free_str = scan_str;
+
+        do {
+                ret = glusterd_store_read_and_tokenize (handle->read, scan_str,
+                                                        &iter_key, &iter_val,
+                                                        &store_errno);
+                if (ret < 0) {
                         goto out;
-                else
-                        free_str = str;
-                iter_key = strtok (str, "=");
+                }
+
                 gf_log ("", GF_LOG_DEBUG, "key %s read", iter_key);
 
                 if (!strcmp (key, iter_key)) {
                         gf_log ("", GF_LOG_DEBUG, "key %s found", key);
-                        iter_val = strtok (NULL, "=");
                         ret = 0;
                         if (iter_val)
                                 *value = gf_strdup (iter_val);
                         goto out;
                 }
-
-                ret = fscanf (handle->read, "%s", scan_str);
-        }
-
-        if (EOF == ret)
-                ret = -1;
+        } while (1);
 out:
         if (handle->fd > 0) {
                 close (handle->fd);
@@ -971,25 +1019,38 @@ int32_t
 glusterd_store_save_value (int fd, char *key, char *value)
 {
         int32_t         ret = -1;
-        char            buf[4096] = {0,};
+        FILE           *fp  = NULL;
 
         GF_ASSERT (fd > 0);
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        snprintf (buf, sizeof (buf), "%s=%s\n", key, value);
-        ret = write (fd, buf, strlen (buf));
+        fp = fdopen (fd, "a+");
+        if (fp == NULL) {
+                gf_log ("", GF_LOG_WARNING, "fdopen failed.");
+                ret = -1;
+                goto out;
+        }
 
+        ret = fprintf (fp, "%s=%s\n", key, value);
         if (ret < 0) {
-                gf_log ("", GF_LOG_CRITICAL, "Unable to store key: %s,"
+                gf_log ("", GF_LOG_WARNING, "Unable to store key: %s,"
                         "value: %s, error: %s", key, value,
                         strerror (errno));
                 ret = -1;
                 goto out;
         }
 
-        ret = 0;
+        ret = fflush (fp);
+        if (feof (fp)) {
+                gf_log ("", GF_LOG_WARNING,
+                        "fflush failed, error: %s",
+                        strerror (errno));
+                ret = -1;
+                goto out;
+        }
 
+        ret = 0;
 out:
 
         gf_log ("", GF_LOG_DEBUG, "returning: %d", ret);
@@ -1262,11 +1323,11 @@ glusterd_store_iter_get_next (glusterd_store_iter_t *iter,
                               glusterd_store_op_errno_t *op_errno)
 {
         int32_t         ret = -1;
-        char            scan_str[4096] = {0,};
-        char            *str = NULL;
+        char            *scan_str = NULL;
         char            *free_str = NULL;
         char            *iter_key = NULL;
         char            *iter_val = NULL;
+        struct stat     st        = {0,};
         glusterd_store_op_errno_t store_errno = GD_STORE_SUCCESS;
 
         GF_ASSERT (iter);
@@ -1274,28 +1335,35 @@ glusterd_store_iter_get_next (glusterd_store_iter_t *iter,
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        *key = NULL;
-        *value = NULL;
-
-        ret = fscanf (iter->file, "%s", scan_str);
-
-        if (ret <= 0) {
+        ret = fstat (iter->fd, &st);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_WARNING,
+                        "stat on file failed");
                 ret = -1;
-                store_errno = GD_STORE_EOF;
+                store_errno = GD_STORE_STAT_FAILED;
                 goto out;
         }
 
-        str = gf_strdup (scan_str);
-        if (!str) {
+        scan_str = GF_CALLOC (1, st.st_size,
+                              gf_gld_mt_char);
+        if (scan_str == NULL) {
                 ret = -1;
                 store_errno = GD_STORE_ENOMEM;
                 goto out;
-        } else {
-                free_str = str;
         }
 
-        iter_key = strtok (str, "=");
-        iter_val = strtok (NULL, "=");
+        *key = NULL;
+        *value = NULL;
+
+        free_str = scan_str;
+
+        ret = glusterd_store_read_and_tokenize (iter->file, scan_str,
+                                                &iter_key, &iter_val,
+                                                &store_errno);
+        if (ret < 0) {
+                goto out;
+        }
+
 
         ret = glusterd_store_validate_key_value (iter->filepath, iter_key,
                                                  iter_val, &store_errno);
