@@ -149,6 +149,8 @@ static struct argp_option gf_options[] = {
          "Mount the filesystem in 'read-only' mode"},
         {"acl", ARGP_ACL_KEY, 0, 0,
          "Mount the filesystem with POSIX ACL support"},
+        {"worm", ARGP_WORM_KEY, 0, 0,
+         "Mount the filesystem in 'worm' mode"},
         {"mac-compat", ARGP_MAC_COMPAT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Provide stubs for attributes needed for seamless operation on Macs "
 #ifdef GF_DARWIN_HOST_OS
@@ -509,6 +511,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_ACL_KEY:
                 cmd_args->acl = 1;
+                break;
+
+        case ARGP_WORM_KEY:
+                cmd_args->worm = 1;
                 break;
 
         case ARGP_MAC_COMPAT_KEY:

@@ -77,6 +77,10 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --acl");
     fi
 
+    if [ -n "$worm" ]; then
+        cmd_line=$(echo "$cmd_line --worm");
+    fi
+
     if [ -n "$log_file" ]; then
 	cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
@@ -190,6 +194,8 @@ main ()
 
     acl=$(echo "$options" | sed -n 's/.*\(acl\)[^,]*.*/\1/p');
 
+    worm=$(echo "$options" | sed -n 's/.*\(worm\)[^,]*.*/\1/p');
+
     transport=$(echo "$options" | sed -n 's/.*transport=\([^,]*\).*/\1/p');
 
     direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
@@ -230,6 +236,7 @@ main ()
         -e 's/[,]*log-server=[^,]*//' \
         -e 's/[,]*ro[^,]*//' \
         -e 's/[,]*acl[^,]*//' \
+        -e 's/[,]*worm[^,]*//' \
         -e 's/[,]*log-server-port=[^,]*//');
 
     #
