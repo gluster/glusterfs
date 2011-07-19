@@ -157,7 +157,7 @@ struct ioc_inode {
                                              * weight of the inode, increases
                                              * on each read
                                              */
-        inode_t               *inode;      
+        inode_t               *inode;
 };
 
 struct ioc_table {
@@ -199,29 +199,26 @@ ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iobref *iobref);
 
 ioc_page_t *
-ioc_page_get (ioc_inode_t *ioc_inode, off_t offset);
+__ioc_page_get (ioc_inode_t *ioc_inode, off_t offset);
 
 ioc_page_t *
-ioc_page_create (ioc_inode_t *ioc_inode, off_t offset);
+__ioc_page_create (ioc_inode_t *ioc_inode, off_t offset);
 
 void
 ioc_page_fault (ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
                 off_t offset);
 void
-ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
+__ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
                   size_t size);
 
 ioc_waitq_t *
-ioc_page_wakeup (ioc_page_t *page);
+__ioc_page_wakeup (ioc_page_t *page);
 
 void
 ioc_page_flush (ioc_page_t *page);
 
 ioc_waitq_t *
-ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno);
-
-void
-ioc_page_purge (ioc_page_t *page);
+__ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno);
 
 void
 ioc_frame_return (call_frame_t *frame);
@@ -319,7 +316,7 @@ ioc_inode_t *
 ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight);
 
 int64_t
-ioc_page_destroy (ioc_page_t *page);
+__ioc_page_destroy (ioc_page_t *page);
 
 int64_t
 __ioc_inode_flush (ioc_inode_t *ioc_inode);
