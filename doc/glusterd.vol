@@ -4,4 +4,5 @@ volume management
     option transport-type socket,rdma
     option transport.socket.keepalive-time 10
     option transport.socket.keepalive-interval 2
+    option transport.socket.read-fail-log off
 end-volume
