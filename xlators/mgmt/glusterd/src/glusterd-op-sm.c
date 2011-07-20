@@ -7922,6 +7922,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_pending_node_t                 *pending_node = NULL;
         char                                    *brick = NULL;
+        int                                     all_bricks_down = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -7956,8 +7957,10 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 goto out;
                 break;
         case GF_CLI_STATS_INFO:
+                all_bricks_down = 1;
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         if (glusterd_is_brick_started (brickinfo)) {
+                                all_bricks_down = 0;
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
                                 if (!pending_node) {
@@ -7974,12 +7977,20 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 break;
 
         case GF_CLI_STATS_TOP:
+                all_bricks_down = 1;
                 ret = dict_get_str (dict, "brick", &brick);
                 if (!ret) {
                         ret = glusterd_volume_brickinfo_get_by_brick (brick,
                                                         volinfo, &brickinfo); 
                         if (ret)
                                 goto out;
+
+                        if (!glusterd_is_brick_started (brickinfo)) {
+                                ret = -1;
+                                goto out;
+                        } else {
+                                all_bricks_down = 0;
+                        }
 
                         pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                   gf_gld_mt_pending_node_t);
@@ -7997,6 +8008,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 ret = 0;
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         if (glusterd_is_brick_started (brickinfo)) {
+                                all_bricks_down = 0;
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
                                 if (!pending_node) {
@@ -8023,6 +8035,10 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
 
 
 out:
+        if (all_bricks_down) {
+                ret = -1;
+                *op_errstr = gf_strdup ("Cannot reach bricks. Bricks are down");
+        }
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
