@@ -110,6 +110,7 @@ struct ios_global_stats {
         struct ios_lat  latency[GF_FOP_MAXVALUE];
         uint64_t        nr_opens;
         uint64_t        max_nr_opens;
+        struct timeval  max_openfd_time;
 };
 
 
@@ -598,6 +599,8 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
         int    i = 0;
         struct ios_stat_head *list_head = NULL;
         struct ios_conf      *conf = NULL;
+        struct tm            *tm = NULL;
+        char                  timestr[256] = {0, };
 
         conf = this->private;
 
@@ -640,9 +643,15 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
         if (interval == -1) {
                 LOCK (&conf->lock);
                 {
-                ios_log (this, logfp, "Current open fd's: %"PRId64
-                         " Max open fd's: %"PRId64,conf->cumulative.nr_opens,
-                         conf->cumulative.max_nr_opens);
+                        tm = localtime (&conf->cumulative.max_openfd_time.tv_sec);
+                        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                                  ".%"GF_PRI_SUSECONDS,
+                                  conf->cumulative.max_openfd_time.tv_usec);
+                        ios_log (this, logfp, "Current open fd's: %"PRId64
+                                 " Max open fd's: %"PRId64" time %s",
+                                 conf->cumulative.nr_opens,
+                                 conf->cumulative.max_nr_opens, timestr);
                 }
                 UNLOCK (&conf->lock);
                 ios_log (this, logfp, "==========Open file stats========");
@@ -1018,6 +1027,8 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
         struct ios_stat_list    *entry = NULL;
         int                      ret = -1;
         ios_stats_thru_t         index = IOS_STATS_THRU_MAX;
+        struct tm               *tm = NULL;
+        char                     timestr[256] = {0, };
 
         conf = this->private;
 
@@ -1031,7 +1042,16 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
                                 if (ret)
                                         goto out;
                                 ret = dict_set_uint64 (resp, "max-open",
-                                                  conf->cumulative.max_nr_opens);
+                                                       conf->cumulative.max_nr_opens);
+
+                                tm = localtime (&conf->cumulative.max_openfd_time.tv_sec);
+                                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                                          ".%"GF_PRI_SUSECONDS,
+                                          conf->cumulative.max_openfd_time.tv_usec);
+
+                                ret = dict_set_str (resp, "max-openfd-time",
+                                                    timestr);
                                 if (ret)
                                         goto out;
                         }
@@ -1138,8 +1158,10 @@ io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&conf->lock);
         {
                 conf->cumulative.nr_opens++;
-                if (conf->cumulative.nr_opens > conf->cumulative.max_nr_opens)
+                if (conf->cumulative.nr_opens > conf->cumulative.max_nr_opens) {
                         conf->cumulative.max_nr_opens = conf->cumulative.nr_opens;
+                        conf->cumulative.max_openfd_time = iosfd->opened_at;
+                }
         }
         UNLOCK (&conf->lock);
 
@@ -1198,11 +1220,12 @@ io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&conf->lock);
         {
                 conf->cumulative.nr_opens++;
-                if (conf->cumulative.nr_opens > conf->cumulative.max_nr_opens)
+                if (conf->cumulative.nr_opens > conf->cumulative.max_nr_opens) {
                         conf->cumulative.max_nr_opens = conf->cumulative.nr_opens;
+                        conf->cumulative.max_openfd_time = iosfd->opened_at;
+                }
         }
         UNLOCK (&conf->lock);
-
         if (iosstat) {
               BUMP_STATS (iosstat, IOS_STATS_TYPE_OPEN);
               iosstat = NULL;
