@@ -2416,7 +2416,7 @@ iostats_configure_options (xlator_t *this, dict_t *xl_options,
         if (!ret) {
                 if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level",
                                        log_str)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                "changing log-level to %s", log_str);
                 }
         }
@@ -2731,7 +2731,8 @@ struct volume_options options[] = {
         },
         { .key = {"log-level"},
           .type = GF_OPTION_TYPE_STR,
-          .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
+          .value = { "DEBUG", "WARNING", "ERROR", "INFO",
+                     "CRITICAL", "NONE", "TRACE"}
         },
 
         /* These are synthetic entries to assist validation of CLI's  *
@@ -2740,7 +2741,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .default_value = "INFO",
           .description = "Changes the log-level of the clients",
-          .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
+          .value = { "DEBUG", "WARNING", "ERROR", "INFO",
+                     "CRITICAL", "NONE", "TRACE"}
         },
         { .key = {"sys-log-level"},
           .type = GF_OPTION_TYPE_STR,
@@ -2752,7 +2754,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .default_value = "INFO",
           .description = "Changes the log-level of the bricks",
-          .value = { "DEBUG", "WARNING", "ERROR", "CRITICAL", "NONE", "TRACE"}
+          .value = { "DEBUG", "WARNING", "ERROR", "INFO",
+                     "CRITICAL", "NONE", "TRACE"}
         },
         { .key  = {NULL} },
 
