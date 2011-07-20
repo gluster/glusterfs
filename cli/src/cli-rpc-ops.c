@@ -3298,6 +3298,7 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         long int                           time_usec = 0;
         struct tm                         *tm = NULL;
         char                              timestr[256] = {0, };
+        char                              *openfd_str = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -3372,8 +3373,13 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = dict_get_uint64 (dict, key, &max_nr_open);
                         if (ret)
                                 goto out;
+                        snprintf (key, sizeof (key), "%d-max-openfd-time", i);
+                        ret = dict_get_str (dict, key, &openfd_str);
+                        if (ret)
+                                goto out;
                         cli_out ("Current open fds: %"PRIu64", Max open"
-                                " fds: %"PRIu64, nr_open, max_nr_open);
+                                " fds: %"PRIu64", Max openfd time: %s", nr_open,
+                                 max_nr_open, openfd_str);
                 case GF_CLI_TOP_READ:
                 case GF_CLI_TOP_WRITE:
                 case GF_CLI_TOP_OPENDIR:
