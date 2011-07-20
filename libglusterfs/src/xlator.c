@@ -343,7 +343,7 @@ _volume_option_value_validate_attacherr (xlator_t *xl,
                                         strcat (given_array, ".");
                         }
 
-                        gf_log (xl->name, GF_LOG_ERROR,
+                        gf_log_callingfn (xl->name, GF_LOG_ERROR,
                                 "option %s %s: '%s' is not valid "
                                 "(possible options are %s)",
                                 pair->key, pair->value->data,
