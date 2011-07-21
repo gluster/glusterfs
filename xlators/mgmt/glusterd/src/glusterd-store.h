@@ -82,7 +82,8 @@ typedef enum {
         GD_STORE_VALUE_NULL,
         GD_STORE_KEY_VALUE_NULL,
         GD_STORE_EOF,
-        GD_STORE_ENOMEM
+        GD_STORE_ENOMEM,
+        GD_STORE_STAT_FAILED
 } glusterd_store_op_errno_t;
 
 int32_t
