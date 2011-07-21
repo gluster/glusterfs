@@ -935,7 +935,9 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         newloc.inode = inode_ref (oplocal->loc.inode);
         newloc.path = gf_strdup (local->loc.path);
-        newloc.name = gf_strdup (local->loc.name);
+        newloc.name = strrchr (newloc.path, '/');
+        if (newloc.name)
+                newloc.name++;
         newloc.parent = inode_ref (local->loc.parent);
         newloc.ino = oplocal->loc.inode->ino;
 
