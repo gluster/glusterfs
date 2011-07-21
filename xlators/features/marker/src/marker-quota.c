@@ -107,16 +107,6 @@ int32_t
 dirty_inode_updation_done (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno)
 {
-        quota_local_t *local = NULL;
-        int32_t        value = 0;
-
-        local = frame->local;
-
-        if (!local->err)
-                QUOTA_SAFE_DECREMENT (&local->lock, local->ref, value);
-        else
-                frame->local = NULL;
-
         QUOTA_STACK_DESTROY (frame, this);
 
         return 0;
@@ -316,6 +306,9 @@ err:
 
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         }
+
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 }
@@ -978,10 +971,15 @@ quota_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_WIND (frame, quota_check_n_set_inode_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, xattr_req);
 
+        dict_unref (xattr_req);
+
         return 0;
 
 err:
         quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+
+        if (xattr_req)
+                dict_unref (xattr_req);
         return 0;
 
 lock_err:
@@ -1204,7 +1202,6 @@ quota_mark_undirty (call_frame_t *frame,
         }
 
         newdict = dict_new ();
-
         if (!newdict)
                 goto err;
 
