@@ -628,6 +628,41 @@ cleanup:
 
 
 int
+dht_rename_unlink_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno,
+                             struct iatt *preparent, struct iatt *postparent)
+{
+	dht_local_t  *local = NULL;
+	call_frame_t *prev = NULL;
+
+
+	local = frame->local;
+	prev = cookie;
+
+	if (op_ret == -1) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"unlink of %s on %s failed (%s)",
+			local->loc2.path, prev->this->name,
+                        strerror (op_errno));
+		local->op_ret   = -1;
+		local->op_errno = op_errno;
+	}
+
+        if (local->op_ret == -1)
+                goto cleanup;
+
+        dht_do_rename (frame);
+
+	return 0;
+
+cleanup:
+        dht_rename_cleanup (frame);
+
+	return 0;
+}
+
+
+int
 dht_rename_create_links (call_frame_t *frame)
 {
 	dht_local_t *local = NULL;
@@ -647,8 +682,20 @@ dht_rename_create_links (call_frame_t *frame)
 	dst_hashed = local->dst_hashed;
 	dst_cached = local->dst_cached;
 
-	if (src_cached == dst_cached)
-		goto nolinks;
+
+        if (src_cached == dst_cached) {
+                if (dst_hashed == dst_cached)
+                        goto nolinks;
+
+		gf_log (this->name, GF_LOG_TRACE,
+			"unlinking dst linkfile %s @ %s",
+			local->loc2.path, dst_hashed->name);
+
+		STACK_WIND (frame, dht_rename_unlink_links_cbk,
+			    dst_hashed, dst_hashed->fops->unlink,
+			    &local->loc2);
+                return 0;
+        }
 
 	if (dst_hashed != src_hashed && dst_hashed != src_cached)
 		call_cnt++;
@@ -656,14 +703,14 @@ dht_rename_create_links (call_frame_t *frame)
 	if (src_cached != dst_hashed)
 		call_cnt++;
 
-	local->call_cnt = call_cnt;
+        local->call_cnt = call_cnt;
 
 	if (dst_hashed != src_hashed && dst_hashed != src_cached) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"linkfile %s @ %s => %s",
 			local->loc.path, dst_hashed->name, src_cached->name);
                 memcpy (local->gfid, local->loc.inode->gfid, 16);
-		dht_linkfile_recreate (frame, dht_rename_links_cbk,
+		dht_linkfile_create (frame, dht_rename_links_cbk,
 				     src_cached, dst_hashed, &local->loc);
 	}
 
