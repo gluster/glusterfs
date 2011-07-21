@@ -23,6 +23,7 @@
 #endif
 #include <inttypes.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 
 #include "globals.h"
 #include "compat.h"
@@ -111,6 +112,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         char                    value[16]              = {0,};
         char                    linkinfo[PATH_MAX]     = {0,};
         char                    file_not_copied_fully  = 0;
+        struct timeval          times[2]               = {{0,},{0,}};
 
         if (!volinfo->defrag)
                 goto out;
@@ -207,7 +209,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 ret = fchown (dst_fd, stbuf.st_uid, stbuf.st_gid);
                 if (ret) {
-                        gf_log ("", GF_LOG_WARNING,
+                        gf_log (THIS->name, GF_LOG_WARNING,
                                 "failed to set the uid/gid of file %s: %s",
                                 tmp_filename, strerror (errno));
                 }
@@ -250,6 +252,20 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         close (dst_fd);
                         close (src_fd);
                         continue;
+                }
+
+                times[0].tv_sec = stbuf.st_atime;
+                times[0].tv_usec = 0;
+
+                times[1].tv_sec =  stbuf.st_mtime;
+                times[1].tv_usec = 0;
+
+                ret = utimes (tmp_filename, times);
+
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to set the atime/mtime of file %s: %s",
+                                tmp_filename, strerror (errno));
                 }
 
                 ret = rename (tmp_filename, full_path);
