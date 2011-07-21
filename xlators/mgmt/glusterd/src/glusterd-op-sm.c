@@ -3156,19 +3156,12 @@ rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
         }
 
         GF_ASSERT (src_brickinfo->port);
-        switch (volinfo->transport_type) {
-                case GF_TRANSPORT_RDMA:
-                        ret = gf_asprintf (&ttype, "rdma");
-                        break;
-                case GF_TRANSPORT_TCP:
-                case GF_TRANSPORT_BOTH_TCP_RDMA:
-                        ret = gf_asprintf (&ttype, "tcp");
-                default:
-                        gf_log (THIS->name, GF_LOG_ERROR, "Unknown "
-                                "transport type");
-                        ret = -1;
-                        goto out;
-        }
+
+	ttype = glusterd_get_trans_type_rb (volinfo->transport_type);
+	if (NULL == ttype){
+		ret = -1;
+		goto out;
+	}
 
         fprintf (file, client_volfile_str, src_brickinfo->hostname,
                  src_brickinfo->path, src_brickinfo->port, ttype);
@@ -3224,17 +3217,8 @@ rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-	switch (volinfo->transport_type) {
-	case GF_TRANSPORT_TCP:
-	case GF_TRANSPORT_BOTH_TCP_RDMA:
-		ret = gf_asprintf (&trans_type, "tcp");
-		break;
-	case GF_TRANSPORT_RDMA:
-		ret = gf_asprintf (&trans_type, "rdma");
-		break;
-	default:
-		gf_log (THIS->name, GF_LOG_ERROR, "Unknown "
-			"transport type");
+	trans_type = glusterd_get_trans_type_rb (volinfo->transport_type);
+	if (NULL == trans_type){
 		ret = -1;
 		goto out;
 	}
@@ -3252,6 +3236,7 @@ rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
 out:
         return ret;
 }
+
 
 static int
 rb_mountpoint_mkdir (glusterd_volinfo_t *volinfo,
