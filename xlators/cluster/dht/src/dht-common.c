@@ -528,6 +528,9 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
+                /* non linkfile GFID takes precedence */
+                uuid_copy (local->gfid, buf->ia_gfid);
+
                 if (is_dir) {
                         local->dir_count++;
 
@@ -546,7 +549,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "found on %s file %s",
                                         subvol->name, loc->path);
-                                
+
                                 dht_iatt_merge (this, &local->postparent,
                                                 postparent, subvol);
                         } else {
