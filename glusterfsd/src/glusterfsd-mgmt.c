@@ -891,11 +891,11 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
-        ret = rpc_clnt_start (rpc);
-        if (ret)
-                goto out;
-
+        /* This value should be set before doing the 'rpc_clnt_start()' as
+           the notify function uses this variable */
         ctx->mgmt = rpc;
+
+        ret = rpc_clnt_start (rpc);
 out:
         return ret;
 }
