@@ -94,10 +94,16 @@ function main()
 
     bug=$(git show --format='%b' | grep -i '^BUG: ' | awk '{print $2}');
 
-    if [ -z "$bug" ]; then
-        git push origin HEAD:refs/for/$branch/rfc;
+    if [ "$DRY_RUN" = 1 ]; then
+        drier='echo -e Please use the following command to send your commits to review:\n\n'
     else
-        git push origin HEAD:refs/for/$branch/bug-$bug;
+        drier=
+    fi
+
+    if [ -z "$bug" ]; then
+        $drier git push origin HEAD:refs/for/$branch/rfc;
+    else
+        $drier git push origin HEAD:refs/for/$branch/bug-$bug;
     fi
 }
 
