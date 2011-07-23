@@ -199,27 +199,21 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
 
 static int
-logging_init (glusterfs_ctx_t *ctx)
+logging_init (struct cli_state *state)
 {
-        int         ret      = 0;
-        cmd_args_t *cmd_args = NULL;
+        char *log_file = state->log_file ? state->log_file :
+                         DEFAULT_CLI_LOG_FILE_DIRECTORY "/cli.log";
 
-        cmd_args = &ctx->cmd_args;
-
-        /* CLI should not have something to DEBUG after the release,
-           hence defaulting to INFO loglevel */
-        cmd_args->log_level = GF_LOG_INFO;
-
-        ret = gf_asprintf (&cmd_args->log_file,
-                           DEFAULT_CLI_LOG_FILE_DIRECTORY "/cli.log");
-
-        if (gf_log_init (cmd_args->log_file) == -1) {
+        if (gf_log_init (log_file) == -1) {
                 fprintf (stderr, "ERROR: failed to open logfile %s\n",
-                         cmd_args->log_file);
+                         log_file);
                 return -1;
         }
 
-        gf_log_set_loglevel (cmd_args->log_level);
+        /* CLI should not have something to DEBUG after the release,
+           hence defaulting to INFO loglevel */
+        gf_log_set_loglevel ((state->log_level == -1) ? GF_LOG_INFO :
+                             state->log_level);
 
         return 0;
 }
@@ -350,6 +344,20 @@ cli_opt_parse (char *opt, struct cli_state *state)
                 return 0;
         }
 
+        oarg = strtail (opt, "log-file=");
+        if (oarg) {
+                state->log_file = oarg;
+                return 0;
+        }
+
+        oarg = strtail (opt, "log-level=");
+        if (oarg) {
+                state->log_level = glusterd_check_log_level(oarg);
+                if (state->log_level == -1)
+                        return -1;
+                return 0;
+        }
+
         return -1;
 }
 
@@ -405,6 +413,7 @@ cli_state_init (struct cli_state *state)
 
 
         state->remote_host = "localhost";
+        state->log_level = -1;
 
         tree = &state->tree;
         tree->state = state;
@@ -618,7 +627,7 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-        ret = logging_init (ctx);
+        ret = logging_init (&state);
         if (ret)
                 goto out;
 
