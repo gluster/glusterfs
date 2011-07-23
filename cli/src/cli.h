@@ -109,6 +109,9 @@ struct cli_state {
         int                   remote_port;
         int                   mode;
         int                   await_connected;
+
+        char                 *log_file;
+        gf_loglevel_t         log_level;
 };
 
 struct cli_local {
