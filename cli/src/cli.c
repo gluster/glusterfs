@@ -375,6 +375,8 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
                         for (j = i; j < state->argc - 1; j++)
                                 state->argv[j] = state->argv[j + 1];
                         state->argc--;
+                        /* argv shifted, next check should be at i again */
+                        i--;
                 }
         }
 
