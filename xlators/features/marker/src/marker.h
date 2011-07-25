@@ -47,6 +47,8 @@ enum {
                 _local->pid = _frame->root->pid;                \
                 memset (&_local->loc, 0, sizeof (loc_t));       \
                 _local->ref = 1;                                \
+                _local->uid = -1;                               \
+                _local->gid = -1;                               \
                 LOCK_INIT (&_local->lock);                      \
                 _local->oplocal = NULL;                         \
         } while (0)
@@ -62,12 +64,23 @@ enum {
                 }                                                \
         } while (0)
 
+#define MARKER_SET_UID_GID(dest, src)           \
+        do {                                    \
+                if (src->uid != -1 &&           \
+                    src->gid != -1) {           \
+                        dest->uid = src->uid;   \
+                        dest->gid = src->gid;   \
+                }                               \
+        } while (0)
+
 struct marker_local{
         uint32_t        timebuf[2];
         pid_t           pid;
         loc_t           loc;
         loc_t           parent_loc;
         loc_t          *next_lock_on;
+        uid_t           uid;
+        gid_t           gid;
         int32_t         ref;
         int32_t         ia_nlink;
         gf_lock_t       lock;
