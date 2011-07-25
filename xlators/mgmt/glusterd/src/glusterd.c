@@ -366,6 +366,14 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
 
 static int
 configure_syncdaemon (glusterd_conf_t *conf)
+#define libc_system system
+#define RUN_GSYNCD_CMD(prf) do {                                                \
+        ret = prf##_system (cmd);                                               \
+        if (ret) {                                                              \
+                gf_log ("", GF_LOG_ERROR, "command failed: \"%s\"", cmd);       \
+                goto out;                                                       \
+        }                                                                       \
+} while (0)
 {
         int ret = 0;
 #if SYNCDAEMON_COMPILE
@@ -409,66 +417,48 @@ configure_syncdaemon (glusterd_conf_t *conf)
 
         /* remote-gsyncd */
         strcpy (cmd + blen, "remote-gsyncd " GSYNCD_PREFIX"/gsyncd . .");
-        ret = system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(libc);
 
         strcpy (cmd + blen,
                 "remote-gsyncd /usr/local/libexec/glusterfs/gsyncd . ^ssh:");
-        ret = system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(libc);
 
         /* gluster-command */
         /* XXX $sbindir should be used (throughout the codebase) */
         strcpy (cmd + blen,
                 "gluster-command '"GFS_PREFIX"/sbin/glusterfs "
                 "--xlator-option *-dht.assert-no-child-down=true' . .");
-        ret = system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(libc);
 
         /* ssh-command */
         sprintf (cmd + blen,
                  "ssh-command "
                  "'ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
                  "-i %s/secret.pem' . .", georepdir);
-        ret = system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(libc);
 
         /* session-owner */
         uuid_unparse (conf->uuid, volid);
         sprintf (cmd + blen, "session-owner %s . .", volid);
-        ret = system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(libc);
 
         /* pid-file */
         sprintf (cmd + blen, "pid-file %s/${mastervol}/${eSlave}.pid . .", georepdir);
-        ret = gf_system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(gf);
 
         /* state-file */
         sprintf (cmd + blen, "state-file %s/${mastervol}/${eSlave}.status . .", georepdir);
-        ret = gf_system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(gf);
 
         /* log-file */
         strcpy (cmd + blen,
                 "log-file "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.log . .");
-        ret = gf_system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(gf);
 
         /* gluster-log-file */
         strcpy (cmd + blen, "gluster-log-file "
                 DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.gluster.log . .");
-        ret = gf_system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(gf);
 
         /************
          * slave pre-configuration
@@ -478,23 +468,17 @@ configure_syncdaemon (glusterd_conf_t *conf)
         strcpy (cmd + blen,
                 "gluster-command '"GFS_PREFIX"/sbin/glusterfs "
                 "--xlator-option *-dht.assert-no-child-down=true' .");
-        ret = system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(libc);
 
         /* log-file */
         strcpy (cmd + blen,
                 "log-file "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.log .");
-        ret = gf_system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(gf);
 
         /* gluster-log-file */
         strcpy (cmd + blen, "gluster-log-file "
                 DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.gluster.log .");
-        ret = gf_system (cmd);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD(gf);
 
  out:
 #else
@@ -502,6 +486,8 @@ configure_syncdaemon (glusterd_conf_t *conf)
 #endif
         return ret ? -1 : 0;
 }
+#undef libc_system
+#undef RUN_GSYNCD_CMD
 
 
 /*
