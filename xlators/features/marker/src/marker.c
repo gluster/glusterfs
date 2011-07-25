@@ -1018,6 +1018,9 @@ marker_rename_release_oldp_lock (call_frame_t *frame, void *cookie,
                 local->err = op_errno;
         }
 
+        //Reset frame uid and gid if reset.
+        MARKER_SET_UID_GID (frame->root, local);
+
         lock.l_type   = F_UNLCK;
         lock.l_whence = SEEK_SET;
         lock.l_start  = 0;
@@ -1084,6 +1087,13 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->err = ENOMEM;
                         goto quota_err;
                 }
+
+                /* Removexattr requires uid and gid to be 0,
+                 * reset them in the callback.
+                 */
+                MARKER_SET_UID_GID (local, frame->root);
+                frame->root->uid = 0;
+                frame->root->gid = 0;
 
                 STACK_WIND (frame, marker_rename_release_oldp_lock,
                             FIRST_CHILD(this),
