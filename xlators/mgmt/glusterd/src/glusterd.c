@@ -369,6 +369,15 @@ runinit_gsyncd_setrx (runner_t *runner, glusterd_conf_t *conf)
 
 static int
 configure_syncdaemon (glusterd_conf_t *conf)
+#define RUN_GSYNCD_CMD do {                                                          \
+        ret = runner_run_reuse (&runner);                                            \
+        if (ret == -1) {                                                             \
+                runner_log (&runner, "glusterd", GF_LOG_ERROR, "command failed");    \
+                runner_end (&runner);                                                \
+                goto out;                                                            \
+        }                                                                            \
+        runner_end (&runner);                                                        \
+} while (0)
 {
         int ret = 0;
 #if SYNCDAEMON_COMPILE
@@ -400,16 +409,12 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* remote-gsyncd */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "remote-gsyncd", GSYNCD_PREFIX"/gsyncd", ".", ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "remote-gsyncd",
                          "/usr/local/libexec/glusterfs/gsyncd", ".", "^ssh:", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* gluster-command */
         /* XXX $sbindir should be used (throughout the codebase) */
@@ -418,9 +423,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
                          GFS_PREFIX"/sbin/glusterfs "
                           "--xlator-option *-dht.assert-no-child-down=true",
                          ".", ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* ssh-command */
         runinit_gsyncd_setrx (&runner, conf);
@@ -430,27 +433,21 @@ configure_syncdaemon (glusterd_conf_t *conf)
                            "-oStrictHostKeyChecking=no "
                            "-i %s/secret.pem", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* pid-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "pid-file");
         runner_argprintf (&runner, "%s/${mastervol}/${eSlave}.pid", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* state-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "state-file");
         runner_argprintf (&runner, "%s/${mastervol}/${eSlave}.status", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* log-file */
         runinit_gsyncd_setrx (&runner, conf);
@@ -458,9 +455,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
                          "log-file",
                          DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.log",
                          ".", ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* gluster-log-file */
         runinit_gsyncd_setrx (&runner, conf);
@@ -468,9 +463,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
                          "gluster-log-file",
                          DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.gluster.log",
                          ".", ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /************
          * slave pre-configuration
@@ -482,9 +475,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
                          GFS_PREFIX"/sbin/glusterfs "
                           "--xlator-option *-dht.assert-no-child-down=true",
                          ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* log-file */
         runinit_gsyncd_setrx (&runner, conf);
@@ -492,9 +483,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
                          "log-file",
                          DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.log",
                          ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
         /* gluster-log-file */
         runinit_gsyncd_setrx (&runner, conf);
@@ -502,9 +491,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
                          "gluster-log-file",
                          DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.gluster.log",
                          ".", NULL);
-        ret = runner_run (&runner);
-        if (ret)
-                goto out;
+        RUN_GSYNCD_CMD;
 
  out:
 #else
@@ -512,6 +499,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
 #endif
         return ret ? -1 : 0;
 }
+#undef RUN_GSYNCD_CMD
 
 
 /*
