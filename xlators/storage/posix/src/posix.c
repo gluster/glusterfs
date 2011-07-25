@@ -516,6 +516,9 @@ posix_entry_create_xattr_set (xlator_t *this, const char *path,
         data_pair_t *trav = NULL;
         int ret = -1;
 
+        if (!dict)
+                goto out;
+
         trav = dict->members_list;
         while (trav) {
                 if (!strcmp (GFID_XATTR_KEY, trav->key) ||

@@ -346,7 +346,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
         }
 
         if (!dict)
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "dict is NULL, need to make sure gfid's are same");
 
         for (i = 0; i < layout->cnt; i++) {
