@@ -347,4 +347,8 @@ nfs3_is_parentdir_entry (char *entry);
 
 uint32_t
 nfs3_request_to_accessbits (int32_t accbits);
+
+int
+nfs3_flush_inode_queue (struct inode_op_queue *inode_q, fd_t *openedfd,
+                        int32_t call_resume);
 #endif
