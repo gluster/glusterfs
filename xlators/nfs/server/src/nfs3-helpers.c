@@ -1726,7 +1726,8 @@ err:
 
 
 int
-nfs3_flush_call_state (nfs3_call_state_t *cs, fd_t *openedfd)
+nfs3_flush_call_state (nfs3_call_state_t *cs, fd_t *openedfd,
+                       int32_t call_resume)
 {
         if ((!cs))
                 return -1;
@@ -1745,14 +1746,16 @@ nfs3_flush_call_state (nfs3_call_state_t *cs, fd_t *openedfd)
                 cs->resolve_ret = 0;
         }
         list_del (&cs->openwait_q);
-        nfs3_call_resume (cs);
+        if (call_resume)
+                nfs3_call_resume (cs);
 
         return 0;
 }
 
 
 int
-nfs3_flush_inode_queue (struct inode_op_queue *inode_q, fd_t *openedfd)
+nfs3_flush_inode_queue (struct inode_op_queue *inode_q, fd_t *openedfd,
+                        int32_t call_resume)
 {
         nfs3_call_state_t       *cstmp = NULL;
         nfs3_call_state_t       *cs = NULL;
@@ -1761,7 +1764,7 @@ nfs3_flush_inode_queue (struct inode_op_queue *inode_q, fd_t *openedfd)
                 return -1;
 
         list_for_each_entry_safe (cs, cstmp, &inode_q->opq, openwait_q)
-                nfs3_flush_call_state (cs, openedfd);
+                nfs3_flush_call_state (cs, openedfd, call_resume);
 
         return 0;
 }
@@ -1790,7 +1793,7 @@ nfs3_flush_open_wait_call_states (nfs3_call_state_t *cs, fd_t *openedfd)
 
         pthread_mutex_lock (&inode_q->qlock);
         {
-                nfs3_flush_inode_queue (inode_q, openedfd);
+                nfs3_flush_inode_queue (inode_q, openedfd, 1);
         }
         pthread_mutex_unlock (&inode_q->qlock);
 
