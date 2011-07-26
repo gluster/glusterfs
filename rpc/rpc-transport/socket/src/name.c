@@ -356,7 +356,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
                                    struct sockaddr *addr,
                                    socklen_t *addr_len)
 {
-        struct addrinfo hints, *res = 0;
+        struct addrinfo hints, *res = 0, *rp = NULL;
         data_t *listen_port_data = NULL, *listen_host_data = NULL;
         uint16_t listen_port = -1;
         char service[NI_MAXSERV], *listen_host = NULL;
@@ -402,7 +402,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         memset (&hints, 0, sizeof (hints));
         hints.ai_family = addr->sa_family;
         hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags    = AI_ADDRCONFIG | AI_PASSIVE;
+        hints.ai_flags    = AI_PASSIVE;
 
         ret = getaddrinfo(listen_host, service, &hints, &res);
         if (ret != 0) {
@@ -412,9 +412,20 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
                 ret = -1;
                 goto out;
         }
+        /* IPV6 server can handle both ipv4 and ipv6 clients */
+        for (rp = res; rp != NULL; rp = rp->ai_next) {
+                if (rp->ai_addr == NULL)
+                        continue;
+                if (rp->ai_family == AF_INET6) {
+                        memcpy (addr, rp->ai_addr, rp->ai_addrlen);
+                        *addr_len = rp->ai_addrlen;
+                }
+        }
 
-        memcpy (addr, res->ai_addr, res->ai_addrlen);
-        *addr_len = res->ai_addrlen;
+        if (!(*addr_len)) {
+                memcpy (addr, res->ai_addr, res->ai_addrlen);
+                *addr_len = res->ai_addrlen;
+        }
 
         freeaddrinfo (res);
 

@@ -117,7 +117,6 @@ gf_resolve_ip6 (const char *hostname,
                 memset(&hints, 0, sizeof(hints));
                 hints.ai_family   = family;
                 hints.ai_socktype = SOCK_STREAM;
-                hints.ai_flags    = AI_ADDRCONFIG;
 
                 ret = gf_asprintf (&port_str, "%d", port);
                 if (-1 == ret) {

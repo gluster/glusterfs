@@ -2113,7 +2113,7 @@ socket_listen (rpc_transport_t *this)
         int                      ret = -1;
         int                      sock = -1;
         struct sockaddr_storage  sockaddr;
-        socklen_t                sockaddr_len;
+        socklen_t                sockaddr_len = 0;
         peer_info_t             *myinfo = NULL;
         glusterfs_ctx_t         *ctx = NULL;
         sa_family_t              sa_family = {0, };
