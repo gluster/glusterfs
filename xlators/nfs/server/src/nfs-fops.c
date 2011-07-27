@@ -1235,20 +1235,20 @@ nfs_fop_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
-               struct iobuf *srciob, struct iovec *vector, int32_t count,
+               struct iobref *srciobref, struct iovec *vector, int32_t count,
                off_t offset, fop_writev_cbk_t cbk, void *local)
 {
         call_frame_t            *frame = NULL;
         int                     ret = -EFAULT;
         struct nfs_fop_local    *nfl = NULL;
 
-        if ((!nfsx) || (!xl) || (!fd) || (!vector) || (!nfu) || (!srciob))
+        if ((!nfsx) || (!xl) || (!fd) || (!vector) || (!nfu) || (!srciobref))
                 return ret;
 
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_fd_ino (nfl, fd);
-
+/*
         nfl->iobref = iobref_new ();
         if (!nfl->iobref) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "iobref creation failed");
@@ -1257,8 +1257,9 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         }
 
         iobref_add (nfl->iobref, srciob);
+*/
         STACK_WIND_COOKIE (frame, nfs_fop_writev_cbk, xl, xl,xl->fops->writev
-                           , fd, vector, count, offset, nfl->iobref);
+                           , fd, vector, count, offset, srciobref);
         ret = 0;
 err:
         if (ret < 0) {

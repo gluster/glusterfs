@@ -113,8 +113,6 @@ xdr_from_dump_req (struct iovec outmsg, void *rsp);
 ssize_t
 xdr_to_dump_rsp (struct iovec inmsg, void *args);
 
-#define XDR_BYTES_PER_UNIT      4
-
 /* Returns the address of the byte that follows the
  * last byte used for decoding the previous xdr component.
  * For eg, once the RPC call for NFS has been decoded, thie macro will return

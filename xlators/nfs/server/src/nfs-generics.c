@@ -170,11 +170,11 @@ nfs_fsync (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 
 int
 nfs_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
-           struct iobuf *srciob, struct iovec *vector, int32_t count,
+           struct iobref *srciobref, struct iovec *vector, int32_t count,
            off_t offset, fop_writev_cbk_t cbk, void *local)
 {
-        return nfs_fop_write (nfsx, xl, nfu, fd, srciob, vector, count, offset,
-                              cbk, local);
+        return nfs_fop_write (nfsx, xl, nfu, fd, srciobref, vector, count,
+                              offset, cbk, local);
 }
 
 

@@ -89,7 +89,8 @@ xdr_gf_prog_detail (XDR *xdrs, gf_prog_detail *objp)
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->progver))
 		 return FALSE;
-	 if (!xdr_pointer (xdrs, (char **)&objp->next, sizeof (gf_prog_detail), (xdrproc_t) xdr_gf_prog_detail))
+	 if (!xdr_pointer (xdrs, (char **)&objp->next, sizeof (gf_prog_detail),
+                           (xdrproc_t) xdr_gf_prog_detail))
 		 return FALSE;
 	return TRUE;
 }
@@ -103,7 +104,8 @@ xdr_gf_dump_rsp (XDR *xdrs, gf_dump_rsp *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
-	 if (!xdr_pointer (xdrs, (char **)&objp->prog, sizeof (gf_prog_detail), (xdrproc_t) xdr_gf_prog_detail))
+	 if (!xdr_pointer (xdrs, (char **)&objp->prog, sizeof (gf_prog_detail),
+                           (xdrproc_t) xdr_gf_prog_detail))
 		 return FALSE;
 	return TRUE;
 }

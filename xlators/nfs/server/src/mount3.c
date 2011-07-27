@@ -56,11 +56,12 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
         struct iobuf            *iob = NULL;
         struct mount3_state     *ms = NULL;
         int                     ret = -1;
+        struct iobref           *iobref = NULL;
 
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
                 goto ret;
@@ -81,9 +82,18 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
          */
         outmsg.iov_len = sfunc (outmsg, arg);
 
+        iobref = iobref_new ();
+        if (iobref == NULL) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get iobref");
+                goto ret;
+        }
+
+        iobref_add (iobref, iob);
+
         /* Then, submit the message for transmission. */
-        ret = nfs_rpcsvc_submit_message (req, outmsg, iob);
+        ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
         iobuf_unref (iob);
+        iobref_unref (iobref);
         if (ret == -1) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Reply submission failed");
                 goto ret;
@@ -195,7 +205,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         /* Must get the IP or hostname of the client so we
          * can map it into the mount entry.
          */
-        ret = nfs_rpcsvc_conn_peername (req->conn, me->hostname, MNTPATHLEN);
+        ret = rpcsvc_transport_peername (req->trans, me->hostname, MNTPATHLEN);
         if (ret == -1)
                 goto free_err;
 
@@ -260,7 +270,7 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
                 return -1;
 
         mntxl = (xlator_t *)cookie;
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
                 op_ret = -1;
@@ -287,9 +297,9 @@ xmit_res:
         gf_log (GF_MNT, GF_LOG_DEBUG, "MNT reply: fh %s, status: %d", fhstr,
                 status);
         if (op_ret == 0) {
-                svc = nfs_rpcsvc_request_service (req);
-                autharrlen = nfs_rpcsvc_auth_array (svc, mntxl->name, autharr,
-                                                    10);
+                svc = rpcsvc_request_service (req);
+                autharrlen = rpcsvc_auth_array (svc, mntxl->name, autharr,
+                                                10);
         }
 
         res = mnt3svc_set_mountres3 (status, &fh, autharr, autharrlen);
@@ -502,7 +512,8 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
                                   &mres->resolveloc, NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
-                        "inode: parent gfid %s, entry %s", uuid_utoa (mres->resolveloc.inode->gfid), nextcomp);
+                        "inode: parent gfid %s, entry %s",
+                        uuid_utoa (mres->resolveloc.inode->gfid), nextcomp);
                 ret = -EFAULT;
                 goto err;
         }
@@ -558,9 +569,9 @@ err:
         if (op_ret == -1) {
                 gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d",
                         mntstat);
-                svc = nfs_rpcsvc_request_service (mres->req);
-                autharrlen = nfs_rpcsvc_auth_array (svc, mntxl->name, autharr,
-                                                    10);
+                svc = rpcsvc_request_service (mres->req);
+                autharrlen = rpcsvc_auth_array (svc, mntxl->name, autharr,
+                                                10);
 
                 res = mnt3svc_set_mountres3 (mntstat, &fh, autharr, autharrlen);
                 mnt3svc_submit_reply (mres->req, (void *)&res,
@@ -735,22 +746,23 @@ int
 mnt3_check_client_net (struct mount3_state *ms, rpcsvc_request_t *req,
                        xlator_t *targetxl)
 {
+
         rpcsvc_t        *svc = NULL;
         int             ret = -1;
 
         if ((!ms) || (!req) || (!targetxl))
                 return -1;
 
-        svc = nfs_rpcsvc_request_service (req);
-        ret = nfs_rpcsvc_conn_peer_check (svc->options, targetxl->name,
-                                          nfs_rpcsvc_request_conn (req));
+        svc = rpcsvc_request_service (req);
+        ret = rpcsvc_transport_peer_check (svc->options, targetxl->name,
+                                           rpcsvc_request_transport (req));
         if (ret == RPCSVC_AUTH_REJECT) {
                 gf_log (GF_MNT, GF_LOG_TRACE, "Peer not allowed");
                 goto err;
         }
 
-        ret = nfs_rpcsvc_conn_privport_check (svc, targetxl->name,
-                                              nfs_rpcsvc_request_conn (req));
+        ret = rpcsvc_transport_privport_check (svc, targetxl->name,
+                                               rpcsvc_request_transport (req));
         if (ret == RPCSVC_AUTH_REJECT) {
                 gf_log (GF_MNT, GF_LOG_TRACE, "Unprivileged port not allowed");
                 goto err;
@@ -806,10 +818,10 @@ mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
         if ((!req) || (!path) || (!e))
                 return -1;
 
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *) rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
-                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err;
         }
 
@@ -854,17 +866,17 @@ mnt3svc_mnt (rpcsvc_request_t *req)
 
         pvec.iov_base = path;
         pvec.iov_len = MNTPATHLEN;
-        ret = xdr_to_mountpath (pvec, req->msg);
+        ret = xdr_to_mountpath (pvec, req->msg[0]);
         if (ret == -1) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to decode args");
-                nfs_rpcsvc_request_seterr (req, GARBAGE_ARGS);
+                rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
-                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = -1;
                 goto rpcerr;
         }
@@ -921,8 +933,7 @@ mnt3svc_null (rpcsvc_request_t *req)
                 gf_log (GF_MNT, GF_LOG_ERROR, "Got NULL request!");
                 return 0;
         }
-
-        nfs_rpcsvc_submit_generic (req, dummyvec, NULL);
+        rpcsvc_submit_generic (req, &dummyvec, 1,  NULL, 0, NULL);
         return 0;
 }
 
@@ -1028,9 +1039,9 @@ mnt3svc_dump (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
-                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto rpcerr;
         }
 
@@ -1040,7 +1051,7 @@ mnt3svc_dump (rpcsvc_request_t *req)
 
         if (!mlist) {
                 if (ret != 0) {
-                        nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                        rpcsvc_request_seterr (req, SYSTEM_ERR);
                         ret = -1;
                         goto rpcerr;
                 } else {
@@ -1141,22 +1152,22 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         /* Remove the mount point from the exports list. */
         pvec.iov_base = dirpath;
         pvec.iov_len = MNTPATHLEN;
-        ret = xdr_to_mountpath (pvec, req->msg);;
+        ret = xdr_to_mountpath (pvec, req->msg[0]);
         if (ret == -1) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed decode args");
-                nfs_rpcsvc_request_seterr (req, GARBAGE_ARGS);
+                rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
-                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = -1;
                 goto rpcerr;
         }
 
-        ret = nfs_rpcsvc_conn_peername (req->conn, hostname, MNTPATHLEN);
+        ret = rpcsvc_transport_peername (req->trans, hostname, MNTPATHLEN);
         if (ret != 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get remote name: %s",
                         gai_strerror (ret));
@@ -1173,13 +1184,13 @@ mnt3svc_umnt (rpcsvc_request_t *req)
 
 try_umount_with_addr:
         if (ret != 0)
-                ret = nfs_rpcsvc_conn_peeraddr (req->conn, hostname, MNTPATHLEN,
-                                                NULL, 0);
+                ret = rpcsvc_transport_peeraddr (req->trans, hostname,
+                                                 MNTPATHLEN, NULL, 0);
 
         if (ret != 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get remote addr: %s",
                         gai_strerror (ret));
-                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto rpcerr;
         }
 
@@ -1247,10 +1258,10 @@ mnt3svc_umntall (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
-                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto rpcerr;
         }
 
@@ -1306,8 +1317,8 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
 
                 strcpy (elist->ex_dir, ent->expname);
 
-                addrstr = nfs_rpcsvc_volume_allowed (svc->options,
-                                                     ent->vol->name);
+                addrstr = rpcsvc_volume_allowed (svc->options,
+                                                 ent->vol->name);
                 if (addrstr)
                         addrstr = gf_strdup (addrstr);
                 else
@@ -1354,15 +1365,15 @@ mnt3svc_export (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
-                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err;
         }
 
         /* Using the children translator names, build the export list */
-        elist = mnt3_xlchildren_to_exports (nfs_rpcsvc_request_service (req),
+        elist = mnt3_xlchildren_to_exports (rpcsvc_request_service (req),
                                             ms);
         /* Do not return error when exports list is empty. An exports list can
          * be empty when no subvolumes have come up. No point returning error
@@ -1754,10 +1765,9 @@ rpcsvc_program_t        mnt3prog = {
                         .prognum        = MOUNT_PROGRAM,
                         .progver        = MOUNT_V3,
                         .progport       = GF_MOUNTV3_PORT,
-                        .progaddrfamily = AF_INET,
-                        .proghost       = NULL,
                         .actors         = mnt3svc_actors,
                         .numactors      = MOUNT3_PROC_COUNT,
+                        .min_auth       = AUTH_NULL,
 };
 
 
@@ -1766,6 +1776,9 @@ mnt3svc_init (xlator_t *nfsx)
 {
         struct mount3_state     *mstate = NULL;
         struct nfs_state        *nfs = NULL;
+        dict_t                  *options = NULL;
+        char                    *portstr = NULL;
+        int                      ret = -1;
 
         if (!nfsx || !nfsx->private)
                 return NULL;
@@ -1780,6 +1793,22 @@ mnt3svc_init (xlator_t *nfsx)
         }
 
         mnt3prog.private = mstate;
+        options = dict_new ();
+
+        ret = gf_asprintf (&portstr, "%d", GF_MOUNTV3_PORT);
+        if (ret == -1)
+                goto err;
+
+        ret = dict_set_dynstr (options, "transport.socket.listen-port", portstr);
+        if (ret == -1)
+                goto err;
+        ret = dict_set_str (options, "transport-type", "socket");
+        rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
+                dict_unref (options);
+                goto err;
+        }
 
         return &mnt3prog;
 err:
@@ -1801,10 +1830,9 @@ rpcsvc_program_t        mnt1prog = {
                         .prognum        = MOUNT_PROGRAM,
                         .progver        = MOUNT_V1,
                         .progport       = GF_MOUNTV1_PORT,
-                        .progaddrfamily = AF_INET,
-                        .proghost       = NULL,
                         .actors         = mnt1svc_actors,
                         .numactors      = MOUNT1_PROC_COUNT,
+                        .min_auth       = AUTH_NULL,
 };
 
 
@@ -1813,6 +1841,9 @@ mnt1svc_init (xlator_t *nfsx)
 {
         struct mount3_state     *mstate = NULL;
         struct nfs_state        *nfs = NULL;
+        dict_t                  *options = NULL;
+        char                    *portstr = NULL;
+        int                      ret = -1;
 
         if (!nfsx || !nfsx->private)
                 return NULL;
@@ -1827,6 +1858,23 @@ mnt1svc_init (xlator_t *nfsx)
         }
 
         mnt1prog.private = mstate;
+
+        options = dict_new ();
+
+        ret = gf_asprintf (&portstr, "%d", GF_MOUNTV1_PORT);
+        if (ret == -1)
+                goto err;
+
+        ret = dict_set_dynstr (options, "transport.socket.listen-port", portstr);
+        if (ret == -1)
+                goto err;
+        ret = dict_set_str (options, "transport-type", "socket");
+        rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
+                dict_unref (options);
+                goto err;
+        }
 
         return &mnt1prog;
 err:

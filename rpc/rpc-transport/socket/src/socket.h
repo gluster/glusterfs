@@ -81,6 +81,8 @@ typedef enum {
         SP_STATE_READ_CREDBYTES,        /* read credential data. */
         SP_STATE_READING_VERFBYTES,
         SP_STATE_READ_VERFBYTES,        /* read verifier data */
+        SP_STATE_READING_PROGHDR,
+        SP_STATE_READ_PROGHDR,
         SP_STATE_READING_PROG,
 } sp_rpcfrag_vectored_request_state_t;
 
@@ -112,6 +114,7 @@ struct ioq {
 typedef struct {
         sp_rpcfrag_request_header_state_t header_state;
         sp_rpcfrag_vectored_request_state_t vector_state;
+        int vector_sizer_state;
 } sp_rpcfrag_request_state_t;
 
 typedef enum {

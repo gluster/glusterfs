@@ -92,7 +92,7 @@ nfs_fsync (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 
 extern int
 nfs_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
-           struct iobuf *srciob, struct iovec *vector, int32_t count,
+           struct iobref *srciobref, struct iovec *vector, int32_t count,
            off_t offset, fop_writev_cbk_t cbk, void *local);
 
 extern int

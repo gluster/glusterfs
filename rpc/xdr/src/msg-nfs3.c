@@ -29,6 +29,7 @@
 
 #include "xdr-nfs3.h"
 #include "msg-nfs3.h"
+#include "xdr-generic.h"
 #include "xdr-common.h"
 
 
@@ -56,15 +57,15 @@ xdr_to_mountpath (struct iovec outpath, struct iovec inmsg)
                 goto ret;
         }
 
-        ret = nfs_xdr_decoded_length (xdr);
+        ret = xdr_decoded_length (xdr);
 
 ret:
         return ret;
 }
 
-
+/*
 ssize_t
-nfs_xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc)
+xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc)
 {
         ssize_t ret = -1;
         XDR     xdr;
@@ -80,7 +81,7 @@ nfs_xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc)
                 goto ret;
         }
 
-        ret = nfs_xdr_encoded_length (xdr);
+        ret = xdr_encoded_length (xdr);
 
 ret:
         return ret;
@@ -88,7 +89,7 @@ ret:
 
 
 ssize_t
-nfs_xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc)
+xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc)
 {
         XDR     xdr;
         ssize_t ret = -1;
@@ -104,14 +105,14 @@ nfs_xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc)
                 goto ret;
         }
 
-        ret = nfs_xdr_decoded_length (xdr);
+        ret = xdr_decoded_length (xdr);
 ret:
         return ret;
 }
 
 
 ssize_t
-nfs_xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
+xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
                             struct iovec *pendingpayload)
 {
         XDR     xdr;
@@ -128,17 +129,17 @@ nfs_xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
                 goto ret;
         }
 
-        ret = nfs_xdr_decoded_length (xdr);
+        ret = xdr_decoded_length (xdr);
 
         if (pendingpayload) {
-                pendingpayload->iov_base = nfs_xdr_decoded_remaining_addr (xdr);
-                pendingpayload->iov_len = nfs_xdr_decoded_remaining_len (xdr);
+                pendingpayload->iov_base = xdr_decoded_remaining_addr (xdr);
+                pendingpayload->iov_len = xdr_decoded_remaining_len (xdr);
         }
 
 ret:
         return ret;
 }
-
+*/
 
 /* Translate the mountres3 structure in res into XDR format into memory
  * referenced by outmsg.iov_base.
@@ -147,7 +148,7 @@ ret:
 ssize_t
 xdr_serialize_mountres3 (struct iovec outmsg, mountres3 *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_mountres3);
 }
 
@@ -155,14 +156,14 @@ xdr_serialize_mountres3 (struct iovec outmsg, mountres3 *res)
 ssize_t
 xdr_serialize_mountbody (struct iovec outmsg, mountbody *mb)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)mb,
+        return xdr_serialize_generic (outmsg, (void *)mb,
                                           (xdrproc_t)xdr_mountbody);
 }
 
 ssize_t
 xdr_serialize_mountlist (struct iovec outmsg, mountlist *ml)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)ml,
+        return xdr_serialize_generic (outmsg, (void *)ml,
                                           (xdrproc_t)xdr_mountlist);
 }
 
@@ -170,7 +171,7 @@ xdr_serialize_mountlist (struct iovec outmsg, mountlist *ml)
 ssize_t
 xdr_serialize_mountstat3 (struct iovec outmsg, mountstat3 *m)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)m,
+        return xdr_serialize_generic (outmsg, (void *)m,
                                           (xdrproc_t)xdr_mountstat3);
 }
 
@@ -178,7 +179,7 @@ xdr_serialize_mountstat3 (struct iovec outmsg, mountstat3 *m)
 ssize_t
 xdr_to_getattr3args (struct iovec inmsg, getattr3args *ga)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ga,
+        return xdr_to_generic (inmsg, (void *)ga,
                                    (xdrproc_t)xdr_getattr3args);
 }
 
@@ -186,7 +187,7 @@ xdr_to_getattr3args (struct iovec inmsg, getattr3args *ga)
 ssize_t
 xdr_serialize_getattr3res (struct iovec outmsg, getattr3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_getattr3res);
 }
 
@@ -194,7 +195,7 @@ xdr_serialize_getattr3res (struct iovec outmsg, getattr3res *res)
 ssize_t
 xdr_serialize_setattr3res (struct iovec outmsg, setattr3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_setattr3res);
 }
 
@@ -202,7 +203,7 @@ xdr_serialize_setattr3res (struct iovec outmsg, setattr3res *res)
 ssize_t
 xdr_to_setattr3args (struct iovec inmsg, setattr3args *sa)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)sa,
+        return xdr_to_generic (inmsg, (void *)sa,
                                    (xdrproc_t)xdr_setattr3args);
 }
 
@@ -210,7 +211,7 @@ xdr_to_setattr3args (struct iovec inmsg, setattr3args *sa)
 ssize_t
 xdr_serialize_lookup3res (struct iovec outmsg, lookup3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_lookup3res);
 }
 
@@ -218,7 +219,7 @@ xdr_serialize_lookup3res (struct iovec outmsg, lookup3res *res)
 ssize_t
 xdr_to_lookup3args (struct iovec inmsg, lookup3args *la)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)la,
+        return xdr_to_generic (inmsg, (void *)la,
                                    (xdrproc_t)xdr_lookup3args);
 }
 
@@ -226,7 +227,7 @@ xdr_to_lookup3args (struct iovec inmsg, lookup3args *la)
 ssize_t
 xdr_to_access3args (struct iovec inmsg, access3args *ac)
 {
-        return nfs_xdr_to_generic (inmsg,(void *)ac,
+        return xdr_to_generic (inmsg,(void *)ac,
                                    (xdrproc_t)xdr_access3args);
 }
 
@@ -234,7 +235,7 @@ xdr_to_access3args (struct iovec inmsg, access3args *ac)
 ssize_t
 xdr_serialize_access3res (struct iovec outmsg, access3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_access3res);
 }
 
@@ -242,7 +243,7 @@ xdr_serialize_access3res (struct iovec outmsg, access3res *res)
 ssize_t
 xdr_to_readlink3args (struct iovec inmsg, readlink3args *ra)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ra,
+        return xdr_to_generic (inmsg, (void *)ra,
                                    (xdrproc_t)xdr_readlink3args);
 }
 
@@ -250,7 +251,7 @@ xdr_to_readlink3args (struct iovec inmsg, readlink3args *ra)
 ssize_t
 xdr_serialize_readlink3res (struct iovec outmsg, readlink3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_readlink3res);
 }
 
@@ -258,21 +259,21 @@ xdr_serialize_readlink3res (struct iovec outmsg, readlink3res *res)
 ssize_t
 xdr_to_read3args (struct iovec inmsg, read3args *ra)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ra, (xdrproc_t)xdr_read3args);
+        return xdr_to_generic (inmsg, (void *)ra, (xdrproc_t)xdr_read3args);
 }
 
 
 ssize_t
 xdr_serialize_read3res (struct iovec outmsg, read3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_read3res);
 }
 
 ssize_t
 xdr_serialize_read3res_nocopy (struct iovec outmsg, read3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_read3res_nocopy);
 }
 
@@ -280,7 +281,7 @@ xdr_serialize_read3res_nocopy (struct iovec outmsg, read3res *res)
 ssize_t
 xdr_to_write3args (struct iovec inmsg, write3args *wa)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)wa,(xdrproc_t)xdr_write3args);
+        return xdr_to_generic (inmsg, (void *)wa,(xdrproc_t)xdr_write3args);
 }
 
 
@@ -288,7 +289,7 @@ ssize_t
 xdr_to_write3args_nocopy (struct iovec inmsg, write3args *wa,
                           struct iovec *payload)
 {
-        return nfs_xdr_to_generic_payload (inmsg, (void *)wa,
+        return xdr_to_generic_payload (inmsg, (void *)wa,
                                            (xdrproc_t)xdr_write3args, payload);
 }
 
@@ -296,7 +297,7 @@ xdr_to_write3args_nocopy (struct iovec inmsg, write3args *wa,
 ssize_t
 xdr_serialize_write3res (struct iovec outmsg, write3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_write3res);
 }
 
@@ -304,7 +305,7 @@ xdr_serialize_write3res (struct iovec outmsg, write3res *res)
 ssize_t
 xdr_to_create3args (struct iovec inmsg, create3args *ca)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ca,
+        return xdr_to_generic (inmsg, (void *)ca,
                                    (xdrproc_t)xdr_create3args);
 }
 
@@ -312,7 +313,7 @@ xdr_to_create3args (struct iovec inmsg, create3args *ca)
 ssize_t
 xdr_serialize_create3res (struct iovec outmsg, create3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_create3res);
 }
 
@@ -320,7 +321,7 @@ xdr_serialize_create3res (struct iovec outmsg, create3res *res)
 ssize_t
 xdr_serialize_mkdir3res (struct iovec outmsg, mkdir3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_mkdir3res);
 }
 
@@ -328,7 +329,7 @@ xdr_serialize_mkdir3res (struct iovec outmsg, mkdir3res *res)
 ssize_t
 xdr_to_mkdir3args (struct iovec inmsg, mkdir3args *ma)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ma,
+        return xdr_to_generic (inmsg, (void *)ma,
                                    (xdrproc_t)xdr_mkdir3args);
 }
 
@@ -336,7 +337,7 @@ xdr_to_mkdir3args (struct iovec inmsg, mkdir3args *ma)
 ssize_t
 xdr_to_symlink3args (struct iovec inmsg, symlink3args *sa)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)sa,
+        return xdr_to_generic (inmsg, (void *)sa,
                                    (xdrproc_t)xdr_symlink3args);
 }
 
@@ -344,7 +345,7 @@ xdr_to_symlink3args (struct iovec inmsg, symlink3args *sa)
 ssize_t
 xdr_serialize_symlink3res (struct iovec outmsg, symlink3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_symlink3res);
 }
 
@@ -352,7 +353,7 @@ xdr_serialize_symlink3res (struct iovec outmsg, symlink3res *res)
 ssize_t
 xdr_to_mknod3args (struct iovec inmsg, mknod3args *ma)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ma,
+        return xdr_to_generic (inmsg, (void *)ma,
                                    (xdrproc_t)xdr_mknod3args);
 }
 
@@ -360,7 +361,7 @@ xdr_to_mknod3args (struct iovec inmsg, mknod3args *ma)
 ssize_t
 xdr_serialize_mknod3res (struct iovec outmsg, mknod3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_mknod3res);
 }
 
@@ -368,7 +369,7 @@ xdr_serialize_mknod3res (struct iovec outmsg, mknod3res *res)
 ssize_t
 xdr_to_remove3args (struct iovec inmsg, remove3args *ra)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ra,
+        return xdr_to_generic (inmsg, (void *)ra,
                                    (xdrproc_t)xdr_remove3args);
 }
 
@@ -376,7 +377,7 @@ xdr_to_remove3args (struct iovec inmsg, remove3args *ra)
 ssize_t
 xdr_serialize_remove3res (struct iovec outmsg, remove3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_remove3res);
 }
 
@@ -384,7 +385,7 @@ xdr_serialize_remove3res (struct iovec outmsg, remove3res *res)
 ssize_t
 xdr_to_rmdir3args (struct iovec inmsg, rmdir3args *ra)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ra,
+        return xdr_to_generic (inmsg, (void *)ra,
                                    (xdrproc_t)xdr_rmdir3args);
 }
 
@@ -392,7 +393,7 @@ xdr_to_rmdir3args (struct iovec inmsg, rmdir3args *ra)
 ssize_t
 xdr_serialize_rmdir3res (struct iovec outmsg, rmdir3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_rmdir3res);
 }
 
@@ -400,7 +401,7 @@ xdr_serialize_rmdir3res (struct iovec outmsg, rmdir3res *res)
 ssize_t
 xdr_serialize_rename3res (struct iovec outmsg, rename3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_rename3res);
 }
 
@@ -408,7 +409,7 @@ xdr_serialize_rename3res (struct iovec outmsg, rename3res *res)
 ssize_t
 xdr_to_rename3args (struct iovec inmsg, rename3args *ra)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ra,
+        return xdr_to_generic (inmsg, (void *)ra,
                                    (xdrproc_t)xdr_rename3args);
 }
 
@@ -416,7 +417,7 @@ xdr_to_rename3args (struct iovec inmsg, rename3args *ra)
 ssize_t
 xdr_serialize_link3res (struct iovec outmsg, link3res *li)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)li,
+        return xdr_serialize_generic (outmsg, (void *)li,
                                           (xdrproc_t)xdr_link3res);
 }
 
@@ -424,14 +425,14 @@ xdr_serialize_link3res (struct iovec outmsg, link3res *li)
 ssize_t
 xdr_to_link3args (struct iovec inmsg, link3args *la)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)la, (xdrproc_t)xdr_link3args);
+        return xdr_to_generic (inmsg, (void *)la, (xdrproc_t)xdr_link3args);
 }
 
 
 ssize_t
 xdr_to_readdir3args (struct iovec inmsg, readdir3args *rd)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)rd,
+        return xdr_to_generic (inmsg, (void *)rd,
                                    (xdrproc_t)xdr_readdir3args);
 }
 
@@ -439,7 +440,7 @@ xdr_to_readdir3args (struct iovec inmsg, readdir3args *rd)
 ssize_t
 xdr_serialize_readdir3res (struct iovec outmsg, readdir3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_readdir3res);
 }
 
@@ -447,7 +448,7 @@ xdr_serialize_readdir3res (struct iovec outmsg, readdir3res *res)
 ssize_t
 xdr_to_readdirp3args (struct iovec inmsg, readdirp3args *rp)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)rp,
+        return xdr_to_generic (inmsg, (void *)rp,
                                    (xdrproc_t)xdr_readdirp3args);
 }
 
@@ -455,7 +456,7 @@ xdr_to_readdirp3args (struct iovec inmsg, readdirp3args *rp)
 ssize_t
 xdr_serialize_readdirp3res (struct iovec outmsg, readdirp3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_readdirp3res);
 }
 
@@ -463,7 +464,7 @@ xdr_serialize_readdirp3res (struct iovec outmsg, readdirp3res *res)
 ssize_t
 xdr_to_fsstat3args (struct iovec inmsg, fsstat3args *fa)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)fa,
+        return xdr_to_generic (inmsg, (void *)fa,
                                    (xdrproc_t)xdr_fsstat3args);
 }
 
@@ -471,14 +472,14 @@ xdr_to_fsstat3args (struct iovec inmsg, fsstat3args *fa)
 ssize_t
 xdr_serialize_fsstat3res (struct iovec outmsg, fsstat3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_fsstat3res);
 }
 
 ssize_t
 xdr_to_fsinfo3args (struct iovec inmsg, fsinfo3args *fi)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)fi,
+        return xdr_to_generic (inmsg, (void *)fi,
                                    (xdrproc_t)xdr_fsinfo3args);
 }
 
@@ -486,7 +487,7 @@ xdr_to_fsinfo3args (struct iovec inmsg, fsinfo3args *fi)
 ssize_t
 xdr_serialize_fsinfo3res (struct iovec outmsg, fsinfo3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_fsinfo3res);
 }
 
@@ -494,14 +495,14 @@ xdr_serialize_fsinfo3res (struct iovec outmsg, fsinfo3res *res)
 ssize_t
 xdr_to_pathconf3args (struct iovec inmsg, pathconf3args *pc)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)pc,
+        return xdr_to_generic (inmsg, (void *)pc,
                                    (xdrproc_t)xdr_pathconf3args);}
 
 
 ssize_t
 xdr_serialize_pathconf3res (struct iovec outmsg, pathconf3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_pathconf3res);
 }
 
@@ -509,7 +510,7 @@ xdr_serialize_pathconf3res (struct iovec outmsg, pathconf3res *res)
 ssize_t
 xdr_to_commit3args (struct iovec inmsg, commit3args *ca)
 {
-        return nfs_xdr_to_generic (inmsg, (void *)ca,
+        return xdr_to_generic (inmsg, (void *)ca,
                                    (xdrproc_t)xdr_commit3args);
 }
 
@@ -517,7 +518,7 @@ xdr_to_commit3args (struct iovec inmsg, commit3args *ca)
 ssize_t
 xdr_serialize_commit3res (struct iovec outmsg, commit3res *res)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)res,
+        return xdr_serialize_generic (outmsg, (void *)res,
                                           (xdrproc_t)xdr_commit3res);
 }
 
@@ -537,7 +538,7 @@ xdr_serialize_exports (struct iovec outmsg, exports *elist)
         if (!xdr_exports (&xdr, elist))
                 goto ret;
 
-        ret = nfs_xdr_decoded_length (xdr);
+        ret = xdr_decoded_length (xdr);
 
 ret:
         return ret;
@@ -547,7 +548,7 @@ ret:
 ssize_t
 xdr_serialize_nfsstat3 (struct iovec outmsg, nfsstat3 *s)
 {
-        return nfs_xdr_serialize_generic (outmsg, (void *)s,
+        return xdr_serialize_generic (outmsg, (void *)s,
                                           (xdrproc_t)xdr_nfsstat3);
 }
 

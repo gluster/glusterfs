@@ -13,10 +13,12 @@ libgfxdr_la_SOURCES =  xdr-generic.c \
 			glusterfs3-xdr.c glusterfs3.c \
 			cli1-xdr.c cli1.c \
 			glusterd1-xdr.c glusterd1.c \
-			portmap-xdr.c portmap.c
+			portmap-xdr.c portmap.c \
+			xdr-nfs3.c msg-nfs3.c
 
 noinst_HEADERS = xdr-generic.h \
 		glusterfs3-xdr.h glusterfs3.h \
 		cli1-xdr.h cli1.h \
 		glusterd1-xdr.h glusterd1.h \
-		portmap-xdr.h portmap.h
+		portmap-xdr.h portmap.h \
+		xdr-nfs3.h msg-nfs3.h

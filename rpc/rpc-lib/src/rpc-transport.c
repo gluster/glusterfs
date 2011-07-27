@@ -525,7 +525,7 @@ rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin)
         if (pollin->iobref) {
                 iobref_unref (pollin->iobref);
         }
- 
+
         if (pollin->hdr_iobuf) {
                 iobuf_unref (pollin->hdr_iobuf);
         }
@@ -909,7 +909,8 @@ rpc_transport_unref (rpc_transport_t *this)
 
 	if (refcount == 0) {
                 if (this->mydata)
-                        this->notify (this, this->mydata, RPC_TRANSPORT_CLEANUP, NULL);
+                        this->notify (this, this->mydata, RPC_TRANSPORT_CLEANUP,
+                                      NULL);
 		rpc_transport_destroy (this);
 	}
 
@@ -978,7 +979,8 @@ out:
 }
 
 int
-rpc_transport_inet_options_build (dict_t **options, const char *hostname, int port)
+rpc_transport_inet_options_build (dict_t **options, const char *hostname,
+                                  int port)
 {
         dict_t          *dict = NULL;
         char            *host = NULL;
@@ -1000,15 +1002,15 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname, int po
 
         ret = dict_set_dynstr (dict, "remote-host", host);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "failed to set remote-host with %s",
-                        host);
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set remote-host with %s", host);
                 goto out;
         }
 
         ret = dict_set_int32 (dict, "remote-port", port);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "failed to set remote-port with %d",
-                        port);
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set remote-port with %d", port);
                 goto out;
         }
         ret = dict_set_str (dict, "transport.address-family", "inet/inet6");

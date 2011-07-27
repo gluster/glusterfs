@@ -31,6 +31,7 @@
 #define xdr_encoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
 #define xdr_decoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
 
+#define XDR_BYTES_PER_UNIT      4
 
 ssize_t
 xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc);
@@ -41,5 +42,15 @@ xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc);
 ssize_t
 xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
                         struct iovec *pendingpayload);
+
+
+extern int
+xdr_bytes_round_up (struct iovec *vec, size_t bufsize);
+
+extern ssize_t
+xdr_length_round_up (size_t len, size_t bufsize);
+
+void
+xdr_vector_round_up (struct iovec *vec, int vcount, uint32_t count);
 
 #endif /* !_XDR_GENERIC_H */
