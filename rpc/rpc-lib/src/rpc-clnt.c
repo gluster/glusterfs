@@ -927,6 +927,7 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         if (!conn->trans) {
                 gf_log (name, GF_LOG_WARNING, "loading of new rpc-transport"
                         " failed");
+                ret = -1;
                 goto out;
         }
 
