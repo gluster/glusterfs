@@ -3774,8 +3774,8 @@ stripe_readdirp_entry_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *thi
         LOCK (&frame->lock);
         {
 
-                local->count++;
-                if (local->count == local->wind_count)
+                local->wind_count--;
+                if (!local->wind_count)
                         done = 1;
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
@@ -3815,6 +3815,8 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_t        *inode = NULL;
         char           *path;
         int32_t        count = 0;
+        stripe_private_t *priv = NULL;
+        int32_t        subvols = 0;
 
         if (!this || !frame || !frame->local || !cookie) {
                 gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
@@ -3823,6 +3825,9 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev  = cookie;
         local = frame->local;
         trav = this->children;
+        priv = this->private;
+
+        subvols = priv->child_count;
 
         LOCK (&frame->lock);
         {
@@ -3837,6 +3842,7 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_ret = op_ret;
                         list_splice_init (&orig_entries->list,
                                           &local->entries.list);
+                        local->wind_count = op_ret * subvols;
                 }
         }
 unlock:
@@ -3845,14 +3851,22 @@ unlock:
         if (op_ret == -1)
                 goto out;
 
+        count = op_ret;
         ret = 0;
         list_for_each_entry_safe (local_entry, tmp_entry,
                                   (&local->entries.list), list) {
 
                 if (!local_entry)
                         break;
-                if (!IA_ISREG (local_entry->d_stat.ia_type))
+                if (!IA_ISREG (local_entry->d_stat.ia_type)) {
+                        LOCK (&frame->lock);
+                        {
+                                local->wind_count -= subvols;
+                                count = local->wind_count;
+                        }
+                        UNLOCK (&frame->lock);
                         continue;
+                }
 
                 inode = inode_new (local->fd->inode->table);
                 if (!inode)
@@ -3877,15 +3891,9 @@ unlock:
                 loc.name++;
                 trav = this->children;
                 while (trav) {
-                        LOCK (&frame->lock);
-                        {
-                                local->wind_count++;
-                        }
-                        UNLOCK (&frame->lock);
                         STACK_WIND_COOKIE (frame, stripe_readdirp_entry_stat_cbk,
                                            local_entry, trav->xlator,
                                            trav->xlator->fops->stat, &loc);
-                        count++;
                         trav = trav->next;
                 }
                 inode_unref (loc.inode);
