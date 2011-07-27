@@ -184,6 +184,7 @@ struct nfs3_local {
         count3                  datacount;
         offset3                 dataoffset;
         struct iobuf            *iob;
+        struct iobref           *iobref;
         createmode3             createmode;
         uint64_t                cookieverf;
         int                     sattrguardcheck;
@@ -206,7 +207,7 @@ struct nfs3_local {
 };
 
 #define nfs3_is_revalidate_lookup(cst) ((cst)->lookuptype == GF_NFS3_REVALIDATE)
-#define nfs3_lookup_op(cst) (nfs_rpcsvc_request_procnum(cst->req) == NFS3_LOOKUP)
+#define nfs3_lookup_op(cst) (rpcsvc_request_procnum(cst->req) == NFS3_LOOKUP)
 typedef struct nfs3_local nfs3_call_state_t;
 
 /* Queue of ops waiting for open fop to return. */

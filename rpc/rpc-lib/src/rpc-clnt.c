@@ -392,7 +392,8 @@ rpc_clnt_reconnect (void *trans_ptr)
 
                         gf_log (trans->name, GF_LOG_TRACE,
                                 "attempting reconnect");
-                        ret = rpc_transport_connect (trans, conn->config.remote_port);
+                        ret = rpc_transport_connect (trans,
+                                                     conn->config.remote_port);
                         /* Every time there is a disconnection, processes
                            should try to connect to 'glusterd' (ie, default
                            port) or whichever port given as 'option remote-port'
@@ -435,7 +436,8 @@ rpc_clnt_fill_request_info (struct rpc_clnt *clnt, rpc_request_info_t *info)
         pthread_mutex_unlock (&clnt->conn.lock);
 
         if (ret == -1) {
-                gf_log (clnt->conn.trans->name, GF_LOG_CRITICAL, "cannot lookup the saved "
+                gf_log (clnt->conn.trans->name, GF_LOG_CRITICAL,
+                        "cannot lookup the saved "
                         "frame corresponding to xid (%d)", info->xid);
                 goto out;
         }
@@ -633,7 +635,8 @@ rpc_clnt_reply_init (rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
                 goto out;
         }
 
-        gf_log (conn->trans->name, GF_LOG_TRACE, "received rpc message (RPC XID: 0x%ux"
+        gf_log (conn->trans->name, GF_LOG_TRACE,
+                "received rpc message (RPC XID: 0x%ux"
                 " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
                 saved_frame->rpcreq->xid,
                 saved_frame->rpcreq->prog->progname,
@@ -831,8 +834,8 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                 pthread_mutex_unlock (&conn->lock);
 
                 if (clnt->notifyfn)
-                        ret = clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_DISCONNECT,
-                                              NULL);
+                        ret = clnt->notifyfn (clnt, clnt->mydata,
+                                              RPC_CLNT_DISCONNECT, NULL);
                 break;
         }
 
@@ -878,7 +881,8 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         case RPC_TRANSPORT_CONNECT:
         {
                 if (clnt->notifyfn)
-                        ret = clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_CONNECT, NULL);
+                        ret = clnt->notifyfn (clnt, clnt->mydata,
+                                              RPC_CLNT_CONNECT, NULL);
                 break;
         }
 
@@ -1051,7 +1055,8 @@ xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms *au)
                        XDR_ENCODE);
 
         if (!xdr_auth_glusterfs_parms (&xdr, au)) {
-                gf_log (THIS->name, GF_LOG_WARNING, "failed to encode auth glusterfs elements");
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to encode auth glusterfs elements");
                 ret = -1;
                 goto ret;
         }
@@ -1145,7 +1150,8 @@ out:
 struct iobuf *
 rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
                               int procnum, size_t payload, uint64_t xid,
-                              struct auth_glusterfs_parms *au, struct iovec *recbuf)
+                              struct auth_glusterfs_parms *au,
+                              struct iovec *recbuf)
 {
         struct rpc_msg           request                            = {0, };
         struct iobuf            *request_iob                        = NULL;

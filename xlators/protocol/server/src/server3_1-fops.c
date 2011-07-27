@@ -30,6 +30,7 @@
 #include "compat-errno.h"
 
 #include "md5.h"
+#include "xdr-nfs3.h"
 
 
 /* Callback function section */
@@ -3114,6 +3115,30 @@ server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
         return server_writev (req);
 }
 
+#define SERVER3_1_VECWRITE_START 0
+#define SERVER3_1_VECWRITE_READINGHDR 1
+
+int
+server_writev_vecsizer (int state, ssize_t *readsize, char *addr)
+{
+        int nextstate = 0;
+        gfs3_write_req    write_req              = {{0,},};
+
+        switch (state) {
+        case SERVER3_1_VECWRITE_START:
+                *readsize = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req, &write_req);
+                nextstate = SERVER3_1_VECWRITE_READINGHDR;
+                break;
+        case SERVER3_1_VECWRITE_READINGHDR:
+                *readsize = 0;
+                nextstate = SERVER3_1_VECWRITE_START;
+                break;
+        default:
+                gf_log ("server3_1", GF_LOG_ERROR, "wrong state: %d", state);
+        }
+        return nextstate;
+}
+
 
 int
 server_release (rpcsvc_request_t *req)
@@ -5154,7 +5179,7 @@ rpcsvc_actor_t glusterfs3_1_fop_actors[] = {
         [GFS3_OP_TRUNCATE]    = { "TRUNCATE",   GFS3_OP_TRUNCATE, server_truncate, NULL, NULL },
         [GFS3_OP_OPEN]        = { "OPEN",       GFS3_OP_OPEN, server_open, NULL, NULL },
         [GFS3_OP_READ]        = { "READ",       GFS3_OP_READ, server_readv, NULL, NULL },
-        [GFS3_OP_WRITE]       = { "WRITE",      GFS3_OP_WRITE, server_writev, server_writev_vec, NULL },
+        [GFS3_OP_WRITE]       = { "WRITE",      GFS3_OP_WRITE, server_writev, server_writev_vec, server_writev_vecsizer },
         [GFS3_OP_STATFS]      = { "STATFS",     GFS3_OP_STATFS, server_statfs, NULL, NULL },
         [GFS3_OP_FLUSH]       = { "FLUSH",      GFS3_OP_FLUSH, server_flush, NULL, NULL },
         [GFS3_OP_FSYNC]       = { "FSYNC",      GFS3_OP_FSYNC, server_fsync, NULL, NULL },

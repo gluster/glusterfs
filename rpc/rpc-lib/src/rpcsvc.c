@@ -105,8 +105,33 @@ out:
         return;
 }
 
+rpcsvc_vector_sizer
+rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
+                                 uint32_t progver, uint32_t procnum)
+{
+        rpcsvc_program_t        *program = NULL;
+        char                    found    = 0;
 
+        if (!svc)
+                return NULL;
 
+        pthread_mutex_lock (&svc->rpclock);
+        {
+                list_for_each_entry (program, &svc->programs, program) {
+                        if ((program->prognum == prognum)
+                            && (program->progver == progver)) {
+                                found = 1;
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&svc->rpclock);
+
+        if (found)
+                return program->actors[procnum].vector_sizer;
+        else
+                return NULL;
+}
 
 /* This needs to change to returning errors, since
  * we need to return RPC specific error messages when some
@@ -442,8 +467,10 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 
                 gf_log ("rpcsvc", GF_LOG_TRACE, "Client port: %d", (int)port);
 
-                if ((port > 1024) && (0 == svc->allow_insecure)) {  //Non-privileged user, fail request
-                        gf_log ("glusterd", GF_LOG_ERROR, "Request received from non-"
+                if ((port > 1024) && (0 == svc->allow_insecure)) {
+                        /* Non-privileged user, fail request */
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Request received from non-"
                                 "privileged port. Failing request");
                         return -1;
                 }
@@ -505,10 +532,10 @@ rpcsvc_handle_disconnect (rpcsvc_t *svc, rpc_transport_t *trans)
         rpcsvc_notify_wrapper_t *wrappers = NULL, *wrapper;
         int32_t                  ret      = -1, i = 0, wrapper_count = 0;
         rpcsvc_listener_t       *listener = NULL;
- 
+
         event = (trans->listener == NULL) ? RPCSVC_EVENT_LISTENER_DEAD
                 : RPCSVC_EVENT_DISCONNECT;
- 
+
         pthread_mutex_lock (&svc->rpclock);
         {
                 wrappers = GF_CALLOC (svc->notify_count, sizeof (*wrapper),
@@ -516,35 +543,35 @@ rpcsvc_handle_disconnect (rpcsvc_t *svc, rpc_transport_t *trans)
                 if (!wrappers) {
                         goto unlock;
                 }
- 
+
                 list_for_each_entry (wrapper, &svc->notify, list) {
                         if (wrapper->notify) {
                                 wrappers[i++] = *wrapper;
                         }
                 }
- 
+
                 wrapper_count = i;
         }
 unlock:
         pthread_mutex_unlock (&svc->rpclock);
- 
+
         if (wrappers) {
                 for (i = 0; i < wrapper_count; i++) {
                         wrappers[i].notify (svc, wrappers[i].data,
                                             event, trans);
                 }
- 
+
                 GF_FREE (wrappers);
         }
- 
+
         if (event == RPCSVC_EVENT_LISTENER_DEAD) {
                 listener = rpcsvc_get_listener (svc, -1, trans->listener);
                 rpcsvc_listener_destroy (listener);
         }
- 
+
         return ret;
 }
- 
+
 
 int
 rpcsvc_notify (rpc_transport_t *trans, void *mydata,
@@ -1114,6 +1141,11 @@ out:
         return ret;
 }
 
+int
+rpcsvc_register_portmap_enabled (rpcsvc_t *svc)
+{
+        return svc->register_portmap;
+}
 
 int32_t
 rpcsvc_get_listener_port (rpcsvc_listener_t *listener)
@@ -1152,7 +1184,7 @@ rpcsvc_get_listener (rpcsvc_t *svc, uint16_t port, rpc_transport_t *trans)
 {
         rpcsvc_listener_t  *listener      = NULL;
         char                found         = 0;
-        uint32_t            listener_port = 0; 
+        uint32_t            listener_port = 0;
 
         if (!svc) {
                 goto out;
@@ -1343,7 +1375,7 @@ rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name)
 {
         rpc_transport_t   *trans    = NULL;
         rpcsvc_listener_t *listener = NULL;
-        int32_t            ret      = -1; 
+        int32_t            ret      = -1;
 
         if (!svc || !options) {
                 goto out;
@@ -1577,7 +1609,6 @@ out:
         return ret;
 }
 
-
 static void
 free_prog_details (gf_dump_rsp *rsp)
 {
@@ -1670,8 +1701,39 @@ fail:
 int
 rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
 {
+        char            *optstr = NULL;
+        int             ret = -1;
+
+        if ((!svc) || (!options))
+                return -1;
+
         svc->memfactor = RPCSVC_DEFAULT_MEMFACTOR;
-        return 0;
+
+        svc->register_portmap = _gf_true;
+        if (dict_get (options, "rpc.register-with-portmap")) {
+                ret = dict_get_str (options, "rpc.register-with-portmap",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to parse "
+                                "dict");
+                        goto out;
+                }
+
+                ret = gf_string2boolean (optstr, &svc->register_portmap);
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto out;
+                }
+        }
+
+        if (!svc->register_portmap)
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Portmap registration "
+                        "disabled");
+
+        ret = 0;
+out:
+        return ret;
 }
 
 int
@@ -1786,6 +1848,531 @@ free_svc:
         }
 
         return svc;
+}
+
+
+int
+rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
+{
+        int                     ret = -1;
+        char                    *addrtok = NULL;
+        char                    *addrstr = NULL;
+        char                    *svptr = NULL;
+
+        if ((!options) || (!clstr))
+                return -1;
+
+        if (!dict_get (options, pattern))
+                return -1;
+
+        ret = dict_get_str (options, pattern, &addrstr);
+        if (ret < 0) {
+                ret = -1;
+                goto err;
+        }
+
+        if (!addrstr) {
+                ret = -1;
+                goto err;
+        }
+
+        addrtok = strtok_r (addrstr, ",", &svptr);
+        while (addrtok) {
+
+                /* CASEFOLD not present on Solaris */
+#ifdef FNM_CASEFOLD
+                ret = fnmatch (addrtok, clstr, FNM_CASEFOLD);
+#else
+                ret = fnmatch (addrtok, clstr, 0);
+#endif
+                if (ret == 0)
+                        goto err;
+
+                addrtok = strtok_r (NULL, ",", &svptr);
+        }
+
+        ret = -1;
+err:
+
+        return ret;
+}
+
+
+int
+rpcsvc_transport_peer_check_allow (dict_t *options, char *volname, char *clstr)
+{
+        int     ret = RPCSVC_AUTH_DONTCARE;
+        char    *srchstr = NULL;
+        char    globalrule[] = "rpc-auth.addr.allow";
+
+        if ((!options) || (!clstr))
+                return ret;
+
+        /* If volname is NULL, then we're searching for the general rule to
+         * determine the current address in clstr is allowed or not for all
+         * subvolumes.
+         */
+        if (volname) {
+                ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.allow", volname);
+                if (ret == -1) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                        ret = RPCSVC_AUTH_DONTCARE;
+                        goto out;
+                }
+        } else
+                srchstr = globalrule;
+
+        ret = rpcsvc_transport_peer_check_search (options, srchstr, clstr);
+        if (volname)
+                GF_FREE (srchstr);
+
+        if (ret == 0)
+                ret = RPCSVC_AUTH_ACCEPT;
+        else
+                ret = RPCSVC_AUTH_DONTCARE;
+out:
+        return ret;
+}
+
+int
+rpcsvc_transport_peer_check_reject (dict_t *options, char *volname, char *clstr)
+{
+        int     ret = RPCSVC_AUTH_DONTCARE;
+        char    *srchstr = NULL;
+        char    generalrule[] = "rpc-auth.addr.reject";
+
+        if ((!options) || (!clstr))
+                return ret;
+
+        if (volname) {
+                ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.reject",
+                                   volname);
+                if (ret == -1) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                        ret = RPCSVC_AUTH_REJECT;
+                        goto out;
+                }
+        } else
+                srchstr = generalrule;
+
+        ret = rpcsvc_transport_peer_check_search (options, srchstr, clstr);
+        if (volname)
+                GF_FREE (srchstr);
+
+        if (ret == 0)
+                ret = RPCSVC_AUTH_REJECT;
+        else
+                ret = RPCSVC_AUTH_DONTCARE;
+out:
+        return ret;
+}
+
+
+/* This function tests the results of the allow rule and the reject rule to
+ * combine them into a single result that can be used to determine if the
+ * connection should be allowed to proceed.
+ * Heres the test matrix we need to follow in this function.
+ *
+ * A -  Allow, the result of the allow test. Never returns R.
+ * R - Reject, result of the reject test. Never returns A.
+ * Both can return D or dont care if no rule was given.
+ *
+ * | @allow | @reject | Result |
+ * |    A   |   R     | R      |
+ * |    D   |   D     | D      |
+ * |    A   |   D     | A      |
+ * |    D   |   R     | R      |
+ */
+int
+rpcsvc_combine_allow_reject_volume_check (int allow, int reject)
+{
+        int     final = RPCSVC_AUTH_REJECT;
+
+        /* If allowed rule allows but reject rule rejects, we stay cautious
+         * and reject. */
+        if ((allow == RPCSVC_AUTH_ACCEPT) && (reject == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+        /* if both are dont care, that is user did not specify for either allow
+         * or reject, we leave it up to the general rule to apply, in the hope
+         * that there is one.
+         */
+        else if ((allow == RPCSVC_AUTH_DONTCARE) &&
+                 (reject == RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_DONTCARE;
+        /* If one is dont care, the other one applies. */
+        else if ((allow == RPCSVC_AUTH_ACCEPT) &&
+                 (reject == RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((allow == RPCSVC_AUTH_DONTCARE) &&
+                 (reject == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+
+        return final;
+}
+
+
+/* Combines the result of the general rule test against, the specific rule
+ * to determine final permission for the client's address.
+ *
+ * | @gen   | @spec   | Result |
+ * |    A   |   A     | A      |
+ * |    A   |   R     | R      |
+ * |    A   |   D     | A      |
+ * |    D   |   A     | A      |
+ * |    D   |   R     | R      |
+ * |    D   |   D     | D      |
+ * |    R   |   A     | A      |
+ * |    R   |   D     | R      |
+ * |    R   |   R     | R      |
+ */
+int
+rpcsvc_combine_gen_spec_addr_checks (int gen, int spec)
+{
+        int     final = RPCSVC_AUTH_REJECT;
+
+        if ((gen == RPCSVC_AUTH_ACCEPT) && (spec == RPCSVC_AUTH_ACCEPT))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_ACCEPT) && (spec == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+        else if ((gen == RPCSVC_AUTH_ACCEPT) && (spec == RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_DONTCARE) && (spec == RPCSVC_AUTH_ACCEPT))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_DONTCARE) && (spec == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+        else if ((gen == RPCSVC_AUTH_DONTCARE) && (spec== RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_DONTCARE;
+        else if ((gen == RPCSVC_AUTH_REJECT) && (spec == RPCSVC_AUTH_ACCEPT))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_REJECT) && (spec == RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_REJECT;
+        else if ((gen == RPCSVC_AUTH_REJECT) && (spec == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+
+        return final;
+}
+
+
+
+/* Combines the result of the general rule test against, the specific rule
+ * to determine final test for the connection coming in for a given volume.
+ *
+ * | @gen   | @spec   | Result |
+ * |    A   |   A     | A      |
+ * |    A   |   R     | R      |
+ * |    A   |   D     | A      |
+ * |    D   |   A     | A      |
+ * |    D   |   R     | R      |
+ * |    D   |   D     | R      |, special case, we intentionally disallow this.
+ * |    R   |   A     | A      |
+ * |    R   |   D     | R      |
+ * |    R   |   R     | R      |
+ */
+int
+rpcsvc_combine_gen_spec_volume_checks (int gen, int spec)
+{
+        int     final = RPCSVC_AUTH_REJECT;
+
+        if ((gen == RPCSVC_AUTH_ACCEPT) && (spec == RPCSVC_AUTH_ACCEPT))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_ACCEPT) && (spec == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+        else if ((gen == RPCSVC_AUTH_ACCEPT) && (spec == RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_DONTCARE) && (spec == RPCSVC_AUTH_ACCEPT))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_DONTCARE) && (spec == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+        /* On no rule, we reject. */
+        else if ((gen == RPCSVC_AUTH_DONTCARE) && (spec== RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_REJECT;
+        else if ((gen == RPCSVC_AUTH_REJECT) && (spec == RPCSVC_AUTH_ACCEPT))
+                final = RPCSVC_AUTH_ACCEPT;
+        else if ((gen == RPCSVC_AUTH_REJECT) && (spec == RPCSVC_AUTH_DONTCARE))
+                final = RPCSVC_AUTH_REJECT;
+        else if ((gen == RPCSVC_AUTH_REJECT) && (spec == RPCSVC_AUTH_REJECT))
+                final = RPCSVC_AUTH_REJECT;
+
+        return final;
+}
+
+
+int
+rpcsvc_transport_peer_check_name (dict_t *options, char *volname,
+                                  rpc_transport_t *trans)
+{
+        int     ret = RPCSVC_AUTH_REJECT;
+        int     aret = RPCSVC_AUTH_REJECT;
+        int     rjret = RPCSVC_AUTH_REJECT;
+        char    clstr[RPCSVC_PEER_STRLEN];
+
+        if (!trans)
+                return ret;
+
+        ret = rpcsvc_transport_peername (trans, clstr, RPCSVC_PEER_STRLEN);
+        if (ret != 0) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get remote addr: "
+                        "%s", gai_strerror (ret));
+                ret = RPCSVC_AUTH_REJECT;
+                goto err;
+        }
+
+        aret = rpcsvc_transport_peer_check_allow (options, volname, clstr);
+        rjret = rpcsvc_transport_peer_check_reject (options, volname, clstr);
+
+        ret = rpcsvc_combine_allow_reject_volume_check (aret, rjret);
+
+err:
+        return ret;
+}
+
+
+int
+rpcsvc_transport_peer_check_addr (dict_t *options, char *volname,
+                                  rpc_transport_t *trans)
+{
+        int     ret = RPCSVC_AUTH_REJECT;
+        int     aret = RPCSVC_AUTH_DONTCARE;
+        int     rjret = RPCSVC_AUTH_REJECT;
+        char    clstr[RPCSVC_PEER_STRLEN];
+        struct sockaddr_storage sastorage = {0,};
+
+        if (!trans)
+                return ret;
+
+        ret = rpcsvc_transport_peeraddr (trans, clstr, RPCSVC_PEER_STRLEN,
+                                         &sastorage, sizeof (sastorage));
+        if (ret != 0) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get remote addr: "
+                        "%s", gai_strerror (ret));
+                ret = RPCSVC_AUTH_REJECT;
+                goto err;
+        }
+
+        aret = rpcsvc_transport_peer_check_allow (options, volname, clstr);
+        rjret = rpcsvc_transport_peer_check_reject (options, volname, clstr);
+
+        ret = rpcsvc_combine_allow_reject_volume_check (aret, rjret);
+err:
+        return ret;
+}
+
+
+int
+rpcsvc_transport_check_volume_specific (dict_t *options, char *volname,
+                                        rpc_transport_t *trans)
+{
+        int             namechk = RPCSVC_AUTH_REJECT;
+        int             addrchk = RPCSVC_AUTH_REJECT;
+        gf_boolean_t    namelookup = _gf_true;
+        char            *namestr = NULL;
+        int             ret = 0;
+
+        if ((!options) || (!volname) || (!trans))
+                return RPCSVC_AUTH_REJECT;
+
+        /* Enabled by default */
+        if ((dict_get (options, "rpc-auth.addr.namelookup"))) {
+                ret = dict_get_str (options, "rpc-auth.addr.namelookup"
+                                    , &namestr);
+                if (ret == 0)
+                        ret = gf_string2boolean (namestr, &namelookup);
+        }
+
+        /* We need two separate checks because the rules with addresses in them
+         * can be network addresses which can be general and names can be
+         * specific which will over-ride the network address rules.
+         */
+        if (namelookup)
+                namechk = rpcsvc_transport_peer_check_name (options, volname,
+                                                            trans);
+        addrchk = rpcsvc_transport_peer_check_addr (options, volname, trans);
+
+        if (namelookup)
+                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk,
+                                                               namechk);
+        else
+                ret = addrchk;
+
+        return ret;
+}
+
+
+int
+rpcsvc_transport_check_volume_general (dict_t *options, rpc_transport_t *trans)
+{
+        int             addrchk = RPCSVC_AUTH_REJECT;
+        int             namechk = RPCSVC_AUTH_REJECT;
+        gf_boolean_t    namelookup = _gf_true;
+        char            *namestr = NULL;
+        int             ret = 0;
+
+        if ((!options) || (!trans))
+                return RPCSVC_AUTH_REJECT;
+
+        /* Enabled by default */
+        if ((dict_get (options, "rpc-auth.addr.namelookup"))) {
+                ret = dict_get_str (options, "rpc-auth.addr.namelookup"
+                                    , &namestr);
+                if (ret == 0)
+                        ret = gf_string2boolean (namestr, &namelookup);
+        }
+
+        /* We need two separate checks because the rules with addresses in them
+         * can be network addresses which can be general and names can be
+         * specific which will over-ride the network address rules.
+         */
+        if (namelookup)
+                namechk = rpcsvc_transport_peer_check_name (options, NULL, trans);
+        addrchk = rpcsvc_transport_peer_check_addr (options, NULL, trans);
+
+        if (namelookup)
+                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk,
+                                                               namechk);
+        else
+                ret = addrchk;
+
+        return ret;
+}
+
+int
+rpcsvc_transport_peer_check (dict_t *options, char *volname,
+                             rpc_transport_t *trans)
+{
+        int     general_chk = RPCSVC_AUTH_REJECT;
+        int     specific_chk = RPCSVC_AUTH_REJECT;
+
+        if ((!options) || (!volname) || (!trans))
+                return RPCSVC_AUTH_REJECT;
+
+        general_chk = rpcsvc_transport_check_volume_general (options, trans);
+        specific_chk = rpcsvc_transport_check_volume_specific (options, volname,
+                                                               trans);
+
+        return rpcsvc_combine_gen_spec_volume_checks (general_chk,
+                                                      specific_chk);
+}
+
+
+int
+rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
+                                 rpc_transport_t *trans)
+{
+        struct sockaddr_storage sastorage = {0,};
+        struct sockaddr_in     *sa = NULL;
+        int                     ret = RPCSVC_AUTH_REJECT;
+        socklen_t               sasize = sizeof (sa);
+        char                    *srchstr = NULL;
+        char                    *valstr = NULL;
+        int                     globalinsecure = RPCSVC_AUTH_REJECT;
+        int                     exportinsecure = RPCSVC_AUTH_DONTCARE;
+        uint16_t                port = 0;
+        gf_boolean_t            insecure = _gf_false;
+
+        if ((!svc) || (!volname) || (!trans))
+                return ret;
+
+        sa = (struct sockaddr_in*) &sastorage;
+        ret = rpcsvc_transport_peeraddr (trans, NULL, 0, &sastorage,
+                                         sasize);
+        if (ret != 0) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get peer addr: %s",
+                        gai_strerror (ret));
+                ret = RPCSVC_AUTH_REJECT;
+                goto err;
+        }
+
+        port = ntohs (sa->sin_port);
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Client port: %d", (int)port);
+        /* If the port is already a privileged one, dont bother with checking
+         * options.
+         */
+        if (port <= 1024) {
+                ret = RPCSVC_AUTH_ACCEPT;
+                goto err;
+        }
+
+        /* Disabled by default */
+        if ((dict_get (svc->options, "rpc-auth.ports.insecure"))) {
+                ret = dict_get_str (svc->options, "rpc-auth.ports.insecure"
+                                    , &srchstr);
+                if (ret == 0) {
+                        ret = gf_string2boolean (srchstr, &insecure);
+                        if (ret == 0) {
+                                if (insecure == _gf_true)
+                                        globalinsecure = RPCSVC_AUTH_ACCEPT;
+                        } else
+                                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to"
+                                        " read rpc-auth.ports.insecure value");
+                } else
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to"
+                                " read rpc-auth.ports.insecure value");
+        }
+
+        /* Disabled by default */
+        ret = gf_asprintf (&srchstr, "rpc-auth.ports.%s.insecure", volname);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                ret = RPCSVC_AUTH_REJECT;
+                goto err;
+        }
+
+        if (dict_get (svc->options, srchstr)) {
+                ret = dict_get_str (svc->options, srchstr, &valstr);
+                if (ret == 0) {
+                        ret = gf_string2boolean (srchstr, &insecure);
+                        if (ret == 0) {
+                                if (insecure == _gf_true)
+                                       exportinsecure = RPCSVC_AUTH_ACCEPT;
+                                else
+                                        exportinsecure = RPCSVC_AUTH_REJECT;
+                        } else
+                                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to"
+                                        " read rpc-auth.ports.insecure value");
+                } else
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to"
+                                " read rpc-auth.ports.insecure value");
+        }
+
+        ret = rpcsvc_combine_gen_spec_volume_checks (globalinsecure,
+                                                         exportinsecure);
+        if (ret == RPCSVC_AUTH_ACCEPT)
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Unprivileged port allowed");
+        else
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Unprivileged port not"
+                        " allowed");
+
+err:
+        return ret;
+}
+
+
+char *
+rpcsvc_volume_allowed (dict_t *options, char *volname)
+{
+        char    globalrule[] = "rpc-auth.addr.allow";
+        char    *srchstr = NULL;
+        char    *addrstr = NULL;
+        int     ret = -1;
+
+        if ((!options) || (!volname))
+                return NULL;
+
+        ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.allow", volname);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                goto out;
+        }
+
+        if (!dict_get (options, srchstr)) {
+                GF_FREE (srchstr);
+                srchstr = globalrule;
+                ret = dict_get_str (options, srchstr, &addrstr);
+        } else
+                ret = dict_get_str (options, srchstr, &addrstr);
+
+out:
+        return addrstr;
 }
 
 

@@ -249,7 +249,8 @@ struct rpcsvc_request {
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))
-#define rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->program))->private)
+#define rpcsvc_request_procnum(req) (((req)->procnum))
+#define rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->prog))->private)
 #define rpcsvc_request_accepted(req)    ((req)->rpc_status == MSG_ACCEPTED)
 #define rpcsvc_request_accepted_success(req) ((req)->rpc_err == SUCCESS)
 #define rpcsvc_request_uid(req)         ((req)->uid)
@@ -257,18 +258,24 @@ struct rpcsvc_request {
 #define rpcsvc_request_prog_minauth(req) (rpcsvc_request_program(req)->min_auth)
 #define rpcsvc_request_cred_flavour(req) (rpcsvc_auth_flavour(req->cred))
 #define rpcsvc_request_verf_flavour(req) (rpcsvc_auth_flavour(req->verf))
-
+#define rpcsvc_request_service(req)      ((req)->svc)
 #define rpcsvc_request_uid(req)         ((req)->uid)
 #define rpcsvc_request_gid(req)         ((req)->gid)
 #define rpcsvc_request_private(req)     ((req)->private)
 #define rpcsvc_request_xid(req)         ((req)->xid)
 #define rpcsvc_request_set_private(req,prv)  (req)->private = (void *)(prv)
+#define rpcsvc_request_iobref_ref(req)  (iobref_ref ((req)->iobref))
 #define rpcsvc_request_record_ref(req)  (iobuf_ref ((req)->recordiob))
 #define rpcsvc_request_record_unref(req) (iobuf_unref ((req)->recordiob))
+#define rpcsvc_request_record_iob(req)   ((req)->recordiob)
+#define rpcsvc_request_set_vecstate(req, state)  ((req)->vecstate = state)
+#define rpcsvc_request_vecstate(req) ((req)->vecstate)
+#define rpcsvc_request_transport(req) ((req)->trans)
 
 
 #define RPCSVC_ACTOR_SUCCESS    0
 #define RPCSVC_ACTOR_ERROR      (-1)
+#define RPCSVC_ACTOR_IGNORE     (-2)
 
 /* Functor for every type of protocol actor
  * must be defined like this.
@@ -285,8 +292,7 @@ struct rpcsvc_request {
 typedef int (*rpcsvc_actor) (rpcsvc_request_t *req);
 typedef int (*rpcsvc_vector_actor) (rpcsvc_request_t *req, struct iovec *vec,
                                     int count, struct iobref *iobref);
-typedef int (*rpcsvc_vector_sizer) (rpcsvc_request_t *req, ssize_t *readsize,
-                                    int *newiob);
+typedef int (*rpcsvc_vector_sizer) (int state, ssize_t *readsize, char *addr);
 
 /* Every protocol actor will also need to specify the function the RPC layer
  * will use to serialize or encode the message into XDR format just before
@@ -409,6 +415,9 @@ rpcsvc_listener_destroy (rpcsvc_listener_t *listener);
 
 extern int
 rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port);
+
+extern int
+rpcsvc_register_portmap_enabled (rpcsvc_t *svc);
 
 /* Inits the global RPC service data structures.
  * Called in main.
@@ -542,4 +551,12 @@ int
 rpcsvc_transport_unix_options_build (dict_t **options, char *filepath);
 int
 rpcsvc_set_allow_insecure (rpcsvc_t *svc, dict_t *options);
+int
+rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
+char *
+rpcsvc_volume_allowed (dict_t *options, char *volname);
+rpcsvc_vector_sizer
+rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
+                                 uint32_t progver, uint32_t procnum);
+
 #endif

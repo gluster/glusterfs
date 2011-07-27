@@ -38,6 +38,8 @@
 #include "protocol-common.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
+#include "xdr-nfs3.h"
+#include "rpcsvc.h"
 
 #include <fcntl.h>
 #include <errno.h>
@@ -806,9 +808,14 @@ __socket_read_simple_request (rpc_transport_t *this)
 
 #define rpc_verf_addr(fragcurrent) (fragcurrent - 4)
 
+#define rpc_msgtype_addr(buf) (buf + 4)
+
+#define rpc_prognum_addr(buf) (buf + RPC_MSGTYPE_SIZE + 4)
+#define rpc_progver_addr(buf) (buf + RPC_MSGTYPE_SIZE + 8)
+#define rpc_procnum_addr(buf) (buf + RPC_MSGTYPE_SIZE + 12)
 
 inline int
-__socket_read_vectored_request (rpc_transport_t *this)
+__socket_read_vectored_request (rpc_transport_t *this, rpcsvc_vector_sizer vector_sizer)
 {
         socket_private_t *priv                   = NULL;
         int               ret                    = 0;
@@ -816,8 +823,7 @@ __socket_read_vectored_request (rpc_transport_t *this)
         char             *addr                   = NULL;
         struct iobuf     *iobuf                  = NULL;
         uint32_t          remaining_size         = 0;
-        uint32_t          gluster_write_proc_len = 0;
-        gfs3_write_req    write_req              = {{0,},};
+        ssize_t           readsize               = 0;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -826,6 +832,7 @@ __socket_read_vectored_request (rpc_transport_t *this)
 
         switch (priv->incoming.frag.call_body.request.vector_state) {
         case SP_STATE_VECTORED_REQUEST_INIT:
+                priv->incoming.frag.call_body.request.vector_sizer_state = 0;
                 addr = rpc_cred_addr (iobuf_ptr (priv->incoming.iobuf));
 
                 /* also read verf flavour and verflen */
@@ -849,24 +856,13 @@ __socket_read_vectored_request (rpc_transport_t *this)
 
         case SP_STATE_READ_CREDBYTES:
                 addr = rpc_verf_addr (priv->incoming.frag.fragcurrent);
+                verflen = ntoh32 (*((uint32_t *)addr));
 
-                /* FIXME: Also handle procedures other than glusterfs-write
-                 * here
-                 */
-                /* also read proc-header */
-                gluster_write_proc_len = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req,
-                                                     &write_req);
-
-                if (gluster_write_proc_len == 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "xdr_sizeof on gfs3_write_req failed");
-                        ret = -1;
-                        goto out;
+                if (verflen == 0) {
+                        priv->incoming.frag.call_body.request.vector_state
+                                = SP_STATE_READ_VERFBYTES;
+                        goto sp_state_read_verfbytes;
                 }
-
-                verflen = ntoh32 (*((uint32_t *)addr))
-                        + gluster_write_proc_len;
-
                 __socket_proto_init_pending (priv, verflen);
 
                 priv->incoming.frag.call_body.request.vector_state
@@ -883,6 +879,34 @@ __socket_read_vectored_request (rpc_transport_t *this)
                 /* fall through */
 
         case SP_STATE_READ_VERFBYTES:
+sp_state_read_verfbytes:
+                priv->incoming.frag.call_body.request.vector_sizer_state =
+                        vector_sizer (priv->incoming.frag.call_body.request.vector_sizer_state,
+                                      &readsize,
+                                      priv->incoming.frag.fragcurrent);
+                __socket_proto_init_pending (priv, readsize);
+                priv->incoming.frag.call_body.request.vector_state
+                        = SP_STATE_READING_PROGHDR;
+
+                /* fall through */
+
+        case SP_STATE_READING_PROGHDR:
+                __socket_proto_read (priv, ret);
+sp_state_reading_proghdr:
+                priv->incoming.frag.call_body.request.vector_sizer_state =
+                        vector_sizer (priv->incoming.frag.call_body.request.vector_sizer_state,
+                                      &readsize,
+                                      priv->incoming.frag.fragcurrent);
+                if (readsize == 0) {
+                        priv->incoming.frag.call_body.request.vector_state =
+                                SP_STATE_READ_PROGHDR;
+                } else {
+                        __socket_proto_init_pending (priv, readsize);
+                        __socket_proto_read (priv, ret);
+                        goto sp_state_reading_proghdr;
+                }
+
+        case SP_STATE_READ_PROGHDR:
                 if (priv->incoming.payload_vector.iov_base == NULL) {
                         iobuf = iobuf_get (this->ctx->iobuf_pool);
                         if (!iobuf) {
@@ -941,22 +965,15 @@ out:
         return ret;
 }
 
-
-#define rpc_msgtype_addr(buf) (buf + 4)
-
-#define rpc_prognum_addr(buf) (buf + RPC_MSGTYPE_SIZE + 4)
-
-#define rpc_procnum_addr(buf) (buf + RPC_MSGTYPE_SIZE + 12)
-
-
 inline int
 __socket_read_request (rpc_transport_t *this)
 {
         socket_private_t *priv               = NULL;
-        uint32_t          prognum            = 0, procnum = 0;
+        uint32_t          prognum            = 0, procnum = 0, progver = 0;
         uint32_t          remaining_size     = 0;
         int               ret                = -1;
         char             *buf                = NULL;
+        rpcsvc_vector_sizer     vector_sizer = NULL;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -986,12 +1003,21 @@ __socket_read_request (rpc_transport_t *this)
                 buf = rpc_prognum_addr (iobuf_ptr (priv->incoming.iobuf));
                 prognum = ntoh32 (*((uint32_t *)buf));
 
+                buf = rpc_progver_addr (iobuf_ptr (priv->incoming.iobuf));
+                progver = ntoh32 (*((uint32_t *)buf));
+
                 buf = rpc_procnum_addr (iobuf_ptr (priv->incoming.iobuf));
                 procnum = ntoh32 (*((uint32_t *)buf));
 
-                if ((prognum == GLUSTER3_1_FOP_PROGRAM)
-                    && (procnum == GF_FOP_WRITE)) {
-                        ret = __socket_read_vectored_request (this);
+                if (this->listener) {
+                        /* this check is needed as rpcsvc and rpc-clnt actor structures are
+                         * not same */
+                        vector_sizer = rpcsvc_get_program_vector_sizer ((rpcsvc_t *)this->mydata,
+                                                                        prognum, progver, procnum);
+                }
+
+                if (vector_sizer) {
+                        ret = __socket_read_vectored_request (this, vector_sizer);
                 } else {
                         ret = __socket_read_simple_request (this);
                 }
@@ -2411,6 +2437,7 @@ socket_getpeeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
         if (peeraddr != NULL) {
                 ret = socket_getpeername (this, peeraddr, addrlen);
         }
+        ret = 0;
 
 out:
         return ret;

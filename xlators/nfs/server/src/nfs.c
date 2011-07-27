@@ -82,8 +82,8 @@ nfs_deinit_versions (struct list_head *versions, xlator_t *this)
                    version->deinit (this);
                 */
                 if (version->program)
-                        nfs_rpcsvc_program_unregister (nfs->rpcsvc,
-                                                  *(version->program));
+                        rpcsvc_program_unregister (nfs->rpcsvc,
+                                                   (version->program));
 
                 list_del (&version->list);
                 GF_FREE (version);
@@ -91,7 +91,6 @@ nfs_deinit_versions (struct list_head *versions, xlator_t *this)
 
         return 0;
 }
-
 
 int
 nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
@@ -118,16 +117,23 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                         ret = -1;
                         goto err;
                 }
-                prog->actorxl = this;
+//                prog->actorxl = this;
                 version->program = prog;
                 if (nfs->override_portnum)
                         prog->progport = nfs->override_portnum;
                 gf_log (GF_NFS, GF_LOG_DEBUG, "Starting program: %s",
                         prog->progname);
-                ret = nfs_rpcsvc_program_register (nfs->rpcsvc, *prog);
+
+                ret = rpcsvc_program_register (nfs->rpcsvc, prog);
                 if (ret == -1) {
                         gf_log (GF_NFS, GF_LOG_ERROR, "Program init failed");
                         goto err;
+                }
+                if (rpcsvc_register_portmap_enabled(nfs->rpcsvc)) {
+                        ret = rpcsvc_program_register_portmap (prog,
+                                                               prog->progport);
+                        if (ret == -1)
+                                goto err;
                 }
         }
 
@@ -367,7 +373,7 @@ nfs_init_subvolumes (struct nfs_state *nfs, xlator_list_t *cl)
         }
 
         LOCK_INIT (&nfs->svinitlock);
-        nfs->initedxl = GF_CALLOC (svcount, sizeof (xlator_t *), 
+        nfs->initedxl = GF_CALLOC (svcount, sizeof (xlator_t *),
                                    gf_nfs_mt_xlator_t );
         if (!nfs->initedxl) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to allocated inited xls");
@@ -440,9 +446,9 @@ nfs_request_user_init (nfs_user_t *nfu, rpcsvc_request_t *req)
         if ((!req) || (!nfu))
                 return;
 
-        gidarr = nfs_rpcsvc_auth_unix_auxgids (req, &gids);
-        nfs_user_create (nfu, nfs_rpcsvc_request_uid (req),
-                         nfs_rpcsvc_request_gid (req), gidarr, gids);
+        gidarr = rpcsvc_auth_unix_auxgids (req, &gids);
+        nfs_user_create (nfu, rpcsvc_request_uid (req),
+                         rpcsvc_request_gid (req), gidarr, gids);
 
         return;
 }
@@ -456,7 +462,7 @@ mem_acct_init (xlator_t *this)
                 return ret;
 
         ret = xlator_mem_acct_init (this, gf_nfs_mt_end + 1);
-        
+
         if (ret != 0) {
                 gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
                                 "failed");
@@ -493,7 +499,7 @@ nfs_init_state (xlator_t *this)
 
         /* RPC service needs to be started before NFS versions can be
          * inited. */
-        nfs->rpcsvc =  nfs_rpcsvc_init (this->ctx, this->options);
+        nfs->rpcsvc =  rpcsvc_init (this->ctx, this->options);
         if (!nfs->rpcsvc) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");
                 goto free_nfs;
@@ -565,7 +571,7 @@ nfs_init_state (xlator_t *this)
                         nfs->enable_ino32 = 1;
         }
 
-        nfs->override_portnum = 0;
+        nfs->override_portnum = GF_NFS3_PORT;
         if (dict_get (this->options, "nfs.port")) {
                 ret = dict_get_str (this->options, "nfs.port",
                                     &optstr);
@@ -582,6 +588,27 @@ nfs_init_state (xlator_t *this)
                 }
         }
 
+        if (dict_get(this->options, "transport.socket.listen-port") == NULL) {
+                ret = gf_asprintf (&optstr, "%d", nfs->override_portnum);
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "failed mem-allocation");
+                        goto free_foppool;
+                }
+                ret = dict_set_dynstr (this->options,
+                                       "transport.socket.listen-port", optstr);
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_dynstr error");
+                        goto free_foppool;
+                }
+        }
+
+        if (dict_get(this->options, "transport-type") == NULL) {
+                ret = dict_set_str (this->options, "transport-type", "socket");
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        goto free_foppool;
+                }
+        }
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
 
@@ -850,6 +877,15 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.auth-unix.*"},
           .type = GF_OPTION_TYPE_BOOL,
+          .description = "Disable or enable the AUTH_UNIX authentication type "
+                         "for a particular exported volume over-riding defaults"
+                         " and general setting for AUTH_UNIX scheme. Must "
+                         "always be enabled for better interoperability."
+                         "However, can be disabled if needed. Enabled by"
+                         "default."
+        },
+        { .key  = {"rpc-auth.auth-unix.*.allow"},
+          .type = GF_OPTION_TYPE_STR,
           .description = "Disable or enable the AUTH_UNIX authentication type "
                          "for a particular exported volume over-riding defaults"
                          " and general setting for AUTH_UNIX scheme. Must "
