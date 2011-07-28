@@ -1,9 +1,6 @@
 sbin_PROGRAMS = glusterfsd
 
 glusterfsd_SOURCES = glusterfsd.c glusterfsd-mgmt.c
-if GF_DARWIN_HOST_OS
-glusterfsd_SOURCES += $(CONTRIBDIR)/apple/daemon.c
-endif
 glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
@@ -15,9 +12,6 @@ AM_CFLAGS = -fPIC -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS) \
 	-I$(top_srcdir)/rpc/rpc-lib/src -I$(top_srcdir)/rpc/xdr/src
-if GF_DARWIN_HOST_OS
-AM_CFLAGS += -I$(CONTRIBDIR)/apple
-endif
 
 CLEANFILES = 
 
