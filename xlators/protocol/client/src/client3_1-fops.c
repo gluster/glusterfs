@@ -2560,7 +2560,7 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                         rsphdr = &vector[0];
                         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                         rsphdr->iov_len
-                                = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+                                = iobuf_pagesize (rsp_iobuf);
                         count = 1;
                         rsp_iobuf = NULL;
                         local->iobref = rsp_iobref;
@@ -3521,7 +3521,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         iobref_add (rsp_iobref, rsp_iobuf);
         iobuf_unref (rsp_iobuf);
         rsp_vec.iov_base = iobuf_ptr (rsp_iobuf);
-        rsp_vec.iov_len = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+        rsp_vec.iov_len = iobuf_pagesize (rsp_iobuf);
 
         rsp_iobuf = NULL;
 
@@ -4189,7 +4189,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         iobuf_unref (rsp_iobuf);
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
-        rsphdr->iov_len = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+        rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);;
         count = 1;
         rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
@@ -4294,7 +4294,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         iobuf_unref (rsp_iobuf);
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
-        rsphdr->iov_len = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+        rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
         count = 1;
         rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
@@ -4416,7 +4416,7 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         iobuf_unref (rsp_iobuf);
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
-        rsphdr->iov_len = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+        rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
         count = 1;
         rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
@@ -4557,7 +4557,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         iobuf_unref (rsp_iobuf);
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
-        rsphdr->iov_len = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+        rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
         count = 1;
         rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
@@ -5173,7 +5173,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                 rsphdr->iov_len
-                        = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+                        = iobuf_pagesize (rsp_iobuf);
                 count = 1;
                 rsp_iobuf = NULL;
                 local->iobref = rsp_iobref;
@@ -5291,7 +5291,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                 rsphdr->iov_len
-                        = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+                        = iobuf_pagesize (rsp_iobuf);
                 count = 1;
                 rsp_iobuf = NULL;
                 local->iobref = rsp_iobref;

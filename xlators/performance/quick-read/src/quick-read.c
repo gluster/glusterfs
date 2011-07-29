@@ -1183,8 +1183,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         }
 
                                         count = (op_ret
-                                                 / iobuf_pool->page_size);
-                                        if ((op_ret % iobuf_pool->page_size)
+                                                 / iobuf_pool->default_page_size);
+                                        if ((op_ret % iobuf_pool->default_page_size)
                                             != 0) {
                                                 count++;
                                         }
@@ -1223,16 +1223,18 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
                                                 start = offset
                                                         +
-                                                        (iobuf_pool->page_size
+                                                        (iobuf_pool->default_page_size
                                                          * i);
 
                                                 if (start > end) {
                                                         len = 0;
                                                 } else {
-                                                        len = (iobuf_pool->page_size
+                                                        len =
+                                                        (iobuf_pool->default_page_size
                                                                > (end - start))
                                                                 ? (end - start)
-                                                                : iobuf_pool->page_size;
+                                                                :
+                                                                iobuf_pool->default_page_size;
 
                                                         memcpy (iobuf->ptr,
                                                                 content->data

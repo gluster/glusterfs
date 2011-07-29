@@ -26,6 +26,8 @@
 #include <sys/mman.h>
 #include <sys/uio.h>
 
+#define GF_VARIABLE_IOBUF_COUNT 32
+
 /* Lets try to define the new anonymous mapping
  * flag, in case the system is still using the
  * now deprecated MAP_ANON flag.
@@ -75,6 +77,12 @@ struct iobuf_arena {
                         struct iobuf_arena *prev;
                 };
         };
+
+        size_t              page_size;  /* size of all iobufs in this arena */
+        size_t              arena_size; /* this is equal to
+                                           (iobuf_pool->arena_size / page_size)
+                                           * page_size */
+
         struct iobuf_pool  *iobuf_pool;
 
         void               *mem_base;
@@ -91,17 +99,29 @@ struct iobuf_arena {
 
 struct iobuf_pool {
         pthread_mutex_t     mutex;
-        size_t              page_size;  /* size of all iobufs in this pool */
-        size_t              arena_size; /* size of memory region in arena */
+        size_t              arena_size; /* size of memory region in
+                                           arena */
+        size_t              default_page_size; /* default size of iobuf */
 
         int                 arena_cnt;
-        struct iobuf_arena  arenas;     /* head node arena
-                                           (unused by itself) */
-        struct iobuf_arena  filled;     /* arenas without  free iobufs */
-        struct iobuf_arena  purge;      /* arenas which can be purged */
+        struct list_head    arenas[GF_VARIABLE_IOBUF_COUNT];
+        /* array of arenas. Each element of
+           the array is a list of arenas
+           holding iobufs of particular
+           page_size
+        */
+        struct list_head    filled[GF_VARIABLE_IOBUF_COUNT];
+        /*
+          array of arenas without free iobufs
+        */
+
+        struct list_head    purge[GF_VARIABLE_IOBUF_COUNT];
+        /*
+          array of of arenas which can be
+          purged
+        */
+
 };
-
-
 
 
 struct iobuf_pool *iobuf_pool_new (size_t arena_size, size_t page_size);
@@ -113,8 +133,8 @@ void iobuf_pool_destroy (struct iobuf_pool *iobuf_pool);
 void iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 
 #define iobuf_ptr(iob) ((iob)->ptr)
-#define iobpool_pagesize(iobpool) ((iobpool)->page_size)
-#define iobuf_pagesize(iob) (iobpool_pagesize((iob)->iobuf_arena->iobuf_pool))
+#define iobpool_default_pagesize(iobpool) ((iobpool)->default_page_size)
+#define iobuf_pagesize(iob) (iob->iobuf_arena->page_size)
 
 
 struct iobref {
@@ -134,4 +154,6 @@ size_t iobuf_size (struct iobuf *iobuf);
 size_t iobref_size (struct iobref *iobref);
 void   iobuf_stats_dump (struct iobuf_pool *iobuf_pool);
 
+struct iobuf *
+iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size);
 #endif /* !_IOBUF_H_ */

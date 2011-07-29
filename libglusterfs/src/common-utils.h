@@ -307,6 +307,19 @@ memdup (const void *ptr, size_t size)
 	return newptr;
 }
 
+/*
+ * rounds up nr to power of two. If nr is already a power of two, just returns
+ * nr
+ */
+
+int32_t gf_roundup_power_of_two (uint32_t nr);
+
+/*
+ * rounds up nr to next power of two. If nr is already a power of two, next
+ * power of two is returned.
+ */
+
+int32_t gf_roundup_next_power_of_two (uint32_t nr);
 
 char *gf_trim (char *string);
 int gf_strsplit (const char *str, const char *delim,

@@ -1783,6 +1783,60 @@ out:
 
         return flag;
 }
+/*
+ * rounds up nr to power of two. If nr is already a power of two, just returns
+ * nr
+ */
+
+inline int32_t
+gf_roundup_power_of_two (uint32_t nr)
+{
+        uint32_t result = 1;
+
+        if (nr < 0) {
+                gf_log ("common-utils", GF_LOG_WARNING,
+                        "negative number passed");
+                result = -1;
+                goto out;
+        }
+
+        while (result < nr) {
+                result *= 2;
+        }
+
+out:
+        return result;
+}
+
+/*
+ * rounds up nr to next power of two. If nr is already a power of two, next
+ * power of two is returned.
+ */
+
+/*
+ * rounds up nr to next power of two. If nr is already a power of two, next
+ * power of two is returned.
+ */
+
+inline int32_t
+gf_roundup_next_power_of_two (uint32_t nr)
+{
+        int32_t result = 1;
+
+        if (nr < 0) {
+                gf_log ("common-utils", GF_LOG_WARNING,
+                        "negative number passed");
+                result = -1;
+                goto out;
+        }
+
+        while (result <= nr) {
+                result *= 2;
+        }
+
+out:
+        return result;
+}
 
 int
 validate_brick_name (char *brick)
