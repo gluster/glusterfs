@@ -2622,11 +2622,9 @@ gf_cli3_1_fsm_log_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (rsp.op_ret) {
-                if (strcmp (rsp.op_errstr, "")) {
+                if (strcmp (rsp.op_errstr, ""))
                         cli_out ("%s", rsp.op_errstr);
-                } else if (rsp.op_ret) {
-                        cli_out ("fsm log unsuccessful");
-                }
+                cli_out ("fsm log unsuccessful");
                 ret = rsp.op_ret;
                 goto out;
         }
@@ -3311,14 +3309,10 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
-                cli_out ("%s", rsp.op_errstr);
-        } else {
-                cli_out ("volume top %s ",
-                         (rsp.op_ret) ? "unsuccessful": "successful");
-        }
-
         if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, ""))
+                        cli_out ("%s", rsp.op_errstr);
+                cli_out ("volume top unsuccessful");
                 ret = rsp.op_ret;
                 goto out;
         }
@@ -3385,7 +3379,6 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case GF_CLI_TOP_OPENDIR:
                 case GF_CLI_TOP_READDIR:
                         if (!members) {
-                                cli_out ("No entries in list");
                                 continue;
                         }
                         cli_out ("Count\t\tfilename\n=======================");
@@ -3403,7 +3396,6 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                           time / 1e6);
 
                         if (!members) {
-                                cli_out ("No entries in list");
                                 continue;
                         }
                         cli_out ("MBps\t\tfilename\t\t time\n========================");
