@@ -1601,7 +1601,8 @@ gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_PROBE, NULL, gf_xdr_from_cli_probe_req,
-                              this, gf_cli3_1_probe_cbk);
+                              this, gf_cli3_1_probe_cbk,
+                              (xdrproc_t)xdr_gf1_cli_probe_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1638,7 +1639,8 @@ gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_DEPROBE, NULL,
                               gf_xdr_from_cli_deprobe_req,
-                              this, gf_cli3_1_deprobe_cbk);
+                              this, gf_cli3_1_deprobe_cbk,
+                              (xdrproc_t)xdr_gf1_cli_deprobe_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1662,7 +1664,8 @@ gf_cli3_1_list_friends (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LIST_FRIENDS, NULL,
                               gf_xdr_from_cli_peer_list_req,
-                              this, gf_cli3_1_list_friends_cbk);
+                              this, gf_cli3_1_list_friends_cbk,
+                              (xdrproc_t) xdr_gf1_cli_peer_list_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1741,7 +1744,8 @@ gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_GET_VOLUME, NULL,
                               gf_xdr_from_cli_get_vol_req,
-                              this, gf_cli3_1_get_volume_cbk);
+                              this, gf_cli3_1_get_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_get_vol_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1798,7 +1802,8 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_CREATE_VOLUME, NULL,
                               gf_xdr_from_cli_create_vol_req,
-                              this, gf_cli3_1_create_volume_cbk);
+                              this, gf_cli3_1_create_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_create_vol_req);
 
 
 
@@ -1840,7 +1845,8 @@ gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_DELETE_VOLUME, NULL,
                               gf_xdr_from_cli_delete_vol_req,
-                              this, gf_cli3_1_delete_volume_cbk);
+                              this, gf_cli3_1_delete_volume_cbk,
+                              (xdrproc_t)xdr_gf1_cli_delete_vol_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1873,7 +1879,8 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (req, frame, cli_rpc_prog,
                               GLUSTER_CLI_START_VOLUME, NULL,
                               gf_xdr_from_cli_start_vol_req,
-                              this, gf_cli3_1_start_volume_cbk);
+                              this, gf_cli3_1_start_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_start_vol_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1906,7 +1913,8 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_STOP_VOLUME, NULL,
                               gf_xdr_from_cli_stop_vol_req,
-                              this, gf_cli3_1_stop_volume_cbk);
+                              this, gf_cli3_1_stop_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_stop_vol_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1980,7 +1988,8 @@ done:
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_DEFRAG_VOLUME, NULL,
                               gf_xdr_from_cli_defrag_vol_req,
-                              this, gf_cli3_1_defrag_volume_cbk);
+                              this, gf_cli3_1_defrag_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_defrag_vol_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2016,7 +2025,8 @@ gf_cli3_1_rename_volume (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_RENAME_VOLUME, NULL,
                               gf_xdr_from_cli_rename_vol_req,
-                              this, gf_cli3_1_rename_volume_cbk);
+                              this, gf_cli3_1_rename_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_rename_vol_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2053,11 +2063,11 @@ gf_cli3_1_reset_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                                GLUSTER_CLI_RESET_VOLUME, NULL,
                                gf_xdr_from_cli_reset_vol_req,
-                               this, gf_cli3_1_reset_volume_cbk);
+                               this, gf_cli3_1_reset_volume_cbk,
+                               (xdrproc_t) xdr_gf1_cli_reset_vol_req);
 
 out:
                 gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2094,11 +2104,11 @@ gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_SET_VOLUME, NULL,
                               gf_xdr_from_cli_set_vol_req,
-                              this, gf_cli3_1_set_volume_cbk);
+                              this, gf_cli3_1_set_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_set_vol_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2143,7 +2153,8 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_ADD_BRICK, NULL,
                               gf_xdr_from_cli_add_brick_req,
-                              this, gf_cli3_1_add_brick_cbk);
+                              this, gf_cli3_1_add_brick_cbk,
+                              (xdrproc_t) xdr_gf1_cli_add_brick_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2192,7 +2203,8 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_REMOVE_BRICK, NULL,
                               gf_xdr_from_cli_remove_brick_req,
-                              this, gf_cli3_1_remove_brick_cbk);
+                              this, gf_cli3_1_remove_brick_cbk,
+                              (xdrproc_t) xdr_gf1_cli_remove_brick_req);
 
 
 out:
@@ -2287,7 +2299,8 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_REPLACE_BRICK, NULL,
                               gf_xdr_from_cli_replace_brick_req,
-                              this, gf_cli3_1_replace_brick_cbk);
+                              this, gf_cli3_1_replace_brick_cbk,
+                              (xdrproc_t) xdr_gf1_cli_replace_brick_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2329,7 +2342,8 @@ gf_cli3_1_log_filename (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LOG_FILENAME, NULL,
                               gf_xdr_from_cli_log_filename_req,
-                              this, gf_cli3_1_log_filename_cbk);
+                              this, gf_cli3_1_log_filename_cbk,
+                              (xdrproc_t) xdr_gf1_cli_log_filename_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2398,7 +2412,8 @@ gf_cli3_1_log_level (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LOG_LEVEL, NULL,
                               gf_xdr_from_cli_log_level_req,
-                              this, gf_cli3_1_log_level_cbk);
+                              this, gf_cli3_1_log_level_cbk,
+                              (xdrproc_t) xdr_gf1_cli_log_level_req);
 
  out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning: %d", ret);
@@ -2432,7 +2447,8 @@ gf_cli3_1_log_locate (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LOG_LOCATE, NULL,
                               gf_xdr_from_cli_log_locate_req,
-                              this, gf_cli3_1_log_locate_cbk);
+                              this, gf_cli3_1_log_locate_cbk,
+                              (xdrproc_t) xdr_gf1_cli_log_locate_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2466,7 +2482,8 @@ gf_cli3_1_log_rotate (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LOG_ROTATE, NULL,
                               gf_xdr_from_cli_log_rotate_req,
-                              this, gf_cli3_1_log_rotate_cbk);
+                              this, gf_cli3_1_log_rotate_cbk,
+                              (xdrproc_t) xdr_gf1_cli_log_rotate_req);
 
 
 out:
@@ -2489,7 +2506,8 @@ gf_cli3_1_sync_volume (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit ((gf1_cli_sync_volume_req*)data, frame,
                               cli_rpc_prog, GLUSTER_CLI_SYNC_VOLUME,
                               NULL, gf_xdr_from_cli_sync_volume_req,
-                              this, gf_cli3_1_sync_volume_cbk);
+                              this, gf_cli3_1_sync_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_sync_volume_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2519,7 +2537,8 @@ gf_cli3_1_getspec (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, &cli_handshake_prog,
                               GF_HNDSK_GETSPEC, NULL,
                               xdr_from_getspec_req,
-                              this, gf_cli3_1_getspec_cbk);
+                              this, gf_cli3_1_getspec_cbk,
+                              (xdrproc_t) xdr_gf_getspec_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2556,11 +2575,11 @@ gf_cli3_1_quota (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                                GLUSTER_CLI_QUOTA, NULL,
                                gf_xdr_from_cli_quota_req,
-                               this, gf_cli3_1_quota_cbk);
+                               this, gf_cli3_1_quota_cbk,
+                               (xdrproc_t) xdr_gf1_cli_quota_req);
 
         GF_FREE (req.dict.dict_val);
 out:
@@ -2588,7 +2607,8 @@ gf_cli3_1_pmap_b2p (call_frame_t *frame, xlator_t *this, void *data)
         ret = cli_cmd_submit (&req, frame, &cli_pmap_prog,
                               GF_PMAP_PORTBYBRICK, NULL,
                               xdr_from_pmap_port_by_brick_req,
-                              this, gf_cli3_1_pmap_b2p_cbk);
+                              this, gf_cli3_1_pmap_b2p_cbk,
+                              (xdrproc_t) xdr_pmap_port_by_brick_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2702,7 +2722,8 @@ gf_cli3_1_fsm_log (call_frame_t *frame, xlator_t *this, void *data)
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_FSM_LOG, NULL,
                               gf_xdr_from_cli_fsm_log_req,
-                              this, gf_cli3_1_fsm_log_cbk);
+                              this, gf_cli3_1_fsm_log_cbk,
+                              (xdrproc_t) xdr_gf1_cli_fsm_log_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2917,7 +2938,8 @@ gf_cli3_1_gsync_set (call_frame_t *frame, xlator_t *this,
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_GSYNC_SET, NULL,
                               gf_xdr_from_cli_gsync_set_req,
-                              this, gf_cli3_1_gsync_set_cbk);
+                              this, gf_cli3_1_gsync_set_cbk,
+                              (xdrproc_t) xdr_gf1_cli_gsync_set_req);
 
 out:
         return ret;
@@ -3263,7 +3285,8 @@ gf_cli3_1_profile_volume (call_frame_t *frame, xlator_t *this, void *data)
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_PROFILE_VOLUME, NULL,
                               gf_xdr_from_cli_stats_volume_req,
-                              this, gf_cli3_1_profile_volume_cbk);
+                              this, gf_cli3_1_profile_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_stats_volume_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3478,7 +3501,8 @@ gf_cli3_1_top_volume (call_frame_t *frame, xlator_t *this, void *data)
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_PROFILE_VOLUME, NULL,
                               gf_xdr_from_cli_stats_volume_req,
-                              this, gf_cli3_1_top_volume_cbk);
+                              this, gf_cli3_1_top_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_stats_volume_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3529,7 +3553,8 @@ gf_cli3_1_getwd (call_frame_t *frame, xlator_t *this, void *data)
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_GETWD, NULL,
                               gf_xdr_from_cli_getwd_req,
-                              this, gf_cli3_1_getwd_cbk);
+                              this, gf_cli3_1_getwd_cbk,
+                              (xdrproc_t) xdr_gf1_cli_getwd_req);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);

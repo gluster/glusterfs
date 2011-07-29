@@ -191,7 +191,8 @@ fail:
                 rsp.spec = "";
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_serialize_getspec_rsp);
+                               (gd_serialize_t)xdr_serialize_getspec_rsp,
+                               (xdrproc_t)xdr_gf_getspec_rsp);
         if (args.key)
                 free (args.key);//malloced by xdr
         if (rsp.spec && (strcmp (rsp.spec, "")))
@@ -421,7 +422,8 @@ glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
         ret = glusterd_submit_request (peerctx->peerinfo->rpc, &req, frame,
                                        &glusterd_dump_prog, GF_DUMP_DUMP,
                                        NULL, xdr_from_dump_req, this,
-                                       glusterd_peer_dump_version_cbk);
+                                       glusterd_peer_dump_version_cbk,
+                                       (xdrproc_t)xdr_gf_dump_req);
 out:
         return ret;
 }

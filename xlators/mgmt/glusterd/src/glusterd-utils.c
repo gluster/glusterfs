@@ -307,18 +307,20 @@ glusterd_submit_request (struct rpc_clnt *rpc, void *req,
                          call_frame_t *frame, rpc_clnt_prog_t *prog,
                          int procnum, struct iobref *iobref,
                          gd_serialize_t sfunc, xlator_t *this,
-                         fop_cbk_fn_t cbkfn)
+                         fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         struct iobuf            *iobuf      = NULL;
         int                     count      = 0;
         char                    new_iobref = 0, start_ping = 0;
         struct iovec            iov         = {0, };
+        ssize_t                 req_size    = 0;
 
         GF_ASSERT (rpc);
         GF_ASSERT (this);
 
-        iobuf = iobuf_get (this->ctx->iobuf_pool);
+        req_size = xdr_sizeof (xdrproc, req);
+        iobuf = iobuf_get2 (this->ctx->iobuf_pool, req_size);
         if (!iobuf) {
                 goto out;
         };
@@ -335,7 +337,7 @@ glusterd_submit_request (struct rpc_clnt *rpc, void *req,
         iobref_add (iobref, iobuf);
 
         iov.iov_base = iobuf->ptr;
-        iov.iov_len  = 128 * GF_UNIT_KB;
+        iov.iov_len  = iobuf_pagesize (iobuf);
 
         /* Create the xdr payload */
         if (req && sfunc) {
@@ -377,15 +379,18 @@ out:
 
 struct iobuf *
 glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
-                          gd_serialize_t sfunc, struct iovec *outmsg)
+                          gd_serialize_t sfunc, struct iovec *outmsg,
+                          xdrproc_t xdrproc)
 {
         struct iobuf            *iob = NULL;
         ssize_t                  retlen = -1;
+        ssize_t                  rsp_size = 0;
 
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
-        iob = iobuf_get (req->svc->ctx->iobuf_pool);
+        rsp_size = xdr_sizeof (xdrproc, arg);
+        iob = iobuf_get2 (req->svc->ctx->iobuf_pool, rsp_size);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to get iobuf");
                 goto ret;
@@ -417,7 +422,8 @@ ret:
 int
 glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                        struct iovec *payload, int payloadcount,
-                       struct iobref *iobref, gd_serialize_t sfunc)
+                       struct iobref *iobref, gd_serialize_t sfunc,
+                       xdrproc_t xdrproc)
 {
         struct iobuf           *iob        = NULL;
         int                     ret        = -1;
@@ -440,7 +446,7 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                 new_iobref = 1;
         }
 
-        iob = glusterd_serialize_reply (req, arg, sfunc, &rsp);
+        iob = glusterd_serialize_reply (req, arg, sfunc, &rsp, xdrproc);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
         } else {

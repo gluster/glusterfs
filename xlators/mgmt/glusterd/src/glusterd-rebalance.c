@@ -615,7 +615,8 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
 out:
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_defrag_vol_rsp_v2);
+                                     gf_xdr_serialize_cli_defrag_vol_rsp_v2,
+                                     (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp);
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
 
@@ -685,7 +686,8 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 
 out:
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_defrag_vol_rsp);
+                                     gf_xdr_serialize_cli_defrag_vol_rsp,
+                                     (xdrproc_t)xdr_gf1_cli_defrag_vol_rsp);
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
 
