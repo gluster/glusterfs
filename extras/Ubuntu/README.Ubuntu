@@ -1,0 +1,20 @@
+Bug 3282 - Mounting from localhost in fstab fails at boot on ubuntu
+(http://bugs.gluster.com/show_bug.cgi?id=3282)
+
+Ubuntu uses upstart instead of init to bootstrap the system and it has a unique
+way of handling fstab, using a program called mountall(8).  As a result,
+glusterfs mounts in fstab are tried before the glusterd service is running.  In
+the case where the client is also a server and the volume is mounted from
+localhost, the mount fails at boot time.  An upstart job for glusterd is needed
+to correct this.
+
+The glusterd.conf file contains the necessary configuration for upstart to
+manage the glusterd service.  It should be placed in /etc/init/glusterd.conf
+on Ubuntu systems, and then the old initscript /etc/init.d/glusterd can be
+removed.
+
+It can also be added to Ubuntu deb packages by placing it in debian/upstart
+inside the source package (or debian/glusterd.upstart if the source package
+builds multiple binary packages.)
+
+This affects all versions of glusterfs on the ubuntu platform.
