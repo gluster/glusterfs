@@ -1481,14 +1481,6 @@ __socket_proto_state_machine (rpc_transport_t *this,
                 switch (priv->incoming.record_state) {
 
                 case SP_STATE_NADA:
-                        iobuf = iobuf_get (this->ctx->iobuf_pool);
-                        if (!iobuf) {
-                                ret = -ENOMEM;
-                                goto out;
-                        }
-
-                        priv->incoming.iobuf = iobuf;
-                        priv->incoming.iobuf_size = 0;
                         priv->incoming.total_bytes_read = 0;
                         priv->incoming.payload_vector.iov_len = 0;
 
@@ -1496,7 +1488,6 @@ __socket_proto_state_machine (rpc_transport_t *this,
                         priv->incoming.pending_vector->iov_base =
                                 &priv->incoming.fraghdr;
 
-                        priv->incoming.frag.fragcurrent = iobuf_ptr (iobuf);
                         priv->incoming.pending_vector->iov_len  =
                                 sizeof (priv->incoming.fraghdr);
 
@@ -1540,6 +1531,17 @@ __socket_proto_state_machine (rpc_transport_t *this,
                         priv->incoming.record_state = SP_STATE_READING_FRAG;
                         priv->incoming.total_bytes_read
                                 += RPC_FRAGSIZE(priv->incoming.fraghdr);
+                        iobuf = iobuf_get2 (this->ctx->iobuf_pool,
+                                            priv->incoming.total_bytes_read +
+                                            sizeof (priv->incoming.fraghdr));
+                        if (!iobuf) {
+                                ret = -ENOMEM;
+                                goto out;
+                        }
+
+                        priv->incoming.iobuf = iobuf;
+                        priv->incoming.iobuf_size = 0;
+                        priv->incoming.frag.fragcurrent = iobuf_ptr (iobuf);
                         /* fall through */
 
                 case SP_STATE_READING_FRAG:

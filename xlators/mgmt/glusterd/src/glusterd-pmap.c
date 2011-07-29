@@ -335,7 +335,8 @@ gluster_pmap_portbybrick (rpcsvc_request_t *req)
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_port_by_brick_rsp);
+                               (gd_serialize_t)xdr_from_pmap_port_by_brick_rsp,
+                               (xdrproc_t)xdr_pmap_port_by_brick_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
 
@@ -362,7 +363,8 @@ gluster_pmap_brickbyport (rpcsvc_request_t *req)
 fail:
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_brick_by_port_rsp);
+                               (gd_serialize_t)xdr_from_pmap_brick_by_port_rsp,
+                               (xdrproc_t)xdr_pmap_brick_by_port_rsp);
 
         return 0;
 }
@@ -393,7 +395,8 @@ gluster_pmap_signup (rpcsvc_request_t *req)
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_signup_rsp);
+                               (gd_serialize_t)xdr_from_pmap_signup_rsp,
+                               (xdrproc_t)xdr_pmap_signup_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
 
@@ -420,7 +423,8 @@ gluster_pmap_signin (rpcsvc_request_t *req)
                                       &brickinfo);
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_signin_rsp);
+                               (gd_serialize_t)xdr_from_pmap_signin_rsp,
+                               (xdrproc_t)xdr_pmap_signin_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
 
@@ -453,7 +457,8 @@ gluster_pmap_signout (rpcsvc_request_t *req)
                                       &brickinfo);
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_signout_rsp);
+                               (gd_serialize_t)xdr_from_pmap_signout_rsp,
+                               (xdrproc_t)xdr_pmap_signout_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
 

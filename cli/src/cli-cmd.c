@@ -365,7 +365,7 @@ cli_cmd_submit (void *req, call_frame_t *frame,
                 rpc_clnt_prog_t *prog,
                 int procnum, struct iobref *iobref,
                 cli_serialize_t sfunc, xlator_t *this,
-                fop_cbk_fn_t cbkfn)
+                fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int     ret = -1;
 
@@ -373,7 +373,7 @@ cli_cmd_submit (void *req, call_frame_t *frame,
         cmd_sent = 0;
         ret = cli_submit_request (req, frame, prog,
                                   procnum, NULL, sfunc,
-                                  this, cbkfn);
+                                  this, cbkfn, xdrproc);
 
         if (!ret) {
                 cmd_sent = 1;

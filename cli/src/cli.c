@@ -266,7 +266,7 @@ cli_submit_request (void *req, call_frame_t *frame,
                     rpc_clnt_prog_t *prog,
                     int procnum, struct iobref *iobref,
                     cli_serialize_t sfunc, xlator_t *this,
-                    fop_cbk_fn_t cbkfn)
+                    fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         int                     count      = 0;
@@ -274,10 +274,12 @@ cli_submit_request (void *req, call_frame_t *frame,
         struct iovec            iov         = {0, };
         struct iobuf            *iobuf = NULL;
         char                    new_iobref = 0;
+        ssize_t                 xdr_size   = 0;
 
         GF_ASSERT (this);
 
-        iobuf = iobuf_get (this->ctx->iobuf_pool);
+        xdr_size = xdr_sizeof (xdrproc, req);
+        iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
                 goto out;
         };
@@ -294,7 +296,7 @@ cli_submit_request (void *req, call_frame_t *frame,
         iobref_add (iobref, iobuf);
 
         iov.iov_base = iobuf->ptr;
-        iov.iov_len  = 128 * GF_UNIT_KB;
+        iov.iov_len  = iobuf_size (iobuf);
 
 
         /* Create the xdr payload */

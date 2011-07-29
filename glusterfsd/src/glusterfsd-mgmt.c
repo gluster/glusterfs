@@ -68,15 +68,18 @@ mgmt_cbk_spec (void *data)
 
 struct iobuf *
 glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
-                           gf_serialize_t sfunc, struct iovec *outmsg)
+                           gf_serialize_t sfunc, struct iovec *outmsg,
+                           xdrproc_t xdrproc)
 {
         struct iobuf            *iob = NULL;
         ssize_t                  retlen = -1;
+        ssize_t                  xdr_size = 0;
 
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
-        iob = iobuf_get (req->svc->ctx->iobuf_pool);
+        xdr_size = xdr_sizeof (xdrproc, arg);
+        iob = iobuf_get2 (req->svc->ctx->iobuf_pool, xdr_size);
         if (!iob) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to get iobuf");
                 goto ret;
@@ -108,7 +111,8 @@ ret:
 int
 glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
                         struct iovec *payload, int payloadcount,
-                        struct iobref *iobref, gf_serialize_t sfunc)
+                        struct iobref *iobref, gf_serialize_t sfunc,
+                        xdrproc_t xdrproc)
 {
         struct iobuf           *iob        = NULL;
         int                     ret        = -1;
@@ -131,7 +135,7 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
                 new_iobref = 1;
         }
 
-        iob = glusterfs_serialize_reply (req, arg, sfunc, &rsp);
+        iob = glusterfs_serialize_reply (req, arg, sfunc, &rsp, xdrproc);
         if (!iob) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to serialize reply");
                 goto out;
@@ -181,7 +185,8 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
 
         if (ret == 0)
                 ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                              gd_xdr_serialize_mgmt_brick_op_rsp);
+                                              gd_xdr_serialize_mgmt_brick_op_rsp,
+                                              (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
 
         if (rsp.output.output_val)
                 GF_FREE (rsp.output.output_val);
@@ -247,7 +252,8 @@ glusterfs_translator_info_response_send (rpcsvc_request_t *req, int ret,
                                         (size_t *)&rsp.output.output_len);
 
         ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_brick_op_rsp);
+                                     gd_xdr_serialize_mgmt_brick_op_rsp,
+                                     (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
         if (rsp.output.output_val)
                 GF_FREE (rsp.output.output_val);
         return ret;
@@ -398,20 +404,24 @@ int
 mgmt_submit_request (void *req, call_frame_t *frame,
                      glusterfs_ctx_t *ctx,
                      rpc_clnt_prog_t *prog, int procnum,
-                     mgmt_serialize_t sfunc, fop_cbk_fn_t cbkfn)
+                     mgmt_serialize_t sfunc, fop_cbk_fn_t cbkfn,
+                     xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         int                     count      = 0;
         struct iovec            iov         = {0, };
         struct iobuf            *iobuf = NULL;
         struct iobref           *iobref = NULL;
+        ssize_t                 xdr_size = 0;
 
         iobref = iobref_new ();
         if (!iobref) {
                 goto out;
         }
 
-        iobuf = iobuf_get (ctx->iobuf_pool);
+        xdr_size = xdr_sizeof (xdrproc, req);
+
+        iobuf = iobuf_get2 (ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
                 goto out;
         };
@@ -419,7 +429,7 @@ mgmt_submit_request (void *req, call_frame_t *frame,
         iobref_add (iobref, iobuf);
 
         iov.iov_base = iobuf->ptr;
-        iov.iov_len  = 128 * GF_UNIT_KB;
+        iov.iov_len  = iobuf_pagesize (iobuf);
 
 
         /* Create the xdr payload */
@@ -718,7 +728,8 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
                                    GF_HNDSK_GETSPEC, xdr_from_getspec_req,
-                                   mgmt_getspec_cbk);
+                                   mgmt_getspec_cbk,
+                                   (xdrproc_t)xdr_gf_getspec_req);
         return ret;
 }
 
@@ -983,7 +994,8 @@ mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = mgmt_submit_request (&pmap_req, frame, ctx, &clnt_pmap_prog,
                                    GF_PMAP_SIGNIN, xdr_from_pmap_signin_req,
-                                   mgmt_pmap_signin2_cbk);
+                                   mgmt_pmap_signin2_cbk,
+                                   (xdrproc_t)xdr_pmap_signin_req);
         if (ret)
                 goto out;
 
@@ -1017,7 +1029,8 @@ glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx)
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
                                    GF_PMAP_SIGNIN, xdr_from_pmap_signin_req,
-                                   mgmt_pmap_signin_cbk);
+                                   mgmt_pmap_signin_cbk,
+                                   (xdrproc_t)xdr_pmap_signin_req);
 
 out:
         return ret;
@@ -1084,7 +1097,8 @@ glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
                                    GF_PMAP_SIGNOUT, xdr_from_pmap_signout_req,
-                                   mgmt_pmap_signout_cbk);
+                                   mgmt_pmap_signout_cbk,
+                                   (xdrproc_t)xdr_pmap_signout_req);
 out:
         return ret;
 }
