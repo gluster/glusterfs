@@ -775,7 +775,7 @@ rpcsvc_callback_build_record (rpcsvc_t *rpc, int prognum, int progver,
                 goto out;
         }
 
-        pagesize = ((struct iobuf_pool *)rpc->ctx->iobuf_pool)->page_size;
+        pagesize = iobuf_pagesize (request_iob);
 
         record = iobuf_ptr (request_iob);  /* Now we have it. */
 
@@ -946,7 +946,7 @@ rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
 
         svc = req->svc;
         replyiob = iobuf_get (svc->ctx->iobuf_pool);
-        pagesize = iobpool_pagesize ((struct iobuf_pool *)svc->ctx->iobuf_pool);
+        pagesize = iobuf_pagesize (replyiob);
         if (!replyiob) {
                 goto err_exit;
         }

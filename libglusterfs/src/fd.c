@@ -37,27 +37,6 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr);
 fd_t *
 _fd_ref (fd_t *fd);
 
-/*
-  Allocate in memory chunks of power of 2 starting from 1024B
-  Assumes fdtable->lock is held
-*/
-static inline int
-gf_roundup_power_of_two (uint32_t nr)
-{
-        uint32_t result = 1;
-
-        if (nr < 0) {
-                gf_log ("fd", GF_LOG_ERROR, "negative number passed");
-                return -1;
-        }
-
-        while (result <= nr)
-                result *= 2;
-
-        return result;
-}
-
-
 static int
 gf_fd_chain_fd_entries (fdentry_t *entries, uint32_t startidx,
                         uint32_t endcount)
@@ -96,7 +75,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
         }
 
         nr /= (1024 / sizeof (fdentry_t));
-        nr = gf_roundup_power_of_two (nr + 1);
+        nr = gf_roundup_next_power_of_two (nr + 1);
         nr *= (1024 / sizeof (fdentry_t));
 
         oldfds = fdtable->fdentries;

@@ -1173,7 +1173,7 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
                 goto out;
         }
 
-        pagesize = ((struct iobuf_pool *)clnt->ctx->iobuf_pool)->page_size;
+        pagesize = iobuf_pagesize (request_iob);
 
         record = iobuf_ptr (request_iob);  /* Now we have it. */
 
