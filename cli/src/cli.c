@@ -634,26 +634,6 @@ out:
         return ret;
 }
 
-void
-cli_path_strip_trailing_slashes (char *path)
-{
-        int i = 0;
-        int len = 0;
-
-        if (!path)
-                return;
-
-        len = strlen (path);
-        for (i = len - 1; i > 0 ; i--) {
-                if (path[i] != '/')
-                        break;
-
-        }
-
-        if (i < (len - 1))
-                path[i + 1] = '\0';
-}
-
 struct cli_state *global_state;
 
 int
