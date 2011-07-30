@@ -411,3 +411,24 @@ struct gf1_cli_status_volume_rsp {
        string op_errstr<>;
        opaque dict<>;
 };
+
+struct gf1_cli_mount_req {
+        string label<>;
+        opaque dict<>;
+};
+
+struct gf1_cli_mount_rsp {
+       int op_ret;
+       int op_errno;
+       string path<>;
+};
+
+struct gf1_cli_umount_req {
+        int lazy;
+        string path<>;
+};
+
+struct gf1_cli_mount_rsp {
+       int op_ret;
+       int op_errno;
+};

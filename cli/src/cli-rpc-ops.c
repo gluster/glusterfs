@@ -3665,6 +3665,135 @@ gf_cli3_1_status_volume (call_frame_t *frame, xlator_t *this,
         return ret;
 }
 
+static int
+gf_cli3_1_mount_cbk (struct rpc_req *req, struct iovec *iov,
+                  int count, void *myframe)
+{
+        gf1_cli_mount_rsp rsp   = {0,};
+        int               ret   = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_mount_rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to mount");
+
+        if (rsp.op_ret == 0) {
+                ret = 0;
+                cli_out ("%s", rsp.path);
+        } else {
+                /* weird sounding but easy to parse... */
+                cli_out ("%d : failed with this errno (%s)",
+                         rsp.op_errno, strerror (rsp.op_errno));
+                ret = 1;
+        }
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_mount (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf1_cli_mount_req  req  = {0,};
+        int                ret  = -1;
+        void            **dataa = data;
+        char             *label = NULL;
+        dict_t            *dict = NULL;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        label = dataa[0];
+        dict  = dataa[1];
+
+        req.label = label;
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           (size_t *)&req.dict.dict_len);
+        if (ret) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_MOUNT, NULL,
+                              this, gf_cli3_1_mount_cbk,
+                              (xdrproc_t)xdr_gf1_cli_mount_req);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static int
+gf_cli3_1_umount_cbk (struct rpc_req *req, struct iovec *iov,
+                   int count, void *myframe)
+{
+        gf1_cli_umount_rsp rsp   = {0,};
+        int               ret   = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_umount_rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to mount");
+
+        if (rsp.op_ret == 0)
+                ret = 0;
+        else {
+                cli_out ("umount failed");
+                ret = 1;
+        }
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_umount (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf1_cli_umount_req  req  = {0,};
+        int                ret  = -1;
+        dict_t            *dict = NULL;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        dict = data;
+
+        ret = dict_get_str (dict, "path", &req.path);
+        if (ret == 0)
+                ret = dict_get_int32 (dict, "lazy", &req.lazy);
+
+        if (ret) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_UMOUNT, NULL,
+                              this, gf_cli3_1_umount_cbk,
+                              (xdrproc_t)xdr_gf1_cli_umount_req);
+
+ out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
         [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli3_1_probe},
@@ -3697,6 +3826,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_LOG_LEVEL]        = {"VOLUME_LOGLEVEL", gf_cli3_1_log_level},
         [GLUSTER_CLI_GETWD]            = {"GETWD", gf_cli3_1_getwd},
         [GLUSTER_CLI_STATUS_VOLUME]    = {"STATUS_VOLUME", gf_cli3_1_status_volume},
+        [GLUSTER_CLI_MOUNT]            = {"MOUNT", gf_cli3_1_mount},
+        [GLUSTER_CLI_UMOUNT]           = {"UMOUNT", gf_cli3_1_umount}
 };
 
 struct rpc_clnt_program cli_prog = {

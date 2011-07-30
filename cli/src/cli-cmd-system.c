@@ -178,6 +178,116 @@ out:
         return ret;
 }
 
+static dict_t *
+make_seq_dict (int argc, char **argv)
+{
+        char index[] = "4294967296"; // 1<<32
+        int i        = 0;
+        int ret      = 0;
+        dict_t *dict = dict_new ();
+
+        if (!dict)
+                return NULL;
+
+        for (i = 0; i < argc; i++) {
+                snprintf(index, sizeof(index), "%d", i);
+                ret = dict_set_str (dict, index, argv[i]);
+                if (ret == -1)
+                        break;
+        }
+
+        if (ret) {
+                dict_destroy (dict);
+                dict = NULL;
+        }
+
+        return dict;
+}
+
+int
+cli_cmd_mount_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                   const char **words, int wordcount)
+{
+        rpc_clnt_procedure_t *proc = NULL;
+        call_frame_t *frame        = NULL;
+        int ret                    = -1;
+        dict_t *dict               = NULL;
+        void *dataa[]              = {NULL, NULL};
+
+        if (wordcount < 4) {
+                cli_usage_out (word->pattern);
+                goto out;
+        }
+
+        dict = make_seq_dict (wordcount - 3, (char **)words + 3);
+        if (!dict)
+                goto out;
+
+        dataa[0] = (void *)words[2];
+        dataa[1] = dict;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_MOUNT];
+        if (proc && proc->fn) {
+                frame = create_frame (THIS, THIS->ctx->pool);
+                if (!frame)
+                        goto out;
+                ret = proc->fn (frame, THIS, dataa);
+        }
+
+ out:
+        if (dict)
+                dict_unref (dict);
+
+        if (!proc && ret)
+                cli_out ("Mount command failed");
+
+        return ret;
+}
+
+int
+cli_cmd_umount_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                   const char **words, int wordcount)
+{
+        rpc_clnt_procedure_t *proc = NULL;
+        call_frame_t *frame        = NULL;
+        int ret                    = -1;
+        dict_t *dict               = NULL;
+
+        if (!(wordcount == 3 ||
+              (wordcount == 4 && strcmp (words[3], "lazy") == 0))) {
+                cli_usage_out (word->pattern);
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_str (dict, "path", (char *)words[2]);
+        if (ret != 0)
+                goto out;
+        ret = dict_set_int32 (dict, "lazy", wordcount == 4);
+        if (ret != 0)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_UMOUNT];
+        if (proc && proc->fn) {
+                frame = create_frame (THIS, THIS->ctx->pool);
+                if (!frame)
+                        goto out;
+                ret = proc->fn (frame, THIS, dict);
+        }
+
+ out:
+        if (dict)
+                dict_unref (dict);
+
+        if (!proc && ret)
+                cli_out ("Umount command failed");
+
+        return ret;
+}
+
 struct cli_cmd cli_system_cmds[] = {
         { "system:: getspec <VOLID>",
           cli_cmd_getspec_cbk,
@@ -194,6 +304,14 @@ struct cli_cmd cli_system_cmds[] = {
         { "system:: getwd",
           cli_cmd_getwd_cbk,
           "query glusterd work directory"},
+
+        { "system:: mount <label> <args...>",
+          cli_cmd_mount_cbk,
+          "request a mount"},
+
+        { "system:: umount <path> [lazy]",
+          cli_cmd_umount_cbk,
+          "request an umount"},
 
         { "system:: help",
            cli_cmd_system_help_cbk,

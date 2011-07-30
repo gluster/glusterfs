@@ -1,0 +1,647 @@
+/*
+  Copyright (c) 2011 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
+
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
+
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
+*/
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+#include <inttypes.h>
+#include <fnmatch.h>
+#include <pwd.h>
+
+#include "globals.h"
+#include "glusterfs.h"
+#include "compat.h"
+#include "dict.h"
+#include "list.h"
+#include "logging.h"
+#include "defaults.h"
+#include "compat.h"
+#include "compat-errno.h"
+#include "run.h"
+#include "glusterd-mem-types.h"
+#include "glusterd.h"
+#include "glusterd-utils.h"
+
+#include "glusterd-mountbroker.h"
+#include "glusterd-op-sm.h"
+
+static int
+seq_dict_foreach (dict_t *dict,
+                  int (*fn)(char *str, void *data),
+                  void *data)
+{
+        char index[] = "4294967296"; // 1<<32
+        int        i = 0;
+        char    *val = NULL;
+        int      ret = 0;
+
+        for (;;i++) {
+                snprintf(index, sizeof(index), "%d", i);
+                ret = dict_get_str (dict, index, &val);
+                if (ret != 0)
+                        return ret == -ENOENT ? 0 : ret;
+                ret = fn (val, data);
+                if (ret != 0)
+                        return ret;
+        }
+}
+
+static void
+skipwhite (char **s)
+{
+        while (isspace (**s))
+                (*s)++;
+}
+
+static char *
+nwstrtail (char *str, char *pattern)
+{
+        for (;;) {
+                skipwhite (&str);
+                skipwhite (&pattern);
+
+                if (*str != *pattern || !*str)
+                        break;
+
+                str++;
+                pattern++;
+        }
+
+        return *pattern ? NULL : str;
+}
+
+
+int
+parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
+#define SYNTAX_ERR -2
+{
+        char *curs              = NULL;
+        char *c2                = NULL;
+        char sc                 = '\0';
+        char **cc               = NULL;
+        gf_mount_pattern_t *pat = NULL;
+        int pnum                = 0;
+        int ret                 = 0;
+        int lastsup             = -1;
+        int incl                = -1;
+        char **pcc              = NULL;
+        int pnc                 = 0;
+
+        skipwhite (&pdesc);
+
+        /* a bow to theory */
+        if (!*pdesc)
+                return 0;
+
+        /* count number of components, separated by '&' */
+        mspec->len = 0;
+        for (curs = pdesc; *curs; curs++) {
+                if (*curs == ')')
+                        mspec->len++;
+        }
+
+        mspec->patterns = GF_CALLOC (mspec->len, sizeof (*mspec->patterns),
+                                     gf_gld_mt_mount_pattern);
+        if (!mspec->patterns) {
+                ret = -1;
+                goto out;
+        }
+
+        pat = mspec->patterns;
+        curs = pdesc;
+        skipwhite (&curs);
+        for (;;) {
+                incl = -1;
+
+                /* check for pattern signedness modifier */
+                if (*curs == '-') {
+                        pat->negative = _gf_true;
+                        curs++;
+                }
+
+                /* now should come condition specifier,
+                 * then opening paren
+                 */
+                c2 = nwstrtail (curs, "SUB(");
+                if (c2) {
+                        pat->condition = SET_SUB;
+                        goto got_cond;
+                }
+                c2 = nwstrtail (curs, "SUP(");
+                if (c2) {
+                        pat->condition = SET_SUPER;
+                        lastsup = pat - mspec->patterns;
+                        goto got_cond;
+                }
+                c2 = nwstrtail (curs, "EQL(");
+                if (c2) {
+                        pat->condition = SET_EQUAL;
+                        goto got_cond;
+                }
+                c2 = nwstrtail (curs, "MEET(");
+                if (c2) {
+                        pat->condition = SET_INTERSECT;
+                        goto got_cond;
+                }
+                c2 = nwstrtail (curs, "SUB+(");
+                if (c2) {
+                        pat->condition = SET_SUB;
+                        incl = lastsup;
+                        goto got_cond;
+                }
+
+                ret = SYNTAX_ERR;
+                goto out;
+
+ got_cond:
+                curs = c2;
+                skipwhite (&curs);
+                /* count the number of components for pattern */
+                pnum = *curs == ')' ? 0 : 1;
+                for (c2 = curs ;*c2 != ')';) {
+                        if (strchr ("&|", *c2)) {
+                                ret = SYNTAX_ERR;
+                                goto out;
+                        }
+                        while (!strchr ("|&)", *c2) && !isspace (*c2))
+                                c2++;
+                        skipwhite (&c2);
+                        switch (*c2) {
+                        case ')':
+                                break;
+                        case '\0':
+                        case '&':
+                                ret = SYNTAX_ERR;
+                                goto out;
+                        case '|':
+                                *c2 = ' ';
+                                skipwhite (&c2);
+                                /* fall through */
+                        default:
+                                pnum++;
+                        }
+                }
+                if (incl >= 0) {
+                        pnc = 0;
+                        for (pcc = mspec->patterns[incl].components; *pcc; pcc++)
+                                pnc++;
+                        pnum += pnc;
+                }
+                pat->components = GF_CALLOC (pnum + 1, sizeof (*pat->components),
+                                             gf_gld_mt_mount_comp_container);
+                if (!pat->components) {
+                        ret = -1;
+                        goto out;
+                }
+
+                cc = pat->components;
+                /* copy over included component set */
+                if (incl >= 0) {
+                        memcpy (pat->components,
+                                mspec->patterns[incl].components,
+                                pnc * sizeof (*pat->components));
+                        cc += pnc;
+                }
+                /* parse and add components */
+                c2 = ""; /* reset c2 */
+                while (*c2 != ')') {
+                        c2 = curs;
+                        while (!isspace (*c2) && *c2 != ')')
+                                c2++;
+                        sc = *c2;
+                        *c2 = '\0';;
+                        *cc = gf_strdup (curs);
+                        if (!*cc) {
+                                ret = -1;
+                                goto out;
+                        }
+                        *c2 = sc;
+                        skipwhite (&c2);
+                        curs = c2;
+                        cc++;
+                }
+
+                curs++;
+                skipwhite (&curs);
+                if (*curs == '&') {
+                        curs++;
+                        skipwhite (&curs);
+                }
+
+                if (!*curs)
+                        break;
+                pat++;
+        }
+
+ out:
+        if (ret == SYNTAX_ERR) {
+                gf_log ("", GF_LOG_ERROR, "cannot parse mount patterns %s",
+                        pdesc);
+        }
+
+        /* We've allocted a lotta stuff here but don't bother with freeing
+         * on error, in that case we'll terminate anyway
+         */
+        return ret ? -1 : 0;
+}
+#undef SYNTAX_ERR
+
+
+const char *georep_mnt_desc_template =
+        "SUP("
+                "xlator-option=\\*-dht.assert-no-child-down=true "
+                "volfile-server=localhost "
+                "client-pid=-1 "
+                "volfile-id=%s "
+                "user-map-root=%s "
+        ")"
+        "SUB+("
+                "log-file="DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"*/* "
+                "log-level=* "
+        ")";
+
+int
+make_georep_mountspec (gf_mount_spec_t *mspec, const char *volname,
+                       char *user)
+{
+        char *georep_mnt_desc = NULL;
+        int ret               = 0;
+
+        ret = gf_asprintf (&georep_mnt_desc, georep_mnt_desc_template,
+                           volname, user);
+        if (ret == -1)
+                return ret;
+
+        return parse_mount_pattern_desc (mspec, georep_mnt_desc);
+}
+
+static gf_boolean_t
+match_comp (char *str, char *patcomp)
+{
+        char *c1 = patcomp;
+        char *c2 = str;
+
+        GF_ASSERT (c1);
+        GF_ASSERT (c2);
+
+        while (*c1 == *c2) {
+                if (!*c1)
+                        return _gf_true;
+                c1++;
+                c2++;
+                if (c1[-1] == '=')
+                        break;
+        }
+
+        return fnmatch (c1, c2, 0) == 0 ? _gf_true : _gf_false;
+}
+
+struct gf_set_descriptor {
+        gf_boolean_t priv[2];
+        gf_boolean_t common;
+};
+
+static int
+_gf_set_dict_iter1 (char *val, void *data)
+{
+        void **dataa                 = data;
+        struct gf_set_descriptor *sd = dataa[0];
+        char **curs                  = dataa[1];
+        gf_boolean_t priv            = _gf_true;
+
+        while (*curs) {
+                if (match_comp (val, *curs)) {
+                        priv = _gf_false;
+                        sd->common = _gf_true;
+                }
+                curs++;
+        }
+
+        if (priv)
+                sd->priv[0] = _gf_true;
+
+        return 0;
+}
+
+static int
+_gf_set_dict_iter2 (char *val, void *data)
+{
+        void **dataa      = data;
+        gf_boolean_t *boo = dataa[0];
+        char *comp        = dataa[1];
+
+        if (match_comp (val, comp))
+                *boo = _gf_true;
+
+        return 0;
+}
+
+static void
+relate_sets (struct gf_set_descriptor *sd, dict_t *argdict, char **complist)
+{
+        void *dataa[] = {NULL, NULL};
+        gf_boolean_t boo = _gf_false;
+
+        memset (sd, 0, sizeof (*sd));
+
+        dataa[0] = sd;
+        dataa[1] = complist;
+        seq_dict_foreach (argdict, _gf_set_dict_iter1, dataa);
+
+        while (*complist) {
+                boo = _gf_false;
+                dataa[0] = &boo;
+                dataa[1] = *complist;
+                seq_dict_foreach (argdict, _gf_set_dict_iter2, dataa);
+
+                if (boo)
+                        sd->common = _gf_true;
+                else
+                        sd->priv[1] = _gf_true;
+
+                complist++;
+        }
+}
+
+static int
+_arg_parse_uid (char *val, void *data)
+{
+        char *user        = strtail (val, "user-map-root=");
+        struct passwd *pw = NULL;
+
+        if (!user)
+                return 0;
+        pw = getpwnam (user);
+        if (!pw)
+                return -EINVAL;
+
+        if (*(int *)data >= 0)
+                /* uid ambiguity, already found */
+                return -EINVAL;
+
+        *(int *)data = pw->pw_uid;
+        return 0;
+}
+
+static int
+evaluate_mount_request (gf_mount_spec_t *mspec, dict_t *argdict)
+{
+        struct gf_set_descriptor sd = {{0,},};
+        int i                       = 0;
+        int uid                     = -1;
+        int ret                     = 0;
+        gf_boolean_t match          = _gf_false;
+
+        for (i = 0; i < mspec->len; i++) {
+                relate_sets (&sd, argdict, mspec->patterns[i].components);
+                switch (mspec->patterns[i].condition) {
+                case SET_SUB:
+                        match = !sd.priv[0];
+                        break;
+                case SET_SUPER:
+                        match = !sd.priv[1];
+                        break;
+                case SET_EQUAL:
+                        match = (!sd.priv[0] && !sd.priv[1]);
+                        break;
+                case SET_INTERSECT:
+                        match = sd.common;
+                default:
+                        GF_ASSERT(!"unreached");
+                }
+                if (mspec->patterns[i].negative)
+                        match = !match;
+
+                if (!match)
+                        return -EPERM;
+        }
+
+        ret = seq_dict_foreach (argdict, _arg_parse_uid, &uid);
+        if (ret != 0)
+                return ret;
+
+        return uid;
+}
+
+static int
+_volname_get (char *val, void *data)
+{
+        char **volname = data;
+
+        *volname = strtail (val, "volfile-id=");
+
+        return *volname ? 1 : 0;
+}
+
+static int
+_runner_add (char *val, void *data)
+{
+        runner_t *runner = data;
+
+        runner_argprintf (runner, "--%s", val);
+
+        return 0;
+}
+
+int
+glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
+{
+        glusterd_conf_t *priv      = NULL;
+        char *mountbroker_root     = NULL;
+        gf_mount_spec_t *mspec     = NULL;
+        int uid                    = -ENOENT;
+        char *volname              = NULL;
+        glusterd_volinfo_t *vol    = NULL;
+        char *mtptemp              = NULL;
+        char *mntlink              = NULL;
+        char *cookieswitch         = NULL;
+        char *cookie               = NULL;
+        char *sla                  = NULL;
+        struct stat st             = {0,};
+        runner_t runner            = {0,};
+        int ret                    = 0;
+        xlator_t *this             = THIS;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (op_errno);
+        *op_errno = 0;
+
+        if (dict_get_str (this->options, "mountbroker-root",
+                          &mountbroker_root) != 0) {
+                *op_errno = ENOENT;
+                goto out;
+        }
+
+        GF_ASSERT (label);
+        if (!*label) {
+                *op_errno = EINVAL;
+                goto out;
+        }
+
+        /* look up spec for label */
+        list_for_each_entry (mspec, &priv->mount_specs,
+                             speclist) {
+                if (strcmp (mspec->label, label) != 0)
+                        continue;
+                uid = evaluate_mount_request (mspec, argdict);
+                break;
+        }
+        if (uid < 0) {
+                *op_errno = -uid;
+                goto out;
+        }
+
+        /* some sanity check on arguments */
+        seq_dict_foreach (argdict, _volname_get, &volname);
+        if (!volname) {
+                *op_errno = EINVAL;
+                goto out;
+        }
+        if (glusterd_volinfo_find (volname, &vol) != 0 ||
+            !glusterd_is_volume_started (vol)) {
+                *op_errno = ENOENT;
+                goto out;
+        }
+
+        /* go do mount */
+
+        /** create actual mount dir */
+
+        /*** "overload" string name to be possible to used for cookie
+             creation, see below */
+        ret = gf_asprintf (&mtptemp, "%s/user%d/mtpt-%s-XXXXXX/cookie",
+                           mountbroker_root, uid, label);
+        if (ret == -1) {
+                mtptemp = NULL;
+                *op_errno = ENOMEM;
+                goto out;
+        }
+        /*** hide cookie part */
+        cookieswitch = strrchr (mtptemp, '/');
+        *cookieswitch = '\0';
+
+        sla = strrchr (mtptemp, '/');
+        *sla = '\0';
+        ret = mkdir (mtptemp, 0700);
+        if (ret == 0)
+                ret = chown (mtptemp, uid, 0);
+        else if (errno == EEXIST)
+                ret = 0;
+        if (ret == -1) {
+                *op_errno = errno;
+                goto out;
+        }
+        ret = lstat (mtptemp, &st);
+        if (ret == -1) {
+                *op_errno = errno;
+                goto out;
+        }
+        if (!(S_ISDIR (st.st_mode) && (st.st_mode & ~S_IFMT) == 0700 &&
+              st.st_uid == uid && st.st_gid == 0)) {
+                *op_errno = EACCES;
+                goto out;
+        }
+        *sla = '/';
+
+        if (!mkdtemp (mtptemp)) {
+                *op_errno = errno;
+                goto out;
+        }
+
+        /** create private "cookie" symlink */
+
+        /*** occupy an entry in the hive dir via mkstemp */
+        ret = gf_asprintf (&cookie, "%s/"MB_HIVE"/mntXXXXXX",
+                           mountbroker_root);
+        if (ret == -1) {
+                cookie = NULL;
+                *op_errno = ENOMEM;
+                goto out;
+        }
+        ret = mkstemp (cookie);
+        if (ret == -1) {
+                *op_errno = errno;
+                goto out;
+        }
+        close (ret);
+
+        /*** assembly the path from cookie to mountpoint */
+        sla = strchr (sla - 1, '/');
+        GF_ASSERT (sla);
+        ret = gf_asprintf (&mntlink, "../user%d%s", uid, sla);
+        if (ret == -1) {
+                *op_errno = ENOMEM;
+                goto out;
+        }
+
+        /*** create cookie link in (to-be) mountpoint,
+             move it over to the final place */
+        *cookieswitch = '/';
+        ret = symlink (mntlink, mtptemp);
+        if (ret != -1)
+                ret = rename (mtptemp, cookie);
+        *cookieswitch = '\0';
+        if (ret == -1) {
+                *op_errno = errno;
+                goto out;
+        }
+
+        /** invoke glusterfs on the mountpoint */
+
+        runinit (&runner);
+        runner_add_arg (&runner, GFS_PREFIX"/sbin/glusterfs");
+        seq_dict_foreach (argdict, _runner_add, &runner);
+        runner_add_arg (&runner, mtptemp);
+        ret = runner_run_reuse (&runner);
+        if (ret == -1) {
+                *op_errno = EIO; /* XXX hacky fake */
+                runner_log (&runner, "", GF_LOG_ERROR, "command failed");
+        }
+        runner_end (&runner);
+
+ out:
+
+        if (*op_errno) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "unsuccessful mount request (%s)",
+                        strerror (*op_errno));
+                if (mtptemp) {
+                        *cookieswitch = '/';
+                        unlink (mtptemp);
+                        *cookieswitch = '\0';
+                        rmdir (mtptemp);
+                }
+                if (cookie) {
+                        unlink (cookie);
+                        GF_FREE (cookie);
+                }
+
+        } else {
+                ret = 0;
+                *path = cookie;
+        }
+
+        if (mtptemp)
+                GF_FREE (mtptemp);
+
+        return ret;
+}

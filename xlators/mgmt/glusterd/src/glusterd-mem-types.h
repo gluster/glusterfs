@@ -66,7 +66,11 @@ typedef enum gf_gld_mem_types_ {
         gf_gld_mt_op_allack_ctx_t               = gf_common_mt_end + 40,
         gf_gld_mt_linearr                       = gf_common_mt_end + 41,
         gf_gld_mt_linebuf                       = gf_common_mt_end + 42,
-        gf_gld_mt_end                           = gf_common_mt_end + 43
+        gf_gld_mt_mount_pattern                 = gf_common_mt_end + 43,
+        gf_gld_mt_mount_comp_container          = gf_common_mt_end + 44,
+        gf_gld_mt_mount_component               = gf_common_mt_end + 45,
+        gf_gld_mt_mount_spec                    = gf_common_mt_end + 46,
+        gf_gld_mt_end                           = gf_common_mt_end + 47,
 } gf_gld_mem_types_t;
 #endif
 

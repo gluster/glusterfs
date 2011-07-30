@@ -47,6 +47,8 @@
 #include "common-utils.h"
 #include "run.h"
 
+#include "glusterd-mountbroker.h"
+
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
 extern struct rpcsvc_program gd_svc_mgmt_prog;
@@ -500,6 +502,151 @@ configure_syncdaemon (glusterd_conf_t *conf)
 }
 #undef RUN_GSYNCD_CMD
 
+static int
+check_prepare_mountbroker_root (char *mountbroker_root)
+{
+        int dfd0        = -1;
+        int dfd         = -1;
+        int dfd2        = -1;
+        struct stat st  = {0,};
+        struct stat st2 = {0,};
+        int ret         = 0;
+
+        ret = open (mountbroker_root, O_RDONLY);
+        if (ret != -1) {
+                dfd = ret;
+                ret = fstat (dfd, &st);
+        }
+        if (ret == -1 || !S_ISDIR (st.st_mode)) {
+                gf_log ("", GF_LOG_ERROR,
+                        "cannot access mountbroker-root directory %s",
+                        mountbroker_root);
+                ret = -1;
+                goto out;
+        }
+        if (st.st_uid != 0 ||
+            (st.st_mode & (S_IWGRP|S_IWOTH))) {
+                gf_log ("", GF_LOG_ERROR,
+                        "permissions on mountbroker-root directory %s are "
+                        "too liberal", mountbroker_root);
+                ret = -1;
+                goto out;
+        }
+
+        dfd0 = dup (dfd);
+
+        for (;;) {
+                ret = openat (dfd, "..", O_RDONLY);
+                if (ret != -1) {
+                        dfd2 = ret;
+                        ret = fstat (dfd2, &st2);
+                }
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "error while checking mountbroker-root ancestors "
+                                "%d (%s)", errno, strerror (errno));
+                        goto out;
+                }
+
+                if (st2.st_ino == st.st_ino)
+                        break; /* arrived to root */
+
+                if (st2.st_uid != 0 ||
+                    ((st2.st_mode & (S_IWGRP|S_IWOTH)) &&
+                     !(st2.st_mode & S_ISVTX))) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "permissions on ancestors of mountbroker-root "
+                                "directory are too liberal");
+                        ret = -1;
+                        goto out;
+                }
+
+                close (dfd);
+                dfd = dfd2;
+                st = st2;
+        }
+
+        ret = mkdirat (dfd0, MB_HIVE, 0711);
+        if (ret == -1 && errno == EEXIST)
+                ret = 0;
+        if (ret != -1)
+                ret = fstatat (dfd0, MB_HIVE, &st, AT_SYMLINK_NOFOLLOW);
+        if (ret == -1 || st.st_mode != (S_IFDIR|0711)) {
+                gf_log ("", GF_LOG_ERROR,
+                        "failed to set up mountbroker-root directory %s",
+                        mountbroker_root);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+ out:
+        close (dfd0);
+        close (dfd);
+        close (dfd2);
+
+        return ret;
+}
+
+static void
+_install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
+{
+        glusterd_conf_t *priv  = THIS->private;
+        char *label            = NULL;
+        gf_boolean_t georep    = _gf_false;
+        char *pdesc            = value->data;
+        char *volname          = NULL;
+        int *ret               = data;
+        int rv                 = 0;
+        gf_mount_spec_t *mspec = NULL;
+        char *user             = NULL;
+
+        if (*ret == -1)
+                return;
+
+        label = strtail (key, "mountbroker.");
+        if (!label) {
+                georep = _gf_true;
+                label = strtail (key, "mountbroker-"GEOREP".");
+        }
+
+        if (!label)
+                return;
+
+        mspec = GF_CALLOC (1, sizeof (*mspec), gf_gld_mt_mount_spec);
+        if (!mspec)
+                goto err;
+        mspec->label = label;
+
+        if (georep) {
+                volname = gf_strdup (pdesc);
+                if (!volname)
+                        goto err;
+                user = strchr (volname, ':');
+                if (user) {
+                        *user = '\0';
+                        user++;
+                } else
+                        user = label;
+                rv = make_georep_mountspec (mspec, volname, user);
+                GF_FREE (volname);
+                if (rv != 0)
+                        goto err;
+        } else if (parse_mount_pattern_desc (mspec, pdesc) != 0)
+                goto err;
+
+        list_add_tail (&mspec->speclist, &priv->mount_specs);
+
+        return;
+ err:
+
+        gf_log ("", GF_LOG_ERROR,
+                "adding %smount spec failed: label: %s desc: %s",
+                georep ? GEOREP" " : "", label, pdesc);
+
+        *ret = -1;
+}
 
 /*
  * init - called during glusterd initialization
@@ -519,6 +666,7 @@ init (xlator_t *this)
         char               dirname [PATH_MAX];
         char               cmd_log_filename [PATH_MAX] = {0,};
         int                first_time        = 0;
+        char              *mountbroker_root  = NULL;
 
         dir_data = dict_get (this->options, "working-directory");
 
@@ -699,6 +847,19 @@ init (xlator_t *this)
         if (ret < 0)
                 goto out;
 
+        INIT_LIST_HEAD (&conf->mount_specs);
+        dict_foreach (this->options, _install_mount_spec, &ret);
+        if (ret)
+                goto out;
+        ret = dict_get_str (this->options, "mountbroker-root",
+                            &mountbroker_root);
+        if (ret)
+                ret = 0;
+        else
+                ret = check_prepare_mountbroker_root (mountbroker_root);
+        if (ret)
+                goto out;
+
         ret = configure_syncdaemon (conf);
         if (ret)
                 goto out;
@@ -830,5 +991,16 @@ struct volume_options options[] = {
         { .key = {"bind-insecure"},
           .type = GF_OPTION_TYPE_BOOL,
         },
+
+        { .key  = {"mountbroker-root"},
+          .type = GF_OPTION_TYPE_PATH,
+        },
+        { .key  = {"mountbroker.*"},
+          .type = GF_OPTION_TYPE_ANY,
+        },
+        { .key  = {"mountbroker-"GEOREP".*"},
+          .type = GF_OPTION_TYPE_ANY,
+        },
+
         { .key   = {NULL} },
 };
