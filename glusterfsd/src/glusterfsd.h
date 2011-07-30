@@ -78,6 +78,7 @@ enum argp_option_keys {
         ARGP_CLIENT_PID_KEY               = 153,
         ARGP_ACL_KEY                      = 154,
         ARGP_WORM_KEY                     = 155,
+        ARGP_USER_MAP_ROOT_KEY            = 156,
 };
 
 int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);

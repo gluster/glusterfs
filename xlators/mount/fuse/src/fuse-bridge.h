@@ -106,6 +106,7 @@ struct fuse_private {
 
         pid_t                client_pid;
         gf_boolean_t         client_pid_set;
+        unsigned             uid_map_root;
         gf_boolean_t         acl;
 };
 typedef struct fuse_private fuse_private_t;
