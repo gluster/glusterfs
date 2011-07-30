@@ -36,6 +36,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include "statedump.h"
+#include "run.h"
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-sm.h"
@@ -48,6 +49,7 @@
 #include "xdr-generic.h"
 #include "rpc-clnt.h"
 #include "glusterd-volgen.h"
+#include "glusterd-mountbroker.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -1774,6 +1776,151 @@ glusterd_handle_getwd (rpcsvc_request_t *req)
 
 
 int
+glusterd_handle_mount (rpcsvc_request_t *req)
+{
+        gf1_cli_mount_req mnt_req = {0,};
+        gf1_cli_mount_rsp rsp     = {0,};
+        dict_t *dict              = NULL;
+        int ret                   = 0;
+
+        GF_ASSERT (req);
+
+        if (!xdr_to_generic (req->msg[0], &mnt_req, (xdrproc_t)xdr_gf1_cli_mount_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                rsp.op_ret = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received mount req");
+
+        if (mnt_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (mnt_req.dict.dict_val,
+                                        mnt_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        rsp.op_ret = -1;
+                        rsp.op_errno = -EINVAL;
+                        goto out;
+                } else {
+                        dict->extra_stdfree = mnt_req.dict.dict_val;
+                }
+        }
+
+        rsp.op_ret = glusterd_do_mount (mnt_req.label, dict,
+                                        &rsp.path, &rsp.op_errno);
+
+ out:
+        if (!rsp.path)
+                rsp.path = "";
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gf1_cli_mount_rsp);
+
+        if (dict)
+                dict_unref (dict);
+        if (*rsp.path)
+                GF_FREE (rsp.path);
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        return ret;
+}
+
+int
+glusterd_handle_umount (rpcsvc_request_t *req)
+{
+        gf1_cli_umount_req umnt_req = {0,};
+        gf1_cli_umount_rsp rsp      = {0,};
+        char *mountbroker_root      = NULL;
+        char mntp[PATH_MAX]         = {0,};
+        char *path                  = NULL;
+        runner_t runner             = {0,};
+        int ret                     = 0;
+        xlator_t *this              = THIS;
+        gf_boolean_t dir_ok         = _gf_false;
+        char *pdir                  = NULL;
+        char *t                     = NULL;
+
+        GF_ASSERT (req);
+        GF_ASSERT (this);
+
+        if (!xdr_to_generic (req->msg[0], &umnt_req, (xdrproc_t)xdr_gf1_cli_umount_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                rsp.op_ret = -1;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received umount req");
+
+        if (dict_get_str (this->options, "mountbroker-root",
+                          &mountbroker_root) != 0) {
+                rsp.op_errno = ENOENT;
+                goto out;
+        }
+
+        /* check if it is allowed to umount path */
+        path = gf_strdup (umnt_req.path);
+        if (!path) {
+                rsp.op_errno = ENOMEM;
+                goto out;
+        }
+        dir_ok = _gf_false;
+        pdir = dirname (path);
+        t = strtail (pdir, mountbroker_root);
+        if (t && *t == '/') {
+                t = strtail(++t, MB_HIVE);
+                if (t && !*t)
+                        dir_ok = _gf_true;
+        }
+        GF_FREE (path);
+        if (!dir_ok) {
+                rsp.op_errno = EACCES;
+                goto out;
+        }
+
+        runinit (&runner);
+        runner_add_args (&runner, "umount", umnt_req.path, NULL);
+        if (umnt_req.lazy)
+                runner_add_arg (&runner, "-l");
+        rsp.op_ret = runner_run (&runner);
+        if (rsp.op_ret == 0) {
+                if (realpath (umnt_req.path, mntp))
+                        rmdir (mntp);
+                else {
+                        rsp.op_ret = -1;
+                        rsp.op_errno = errno;
+                }
+                if (unlink (umnt_req.path) != 0) {
+                        rsp.op_ret = -1;
+                        rsp.op_errno = errno;
+                }
+        }
+
+ out:
+        if (rsp.op_errno)
+                rsp.op_ret = -1;
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gf1_cli_umount_rsp);
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        return ret;
+}
+
+
+int
 glusterd_friend_remove (uuid_t uuid, char *hostname)
 {
         int                           ret = 0;
@@ -2593,6 +2740,8 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_LOG_LEVEL]     = {"LOG_LEVEL", GLUSTER_CLI_LOG_LEVEL, glusterd_handle_log_level, NULL, NULL},
         [GLUSTER_CLI_GETWD]         = { "GETWD", GLUSTER_CLI_GETWD, glusterd_handle_getwd, NULL, NULL},
         [GLUSTER_CLI_STATUS_VOLUME]  = {"STATUS_VOLUME", GLUSTER_CLI_STATUS_VOLUME, glusterd_handle_status_volume, NULL, NULL},
+        [GLUSTER_CLI_MOUNT]         = { "MOUNT", GLUSTER_CLI_MOUNT, glusterd_handle_mount, NULL, NULL},
+        [GLUSTER_CLI_UMOUNT]        = { "UMOUNT", GLUSTER_CLI_UMOUNT, glusterd_handle_umount, NULL, NULL},
 
 };
 

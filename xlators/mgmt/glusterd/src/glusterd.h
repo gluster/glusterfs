@@ -111,6 +111,7 @@ typedef struct {
         gf_timer_t *timer;
         glusterd_sm_tr_log_t op_sm_log;
         struct rpc_clnt_program *gfs_mgmt;
+        struct list_head mount_specs;
 } glusterd_conf_t;
 
 typedef enum gf_brick_status {
