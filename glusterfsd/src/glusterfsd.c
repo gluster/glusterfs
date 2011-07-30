@@ -39,6 +39,7 @@
 #include <time.h>
 #include <semaphore.h>
 #include <errno.h>
+#include <pwd.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -176,6 +177,8 @@ static struct argp_option gf_options[] = {
          "[default: 1]"},
         {"client-pid", ARGP_CLIENT_PID_KEY, "PID", OPTION_HIDDEN,
          "client will authenticate itself with process id PID to server"},
+        {"user-map-root", ARGP_USER_MAP_ROOT_KEY, "USER", OPTION_HIDDEN,
+         "replace USER with root in messages"},
         {"dump-fuse", ARGP_DUMP_FUSE_KEY, "PATH", 0,
          "Dump fuse traffic to PATH"},
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
@@ -272,6 +275,17 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value for key %s",
                                 "client-pid");
+                        goto err;
+                }
+        }
+
+        if (cmd_args->uid_map_root) {
+                ret = dict_set_int32 (master->options, "uid-map-root",
+                                      cmd_args->uid_map_root);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key %s",
+                                "uid-map-root");
                         goto err;
                 }
         }
@@ -485,6 +499,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
         char          tmp_buf[2048] = {0,};
         char         *tmp_str       = NULL;
         char         *port_str      = NULL;
+        struct passwd *pw           = NULL;
 
         cmd_args = state->input;
 
@@ -676,6 +691,15 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                 argp_failure (state, -1, 0,
                               "unknown client pid %s", arg);
+                break;
+
+        case ARGP_USER_MAP_ROOT_KEY:
+                pw = getpwnam (arg);
+                if (pw)
+                        cmd_args->uid_map_root = pw->pw_uid;
+                else
+                        argp_failure (state, -1, 0,
+                                      "user %s does not exist", arg);
                 break;
 
         case ARGP_VOLFILE_CHECK_KEY:

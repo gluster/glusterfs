@@ -291,6 +291,8 @@ struct _cmd_args {
 	char            *dump_fuse;
         pid_t            client_pid;
         int              client_pid_set;
+        unsigned         uid_map_root;
+
 
 	/* key args */
 	char            *mount_point;

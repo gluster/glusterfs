@@ -3211,6 +3211,10 @@ fuse_thread_proc (void *data)
 
                         msg = finh + 1;
                 }
+                if (priv->uid_map_root &&
+                    finh->uid == priv->uid_map_root)
+                        finh->uid = 0;
+
 #ifdef GF_DARWIN_HOST_OS
                 if (finh->opcode >= FUSE_OP_HIGH)
                         /* turn down MacFUSE specific messages */
@@ -3599,6 +3603,11 @@ init (xlator_t *this_xl)
         if (ret == 0)
                 priv->client_pid_set = _gf_true;
 
+        ret = dict_get_uint32 (options, "uid-map-root",
+                               &priv->uid_map_root);
+        if (ret != 0)
+                priv->uid_map_root = 0;
+
         priv->direct_io_mode = 2;
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
         if (ret == 0) {
@@ -3620,6 +3629,8 @@ init (xlator_t *this_xl)
                 ret = gf_string2boolean (value_string, &priv->acl);
                 GF_ASSERT (ret == 0);
         }
+        if (priv->uid_map_root)
+                priv->acl = 1;
 
 
         priv->fuse_dump_fd = -1;
@@ -3777,6 +3788,9 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL
         },
         { .key  = {"client-pid"},
+          .type = GF_OPTION_TYPE_INT
+        },
+        { .key  = {"uid-map-root"},
           .type = GF_OPTION_TYPE_INT
         },
         { .key  = {"sync-mtab"},
