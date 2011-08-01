@@ -1208,6 +1208,7 @@ glusterfs_sigwaiter (void *arg)
         int       sig = 0;
 
 
+        sigemptyset (&set);
         sigaddset (&set, SIGINT);   /* cleanup_and_exit */
         sigaddset (&set, SIGTERM);  /* cleanup_and_exit */
         sigaddset (&set, SIGHUP);   /* reincarnate */
