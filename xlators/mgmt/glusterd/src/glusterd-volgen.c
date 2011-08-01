@@ -146,7 +146,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.io-cache",                 "performance/io-cache",      "!perf", "on", NO_DOC}, /* NODOC */
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC}, /* NODOC */
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC},      /* NODOC */
-
+        {"performance.client-io-threads",        "performance/io-threads",    "!perf", "off", NO_DOC},
         {MARKER_VOL_KEY,                         "features/marker",           "!marker", "off", NO_DOC},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
@@ -1953,6 +1953,10 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
 
         ret = dict_set_str (set_dict, "performance.stat-prefetch",
                             "off");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (set_dict, "performance.client-io-threads", "off");
         if (ret)
                 goto out;
 
