@@ -2259,8 +2259,7 @@ out:
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
 {
-        return ((volinfo->defrag_status == GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) ||
-                (volinfo->defrag_status == GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED));
+        return (volinfo->defrag != NULL);
 }
 
 int
