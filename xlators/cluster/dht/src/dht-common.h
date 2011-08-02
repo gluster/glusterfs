@@ -330,9 +330,6 @@ int dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       inode_t *inode, struct iatt *stbuf,
                       struct iatt *preparent, struct iatt *postparent);
 
-int dht_linkfile_recreate(call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
-                         xlator_t *tovol, xlator_t *fromvol, loc_t *loc);
-
 int dht_fix_directory_layout (call_frame_t *frame,
                               dht_selfheal_dir_cbk_t dir_cbk,
                               dht_layout_t *layout);
