@@ -427,6 +427,30 @@ nolinks:
 
 
 int
+dht_rename_links_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno,
+                      inode_t *inode, struct iatt *stbuf,
+                      struct iatt *preparent, struct iatt *postparent)
+{
+        call_frame_t *prev = NULL;
+        dht_local_t  *local = NULL;
+
+        prev = cookie;
+        local = frame->local;
+
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "link/file %s on %s failed (%s)",
+                        local->loc.path, prev->this->name, strerror (op_errno));
+        }
+
+        DHT_STACK_DESTROY (frame);
+
+        return 0;
+}
+
+
+int
 dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
                 struct iatt *preoldparent, struct iatt *postoldparent,
@@ -439,6 +463,8 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t     *dst_hashed = NULL;
         xlator_t     *dst_cached = NULL;
         xlator_t     *rename_subvol = NULL;
+        call_frame_t *link_frame = NULL;
+        dht_local_t *link_local = NULL;
 
         local = frame->local;
         prev = cookie;
@@ -457,6 +483,29 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto cleanup;
         }
 
+        if ((src_cached == dst_cached) && (dst_hashed != dst_cached)) {
+                link_frame = copy_frame (frame);
+                if (!link_frame) {
+                        goto err;
+                }
+
+                link_local = dht_local_init (link_frame);
+                if (!link_local) {
+                        goto err;
+                }
+
+                loc_copy (&link_local->loc, &local->loc2);
+                if (link_local->loc.inode)
+                        inode_unref (link_local->loc.inode);
+                link_local->loc.inode = inode_ref (local->loc.inode);
+                uuid_copy (link_local->gfid, local->loc.inode->gfid);
+                link_frame->local = link_local;
+
+                dht_linkfile_create (link_frame, dht_rename_links_create_cbk,
+                                     src_cached, dst_hashed, &link_local->loc);
+        }
+
+err:
         dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
         dht_iatt_merge (this, &local->preoldparent, preoldparent, prev->this);
         dht_iatt_merge (this, &local->postoldparent, postoldparent, prev->this);
@@ -625,7 +674,7 @@ dht_rename_unlink_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	prev = cookie;
 
-	if (op_ret == -1) {
+	if ((op_ret == -1) && (op_errno != ENOENT)) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"unlink of %s on %s failed (%s)",
 			local->loc2.path, prev->this->name,
