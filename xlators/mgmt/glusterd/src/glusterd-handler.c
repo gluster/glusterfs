@@ -404,33 +404,49 @@ out:
 }
 
 int32_t
-glusterd_op_txn_begin ()
+glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx)
 {
-        int32_t                 ret = -1;
-        glusterd_conf_t         *priv = NULL;
-        int32_t                 locked = 0;
+        int32_t                  ret    = -1;
+        xlator_t                *this   = NULL;
+        glusterd_conf_t         *priv   = NULL;
+        int32_t                  locked = 0;
 
-        priv = THIS->private;
+        GF_ASSERT (req);
+        GF_ASSERT ((op > GD_OP_NONE) && (op < GD_OP_MAX));
+        GF_ASSERT (NULL != ctx);
+
+        this = THIS;
+        priv = this->private;
         GF_ASSERT (priv);
 
         ret = glusterd_lock (priv->uuid);
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Unable to acquire local lock, ret: %d", ret);
                 goto out;
         }
 
         locked = 1;
-        gf_log ("glusterd", GF_LOG_INFO, "Acquired local lock");
+        gf_log (this->name, GF_LOG_INFO, "Acquired local lock");
 
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_START_LOCK, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to acquire cluster"
+                        " lock.");
+                goto out;
+        }
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        glusterd_op_set_op (op);
+        glusterd_op_set_ctx (ctx);
+        glusterd_op_set_req (req);
+
 
 out:
         if (locked && ret)
                 glusterd_unlock (priv->uuid);
+
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -597,7 +613,7 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_OP, req_ctx);
         if (ret)
                 goto out;
-        ret = glusterd_op_init_ctx (op_req.op);
+        ret = glusterd_op_init_ctx ();
 
 out:
         if (op_req.buf.buf_val)
@@ -830,20 +846,11 @@ out:
 }
 
 int32_t
-glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
-                   gf_boolean_t is_ctx_free)
+glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx)
 {
         int             ret = -1;
-        GF_ASSERT (req);
-        GF_ASSERT ((op > GD_OP_NONE) && (op < GD_OP_MAX));
-        GF_ASSERT ((NULL != ctx) || (_gf_false == is_ctx_free));
 
-        glusterd_op_set_op (op);
-        glusterd_op_set_ctx (op, ctx);
-        glusterd_op_set_ctx_free (op, is_ctx_free);
-        glusterd_op_set_req (req);
-
-        ret = glusterd_op_txn_begin ();
+        ret = glusterd_op_txn_begin (req, op, ctx);
 
         return ret;
 }
@@ -872,22 +879,10 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         uuid_t                  volume_id   = {0,};
         glusterd_brickinfo_t    *tmpbrkinfo = NULL;
         glusterd_volinfo_t      tmpvolinfo = {{0},};
-        int                     lock_fail = 0;
-        glusterd_op_t           cli_op = GD_OP_CREATE_VOLUME;
 
         GF_ASSERT (req);
 
         INIT_LIST_HEAD (&tmpvolinfo.bricks);
-
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                snprintf (err_str, sizeof (err_str), "Another operation is in "
-                          "progress, please retry after some time");
-                goto out;
-        }
 
         this = THIS;
         GF_ASSERT(this);
@@ -1014,7 +1009,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 brickinfo = NULL;
         }
 
-        ret = glusterd_op_begin (req, GD_OP_CREATE_VOLUME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_CREATE_VOLUME, dict);
         gf_cmd_log ("Volume create", "on volname: %s %s", volname,
                     (ret != 0) ? "FAILED": "SUCCESS");
 
@@ -1032,8 +1027,6 @@ out:
                 glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
                                       gf_xdr_serialize_cli_create_vol_rsp,
                                       (xdrproc_t)xdr_gf1_cli_create_vol_rsp);
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
 
                 ret = 0; //Client response sent, prevent second response
         }
@@ -1058,21 +1051,12 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_start_vol_req           cli_req = {0,};
-        int                             lock_fail = 0;
         char                            *dup_volname = NULL;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_START_VOLUME;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d", ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_start_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1098,7 +1082,7 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         ret = dict_set_int32 (dict, "flags", cli_req.flags);
         if (ret)
                 goto out;
-        ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
 
         gf_cmd_log ("volume start","on volname: %s %s", cli_req.volname,
                     ((ret == 0) ? "SUCCESS": "FAILED"));
@@ -1112,13 +1096,9 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret) {
+        if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
-
-        }
 
         return ret;
 }
@@ -1129,22 +1109,12 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_stop_vol_req           cli_req = {0,};
-        int                             lock_fail = 0;
         char                            *dup_volname = NULL;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_STOP_VOLUME;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_stop_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1171,7 +1141,7 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict);
         gf_cmd_log ("Volume stop","on volname: %s %s", cli_req.volname,
                     ((ret)?"FAILED":"SUCCESS"));
 
@@ -1187,8 +1157,6 @@ out:
                         dict_unref (dict);
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
         }
 
         return ret;
@@ -1197,7 +1165,6 @@ out:
 int
 glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 {
-        int                               lock_fail = 0;
         int32_t                           ret = -1;
         gf1_cli_delete_vol_req            cli_req = {0,};
         glusterd_op_delete_volume_ctx_t   *ctx = NULL;
@@ -1205,15 +1172,6 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_delete_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1231,7 +1189,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 
         strncpy (ctx->volume_name, cli_req.volname, GD_VOLUME_NAME_MAX);
 
-        ret = glusterd_op_begin (req, GD_OP_DELETE_VOLUME, ctx, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_DELETE_VOLUME, ctx);
         gf_cmd_log ("Volume delete", "on volname: %s %s", cli_req.volname,
                    ((ret) ? "FAILED" : "SUCCESS"));
 
@@ -1243,10 +1201,11 @@ out:
         glusterd_op_sm ();
 
         if (ret) {
+                if (ctx)
+                        GF_FREE (ctx);
+
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
         }
 
         return ret;
@@ -1275,8 +1234,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         char                            *free_ptr = NULL;
         glusterd_brickinfo_t            *tmpbrkinfo = NULL;
         glusterd_volinfo_t              tmpvolinfo = {{0},};
-        int                             lock_fail = 0;
-        glusterd_op_t                   cli_op = GD_OP_ADD_BRICK;
         int                             total_bricks = 0;
 
         this = THIS;
@@ -1288,17 +1245,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
 
         INIT_LIST_HEAD (&tmpvolinfo.bricks);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                snprintf (err_str, sizeof (err_str), "Another operation is in "
-                          "progress, please retry after some time");
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_add_brick_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1439,7 +1385,7 @@ brick_val:
                 brickinfo = NULL;
         }
 
-        ret = glusterd_op_begin (req, GD_OP_ADD_BRICK, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_ADD_BRICK, dict);
         gf_cmd_log ("Volume add-brick","on volname: %s %s", volname,
                    (ret != 0)? "FAILED" : "SUCCESS");
 
@@ -1457,8 +1403,6 @@ out:
                 glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
                                       gf_xdr_serialize_cli_add_brick_rsp,
                                       (xdrproc_t)xdr_gf1_cli_add_brick_rsp);
-                if (!lock_fail)
-                        glusterd_opinfo_unlock();
                 ret = 0; //sent error to cli, prevent second reply
         }
 
@@ -1486,20 +1430,10 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
         char                            *dst_brick = NULL;
         int32_t                         op = 0;
         char                            operation[256];
-        int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_REPLACE_BRICK;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_replace_brick_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1573,7 +1507,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                     " dst_brick:%s op:%s",cli_req.volname, src_brick, dst_brick
                     ,operation);
 
-        ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict);
         gf_cmd_log ("Volume replace-brick","on volname: %s %s", cli_req.volname,
                    (ret) ? "FAILED" : "SUCCESS");
 
@@ -1586,13 +1520,9 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret) {
+        if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
-
-        }
 
         return ret;
 }
@@ -1606,20 +1536,10 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf1_cli_reset_vol_req           cli_req = {0,};
         dict_t                          *dict = NULL;
-        int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_RESET_VOLUME;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_set_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1643,7 +1563,7 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
         }
 
         gf_cmd_log ("Volume reset", "volume  : %s", cli_req.volname);
-        ret = glusterd_op_begin (req, GD_OP_RESET_VOLUME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_RESET_VOLUME, dict);
         gf_cmd_log ("Volume reset", " on volume %s %s ", cli_req.volname,
                 ((ret == 0)? " SUCCEDED":" FAILED"));
 
@@ -1658,8 +1578,6 @@ out:
                         dict_unref (dict);
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
         }
 
         return ret;
@@ -1671,7 +1589,6 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
         int32_t                 ret     = 0;
         dict_t                  *dict   = NULL;
         gf1_cli_gsync_set_req   cli_req = {{0},};
-        int                     lock_fail = 0;
         glusterd_op_t           cli_op = GD_OP_GSYNC_SET;
         char                    *master = NULL;
         char                    *slave = NULL;
@@ -1686,15 +1603,6 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         priv = THIS->private;
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_gsync_set_req (req->msg[0], &cli_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1771,7 +1679,7 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         gf_cmd_log ("volume "GEOREP, " %s command on %s,%s", operation, master,
                     slave);
-        ret = glusterd_op_begin (req, GD_OP_GSYNC_SET, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_GSYNC_SET, dict);
         gf_cmd_log ("volume "GEOREP, " %s command on %s,%s %s  ", operation,
                     master, slave, (ret != 0)? "FAILED" : "SUCCEEDED");
 
@@ -1784,8 +1692,6 @@ out:
                         dict_unref (dict);
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
         }
         return ret;
 }
@@ -1796,21 +1702,12 @@ glusterd_handle_quota (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf1_cli_quota_req               cli_req = {0,};
         dict_t                         *dict = NULL;
-        int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_QUOTA;
         char                            operation[256] = {0, };
         char                           *volname = NULL;
         int32_t                         type = 0;
 
         GF_ASSERT (req);
-
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
 
         if (!gf_xdr_to_cli_quota_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
@@ -1866,7 +1763,7 @@ glusterd_handle_quota (rpcsvc_request_t *req)
                 break;
         }
         gf_cmd_log ("volume quota", " %s command on %s", operation, volname);
-        ret = glusterd_op_begin (req, GD_OP_QUOTA, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_QUOTA, dict);
         gf_cmd_log ("volume quota", " %s command on %s %s", operation,volname,
                     (ret != 0)? "FAILED" : "SUCCEEDED");
 
@@ -1879,8 +1776,6 @@ out:
                         dict_unref (dict);
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
         }
         if (cli_req.volname)
                 free (cli_req.volname); //malloced by xdr
@@ -1894,7 +1789,6 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf1_cli_set_vol_req             cli_req = {0,};
         dict_t                          *dict = NULL;
-        int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_SET_VOLUME;
         char                            *key = NULL;
         char                            *value = NULL;
@@ -1902,15 +1796,6 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_set_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1962,7 +1847,7 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
 
         gf_cmd_log ("volume set", "volume-name:%s: key:%s, value:%s",volname,
                     key, value);
-        ret = glusterd_op_begin (req, GD_OP_SET_VOLUME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_SET_VOLUME, dict);
         gf_cmd_log ("volume set", "volume-name:%s: key:%s, value:%s %s",
                     volname, key, value, (ret == 0)? "SUCCEDED" : "FAILED" );
 out:
@@ -1977,8 +1862,6 @@ out:
                         dict_unref (dict);
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
         }
         return ret;
 }
@@ -2005,20 +1888,9 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
         gf1_cli_remove_brick_rsp        rsp = {0,};
         void                            *cli_rsp = NULL;
         char                            vol_type[256] = {0,};
-        int                             lock_fail = 0;
-        glusterd_op_t                   cli_op = GD_OP_REMOVE_BRICK;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_remove_brick_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -2154,7 +2026,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
         gf_cmd_log ("Volume remove-brick","volname: %s count:%d bricks:%s",
                     cli_req.volname, count, brick_list);
 
-        ret = glusterd_op_begin (req, GD_OP_REMOVE_BRICK, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_REMOVE_BRICK, dict);
         gf_cmd_log ("Volume remove-brick","on volname: %s %s",cli_req.volname,
                     (ret) ? "FAILED" : "SUCCESS");
 
@@ -2173,8 +2045,6 @@ out:
                 glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
                                       gf_xdr_serialize_cli_remove_brick_rsp,
                                       (xdrproc_t)xdr_gf1_cli_remove_brick_rsp);
-                if (!lock_fail)
-                        glusterd_opinfo_unlock();
 
                 ret = 0; //sent error to cli, prevent second reply
 
@@ -2196,20 +2066,10 @@ glusterd_handle_log_filename (rpcsvc_request_t *req)
         int32_t                   ret     = -1;
         gf1_cli_log_filename_req  cli_req = {0,};
         dict_t                   *dict    = NULL;
-        int                       lock_fail = 0;
         glusterd_op_t             cli_op = GD_OP_LOG_FILENAME;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_log_filename_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -2233,7 +2093,7 @@ glusterd_handle_log_filename (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, GD_OP_LOG_FILENAME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_LOG_FILENAME, dict);
 
 out:
         if (ret && dict)
@@ -2242,13 +2102,9 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret) {
+        if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
-
-        }
 
         return ret;
 }
@@ -2266,22 +2122,11 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         char                   *tmp_brick = NULL;
         uint32_t                found = 0;
         glusterd_brickinfo_t   *tmpbrkinfo = NULL;
-        int                     lock_fail = 0;
-        glusterd_op_t           cli_op = GD_OP_LOG_LOCATE;
 
         GF_ASSERT (req);
 
         priv    = THIS->private;
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_log_locate_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -2366,9 +2211,6 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (!lock_fail)
-                (void) glusterd_opinfo_unlock ();
-
         return ret;
 }
 
@@ -2376,20 +2218,12 @@ int
 glusterd_handle_log_level (rpcsvc_request_t *req)
 {
         int32_t                ret       = -1;
-        int                    lock_fail = 0;
         dict_t                *dict      = NULL;
         gf1_cli_log_level_req  cli_req   = {0,};
         glusterd_op_t         cli_op    = GD_OP_LOG_LEVEL;
 
         GF_ASSERT(req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
 
         if (!gf_xdr_to_cli_log_level_req(req->msg[0], &cli_req)) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Failed to decode rpc message");
@@ -2416,7 +2250,7 @@ glusterd_handle_log_level (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, cli_op, dict, _gf_true);
+        ret = glusterd_op_begin (req, cli_op, dict);
 
  out:
         if (ret && dict)
@@ -2425,12 +2259,9 @@ glusterd_handle_log_level (rpcsvc_request_t *req)
         glusterd_friend_sm();
         glusterd_op_sm();
 
-        if (ret) {
+        if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req, NULL,
                                                      "Operation failed");
-                if (!lock_fail)
-                        (void)glusterd_opinfo_unlock ();
-        }
 
         return ret;
 }
@@ -2441,20 +2272,10 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req)
         int32_t                 ret     = -1;
         gf1_cli_log_rotate_req  cli_req = {0,};
         dict_t                 *dict    = NULL;
-        int                     lock_fail = 0;
         glusterd_op_t           cli_op = GD_OP_LOG_ROTATE;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_log_rotate_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -2480,7 +2301,7 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, GD_OP_LOG_ROTATE, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_LOG_ROTATE, dict);
 
 out:
         if (ret && dict)
@@ -2489,12 +2310,9 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret) {
+        if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
-        }
 
         return ret;
 }
@@ -2510,20 +2328,9 @@ glusterd_handle_sync_volume (rpcsvc_request_t *req)
         gf_boolean_t                     free_hostname = _gf_true;
         gf_boolean_t                     free_volname = _gf_true;
         glusterd_volinfo_t               *volinfo = NULL;
-        int                              lock_fail = 0;
-        glusterd_op_t                    cli_op = GD_OP_SYNC_VOLUME;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_sync_volume_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -2589,7 +2396,7 @@ glusterd_handle_sync_volume (rpcsvc_request_t *req)
                 }
         }
 
-        ret = glusterd_op_begin (req, GD_OP_SYNC_VOLUME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_SYNC_VOLUME, dict);
 
 out:
         if (ret) {
@@ -2607,8 +2414,6 @@ out:
                 if (dict)
                         dict_unref (dict);
 
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
 
                 ret = 0; //sent error to cli, prevent second reply
         }
@@ -3203,21 +3008,11 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
         dict_t                          *dict = NULL;
         char                            msg[2048] = {0,};
         gf_boolean_t                    free_volname = _gf_true;
-        int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_PROFILE_VOLUME;
         dict_t                           *tmp_dict = NULL;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_stats_volume_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3257,7 +3052,7 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
 
         gf_cmd_log ("Volume stats", "volume  : %s, op: %d", cli_req.volname,
                     cli_req.op);
-        ret = glusterd_op_begin (req, cli_op, dict, _gf_true);
+        ret = glusterd_op_begin (req, cli_op, dict);
         gf_cmd_log ("Volume stats", " on volume %s, op: %d %s ",
                     cli_req.volname, cli_req.op,
                     ((ret == 0)? " SUCCEDED":" FAILED"));
@@ -3275,13 +3070,9 @@ out:
                 free (cli_req.dict_req.dict_req_val);
         if (free_volname)
                 free (cli_req.volname); // malloced by xdr
-        if (ret) {
+        if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
-
-        }
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -3880,20 +3671,10 @@ glusterd_handle_status_volume (rpcsvc_request_t *req)
         int32_t                         ret     = -1;
         gf1_cli_status_volume_req       cli_req = {0,};
         dict_t                          *dict    = NULL;
-        int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_STATUS_VOLUME;
 
         GF_ASSERT (req);
 
-        ret = glusterd_op_set_cli_op (cli_op);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                        ret);
-                lock_fail = 1;
-                goto out;
-        }
-
-        ret = -1;
         if (!gf_xdr_to_cli_status_volume_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3911,7 +3692,7 @@ glusterd_handle_status_volume (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, GD_OP_STATUS_VOLUME, dict, _gf_true);
+        ret = glusterd_op_begin (req, GD_OP_STATUS_VOLUME, dict);
 
 out:
         if (ret && dict)
@@ -3920,13 +3701,9 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret) {
+        if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
-
-        }
 
         return ret;
 }
@@ -3979,11 +3756,13 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event,
                           void *data)
 {
-        xlator_t                *this = NULL;
-        glusterd_conf_t         *conf = NULL;
-        int                     ret = 0;
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        glusterd_peerctx_t      *peerctx = NULL;
+        xlator_t             *this        = NULL;
+        glusterd_conf_t      *conf        = NULL;
+        int                   ret         = 0;
+        glusterd_peerinfo_t  *peerinfo    = NULL;
+        glusterd_peerctx_t   *peerctx     = NULL;
+        uuid_t                owner       = {0,};
+        uuid_t               *peer_uuid   = NULL;
 
         peerctx = mydata;
         if (!peerctx)
@@ -4012,6 +3791,34 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
                 peerinfo->connected = 0;
 
+                /*
+                  local glusterd (thinks that it) is the owner of the cluster
+                  lock and 'fails' the operation on the first disconnect from
+                  a peer.
+                */
+                glusterd_get_lock_owner (&owner);
+                if (!uuid_compare (conf->uuid, owner)) {
+                        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_START_UNLOCK,
+                                                           NULL);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR, "Unable"
+                                        " to enqueue cluster unlock event");
+                        break;
+                }
+
+                peer_uuid = GF_CALLOC (1, sizeof (*peer_uuid), gf_common_mt_char);
+                if (!peer_uuid) {
+                        ret = -1;
+                        break;
+                }
+
+                uuid_copy (*peer_uuid, peerinfo->uuid);
+                ret = glusterd_op_sm_inject_event (GD_OP_EVENT_LOCAL_UNLOCK_NO_RESP,
+                                                   peer_uuid);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Unable"
+                                " to enque local lock flush event.");
+
                 //default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
                 break;
 
@@ -4022,6 +3829,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 break;
         }
 
+        glusterd_op_sm ();
         return ret;
 }
 

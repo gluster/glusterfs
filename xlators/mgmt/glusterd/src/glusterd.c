@@ -68,7 +68,7 @@ glusterd_opinfo_init ()
 {
         int32_t ret = -1;
 
-        ret = pthread_mutex_init (&opinfo.lock, NULL);
+        opinfo.op = GD_OP_NONE;
 
         return ret;
 }

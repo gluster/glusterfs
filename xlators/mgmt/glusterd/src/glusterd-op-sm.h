@@ -58,6 +58,7 @@ typedef enum glusterd_op_sm_state_ {
         GD_OP_STATE_BRICK_OP_FAILED,
         GD_OP_STATE_BRICK_COMMITTED,
         GD_OP_STATE_BRICK_COMMIT_FAILED,
+        GD_OP_STATE_ACK_DRAIN,
         GD_OP_STATE_MAX,
 } glusterd_op_sm_state_t;
 
@@ -75,6 +76,7 @@ typedef enum glusterd_op_sm_event_type_ {
         GD_OP_EVENT_UNLOCK,
         GD_OP_EVENT_START_UNLOCK,
         GD_OP_EVENT_ALL_ACK,
+        GD_OP_EVENT_LOCAL_UNLOCK_NO_RESP,
         GD_OP_EVENT_MAX
 } glusterd_op_sm_event_type_t;
 
@@ -104,17 +106,12 @@ struct glusterd_op_info_ {
         int32_t                         pending_count;
         int32_t                         brick_pending_count;
         int32_t                         op_count;
-        glusterd_op_t                   op[GD_OP_MAX];
-        glusterd_op_t                   pending_op[GD_OP_MAX];
-        glusterd_op_t                   commit_op[GD_OP_MAX];
+        glusterd_op_t                   op;
         struct list_head                op_peers;
-        void                            *op_ctx[GD_OP_MAX];
+        void                            *op_ctx;
         rpcsvc_request_t                *req;
         int32_t                         op_ret;
         int32_t                         op_errno;
-        pthread_mutex_t                 lock;
-        int32_t                         cli_op;
-        gf_boolean_t                    ctx_free[GD_OP_MAX];
         char                            *op_errstr;
         struct  list_head               pending_bricks;
 };
@@ -186,19 +183,13 @@ int
 glusterd_op_sm ();
 
 int32_t
-glusterd_op_set_ctx (glusterd_op_t op, void *ctx);
+glusterd_op_set_ctx (void *ctx);
 
 int32_t
 glusterd_op_set_op (glusterd_op_t op);
 
-int32_t
-glusterd_op_clear_pending_op (glusterd_op_t op);
-
-int32_t
-glusterd_op_clear_commit_op (glusterd_op_t op);
-
 int
-glusterd_op_build_payload (glusterd_op_t op, dict_t **req);
+glusterd_op_build_payload (dict_t **req);
 
 int32_t
 glusterd_op_stage_validate (glusterd_op_t op, dict_t *req, char **op_errstr,
@@ -209,13 +200,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *req, char **op_errstr,
                             dict_t* dict);
 
 void *
-glusterd_op_get_ctx (glusterd_op_t op);
+glusterd_op_get_ctx ();
 
 int32_t
 glusterd_op_set_req (rpcsvc_request_t *req);
-
-int32_t
-glusterd_op_set_cli_op (glusterd_op_t op);
 
 int32_t
 glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
@@ -225,28 +213,10 @@ int32_t
 glusterd_op_get_op ();
 
 int32_t
-glusterd_op_clear_pending_op (glusterd_op_t op);
+glusterd_op_clear_op ();
 
 int32_t
-glusterd_op_clear_commit_op (glusterd_op_t op);
-
-int32_t
-glusterd_op_clear_op (glusterd_op_t op);
-
-int32_t
-glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free);
-
-int32_t
-glusterd_opinfo_unlock();
-
-int32_t
-glusterd_op_set_ctx_free (glusterd_op_t op, gf_boolean_t ctx_free);
-
-int32_t
-glusterd_op_clear_ctx_free (glusterd_op_t op);
-
-gf_boolean_t
-glusterd_op_get_ctx_free (glusterd_op_t op);
+glusterd_op_free_ctx (glusterd_op_t op, void *ctx);
 
 int
 glusterd_check_option_exists(char *optstring, char **completion);
@@ -278,9 +248,9 @@ glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
                            char **op_errstr);
 void glusterd_op_brick_disconnect (void *data);
 int32_t
-glusterd_op_init_ctx (glusterd_op_t op);
+glusterd_op_init_ctx ();
 int32_t
-glusterd_op_fini_ctx (glusterd_op_t op);
+glusterd_op_fini_ctx ();
 int32_t
 glusterd_volume_stats_read_perf (char *brick_path, int32_t blk_size,
                 int32_t blk_count, double *throughput, double *time);
