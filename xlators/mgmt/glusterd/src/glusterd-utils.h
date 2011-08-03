@@ -54,8 +54,10 @@ typedef struct glusterd_voldict_ctx_ {
 typedef int (*glusterd_condition_func) (glusterd_volinfo_t *volinfo,
                                         glusterd_brickinfo_t *brickinfo,
                                         void *ctx);
-
 typedef struct glusterd_lock_ glusterd_lock_t;
+
+int32_t
+glusterd_get_lock_owner (uuid_t *cur_owner);
 
 int32_t
 glusterd_lock (uuid_t new_owner);

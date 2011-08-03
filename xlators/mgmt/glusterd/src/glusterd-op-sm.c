@@ -76,6 +76,7 @@ static char *glusterd_op_sm_state_names[] = {
         "Brick op failed",
         "Brick op Committed",
         "Brick op Commit failed",
+        "Ack drain",
         "Invalid",
 };
 
@@ -93,6 +94,7 @@ static char *glusterd_op_sm_event_names[] = {
         "GD_OP_EVENT_UNLOCK",
         "GD_OP_EVENT_START_UNLOCK",
         "GD_OP_EVENT_ALL_ACK",
+        "GD_OP_EVENT_LOCAL_UNLOCK_NO_RESP",
         "GD_OP_EVENT_INVALID"
 };
 
@@ -1737,7 +1739,7 @@ glusterd_op_stage_remove_brick (dict_t *dict)
         }
 
         if (glusterd_is_defrag_on(volinfo)) {
-                ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 errstr = gf_strdup("Rebalance is in progress. Please retry"
                                     " after completion");
                 if (!errstr) {
@@ -1764,7 +1766,7 @@ glusterd_op_stage_remove_brick (dict_t *dict)
         }
 
         if (volinfo->brick_count == brick_count) {
-                ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 if (!ctx) {
                         gf_log ("", GF_LOG_ERROR,
                                 "Operation Context is not present");
@@ -3854,7 +3856,7 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
         int             ret = 0;
         gf_boolean_t    origin = _gf_false;
 
-        ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+        ctx = glusterd_op_get_ctx ();
         if (!ctx) {
                 gf_log ("", GF_LOG_ERROR,
                         "Operation Context is not present");
@@ -3933,7 +3935,7 @@ rb_update_srcbrick_port (glusterd_brickinfo_t *src_brickinfo, dict_t *rsp_dict,
 
         this = THIS;
 
-        ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+        ctx = glusterd_op_get_ctx ();
         if (ctx) {
                 dict_ret = dict_get_int32 (req_dict, "src-brick-port", &src_port);
                 if (src_port)
@@ -3963,7 +3965,7 @@ rb_update_srcbrick_port (glusterd_brickinfo_t *src_brickinfo, dict_t *rsp_dict,
                         }
                 }
 
-                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 if (ctx) {
                         ret = dict_set_int32 (ctx, "src-brick-port", src_brickinfo->port);
                         if (ret) {
@@ -3989,7 +3991,7 @@ rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
         int     dict_ret      = 0;
         int     dst_port      = 0;
 
-        ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+        ctx = glusterd_op_get_ctx ();
         if (ctx) {
                 dict_ret = dict_get_int32 (req_dict, "dst-brick-port", &dst_port);
                 if (dst_port)
@@ -4011,7 +4013,7 @@ rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
                         }
                 }
 
-                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 if (ctx) {
                         ret = dict_set_int32 (ctx, "dst-brick-port",
                                               dst_brickinfo->port);
@@ -4166,7 +4168,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         case GF_REPLACE_OP_COMMIT:
         case GF_REPLACE_OP_COMMIT_FORCE:
         {
-                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 if (ctx) {
                         ret = rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
                         if (ret) {
@@ -4236,7 +4238,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         {
                 gf_log ("", GF_LOG_DEBUG,
                         "Received pause - doing nothing");
-                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 if (ctx) {
                         ret = rb_do_operation_pause (volinfo, src_brickinfo,
                                                      dst_brickinfo);
@@ -4254,7 +4256,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         case GF_REPLACE_OP_ABORT:
         {
 
-                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 if (ctx) {
                         ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
                         if (ret) {
@@ -4290,7 +4292,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         {
                 gf_log ("", GF_LOG_DEBUG,
                         "received status - doing nothing");
-                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                ctx = glusterd_op_get_ctx ();
                 if (ctx) {
                         if (glusterd_is_rb_paused (volinfo)) {
                                 ret = dict_set_str (ctx, "status-reply",
@@ -4923,7 +4925,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret < 0)
                 goto out;
 
-        ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
+        ctx = glusterd_op_get_ctx ();
         resp_dict = ctx ? ctx : rsp_dict;
         GF_ASSERT (resp_dict);
 
@@ -5279,7 +5281,7 @@ glusterd_quota_get_limit_usages (glusterd_conf_t *priv,
         char    cmd_str [1024]  = {0, };
         char   *ret_str         = NULL;
 
-        ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
+        ctx = glusterd_op_get_ctx ();
         if (ctx == NULL)
                 return 0;
 
@@ -5645,7 +5647,7 @@ create_vol:
         ret = 0;
 
 out:
-        ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
+        ctx = glusterd_op_get_ctx ();
         if (ctx && start_crawl == _gf_true)
                 glusterd_quota_initiate_fs_crawl (priv, volname);
 
@@ -6642,7 +6644,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         if (!rsp_dict) {
                 //this should happen only on source
                 ret = 0;
-                rsp_dict = glusterd_op_get_ctx (GD_OP_STATUS_VOLUME);
+                rsp_dict = glusterd_op_get_ctx ();
         }
 
         if (volname) {
@@ -6767,11 +6769,32 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
 }
 
 static int
+glusterd_op_ac_ack_drain (glusterd_op_sm_event_t *event, void *ctx)
+{
+        int ret = 0;
+
+        if (opinfo.pending_count > 0)
+                opinfo.pending_count--;
+
+        if (!opinfo.pending_count)
+                ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACK, NULL);
+
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
+
+static int
+glusterd_op_ac_send_unlock_drain (glusterd_op_sm_event_t *event, void *ctx)
+{
+        return glusterd_op_ac_ack_drain (event, ctx);
+}
+
+static int
 glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                      ret = 0;
         glusterd_op_lock_ctx_t   *lock_ctx = NULL;
-        int32_t                  status = 0;
+        int32_t                  ret = 0;
 
 
         GF_ASSERT (event);
@@ -6779,13 +6802,11 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
 
         lock_ctx = (glusterd_op_lock_ctx_t *)ctx;
 
-        status = glusterd_lock (lock_ctx->uuid);
+        ret = glusterd_lock (lock_ctx->uuid);
 
-        gf_log ("", GF_LOG_DEBUG, "Lock Returned %d", status);
+        gf_log ("", GF_LOG_DEBUG, "Lock Returned %d", ret);
 
-        ret = glusterd_op_lock_send_resp (lock_ctx->req, status);
-
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        glusterd_op_lock_send_resp (lock_ctx->req, ret);
 
         return ret;
 }
@@ -6805,9 +6826,25 @@ glusterd_op_ac_unlock (glusterd_op_sm_event_t *event, void *ctx)
 
         gf_log ("", GF_LOG_DEBUG, "Unlock Returned %d", ret);
 
-        ret = glusterd_op_unlock_send_resp (lock_ctx->req, ret);
+        glusterd_op_unlock_send_resp (lock_ctx->req, ret);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+static int
+glusterd_op_ac_local_unlock (glusterd_op_sm_event_t *event, void *ctx)
+{
+        int              ret          = 0;
+        uuid_t          *originator   = NULL;
+
+        GF_ASSERT (event);
+        GF_ASSERT (ctx);
+
+        originator = (uuid_t *) ctx;
+
+        ret = glusterd_unlock (*originator);
+
+        gf_log ("", GF_LOG_DEBUG, "Unlock Returned %d", ret);
 
         return ret;
 }
@@ -6834,21 +6871,21 @@ out:
 }
 
 int
-glusterd_op_build_payload (glusterd_op_t op, dict_t **req)
+glusterd_op_build_payload (dict_t **req)
 {
         int                     ret = -1;
         void                    *ctx = NULL;
         dict_t                  *req_dict = NULL;
+        glusterd_op_t           op = GD_OP_NONE;
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
         GF_ASSERT (req);
 
         req_dict = dict_new ();
         if (!req_dict)
                 goto out;
 
-        ctx = (void*)glusterd_op_get_ctx (op);
+        op  = glusterd_op_get_op ();
+        ctx = (void*)glusterd_op_get_ctx ();
         if (!ctx) {
                 gf_log ("", GF_LOG_ERROR, "Null Context for "
                         "op %d", op);
@@ -6920,7 +6957,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_peerinfo_t     *peerinfo = NULL;
         dict_t                  *dict = NULL;
         char                    *op_errstr  = NULL;
-        int                      i = 0;
+        glusterd_op_t           op = GD_OP_NONE;
         uint32_t                pending_count = 0;
 
         this = THIS;
@@ -6928,27 +6965,14 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
-                if (opinfo.pending_op[i])
-                        break;
-        }
+        op = glusterd_op_get_op ();
 
-        if (GD_OP_MAX == i) {
-                //No pending ops, inject stage_acc
-                ret = glusterd_op_sm_inject_event
-                        (GD_OP_EVENT_STAGE_ACC, NULL);
-
-                return ret;
-        }
-
-        glusterd_op_clear_pending_op (i);
-
-        ret = glusterd_op_build_payload (i, &dict);
+        ret = glusterd_op_build_payload (&dict);
         if (ret)
                 goto out;
 
         /* rsp_dict NULL from source */
-        ret = glusterd_op_stage_validate (i, dict, &op_errstr, NULL);
+        ret = glusterd_op_stage_validate (op, dict, &op_errstr, NULL);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Staging failed");
                 opinfo.op_errstr = op_errstr;
@@ -7008,6 +7032,7 @@ glusterd_op_start_rb_timer (dict_t *dict)
         struct timeval  timeout = {0, };
         glusterd_conf_t *priv = NULL;
         int32_t         ret = -1;
+        dict_t          *rb_ctx = NULL;
 
         GF_ASSERT (dict);
         priv = THIS->private;
@@ -7028,9 +7053,16 @@ glusterd_op_start_rb_timer (dict_t *dict)
         timeout.tv_usec = 0;
 
 
+        rb_ctx = dict_copy (dict, rb_ctx);
+        if (!rb_ctx) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't copy "
+                        "replace brick context. Can't start replace brick");
+                ret = -1;
+                goto out;
+        }
         priv->timer = gf_timer_call_after (THIS->ctx, timeout,
                                            glusterd_do_replace_brick,
-                                           (void *) dict);
+                                           (void *) rb_ctx);
 
         ret = 0;
 
@@ -7049,32 +7081,21 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         dict_t                  *op_dict = NULL;
         glusterd_peerinfo_t     *peerinfo = NULL;
         char                    *op_errstr  = NULL;
-        int                      i = 0;
-        uint32_t                 pending_count = 0;
+        glusterd_op_t           op = GD_OP_NONE;
+        uint32_t                pending_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
 
-        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
-                if (opinfo.commit_op[i])
-                        break;
-        }
-
-        if (GD_OP_MAX == i) {
-                //No pending ops, return
-                return 0;
-        }
-
-        glusterd_op_clear_commit_op (i);
-
-        ret = glusterd_op_build_payload (i, &dict);
+        op = glusterd_op_get_op ();
+        ret = glusterd_op_build_payload (&dict);
 
         if (ret)
                 goto out;
 
-        ret = glusterd_op_commit_perform (i, dict, &op_errstr, NULL); //rsp_dict invalid for source
+        ret = glusterd_op_commit_perform (op, dict, &op_errstr, NULL); //rsp_dict invalid for source
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed");
                 opinfo.op_errstr = op_errstr;
@@ -7117,14 +7138,15 @@ out:
         }
 
         if (!opinfo.pending_count) {
-                op_dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-                if (!op_dict) {
-                        ret = glusterd_op_sm_inject_all_acc ();
-                        goto err;
-                }
+                if (op == GD_OP_REPLACE_BRICK) {
+                        op_dict = glusterd_op_get_ctx ();
+                        ret = glusterd_op_start_rb_timer (op_dict);
 
-                op_dict = dict_ref (op_dict);
-                ret = glusterd_op_start_rb_timer (op_dict);
+                } else {
+
+                        ret = glusterd_op_sm_inject_all_acc ();
+                }
+                goto err;
         }
 
 err:
@@ -7399,8 +7421,8 @@ out:
         else
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
 
-//        if (dict)
-//                dict_unref (dict);
+        if (dict)
+                dict_unref (dict);
 
         glusterd_op_sm ();
 }
@@ -7413,8 +7435,10 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_conf_t        *priv              = NULL;
         dict_t                 *dict              = NULL;
         int                     ret               = 0;
-        gf_boolean_t            commit_ack_inject = _gf_false;
+        gf_boolean_t            commit_ack_inject = _gf_true;
+        glusterd_op_t           op                = GD_OP_NONE;
 
+        op = glusterd_op_get_op ();
         priv = THIS->private;
         GF_ASSERT (event);
 
@@ -7424,16 +7448,26 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count > 0)
                 goto out;
 
-        dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-        if (dict) {
-                ret = glusterd_op_start_rb_timer (dict);
-                if (ret)
+        if (op == GD_OP_REPLACE_BRICK) {
+                dict = glusterd_op_get_ctx ();
+                if (!dict) {
+                        gf_log (THIS->name, GF_LOG_CRITICAL, "Operation "
+                                "context is not present.");
+                        ret = -1;
                         goto out;
+                }
+
+                ret = glusterd_op_start_rb_timer (dict);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR, "Couldn't start "
+                                "replace-brick operation.");
+                        goto out;
+                }
+
                 commit_ack_inject = _gf_false;
-	        goto out;
+                goto out;
         }
 
-	commit_ack_inject = _gf_true;
 out:
         if (commit_ack_inject) {
                 if (ret)
@@ -7466,7 +7500,6 @@ out:
         return ret;
 }
 
-
 int32_t
 glusterd_op_clear_errstr() {
         opinfo.op_errstr = NULL;
@@ -7474,26 +7507,20 @@ glusterd_op_clear_errstr() {
 }
 
 int32_t
-glusterd_op_set_ctx (glusterd_op_t op, void *ctx)
+glusterd_op_set_ctx (void *ctx)
 {
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        opinfo.op_ctx[op] = ctx;
+        opinfo.op_ctx = ctx;
 
         return 0;
 
 }
 
 int32_t
-glusterd_op_reset_ctx (glusterd_op_t op)
+glusterd_op_reset_ctx ()
 {
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        glusterd_op_set_ctx (op, NULL);
+        glusterd_op_set_ctx (NULL);
 
         return 0;
 }
@@ -7506,53 +7533,39 @@ glusterd_op_txn_complete ()
         int32_t                 op = -1;
         int32_t                 op_ret = 0;
         int32_t                 op_errno = 0;
-        int32_t                 cli_op = 0;
         rpcsvc_request_t        *req = NULL;
         void                    *ctx = NULL;
-        gf_boolean_t            ctx_free = _gf_false;
         char                    *op_errstr = NULL;
 
 
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        ret = glusterd_unlock (priv->uuid);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_CRITICAL,
-                        "Unable to clear local lock, ret: %d", ret);
-                goto out;
-        }
-
-        gf_log ("glusterd", GF_LOG_INFO, "Cleared local lock");
-
+        op  = glusterd_op_get_op ();
+        ctx = glusterd_op_get_ctx ();
         op_ret = opinfo.op_ret;
         op_errno = opinfo.op_errno;
-        cli_op = opinfo.cli_op;
         req = opinfo.req;
         if (opinfo.op_errstr)
                 op_errstr = opinfo.op_errstr;
 
-
         opinfo.op_ret = 0;
         opinfo.op_errno = 0;
+        glusterd_op_clear_op ();
+        glusterd_op_reset_ctx ();
+        glusterd_op_clear_errstr ();
 
-        op = glusterd_op_get_op ();
+        ret = glusterd_unlock (priv->uuid);
 
-        if (op != -1) {
-                glusterd_op_clear_pending_op (op);
-                glusterd_op_clear_commit_op (op);
-                glusterd_op_clear_op (op);
-                ctx = glusterd_op_get_ctx (op);
-                ctx_free = glusterd_op_get_ctx_free (op);
-                glusterd_op_reset_ctx (op);
-                glusterd_op_clear_ctx_free (op);
-                glusterd_op_clear_errstr ();
+        /* unlock cant/shouldnt fail here!! */
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to clear local lock, ret: %d", ret);
+        } else {
+                gf_log ("glusterd", GF_LOG_INFO, "Cleared local lock");
         }
 
-out:
-        pthread_mutex_unlock (&opinfo.lock);
-        ret = glusterd_op_send_cli_response (cli_op, op_ret,
+        ret = glusterd_op_send_cli_response (op, op_ret,
                                              op_errno, req, ctx, op_errstr);
 
         if (ret) {
@@ -7562,10 +7575,10 @@ out:
                 ret = 0;
         }
 
-        if (ctx_free && ctx && (op != -1))
-                glusterd_op_free_ctx (op, ctx, ctx_free);
+        glusterd_op_free_ctx (op, ctx);
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
+
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -7662,31 +7675,32 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 }
 
 static gf_boolean_t
-glusterd_need_brick_op (glusterd_op_t op)
+glusterd_need_brick_op ()
 {
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
+        gf_boolean_t ret        = _gf_false;
+        glusterd_op_t op        = GD_OP_NONE;
 
+        op = glusterd_op_get_op ();
         switch (op) {
         case GD_OP_PROFILE_VOLUME:
-                return _gf_true;
+                ret = _gf_true;
+                break;
         default:
-                return _gf_false;
+                ret = _gf_false;
         }
-        return _gf_false;
+
+        return ret;
 }
 
 static dict_t*
-glusterd_op_init_commit_rsp_dict (glusterd_op_t op)
+glusterd_op_init_commit_rsp_dict ()
 {
         dict_t                  *rsp_dict = NULL;
         dict_t                  *op_ctx   = NULL;
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
 
-        if (glusterd_need_brick_op (op)) {
-                op_ctx = glusterd_op_get_ctx (op);
+        if (glusterd_need_brick_op ()) {
+                op_ctx = glusterd_op_get_ctx ();
                 GF_ASSERT (op_ctx);
                 rsp_dict = dict_ref (op_ctx);
         } else {
@@ -7712,7 +7726,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         dict = req_ctx->dict;
 
-        rsp_dict = glusterd_op_init_commit_rsp_dict (req_ctx->op);
+        rsp_dict = glusterd_op_init_commit_rsp_dict ();
         if (NULL == rsp_dict)
                 return -1;
         status = glusterd_op_commit_perform (req_ctx->op, dict, &op_errstr,
@@ -7725,7 +7739,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         ret = glusterd_op_commit_send_resp (req_ctx->req, req_ctx->op,
                                             status, op_errstr, rsp_dict);
 
-        glusterd_op_fini_ctx (req_ctx->op);
+        glusterd_op_fini_ctx ();
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 
@@ -7747,13 +7761,13 @@ glusterd_op_ac_send_commit_failed (glusterd_op_sm_event_t *event, void *ctx)
 
         req_ctx = ctx;
 
-        op_ctx = glusterd_op_get_ctx (req_ctx->op);
+        op_ctx = glusterd_op_get_ctx ();
 
         ret = glusterd_op_commit_send_resp (req_ctx->req, req_ctx->op,
                                             opinfo.op_ret, opinfo.op_errstr,
                                             op_ctx);
 
-        glusterd_op_fini_ctx (req_ctx->op);
+        glusterd_op_fini_ctx ();
         if (opinfo.op_errstr && (strcmp (opinfo.op_errstr, ""))) {
                 GF_FREE (opinfo.op_errstr);
                 opinfo.op_errstr = NULL;
@@ -8295,7 +8309,7 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                 op = glusterd_op_get_op ();
                 req_ctx->op = op;
                 uuid_copy (req_ctx->uuid, priv->uuid);
-                ret = glusterd_op_build_payload (op, &req_ctx->dict);
+                ret = glusterd_op_build_payload (&req_ctx->dict);
                 if (ret)//TODO:what to do??
                         goto out;
         }
@@ -8353,7 +8367,7 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.brick_pending_count > 0)
                 opinfo.brick_pending_count--;
         op = req_ctx->op;
-        op_ctx = glusterd_op_get_ctx (op);
+        op_ctx = glusterd_op_get_ctx ();
 
         glusterd_handle_brick_rsp (brickinfo, op, ev_ctx->rsp_dict,
                                    op_ctx, &op_errstr);
@@ -8417,30 +8431,32 @@ glusterd_op_sm_t glusterd_op_state_default [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_lock_sent [] = {
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_rcvd_lock_acc}, //EVENT_RCVD_ACC
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_send_stage_op}, //EVENT_ALL_ACC
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_RCVD_RJT
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_send_unlock_drain}, //EVENT_RCVD_RJT
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_locked [] = {
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_LOCKED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8451,13 +8467,14 @@ glusterd_op_sm_t glusterd_op_state_locked [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_local_unlock}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_stage_op_sent [] = {
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_rcvd_stage_op_acc}, //EVENT_RCVD_ACC
         {GD_OP_STATE_BRICK_OP_SENT,  glusterd_op_ac_send_brick_op}, //EVENT_ALL_ACC
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_send_brick_op}, //EVENT_STAGE_ACC
@@ -8466,15 +8483,16 @@ glusterd_op_sm_t glusterd_op_state_stage_op_sent [] = {
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_stage_op_failed [] = {
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_stage_op_failed}, //EVENT_RCVD_ACC
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8483,15 +8501,16 @@ glusterd_op_sm_t glusterd_op_state_stage_op_failed [] = {
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_ALL_ACK
+        {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_STAGE_OP_FAILED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_staged [] = {
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_STAGED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_STAGED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8502,13 +8521,14 @@ glusterd_op_sm_t glusterd_op_state_staged [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_local_unlock}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_brick_op_sent [] = {
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_rcvd_brick_op_acc}, //EVENT_RCVD_ACC
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8517,15 +8537,16 @@ glusterd_op_sm_t glusterd_op_state_brick_op_sent [] = {
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_BRICK_OP
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_send_commit_op}, //EVENT_ALL_ACK
+        {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_brick_op_failed [] = {
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_brick_op_failed}, //EVENT_RCVD_ACC
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8534,15 +8555,16 @@ glusterd_op_sm_t glusterd_op_state_brick_op_failed [] = {
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_BRICK_OP
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_ALL_ACK
+        {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_BRICK_OP_FAILED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_brick_committed [] = {
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_rcvd_brick_op_acc}, //EVENT_RCVD_ACC
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8553,13 +8575,14 @@ glusterd_op_sm_t glusterd_op_state_brick_committed [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_COMMITED, glusterd_op_ac_commit_op}, //EVENT_ALL_ACK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_local_unlock}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_brick_commit_failed [] = {
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_brick_op_failed}, //EVENT_RCVD_ACC
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8570,13 +8593,14 @@ glusterd_op_sm_t glusterd_op_state_brick_commit_failed [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_send_commit_failed}, //EVENT_ALL_ACK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_local_unlock}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_BRICK_COMMIT_FAILED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_commit_op_failed [] = {
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_commit_op_failed}, //EVENT_RCVD_ACC
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8585,15 +8609,16 @@ glusterd_op_sm_t glusterd_op_state_commit_op_failed [] = {
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_ALL_ACK
+        {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_COMMIT_OP_FAILED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_commit_op_sent [] = {
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_rcvd_commit_op_acc}, //EVENT_RCVD_ACC
         {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_send_unlock}, //EVENT_ALL_ACC
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8602,15 +8627,16 @@ glusterd_op_sm_t glusterd_op_state_commit_op_sent [] = {
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT,        glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_committed [] = {
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_COMMITED, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_ALL_ACC
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
@@ -8621,26 +8647,45 @@ glusterd_op_sm_t glusterd_op_state_committed [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_local_unlock}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_unlock_sent [] = {
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_LOCK
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_rcvd_unlock_acc}, //EVENT_RCVD_ACC
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlocked_all}, //EVENT_ALL_ACC
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_RCVD_RJT
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_rcvd_unlock_acc}, //EVENT_RCVD_RJT
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
-        {GD_OP_STATE_DEFAULT,     glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
+glusterd_op_sm_t glusterd_op_state_ack_drain [] = {
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_NONE
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none},//EVENT_START_LOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_lock}, //EVENT_LOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_send_unlock_drain}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_send_unlock_drain}, //EVENT_RCVD_RJT
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_STAGE_OP
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_COMMIT_OP
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_ALL_ACK
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_LOCAL_UNLOCK_NO_RESP
+        {GD_OP_STATE_ACK_DRAIN, glusterd_op_ac_none}, //EVENT_MAX
+};
 
 glusterd_op_sm_t *glusterd_op_state_table [] = {
         glusterd_op_state_default,
@@ -8656,7 +8701,8 @@ glusterd_op_sm_t *glusterd_op_state_table [] = {
         glusterd_op_state_brick_op_sent,
         glusterd_op_state_brick_op_failed,
         glusterd_op_state_brick_committed,
-        glusterd_op_state_brick_commit_failed
+        glusterd_op_state_brick_commit_failed,
+        glusterd_op_state_ack_drain
 };
 
 int
@@ -8717,6 +8763,14 @@ glusterd_destroy_req_ctx (glusterd_req_ctx_t *ctx)
 }
 
 void
+glusterd_destroy_local_unlock_ctx (uuid_t *ctx)
+{
+        if (!ctx)
+                return;
+        GF_FREE (ctx);
+}
+
+void
 glusterd_destroy_op_event_ctx (glusterd_op_sm_event_t *event)
 {
         if (!event)
@@ -8730,6 +8784,9 @@ glusterd_destroy_op_event_ctx (glusterd_op_sm_event_t *event)
         case GD_OP_EVENT_STAGE_OP:
         case GD_OP_EVENT_ALL_ACK:
                 glusterd_destroy_req_ctx (event->ctx);
+                break;
+        case GD_OP_EVENT_LOCAL_UNLOCK_NO_RESP:
+                glusterd_destroy_local_unlock_ctx (event->ctx);
                 break;
         default:
                 break;
@@ -8806,9 +8863,7 @@ glusterd_op_set_op (glusterd_op_t op)
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
 
-        opinfo.op[op] = 1;
-        opinfo.pending_op[op] = 1;
-        opinfo.commit_op[op] = 1;
+        opinfo.op = op;
 
         return 0;
 
@@ -8818,40 +8873,8 @@ int32_t
 glusterd_op_get_op ()
 {
 
-        int     i = 0;
-        int32_t ret = 0;
+        return opinfo.op;
 
-        for ( i = 0; i < GD_OP_MAX; i++) {
-                if (opinfo.op[i])
-                        break;
-        }
-
-        if ( i == GD_OP_MAX)
-                ret = -1;
-        else
-                ret = i;
-
-        return ret;
-
-}
-
-
-int32_t
-glusterd_op_set_cli_op (glusterd_op_t op)
-{
-
-        int32_t         ret = 0;
-
-        ret = pthread_mutex_trylock (&opinfo.lock);
-
-        if (ret)
-                goto out;
-
-        opinfo.cli_op = op;
-
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
 }
 
 int32_t
@@ -8864,51 +8887,24 @@ glusterd_op_set_req (rpcsvc_request_t *req)
 }
 
 int32_t
-glusterd_op_clear_pending_op (glusterd_op_t op)
-{
-
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        opinfo.pending_op[op] = 0;
-
-        return 0;
-
-}
-
-int32_t
-glusterd_op_clear_commit_op (glusterd_op_t op)
-{
-
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        opinfo.commit_op[op] = 0;
-
-        return 0;
-
-}
-
-int32_t
 glusterd_op_clear_op (glusterd_op_t op)
 {
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        opinfo.op[op] = 0;
+        opinfo.op = GD_OP_NONE;
 
         return 0;
 
 }
 
 int32_t
-glusterd_op_init_ctx (glusterd_op_t op)
+glusterd_op_init_ctx ()
 {
         int     ret = 0;
         dict_t *dict = NULL;
+        glusterd_op_t op = GD_OP_NONE;
 
-        if (_gf_false == glusterd_need_brick_op (op)) {
+        op = glusterd_op_get_op ();
+        if (_gf_false == glusterd_need_brick_op ()) {
                 gf_log ("", GF_LOG_DEBUG, "Received op: %d, returning", op);
                 goto out;
         }
@@ -8917,10 +8913,7 @@ glusterd_op_init_ctx (glusterd_op_t op)
                 ret = -1;
                 goto out;
         }
-        ret = glusterd_op_set_ctx (op, dict);
-        if (ret)
-                goto out;
-        ret = glusterd_op_set_ctx_free (op, _gf_true);
+        ret = glusterd_op_set_ctx (dict);
         if (ret)
                 goto out;
 out:
@@ -8931,29 +8924,25 @@ out:
 
 
 int32_t
-glusterd_op_fini_ctx (glusterd_op_t op)
+glusterd_op_fini_ctx ()
 {
         dict_t *dict = NULL;
 
-        if (glusterd_op_get_ctx_free (op)) {
-                dict = glusterd_op_get_ctx (op);
-                if (dict)
-                        dict_unref (dict);
-        }
-        glusterd_op_reset_ctx (op);
+        dict = glusterd_op_get_ctx ();
+        if (dict)
+                dict_unref (dict);
+
+        glusterd_op_reset_ctx ();
         return 0;
 }
 
 
 
 int32_t
-glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
+glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
 {
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        if (ctx && ctx_free) {
+        if (ctx) {
                 switch (op) {
                 case GD_OP_CREATE_VOLUME:
                 case GD_OP_STOP_VOLUME:
@@ -8981,53 +8970,17 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
                         break;
                 }
         }
+
+        glusterd_op_reset_ctx ();
         return 0;
 
 }
 
 void *
-glusterd_op_get_ctx (glusterd_op_t op)
-{
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        return opinfo.op_ctx[op];
-
-}
-
-int32_t
-glusterd_op_set_ctx_free (glusterd_op_t op, gf_boolean_t ctx_free)
+glusterd_op_get_ctx ()
 {
 
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        opinfo.ctx_free[op] = ctx_free;
-
-        return 0;
-
-}
-
-int32_t
-glusterd_op_clear_ctx_free (glusterd_op_t op)
-{
-
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        opinfo.ctx_free[op] = _gf_false;
-
-        return 0;
-
-}
-
-gf_boolean_t
-glusterd_op_get_ctx_free (glusterd_op_t op)
-{
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-
-        return opinfo.ctx_free[op];
+        return opinfo.op_ctx;
 
 }
 
@@ -9039,10 +8992,6 @@ glusterd_op_sm_init ()
         return 0;
 }
 
-int32_t
-glusterd_opinfo_unlock(){
-        return (pthread_mutex_unlock(&opinfo.lock));
-}
 int32_t
 glusterd_volume_stats_write_perf (char *brick_path, int32_t blk_size,
                 int32_t blk_count, double *throughput, double *time)

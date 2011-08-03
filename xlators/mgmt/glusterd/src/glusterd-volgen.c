@@ -1769,7 +1769,7 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
         }
 #endif
 
-        ctx = glusterd_op_get_ctx (GD_OP_SET_VOLUME);
+        ctx = glusterd_op_get_ctx ();
 
         if (!ctx) {
                 /*extract the vol-set-help output only in host glusterd*/

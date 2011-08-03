@@ -776,6 +776,7 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+out:
         op_ret = rsp.op_ret;
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -803,7 +804,6 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-out:
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -835,6 +835,7 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+out:
         op_ret = rsp.op_ret;
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -862,7 +863,6 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-out:
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -972,7 +972,7 @@ glusterd_gsync_use_rsp_dict (dict_t *rsp_dict, char *op_errstr)
         dict_t             *ctx = NULL;
         int                ret = 0;
 
-        ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
+        ctx = glusterd_op_get_ctx ();
         if (!ctx) {
                 gf_log ("", GF_LOG_ERROR,
                         "Operation Context is not present");
@@ -1008,7 +1008,7 @@ glusterd_rb_use_rsp_dict (dict_t *rsp_dict)
         dict_t  *ctx      = NULL;
 
 
-        ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+        ctx = glusterd_op_get_ctx ();
         if (!ctx) {
                 gf_log ("", GF_LOG_ERROR,
                         "Operation Context is not present");
@@ -1105,6 +1105,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
+out:
         op_ret = rsp.op_ret;
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -1154,7 +1155,6 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-out:
         if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
                 free (rsp.op_errstr); //malloced by xdr
         if (dict) {
@@ -1227,7 +1227,7 @@ glusterd_profile_volume_use_rsp_dict (dict_t *rsp_dict)
 
         op = glusterd_op_get_op ();
         GF_ASSERT (GD_OP_PROFILE_VOLUME == op);
-        ctx_dict = glusterd_op_get_ctx (op);
+        ctx_dict = glusterd_op_get_ctx ();
 
         ret = dict_get_int32 (ctx_dict, "count", &count);
         rsp_ctx.count = count;

@@ -68,7 +68,7 @@
 char    *glusterd_sock_dir = "/tmp";
 static glusterd_lock_t lock;
 
-static int32_t
+int32_t
 glusterd_get_lock_owner (uuid_t *uuid)
 {
         uuid_copy (*uuid, lock.owner) ;
