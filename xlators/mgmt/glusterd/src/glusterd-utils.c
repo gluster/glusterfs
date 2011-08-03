@@ -2623,8 +2623,8 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         GF_ASSERT (priv);
 
         list_for_each_entry (entry, &priv->peers, uuid_list) {
-                if (!strncmp (entry->hostname, hoststr,
-                              1024)) {
+                if (!strncasecmp (entry->hostname, hoststr,
+                                  1024)) {
 
                         gf_log ("glusterd", GF_LOG_DEBUG,
                                  "Friend %s found.. state: %d", hoststr,
@@ -2662,8 +2662,8 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                         goto out;
 
                 list_for_each_entry (entry, &priv->peers, uuid_list) {
-                        if (!strncmp (entry->hostname, host,
-                            1024) || !strncmp (entry->hostname,hname,
+                        if (!strncasecmp (entry->hostname, host,
+                            1024) || !strncasecmp (entry->hostname,hname,
                             1024)) {
                                 gf_log ("glusterd", GF_LOG_DEBUG,
                                         "Friend %s found.. state: %d",
