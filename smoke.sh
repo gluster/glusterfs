@@ -23,7 +23,7 @@ function start_fs()
     chmod 0755 $P/export;
 
     glusterd;
-    gluster volume create $V replica 2 $H:$P/export/export{1,2,3,4};
+    gluster --mode=script volume create $V replica 2 $H:$P/export/export{1,2,3,4};
     gluster volume start $V;
     glusterfs -s $H --volfile-id $V $M;
 #    mount -t glusterfs $H:/$V $M;
