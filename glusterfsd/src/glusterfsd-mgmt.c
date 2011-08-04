@@ -830,7 +830,7 @@ glusterfs_listener_init (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
-        rpc = rpcsvc_init (ctx, options);
+        rpc = rpcsvc_init (THIS, ctx, options);
         if (rpc == NULL) {
                 goto out;
         }

@@ -1786,7 +1786,7 @@ out:
 /* The global RPC service initializer.
  */
 rpcsvc_t *
-rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
+rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options)
 {
         rpcsvc_t          *svc              = NULL;
         int                ret              = -1, poolcount = 0;
@@ -1830,6 +1830,7 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         ret = -1;
         svc->options = options;
         svc->ctx = ctx;
+        svc->mydata = xl;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC service inited.");
 
         gluster_dump_prog.options = options;

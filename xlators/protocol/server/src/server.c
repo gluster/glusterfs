@@ -672,7 +672,7 @@ init (xlator_t *this)
 
         /* RPC related */
         //conf->rpc = rpc_svc_init (&conf->rpc_conf);
-        conf->rpc = rpcsvc_init (this->ctx, this->options);
+        conf->rpc = rpcsvc_init (this, this->ctx, this->options);
         if (conf->rpc == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "creation of rpcsvc failed");

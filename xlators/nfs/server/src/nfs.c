@@ -499,7 +499,7 @@ nfs_init_state (xlator_t *this)
 
         /* RPC service needs to be started before NFS versions can be
          * inited. */
-        nfs->rpcsvc =  rpcsvc_init (this->ctx, this->options);
+        nfs->rpcsvc =  rpcsvc_init (this, this->ctx, this->options);
         if (!nfs->rpcsvc) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");
                 goto free_nfs;
