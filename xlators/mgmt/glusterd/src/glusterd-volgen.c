@@ -1012,6 +1012,27 @@ glusterd_check_option_exists (char *key, char **completion)
         return ret;
 }
 
+char*
+glusterd_get_trans_type_rb (gf_transport_type ttype)
+{
+        char               *trans_type          = NULL;
+
+	switch (ttype) {
+	case GF_TRANSPORT_RDMA:
+		gf_asprintf (&trans_type, "rdma");
+		break;
+	case GF_TRANSPORT_TCP:
+	case GF_TRANSPORT_BOTH_TCP_RDMA:
+		gf_asprintf (&trans_type, "tcp");
+		break;
+	default:
+		gf_log (THIS->name, GF_LOG_ERROR, "Unknown "
+			"transport type");
+	}
+
+	return trans_type;
+}
+
 static int
 volgen_graph_merge_sub (volgen_graph_t *dgraph, volgen_graph_t *sgraph)
 {
@@ -1310,16 +1331,17 @@ static int
 server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        char     *volname = NULL;
-        char     *path = NULL;
-        int       pump = 0;
-        xlator_t *xl = NULL;
-        xlator_t *txl = NULL;
-        xlator_t *rbxl = NULL;
-        char      transt[16] = {0,};
-        char      volume_id[64] = {0,};
+        char     *volname               = NULL;
+        char     *path                  = NULL;
+        int       pump                  = 0;
+        xlator_t *xl                    = NULL;
+        xlator_t *txl                   = NULL;
+        xlator_t *rbxl                  = NULL;
+        char      transt[16]            = {0,};
+        char     *ptranst               = NULL;
+        char      volume_id[64]         = {0,};
         char      tstamp_file[PATH_MAX] = {0,};
-        int       ret = 0;
+        int       ret                   = 0;
 
         path = param;
         volname = volinfo->volname;
@@ -1357,7 +1379,13 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                                 "%s-replace-brick", volname);
                 if (!rbxl)
                         return -1;
-                ret = xlator_set_option (rbxl, "transport-type", transt);
+
+                ptranst = glusterd_get_trans_type_rb (volinfo->transport_type);
+                if (NULL == ptranst)
+                        return -1;
+
+                ret = xlator_set_option (rbxl, "transport-type", ptranst);
+                GF_FREE (ptranst);
                 if (ret)
                         return -1;
                 xl = volgen_graph_add_nolink (graph, "cluster/pump", "%s-pump",

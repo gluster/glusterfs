@@ -2973,6 +2973,7 @@ static const char *client_volfile_str =  "volume mnt-client\n"
         " option remote-host %s\n"
         " option remote-subvolume %s\n"
         " option remote-port %d\n"
+        " option transport-type %s\n"
         "end-volume\n"
         "volume mnt-wb\n"
         " type performance/write-behind\n"
@@ -2983,10 +2984,11 @@ static int
 rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
                             glusterd_brickinfo_t *src_brickinfo)
 {
-        glusterd_conf_t    *priv = NULL;
-        FILE *file = NULL;
-        char filename[PATH_MAX];
-        int ret = -1;
+        glusterd_conf_t  *priv                  = NULL;
+        FILE             *file                  = NULL;
+        char              filename[PATH_MAX]    = {0, };
+        int               ret                   = -1;
+        char             *ttype                 = NULL;
 
         priv = THIS->private;
 
@@ -3007,10 +3009,17 @@ rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
 
         GF_ASSERT (src_brickinfo->port);
 
+	ttype = glusterd_get_trans_type_rb (volinfo->transport_type);
+	if (NULL == ttype){
+		ret = -1;
+		goto out;
+	}
+
         fprintf (file, client_volfile_str, src_brickinfo->hostname,
-                 src_brickinfo->path, src_brickinfo->port);
+                 src_brickinfo->path, src_brickinfo->port, ttype);
 
         fclose (file);
+        GF_FREE (ttype);
 
         ret = 0;
 
@@ -3029,7 +3038,7 @@ static const char *dst_brick_volfile_str = "volume src-posix\n"
         "volume src-server\n"
         " type protocol/server\n"
         " option auth.addr.%s.allow *\n"
-        " option transport-type tcp\n"
+        " option transport-type %s\n"
         " subvolumes %s\n"
         "end-volume\n";
 
@@ -3037,10 +3046,11 @@ static int
 rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
                                glusterd_brickinfo_t *dst_brickinfo)
 {
-        glusterd_conf_t    *priv = NULL;
-        FILE *file = NULL;
-        char filename[PATH_MAX];
-        int ret = -1;
+        glusterd_conf_t    *priv                = NULL;
+        FILE               *file                = NULL;
+        char                filename[PATH_MAX]  = {0, };
+        int                 ret                 = -1;
+        char               *ttype               = NULL;
 
         priv = THIS->private;
 
@@ -3059,9 +3069,17 @@ rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+	ttype = glusterd_get_trans_type_rb (volinfo->transport_type);
+	if (NULL == ttype){
+		ret = -1;
+		goto out;
+	}
+
         fprintf (file, dst_brick_volfile_str, dst_brickinfo->path,
                  dst_brickinfo->path, dst_brickinfo->path,
-                 dst_brickinfo->path);
+                 ttype, dst_brickinfo->path);
+
+	GF_FREE (ttype);
 
         fclose (file);
 
