@@ -1085,9 +1085,12 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         if (op_ret == -1 || local->err) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_INFO),
-                        "lock setting failed (%s)", strerror (op_errno));
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "unlocking on path (%s) failed (%s)",
+                                local->parent_loc.path, strerror (op_errno));
+                }
+
                 xattr_updation_done (frame, NULL, this, 0, 0, NULL);
 
                 return 0;
@@ -1125,6 +1128,15 @@ quota_release_parent_lock (call_frame_t *frame, void *cookie,
         struct gf_flock    lock     = {0, };
 
         local = frame->local;
+
+        if (local->err != 0) {
+                gf_log_callingfn (this->name,
+                                  (local->err == ENOENT) ? GF_LOG_DEBUG
+                                  : GF_LOG_WARNING,
+                                  "An operation during quota updation "
+                                  "of path (%s) failed (%s)", local->loc.path,
+                                  strerror (local->err));
+        }
 
         ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
         if (ret < 0)
@@ -1172,10 +1184,10 @@ quota_mark_undirty (call_frame_t *frame,
         local = frame->local;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "%s occurred while"
-                        " updating the size of %s", strerror (op_errno),
-                        local->parent_loc.path);
-
+                gf_log (this->name, (op_errno == ENOENT) ? GF_LOG_DEBUG
+                        : GF_LOG_WARNING, "cannot update size of path (%s)(%s)",
+                        local->parent_loc.path, strerror (op_errno));
+                local->err = op_errno;
                 goto err;
         }
 
@@ -1184,12 +1196,16 @@ quota_mark_undirty (call_frame_t *frame,
         //update the size of the parent inode
         if (dict != NULL) {
                 ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
-                if (ret < 0)
+                if (ret < 0) {
+                        op_errno = EINVAL;
                         goto err;
+                }
 
                 ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
-                if (ret < 0)
+                if (ret < 0) {
+                        op_errno = EINVAL;
                         goto err;
+                }
 
                 LOCK (&ctx->lock);
                 {
@@ -1202,13 +1218,16 @@ quota_mark_undirty (call_frame_t *frame,
         }
 
         newdict = dict_new ();
-        if (!newdict)
+        if (!newdict) {
+                op_errno = ENOMEM;
                 goto err;
+        }
 
         ret = dict_set_int8 (newdict, QUOTA_DIRTY_KEY, 0);
-
-        if (ret == -1)
+        if (ret < 0) {
+                op_errno = -ret;
                 goto err;
+        }
 
         STACK_WIND (frame, quota_release_parent_lock,
                     FIRST_CHILD(this),
@@ -1217,8 +1236,8 @@ quota_mark_undirty (call_frame_t *frame,
 
         ret = 0;
 err:
-        if (op_ret == -1 || ret == -1) {
-                local->err = 1;
+        if ((op_ret == -1) || (ret < 0)) {
+                local->err = op_errno;
 
                 quota_release_parent_lock (frame, NULL, this, 0, 0);
         }
@@ -1249,8 +1268,9 @@ quota_update_parent_size (call_frame_t *frame,
 
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_ERROR),
-                        "xattrop call failed: %s", strerror (op_errno));
+                                     GF_LOG_WARNING),
+                        "xattrop call on path (%s) failed: %s",
+                        local->loc.path, strerror (op_errno));
 
                 goto err;
         }
@@ -1267,16 +1287,21 @@ quota_update_parent_size (call_frame_t *frame,
 
         priv = this->private;
 
-        if (dict == NULL)
+        if (dict == NULL) {
+                op_errno = EINVAL;
                 goto err;
+        }
 
         ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
-        if (ret < 0)
+        if (ret < 0) {
+                op_errno = EINVAL;
                 goto err;
+        }
 
         newdict = dict_new ();
         if (!newdict) {
                 ret = -1;
+                op_errno = EINVAL;
                 goto err;
         }
 
@@ -1285,8 +1310,10 @@ quota_update_parent_size (call_frame_t *frame,
         *size = hton64 (local->delta);
 
         ret = dict_set_bin (newdict, QUOTA_SIZE_KEY, size, 8);
-        if (ret < 0)
+        if (ret < 0) {
+                op_errno = -ret;
                 goto err;
+        }
 
         STACK_WIND (frame,
                     quota_mark_undirty,
@@ -1298,7 +1325,7 @@ quota_update_parent_size (call_frame_t *frame,
         ret = 0;
 err:
         if (op_ret == -1 || ret < 0) {
-                local->err = 1;
+                local->err = op_errno;
                 quota_release_parent_lock (frame, NULL, this, 0, 0);
         }
 
@@ -1316,7 +1343,8 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
                                  struct iatt *postparent)
 {
         int32_t               ret              = -1;
-        int64_t              *size             = NULL, size_int = 0, contri_int = 0;
+        int64_t              *size             = NULL, size_int = 0;
+        int64_t               contri_int       = 0;
         int64_t              *contri           = NULL;
         int64_t              *delta            = NULL;
         char                  contri_key [512] = {0, };
@@ -1343,16 +1371,20 @@ quota_update_inode_contribution (call_frame_t *frame, void *cookie,
 
         //prepare to update size & contribution of the inode
         GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
-        if (ret == -1)
+        if (ret == -1) {
+                op_errno = ENOMEM;
                 goto err;
+        }
 
         LOCK (&ctx->lock);
         {
                 if (local->loc.inode->ia_type == IA_IFDIR ) {
                         ret = dict_get_bin (dict, QUOTA_SIZE_KEY,
                                             (void **) &size);
-                        if (ret < 0)
+                        if (ret < 0) {
+                                op_errno = EINVAL;
                                 goto unlock;
+                        }
 
                         ctx->size = ntoh64 (*size);
                 } else
@@ -1393,6 +1425,7 @@ unlock:
         newdict = dict_new ();
         if (newdict == NULL) {
                 ret = -1;
+                op_errno = ENOMEM;
                 goto err;
         }
 
@@ -1402,6 +1435,7 @@ unlock:
 
         ret = dict_set_bin (newdict, contri_key, delta, 8);
         if (ret < 0) {
+                op_errno = -ret;
                 ret = -1;
                 goto err;
         }
@@ -1417,7 +1451,7 @@ unlock:
 
 err:
         if (op_ret == -1 || ret < 0) {
-                local->err = 1;
+                local->err = op_errno;
 
                 quota_release_parent_lock (frame, NULL, this, 0, 0);
         }
@@ -1443,22 +1477,27 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s couldnt mark dirty", local->parent_loc.path);
+                gf_log (this->name, (op_errno == ENOENT) ? GF_LOG_DEBUG
+                        : GF_LOG_WARNING,
+                        "couldn't mark inode corresponding to path (%s) dirty "
+                        "(%s)", local->parent_loc.path, strerror (op_errno));
                 goto err;
         }
 
         VALIDATE_OR_GOTO (local->ctx, err);
         VALIDATE_OR_GOTO (local->contri, err);
 
-        gf_log (this->name, GF_LOG_DEBUG, "%s marked dirty", local->parent_loc.path);
+        gf_log (this->name, GF_LOG_DEBUG, "%s marked dirty",
+                local->parent_loc.path);
 
         priv = this->private;
 
         //update parent ctx
         ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
-        if (ret == -1)
+        if (ret == -1) {
+                op_errno = EINVAL;
                 goto err;
+        }
 
         LOCK (&ctx->lock);
         {
@@ -1467,16 +1506,20 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
         UNLOCK (&ctx->lock);
 
         newdict = dict_new ();
-        if (newdict == NULL)
+        if (newdict == NULL) {
+                op_errno = ENOMEM;
                 goto err;
+        }
 
         if (local->loc.inode->ia_type == IA_IFDIR) {
                 ret = dict_set_int64 (newdict, QUOTA_SIZE_KEY, 0);
         }
 
         GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
-        if (ret < 0)
+        if (ret < 0) {
+                op_errno = ENOMEM;
                 goto err;
+        }
 
         ret = dict_set_int64 (newdict, contri_key, 0);
 
@@ -1487,7 +1530,7 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
 
 err:
         if (op_ret == -1 || ret == -1) {
-                local->err = 1;
+                local->err = op_errno;
 
                 quota_release_parent_lock (frame, NULL, this, 0, 0);
         }
@@ -1510,11 +1553,12 @@ quota_markdirty (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         if (op_ret == -1){
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, (op_errno == ENOENT) ? GF_LOG_DEBUG
+                        : GF_LOG_WARNING,
                         "lock setting failed on %s (%s)",
                         local->parent_loc.path, strerror (op_errno));
 
-                local->err = 1;
+                local->err = op_errno;
 
                 quota_inodelk_cbk (frame, NULL, this, 0, 0);
 
