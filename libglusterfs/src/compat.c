@@ -535,7 +535,7 @@ mkdtemp (char *tempstring)
         char *new_string = NULL;
         int   ret        = 0;
 
-        new_string = mktemp (tempstring);
+        new_string = mkstemp (tempstring);
         if (!new_string)
                 goto out;
 
