@@ -32,11 +32,8 @@
 #define QUOTA_DIRTY_KEY "trusted.glusterfs.quota.dirty"
 
 #define CONTRIBUTION "contri"
-#define VOL_NAME volname
 #define CONTRI_KEY_MAX 512
 #define READDIR_BUF 4096
-
-char volname [40];
 
 #define QUOTA_STACK_DESTROY(_frame, _this)              \
         do {                                            \
@@ -79,7 +76,7 @@ char volname [40];
                 char _gfid_unparsed[40];        \
                 uuid_unparse (_gfid, _gfid_unparsed); \
                 _ret = snprintf (var, CONTRI_KEY_MAX, QUOTA_XATTR_PREFIX \
-                                 ".%s.%s." CONTRIBUTION, VOL_NAME, \
+                                 ".%s.%s." CONTRIBUTION, "quota", \
                                  _gfid_unparsed); \
         } while (0);
 

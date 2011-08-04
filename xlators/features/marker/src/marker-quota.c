@@ -2180,8 +2180,6 @@ out:
 int32_t
 init_quota_priv (xlator_t *this)
 {
-        strcpy (volname, "quota");
-
         return 0;
 }
 
