@@ -34,6 +34,7 @@
 #include "iobuf.h"
 #include "xdr-rpc.h"
 #include "glusterfs.h"
+#include "xlator.h"
 #include "rpcsvc-common.h"
 
 #include <pthread.h>
@@ -423,7 +424,7 @@ rpcsvc_register_portmap_enabled (rpcsvc_t *svc);
  * Called in main.
  */
 extern rpcsvc_t *
-rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options);
+rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options);
 
 int
 rpcsvc_register_notify (rpcsvc_t *svc, rpcsvc_notify_t notify, void *mydata);
