@@ -30,6 +30,70 @@
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 
+int32_t
+mq_get_ctx_updation_status (quota_inode_ctx_t *ctx,
+                            gf_boolean_t *status)
+{
+        int32_t   ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        GF_VALIDATE_OR_GOTO ("marker", status, out);
+
+        LOCK (&ctx->lock);
+        {
+                *status = ctx->updation_status;
+        }
+        UNLOCK (&ctx->lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+int32_t
+mq_set_ctx_updation_status (quota_inode_ctx_t *ctx,
+                            gf_boolean_t status)
+{
+        int32_t   ret = -1;
+
+        if (ctx == NULL)
+                goto out;
+
+        LOCK (&ctx->lock);
+        {
+                ctx->updation_status = status;
+        }
+        UNLOCK (&ctx->lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+mq_test_and_set_ctx_updation_status (quota_inode_ctx_t *ctx,
+                                     gf_boolean_t *status)
+{
+        int32_t         ret     = -1;
+        gf_boolean_t    temp    = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        GF_VALIDATE_OR_GOTO ("marker", status, out);
+
+        LOCK (&ctx->lock);
+        {
+                temp = *status;
+                *status = ctx->updation_status;
+                ctx->updation_status = temp;
+        }
+        UNLOCK (&ctx->lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 void
 mq_assign_lk_owner (xlator_t *this, call_frame_t *frame)
 {
@@ -669,6 +733,9 @@ err:
         return 0;
 }
 
+/* return 1 when dirty updation started
+ * 0 other wise
+ */
 int32_t
 update_dirty_inode (xlator_t *this,
                     loc_t *loc,
@@ -677,8 +744,15 @@ update_dirty_inode (xlator_t *this,
 {
         int32_t          ret        = -1;
         quota_local_t   *local      = NULL;
+        gf_boolean_t    status     = _gf_false;
         struct gf_flock  lock       = {0, };
         call_frame_t    *frame      = NULL;
+
+        ret = mq_get_ctx_updation_status (ctx, &status);
+        if (ret == -1 || status == _gf_true) {
+                ret = 0;
+                goto out;
+        }
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL) {
@@ -712,7 +786,7 @@ update_dirty_inode (xlator_t *this,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->loc, F_SETLKW, &lock);
-        return 0;
+        return 1;
 
 fr_destroy:
         QUOTA_STACK_DESTROY (frame, this);
@@ -1079,8 +1153,9 @@ int32_t
 quota_inodelk_cbk (call_frame_t *frame, void *cookie,
                    xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
-        int32_t         ret  = 0;
-        quota_local_t  *local = NULL;
+        int32_t         ret    = 0;
+        gf_boolean_t    status = _gf_false;
+        quota_local_t  *local  = NULL;
 
         local = frame->local;
 
@@ -1090,7 +1165,6 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
                                 "unlocking failed on path (%s)(%s)",
                                 local->parent_loc.path, strerror (op_errno));
                 }
-
                 xattr_updation_done (frame, NULL, this, 0, 0, NULL);
 
                 return 0;
@@ -1108,8 +1182,14 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
                         xattr_updation_done (frame, NULL, this, 0, 0, NULL);
                         goto out;
                 }
+                status = _gf_true;
 
-                get_lock_on_parent (frame, this);
+                ret = mq_test_and_set_ctx_updation_status (local->ctx, &status);
+                if (ret == 0 && status == _gf_false) {
+                        get_lock_on_parent (frame, this);
+                } else {
+                        xattr_updation_done (frame, NULL, this, 0, 0, NULL);
+                }
         }
 out:
         return 0;
@@ -1521,6 +1601,8 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
 
         ret = dict_set_int64 (newdict, contri_key, 0);
 
+        mq_set_ctx_updation_status (local->ctx, _gf_false);
+
         STACK_WIND (frame, quota_update_inode_contribution, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, newdict);
 
@@ -1529,6 +1611,8 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
 err:
         if ((op_ret == -1) || (ret == -1)) {
                 local->err = op_errno;
+
+                mq_set_ctx_updation_status (local->ctx, _gf_false);
 
                 quota_release_parent_lock (frame, NULL, this, 0, 0);
         }
@@ -1556,6 +1640,8 @@ quota_markdirty (call_frame_t *frame, void *cookie,
                         local->parent_loc.path, strerror (op_errno));
 
                 local->err = op_errno;
+
+                mq_set_ctx_updation_status (local->ctx, _gf_false);
 
                 quota_inodelk_cbk (frame, NULL, this, 0, 0);
 
@@ -1586,6 +1672,8 @@ quota_markdirty (call_frame_t *frame, void *cookie,
 err:
         if (ret == -1) {
                 local->err = 1;
+
+                mq_set_ctx_updation_status (local->ctx, _gf_false);
 
                 quota_release_parent_lock (frame, NULL, this, 0, 0);
         }
@@ -1625,7 +1713,7 @@ get_lock_on_parent (call_frame_t *frame, xlator_t *this)
 fr_destroy:
         QUOTA_STACK_DESTROY (frame, this);
 
-        return 0;
+        return -1;
 }
 
 
@@ -1662,14 +1750,17 @@ start_quota_txn (xlator_t *this, loc_t *loc,
         local->ctx = ctx;
         local->contri = contri;
 
-        get_lock_on_parent (frame, this);
+        ret = get_lock_on_parent (frame, this);
+        if (ret == -1)
+                goto err;
 
         return 0;
 
 fr_destroy:
         QUOTA_STACK_DESTROY (frame, this);
-
 err:
+        mq_set_ctx_updation_status (ctx, _gf_false);
+
         return -1;
 }
 
@@ -1678,6 +1769,7 @@ int
 initiate_quota_txn (xlator_t *this, loc_t *loc)
 {
         int32_t               ret          = -1;
+        gf_boolean_t          status       = _gf_false;
         quota_inode_ctx_t    *ctx          = NULL;
         inode_contribution_t *contribution = NULL;
 
@@ -1695,9 +1787,22 @@ initiate_quota_txn (xlator_t *this, loc_t *loc)
         if (contribution == NULL)
                 goto out;
 
-        start_quota_txn (this, loc, ctx, contribution);
+        /* To improve performance, donot start another transaction
+         * if one is already in progress for same inode
+         */
+        status = _gf_true;
+
+        ret = mq_test_and_set_ctx_updation_status (ctx, &status);
+        if (ret < 0)
+                goto out;
+
+        if (status == _gf_false) {
+                start_quota_txn (this, loc, ctx, contribution);
+        }
+
+        ret = 0;
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -1788,8 +1893,11 @@ inspect_directory_xattr (xlator_t *this,
                 " contri=%"PRId64, size_int, contri_int);
 
         if (dirty) {
-                update_dirty_inode (this, loc, ctx, contribution);
-        } else if ((not_root == _gf_true) && (size_int != contri_int)) {
+                ret = update_dirty_inode (this, loc, ctx, contribution);
+        }
+
+        if ((!dirty || ret == 0) && (not_root == _gf_true) &&
+            (size_int != contri_int)) {
                 initiate_quota_txn (this, loc);
         }
 

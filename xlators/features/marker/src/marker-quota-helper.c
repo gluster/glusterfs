@@ -119,6 +119,7 @@ quota_alloc_inode_ctx ()
 
         ctx->size = 0;
         ctx->dirty = 0;
+        ctx->updation_status = _gf_false;
         LOCK_INIT (&ctx->lock);
         INIT_LIST_HEAD (&ctx->contribution_head);
 out:
