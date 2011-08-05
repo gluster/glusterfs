@@ -609,26 +609,31 @@ glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
                         gf_cmd_log ("Volume rebalance"," on volname: %s "
                                     "cmd: start fix layout , attempted",
                                     volname);
+                        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance "
+                                " volume start-layout-fix on %s",volname);
                         break;
                 case GF_DEFRAG_CMD_START_MIGRATE_DATA:
                         gf_cmd_log ("Volume rebalance"," on volname: %s "
                                     "cmd: start data migrate attempted",
                                     volname);
+                        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance "
+                                " volume start-migrate-data on %s",volname);
                         break;
                 case GF_DEFRAG_CMD_START:
                         gf_cmd_log ("Volume rebalance"," on volname: %s "
                                     "cmd: start, attempted", volname);
+                        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance "
+                                " volume start on %s",volname);
                         break;
                 case GF_DEFRAG_CMD_STOP:
                         gf_cmd_log ("Volume rebalance"," on volname: %s "
                                     "cmd: stop, attempted", volname);
+                        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance "
+                                " volume stop on %s",volname);
                         break;
                 default:
                         break;
         }
-
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume %d on %s",
-                cmd, volname);
 }
 
 void
