@@ -19,6 +19,12 @@ AC_INIT([glusterfs],[3.1.0git],[gluster-users@gluster.org])
 
 AM_INIT_AUTOMAKE
 
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
+
+if make --help 2>&1 | grep -q no-print-directory; then
+   AM_MAKEFLAGS="--no-print-directory";
+fi
+
 AM_CONFIG_HEADER([config.h])
 
 AC_CONFIG_FILES([Makefile
@@ -458,6 +464,7 @@ AC_SUBST(GF_LDFLAGS)
 AC_SUBST(GF_LDADD)
 AC_SUBST(GF_FUSE_CFLAGS)
 AC_SUBST(RLLIBS)
+AC_SUBST(AM_MAKEFLAGS)
 
 CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)

@@ -10,6 +10,8 @@ AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
 
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
+
 # GNU libc defaults to supplying the ISO C library functions only. The
 # _GNU_SOURCE define enables these extensions, in particular we want
 # errno.h to declare program_invocation_name. Enable it on all
