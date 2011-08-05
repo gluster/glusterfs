@@ -75,6 +75,7 @@ struct nfs_state {
         int                     dynamicvolumes;
         int                     enable_ino32;
         unsigned int            override_portnum;
+        int                     allow_insecure;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)

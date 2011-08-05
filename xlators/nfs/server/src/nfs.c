@@ -609,6 +609,66 @@ nfs_init_state (xlator_t *this)
                         goto free_foppool;
                 }
         }
+
+        /* support both options rpc-auth.ports.insecure and
+         * rpc-auth-allow-insecure for backward compatibility
+         */
+        nfs->allow_insecure = 1;
+        if (dict_get(this->options, "rpc-auth.ports.insecure")) {
+                ret = dict_get_str (this->options, "rpc-auth.ports.insecure",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto free_foppool;
+                }
+
+                if (boolt == _gf_false)
+                        nfs->allow_insecure = 0;
+        }
+
+        if (dict_get(this->options, "rpc-auth-allow-insecure")) {
+                ret = dict_get_str (this->options, "rpc-auth-allow-insecure",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto free_foppool;
+                }
+
+                if (boolt == _gf_false)
+                        nfs->allow_insecure = 0;
+        }
+
+        if (nfs->allow_insecure) {
+                /* blindly set both the options */
+                dict_del(this->options, "rpc-auth-allow-insecure");
+                ret = dict_set_str (this->options,
+                                    "rpc-auth-allow-insecure", "on");
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        goto free_foppool;
+                }
+                dict_del(this->options, "rpc-auth.ports.insecure");
+                ret = dict_set_str (this->options,
+                                    "rpc-auth.ports.insecure", "on");
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        goto free_foppool;
+                }
+        }
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
 

@@ -1803,6 +1803,24 @@ mnt3svc_init (xlator_t *nfsx)
         if (ret == -1)
                 goto err;
         ret = dict_set_str (options, "transport-type", "socket");
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                goto err;
+        }
+
+        if (nfs->allow_insecure) {
+                ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        goto err;
+                }
+                ret = dict_set_str (options, "rpc-auth.ports.insecure", "on");
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        goto err;
+                }
+        }
+
         rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
@@ -1869,6 +1887,24 @@ mnt1svc_init (xlator_t *nfsx)
         if (ret == -1)
                 goto err;
         ret = dict_set_str (options, "transport-type", "socket");
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                goto err;
+        }
+
+        if (nfs->allow_insecure) {
+                ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        goto err;
+                }
+                ret = dict_set_str (options, "rpc-auth.ports.insecure", "on");
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        goto err;
+                }
+        }
+
         rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
