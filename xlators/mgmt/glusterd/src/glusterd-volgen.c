@@ -1066,7 +1066,7 @@ server_auth_option_handler (glusterfs_graph_t *graph,
         int   ret   = 0;
         char *key = NULL;
 
-        if ( (strcmp (vme->option, "!auth.addr.*.allow") != 0) ||
+        if ( (strcmp (vme->option, "!auth.addr.*.allow") != 0) &&
              (strcmp (vme->option, "!auth.addr.*.reject") != 0))
                 return 0;
 
