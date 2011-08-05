@@ -78,7 +78,7 @@ out:
 }
 
 /*
- * ioc_page_destroy -
+ * __ioc_page_destroy -
  *
  * @page:
  *
@@ -120,25 +120,6 @@ __ioc_page_destroy (ioc_page_t *page)
         return page_size;
 }
 
-
-int64_t
-ioc_page_destroy (ioc_page_t *page)
-{
-        int64_t ret = 0;
-
-        if (page == NULL) {
-                goto out;
-        }
-
-        ioc_inode_lock (page->inode);
-        {
-                ret = __ioc_page_destroy (page);
-        }
-        ioc_inode_unlock (page->inode);
-
-out:
-        return ret;
-}
 
 int32_t
 __ioc_inode_prune (ioc_inode_t *curr, uint64_t *size_pruned,
@@ -920,7 +901,7 @@ __ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
         }
 
         table = page->inode->table;
-        ret = ioc_page_destroy (page);
+        ret = __ioc_page_destroy (page);
 
         if (ret != -1) {
                 table->cache_used -= ret;
