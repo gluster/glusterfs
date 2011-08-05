@@ -21,7 +21,15 @@ AM_INIT_AUTOMAKE
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
 
 if make --help 2>&1 | grep -q no-print-directory; then
-   AM_MAKEFLAGS="--no-print-directory";
+   AM_MAKEFLAGS="$AM_MAKEFLAGS --no-print-directory";
+fi
+
+if make --help 2>&1 | grep -q quiet; then
+   AM_MAKEFLAGS="$AM_MAKEFLAGS --quiet"
+fi
+
+if libtool --help 2>&1 | grep -q quiet; then
+   AM_LIBTOOLFLAGS="--quiet";
 fi
 
 AM_CONFIG_HEADER([config.h])
@@ -460,6 +468,7 @@ AC_SUBST(GF_LDADD)
 AC_SUBST(GF_FUSE_CFLAGS)
 AC_SUBST(RLLIBS)
 AC_SUBST(AM_MAKEFLAGS)
+AC_SUBST(AM_LIBTOOLFLAGS)
 
 CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
