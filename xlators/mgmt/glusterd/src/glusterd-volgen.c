@@ -135,8 +135,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"network.ping-timeout",                 "protocol/client",    NULL, NULL, NO_DOC        },
         {"network.inode-lru-limit",              "protocol/server",    NULL, NULL, NO_DOC        }, /* NODOC */
 
-        {"auth.allow",                           "protocol/server",           "!server-auth", "*", DOC},
-        {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC},
+        {"auth.allow",                           "protocol/server",           "!auth.addr.*.allow", "*", DOC},
+        {"auth.reject",                          "protocol/server",           "!auth.addr.*.reject", NULL, DOC},
 
         {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC},
         {"server.allow-insecure",                 "protocol/server",          "rpc-auth-allow-insecure", NULL, NO_DOC},
@@ -159,7 +159,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC},
 
         {"nfs.rpc-auth-unix",                    "nfs/server",                "!rpc-auth.auth-unix.*", NULL, DOC},
-        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth.null.*", NULL, DOC},
+        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth-null.*", NULL, DOC},
         {"nfs.rpc-auth-allow",                   "nfs/server",                "!rpc-auth.addr.*.allow", NULL, DOC},
         {"nfs.rpc-auth-reject",                  "nfs/server",                "!rpc-auth.addr.*.reject", NULL, DOC},
         {"nfs.ports-insecure",                   "nfs/server",                "!rpc-auth.ports.*.insecure", NULL, DOC},
@@ -1066,7 +1066,8 @@ server_auth_option_handler (glusterfs_graph_t *graph,
         int   ret   = 0;
         char *key = NULL;
 
-        if (strcmp (vme->option, "!server-auth") != 0)
+        if ( (strcmp (vme->option, "!auth.addr.*.allow") != 0) ||
+             (strcmp (vme->option, "!auth.addr.*.reject") != 0))
                 return 0;
 
         xl = first_of (graph);
@@ -1343,7 +1344,7 @@ init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
 {
         int ret;
 
-        *buf = xmlBufferCreateSize (8192);
+        *buf = xmlBufferCreateSize (16 * GF_UNIT_KB);
         if (buf == NULL) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Error creating the xml "
                           "buffer");
@@ -1369,7 +1370,7 @@ init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
         }
 
         ret = xmlTextWriterStartElement(*writer,
-                                        (xmlChar *)"volumeOptionsDefaults");
+                                        (xmlChar *)"options");
         if (ret < 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
                         "xmlElemetnt");
@@ -1395,7 +1396,7 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
 
         GF_ASSERT (name);
 
-        ret = xmlTextWriterStartElement(writer, (xmlChar *) "volumeOption");
+        ret = xmlTextWriterStartElement(writer, (xmlChar *) "option");
         if (ret < 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
                         "xmlElemetnt");

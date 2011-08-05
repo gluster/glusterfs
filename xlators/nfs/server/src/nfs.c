@@ -1001,12 +1001,23 @@ struct volume_options options[] = {
                          "Please consult gluster-users list before using this "
                          "option."
         },
+        /* XXX These are synthetic options which are actually recognized and *
+         *     validated in addr.c, added here to get visibiliity in         *
+         *     volume set command                                            */
         { .key  = {"nfs-disable"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = "This option is used to enable/disable NFS server"
                          "for individual volume."
         },
+        {
+          .key = {"nfs.transport-type"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
+          .description = "This options is used to change the transport type of"
+                        " NFS Server.",
+        },
+
         { .key  = {NULL} },
 };
 

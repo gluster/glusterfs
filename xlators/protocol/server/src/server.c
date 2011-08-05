@@ -882,5 +882,23 @@ struct volume_options options[] = {
         { .key   = {"rpc-auth-allow-insecure"},
           .type  = GF_OPTION_TYPE_BOOL,
         },
+
+        /* XXX These are synthetic options which are actually recognized and *
+         *     validated in addr.c, added here to get visibiliity in         *
+         *     volume set help/help-xml                                      */
+
+        { .key   = {"auth.addr.*.allow"},
+          .type  = GF_OPTION_TYPE_ANY,
+          .default_value = "*",
+          .description = "'IP addresses/Host name' of the clients which should"
+                         " be allowed to access the the volume."
+        },
+        { .key   = {"auth.addr.*.reject"},
+          .type  = GF_OPTION_TYPE_ANY,
+          .default_value = "",
+          .description = "'IP addresses/Host name' of the clients which should"
+                         " be denied to access the volume."
+        },
+
         { .key   = {NULL} },
 };

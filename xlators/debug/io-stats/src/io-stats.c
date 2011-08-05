@@ -1787,8 +1787,22 @@ struct volume_options options[] = {
         { .key  = { "latency-measurement" },
           .type = GF_OPTION_TYPE_BOOL,
         },
-        { .key = {"log-level"},
+        /* XXX These are synthetic options which are actually recognized and *
+         *     validated in addr.c, added here to get visibiliity in         *
+         *     volume set command                                            */
+        { .key = {"client-log-level"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "INFO",
+          .description = "Changes the log-level of the clients",
+          .value = { "DEBUG", "WARNING", "ERROR", "INFO",
+                     "CRITICAL", "NONE", "TRACE"}
+        },
+        { .key = {"brick-log-level"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "INFO",
+          .description = "Changes the log-level of the bricks",
+          .value = { "DEBUG", "WARNING", "ERROR", "INFO",
+                     "CRITICAL", "NONE", "TRACE"}
         },
         { .key  = {NULL} },
 };
