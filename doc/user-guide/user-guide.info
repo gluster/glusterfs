@@ -2188,7 +2188,7 @@ Appendix A GNU Free Documentation Licence
 
      This License is a kind of "copyleft", which means that derivative
      works of the document must themselves be free in the same sense.
-     It complements the GNU Affero General Public License, which is a copyleft
+     It complements the GNU General Public License, which is a copyleft
      license designed for free software.
 
      We have designed this License in order to use it for manuals for
@@ -2591,7 +2591,7 @@ situation.
 
    If your document contains nontrivial examples of program code, we
 recommend releasing these examples in parallel under your choice of
-free software license, such as the GNU Affero General Public License, to
+free software license, such as the GNU General Public License, to
 permit their use in free software.
 
 
