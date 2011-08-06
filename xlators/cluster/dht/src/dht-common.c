@@ -1229,6 +1229,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
                         dht_layout_unref (this, local->layout);
                         local->layout = NULL;
+                        local->cached_subvol = NULL;
                         goto do_fresh_lookup;
                 }
 
