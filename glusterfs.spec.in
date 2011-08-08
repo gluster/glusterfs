@@ -202,7 +202,7 @@ fi
 
 %files core
 %defattr(-,root,root)
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS EXCEPTIONS
 %doc %{_datadir}/doc/glusterfs
 %if 0%{?_with_fusermount:1}
 %{_bindir}/fusermount-glusterfs 
