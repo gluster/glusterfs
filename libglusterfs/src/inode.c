@@ -754,6 +754,15 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         if (!table)
                 return NULL;
 
+        if (parent) {
+                /* We should prevent inode linking between different
+                   inode tables. This can cause errors which is very
+                   hard to catch/debug. */
+                if (inode->table != parent->table) {
+                        GF_ASSERT (!"link attempted b/w inodes of diff table");
+                }
+        }
+
         link_inode = inode;
 
         if (!__is_inode_hashed (inode)) {
