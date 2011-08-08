@@ -827,7 +827,7 @@ struct volume_options options[] = {
           .description = "All writes and COMMIT requests are treated as async."
                          " This implies that no write requests are guaranteed"
                          " to be on server disks when the write reply is "
-                         "received at the NFS client. Trusted sync includes "
+                         "received at the NFS client. Trusted sync includes"
                          " trusted-write behaviour. Off by default."
 
         },
@@ -887,6 +887,7 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.auth-null.*"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "",
           .description = "Disable or enable the AUTH_NULL authentication type "
                          "for a particular exported volume over-riding defaults"
                          " and general setting for AUTH_NULL. Must always be "
@@ -907,7 +908,7 @@ struct volume_options options[] = {
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
                          " all connections are disallowed. This allows users to"
-                         "define a general rule for all exported volumes."
+                         " define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.*.allow"},
           .type = GF_OPTION_TYPE_STR,
@@ -923,7 +924,7 @@ struct volume_options options[] = {
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
                          " all connections are disallowed. This allows users to"
-                         "define a rule for a specific exported volume."
+                         " define a rule for a specific exported volume."
         },
         { .key  = {"rpc-auth.ports.insecure"},
           .type = GF_OPTION_TYPE_BOOL,

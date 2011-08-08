@@ -605,8 +605,6 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
         }
         *dl_handle = handle;
 
-        INIT_LIST_HEAD (&opt_list->list);
-
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                          gf_common_mt_volume_opt_list_t);
 
@@ -619,10 +617,12 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
                 gf_log ("xlator", GF_LOG_DEBUG,
                          "Strict option validation not enforced -- neglecting");
         }
-        list_add_tail (&vol_opt->list, &opt_list->list);
+        list_add (&vol_opt->list, &opt_list->list);
 
         ret = 0;
  out:
+        if (name)
+                GF_FREE (name);
         gf_log ("xlator", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 

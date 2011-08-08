@@ -1332,6 +1332,16 @@ end_sethelp_xml_doc (xmlTextWriterPtr writer)
                 ret = -1;
                 goto out;
         }
+
+        ret = xmlTextWriterFlush (writer);
+        if (ret < 0) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not flush an "
+                        "xmlDocument");
+                ret = -1;
+                goto out;
+        }
+
+
         ret = 0;
  out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1492,7 +1502,9 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
 
         char                    *xlator_type = NULL;
         void                    *dl_handle = NULL;
-        volume_opt_list_t          vol_opt_handle;
+        volume_opt_list_t        vol_opt_handle;
+        volume_opt_list_t       *vol_opt = NULL;
+        volume_opt_list_t       *tmp = NULL;
         char                    *key = NULL;
         struct volopt_map_entry *vme = NULL;
         int                      ret = -1;
@@ -1520,6 +1532,8 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                 ret = 0;
                 goto out;
         }
+
+        INIT_LIST_HEAD (&vol_opt_handle.list);
 
         for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
 
@@ -1572,6 +1586,9 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
         else
 #if (HAVE_LIB_XML)
                 output = gf_strdup ((char *)buf->content);
+                xmlFreeTextWriter (writer);
+                xmlBufferFree (buf);
+
 #else
                 gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
 #endif
@@ -1583,6 +1600,11 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
 
         ret = dict_set_dynstr (ctx, "help-str", output);
  out:
+        list_for_each_entry_safe (vol_opt, tmp, &vol_opt_handle.list, list) {
+                list_del_init (&vol_opt->list);
+                GF_FREE (vol_opt);
+        }
+
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 
