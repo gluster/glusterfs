@@ -242,13 +242,15 @@ fuse_resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (i != 0) {
+                inode_ref (inode);
                 /* no linking for root inode */
                 link_inode = inode_link (inode, resolve->deep_loc.parent,
                                          resolve->deep_loc.name, buf);
-                components[i].inode  = link_inode;
+                components[i].inode  = inode_ref (link_inode);
                 link_inode = NULL;
         }
-
+        inode_ref (resolve->deep_loc.parent);
+        inode_ref (inode);
         loc_wipe (&resolve->deep_loc);
         i++; /* next component */
 
@@ -294,6 +296,9 @@ fuse_resolve_path_deep (fuse_state_t *state)
 
         /* start from the root */
         active_xl = fuse_active_subvol (state->this);
+        resolve->deep_loc.inode = inode_ref (active_xl->itable->root);
+        resolve->deep_loc.path  = gf_strdup ("/");
+        resolve->deep_loc.name  = "";
 
         for (i = 1; components[i].basename; i++) {
                 *(components[i].basename - 1) = '/';
@@ -301,7 +306,7 @@ fuse_resolve_path_deep (fuse_state_t *state)
                                     components[i].basename);
                 if (!inode)
                         break;
-                components[i].inode = inode;
+                components[i].inode = inode_ref (inode);
         }
 
         if (!components[i].basename)
@@ -365,18 +370,8 @@ fuse_resolve_path_simple (fuse_state_t *state)
                 goto out;
         }
 
-        if (components[ino_idx].inode) {
-                if (state->loc_now->inode) {
-                        inode_unref (state->loc_now->inode);
-                }
-
+        if (components[ino_idx].inode)
                 state->loc_now->inode  = inode_ref (components[ino_idx].inode);
-        }
-
-        if (state->loc_now->parent) {
-                inode_unref (state->loc_now->parent);
-        }
-
         state->loc_now->parent = inode_ref (components[par_idx].inode);
 
         ret = 0;
@@ -418,10 +413,6 @@ fuse_resolve_entry_simple (fuse_state_t *state)
         }
 
         /* expected @parent was found from the inode cache */
-        if (state->loc_now->parent) {
-                inode_unref (state->loc_now->parent);
-        }
-
         state->loc_now->parent = inode_ref (parent);
 
         inode = inode_grep (active_xl->itable, parent, resolve->bname);
@@ -433,11 +424,6 @@ fuse_resolve_entry_simple (fuse_state_t *state)
         }
 
         ret = 0;
-
-        if (state->loc_now->inode) {
-                inode_unref (state->loc_now->inode);
-                state->loc_now->inode = NULL;
-        }
 
         state->loc_now->inode  = inode_ref (inode);
 
@@ -496,10 +482,6 @@ fuse_resolve_inode_simple (fuse_state_t *state)
         }
 
         ret = 0;
-
-        if (state->loc_now->inode) {
-                inode_unref (state->loc_now->inode);
-        }
 
         state->loc_now->inode = inode_ref (inode);
 

@@ -68,15 +68,14 @@ fuse_resolve_wipe (fuse_resolve_t *resolve)
         comp = resolve->components;
 
         if (comp) {
+/*
                 int                  i = 0;
 
                 for (i = 0; comp[i].basename; i++) {
-                        if (comp[i].inode) {
+                        if (comp[i].inode)
                                 inode_unref (comp[i].inode);
-                                comp[i].inode = NULL;
-                        }
                 }
-
+*/
                 GF_FREE ((void *)resolve->components);
         }
 }
