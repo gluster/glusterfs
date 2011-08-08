@@ -47,7 +47,6 @@ component_count (const char *path)
 static int
 prepare_components (fuse_state_t *state)
 {
-        xlator_t               *active_xl  = NULL;
         fuse_resolve_t           *resolve    = NULL;
         char                   *resolved   = NULL;
         struct fuse_resolve_comp *components = NULL;
@@ -66,12 +65,10 @@ prepare_components (fuse_state_t *state)
                 goto out;
         resolve->components = components;
 
-        active_xl = fuse_active_subvol (state->this);
-
         components[0].basename = "";
         components[0].ino      = 1;
         components[0].gen      = 0;
-        components[0].inode    = inode_ref (active_xl->itable->root);
+        components[0].inode    = inode_ref (state->itable->root);
 
         i = 1;
         for (trav = resolved; *trav; trav++) {
@@ -222,7 +219,6 @@ fuse_resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
                   dict_t *xattr, struct iatt *postparent)
 {
-        xlator_t               *active_xl = NULL;
         fuse_state_t           *state      = NULL;
         fuse_resolve_t           *resolve    = NULL;
         struct fuse_resolve_comp *components = NULL;
@@ -260,14 +256,13 @@ fuse_resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* join the current component with the path resolved until now */
         *(components[i].basename - 1) = '/';
 
-        active_xl = fuse_active_subvol (state->this);
-
         resolve->deep_loc.path   = gf_strdup (resolve->resolved);
         resolve->deep_loc.parent = inode_ref (components[i-1].inode);
-        resolve->deep_loc.inode  = inode_new (active_xl->itable);
+        resolve->deep_loc.inode  = inode_new (state->itable);
         resolve->deep_loc.name   = components[i].basename;
 
-        FUSE_FOP_COOKIE (state, active_xl, fuse_resolve_deep_cbk, (void *)(long)i,
+        FUSE_FOP_COOKIE (state, state->itable->xl, fuse_resolve_deep_cbk,
+                         (void *)(long)i,
                          GF_FOP_LOOKUP, lookup, &resolve->deep_loc, NULL);
         return 0;
 
@@ -280,7 +275,6 @@ get_out_of_here:
 static int
 fuse_resolve_path_deep (fuse_state_t *state)
 {
-        xlator_t               *active_xl  = NULL;
         fuse_resolve_t           *resolve    = NULL;
         struct fuse_resolve_comp *components = NULL;
         inode_t                *inode      = NULL;
@@ -293,11 +287,9 @@ fuse_resolve_path_deep (fuse_state_t *state)
         components = resolve->components;
 
         /* start from the root */
-        active_xl = fuse_active_subvol (state->this);
-
         for (i = 1; components[i].basename; i++) {
                 *(components[i].basename - 1) = '/';
-                inode = inode_grep (active_xl->itable, components[i-1].inode,
+                inode = inode_grep (state->itable, components[i-1].inode,
                                     components[i].basename);
                 if (!inode)
                         break;
@@ -309,10 +301,11 @@ fuse_resolve_path_deep (fuse_state_t *state)
 
         resolve->deep_loc.path   = gf_strdup (resolve->resolved);
         resolve->deep_loc.parent = inode_ref (components[i-1].inode);
-        resolve->deep_loc.inode  = inode_new (active_xl->itable);
+        resolve->deep_loc.inode  = inode_new (state->itable);
         resolve->deep_loc.name   = components[i].basename;
 
-        FUSE_FOP_COOKIE (state, active_xl, fuse_resolve_deep_cbk, (void *)(long)i,
+        FUSE_FOP_COOKIE (state, state->itable->xl, fuse_resolve_deep_cbk,
+                         (void *)(long)i,
                          GF_FOP_LOOKUP, lookup, &resolve->deep_loc, NULL);
 
         return 0;
@@ -395,7 +388,6 @@ out:
 int
 fuse_resolve_entry_simple (fuse_state_t *state)
 {
-        xlator_t     *active_xl = NULL;
         xlator_t     *this      = NULL;
         fuse_resolve_t *resolve   = NULL;
         inode_t      *parent    = NULL;
@@ -405,9 +397,7 @@ fuse_resolve_entry_simple (fuse_state_t *state)
         this  = state->this;
         resolve = state->resolve_now;
 
-        active_xl = fuse_active_subvol (state->this);
-
-        parent = inode_find (active_xl->itable, resolve->pargfid);
+        parent = inode_find (state->itable, resolve->pargfid);
         if (!parent) {
                 /* simple resolution is indecisive. need to perform
                    deep resolution */
@@ -424,7 +414,7 @@ fuse_resolve_entry_simple (fuse_state_t *state)
 
         state->loc_now->parent = inode_ref (parent);
 
-        inode = inode_grep (active_xl->itable, parent, resolve->bname);
+        inode = inode_grep (state->itable, parent, resolve->bname);
         if (!inode) {
                 resolve->op_ret   = -1;
                 resolve->op_errno = ENOENT;
@@ -479,15 +469,13 @@ fuse_resolve_entry (fuse_state_t *state)
 int
 fuse_resolve_inode_simple (fuse_state_t *state)
 {
-        xlator_t     *active_xl = NULL;
         fuse_resolve_t *resolve   = NULL;
         inode_t      *inode     = NULL;
         int           ret       = 0;
 
         resolve = state->resolve_now;
-        active_xl = fuse_active_subvol (state->this);
 
-        inode = inode_find (active_xl->itable, resolve->gfid);
+        inode = inode_find (state->itable, resolve->gfid);
         if (!inode) {
                 resolve->op_ret   = -1;
                 resolve->op_errno = ENOENT;
@@ -706,8 +694,23 @@ fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn)
                 inode_xl = state->loc.parent->table->xl;
 
         /* If inode or fd is already in new graph, goto resume */
-        if (inode_xl == active_xl)
-                goto resume;
+        if (inode_xl == active_xl) {
+                /* Lets move to resume if there is no other inode to check */
+                if (!(state->loc2.parent || state->loc2.inode))
+                        goto resume;
+
+                inode_xl = NULL;
+                /* We have to make sure both inodes we are
+                   working on are in same inode table */
+                if (state->loc2.inode)
+                        inode_xl = state->loc2.inode->table->xl;
+                if (!inode_xl && state->loc2.parent)
+                        inode_xl = state->loc2.parent->table->xl;
+
+                if (inode_xl == active_xl)
+                        goto resume;
+        }
+
 
         /* If the resolve is for 'fd' and its open with 'write' flag
            set, don't switch to new graph yet */
@@ -725,6 +728,9 @@ fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn)
                 state->fd = NULL; // TODO: we may need a 'fd_unref()' here, not very sure'
         }
         */
+
+        /* now we have to resolve the inode to 'itable' */
+        state->itable = active_xl->itable;
 
         fuse_resolve_all (state);
 
