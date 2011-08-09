@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+  Copyright (c) 2010-2011 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
   GlusterFS is GF_FREE software; you can redistribute it and/or modify

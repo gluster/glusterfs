@@ -1,4 +1,4 @@
-dnl Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
+dnl Copyright (c) 2006-2011 Gluster, Inc. <http://www.gluster.com>
 dnl This file is part of GlusterFS.
 dnl
 dnl GlusterFS is free software; you can redistribute it and/or modify
