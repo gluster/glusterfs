@@ -1423,7 +1423,7 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
                 goto out;
         }
 
-        ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"Description",
+        ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"description",
                                               "%s",  dscrpt );
         if (ret < 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
@@ -1517,7 +1517,11 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
 #if (HAVE_LIB_XML)
         xmlTextWriterPtr         writer = NULL;
         xmlBufferPtr             buf = NULL;
+#endif
 
+        INIT_LIST_HEAD (&vol_opt_handle.list);
+
+#if (HAVE_LIB_XML)
         if (xml_out) {
                 ret = init_sethelp_xml_doc (&writer, &buf);
                 if (ret) /*logging done in init_xml_lib*/
@@ -1533,7 +1537,6 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                 goto out;
         }
 
-        INIT_LIST_HEAD (&vol_opt_handle.list);
 
         for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
 
