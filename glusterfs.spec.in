@@ -24,7 +24,7 @@ Summary: Cluster File System
 Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
 Release: %{release}
-License: AGPLv3+
+License: GPLv3+
 Group: System Environment/Base
 Vendor: Gluster Inc
 Packager: @PACKAGE_BUGREPORT@
