@@ -24,6 +24,7 @@
 #define xdr_u_quad_t xdr_u_int64_t
 #define xdr_quad_t   xdr_int64_t
 #define xdr_uint32_t xdr_u_int32_t
+#define xdr_uint64_t xdr_u_int64_t
 #endif
 
 bool_t

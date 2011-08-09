@@ -26,6 +26,8 @@
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 
+#include "compat.h"
+
 #define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
 #define xdr_decoded_remaining_len(xdr)         ((&xdr)->x_handy)
 #define xdr_encoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
