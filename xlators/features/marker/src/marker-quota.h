@@ -1,4 +1,4 @@
-/*Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
+/*Copyright (c) 2008-2011 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
