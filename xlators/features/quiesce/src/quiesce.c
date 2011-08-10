@@ -56,7 +56,7 @@ gf_quiesce_local_wipe (xlator_t *this, quiesce_local_t *local)
         if (local->vector)
                 GF_FREE (local->vector);
 
-        mem_put (priv->local_pool, local);
+        mem_put (local);
 }
 
 call_stub_t *

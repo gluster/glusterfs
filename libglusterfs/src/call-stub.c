@@ -3835,7 +3835,7 @@ call_stub_destroy (call_stub_t *stub)
         }
 
         stub->stub_mem_pool = NULL;
-        mem_put (tmp_pool, stub);
+        mem_put (stub);
 out:
         tmp_pool = NULL;
 

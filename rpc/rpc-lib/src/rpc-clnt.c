@@ -117,7 +117,7 @@ saved_frames_delete (struct saved_frame *saved_frame,
                                        conn->rpc_clnt->reqpool);
         }
 
-        mem_put (conn->rpc_clnt->saved_frames_pool, saved_frame);
+        mem_put (saved_frame);
 out:
         return;
 }
@@ -201,7 +201,7 @@ call_bail (void *data)
 
                 rpc_clnt_reply_deinit (trav->rpcreq, clnt->reqpool);
                 list_del_init (&trav->list);
-                mem_put (conn->rpc_clnt->saved_frames_pool, trav);
+                mem_put (trav);
         }
 out:
         return;
@@ -347,7 +347,7 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                                        trav->rpcreq->conn->rpc_clnt->reqpool);
 
 		list_del_init (&trav->list);
-                mem_put (saved_frames_pool, trav);
+                mem_put (trav);
 	}
 }
 
@@ -601,7 +601,7 @@ rpc_clnt_reply_deinit (struct rpc_req *req, struct mem_pool *pool)
                 iobref_unref (req->rsp_iobref);
         }
 
-        mem_put (pool, req);
+        mem_put (req);
 out:
         return;
 }
@@ -752,7 +752,7 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
 out:
 
         if (saved_frame) {
-                mem_put (conn->rpc_clnt->saved_frames_pool, saved_frame);
+                mem_put (saved_frame);
         }
 
         clnt = rpc_clnt_unref (clnt);
@@ -1461,7 +1461,7 @@ out:
                 if (rpcreq) {
                         rpcreq->rpc_status = -1;
                         cbkfn (rpcreq, NULL, 0, frame);
-                        mem_put (rpc->reqpool, rpcreq);
+                        mem_put (rpcreq);
                 }
         }
         return ret;

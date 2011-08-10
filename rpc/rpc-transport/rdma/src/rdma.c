@@ -300,7 +300,7 @@ __rdma_ioq_entry_free (rdma_ioq_t *entry)
                 entry->msg.request.rsp_iobref = NULL;
         }
         /* TODO: use mem-pool */
-        mem_put (entry->pool, entry);
+        mem_put (entry);
 }
 
 
@@ -795,7 +795,7 @@ __rdma_request_context_destroy (rdma_request_context_t *context)
                         gf_log ("rdma", GF_LOG_DEBUG,
                                 "failed to send "
                                 "message");
-                        mem_put (context->pool, context);
+                        mem_put (context);
                         __rdma_disconnect (peer->trans);
                         goto out;
                 }
@@ -811,7 +811,7 @@ __rdma_request_context_destroy (rdma_request_context_t *context)
                 context->rsp_iobref = NULL;
         }
 
-        mem_put (context->pool, context);
+        mem_put (context);
 
 out:
         return;
@@ -1602,7 +1602,7 @@ rdma_reply_info_destroy (rdma_reply_info_t *reply_info)
                 reply_info->wc_array = NULL;
         }
 
-        mem_put (reply_info->pool, reply_info);
+        mem_put (reply_info);
 out:
         return;
 }

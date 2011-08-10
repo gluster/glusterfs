@@ -276,7 +276,7 @@ rpcsvc_request_destroy (rpcsvc_request_t *req)
 
         rpc_transport_unref (req->trans);
 
-        mem_put (req->svc->rxpool, req);
+        mem_put (req);
 
 out:
         return;

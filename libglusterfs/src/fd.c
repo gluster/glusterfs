@@ -428,7 +428,7 @@ fd_destroy (fd_t *fd)
         GF_FREE (fd->_ctx);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
-        mem_put (tmp_pool,fd);
+        mem_put (fd);
         tmp_pool = NULL;
 out:
         return;
@@ -500,7 +500,7 @@ fd_create (inode_t *inode, pid_t pid)
         fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) * fd->xl_count),
                               gf_common_mt_fd_ctx);
         if (!fd->_ctx) {
-                mem_put (inode->table->fd_mem_pool, fd);
+                mem_put (fd);
                 fd = NULL;
                 goto out;
         }

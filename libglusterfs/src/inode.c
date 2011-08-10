@@ -154,7 +154,7 @@ __dentry_unset (dentry_t *dentry)
                 dentry->parent = NULL;
         }
 
-        mem_put (tmp_pool, dentry);
+        mem_put (dentry);
         tmp_pool = NULL;
 
 }
@@ -336,7 +336,7 @@ __inode_destroy (inode_t *inode)
 noctx:
         LOCK_DESTROY (&inode->lock);
         //  memset (inode, 0xb, sizeof (*inode));
-        mem_put (tmp_pool, inode);
+        mem_put (inode);
         tmp_pool = NULL;
 
 }
@@ -501,7 +501,7 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
 
         newd->name = gf_strdup (name);
         if (newd->name == NULL) {
-                mem_put (parent->table->dentry_pool, newd);
+                mem_put (newd);
                 newd = NULL;
                 goto out;
         }
@@ -547,7 +547,7 @@ __inode_create (inode_table_t *table)
 
         if (newi->_ctx == NULL) {
                 LOCK_DESTROY (&newi->lock);
-                mem_put (table->inode_pool, newi);
+                mem_put (newi);
                 newi = NULL;
                 goto out;
         }

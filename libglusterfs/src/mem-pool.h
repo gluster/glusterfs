@@ -152,7 +152,7 @@ mem_pool_new_fn (unsigned long sizeof_type, unsigned long count);
 
 #define mem_pool_new(type,count) mem_pool_new_fn (sizeof(type), count)
 
-void mem_put (struct mem_pool *pool, void *ptr);
+void mem_put (void *ptr);
 void *mem_get (struct mem_pool *pool);
 void *mem_get0 (struct mem_pool *pool);
 

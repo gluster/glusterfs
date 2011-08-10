@@ -74,7 +74,7 @@ nfs_fop_local_wipe (xlator_t *nfsx, struct nfs_fop_local *l)
         if (l->dictgfid)
                 dict_unref (l->dictgfid);
 
-        mem_put (nfs->foppool, l);
+        mem_put (l);
 
         return;
 }

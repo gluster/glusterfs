@@ -149,7 +149,7 @@ FRAME_DESTROY (call_frame_t *frame)
         }
 
         LOCK_DESTROY (&frame->lock);
-        mem_put (frame->root->pool->frame_mem_pool, frame);
+        mem_put (frame);
 
         if (local)
                 GF_FREE (local);
@@ -178,7 +178,7 @@ STACK_DESTROY (call_stack_t *stack)
         while (stack->frames.next) {
                 FRAME_DESTROY (stack->frames.next);
         }
-        mem_put (stack->pool->stack_mem_pool, stack);
+        mem_put (stack);
 
         if (local)
                 GF_FREE (local);
