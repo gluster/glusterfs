@@ -19,9 +19,12 @@ except ImportError:
     import urllib
 
 def escape(s):
+    """the chosen flavor of string escaping, used all over
+       to turn whatever data to creatable representation"""
     return urllib.quote_plus(s)
 
 def unescape(s):
+    """inverse of .escape"""
     return urllib.unquote_plus(s)
 
 def norm(s):
@@ -59,6 +62,10 @@ def update_file(path, updater, merger = lambda f: True):
                 fx.close()
 
 def grabfile(fname, content=None):
+    """open @fname + contest for its fcntl lock
+
+    @content: if given, set the file content to it
+    """
     # damn those messy open() mode codes
     fd = os.open(fname, os.O_CREAT|os.O_RDWR)
     f = os.fdopen(fd, 'r+b', 0)
@@ -82,6 +89,7 @@ def grabfile(fname, content=None):
     return f
 
 def grabpidfile(fname=None, setpid=True):
+    """.grabfile customization for pid files"""
     if not fname:
         fname = gconf.pid_file
     content = None
@@ -92,6 +100,10 @@ def grabpidfile(fname=None, setpid=True):
 final_lock = Lock()
 
 def finalize(*a, **kw):
+    """all those messy final steps we go trough upon termination
+
+    Do away with pidfile, ssh control dir and logging.
+    """
     final_lock.acquire()
     if getattr(gconf, 'pid_file', None):
         rm_pidf = gconf.pid_file_owned
@@ -126,6 +138,12 @@ def finalize(*a, **kw):
     os._exit(kw.get('exval', 0))
 
 def log_raise_exception(excont):
+    """top-level exception handler
+
+    Try to some fancy things to cover up we face with an error.
+    Translate some weird sounding but well understood exceptions
+    into human-friendly lingo
+    """
     is_filelog = False
     for h in logging.getLogger().handlers:
         fno = getattr(getattr(h, 'stream', None), 'fileno', None)
@@ -170,7 +188,12 @@ class FreeObject(object):
             setattr(self, k, v)
 
 class Thread(baseThread):
+    """thread class flavor for gsyncd
 
+    - always a daemon thread
+    - force exit for whole program if thread
+      function coughs up an exception
+    """
     def __init__(self, *a, **kw):
         tf = kw.get('target')
         if tf:

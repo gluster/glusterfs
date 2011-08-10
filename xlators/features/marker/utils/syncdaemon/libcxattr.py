@@ -3,6 +3,15 @@ from ctypes import *
 from ctypes.util import find_library
 
 class Xattr(object):
+    """singleton that wraps the extended attribues system
+       interface for python using ctypes
+
+       Just implement it to the degree we need it, in particular
+       - we need just the l*xattr variants, ie. we never want symlinks to be
+         followed
+       - don't need size discovery for getxattr, as we always know the exact
+         sizes we expect
+    """
 
     libc = CDLL(find_library("libc"))
 
@@ -54,6 +63,7 @@ class Xattr(object):
 
     @classmethod
     def llistxattr_buf(cls, path):
+        """listxattr variant with size discovery"""
         size = cls.llistxattr(path)
         if size == -1:
             cls.raise_oserr()

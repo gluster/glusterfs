@@ -16,6 +16,7 @@ re_type = type(re.compile(''))
 
 
 class MultiDict(object):
+    """a virtual dict-like class which functions as the union of underlying dicts"""
 
     def __init__(self, *dd):
         self.dicts = dd
@@ -31,8 +32,16 @@ class MultiDict(object):
 
 
 class GConffile(object):
+    """A high-level interface to ConfigParser which flattens the two-tiered
+       config layout by implenting automatic section dispatch based on initial
+       parameters.
+
+    Also ensure section ordering in terms of their time of addition -- a compat
+    hack for Python < 2.7.
+    """
 
     def _normconfig(self):
+        """normalize config keys by s/-/_/g"""
         for n, s in self.config._sections.items():
             if n.find('__') == 0:
                 continue
@@ -44,6 +53,13 @@ class GConffile(object):
             self.config._sections[n] = s2
 
     def __init__(self, path, peers, *dd):
+        """
+        - .path: location of config file
+        - .config: underlying ConfigParser instance
+        - .peers: on behalf of whom we flatten .config
+          (master, or master-slave url pair)
+        - .auxdicts: template subtituents
+        """
         self.peers = peers
         self.path = path
         self.auxdicts = dd
@@ -52,6 +68,7 @@ class GConffile(object):
         self._normconfig()
 
     def section(self, rx=False):
+        """get the section name of the section representing .peers in .config"""
         peers = self.peers
         if not peers:
             peers = ['.', '.']
@@ -64,6 +81,9 @@ class GConffile(object):
 
     @staticmethod
     def parse_section(section):
+        """retrieve peers sequence encoded by section name
+           (as urls or regexen, depending on section type)
+        """
         sl = section.split()
         st = sl.pop(0)
         sl = [unescape(u) for u in sl]
@@ -83,7 +103,7 @@ class GConffile(object):
         also those sections which are not registered
         in SECT_ORD.
 
-        Needed for python 2.{4,5} where ConfigParser
+        Needed for python 2.{4,5,6} where ConfigParser
         cannot yet order sections/options internally.
         """
         so = {}
@@ -108,6 +128,13 @@ class GConffile(object):
         return ss
 
     def update_to(self, dct, allow_unresolved=False):
+        """update @dct from key/values of ours.
+
+        key/values are collected from .config by filtering the regexp sections
+        according to match, and from .section. The values are treated as templates,
+        which are substituted from .auxdicts and (in case of regexp sections)
+        match groups.
+        """
         if not self.peers:
             raise GsyncdError('no peers given, cannot select matching options')
         def update_from_sect(sect, mud):
@@ -136,6 +163,10 @@ class GConffile(object):
             update_from_sect(self.section(), MultiDict(dct, *self.auxdicts))
 
     def get(self, opt=None):
+        """print the matching key/value pairs from .config,
+           or if @opt given, the value for @opt (according to the
+           logic described in .update_to)
+        """
         d = {}
         self.update_to(d, allow_unresolved = True)
         if opt:
@@ -150,6 +181,10 @@ class GConffile(object):
                 print("%s: %s" % (k, v))
 
     def write(self, trfn, opt, *a, **kw):
+        """update on-disk config transactionally
+
+        @trfn is the transaction function
+        """
         def mergeconf(f):
             self.config = ConfigParser.RawConfigParser()
             self.config.readfp(f)
@@ -163,6 +198,7 @@ class GConffile(object):
         update_file(self.path, updateconf, mergeconf)
 
     def _set(self, opt, val, rx=False):
+        """set @opt to @val in .section"""
         sect = self.section(rx)
         if not self.config.has_section(sect):
             self.config.add_section(sect)
@@ -174,12 +210,15 @@ class GConffile(object):
         return True
 
     def set(self, opt, *a, **kw):
+        """perform ._set transactionally"""
         self.write(self._set, opt, *a, **kw)
 
     def _delete(self, opt, rx=False):
+        """delete @opt from .section"""
         sect = self.section(rx)
         if self.config.has_section(sect):
             return self.config.remove_option(sect, opt)
 
     def delete(self, opt, *a, **kw):
+        """perform ._delete transactionally"""
         self.write(self._delete, opt, *a, **kw)
