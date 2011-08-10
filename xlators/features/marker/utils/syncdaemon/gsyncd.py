@@ -21,6 +21,10 @@ import resource
 from monitor import monitor
 
 class GLogger(Logger):
+    """Logger customizations for gsyncd.
+
+    It implements a log format similar to that of glusterfs.
+    """
 
     def makeRecord(self, name, level, *a):
         rv = Logger.makeRecord(self, name, level, *a)
@@ -54,6 +58,7 @@ class GLogger(Logger):
 
 
 def startup(**kw):
+    """set up logging, pidfile grabbing, daemonization"""
     if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
         if not grabpidfile():
             sys.stderr.write("pidfile is taken, exiting.\n")
@@ -96,6 +101,7 @@ def startup(**kw):
     gconf.log_exit = True
 
 def main():
+    """main routine, signal/exception handling boilerplates"""
     signal.signal(signal.SIGTERM, lambda *a: finalize(*a, **{'exval': 1}))
     GLogger.setup()
     excont = FreeObject(exval = 0)
@@ -108,6 +114,17 @@ def main():
         finalize(exval = excont.exval)
 
 def main_i():
+    """internal main routine
+
+    parse command line, decide what action will be taken;
+    we can either:
+    - query/manipulate configuration
+    - format gsyncd urls using gsyncd's url parsing engine
+    - start service in following modes, in given stages:
+      - monitor: startup(), monitor()
+      - master: startup(), connect_remote(), connect(), service_loop()
+      - slave: startup(), connect(), service_loop()
+    """
     rconf = {'go_daemon': 'should'}
 
     def store_abs(opt, optstr, val, parser):

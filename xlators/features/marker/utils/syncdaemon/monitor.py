@@ -8,11 +8,14 @@ from gconf import gconf
 from syncdutils import update_file
 
 class Monitor(object):
+    """class which spawns and manages gsyncd workers"""
 
     def __init__(self):
         self.state = None
 
     def set_state(self, state):
+        """set the state that can be used by external agents
+           like glusterd for status reporting"""
         if state == self.state:
             return
         self.state = state
@@ -21,6 +24,24 @@ class Monitor(object):
             update_file(gconf.state_file, lambda f: f.write(state + '\n'))
 
     def monitor(self):
+        """the monitor loop
+
+        Basic logic is a blantantly simple blunt heuristics:
+        if spawned client survives 60 secs, it's considered OK.
+        This servers us pretty well as it's not vulneralbe to
+        any kind of irregular behavior of the child...
+
+        ... well, except for one: if children is hung up on
+        waiting for some event, it can survive aeons, still
+        will be defunct. So we tweak the above logic to
+        expect the worker to send us a signal within 60 secs
+        (in the form of closing its end of a pipe). The worker
+        does this when it's done with the setup stage
+        ready to enter the service loop (note it's the setup
+        stage which is vulnerable to hangs -- the full
+        blown worker blows up on EPIPE if the net goes down,
+        due to the keep-alive thread)
+        """
         argv = sys.argv[:]
         for o in ('-N', '--no-daemon', '--monitor'):
             while o in argv:
@@ -77,4 +98,5 @@ class Monitor(object):
         return ret
 
 def monitor():
+    """oh yeah, actually Monitor is used as singleton, too"""
     return Monitor().monitor()
