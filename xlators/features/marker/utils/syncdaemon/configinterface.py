@@ -173,7 +173,7 @@ class GConffile(object):
             opt = norm(opt)
             v = d.get(opt)
             if v:
-                print v
+                print(v)
         else:
             for k, v in d.iteritems():
                 if k == '__name__':
