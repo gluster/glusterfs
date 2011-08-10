@@ -429,7 +429,7 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
         if (cs->iobref)
                 iobref_unref (cs->iobref);
         memset (cs, 0, sizeof (*cs));
-        mem_put (nfs3->localpool, cs);
+        mem_put (cs);
         /* Already refd by fd_lookup, so no need to ref again. */
 }
 

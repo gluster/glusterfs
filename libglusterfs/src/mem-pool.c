@@ -24,10 +24,12 @@
 #include <stdarg.h>
 
 #define GF_MEM_POOL_LIST_BOUNDARY        (sizeof(struct list_head))
-#define GF_MEM_POOL_PAD_BOUNDARY         (GF_MEM_POOL_LIST_BOUNDARY + sizeof(int))
+#define GF_MEM_POOL_PTR                  (sizeof(struct mem_pool*))
+#define GF_MEM_POOL_PAD_BOUNDARY         (GF_MEM_POOL_LIST_BOUNDARY  + GF_MEM_POOL_PTR + sizeof(int))
 #define mem_pool_chunkhead2ptr(head)     ((head) + GF_MEM_POOL_PAD_BOUNDARY)
 #define mem_pool_ptr2chunkhead(ptr)      ((ptr) - GF_MEM_POOL_PAD_BOUNDARY)
 #define is_mem_chunk_in_use(ptr)         (*ptr == 1)
+#define mem_pool_from_ptr(ptr)           ((ptr) + GF_MEM_POOL_LIST_BOUNDARY)
 
 #define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4 + 8)
 #define GF_MEM_TRAILER_SIZE 8
@@ -379,6 +381,7 @@ mem_get (struct mem_pool *mem_pool)
         struct list_head *list = NULL;
         void             *ptr = NULL;
         int             *in_use = NULL;
+        struct mem_pool **pool_ptr = NULL;
 
         if (!mem_pool) {
                 gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
@@ -395,7 +398,8 @@ mem_get (struct mem_pool *mem_pool)
                         mem_pool->cold_count--;
 
                         ptr = list;
-                        in_use = (ptr + GF_MEM_POOL_LIST_BOUNDARY);
+                        in_use = (ptr + GF_MEM_POOL_LIST_BOUNDARY +
+                                  GF_MEM_POOL_PTR);
                         *in_use = 1;
 
                         goto fwd_addr_out;
@@ -421,17 +425,20 @@ mem_get (struct mem_pool *mem_pool)
                  * because it is too much work knowing that a better slab
                  * allocator is coming RSN.
                  */
-                ptr = MALLOC (mem_pool->real_sizeof_type);
+                ptr = GF_CALLOC (1, mem_pool->padded_sizeof_type,
+                                 gf_common_mt_mem_pool);
+                gf_log_callingfn ("mem-pool", GF_LOG_DEBUG, "Mem pool is full. "
+                                  "Callocing mem");
 
                 /* Memory coming from the heap need not be transformed from a
                  * chunkhead to a usable pointer since it is not coming from
                  * the pool.
                  */
-                goto unlocked_out;
         }
 fwd_addr_out:
+        pool_ptr = mem_pool_from_ptr (ptr);
+        *pool_ptr = (struct mem_pool *)mem_pool;
         ptr = mem_pool_chunkhead2ptr (ptr);
-unlocked_out:
         UNLOCK (&mem_pool->lock);
 
         return ptr;
@@ -458,25 +465,39 @@ __is_member (struct mem_pool *pool, void *ptr)
 
 
 void
-mem_put (struct mem_pool *pool, void *ptr)
+mem_put (void *ptr)
 {
         struct list_head *list = NULL;
         int    *in_use = NULL;
         void   *head = NULL;
+        struct mem_pool **tmp = NULL;
+        struct mem_pool *pool = NULL;
 
-        if (!pool || !ptr) {
+        if (!ptr) {
                 gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
                 return;
         }
 
+        list = head = mem_pool_ptr2chunkhead (ptr);
+        tmp = mem_pool_from_ptr (head);
+        if (!tmp) {
+                gf_log ("mem-pool", GF_LOG_ERROR, "ptr header is corrupted");
+                return;
+        }
+
+        pool = *tmp;
+        if (!pool) {
+                gf_log ("mem-pool", GF_LOG_ERROR, "mem-pool ptr is NULL");
+                return;
+        }
         LOCK (&pool->lock);
         {
 
                 switch (__is_member (pool, ptr))
                 {
                 case 1:
-                        list = head = mem_pool_ptr2chunkhead (ptr);
-                        in_use = (head + GF_MEM_POOL_LIST_BOUNDARY);
+                        in_use = (head + GF_MEM_POOL_LIST_BOUNDARY +
+                                  GF_MEM_POOL_PTR);
                         if (!is_mem_chunk_in_use(in_use)) {
                                 gf_log_callingfn ("mem-pool", GF_LOG_CRITICAL,
                                                   "mem_put called on freed ptr %p of mem "
@@ -506,7 +527,7 @@ mem_put (struct mem_pool *pool, void *ptr)
                          * not have enough info to distinguish between the two
                          * situations.
                          */
-                        FREE (ptr);
+                        GF_FREE (list);
                         break;
                 default:
                         /* log error */
@@ -515,7 +536,6 @@ mem_put (struct mem_pool *pool, void *ptr)
         }
         UNLOCK (&pool->lock);
 }
-
 
 void
 mem_pool_destroy (struct mem_pool *pool)

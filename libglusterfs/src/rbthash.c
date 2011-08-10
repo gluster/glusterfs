@@ -201,7 +201,7 @@ rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
         ret = 0;
 free_entry:
         if (ret == -1) {
-                mem_put (tbl->entrypool, entry);
+                mem_put (entry);
                 entry = NULL;
         }
 
@@ -230,7 +230,7 @@ rbthash_deinit_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
                 }
                 UNLOCK (&tbl->tablelock);
 
-                mem_put (tbl->entrypool, entry);
+                mem_put (entry);
         }
 
         return;
@@ -398,7 +398,7 @@ rbthash_remove (rbthash_table_t *tbl, void *key, int keylen)
         }
         UNLOCK (&tbl->tablelock);
 
-        mem_put (tbl->entrypool, entry);
+        mem_put (entry);
 
         return dataref;
 }
