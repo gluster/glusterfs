@@ -1904,8 +1904,10 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .lookup           = posix_acl_lookup,
         .open             = posix_acl_open,
+#if FD_MODE_CHECK_IS_IMPLEMENTED
         .readv            = posix_acl_readv,
         .writev           = posix_acl_writev,
+#endif
         .ftruncate        = posix_acl_ftruncate,
         .access           = posix_acl_access,
         .truncate         = posix_acl_truncate,
