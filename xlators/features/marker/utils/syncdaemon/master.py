@@ -110,7 +110,7 @@ class GMaster(object):
         self.volinfo_state = (uuid_preset and {'uuid': uuid_preset}, None)
         # the actual volinfo we make use of
         self.volinfo = None
-	self.terminate = False
+        self.terminate = False
 
     def crawl_loop(self):
         """start the keep-alive thread and iterate .crawl"""
