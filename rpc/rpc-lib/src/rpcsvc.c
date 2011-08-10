@@ -2165,14 +2165,14 @@ rpcsvc_transport_check_volume_specific (dict_t *options, char *volname,
 {
         int             namechk = RPCSVC_AUTH_REJECT;
         int             addrchk = RPCSVC_AUTH_REJECT;
-        gf_boolean_t    namelookup = _gf_true;
+        gf_boolean_t    namelookup = _gf_false;
         char            *namestr = NULL;
         int             ret = 0;
 
         if ((!options) || (!volname) || (!trans))
                 return RPCSVC_AUTH_REJECT;
 
-        /* Enabled by default */
+        /* Disabled by default */
         if ((dict_get (options, "rpc-auth.addr.namelookup"))) {
                 ret = dict_get_str (options, "rpc-auth.addr.namelookup"
                                     , &namestr);
@@ -2204,14 +2204,14 @@ rpcsvc_transport_check_volume_general (dict_t *options, rpc_transport_t *trans)
 {
         int             addrchk = RPCSVC_AUTH_REJECT;
         int             namechk = RPCSVC_AUTH_REJECT;
-        gf_boolean_t    namelookup = _gf_true;
+        gf_boolean_t    namelookup = _gf_false;
         char            *namestr = NULL;
         int             ret = 0;
 
         if ((!options) || (!trans))
                 return RPCSVC_AUTH_REJECT;
 
-        /* Enabled by default */
+        /* Disabled by default */
         if ((dict_get (options, "rpc-auth.addr.namelookup"))) {
                 ret = dict_get_str (options, "rpc-auth.addr.namelookup"
                                     , &namestr);
