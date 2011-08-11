@@ -2081,73 +2081,18 @@ mem_acct_init (xlator_t *this)
 
 
 int
-validate_options ( xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
-
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                                      volume_opt_list_t, list);
-         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-        return ret;
-}
-
-
-int
-reconfigure ( xlator_t *this, dict_t *options)
+reconfigure (xlator_t *this, dict_t *options)
 {
 	iot_conf_t      *conf = NULL;
-	int		 ret = 0;
-	int		 thread_count;
+	int		 ret = -1;
 
         conf = this->private;
         if (!conf)
                 goto out;
 
-        thread_count = conf->max_count;
-
-	if (dict_get (options, "thread-count")) {
-                thread_count = data_to_int32 (dict_get (options,
-                                                        "thread-count"));
-
-                if (thread_count < IOT_MIN_THREADS) {
-                        gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted (%d) is less than "
-                                "min (%d). Restoring it to previous value (%d)",
-                                thread_count, IOT_MIN_THREADS, conf->max_count);
-			goto out;
-                }
-
-                if (thread_count > IOT_MAX_THREADS) {
-                        gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted (%d) is greater than "
-                                "max (%d). Restoring it to previous value (%d)",
-                                thread_count, IOT_MAX_THREADS, conf->max_count);
-			goto out;
-                }
-
-		conf->max_count = thread_count;
-        } else
-                conf->max_count = thread_count;
+        GF_OPTION_RECONF ("thread-count", conf->max_count, options, int32, out);
 
 	ret = 0;
-
 out:
 	return ret;
 }
@@ -2157,12 +2102,8 @@ int
 init (xlator_t *this)
 {
         iot_conf_t      *conf = NULL;
-        dict_t          *xl_options = this->options;
-        int              thread_count = IOT_DEFAULT_THREADS;
-        int              idle_time = IOT_DEFAULT_IDLE;
         int              ret = -1;
         int              i = 0;
-        char            *def_val = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads", GF_LOG_ERROR,
@@ -2197,46 +2138,9 @@ init (xlator_t *this)
 
         set_stack_size (conf);
 
-        if (xlator_get_volopt_info (&this->volume_options, "thread-count",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "thread-count not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2int32 (def_val, &conf->max_count)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "thread corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
+        GF_OPTION_INIT ("thread-count", conf->max_count, int32, out);
 
-	if (dict_get (xl_options, "thread-count")) {
-                thread_count = data_to_int32 (dict_get (xl_options,
-                                                        "thread-count"));
-                if (thread_count < IOT_MIN_THREADS) {
-                        gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted is less than min"
-                                "threads allowed scaling it up to min");
-                        thread_count = IOT_MIN_THREADS;
-                }
-                if (thread_count > IOT_MAX_THREADS) {
-                        gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted is more than max"
-                                " threads allowed scaling it down to max");
-                        thread_count = IOT_MAX_THREADS;
-                }
-        }
-        conf->max_count = thread_count;
-
-	if (dict_get (xl_options, "idle-time")) {
-                idle_time = data_to_int32 (dict_get (xl_options,
-                                                     "idle-time"));
-                if (idle_time < 0)
-                        idle_time = 1;
-        }
-        conf->idle_time = idle_time;
+        GF_OPTION_INIT ("idle-time", conf->idle_time, int32, out);
 
         conf->this = this;
 
@@ -2328,6 +2232,7 @@ struct volume_options options[] = {
          .type  = GF_OPTION_TYPE_INT,
          .min   = 1,
          .max   = 0x7fffffff,
+         .default_value = "120",
         },
 	{ .key  = {NULL},
         },

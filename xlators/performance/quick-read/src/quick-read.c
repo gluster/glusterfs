@@ -3407,43 +3407,11 @@ mem_acct_init (xlator_t *this)
 
 
 int
-validate_options (xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
-
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                                      volume_opt_list_t, list);
-         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-        return ret;
-}
-
-
-int
 reconfigure (xlator_t *this, dict_t *options)
 {
-        char         *str           = NULL;
         int32_t       ret           = -1;
         qr_private_t *priv          = NULL;
         qr_conf_t    *conf          = NULL;
-        int32_t       cache_timeout = 0;
-        uint64_t      cache_size    = 0;
 
         GF_VALIDATE_OR_GOTO ("quick-read", this, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
@@ -3456,40 +3424,10 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
         }
 
-        cache_timeout = conf->cache_timeout;
-        ret = dict_get_str (options, "cache-timeout", &str);
-        if (ret == 0) {
-                ret = gf_string2uint_base10 (str,
-                                             (unsigned int *)&conf->cache_timeout);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "invalid cache-timeout value %s", str);
-                        ret = -1;
-                        goto out;
-                }
-                conf->cache_timeout = cache_timeout;
-        } else {
-                conf->cache_timeout = 1;
-        }
+        GF_OPTION_RECONF ("cache-timeout", conf->cache_timeout, options, int32,
+                          out);
 
-        cache_size = conf->cache_size;
-        ret = dict_get_str (options, "cache-size", &str);
-        if (ret == 0) {
-                ret = gf_string2bytesize (str, &cache_size);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "invalid cache-size %s(old value used)", str);
-                        conf->cache_size = cache_size;
-                        ret = -1;
-                        goto out;
-                }
-
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Reconfiguring cache-siz to %"PRIu64, cache_size);
-                conf->cache_size = cache_size;
-        } else {
-                conf->cache_size = QR_DEFAULT_CACHE_SIZE;
-        }
+        GF_OPTION_RECONF ("cache-size", conf->cache_size, options, size, out);
 
         ret = 0;
 out:
@@ -3602,11 +3540,9 @@ out:
 int32_t
 init (xlator_t *this)
 {
-        char         *str  = NULL;
         int32_t       ret  = -1, i = 0;
         qr_private_t *priv = NULL;
         qr_conf_t    *conf = NULL;
-        char         *def_val = NULL;
 
         if (!this->children || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -3628,59 +3564,12 @@ init (xlator_t *this)
 
         LOCK_INIT (&priv->table.lock);
         conf = &priv->conf;
-        conf->max_file_size = 65536;
-        ret = dict_get_str (this->options, "max-file-size",
-                            &str);
-        if (ret == 0) {
-                ret = gf_string2bytesize (str, &conf->max_file_size);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "invalid number format \"%s\" of \"option "
-                                "max-file-size\"",
-                                str);
-                        ret = -1;
-                        goto out;
-                }
-        }
 
-        conf->cache_timeout = 1;
-        ret = dict_get_str (this->options, "cache-timeout", &str);
-        if (ret == 0) {
-                ret = gf_string2uint_base10 (str,
-                                             (unsigned int *)&conf->cache_timeout);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "invalid cache-timeout value %s", str);
-                        ret = -1;
-                        goto out;
-                }
-        }
+        GF_OPTION_INIT ("max-file-size", conf->max_file_size, size, out);
 
-        if (xlator_get_volopt_info (&this->volume_options, "cache-size",
-                                   &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "cache-size not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2bytesize (def_val, &conf->cache_size)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "cache-size corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
+        GF_OPTION_INIT ("cache-timeout", conf->cache_timeout, int32, out);
 
-        ret = dict_get_str (this->options, "cache-size", &str);
-        if (ret == 0) {
-                ret = gf_string2bytesize (str, &conf->cache_size);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "invalid cache-size value %s", str);
-                        ret = -1;
-                        goto out;
-                }
-        }
+        GF_OPTION_INIT ("cache-size", conf->cache_size, size, out);
 
         INIT_LIST_HEAD (&conf->priority_list);
         conf->max_pri = 1;
@@ -3770,11 +3659,13 @@ struct volume_options options[] = {
         { .key  = {"cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min = 1,
-          .max = 60
+          .max = 60,
+          .default_value = "1",
         },
         { .key  = {"max-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 0,
           .max  = 1 * GF_UNIT_KB * 1000,
+          .default_value = "64KB",
         },
 };

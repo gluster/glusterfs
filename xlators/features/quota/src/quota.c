@@ -2597,37 +2597,9 @@ quota_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
+
 int
-validate_options (xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
-
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                                      volume_opt_list_t, list);
-         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-
-        return ret;
-}
-
-int32_t
-quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *xl_options)
+quota_parse_limits (quota_priv_t *priv, xlator_t *this, dict_t *xl_options)
 {
         int32_t       ret       = -1;
         char         *str       = NULL;
@@ -2635,7 +2607,6 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *xl_options)
         char         *path      = NULL;
         uint64_t      value     = 0;
         limits_t     *quota_lim = NULL;
-        char         *def_val   = NULL;
 
         ret = dict_get_str (xl_options, "limit-set", &str);
 
@@ -2666,37 +2637,6 @@ quota_parse_options (quota_priv_t *priv, xlator_t *this, dict_t *xl_options)
         } else {
                 gf_log (this->name, GF_LOG_INFO,
                         "no \"limit-set\" option provided");
-        }
-
-        if (xlator_get_volopt_info (&this->volume_options, "timeout", &def_val,
-                                     NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of timeout"
-                         "not found");
-                ret = -1;
-                goto err;
-        } else {
-                if (gf_string2bytesize (def_val,(uint64_t *) &priv->timeout )) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 " timeout corrupt");
-                        ret = -1;
-                        goto err;
-                }
-        }
-
-        ret = dict_get_str (xl_options, "timeout", &str);
-        if (str) {
-                ret = gf_string2bytesize (str, &value);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "Invalid quota timout value.");
-                        ret = -1;
-                        goto err;
-                } else {
-                        priv->timeout = (int64_t) value;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "quota timeout value = %"PRId64,
-                                priv->timeout);
-                }
         }
 
         list_for_each_entry (quota_lim, &priv->limit_head, limit_list) {
@@ -2735,11 +2675,13 @@ init (xlator_t *this)
 
         this->private = priv;
 
-        ret = quota_parse_options (priv, this, this->options);
+        ret = quota_parse_limits (priv, this, this->options);
 
         if (ret) {
                 goto err;
         }
+
+        GF_OPTION_INIT ("timeout", priv->timeout, int64, err);
 
         ret = 0;
 err:
@@ -2763,15 +2705,19 @@ reconfigure (xlator_t *this, dict_t *options)
                 GF_FREE (limit);
         }
 
-        ret = quota_parse_options (priv, this, options);
+        ret = quota_parse_limits (priv, this, options);
         if (ret == -1) {
                 gf_log ("quota", GF_LOG_WARNING,
                         "quota reconfigure failed, "
                         "new changes will not take effect");
                 goto out;
         }
+
+        GF_OPTION_RECONF ("timeout", priv->timeout, options, int64, out);
+
+        ret = 0;
 out:
-        return 0;
+        return ret;
 }
 
 

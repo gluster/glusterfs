@@ -1954,73 +1954,24 @@ int
 build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
         int                     ret = -1;
-        char                    *def_val = NULL;
 
         if (!conf)
                 goto out;
 
-        if (xlator_get_volopt_info (&this->volume_options, "frame-timeout",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "frame-timeout not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2int32 (def_val, &conf->rpc_conf.rpc_timeout)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "frame-timeout corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
+        GF_OPTION_INIT ("frame-timeout", conf->rpc_conf.rpc_timeout,
+                        int32, out);
 
-        ret = dict_get_int32 (this->options, "frame-timeout",
-                              &conf->rpc_conf.rpc_timeout);
-        if (ret >= 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "setting frame-timeout to %d",
-                        conf->rpc_conf.rpc_timeout);
-        }
+        GF_OPTION_INIT ("remote-port", conf->rpc_conf.remote_port,
+                        int32, out);
 
-        ret = dict_get_int32 (this->options, "remote-port",
-                              &conf->rpc_conf.remote_port);
-        if (ret >= 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "remote-port is %d", conf->rpc_conf.remote_port);
-        } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "defaulting remote-port to 'auto'");
-        }
+        GF_OPTION_INIT ("ping-timeout", conf->opt.ping_timeout,
+                        int32, out);
 
-        if (xlator_get_volopt_info (&this->volume_options, "ping-timeout",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "ping-timeout not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2int32 (def_val, &conf->opt.ping_timeout)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "ping-timeout corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        ret = dict_get_int32 (this->options, "ping-timeout",
-                              &conf->opt.ping_timeout);
-        if (ret >= 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "setting ping-timeout to %d", conf->opt.ping_timeout);
-        }
-
-        ret = dict_get_str (this->options, "remote-subvolume",
-                            &conf->opt.remote_subvolume);
-        if (ret) {
-                /* This is valid only if 'cluster/pump' is the parent */
-                gf_log (this->name, GF_LOG_WARNING,
+        GF_OPTION_INIT ("remote-subvolume", conf->opt.remote_subvolume,
+                        path, out);
+        if (!conf->opt.remote_subvolume) {
+                gf_log (this->name, GF_LOG_ERROR,
                         "option 'remote-subvolume' not given");
-                ret = 1;
                 goto out;
         }
 
@@ -2119,43 +2070,12 @@ out:
         return ret;
 }
 
-int
-validate_options (xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
-
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                                      volume_opt_list_t, list);
-        list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-
-        return ret;
-}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	clnt_conf_t *conf              = NULL;
-	int          ret               = 0;
-	int          timeout_ret       = 0;
-	int          ping_timeout      = 0;
-	int          frame_timeout     = 0;
+	int          ret               = -1;
         int          subvol_ret        = 0;
         char        *old_remote_subvol = NULL;
         char        *new_remote_subvol = NULL;
@@ -2164,70 +2084,18 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	conf = this->private;
 
-        timeout_ret = dict_get_int32 (options, "frame-timeout",
-				      &frame_timeout);
-        if (timeout_ret == 0) {
-		if (frame_timeout < 5 ) {
-			gf_log (this->name, GF_LOG_ERROR, "Reconfiguration"
-			      "'option frame-timeout %d failed , Min value"
-			      " can be 5, Defaulting to old value (%d)"
-			      , frame_timeout, conf->rpc_conf.rpc_timeout);
-			goto out;
-		}
+        GF_OPTION_RECONF ("frame-timeout", conf->rpc_conf.rpc_timeout,
+                          options, int32, out);
 
-		if (frame_timeout > 3600 ) {
-			gf_log (this->name, GF_LOG_ERROR, "Reconfiguration"
-			      "'option frame-timeout %d failed , Max value"
-			      "can be 3600, Defaulting to old value (%d)"
-			      , frame_timeout, conf->rpc_conf.rpc_timeout);
-			goto out;
-		}
-
-
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Reconfiguring otion frame-timeout to %d",
-                        frame_timeout);
-
-		conf->rpc_conf.rpc_timeout = frame_timeout;
-        }
-        else
-                conf->rpc_conf.rpc_timeout = 1800;
-
-	timeout_ret = dict_get_int32 (options, "ping-timeout",
-			              &ping_timeout);
-        if (timeout_ret == 0) {
-
-		if (ping_timeout < 5 ) {
-			gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-			      "'option ping-timeout %d failed , Min value"
-			      " can be 5, Defaulting to old value (%d)"
-			      , ping_timeout, conf->opt.ping_timeout);
-			goto out;
-		}
-
-		if (ping_timeout > 1013 ) {
-			gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-			      "'option ping-timeout %d failed , Max value"
-			      "can be 1013, Defaulting to old value (%d)"
-			      , ping_timeout, conf->opt.ping_timeout);
-			goto out;
-		}
-
-                gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
-			"'option ping-timeout' to %d", ping_timeout);
-		conf->opt.ping_timeout = ping_timeout;
-        }
-        else
-                conf->opt.ping_timeout = GF_UNIVERSAL_ANSWER;
+        GF_OPTION_RECONF ("ping-timeout", conf->opt.ping_timeout,
+                          options, int32, out);
 
         subvol_ret = dict_get_str (this->options, "remote-host",
                                    &old_remote_host);
 
         if (subvol_ret == 0) {
-
                 subvol_ret = dict_get_str (options, "remote-host",
                                            &new_remote_host);
-
                 if (subvol_ret == 0) {
                         if (strcmp (old_remote_host, new_remote_host)) {
                                 ret = 1;
@@ -2240,10 +2108,8 @@ reconfigure (xlator_t *this, dict_t *options)
                                    &old_remote_subvol);
 
         if (subvol_ret == 0) {
-
                 subvol_ret = dict_get_str (options, "remote-subvolume",
                                            &new_remote_subvol);
-
                 if (subvol_ret == 0) {
                         if (strcmp (old_remote_subvol, new_remote_subvol)) {
                                 ret = 1;
@@ -2252,10 +2118,12 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
+        ret = 0;
 out:
 	return ret;
 
 }
+
 
 int
 init (xlator_t *this)

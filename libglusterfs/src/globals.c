@@ -154,6 +154,8 @@ glusterfs_this_init ()
         global_xlator.type = "global";
         global_xlator.ctx  = glusterfs_ctx;
 
+        INIT_LIST_HEAD (&global_xlator.volume_options);
+
         return ret;
 }
 

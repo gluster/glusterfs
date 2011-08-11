@@ -121,7 +121,7 @@ struct ios_conf {
         struct ios_global_stats   incremental;
         gf_boolean_t              dump_fd_stats;
         gf_boolean_t              count_fop_hits;
-        int                       measure_latency;
+        gf_boolean_t              measure_latency;
         struct ios_stat_head      list[IOS_STATS_TYPE_MAX];
         struct ios_stat_head      thru_list[IOS_STATS_THRU_MAX];
 };
@@ -2327,140 +2327,41 @@ io_stats_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
-int
-iostats_configure_options (xlator_t *this, dict_t *xl_options,
-                           struct ios_conf *conf)
-{
-        int                 ret = 0;
-        int                 sys_log_level = -1;
-        char               *sys_log_str = NULL;
-        char               *log_str = NULL;
-        char               *def_val = NULL;
-        gf_boolean_t        def_bool = _gf_false;
-
-        GF_ASSERT (this);
-        GF_ASSERT (xl_options);
-        GF_ASSERT (conf);
-
-        if (xlator_get_volopt_info (&this->volume_options, "dump-fd-stats", &def_val,
-                                     NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         " dump-fd-stats not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2boolean (def_val, &def_bool)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "dump-fd-stats corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        ret = dict_get_str_boolean (xl_options, "dump-fd-stats", def_bool);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "'dump-fd-stats' takes only boolean arguments");
-        } else {
-                conf->dump_fd_stats = ret;
-                if (conf->dump_fd_stats)
-			gf_log (this->name, GF_LOG_DEBUG, "enabling dump-fd-stats");
-                else
-			gf_log (this->name, GF_LOG_DEBUG, "disabling dump-fd-stats");
-        }
-
-        ret = dict_get_str_boolean (xl_options, "count-fop-hits", _gf_false);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "'count-fop-hits' takes only boolean arguments");
-        } else {
-                conf->count_fop_hits = ret;
-                if (conf->count_fop_hits)
-			gf_log (this->name, GF_LOG_DEBUG,
-                                "enabling count-fop-hits");
-                else
-			gf_log (this->name, GF_LOG_DEBUG,
-                                "disabling count-fop-hits");
-        }
-
-        if (xlator_get_volopt_info (&this->volume_options, "latency-measurement",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         "latency-measurement not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2boolean (def_val, &def_bool)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "latency-measurement corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        ret = dict_get_str_boolean (xl_options, "latency-measurement",
-                                     def_bool);
-        if (ret != -1) {
-                if (conf->measure_latency != ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "changing latency measurement from %d to %d",
-                                conf->measure_latency, ret);
-                }
-                conf->measure_latency = ret;
-        } else {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "'latency-measurement' takes only boolean arguments");
-        }
-
-        ret = dict_get_str (xl_options, "log-level", &log_str);
-        if (!ret) {
-                if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level",
-                                       log_str)) {
-                        gf_log (this->name, GF_LOG_INFO,
-                               "changing log-level to %s", log_str);
-                }
-        }
-
-        ret = dict_get_str (xl_options, "sys-log-level", &sys_log_str);
-        if (!ret) {
-                sys_log_level = glusterd_check_log_level (sys_log_str);
-        }
-
-        if (ret < 0 || sys_log_level == -1) {
-                sys_log_level = glusterd_check_log_level ("CRITICAL");
-                gf_log (this->name, GF_LOG_WARNING,
-                        "setting sys-log-level to CRITICAL");
-        } else {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "setting sys-log-level to %s", sys_log_str);
-        }
-
-        set_sys_log_level (sys_log_level);
-
-        ret = 0;
- out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
         struct ios_conf    *conf = NULL;
-        glusterfs_ctx_t     *ctx = NULL;
+        int                 ret = -1;
+        char               *sys_log_str = NULL;
+        int                 sys_log_level = -1;
 
         if (!this || !this->private)
-                return -1;
+                goto out;
 
         conf = this->private;
 
-        iostats_configure_options (this, options, conf);
-        ctx = glusterfs_ctx_get ();
-        if (!ctx)
-                return -1;
+        GF_OPTION_RECONF ("dump-fd-stats", conf->dump_fd_stats, options, bool,
+                          out);
 
-        return 0;
+        GF_OPTION_RECONF ("count-fop-hits", conf->count_fop_hits, options, bool,
+                          out);
+
+        GF_OPTION_RECONF ("latency-measurement", conf->measure_latency,
+                          options, bool, out);
+
+        GF_OPTION_RECONF ("sys-log-level", sys_log_str, options, str, out);
+        if (sys_log_str) {
+                sys_log_level = glusterd_check_log_level (sys_log_str);
+                set_sys_log_level (sys_log_level);
+        }
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "reconfigure returning %d", ret);
+        return ret;
 }
+
 
 int32_t
 mem_acct_init (xlator_t *this)
@@ -2487,6 +2388,9 @@ init (xlator_t *this)
         dict_t             *options = NULL;
         struct ios_conf    *conf = NULL;
         int                 i = 0;
+        char               *sys_log_str = NULL;
+        int                 sys_log_level = -1;
+        int                 ret = -1;
 
         if (!this)
                 return -1;
@@ -2550,10 +2454,23 @@ init (xlator_t *this)
 		LOCK_INIT (&conf->thru_list[i].lock);
         }
 
-        iostats_configure_options (this, options, conf);
-        this->private = conf;
+        GF_OPTION_INIT ("dump-fd-stats", conf->dump_fd_stats, bool, out);
 
-        return 0;
+        GF_OPTION_INIT ("count-fop-hits", conf->count_fop_hits, bool, out);
+
+        GF_OPTION_INIT ("latency-measurement", conf->measure_latency,
+                          bool, out);
+
+        GF_OPTION_INIT ("sys-log-level", sys_log_str, str, out);
+        if (sys_log_str) {
+                sys_log_level = glusterd_check_log_level (sys_log_str);
+                set_sys_log_level (sys_log_level);
+        }
+
+        this->private = conf;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -2578,34 +2495,7 @@ fini (xlator_t *this)
         return;
 }
 
-int
-validate_options (xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
 
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                                      volume_opt_list_t, list);
-         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-
-        return ret;
-}
 int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {

@@ -53,6 +53,7 @@ typedef ssize_t (*gf_serialize_t) (struct iovec outmsg, void *args);
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
 int glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp);
+int glusterfs_graph_unknown_options (glusterfs_graph_t *graph);
 
 int
 mgmt_cbk_spec (void *data)
@@ -602,6 +603,8 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                         "Could not reconfigure new options in old graph");
                 goto out;
         }
+
+        glusterfs_graph_unknown_options (newvolfile_graph);
 
         ret = 0;
 out:

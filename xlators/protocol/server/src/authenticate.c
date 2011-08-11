@@ -134,8 +134,9 @@ gf_auth_init (xlator_t *xl, dict_t *auth_modules)
 
                 list_add_tail (&(handle->vol_opt->list),
                                &(xl->volume_options));
-                ret = validate_xlator_volume_options (xl,
-                                                      handle->vol_opt->given_opt);
+                ret = xlator_options_validate_list (xl, xl->options,
+                                                    handle->vol_opt, NULL);
+
                 if (ret)
                         gf_log ("authenticate", GF_LOG_ERROR,
                                 "volume option validation failed");

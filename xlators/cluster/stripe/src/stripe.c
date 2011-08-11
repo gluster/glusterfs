@@ -3984,63 +3984,20 @@ mem_acct_init (xlator_t *this)
 out:
         return ret;
 }
-int
-validate_options (xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
 
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                              volume_opt_list_t, list);
-        list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-
-        return ret;
-}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
 
 	stripe_private_t *priv = NULL;
-	data_t           *data = NULL;
-	int		  ret = 0;
+	int		  ret = -1;
 
 	priv = this->private;
 
-	data = dict_get (options, "block-size");
-        if (data) {
-		gf_log (this->name, GF_LOG_TRACE,"Reconfiguring Stripe"
-			" Block-size");
-                ret = set_stripe_block_size (this, priv, data->data);
-                if (ret) {
-			gf_log (this->name, GF_LOG_ERROR,
-                                "Reconfigue: Block-Size reconfiguration failed");
-                        ret = -1;
-			goto out;
-		}
-		gf_log (this->name, GF_LOG_TRACE,
-                        "Reconfigue: Block-Size reconfigured Successfully");
-	}
-        else {
-                priv->block_size = (128 * GF_UNIT_KB);
-        }
+        GF_OPTION_RECONF ("block-size", priv->block_size, options, size, out);
 
+        ret = 0;
 out:
 	return ret;
 
@@ -4057,7 +4014,6 @@ init (xlator_t *this)
         stripe_private_t *priv = NULL;
         xlator_list_t    *trav = NULL;
         data_t           *data = NULL;
-        char             *def_blk_size = NULL;
         int32_t           count = 0;
         int               ret = -1;
 
@@ -4121,65 +4077,18 @@ init (xlator_t *this)
                 goto out;
         }
 
-        if (xlator_get_volopt_info (&this->volume_options, "block-size",
-                                    &def_blk_size, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of stripe "
-                         "block-size corrupt");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2bytesize (def_blk_size, &priv->block_size)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                 "stripe block-size corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
 
+        GF_OPTION_INIT ("block-size", priv->block_size, size, out);
 
         /* option stripe-pattern *avi:1GB,*pdf:4096 */
         data = dict_get (this->options, "block-size");
-        if (!data) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "No \"option block-size <x>\" given, defaulting "
-                        "to %s", def_blk_size);
-        } else {
+        if (data) {
                 ret = set_stripe_block_size (this, priv, data->data);
                 if (ret)
                         goto out;
         }
 
-        if (xlator_get_volopt_info (&this->volume_options, "use-xattr",
-                                    &def_blk_size, NULL)) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "error setting(default) hard check for extended"
-                        " attribute");
-                goto out;
-
-        }
-        else {
-                if (gf_string2boolean (def_blk_size,
-                                       &priv->xattr_supported)) {
-                        ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "error setting(default) hard check for extended"
-                                " attribute");
-                        goto out;
-                }
-        }
-
-
-        data = dict_get (this->options, "use-xattr");
-        if (data) {
-                if (gf_string2boolean (data->data,
-                                       &priv->xattr_supported) == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "error setting hard check for extended "
-                                "attribute");
-                        //return -1;
-                }
-        }
+        GF_OPTION_INIT ("use-xattr", priv->xattr_supported, bool, out);
 
         /* notify related */
         priv->nodes_down = priv->child_count;
