@@ -471,34 +471,6 @@ out:
         return ret;
 }
 
-int
-validate_options ( xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
-
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                                      volume_opt_list_t, list);
-         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-
-        return ret;
-}
 
 static void
 _delete_auth_opt (dict_t *this,

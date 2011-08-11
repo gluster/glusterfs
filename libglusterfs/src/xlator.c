@@ -29,1142 +29,82 @@
 #include "defaults.h"
 
 #define SET_DEFAULT_FOP(fn) do {			\
-		if (!xl->fops->fn)			\
-			xl->fops->fn = default_##fn;	\
-	} while (0)
+                if (!xl->fops->fn)			\
+                        xl->fops->fn = default_##fn;	\
+        } while (0)
 
 #define SET_DEFAULT_CBK(fn) do {			\
-		if (!xl->cbks->fn)			\
-			xl->cbks->fn = default_##fn;	\
-	} while (0)
+                if (!xl->cbks->fn)			\
+                        xl->cbks->fn = default_##fn;	\
+        } while (0)
 
-
-#define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
 
 static void
 fill_defaults (xlator_t *xl)
 {
-	if (xl == NULL)	{
-		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
-		return;
-	}
+        if (xl == NULL)	{
+                gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
+                return;
+        }
 
-	SET_DEFAULT_FOP (create);
-	SET_DEFAULT_FOP (open);
-	SET_DEFAULT_FOP (stat);
-	SET_DEFAULT_FOP (readlink);
-	SET_DEFAULT_FOP (mknod);
-	SET_DEFAULT_FOP (mkdir);
-	SET_DEFAULT_FOP (unlink);
-	SET_DEFAULT_FOP (rmdir);
-	SET_DEFAULT_FOP (symlink);
-	SET_DEFAULT_FOP (rename);
-	SET_DEFAULT_FOP (link);
-	SET_DEFAULT_FOP (truncate);
-	SET_DEFAULT_FOP (readv);
-	SET_DEFAULT_FOP (writev);
-	SET_DEFAULT_FOP (statfs);
-	SET_DEFAULT_FOP (flush);
-	SET_DEFAULT_FOP (fsync);
-	SET_DEFAULT_FOP (setxattr);
-	SET_DEFAULT_FOP (getxattr);
-	SET_DEFAULT_FOP (fsetxattr);
-	SET_DEFAULT_FOP (fgetxattr);
-	SET_DEFAULT_FOP (removexattr);
-	SET_DEFAULT_FOP (opendir);
-	SET_DEFAULT_FOP (readdir);
-	SET_DEFAULT_FOP (readdirp);
-	SET_DEFAULT_FOP (fsyncdir);
-	SET_DEFAULT_FOP (access);
-	SET_DEFAULT_FOP (ftruncate);
-	SET_DEFAULT_FOP (fstat);
-	SET_DEFAULT_FOP (lk);
-	SET_DEFAULT_FOP (inodelk);
-	SET_DEFAULT_FOP (finodelk);
-	SET_DEFAULT_FOP (entrylk);
-	SET_DEFAULT_FOP (fentrylk);
-	SET_DEFAULT_FOP (lookup);
-	SET_DEFAULT_FOP (rchecksum);
-	SET_DEFAULT_FOP (xattrop);
-	SET_DEFAULT_FOP (fxattrop);
+        SET_DEFAULT_FOP (create);
+        SET_DEFAULT_FOP (open);
+        SET_DEFAULT_FOP (stat);
+        SET_DEFAULT_FOP (readlink);
+        SET_DEFAULT_FOP (mknod);
+        SET_DEFAULT_FOP (mkdir);
+        SET_DEFAULT_FOP (unlink);
+        SET_DEFAULT_FOP (rmdir);
+        SET_DEFAULT_FOP (symlink);
+        SET_DEFAULT_FOP (rename);
+        SET_DEFAULT_FOP (link);
+        SET_DEFAULT_FOP (truncate);
+        SET_DEFAULT_FOP (readv);
+        SET_DEFAULT_FOP (writev);
+        SET_DEFAULT_FOP (statfs);
+        SET_DEFAULT_FOP (flush);
+        SET_DEFAULT_FOP (fsync);
+        SET_DEFAULT_FOP (setxattr);
+        SET_DEFAULT_FOP (getxattr);
+        SET_DEFAULT_FOP (fsetxattr);
+        SET_DEFAULT_FOP (fgetxattr);
+        SET_DEFAULT_FOP (removexattr);
+        SET_DEFAULT_FOP (opendir);
+        SET_DEFAULT_FOP (readdir);
+        SET_DEFAULT_FOP (readdirp);
+        SET_DEFAULT_FOP (fsyncdir);
+        SET_DEFAULT_FOP (access);
+        SET_DEFAULT_FOP (ftruncate);
+        SET_DEFAULT_FOP (fstat);
+        SET_DEFAULT_FOP (lk);
+        SET_DEFAULT_FOP (inodelk);
+        SET_DEFAULT_FOP (finodelk);
+        SET_DEFAULT_FOP (entrylk);
+        SET_DEFAULT_FOP (fentrylk);
+        SET_DEFAULT_FOP (lookup);
+        SET_DEFAULT_FOP (rchecksum);
+        SET_DEFAULT_FOP (xattrop);
+        SET_DEFAULT_FOP (fxattrop);
         SET_DEFAULT_FOP (setattr);
         SET_DEFAULT_FOP (fsetattr);
 
         SET_DEFAULT_FOP (getspec);
 
-	SET_DEFAULT_CBK (release);
-	SET_DEFAULT_CBK (releasedir);
-	SET_DEFAULT_CBK (forget);
+        SET_DEFAULT_CBK (release);
+        SET_DEFAULT_CBK (releasedir);
+        SET_DEFAULT_CBK (forget);
 
-	if (!xl->notify)
-		xl->notify = default_notify;
+        if (!xl->notify)
+                xl->notify = default_notify;
 
         if (!xl->mem_acct_init)
                 xl->mem_acct_init = default_mem_acct_init;
 
-	return;
-}
-
-int 
-_volume_option_value_validate_attacherr (xlator_t *xl,
-                               data_pair_t *pair,
-                               volume_option_t *opt,
-                               char **op_errstr)
-{
-        int       i = 0;
-        int       ret = -1;
-        uint64_t  input_size = 0;
-        long long inputll = 0;
-        char      errstr[256] = {0, };
-
-        /* Key is valid, validate the option */
-        switch (opt->type) {
-        case GF_OPTION_TYPE_PATH:
-        {
-                if (strstr (pair->value->data, "../")) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "invalid path given '%s'",
-                                pair->value->data);
-                        snprintf (errstr, 256,
-                                  "invalid path given '%s'",
-                                  pair->value->data);
-
-                        *op_errstr = gf_strdup (errstr);
-                        ret = -1;
-                        goto out;
-                }
-
-                /* Make sure the given path is valid */
-                if (pair->value->data[0] != '/') {
-                        gf_log (xl->name, GF_LOG_WARNING,
-                                "option %s %s: '%s' is not an "
-                                "absolute path name",
-                                pair->key, pair->value->data,
-                                pair->value->data);
-                        snprintf (errstr, 256,
-                                  "option %s %s: '%s' is not an "
-                                  "absolute path name",
-                                  pair->key, pair->value->data,
-                                  pair->value->data);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_INT:
-        {
-                /* Check the range */
-                if (gf_string2longlong (pair->value->data,
-                                        &inputll) != 0) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "invalid number format \"%s\" in "
-                                "\"option %s\"",
-                                pair->value->data, pair->key);
-                        snprintf (errstr, 256,
-                                  "invalid number format \"%s\" in "
-                                "\"option %s\"",
-                                pair->value->data, pair->key);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-
-                if ((opt->min == 0) && (opt->max == 0)) {
-                        gf_log (xl->name, GF_LOG_DEBUG,
-                                "no range check required for "
-                                "'option %s %s'",
-                                pair->key, pair->value->data);
-                        ret = 0;
-                        break;
-                }
-                if ((inputll < opt->min) ||
-                    (inputll > opt->max)) {
-                        gf_log (xl->name, GF_LOG_WARNING,
-                                "'%lld' in 'option %s %s' is out of "
-                                "range [%"PRId64" - %"PRId64"]",
-                                inputll, pair->key,
-                                pair->value->data,
-                                opt->min, opt->max);
-                        snprintf (errstr, 256,
-                                  "'%lld' in 'option %s %s' is out of "
-                                "range [%"PRId64" - %"PRId64"]",
-                                inputll, pair->key,
-                                pair->value->data,
-                                opt->min, opt->max);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_SIZET:
-        {
-                /* Check the range */
-                if (gf_string2bytesize (pair->value->data,
-                                        &input_size) != 0) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "invalid size format \"%s\" in "
-                                "\"option %s\"",
-                                pair->value->data, pair->key);
-                        snprintf (errstr, 256,
-                                  "invalid size format \"%s\" in "
-                                  "\"option %s\"",
-                                  pair->value->data, pair->key);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-
-                if ((opt->min == 0) && (opt->max == 0)) {
-                        gf_log (xl->name, GF_LOG_DEBUG,
-                                "no range check required for "
-                                "'option %s %s'",
-                                pair->key, pair->value->data);
-                        ret = 0;
-                        break;
-                }
-                if ((input_size < opt->min) ||
-                    (input_size > opt->max)) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "'%"PRId64"' in 'option %s %s' is "
-                                "out of range [%"PRId64" - %"PRId64"]",
-                                input_size, pair->key,
-                                pair->value->data,
-                                opt->min, opt->max);
-                        snprintf (errstr, 256,
-                                  "'%"PRId64"' in 'option %s %s' is "
-                                "out of range [%"PRId64" - %"PRId64"]",
-                                input_size, pair->key,
-                                pair->value->data,
-                                opt->min, opt->max);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_BOOL:
-        {
-                /* Check if the value is one of
-                   '0|1|on|off|no|yes|true|false|enable|disable' */
-                gf_boolean_t bool_value;
-                if (gf_string2boolean (pair->value->data,
-                                       &bool_value) != 0) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "option %s %s: '%s' is not a valid "
-                                "boolean value",
-                                pair->key, pair->value->data,
-                                pair->value->data);
-                        snprintf (errstr, 256,
-                                   "option %s %s: '%s' is not a valid "
-                                   "boolean value",
-                                   pair->key, pair->value->data,
-                                   pair->value->data);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_XLATOR:
-        {
-                /* Check if the value is one of the xlators */
-                xlator_t *xlopt = xl;
-                while (xlopt->prev)
-                        xlopt = xlopt->prev;
-
-                while (xlopt) {
-                        if (strcmp (pair->value->data,
-                                    xlopt->name) == 0) {
-                                ret = 0;
-                                break;
-                        }
-                        xlopt = xlopt->next;
-                }
-                if (!xlopt) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "option %s %s: '%s' is not a "
-                                "valid volume name",
-                                pair->key, pair->value->data,
-                                pair->value->data);
-                        snprintf (errstr, 256,
-                                  "option %s %s: '%s' is not a "
-                                  "valid volume name",
-                                  pair->key, pair->value->data,
-                                  pair->value->data);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_STR:
-        {
-                /* Check if the '*str' is valid */
-                if (GF_OPTION_LIST_EMPTY(opt)) {
-                        ret = 0;
-                        goto out;
-                }
-
-                for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
-                             opt->value[i]; i++) {
-                        if (fnmatch (opt->value[i], pair->value->data,
-                                     FNM_EXTMATCH) == 0) {
-                                ret = 0;
-                                break;
-                        }
-                }
-
-                if ((i == ZR_OPTION_MAX_ARRAY_SIZE)
-                    || ((i < ZR_OPTION_MAX_ARRAY_SIZE)
-                        && (!opt->value[i]))) {
-                        /* enter here only if
-                         * 1. reached end of opt->value array and haven't
-                         *    validated input
-                         *                      OR
-                         * 2. valid input list is less than
-                         *    ZR_OPTION_MAX_ARRAY_SIZE and input has not
-                         *    matched all possible input values.
-                         */
-                        char given_array[4096] = {0,};
-                        for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
-                                     opt->value[i];) {
-                                strcat (given_array, opt->value[i]);
-                                if(((++i) < ZR_OPTION_MAX_ARRAY_SIZE) &&
-                                   (opt->value[i]))
-				        strcat (given_array, ", ");
-                                else
-                                        strcat (given_array, ".");
-                        }
-
-                        gf_log_callingfn (xl->name, GF_LOG_ERROR,
-                                "option %s %s: '%s' is not valid "
-                                "(possible options are %s)",
-                                pair->key, pair->value->data,
-                                pair->value->data, given_array);
-                        snprintf (errstr, 256,
-                                  "option %s %s: '%s' is not valid "
-                                  "(possible options are %s)",
-                                  pair->key, pair->value->data,
-                                  pair->value->data, given_array);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-        }
-        break;
-        case GF_OPTION_TYPE_PERCENT:
-        {
-                uint32_t percent = 0;
-
-
-                /* Check if the value is valid percentage */
-                if (gf_string2percent (pair->value->data,
-                                       &percent) != 0) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "invalid percent format \"%s\" "
-                                "in \"option %s\"",
-                                pair->value->data, pair->key);
-                        snprintf (errstr, 256,
-                                  "invalid percent format \"%s\" "
-                                  "in \"option %s\"",
-                                  pair->value->data, pair->key);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-
-                if ((percent < 0) || (percent > 100)) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "'%d' in 'option %s %s' is out of "
-                                "range [0 - 100]",
-                                percent, pair->key,
-                                pair->value->data);
-                        snprintf (errstr, 256,
-                                   "'%d' in 'option %s %s' is out of "
-                                "range [0 - 100]",
-                                percent, pair->key,
-                                pair->value->data);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_PERCENT_OR_SIZET:
-        {
-                uint32_t percent = 0;
-                uint64_t input_size = 0;
-
-                /* Check if the value is valid percentage */
-                if (gf_string2percent (pair->value->data,
-                                       &percent) == 0) {
-                        if (percent > 100) {
-                                gf_log (xl->name, GF_LOG_DEBUG,
-                                        "value given was greater than 100, "
-                                        "assuming this is actually a size");
-                                if (gf_string2bytesize (pair->value->data,
-                                                        &input_size) == 0) {
-                                        /* Check the range */
-                                        if ((opt->min == 0) &&
-                                            (opt->max == 0)) {
-                                                gf_log (xl->name, GF_LOG_DEBUG,
-                                                        "no range check "
-                                                        "required for "
-                                                        "'option %s %s'",
-                                                        pair->key,
-                                                        pair->value->data);
-                                                // It is a size
-                                                ret = 0;
-                                                goto out;
-                                        }
-                                        if ((input_size < opt->min) ||
-                                            (input_size > opt->max)) {
-                                                gf_log (xl->name, GF_LOG_ERROR,
-                                                        "'%"PRId64"' in "
-                                                        "'option %s %s' is out"
-                                                        " of range [%"PRId64""
-                                                        "- %"PRId64"]",
-                                                        input_size, pair->key,
-                                                        pair->value->data,
-                                                        opt->min, opt->max);
-                                                 snprintf (errstr, 256,
-                                                          "'%"PRId64"' in "
-                                                          "'option %s %s' is "
-                                                          " out of range ["
-                                                          "%"PRId64"- %"PRId64"]",
-                                                          input_size, pair->key,
-                                                          pair->value->data,
-                                                          opt->min, opt->max);
-
-                                                *op_errstr = gf_strdup (errstr);
-                                                goto out;
-                                        }
-                                        // It is a size
-                                        ret = 0;
-                                        goto out;
-                                } else {
-                                        // It's not a percent or size
-                                        gf_log (xl->name, GF_LOG_ERROR,
-                                        "invalid number format \"%s\" "
-                                        "in \"option %s\"",
-                                        pair->value->data, pair->key);
-
-                                        snprintf (errstr, 256,
-                                        "invalid number format \"%s\" "
-                                        "in \"option %s\"",
-                                        pair->value->data, pair->key);
-
-
-                                        *op_errstr = gf_strdup (errstr);
-                                        goto out;
-                                }
-
-                        }
-                        // It is a percent
-                        ret = 0;
-                        goto out;
-                } else {
-                        if (gf_string2bytesize (pair->value->data,
-                                                &input_size) == 0) {
-                                /* Check the range */
-                                if ((opt->min == 0) && (opt->max == 0)) {
-                                        gf_log (xl->name, GF_LOG_DEBUG,
-                                                "no range check required for "
-                                                "'option %s %s'",
-                                                pair->key, pair->value->data);
-                                        // It is a size
-                                        ret = 0;
-                                        goto out;
-                                }
-                                if ((input_size < opt->min) ||
-                                    (input_size > opt->max)) {
-                                        gf_log (xl->name, GF_LOG_ERROR,
-                                                "'%"PRId64"' in 'option %s %s'"
-                                                " is out of range [%"PRId64" -"
-                                                " %"PRId64"]",
-                                                input_size, pair->key,
-                                                pair->value->data,
-                                                opt->min, opt->max);
-                                        snprintf (errstr, 256,
-                                                  "'%"PRId64"' in 'option %s %s'"
-                                                  " is out of range [%"PRId64" -"
-                                                  " %"PRId64"]",
-                                                  input_size, pair->key,
-                                                  pair->value->data,
-                                                  opt->min, opt->max);
-
-                                        *op_errstr = gf_strdup (errstr);
-                                        goto out;
-                                }
-                        } else {
-                                // It's not a percent or size
-                                gf_log (xl->name, GF_LOG_ERROR,
-                                        "invalid number format \"%s\" "
-                                        "in \"option %s\"",
-                                        pair->value->data, pair->key);
-                                snprintf (errstr, 256,
-                                          "invalid number format \"%s\" "
-                                          "in \"option %s\"",
-                                          pair->value->data, pair->key);
-
-                                *op_errstr = gf_strdup (errstr);
-                                goto out;
-                        }
-                        //It is a size
-                        ret = 0;
-                        goto out;
-                }
-
-        }
-        break;
-        case GF_OPTION_TYPE_TIME:
-        {
-                uint32_t input_time = 0;
-
-                /* Check if the value is valid percentage */
-                if (gf_string2time (pair->value->data,
-                                    &input_time) != 0) {
-                        gf_log (xl->name,
-                                GF_LOG_ERROR,
-                                "invalid time format \"%s\" in "
-                                "\"option %s\"",
-                                pair->value->data, pair->key);
-
-                        snprintf (errstr, 256,
-                                  "invalid time format \"%s\" in "
-                                  "\"option %s\"",
-                                  pair->value->data, pair->key);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-
-                if ((opt->min == 0) && (opt->max == 0)) {
-                        gf_log (xl->name, GF_LOG_DEBUG,
-                                "no range check required for "
-                                "'option %s %s'",
-                                pair->key, pair->value->data);
-                        ret = 0;
-                        goto out;
-                }
-                if ((input_time < opt->min) ||
-                    (input_time > opt->max)) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "'%"PRIu32"' in 'option %s %s' is "
-                                "out of range [%"PRId64" - %"PRId64"]",
-                                input_time, pair->key,
-                                pair->value->data,
-                                opt->min, opt->max);
-
-                        snprintf (errstr, 256,
-                                  "'%"PRIu32"' in 'option %s %s' is "
-                                  "out of range [%"PRId64" - %"PRId64"]",
-                                  input_time, pair->key,
-                                  pair->value->data,
-                                  opt->min, opt->max);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_DOUBLE:
-        {
-                double input_time = 0.0;
-
-                /* Check if the value is valid double */
-                if (gf_string2double (pair->value->data,
-                                      &input_time) != 0) {
-                        gf_log (xl->name,
-                                GF_LOG_ERROR,
-                                "invalid double \"%s\" in \"option %s\"",
-                                pair->value->data, pair->key);
-
-                        snprintf (errstr, 256,
-                                  "invalid double \"%s\" in \"option %s\"",
-                                  pair->value->data, pair->key);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-
-                if (input_time < 0.0) {
-                        gf_log (xl->name,
-                                GF_LOG_ERROR,
-                                "invalid time format \"%s\" in \"option %s\"",
-                                pair->value->data, pair->key);
-
-                        snprintf (errstr, 256,
-                                  "invalid double \"%s\" in \"option %s\"",
-                                  pair->value->data, pair->key);
-
-                        *op_errstr = gf_strdup (errstr);
-                        goto out;
-                }
-
-                if ((opt->min == 0) && (opt->max == 0)) {
-                        gf_log (xl->name, GF_LOG_DEBUG,
-                                "no range check required for 'option %s %s'",
-                                pair->key, pair->value->data);
-                        ret = 0;
-                        goto out;
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_INTERNET_ADDRESS:
-        {
-                if (!valid_internet_address (pair->value->data)) {
-                        gf_log (xl->name, GF_LOG_WARNING, "internet address '%s'"
-                                " does not conform to standards.",
-                                pair->value->data);
-
-                        snprintf (errstr, 256,
-                                  "internet address '%s'"
-                                  " does not conform to standards.",
-                                  pair->value->data);
-
-                        *op_errstr = gf_strdup (errstr);
-                }
-                ret = 0;
-        }
-        break;
-        case GF_OPTION_TYPE_ANY:
-                /* NO CHECK */
-                ret = 0;
-                break;
-        }
-
-out:
-        return ret;
+        return;
 }
 
 
 int
-_volume_option_value_validate (xlator_t *xl,
-			       data_pair_t *pair,
-			       volume_option_t *opt)
-{
-	int       i = 0;
-	int       ret = -1;
- 	uint64_t  input_size = 0;
-	long long inputll = 0;
-
-	/* Key is valid, validate the option */
-	switch (opt->type) {
-	case GF_OPTION_TYPE_PATH:
-	{
-                if (strstr (pair->value->data, "../")) {
-                        gf_log (xl->name, GF_LOG_ERROR,
-                                "invalid path given '%s'",
-                                pair->value->data);
-                        ret = -1;
-                        goto out;
-                }
-
-                /* Make sure the given path is valid */
-		if (pair->value->data[0] != '/') {
-			gf_log (xl->name, GF_LOG_WARNING,
-				"option %s %s: '%s' is not an "
-				"absolute path name",
-				pair->key, pair->value->data,
-				pair->value->data);
-		}
-		ret = 0;
-	}
-	break;
-	case GF_OPTION_TYPE_INT:
-	{
-		/* Check the range */
-		if (gf_string2longlong (pair->value->data,
-					&inputll) != 0) {
-			gf_log (xl->name, GF_LOG_ERROR,
-				"invalid number format \"%s\" in "
-				"\"option %s\"",
-				pair->value->data, pair->key);
-			goto out;
-		}
-
-		if ((opt->min == 0) && (opt->max == 0)) {
-			gf_log (xl->name, GF_LOG_DEBUG,
-				"no range check required for "
-				"'option %s %s'",
-				pair->key, pair->value->data);
-			ret = 0;
-			break;
-		}
-		if ((inputll < opt->min) ||
-		    (inputll > opt->max)) {
-			gf_log (xl->name, GF_LOG_WARNING,
-				"'%lld' in 'option %s %s' is out of "
-				"range [%"PRId64" - %"PRId64"]",
-				inputll, pair->key,
-				pair->value->data,
-				opt->min, opt->max);
-		}
-		ret = 0;
-	}
-	break;
-	case GF_OPTION_TYPE_SIZET:
-	{
-		/* Check the range */
-		if (gf_string2bytesize (pair->value->data,
-					&input_size) != 0) {
-			gf_log (xl->name, GF_LOG_ERROR,
-				"invalid size format \"%s\" in "
-				"\"option %s\"",
-				pair->value->data, pair->key);
-			goto out;
-		}
-
-		if ((opt->min == 0) && (opt->max == 0)) {
-			gf_log (xl->name, GF_LOG_DEBUG,
-				"no range check required for "
-				"'option %s %s'",
-				pair->key, pair->value->data);
-			ret = 0;
-			break;
-		}
-		if ((input_size < opt->min) ||
-		    (input_size > opt->max)) {
-			gf_log (xl->name, GF_LOG_WARNING,
-				"'%"PRId64"' in 'option %s %s' is "
-				"out of range [%"PRId64" - %"PRId64"]",
-				input_size, pair->key,
-				pair->value->data,
-				opt->min, opt->max);
-		}
-		ret = 0;
-	}
-	break;
-	case GF_OPTION_TYPE_BOOL:
-	{
-		/* Check if the value is one of
-		   '0|1|on|off|no|yes|true|false|enable|disable' */
-		gf_boolean_t bool_value;
-		if (gf_string2boolean (pair->value->data,
-				       &bool_value) != 0) {
-			gf_log (xl->name, GF_LOG_ERROR,
-				"option %s %s: '%s' is not a valid "
-				"boolean value",
-				pair->key, pair->value->data,
-				pair->value->data);
-			goto out;
-		}
-		ret = 0;
-	}
-	break;
-	case GF_OPTION_TYPE_XLATOR:
-	{
-		/* Check if the value is one of the xlators */
-		xlator_t *xlopt = xl;
-		while (xlopt->prev)
-			xlopt = xlopt->prev;
-
-		while (xlopt) {
-			if (strcmp (pair->value->data,
-				    xlopt->name) == 0) {
-				ret = 0;
-				break;
-			}
-			xlopt = xlopt->next;
-		}
-		if (!xlopt) {
-			gf_log (xl->name, GF_LOG_ERROR,
-				"option %s %s: '%s' is not a "
-				"valid volume name",
-				pair->key, pair->value->data,
-				pair->value->data);
-		}
-		ret = 0;
-	}
-	break;
-	case GF_OPTION_TYPE_STR:
-	{
-		/* Check if the '*str' is valid */
-                if (GF_OPTION_LIST_EMPTY(opt)) {
-                        ret = 0;
-                        goto out;
-                }
-
-		for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
-			     opt->value[i]; i++) {
- #ifdef  GF_DARWIN_HOST_OS
-                        if (fnmatch (opt->value[i],
-                                     pair->value->data, 0) == 0) {
- #else
-                        if (fnmatch (opt->value[i],
-                                     pair->value->data, FNM_EXTMATCH) == 0) {
- #endif
-				ret = 0;
-				break;
-			}
-		}
-
-		if ((i == ZR_OPTION_MAX_ARRAY_SIZE)
-		    || ((i < ZR_OPTION_MAX_ARRAY_SIZE)
-			&& (!opt->value[i]))) {
-			/* enter here only if
-			 * 1. reached end of opt->value array and haven't
-                         *    validated input
-			 *                      OR
-			 * 2. valid input list is less than
-                         *    ZR_OPTION_MAX_ARRAY_SIZE and input has not
-                         *    matched all possible input values.
-			 */
-			char given_array[4096] = {0,};
-			for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
-				     opt->value[i];) {
-				strcat (given_array, opt->value[i]);
-                                if(((++i) < ZR_OPTION_MAX_ARRAY_SIZE) &&
-                                   (opt->value[i]))
-				        strcat (given_array, ", ");
-                                else
-                                        strcat (given_array, ".");
-			}
-
-			gf_log (xl->name, GF_LOG_ERROR,
-				"option %s %s: '%s' is not valid "
-				"(possible options are %s)",
-				pair->key, pair->value->data,
-				pair->value->data, given_array);
-
-			goto out;
-		}
-	}
-	break;
-	case GF_OPTION_TYPE_PERCENT:
-	{
-		uint32_t percent = 0;
-
-
-		/* Check if the value is valid percentage */
-		if (gf_string2percent (pair->value->data,
-				       &percent) != 0) {
-			gf_log (xl->name, GF_LOG_ERROR,
-				"invalid percent format \"%s\" "
-				"in \"option %s\"",
-				pair->value->data, pair->key);
-			goto out;
-		}
-
-		if ((percent < 0) || (percent > 100)) {
-			gf_log (xl->name, GF_LOG_ERROR,
-				"'%d' in 'option %s %s' is out of "
-				"range [0 - 100]",
-				percent, pair->key,
-				pair->value->data);
-		}
-		ret = 0;
-	}
-	break;
-	case GF_OPTION_TYPE_PERCENT_OR_SIZET:
-	{
-		uint32_t percent = 0;
-		uint64_t input_size = 0;
-
-		/* Check if the value is valid percentage */
-		if (gf_string2percent (pair->value->data,
-				       &percent) == 0) {
-			if (percent > 100) {
-				gf_log (xl->name, GF_LOG_DEBUG,
-					"value given was greater than 100, "
-					"assuming this is actually a size");
-        		        if (gf_string2bytesize (pair->value->data,
-      	        			                &input_size) == 0) {
-			       	        /* Check the range */
-                                if ((opt->min == 0) && (opt->max == 0)) {
-	       	        		        gf_log (xl->name, GF_LOG_DEBUG,
-        	      	        		        "no range check "
-                                            "required for "
-                	      		       		"'option %s %s'",
-                                            pair->key,
-                                            pair->value->data);
-						// It is a size
-			                        ret = 0;
-       				                goto out;
-              				}
-	        	        	if ((input_size < opt->min) ||
-	      			            (input_size > opt->max)) {
-        	       			        gf_log (xl->name, GF_LOG_ERROR,
-                	      			        "'%"PRId64"' in "
-                                                        "'option %s %s' is out"
-                       	       				" of range [%"PRId64""
-                                                        "- %"PRId64"]",
-               	        	        		input_size, pair->key,
-	       		                        	pair->value->data,
-	       		        	                opt->min, opt->max);
-		       	        	}
-					// It is a size
-		       			ret = 0;
-					goto out;
-				} else {
-					// It's not a percent or size
-					gf_log (xl->name, GF_LOG_ERROR,
-					"invalid number format \"%s\" "
-					"in \"option %s\"",
-					pair->value->data, pair->key);
-				}
-
-			}
-			// It is a percent
-			ret = 0;
-			goto out;
-		} else {
-       		        if (gf_string2bytesize (pair->value->data,
-     	        			        &input_size) == 0) {
-		       	        /* Check the range */
-        			if ((opt->min == 0) && (opt->max == 0)) {
-       	        		        gf_log (xl->name, GF_LOG_DEBUG,
-       	      	        		        "no range check required for "
-               	      		      		"'option %s %s'",
-               	        	        	pair->key, pair->value->data);
-					// It is a size
-		                        ret = 0;
-      				        goto out;
-             			}
-	        	        if ((input_size < opt->min) ||
-      			            (input_size > opt->max)) {
-       	       				gf_log (xl->name, GF_LOG_ERROR,
-               	      			        "'%"PRId64"' in 'option %s %s'"
-                                                " is out of range [%"PRId64" -"
-                                                " %"PRId64"]",
-              	        	        	input_size, pair->key,
-       		                        	pair->value->data,
-       		        	                opt->min, opt->max);
-				}
-			} else {
-				// It's not a percent or size
-				gf_log (xl->name, GF_LOG_ERROR,
-					"invalid number format \"%s\" "
-					"in \"option %s\"",
-					pair->value->data, pair->key);
-			}
-			//It is a size
-                        ret = 0;
- 		        goto out;
-		}
-
-	}
-	break;
-	case GF_OPTION_TYPE_TIME:
-	{
-		uint32_t input_time = 0;
-
-		/* Check if the value is valid percentage */
-		if (gf_string2time (pair->value->data,
-				    &input_time) != 0) {
-			gf_log (xl->name,
-				GF_LOG_ERROR,
-				"invalid time format \"%s\" in "
-				"\"option %s\"",
-				pair->value->data, pair->key);
-			goto out;
-		}
-
-		if ((opt->min == 0) && (opt->max == 0)) {
-			gf_log (xl->name, GF_LOG_DEBUG,
-				"no range check required for "
-				"'option %s %s'",
-				pair->key, pair->value->data);
-			ret = 0;
-			goto out;
-		}
-		if ((input_time < opt->min) ||
-		    (input_time > opt->max)) {
-			gf_log (xl->name, GF_LOG_ERROR,
-				"'%"PRIu32"' in 'option %s %s' is "
-				"out of range [%"PRId64" - %"PRId64"]",
-				input_time, pair->key,
-				pair->value->data,
-				opt->min, opt->max);
-		}
-		ret = 0;
-	}
-	break;
-	case GF_OPTION_TYPE_DOUBLE:
-	{
-		double input_time = 0.0;
-
-		/* Check if the value is valid double */
-		if (gf_string2double (pair->value->data,
-				      &input_time) != 0) {
-			gf_log (xl->name,
-				GF_LOG_ERROR,
-				"invalid time format \"%s\" in \"option %s\"",
-				pair->value->data, pair->key);
-			goto out;
-		}
-
-		if (input_time < 0.0) {
-			gf_log (xl->name,
-				GF_LOG_ERROR,
-				"invalid time format \"%s\" in \"option %s\"",
-				pair->value->data, pair->key);
-			goto out;
-		}
-
-		if ((opt->min == 0) && (opt->max == 0)) {
-			gf_log (xl->name, GF_LOG_DEBUG,
-				"no range check required for 'option %s %s'",
-				pair->key, pair->value->data);
-			ret = 0;
-			goto out;
-		}
-		ret = 0;
-	}
-	break;
-        case GF_OPTION_TYPE_INTERNET_ADDRESS:
-        {
-                if (!valid_internet_address (pair->value->data)) {
-			gf_log (xl->name, GF_LOG_WARNING, "internet address '%s'"
-				" does not conform to standards.",
-				pair->value->data);
-		}
-                ret = 0;
-	}
-        break;
-	case GF_OPTION_TYPE_ANY:
-		/* NO CHECK */
-		ret = 0;
-		break;
-	}
-
-out:
-	return ret;
-}
-
-int
-validate_xlator_volume_options_attacherr (xlator_t *xl,
-                                          volume_option_t *opt,
-                                          char **op_errstr)
-{
-        int i = 0;
-        int ret = -1;
-        int index = 0;
-        volume_option_t *trav  = NULL;
-        data_pair_t     *pairs = NULL;
-
-        if (!opt) {
-                ret = 0;
-                goto out;
-        }
-
-        /* First search for not supported options, if any report error */
-        pairs = xl->options->members_list;
-        while (pairs) {
-                ret = -1;
-                for (index = 0;
-                     opt[index].key && opt[index].key[0] ; index++) {
-                        trav = &(opt[index]);
-                        for (i = 0 ;
-                             (i < ZR_VOLUME_MAX_NUM_KEY) &&
-                                     trav->key[i]; i++) {
-                                /* Check if the key is valid */
-                                if (fnmatch (trav->key[i],
-                                             pairs->key, FNM_NOESCAPE) == 0) {
-                                        ret = 0;
-                                        break;
-                                }
-                        }
-                        if (!ret) {
-                                if (i) {
-                                        gf_log (xl->name, GF_LOG_WARNING,
-                                                "option '%s' is deprecated, "
-                                                "preferred is '%s', continuing"
-                                                " with correction",
-                                                trav->key[i], trav->key[0]);
-                                        /* TODO: some bytes lost */
-                                        pairs->key = gf_strdup (trav->key[0]);
-                                }
-                                break;
-                        }
-                }
-                if (!ret) {
-                        ret = _volume_option_value_validate_attacherr (xl,
-                                                                       pairs,
-                                                                       trav,
-                                                                       op_errstr);
-                        if (-1 == ret) {
-                                goto out;
-                        }
-                }
-
-                pairs = pairs->next;
-        }
-
-        ret = 0;
- out:
-        return ret;
-}
-
-
-int
-validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
-{
-	int i = 0;
-	int ret = -1;
- 	int index = 0;
- 	volume_option_t *trav  = NULL;
- 	data_pair_t     *pairs = NULL;
-
- 	if (!opt) {
-		ret = 0;
- 		goto out;
-	}
-
- 	/* First search for not supported options, if any report error */
- 	pairs = xl->options->members_list;
- 	while (pairs) {
-		ret = -1;
-        for (index = 0; opt[index].key && opt[index].key[0] ; index++) {
-  			trav = &(opt[index]);
-			for (i = 0 ; (i < ZR_VOLUME_MAX_NUM_KEY) && trav->key[i]; i++) {
-				/* Check if the key is valid */
-				if (fnmatch (trav->key[i],
-					     pairs->key, FNM_NOESCAPE) == 0) {
-					ret = 0;
-					break;
-				}
-			}
-			if (!ret) {
-				if (i) {
-					gf_log (xl->name, GF_LOG_WARNING,
-						"option '%s' is deprecated, "
-						"preferred is '%s', continuing"
-						" with correction",
-						trav->key[i], trav->key[0]);
-					/* TODO: some bytes lost */
-                                        pairs->key = gf_strdup (trav->key[0]);
-				}
-				break;
-			}
-  		}
-  		if (!ret) {
-			ret = _volume_option_value_validate (xl, pairs, trav);
-			if (-1 == ret) {
-				goto out;
-			}
-		}
-
-  		pairs = pairs->next;
-  	}
-
-	ret = 0;
- out:
-  	return ret;
-}
-
-int32_t
 xlator_set_type_virtual (xlator_t *xl, const char *type)
 {
         GF_VALIDATE_OR_GOTO ("xlator", xl, out);
@@ -1178,9 +118,11 @@ xlator_set_type_virtual (xlator_t *xl, const char *type)
 out:
         return -1;
 }
-int32_t
+
+
+int
 xlator_volopt_dynload (char *xlator_type, void **dl_handle,
-                    volume_opt_list_t *opt_list)
+                       volume_opt_list_t *opt_list)
 {
         int                     ret = -1;
         char                    *name = NULL;
@@ -1237,17 +179,19 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
 }
 
-int32_t
+
+int
 xlator_dynload (xlator_t *xl)
 {
-        int   ret = -1;
-	char *name = NULL;
-	void *handle = NULL;
-	volume_opt_list_t *vol_opt = NULL;
+        int                ret = -1;
+        char              *name = NULL;
+        void              *handle = NULL;
+        volume_opt_list_t *vol_opt = NULL;
+
 
         GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
-	ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
+        ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
         if (-1 == ret) {
                 gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
                 goto out;
@@ -1255,48 +199,48 @@ xlator_dynload (xlator_t *xl)
 
         ret = -1;
 
-	gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
+        gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
 
-	handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
-	if (!handle) {
-		gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
+        handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
+        if (!handle) {
+                gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
                 goto out;
-	}
+        }
         xl->dlhandle = handle;
 
-	if (!(xl->fops = dlsym (handle, "fops"))) {
-		gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
-			dlerror ());
+        if (!(xl->fops = dlsym (handle, "fops"))) {
+                gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
+                        dlerror ());
                 goto out;
-	}
+        }
 
-	if (!(xl->cbks = dlsym (handle, "cbks"))) {
-		gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
-			dlerror ());
+        if (!(xl->cbks = dlsym (handle, "cbks"))) {
+                gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
+                        dlerror ());
                 goto out;
-	}
+        }
 
-	if (!(xl->init = dlsym (handle, "init"))) {
-		gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
-			dlerror ());
+        if (!(xl->init = dlsym (handle, "init"))) {
+                gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
+                        dlerror ());
                 goto out;
-	}
+        }
 
-	if (!(xl->fini = dlsym (handle, "fini"))) {
-		gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
-			dlerror ());
+        if (!(xl->fini = dlsym (handle, "fini"))) {
+                gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
+                        dlerror ());
                 goto out;
-	}
+        }
 
-	if (!(xl->notify = dlsym (handle, "notify"))) {
-		gf_log ("xlator", GF_LOG_DEBUG,
-			"dlsym(notify) on %s -- neglecting", dlerror ());
-	}
+        if (!(xl->notify = dlsym (handle, "notify"))) {
+                gf_log ("xlator", GF_LOG_DEBUG,
+                        "dlsym(notify) on %s -- neglecting", dlerror ());
+        }
 
-	if (!(xl->dumpops = dlsym (handle, "dumpops"))) {
-		gf_log ("xlator", GF_LOG_DEBUG,
-			"dlsym(dumpops) on %s -- neglecting", dlerror ());
-	}
+        if (!(xl->dumpops = dlsym (handle, "dumpops"))) {
+                gf_log ("xlator", GF_LOG_DEBUG,
+                        "dlsym(dumpops) on %s -- neglecting", dlerror ());
+        }
 
         if (!(xl->mem_acct_init = dlsym (handle, "mem_acct_init"))) {
                 gf_log (xl->name, GF_LOG_DEBUG,
@@ -1304,47 +248,40 @@ xlator_dynload (xlator_t *xl)
                         dlerror ());
         }
 
-	if (!(xl->reconfigure = dlsym (handle, "reconfigure"))) {
-		gf_log ("xlator", GF_LOG_DEBUG,
-			"dlsym(reconfigure) on %s -- neglecting",
-			dlerror());
-	}
-
-        if (!(xl->validate_options = dlsym (handle, "validate_options"))) {
+        if (!(xl->reconfigure = dlsym (handle, "reconfigure"))) {
                 gf_log ("xlator", GF_LOG_DEBUG,
-                        "dlsym(validate_options) on %s -- neglecting",
+                        "dlsym(reconfigure) on %s -- neglecting",
                         dlerror());
         }
 
+        INIT_LIST_HEAD (&xl->volume_options);
 
-	INIT_LIST_HEAD (&xl->volume_options);
-
-	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+        vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                          gf_common_mt_volume_opt_list_t);
 
         if (!vol_opt) {
                 goto out;
         }
 
-	if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
-		dlerror ();
-		gf_log (xl->name, GF_LOG_DEBUG,
-			"Strict option validation not enforced -- neglecting");
-	}
-	list_add_tail (&vol_opt->list, &xl->volume_options);
+        if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
+                dlerror ();
+                gf_log (xl->name, GF_LOG_DEBUG,
+                        "Strict option validation not enforced -- neglecting");
+        }
+        list_add_tail (&vol_opt->list, &xl->volume_options);
 
-	fill_defaults (xl);
+        fill_defaults (xl);
 
         ret = 0;
 
 out:
         if (name)
                 GF_FREE (name);
-	return ret;
+        return ret;
 }
 
 
-int32_t
+int
 xlator_set_type (xlator_t *xl, const char *type)
 {
         int ret = 0;
@@ -1359,31 +296,30 @@ xlator_set_type (xlator_t *xl, const char *type)
 
 void
 xlator_foreach (xlator_t *this,
-		void (*fn)(xlator_t *each,
-			   void *data),
-		void *data)
+                void (*fn)(xlator_t *each,
+                           void *data),
+                void *data)
 {
-	xlator_t *first    = NULL;
+        xlator_t *first    = NULL;
         xlator_t *old_THIS = NULL;
 
         GF_VALIDATE_OR_GOTO ("xlator", this, out);
         GF_VALIDATE_OR_GOTO ("xlator", fn, out);
-        GF_VALIDATE_OR_GOTO ("xlator", data, out);
 
-	first = this;
+        first = this;
 
-	while (first->prev)
-		first = first->prev;
+        while (first->prev)
+                first = first->prev;
 
-	while (first) {
+        while (first) {
                 old_THIS = THIS;
                 THIS = first;
 
-		fn (first, data);
+                fn (first, data);
 
                 THIS = old_THIS;
-		first = first->next;
-	}
+                first = first->next;
+        }
 
 out:
         return;
@@ -1393,24 +329,24 @@ out:
 xlator_t *
 xlator_search_by_name (xlator_t *any, const char *name)
 {
-	xlator_t *search = NULL;
+        xlator_t *search = NULL;
 
         GF_VALIDATE_OR_GOTO ("xlator", any, out);
         GF_VALIDATE_OR_GOTO ("xlator", name, out);
 
-	search = any;
+        search = any;
 
-	while (search->prev)
-		search = search->prev;
+        while (search->prev)
+                search = search->prev;
 
-	while (search) {
-		if (!strcmp (search->name, name))
-			break;
-		search = search->next;
-	}
+        while (search) {
+                if (!strcmp (search->name, name))
+                        break;
+                search = search->next;
+        }
 
 out:
-	return search;
+        return search;
 }
 
 
@@ -1434,7 +370,7 @@ __xlator_init(xlator_t *xl)
 int
 xlator_init (xlator_t *xl)
 {
-	int32_t ret = -1;
+        int32_t ret = -1;
 
         GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
@@ -1460,145 +396,49 @@ xlator_init (xlator_t *xl)
 
         ret = 0;
 out:
-	return ret;
+        return ret;
 }
 
 
 static void
 xlator_fini_rec (xlator_t *xl)
 {
-	xlator_list_t *trav     = NULL;
+        xlator_list_t *trav     = NULL;
         xlator_t      *old_THIS = NULL;
 
         GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
-	trav = xl->children;
+        trav = xl->children;
 
-	while (trav) {
-		if (!trav->xlator->init_succeeded) {
-			break;
-		}
+        while (trav) {
+                if (!trav->xlator->init_succeeded) {
+                        break;
+                }
 
-		xlator_fini_rec (trav->xlator);
-		gf_log (trav->xlator->name, GF_LOG_DEBUG, "fini done");
-		trav = trav->next;
-	}
+                xlator_fini_rec (trav->xlator);
+                gf_log (trav->xlator->name, GF_LOG_DEBUG, "fini done");
+                trav = trav->next;
+        }
 
-	if (xl->init_succeeded) {
-		if (xl->fini) {
+        if (xl->init_succeeded) {
+                if (xl->fini) {
                         old_THIS = THIS;
                         THIS = xl;
 
-			xl->fini (xl);
+                        xl->fini (xl);
 
                         THIS = old_THIS;
-		} else {
-			gf_log (xl->name, GF_LOG_DEBUG, "No fini() found");
-		}
-		xl->init_succeeded = 0;
-	}
+                } else {
+                        gf_log (xl->name, GF_LOG_DEBUG, "No fini() found");
+                }
+                xl->init_succeeded = 0;
+        }
 
 out:
         return;
 }
 
-static int
-xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
-{
-	xlator_list_t *trav1    = NULL;
-        xlator_list_t *trav2    = NULL;
-        int32_t        ret      = -1;
-        xlator_t      *old_THIS = NULL;
 
-        GF_VALIDATE_OR_GOTO ("xlator", old_xl, out);
-        GF_VALIDATE_OR_GOTO ("xlator", new_xl, out);
-
-	trav1 = old_xl->children;
-        trav2 = new_xl->children;
-
-	while (trav1 && trav2) {
-		ret = xlator_reconfigure_rec (trav1->xlator, trav2->xlator);
-                if (ret)
-                        goto out;
-
-		gf_log (trav1->xlator->name, GF_LOG_DEBUG, "reconfigured");
-
-		trav1 = trav1->next;
-                trav2 = trav2->next;
-	}
-
-        if (old_xl->reconfigure) {
-                old_THIS = THIS;
-                THIS = old_xl;
-
-                ret = old_xl->reconfigure (old_xl, new_xl->options);
-
-                THIS = old_THIS;
-
-                if (ret)
-                        goto out;
-        } else {
-                gf_log (old_xl->name, GF_LOG_DEBUG, "No reconfigure() found");
-        }
-
-        ret = 0;
-out:
-        return ret;
-}
-
-int
-xlator_validate_rec (xlator_t *xlator, char **op_errstr)
-{
-        int            ret  = -1;
-        xlator_list_t *trav = NULL;
-
-        GF_VALIDATE_OR_GOTO ("xlator", xlator, out);
-
-        trav = xlator->children;
-
-        while (trav) {
-                if (xlator_validate_rec (trav->xlator, op_errstr)) {
-                        gf_log ("xlator", GF_LOG_WARNING, "validate_rec failed");
-                        goto out;
-                }
-
-                trav = trav->next;
-        }
-
-        if (xlator_dynload (xlator))
-                gf_log (xlator->name, GF_LOG_DEBUG, "Did not load the symbols");
-
-        if (xlator->validate_options) {
-                if (xlator->validate_options (xlator, op_errstr)) {
-                        gf_log (xlator->name, GF_LOG_INFO, "%s", *op_errstr);
-                        goto out;
-                }
-                gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");
-
-        }
-
-        gf_log (xlator->name, GF_LOG_DEBUG, "No validate_options() found");
-
-        ret = 0;
-out:
-        return ret;
-}
-
-int
-graph_reconf_validateopt (glusterfs_graph_t *graph,
-                          char **op_errstr)
-{
-        xlator_t *xlator = NULL;
-        int ret = -1;
-
-        GF_ASSERT (graph);
-
-        xlator = graph->first;
-
-        ret = xlator_validate_rec (xlator, op_errstr);
-
-        return ret;
-}
 int
 xlator_notify (xlator_t *xl, int event, void *data, ...)
 {
@@ -1646,40 +486,27 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         return 0;
 }
 
+
 void
 xlator_tree_fini (xlator_t *xl)
 {
-	xlator_t *top = NULL;
+        xlator_t *top = NULL;
 
         GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
-	top = xl;
-	xlator_fini_rec (top);
+        top = xl;
+        xlator_fini_rec (top);
 
 out:
         return;
-}
-
-int
-xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl)
-{
-        xlator_t *new_top = NULL;
-        xlator_t *old_top = NULL;
-
-        GF_ASSERT (old_xl);
-        GF_ASSERT (new_xl);
-
-        old_top = old_xl;
-        new_top = new_xl;
-
-	return xlator_reconfigure_rec (old_top, new_top);
 }
 
 
 int
 xlator_tree_free (xlator_t *tree)
 {
-        xlator_t *trav = tree, *prev = tree;
+        xlator_t *trav = tree;
+        xlator_t *prev = tree;
 
         if (!tree) {
                 gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
@@ -1721,32 +548,32 @@ loc_wipe (loc_t *loc)
 int
 loc_copy (loc_t *dst, loc_t *src)
 {
-	int ret = -1;
+        int ret = -1;
 
         GF_VALIDATE_OR_GOTO ("xlator", dst, err);
         GF_VALIDATE_OR_GOTO ("xlator", src, err);
 
-	dst->ino = src->ino;
+        dst->ino = src->ino;
 
         uuid_copy (dst->gfid, src->gfid);
         uuid_copy (dst->pargfid, src->pargfid);
 
-	if (src->inode)
-		dst->inode = inode_ref (src->inode);
+        if (src->inode)
+                dst->inode = inode_ref (src->inode);
 
-	if (src->parent)
-		dst->parent = inode_ref (src->parent);
+        if (src->parent)
+                dst->parent = inode_ref (src->parent);
 
         dst->path = gf_strdup (src->path);
 
-	if (!dst->path)
-		goto out;
+        if (!dst->path)
+                goto out;
 
-	dst->name = strrchr (dst->path, '/');
-	if (dst->name)
-		dst->name++;
+        dst->name = strrchr (dst->path, '/');
+        if (dst->name)
+                dst->name++;
 
-	ret = 0;
+        ret = 0;
 out:
         if (ret == -1) {
                 if (dst->inode)
@@ -1757,7 +584,7 @@ out:
         }
 
 err:
-	return ret;
+        return ret;
 }
 
 
@@ -1807,6 +634,8 @@ xlator_destroy (xlator_t *xl)
 
         return 0;
 }
+
+
 int
 is_gf_log_command (xlator_t *this, const char *name, char *value)
 {
@@ -1850,6 +679,7 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
                 ret = 0;
                 goto out;
         }
+
         if (!strcmp (name, "trusted.glusterfs.fuse.set-log-level")) {
                 /* */
                 gf_log (this->name, gf_log_get_xl_loglevel (this),
@@ -1883,6 +713,7 @@ out:
         return ret;
 }
 
+
 int
 glusterd_check_log_level (const char *value)
 {
@@ -1911,50 +742,3 @@ glusterd_check_log_level (const char *value)
         return log_level;
 }
 
-int
-xlator_get_volopt_info (struct list_head *opt_list, char *key, char **def_val,
-                         char **descr)
-{
-
-        int                     index = 0;
-        int                     ret = -1;
-        volume_opt_list_t       *vol_list = NULL;
-        volume_option_t         *opt = NULL;
-
-        if (!opt_list || !key || !def_val ) {
-                gf_log ("", GF_LOG_WARNING, " Parameters to the function not "
-                         "valid");
-                ret = -1;
-                goto out;
-        }
-
-        if (list_empty (opt_list)) {
-                gf_log ("xlator", GF_LOG_WARNING, "No elements in Volume option"
-                         " list");
-                ret = -1;
-                goto out;
-        }
-
-
-        vol_list = list_entry (opt_list->next, volume_opt_list_t, list);
-
-        opt = vol_list->given_opt;
-
-        for (index = 0; opt[index].key && opt[index].key[0] ; index++) {
-                if (strncmp (key, opt[index].key[0], strlen (key)))
-                        continue;
-
-                *def_val = opt[index].default_value;
-                if (descr)
-                        *descr = opt[index].description;
-                ret = 0;
-                goto out;
-        }
-
-        ret = -1;
-
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-
-}

@@ -1513,47 +1513,13 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
-int
-validate_options (xlator_t *this, char **op_errstr)
-{
-        int                ret     = 0;
-        volume_opt_list_t *vol_opt = NULL;
-        volume_opt_list_t *tmp     = NULL;
-
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                              volume_opt_list_t, list);
-        list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-
-        return ret;
-}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
         data_t      *data              = NULL;
         ioc_table_t *table             = NULL;
-        int32_t      cache_timeout     = 0;
-        int64_t      min_file_size     = 0;
-        int64_t      max_file_size     = 0;
-        char	    *tmp               = NULL;
-        uint64_t     cache_size        = 0;
-        char	    *cache_size_string = NULL;
-        int          ret               = 0;
+        int          ret               = -1;
 
         if (!this || !this->private)
                 goto out;
@@ -1562,72 +1528,11 @@ reconfigure (xlator_t *this, dict_t *options)
 
         ioc_table_lock (table);
         {
-                data = dict_get (options, "cache-timeout");
-                if (data) {
-                        cache_timeout = data_to_uint32 (data);
-                        if (cache_timeout < 0){
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "cache-timeout %d seconds invalid,"
-                                        " has to be  >=0", cache_timeout);
-                                goto out;
-                        }
+                GF_OPTION_RECONF ("cache-timeout", table->cache_timeout,
+                                  options, int32, unlock);
 
-
-                        if (cache_timeout > 60){
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "cache-timeout %d seconds invalid,"
-                                        " has to be  <=60", cache_timeout);
-                                goto out;
-                        }
-
-                        table->cache_timeout = cache_timeout;
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Reconfiguring %d seconds to"
-                                " revalidate cache", table->cache_timeout);
-                } else
-                        table->cache_timeout = 1;
-
-                data = dict_get (options, "cache-size");
-                if (data)
-                        cache_size_string = data_to_str (data);
-
-                if (cache_size_string) {
-                        if (gf_string2bytesize (cache_size_string,
-                                                &cache_size) != 0) {
-                                gf_log ("io-cache", GF_LOG_ERROR,
-                                        "invalid number format \"%s\" of "
-                                        "\"option cache-size\" Defaulting"
-                                        "to old value", cache_size_string);
-                                goto out;
-                        }
-
-                        if (cache_size < (4 * GF_UNIT_MB)) {
-                                gf_log(this->name, GF_LOG_ERROR,
-                                       "Reconfiguration"
-                                       "'option cache-size %s' failed , "
-                                       "Max value can be 4MiB, Defaulting to "
-                                       "old value (%"PRIu64")",
-                                       cache_size_string, table->cache_size);
-                                goto out;
-                        }
-
-                        if (cache_size > (6 * GF_UNIT_GB)) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Reconfiguration"
-                                        "'option cache-size %s' failed , "
-                                        "Max value can be 6GiB, Defaulting to "
-                                        "old value (%"PRIu64")",
-                                        cache_size_string, table->cache_size);
-                                goto out;
-                        }
-
-
-                        gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
-                                " cache-size %"PRIu64"", cache_size);
-                        table->cache_size = cache_size;
-                } else
-                        table->cache_size = IOC_CACHE_SIZE;
+                GF_OPTION_RECONF ("cache-size", table->cache_size,
+                                  options, size, unlock);
 
                 data = dict_get (options, "priority");
                 if (data) {
@@ -1640,79 +1545,35 @@ reconfigure (xlator_t *this, dict_t *options)
                                                                 &table->priority_list);
 
                         if (table->max_pri == -1) {
-                                ret = -1;
-                                goto out;
+                                goto unlock;
                         }
                         table->max_pri ++;
                 }
 
-                min_file_size = table->min_file_size;
-                data = dict_get (options, "min-file-size");
-                if (data) {
-                        tmp = data_to_str (data);
-                        if (tmp != NULL) {
-                                if (gf_string2bytesize (tmp,
-                                                        (uint64_t *)&min_file_size)
-                                    != 0) {
-                                        gf_log ("io-cache", GF_LOG_ERROR,
-                                                "invalid number format \"%s\" of "
-                                                "\"option min-file-size\"", tmp);
-                                        ret = -1;
-                                        goto out;
-                                }
+                GF_OPTION_RECONF ("max-file-size", table->max_file_size,
+                                  options, size, unlock);
 
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "Reconfiguring min-file-size %"PRIu64"",
-                                        table->min_file_size);
-                        }
-                }
+                GF_OPTION_RECONF ("min-file-size", table->min_file_size,
+                                  options, size, unlock);
 
-                max_file_size = table->max_file_size;
-                data = dict_get (options, "max-file-size");
-                if (data) {
-                        tmp = data_to_str (data);
-                        if (tmp != NULL) {
-                                if (gf_string2bytesize (tmp,
-                                                        (uint64_t *)&max_file_size)
-                                    != 0) {
-                                        gf_log ("io-cache", GF_LOG_ERROR,
-                                                "invalid number format \"%s\" of "
-                                                "\"option max-file-size\"", tmp);
-                                        ret = -1;
-                                        goto out;
-                                }
-
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "Reconfiguring max-file-size %"PRIu64"",
-                                        table->max_file_size);
-                        }
-                }
-
-                if ((max_file_size >= 0) && (min_file_size > max_file_size)) {
-                        gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
+                if ((table->max_file_size >= 0) &&
+                    (table->min_file_size > table->max_file_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "minimum size (%"
                                 PRIu64") of a file that can be cached is "
                                 "greater than maximum size (%"PRIu64"). "
                                 "Hence Defaulting to old value",
                                 table->min_file_size, table->max_file_size);
-                        goto out;
+                        goto unlock;
                 }
 
-                table->min_file_size = min_file_size;
-                table->max_file_size = max_file_size;
-                data = dict_get (options, "min-file-size");
-                if (data && !data_to_str (data))
-                        table->min_file_size = 0;
-
-                data = dict_get (options, "max-file-size");
-                if (data && !data_to_str (data))
-                        table->max_file_size = 0;
+                ret = 0;
         }
-
+unlock:
         ioc_table_unlock (table);
 out:
         return ret;
-
 }
+
 
 /*
  * init -
@@ -1725,11 +1586,9 @@ init (xlator_t *this)
         ioc_table_t     *table             = NULL;
         dict_t          *xl_options        = NULL;
         uint32_t         index             = 0;
-        char            *cache_size_string = NULL, *tmp = NULL;
         int32_t          ret               = -1;
         glusterfs_ctx_t *ctx               = NULL;
         data_t          *data              = 0;
-        char            *def_val           = NULL;
 
         xl_options = this->options;
 
@@ -1754,61 +1613,13 @@ init (xlator_t *this)
         table->xl = this;
         table->page_size = this->ctx->page_size;
 
-        if (xlator_get_volopt_info (&this->volume_options, "cache-size",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of cache-size "
-                        "not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2bytesize (def_val, &table->cache_size)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                "cache-size corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
+        GF_OPTION_INIT ("cache-size", table->cache_size, size, out);
 
-        data = dict_get (xl_options, "cache-size");
-        if (data)
-                cache_size_string = data_to_str (data);
+        GF_OPTION_INIT ("cache-timeout", table->cache_timeout, int32, out);
 
-        if (cache_size_string) {
-                if (gf_string2bytesize (cache_size_string,
-                                        &table->cache_size) != 0) {
-                        gf_log ("io-cache", GF_LOG_ERROR,
-                                "invalid number format \"%s\" of "
-                                "\"option cache-size\"",
-                                cache_size_string);
-                        goto out;
-                }
+        GF_OPTION_INIT ("min-file-size", table->min_file_size, size, out);
 
-                gf_log (this->name, GF_LOG_TRACE,
-                        "using cache-size %"PRIu64"", table->cache_size);
-        }
-
-        if (xlator_get_volopt_info (&this->volume_options, "cache-timeout",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                        "cache-timeout not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2int32 (def_val, &table->cache_timeout)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                "cache-timeout corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        data = dict_get (xl_options, "cache-timeout");
-        if (data) {
-                table->cache_timeout = data_to_uint32 (data);
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Using %d seconds to revalidate cache",
-                        table->cache_timeout);
-        }
+        GF_OPTION_INIT ("max-file-size", table->max_file_size, size, out);
 
         INIT_LIST_HEAD (&table->priority_list);
         table->max_pri = 1;
@@ -1827,74 +1638,6 @@ init (xlator_t *this)
         }
         table->max_pri ++;
 
-        if (xlator_get_volopt_info (&this->volume_options, "min-file-size",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                        "min-file-size not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2bytesize (def_val,
-                                        (uint64_t *) &table->min_file_size)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                "min-file-size corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        data = dict_get (xl_options, "min-file-size");
-        if (data)
-                tmp = data_to_str (data);
-
-        if (tmp != NULL) {
-                if (gf_string2bytesize (tmp,
-                                        (uint64_t *)&table->min_file_size)
-                    != 0) {
-                        gf_log ("io-cache", GF_LOG_ERROR,
-                                "invalid number format \"%s\" of "
-                                "\"option min-file-size\"", tmp);
-                        goto out;
-                }
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "using min-file-size %"PRIu64"", table->min_file_size);
-        }
-
-        if (xlator_get_volopt_info (&this->volume_options, "max-file-size",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                        "max-file-size not found");
-                ret = -1;
-                goto out;
-        } else {
-                if (gf_string2bytesize (def_val,
-                                        (uint64_t *) &table->max_file_size)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                                "max-file-size corrupt");
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        tmp = NULL;
-        data = dict_get (xl_options, "max-file-size");
-        if (data)
-                tmp = data_to_str (data);
-
-        if (tmp != NULL) {
-                if (gf_string2bytesize (tmp,
-                                        (uint64_t *)&table->max_file_size)
-                    != 0) {
-                        gf_log ("io-cache", GF_LOG_ERROR,
-                                "invalid number format \"%s\" of "
-                                "\"option max-file-size\"", tmp);
-                        goto out;
-                }
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "using max-file-size %"PRIu64"", table->max_file_size);
-        }
         INIT_LIST_HEAD (&table->inodes);
 
         if ((table->max_file_size >= 0)

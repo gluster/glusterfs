@@ -1789,12 +1789,12 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                         ret = xlator_volopt_dynload (vme->voltype,
                                                         &dl_handle,
                                                         &vol_opt_handle);
-                                if (ret)
+                        if (ret)
                                 continue;
                 }
 
-                ret = xlator_get_volopt_info (&vol_opt_handle.list, key,
-                                                &def_val, &descr);
+                ret = xlator_option_info_list (&vol_opt_handle, key,
+                                               &def_val, &descr);
                 if (ret) /*Swallow Error i.e if option not found*/
                         continue;
 

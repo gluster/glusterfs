@@ -84,44 +84,6 @@ _gf_dump_details (int argc, char **argv)
 #endif
 
 
-static int
-_log_if_option_is_invalid (xlator_t *xl, data_pair_t *pair)
-{
-        volume_opt_list_t *vol_opt = NULL;
-        volume_option_t   *opt     = NULL;
-        int                i     = 0;
-        int                index = 0;
-        int                found = 0;
-
-        /* Get the first volume_option */
-        list_for_each_entry (vol_opt, &xl->volume_options, list) {
-                /* Warn for extra option */
-                if (!vol_opt->given_opt)
-                        break;
-
-                opt = vol_opt->given_opt;
-                for (index = 0;
-                     ((index < ZR_OPTION_MAX_ARRAY_SIZE) &&
-                      (opt[index].key && opt[index].key[0]));  index++)
-                        for (i = 0; (i < ZR_VOLUME_MAX_NUM_KEY) &&
-                                     opt[index].key[i]; i++) {
-                                if (fnmatch (opt[index].key[i],
-                                             pair->key,
-                                             FNM_NOESCAPE) == 0) {
-                                        found = 1;
-                                        break;
-                                }
-                        }
-        }
-
-        if (!found) {
-                gf_log (xl->name, GF_LOG_WARNING,
-                        "option '%s' is not recognized",
-                        pair->key);
-        }
-        return 0;
-}
-
 
 int
 glusterfs_xlator_link (xlator_t *pxl, xlator_t *cxl)
@@ -299,7 +261,7 @@ gf_add_cmdline_options (glusterfs_graph_t *graph, cmd_args_t *cmd_args)
                                                     cmd_option->key,
                                                     cmd_option->value);
                                 if (ret == 0) {
-                                        gf_log (trav->name, GF_LOG_WARNING,
+                                        gf_log (trav->name, GF_LOG_INFO,
                                                 "adding option '%s' for "
                                                 "volume '%s' with value '%s'",
                                                 cmd_option->key, trav->name,
@@ -324,6 +286,7 @@ glusterfs_graph_validate_options (glusterfs_graph_t *graph)
         volume_opt_list_t  *vol_opt = NULL;
         xlator_t           *trav = NULL;
         int                 ret = -1;
+        char               *errstr = NULL;
 
         trav = graph->first;
 
@@ -334,11 +297,10 @@ glusterfs_graph_validate_options (glusterfs_graph_t *graph)
                 vol_opt = list_entry (trav->volume_options.next,
                                       volume_opt_list_t, list);
 
-                ret = validate_xlator_volume_options (trav,
-                                                      vol_opt->given_opt);
+                ret = xlator_options_validate (trav, trav->options, &errstr);
                 if (ret) {
                         gf_log (trav->name, GF_LOG_ERROR,
-                                "validating translator failed");
+                                "validation failed: %s", errstr);
                         return ret;
                 }
                 trav = trav->next;
@@ -370,24 +332,36 @@ glusterfs_graph_init (glusterfs_graph_t *graph)
 }
 
 
+static void
+_log_if_unknown_option (dict_t *dict, char *key, data_t *value, void *data)
+{
+        volume_option_t   *found = NULL;
+        xlator_t          *xl = NULL;
+
+        xl = data;
+
+        found = xlator_volume_option_get (xl, key);
+
+        if (!found) {
+                gf_log (xl->name, GF_LOG_WARNING,
+                        "option '%s' is not recognized", key);
+        }
+
+        return;
+}
+
+
+static void
+_xlator_check_unknown_options (xlator_t *xl, void *data)
+{
+        dict_foreach (xl->options, _log_if_unknown_option, xl);
+}
+
+
 int
 glusterfs_graph_unknown_options (glusterfs_graph_t *graph)
 {
-        data_pair_t        *pair = NULL;
-        xlator_t           *trav = NULL;
-
-        trav = graph->first;
-
-        /* Validate again phase */
-        while (trav) {
-                pair = trav->options->members_list;
-                while (pair) {
-                        _log_if_option_is_invalid (trav, pair);
-                        pair = pair->next;
-                }
-                trav = trav->next;
-        }
-
+        xlator_foreach (graph->first, _xlator_check_unknown_options, NULL);
         return 0;
 }
 

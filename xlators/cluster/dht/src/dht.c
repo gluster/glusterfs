@@ -253,34 +253,6 @@ out:
         return ret;
 }
 
-int
-validate_options (xlator_t *this, char **op_errstr)
-{
-        int                 ret = 0;
-        volume_opt_list_t  *vol_opt = NULL;
-        volume_opt_list_t  *tmp;
-
-        if (!this) {
-                gf_log (this->name, GF_LOG_DEBUG, "'this' not a valid ptr");
-                ret =-1;
-                goto out;
-        }
-
-        if (list_empty (&this->volume_options))
-                goto out;
-
-        vol_opt = list_entry (this->volume_options.next,
-                                      volume_opt_list_t, list);
-         list_for_each_entry_safe (vol_opt, tmp, &this->volume_options, list) {
-                ret = validate_xlator_volume_options_attacherr (this,
-                                                                vol_opt->given_opt,
-                                                                op_errstr);
-        }
-
-out:
-
-        return ret;
-}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -288,9 +260,7 @@ reconfigure (xlator_t *this, dict_t *options)
         dht_conf_t      *conf = NULL;
         char            *temp_str = NULL;
         gf_boolean_t     search_unhashed;
-        uint32_t         temp_free_disk = 0;
         int              ret = -1;
-        uint32_t         dir_spread = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO ("dht", options, out);
@@ -323,44 +293,17 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
-        if (dict_get_str (options, "min-free-disk", &temp_str) == 0) {
-                if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
-                        if (temp_free_disk > 100) {
-                                gf_string2bytesize (temp_str,
-                                                    &conf->min_free_disk);
-                                conf->disk_unit = 'b';
-                        } else {
-                                conf->min_free_disk = (uint64_t)temp_free_disk;
-                        }
-                } else {
-                        gf_string2bytesize (temp_str, &conf->min_free_disk);
-                        conf->disk_unit = 'b';
-                }
+        GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
+                          percent_or_size, out);
 
-                gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
-                       " min-free-disk reconfigured to %s",
-                       temp_str);
-        }
-
-        if (dict_get_str (options, "directory-layout-spread", &temp_str) == 0) {
-                ret = gf_string2uint32 (temp_str, &dir_spread);
-                if (ret ||
-                    (dir_spread > conf->subvolume_cnt) ||
-                    (dir_spread < 1)) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "wrong 'directory-layout-spread' option given "
-                                "(%s). setting to earlier value (%d)",
-                                temp_str, conf->dir_spread_cnt);
-                        ret = -1;
-                        goto out;
-                }
-                conf->dir_spread_cnt = dir_spread;
-        }
+        GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
+                          options, uint32, out);
 
         ret = 0;
 out:
         return ret;
 }
+
 
 int
 init (xlator_t *this)
@@ -369,8 +312,6 @@ init (xlator_t *this)
         char          *temp_str = NULL;
         int            ret = -1;
         int            i = 0;
-        uint32_t       temp_free_disk = 0;
-        char          *def_val = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", this, err);
 
@@ -399,86 +340,20 @@ init (xlator_t *this)
                         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
         }
 
-        conf->unhashed_sticky_bit = 0;
+        GF_OPTION_INIT ("unhashed-sticky-bit", conf->unhashed_sticky_bit, bool,
+                        err);
 
-        if (dict_get_str (this->options, "unhashed-sticky-bit",
-                          &temp_str) == 0) {
-                gf_string2boolean (temp_str, &conf->unhashed_sticky_bit);
-        }
+        GF_OPTION_INIT ("use-readdirp", conf->use_readdirp, bool, err);
 
-        conf->use_readdirp = 1;
-
-        if (dict_get_str (this->options, "use-readdirp",
-                          &temp_str) == 0) {
-                gf_string2boolean (temp_str, &conf->use_readdirp);
-        }
-
-        if (xlator_get_volopt_info (&this->volume_options, "min-free-disk",
-                                    &def_val, NULL)) {
-                gf_log (this->name, GF_LOG_ERROR, "Default value of "
-                         " min-free-disk not found");
-                ret = -1;
-                goto err;
-        } else {
-                if (gf_string2percent (def_val, &temp_free_disk) == 0) {
-                        if (temp_free_disk > 100) {
-                                gf_string2bytesize (temp_str,
-                                                    &conf->min_free_disk);
-                                conf->disk_unit = 'b';
-                        } else {
-                                conf->min_free_disk = (uint64_t)temp_free_disk;
-                                conf->disk_unit = 'p';
-                        }
-                } else {
-                        gf_string2bytesize (temp_str, &conf->min_free_disk);
-                        conf->disk_unit = 'b';
-                }
-        }
-
-        if (dict_get_str (this->options, "min-free-disk", &temp_str) == 0) {
-                if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
-                        if (temp_free_disk > 100) {
-                                gf_string2bytesize (temp_str,
-                                                    &conf->min_free_disk);
-                                conf->disk_unit = 'b';
-                        } else {
-                                conf->min_free_disk = (uint64_t)temp_free_disk;
-                        }
-                } else {
-                        gf_string2bytesize (temp_str, &conf->min_free_disk);
-                        conf->disk_unit = 'b';
-                }
-        }
+        GF_OPTION_INIT ("min-free-disk", conf->min_free_disk, percent_or_size,
+                        err);
 
         conf->dir_spread_cnt = conf->subvolume_cnt;
-        if (dict_get_str (this->options, "directory-layout-spread",
-                          &temp_str) == 0) {
-                ret = gf_string2uint32 (temp_str, &conf->dir_spread_cnt);
-                if (ret ||
-                    (conf->dir_spread_cnt > conf->subvolume_cnt) ||
-                    (conf->dir_spread_cnt < 1)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wrong 'directory-layout-spread' option given "
-                                "(%s). setting it to subvolume count",
-                                temp_str);
-                        conf->dir_spread_cnt = conf->subvolume_cnt;
-                }
-        }
+        GF_OPTION_INIT ("directory-layout-spread", conf->dir_spread_cnt,
+                        uint32, err);
 
-        conf->assert_no_child_down = 0;
-
-        ret = dict_get_str_boolean (this->options, "assert-no-child-down", 0);
-        if (ret != -1) {
-                if (conf->assert_no_child_down != ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Changing assert-no-child-down from %d to %d",
-                                conf->assert_no_child_down, ret);
-                }
-                conf->assert_no_child_down = ret;
-        } else {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "'assert-no-child-down' takes only boolean arguments");
-        }
+        GF_OPTION_INIT ("assert-no-child-down", conf->assert_no_child_down,
+                        bool, err);
 
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
@@ -598,7 +473,8 @@ struct volume_options options[] = {
         { .key  = {"lookup-unhashed"},
           .value = {"auto", "yes", "no", "enable", "disable", "1", "0",
                     "on", "off"},
-          .type = GF_OPTION_TYPE_STR
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "on",
         },
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
@@ -607,13 +483,16 @@ struct volume_options options[] = {
                          "kept free."
         },
         { .key = {"unhashed-sticky-bit"},
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
         },
         { .key = {"use-readdirp"},
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
         },
         { .key = {"assert-no-child-down"},
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
         },
         { .key  = {"directory-layout-spread"},
           .type = GF_OPTION_TYPE_INT,
