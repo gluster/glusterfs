@@ -6,7 +6,7 @@ noinst_HEADERS = read-only-common.h
 
 read_only_la_LDFLAGS = -module -avoidversion
 
-read_only_la_SOURCES = read-only.c
+read_only_la_SOURCES = read-only.c read-only-common.c
 read_only_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 
 
 worm_la_LDFLAGS = -module -avoidversion
