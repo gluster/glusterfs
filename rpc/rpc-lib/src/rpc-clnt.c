@@ -1357,49 +1357,49 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         rpcreq->xid = callid;
         rpcreq->cbkfn = cbkfn;
 
+        ret = -1;
+
+        if (proghdr) {
+                proglen += iov_length (proghdr, proghdrcount);
+        }
+
+        if (progpayload) {
+                proglen += iov_length (progpayload,
+                                       progpayloadcount);
+        }
+
+        request_iob = rpc_clnt_record (rpc, frame, prog,
+                                       procnum, proglen,
+                                       &rpchdr, callid);
+        if (!request_iob) {
+                gf_log (conn->trans->name, GF_LOG_WARNING,
+                        "cannot build rpc-record");
+                goto out;
+        }
+
+        iobref_add (iobref, request_iob);
+
+        req.msg.rpchdr = &rpchdr;
+        req.msg.rpchdrcount = 1;
+        req.msg.proghdr = proghdr;
+        req.msg.proghdrcount = proghdrcount;
+        req.msg.progpayload = progpayload;
+        req.msg.progpayloadcount = progpayloadcount;
+        req.msg.iobref = iobref;
+
+        req.rsp.rsphdr = rsphdr;
+        req.rsp.rsphdr_count = rsphdr_count;
+        req.rsp.rsp_payload = rsp_payload;
+        req.rsp.rsp_payload_count = rsp_payload_count;
+        req.rsp.rsp_iobref = rsp_iobref;
+        req.rpc_req = rpcreq;
+
         pthread_mutex_lock (&conn->lock);
         {
                 if (conn->connected == 0) {
                         rpc_transport_connect (conn->trans,
                                                conn->config.remote_port);
                 }
-
-                ret = -1;
-
-                if (proghdr) {
-                        proglen += iov_length (proghdr, proghdrcount);
-                }
-
-                if (progpayload) {
-                        proglen += iov_length (progpayload,
-                                               progpayloadcount);
-                }
-
-                request_iob = rpc_clnt_record (rpc, frame, prog,
-                                               procnum, proglen,
-                                               &rpchdr, callid);
-                if (!request_iob) {
-                        gf_log (conn->trans->name, GF_LOG_WARNING,
-                                "cannot build rpc-record");
-                        goto unlock;
-                }
-
-                iobref_add (iobref, request_iob);
-
-                req.msg.rpchdr = &rpchdr;
-                req.msg.rpchdrcount = 1;
-                req.msg.proghdr = proghdr;
-                req.msg.proghdrcount = proghdrcount;
-                req.msg.progpayload = progpayload;
-                req.msg.progpayloadcount = progpayloadcount;
-                req.msg.iobref = iobref;
-
-                req.rsp.rsphdr = rsphdr;
-                req.rsp.rsphdr_count = rsphdr_count;
-                req.rsp.rsp_payload = rsp_payload;
-                req.rsp.rsp_payload_count = rsp_payload_count;
-                req.rsp.rsp_iobref = rsp_iobref;
-                req.rpc_req = rpcreq;
 
                 ret = rpc_transport_submit_request (rpc->conn.trans,
                                                     &req);
@@ -1424,7 +1424,6 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                                 rpcreq->procnum, rpc->conn.trans->name);
                 }
         }
-unlock:
         pthread_mutex_unlock (&conn->lock);
 
         if (ret == -1) {
