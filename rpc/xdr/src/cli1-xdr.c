@@ -24,6 +24,7 @@
  */
 
 #include "cli1-xdr.h"
+#include "xdr-common.h"
 #include "compat.h"
 
 bool_t
