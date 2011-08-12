@@ -1,10 +1,10 @@
-#!/bin/bash -e
+#!/bin/sh -e
 
 
 branch="master";
 
 
-function set_hooks_commit_msg()
+set_hooks_commit_msg()
 {
     f=".git/hooks/commit-msg";
     u="http://review.gluster.com/tools/hooks/commit-msg";
@@ -19,7 +19,7 @@ function set_hooks_commit_msg()
 }
 
 
-function is_num()
+is_num()
 {
     local num;
 
@@ -29,7 +29,7 @@ function is_num()
 }
 
 
-function rebase_changes()
+rebase_changes()
 {
     git fetch;
 
@@ -37,7 +37,7 @@ function rebase_changes()
 }
 
 
-function editor_mode()
+editor_mode()
 {
     if [ $(basename "$1") = "git-rebase-todo" ]; then
         sed 's/^pick /reword /g' "$1" > $1.new && mv $1.new $1;
@@ -61,7 +61,7 @@ function editor_mode()
             fi
 
             sed -i "s/^\(Change-Id: .*\)$/\1\nBUG: $bug/g" $1 > $1.new && \
-                mv $i.new $i
+                mv $1.new $1;
             return;
         done
     fi
@@ -74,13 +74,13 @@ EOF
 }
 
 
-function assert_diverge()
+assert_diverge()
 {
     git diff origin/$branch..HEAD | grep -q .;
 }
 
 
-function main()
+main()
 {
     if [ -e "$1" ]; then
         editor_mode "$@";
