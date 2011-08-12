@@ -37,6 +37,10 @@
 #include <alloca.h>
 #endif /* GF_BSD_HOST_OS */
 
+#ifdef HAVE_LINKAT
+#include <fcntl.h>
+#endif /* HAVE_LINKAT */
+
 #include "glusterfs.h"
 #include "md5.h"
 #include "checksum.h"
@@ -779,6 +783,11 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+#ifdef __NetBSD__
+	if (S_ISFIFO(mode))
+		op_ret = mkfifo (real_path, mode);
+	else
+#endif /* __NetBSD__ */
         op_ret = mknod (real_path, mode, dev);
 
         if (op_ret == -1) {
@@ -1526,7 +1535,18 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+#ifdef HAVE_LINKAT
+	/*
+	 * On most systems (Linux being the notable exception), link(2)
+	 * first resolves symlinks. If the target is a directory or
+	 * is nonexistent, it will fail. linkat(2) operates on the 
+	 * symlink instead of its target when the AT_SYMLINK_FOLLOW
+	 * flag is not supplied.
+	 */
+        op_ret = linkat (AT_FDCWD, real_oldpath, AT_FDCWD, real_newpath, 0);
+#else
         op_ret = link (real_oldpath, real_newpath);
+#endif
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,

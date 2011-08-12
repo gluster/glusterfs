@@ -374,6 +374,11 @@ dnl Linux, Solaris, Cygwin
 AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec])
 dnl FreeBSD, NetBSD
 AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
+AC_CHECK_FUNC([linkat], [have_linkat=yes])
+if test "x${have_linkat}" = "xyes"; then
+   AC_DEFINE(HAVE_LINKAT, 1, [define if found linkat])
+fi
+AC_SUBST(HAVE_LINKAT)
 
 dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
