@@ -268,7 +268,7 @@ sys_lsetxattr (const char *path, const char *name, const void *value,
                size_t size, int flags)
 {
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
         return lsetxattr (path, name, value, size, flags);
 #endif
 
@@ -293,7 +293,7 @@ ssize_t
 sys_llistxattr (const char *path, char *list, size_t size)
 {
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
         return llistxattr (path, list, size);
 #endif
 
@@ -316,7 +316,7 @@ ssize_t
 sys_lgetxattr (const char *path, const char *name, void *value, size_t size)
 {
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
         return lgetxattr (path, name, value, size);
 #endif
 
@@ -340,7 +340,7 @@ ssize_t
 sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 {
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
         return fgetxattr (filedes, name, value, size);
 #endif
 
@@ -365,7 +365,7 @@ sys_fsetxattr (int filedes, const char *name, const void *value,
                size_t size, int flags)
 {
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
         return fsetxattr (filedes, name, value, size, flags);
 #endif
 
@@ -389,7 +389,7 @@ ssize_t
 sys_flistxattr (int filedes, char *list, size_t size)
 {
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
         return flistxattr (filedes, list, size);
 #endif
 
@@ -412,7 +412,7 @@ int
 sys_lremovexattr (const char *path, const char *name)
 {
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
         return lremovexattr (path, name);
 #endif
 
