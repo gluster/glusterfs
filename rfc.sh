@@ -60,7 +60,7 @@ editor_mode()
                 continue;
             fi
 
-            sed "s/^\(Change-Id: .*\)$/\1\nBUG: $bug/g" $1 > $1.new && \
+            sed "/^Change-Id:/{p; s/^.*$/BUG: $bug/;}" $1 > $1.new && \
                 mv $1.new $1;
             return;
         done
