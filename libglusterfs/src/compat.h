@@ -58,7 +58,7 @@
 #endif /* GF_LINUX_HOST_OS */
 
 #ifdef GF_BSD_HOST_OS
-/* In case of FreeBSD */
+/* In case of FreeBSD and NetBSD */
 
 #define UNIX_PATH_MAX 104
 #include <sys/types.h>
@@ -66,16 +66,21 @@
 #include <sys/un.h>
 #include <sys/endian.h>
 #include <sys/extattr.h>
+#ifdef HAVE_SYS_XATTR_H
+#include <sys/xattr.h>
+#endif /* HAVE_SYS_XATTR_H */
 #include <limits.h>
 
 #include <libgen.h>
 
+#ifndef XATTR_CREATE
 enum {
         ATTR_CREATE = 1,
 #define XATTR_CREATE ATTR_CREATE
         ATTR_REPLACE = 2
 #define XATTR_REPLACE ATTR_REPLACE
 };
+#endif /* XATTR_CREATE */
 
 
 #ifndef sighandler_t
@@ -111,6 +116,13 @@ enum {
 #define F_SETLK64       F_SETLK
 #define F_SETLKW64      F_SETLKW
 
+#ifdef __NetBSD__
+char *basename_r(const char *);
+char *dirname_r(char *);
+
+#define basename(path) basename_r(path)
+#define dirname(path) dirname_r(path)
+#endif /* __NetBSD__ */
 #endif /* GF_BSD_HOST_OS */
 
 #ifdef GF_DARWIN_HOST_OS
