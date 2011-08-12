@@ -307,6 +307,9 @@ case $host_os in
      linux*)
 #do nothing
        ;;
+     netbsd*)
+#do nothing
+       ;;
      *)
 #disabling geo replication for non-linux platforms
 	enable_georeplication=no
