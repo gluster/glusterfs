@@ -3407,6 +3407,20 @@ __posix_fill_readdir (DIR *dir, off_t off, size_t size, gf_dirent_t *entries,
                     && (!strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)))
                         continue;
 
+#ifdef __NetBSD__
+	       /*
+		* NetBSD with UFS1 backend uses backing files for
+		* extended attributes. They can be found in a
+		* .attribute file located at the root of the filesystem
+		* We hide it to glusterfs clients, since chaos will occur
+		* when the cluster/dht xlator decides to distribute
+		* exended attribute backing file accross storage servers.
+		*/
+		if ((!strcmp(real_path, base_path))
+		    && (!strcmp(entry->d_name, ".attribute")))
+			continue;
+#endif /* __NetBSD__ */
+
                 if ((!strcmp (real_path, base_path))
                     && (!strncmp (GF_HIDDEN_PATH, entry->d_name,
                                   strlen (GF_HIDDEN_PATH)))) {
