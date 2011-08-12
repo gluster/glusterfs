@@ -91,6 +91,50 @@ glusterd_unset_lock_owner (uuid_t owner)
         return 0;
 }
 
+static const char *
+glusterd_listener_family_name(void)
+{
+	xlator_t	 	*this = NULL;
+	glusterd_conf_t		*conf = NULL;
+	rpcsvc_listener_t	*listener = NULL;
+	struct sockaddr_storage ss;
+
+	this = THIS;
+	GF_ASSERT (this);
+	conf = this->private;
+	GF_ASSERT (conf);   
+	GF_ASSERT (conf->rpc);
+	
+	list_for_each_entry (listener, &conf->rpc->listeners, list)
+		break; /* grab first one */
+
+	GF_ASSERT (listener->trans);
+
+	if (rpc_transport_get_myaddr(listener->trans, NULL, 0, 
+				     &ss, sizeof(ss)) != 0) {
+		gf_log ("glusterd", GF_LOG_ERROR,
+			"rpc_transport_get_myname failed: %s",
+			strerror(errno));
+		return NULL;
+	}
+
+	switch (ss.ss_family) {
+		case AF_INET:
+			return "inet";
+			break;
+		case AF_INET6:
+			return "inet6";
+			break;
+		default:
+			gf_log ("glusterd", GF_LOG_ERROR,
+				"unknown address family %d",
+				ss.ss_family);
+			break;
+	}
+	       
+	return NULL;
+}
+
 gf_boolean_t
 glusterd_is_loopback_localhost (const struct sockaddr *sa, char *hostname)
 {
@@ -1029,6 +1073,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         FILE                    *file = NULL;
         gf_boolean_t            is_locked = _gf_false;
         char                    socketpath[PATH_MAX] = {0};
+        const char             *family_name;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -1115,6 +1160,13 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                          "-p", pidfile, "-S", socketpath,
                          "--brick-name", brickinfo->path,
                          "-l", brickinfo->logfile, "--brick-port",  NULL);
+
+        if ((family_name = glusterd_listener_family_name()) != NULL) {
+                runner_add_arg (&runner, "--xlator-option");
+                runner_argprintf (&runner, 
+                                  "%s-server.transport.address-family=%s",
+                                  volinfo->volname, family_name);
+        }
 
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
                 runner_argprintf (&runner, "%d", port);
