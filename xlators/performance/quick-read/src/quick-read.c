@@ -731,7 +731,7 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
         UNLOCK (&table->lock);
 
-        if (content_cached && ((flags & O_DIRECTORY) == O_DIRECTORY)) {
+        if (content_cached && (flags & O_DIRECTORY)) {
                 op_ret = -1;
                 op_errno = ENOTDIR;
                 gf_log (this->name, GF_LOG_WARNING,
