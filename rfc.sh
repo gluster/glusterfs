@@ -40,7 +40,7 @@ function rebase_changes()
 function editor_mode()
 {
     if [ $(basename "$1") = "git-rebase-todo" ]; then
-        sed -i 's/^pick /reword /g' "$1";
+        sed 's/^pick /reword /g' "$1" > $1.new && mv $1.new $1;
         return;
     fi
 
@@ -60,7 +60,8 @@ function editor_mode()
                 continue;
             fi
 
-            sed -i "s/^\(Change-Id: .*\)$/\1\nBUG: $bug/g" $1;
+            sed -i "s/^\(Change-Id: .*\)$/\1\nBUG: $bug/g" $1 > $1.new && \
+                mv $i.new $i
             return;
         done
     fi
