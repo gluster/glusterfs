@@ -448,7 +448,7 @@ case $host_os in
 	;;
      *netbsd*)
 	GF_HOST_OS="GF_BSD_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
+	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_INCOMPLETE_XOPEN_C063"
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
