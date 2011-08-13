@@ -495,7 +495,9 @@ afr_set_read_ctx_from_policy (xlator_t *this, inode_t *inode,
                                                         prev_read_child,
                                                         config_read_child,
                                                         NULL);
-        afr_inode_set_read_ctx (this, inode, read_child, fresh_children);
+        if (read_child >= 0)
+                afr_inode_set_read_ctx (this, inode, read_child,
+                                        fresh_children);
 }
 
 /* afr_next_call_child ()
