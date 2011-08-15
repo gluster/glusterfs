@@ -287,8 +287,7 @@ glusterd_check_gsync_present ()
         ret = 0;
  out:
 
-        if (ret == 0)
-                ret = runner_end (&runner);
+        ret = runner_end (&runner);
         if (ret == -1)
                         gf_log ("", GF_LOG_INFO, "geo-replication module not"
                                 " installed in the system");
