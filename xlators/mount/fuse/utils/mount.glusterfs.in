@@ -120,7 +120,9 @@ start_glusterfs ()
             if [ -n "$backupvolfile_server" ]; then
                 cmd_line1=$(echo "$cmd_line --volfile-server=$backupvolfile_server");
             fi
-
+            if [ -n "$volfile_max_fetch_attempts" ]; then
+                cmd_line=$(echo "$cmd_line --volfile-max-fetch-attempts=$volfile_max_fetch_attempts");
+            fi
 	    cmd_line=$(echo "$cmd_line --volfile-server=$server_ip");
         fi
     else
@@ -206,7 +208,10 @@ main ()
 
     volfile_check=$(echo "$options" | sed -n 's/.*volfile-check=\([^,]*\).*/\1/p');
 
+    volfile_max_fetch_attempts=$(echo "$options" | sed -n 's/.*fetch-attempts=\([^,]*\).*/\1/p');
+
     server_port=$(echo "$options" | sed -n 's/.*server-port=\([^,]*\).*/\1/p');
+
     backupvolfile_server=$(echo "$options" | sed -n 's/.*backupvolfile-server=\([^,]*\).*/\1/p');
 
     log_server=$(echo "$options" | sed -n 's/.*log-server=\([^,]*\).*/\1/p');
@@ -233,6 +238,7 @@ main ()
         -e 's/[,]*backupvolfile-server=[^,]*//' \
         -e 's/[,]*server-port=[^,]*//' \
         -e 's/[,]*volume-id=[^,]*//' \
+        -e 's/[,]*fetch-attempts=[^,]*//' \
         -e 's/[,]*log-server=[^,]*//' \
         -e 's/[,]*ro[^,]*//' \
         -e 's/[,]*acl[^,]*//' \

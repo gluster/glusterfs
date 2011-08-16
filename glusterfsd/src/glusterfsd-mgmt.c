@@ -730,19 +730,25 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                  void *data)
 {
         xlator_t        *this = NULL;
+        cmd_args_t      *cmd_args = NULL;
         glusterfs_ctx_t *ctx = NULL;
         int              ret = 0;
 
         this = mydata;
         ctx = this->ctx;
-
+        cmd_args = &ctx->cmd_args;
         switch (event) {
         case RPC_CLNT_DISCONNECT:
                 if (!ctx->active) {
+                        cmd_args->max_connect_attempts--;
                         gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
                                 "failed to connect with remote-host: %s",
                                 strerror (errno));
-                        cleanup_and_exit (1);
+                        gf_log ("glusterfsd-mgmt", GF_LOG_INFO,
+                                "%d connect attempts left",
+                                cmd_args->max_connect_attempts);
+                        if (0 >= cmd_args->max_connect_attempts)
+                                cleanup_and_exit (1);
                 }
                 break;
         case RPC_CLNT_CONNECT:
