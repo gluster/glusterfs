@@ -37,6 +37,8 @@
 #include <fnmatch.h>
 #include <signal.h>
 
+#define STRIPE_PATHINFO_HEADER "STRIPE:"
+
 
 #define STRIPE_STACK_UNWIND(fop, frame, params ...) do {           \
                 stripe_local_t *__local = NULL;                    \
@@ -61,6 +63,12 @@
                         GF_FREE (__local);                \
                 }                                         \
         } while (0)
+
+typedef struct stripe_xattr_sort {
+        int32_t  pos;
+        int32_t  pathinfo_len;
+        char    *pathinfo;
+} stripe_xattr_sort_t;
 
 /**
  * struct stripe_options : This keeps the pattern and the block-size
@@ -164,6 +172,10 @@ struct stripe_local {
 
         /* For File I/O fops */
         dict_t              *dict;
+
+        stripe_xattr_sort_t *xattr_list;
+        int32_t              xattr_total_len;
+        int32_t              nallocs;
 
         struct marker_str    marker;
 
