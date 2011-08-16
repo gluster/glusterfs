@@ -1712,9 +1712,10 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          * allocate the buffer:- we allocate 10 bytes extra in case we need to
                          * append ' Link: ' in the buffer for another STACK_WIND
                          */
-                        if (!local->pathinfo)
-                                local->pathinfo = GF_CALLOC (alloc_len + strlen (DHT_PATHINFO_HEADER) + 10,
-                                                             sizeof (char), gf_common_mt_char);
+                        if (!local->pathinfo) {
+                                alloc_len += (strlen (DHT_PATHINFO_HEADER) + 10);
+                                local->pathinfo = GF_CALLOC (alloc_len, sizeof (char), gf_common_mt_char);
+                        }
 
                         if (local->pathinfo) {
                                 plen = strlen (local->pathinfo);
