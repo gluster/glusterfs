@@ -42,7 +42,7 @@
                 _frame->local = NULL;                   \
                 STACK_DESTROY (_frame->root);           \
                 quota_local_unref (_this, _local);      \
-                GF_FREE (_local);                       \
+		GF_FREE (_local);			\
         } while (0)
 
 

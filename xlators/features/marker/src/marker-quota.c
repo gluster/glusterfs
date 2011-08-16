@@ -182,6 +182,8 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct gf_flock   lock  = {0, };
         quota_local_t    *local = NULL;
+        loc_t             loc = {0, };
+	int               ret = -1;
 
         local = frame->local;
 
@@ -202,12 +204,22 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
         lock.l_len    = 0;
         lock.l_pid    = 0;
 
+        ret = loc_copy (&loc, &local->loc);
+	if (ret == -1) {
+                local->err = -1;
+                frame->local = NULL;
+                dirty_inode_updation_done (frame, NULL, this, 0, 0);
+                return 0;
+        }
+        frame->local = NULL;
+
         STACK_WIND (frame,
                     dirty_inode_updation_done,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
-                    this->name, &local->loc, F_SETLKW, &lock);
+                    this->name, &loc, F_SETLKW, &lock);
 
+        loc_wipe (&loc);
         return 0;
 }
 
@@ -404,7 +416,6 @@ get_child_contribution (call_frame_t *frame,
                 gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
 
                 local->err = -2;
-
                 release_lock_on_dirty_inode (local->frame, NULL, this, 0, 0);
 
                 goto out;
@@ -431,11 +442,9 @@ out:
         UNLOCK (&local->lock);
 
         if (val== 0) {
-                if (local->err) {
-                        QUOTA_SAFE_DECREMENT (&local->lock, local->ref, val);
-
+                if (local->err)
                         quota_local_unref (this, local);
-                } else
+                else
                         quota_dirty_inode_readdir (local->frame, NULL, this,
                                                    0, 0, NULL);
         }
