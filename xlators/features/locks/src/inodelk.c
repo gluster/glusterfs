@@ -131,7 +131,8 @@ static int
 inodelk_conflict (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 {
         return (inodelk_overlap (l1, l2) &&
-                inodelk_type_conflict (l1, l2));
+                inodelk_type_conflict (l1, l2) &&
+                !same_inodelk_owner (l1, l2));
 }
 
 /* Determine if lock is grantable or not */

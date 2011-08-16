@@ -744,6 +744,8 @@ init (xlator_t *this)
         pthread_mutex_init (&priv->mutex, NULL);
         INIT_LIST_HEAD (&priv->saved_fds);
 
+        priv->eager_lock = _gf_true;
+
         ret = 0;
 out:
         return ret;

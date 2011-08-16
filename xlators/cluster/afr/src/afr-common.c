@@ -363,6 +363,7 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->transaction.child_errno);
         GF_FREE (local->child_errno);
+        GF_FREE (local->transaction.eager_lock);
 
         GF_FREE (local->transaction.basename);
         GF_FREE (local->transaction.new_basename);
@@ -1264,6 +1265,22 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
+                fd_ctx->lock_piggyback = GF_CALLOC (sizeof (*fd_ctx->lock_piggyback),
+                                                    priv->child_count,
+                                                    gf_afr_mt_char);
+                if (!fd_ctx->lock_piggyback) {
+                        ret = -ENOMEM;
+                        goto unlock;
+                }
+
+                fd_ctx->lock_acquired = GF_CALLOC (sizeof (*fd_ctx->lock_acquired),
+                                                    priv->child_count,
+                                                    gf_afr_mt_char);
+                if (!fd_ctx->lock_acquired) {
+                        ret = -ENOMEM;
+                        goto unlock;
+                }
+
                 fd_ctx->up_count   = priv->up_count;
                 fd_ctx->down_count = priv->down_count;
 
@@ -1503,6 +1520,12 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
 
                 if (fd_ctx->pre_op_piggyback)
                         GF_FREE (fd_ctx->pre_op_piggyback);
+
+                if (fd_ctx->lock_piggyback)
+                        GF_FREE (fd_ctx->lock_piggyback);
+
+                if (fd_ctx->lock_acquired)
+                        GF_FREE (fd_ctx->lock_acquired);
 
                 GF_FREE (fd_ctx);
         }
