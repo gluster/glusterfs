@@ -567,7 +567,13 @@ afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->loc.path, child_index, strerror (op_errno));
         }
 
+
         int_lock->inode_locked_nodes[child_index] &= LOCKED_NO;
+
+        if (op_ret == 1) {
+                local->transaction.eager_lock[child_index] = 0;
+        }
+
         afr_unlock_common_cbk (frame, cookie, this, op_ret, op_errno);
 
         return 0;
@@ -581,8 +587,13 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
         struct gf_flock flock = {0,};
+        struct gf_flock full_flock = {0,};
+        struct gf_flock *flock_use = &flock;
         int call_count = 0;
         int i = 0;
+        int piggyback = 0;
+        afr_fd_ctx_t        *fd_ctx      = NULL;
+
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -592,9 +603,13 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         flock.l_len   = int_lock->lk_flock.l_len;
         flock.l_type  = F_UNLCK;
 
+
         gf_log (this->name, GF_LOG_DEBUG, "attempting data unlock range %"PRIu64
                 " %"PRIu64" by %"PRIu64, flock.l_start, flock.l_len,
                 frame->root->lk_owner);
+
+        full_flock.l_type = F_UNLCK;
+
         call_count = afr_locked_nodes_count (int_lock->inode_locked_nodes,
                                              priv->child_count);
 
@@ -607,42 +622,69 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                 goto out;
         }
 
+        if (local->fd)
+                fd_ctx = afr_fd_ctx_get (local->fd, this);
+
         for (i = 0; i < priv->child_count; i++) {
-                if (int_lock->inode_locked_nodes[i] & LOCKED_YES) {
-                        if (local->fd) {
-                                afr_trace_inodelk_in (frame, AFR_INODELK_TRANSACTION,
-                                                      AFR_UNLOCK_OP, &flock, F_SETLK, i);
+                if ((int_lock->inode_locked_nodes[i] & LOCKED_YES)
+                    != LOCKED_YES)
+                        continue;
 
-                                STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
-                                                   (void *) (long)i,
-                                                   priv->children[i],
-                                                   priv->children[i]->fops->finodelk,
-                                                   this->name, local->fd,
-                                                   F_SETLK, &flock);
-
-                                if (!--call_count)
-                                        break;
-
-                        } else {
-                                afr_trace_inodelk_in (frame, AFR_INODELK_TRANSACTION,
-                                                      AFR_UNLOCK_OP, &flock, F_SETLK, i);
-
-                                STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
-                                                   (void *) (long)i,
-                                                   priv->children[i],
-                                                   priv->children[i]->fops->inodelk,
-                                                   this->name, &local->loc,
-                                                   F_SETLK, &flock);
-
-                                if (!--call_count)
-                                        break;
-
+                if (local->fd) {
+                        if (!local->transaction.eager_lock[i]) {
+                                goto wind;
                         }
 
+                        piggyback = 0;
+                        flock_use = &full_flock;
+
+                        LOCK (&local->fd->lock);
+                        {
+                                if (fd_ctx->lock_piggyback[i]) {
+                                        fd_ctx->lock_piggyback[i]--;
+                                        piggyback = 1;
+                                }
+                        }
+                        UNLOCK (&local->fd->lock);
+
+                        if (piggyback) {
+                                afr_unlock_inodelk_cbk (frame, (void *) (long) i,
+                                                        this, 1, 0);
+                                if (!--call_count)
+                                        break;
+                                continue;
+                        }
+
+                        fd_ctx->lock_acquired[i]--;
+                wind:
+                        afr_trace_inodelk_in (frame, AFR_INODELK_TRANSACTION,
+                                              AFR_UNLOCK_OP, &flock, F_SETLK, i);
+
+                        STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
+                                           (void *) (long)i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->finodelk,
+                                           this->name, local->fd,
+                                           F_SETLK, &flock);
+
+                        if (!--call_count)
+                                break;
+
+                } else {
+                        afr_trace_inodelk_in (frame, AFR_INODELK_TRANSACTION,
+                                              AFR_UNLOCK_OP, &flock, F_SETLK, i);
+
+                        STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
+                                           (void *) (long)i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->inodelk,
+                                           this->name, &local->loc,
+                                           F_SETLK, &flock);
+
+                        if (!--call_count)
+                                break;
                 }
-
         }
-
 out:
         return 0;
 }
@@ -1288,7 +1330,11 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t         *local    = NULL;
         int call_count  = 0;
         int child_index = (long) cookie;
+        afr_fd_ctx_t        *fd_ctx = NULL;
+        afr_private_t       *priv     = NULL;
 
+
+        priv = this->private;
         local    = frame->local;
         int_lock = &local->internal_lock;
 
@@ -1302,7 +1348,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&frame->lock);
 
-        if (op_ret < 0 ) {
+        if (op_ret < 0) {
                 if (op_errno == ENOSYS) {
                         /* return ENOTSUP */
                         gf_log (this->name, GF_LOG_ERROR,
@@ -1314,9 +1360,27 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int_lock->lock_op_errno      = op_errno;
                         local->op_errno              = op_errno;
                 }
-        } else if (op_ret == 0) {
-                int_lock->inode_locked_nodes[child_index] |= LOCKED_YES;
+        } else {
+                int_lock->inode_locked_nodes[child_index]
+                        |= LOCKED_YES;
                 int_lock->inodelk_lock_count++;
+
+                if (priv->eager_lock && local->fd) {
+                        fd_ctx = afr_fd_ctx_get (local->fd, this);
+                        local->transaction.eager_lock[child_index] = 1;
+                        /* piggybacked */
+
+                        if (op_ret == 1) {
+                                /* piggybacked */
+                        } else if (op_ret == 0) {
+                                /* lock acquired from server */
+                                LOCK (&local->fd->lock);
+                                {
+                                        fd_ctx->lock_acquired[child_index]++;
+                                }
+                                UNLOCK (&local->fd->lock);
+                        }
+                }
         }
 
         if (call_count == 0) {
@@ -1355,6 +1419,9 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
         int      i          = 0;
         int      ret        = 0;
         struct gf_flock flock = {0,};
+        struct gf_flock full_flock = {0,};
+        struct gf_flock *flock_use = &flock;
+        int     piggyback = 0;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -1367,6 +1434,9 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
         gf_log (this->name, GF_LOG_DEBUG, "attempting data lock range %"PRIu64
                 " %"PRIu64" by %"PRIu64, flock.l_start, flock.l_len,
                 frame->root->lk_owner);
+
+        full_flock.l_type = int_lock->lk_flock.l_type;
+
         initialize_inodelk_variables (frame, this);
 
         if (local->fd) {
@@ -1400,22 +1470,45 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                 /* Send non-blocking inodelk calls only on up children
                    and where the fd has been opened */
                 for (i = 0; i < priv->child_count; i++) {
-                        if (local->child_up[i] && local->fd_open_on[i]) {
-                                afr_trace_inodelk_in (frame, AFR_INODELK_NB_TRANSACTION,
-                                                      AFR_LOCK_OP, &flock, F_SETLK, i);
+                        if (!local->child_up[i] || !local->fd_open_on[i])
+                                continue;
 
-                                STACK_WIND_COOKIE (frame, afr_nonblocking_inodelk_cbk,
-                                                   (void *) (long) i,
-                                                   priv->children[i],
-                                                   priv->children[i]->fops->finodelk,
-                                                   this->name, local->fd,
-                                                   F_SETLK, &flock);
+                        if (!priv->eager_lock)
+                                goto wind;
 
+                        flock_use = &full_flock;
+                        piggyback = 0;
+
+                        LOCK (&local->fd->lock);
+                        {
+                                if (fd_ctx->lock_acquired[i]) {
+                                        fd_ctx->lock_piggyback[i]++;
+                                        piggyback = 1;
+                                }
+                        }
+                        UNLOCK (&local->fd->lock);
+
+                        if (piggyback) {
+                                /* (op_ret == 1) => indicate piggybacked lock */
+                                afr_nonblocking_inodelk_cbk (frame, (void *) (long) i,
+                                                             this, 1, 0);
                                 if (!--call_count)
                                         break;
-
+                                continue;
                         }
+                wind:
+                        afr_trace_inodelk_in (frame, AFR_INODELK_NB_TRANSACTION,
+                                              AFR_LOCK_OP, flock_use, F_SETLK, i);
 
+                        STACK_WIND_COOKIE (frame, afr_nonblocking_inodelk_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->finodelk,
+                                           this->name, local->fd,
+                                           F_SETLK, flock_use);
+
+                        if (!--call_count)
+                                break;
                 }
         } else {
                 call_count = internal_lock_count (frame, this);
@@ -1423,24 +1516,22 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                 int_lock->lk_expected_count = call_count;
 
                 for (i = 0; i < priv->child_count; i++) {
-                        if (local->child_up[i]) {
-                                afr_trace_inodelk_in (frame, AFR_INODELK_NB_TRANSACTION,
-                                                      AFR_LOCK_OP, &flock, F_SETLK, i);
+                        if (!local->child_up[i])
+                                continue;
+                        afr_trace_inodelk_in (frame, AFR_INODELK_NB_TRANSACTION,
+                                              AFR_LOCK_OP, &flock, F_SETLK, i);
 
-                                STACK_WIND_COOKIE (frame, afr_nonblocking_inodelk_cbk,
-                                                   (void *) (long) i,
-                                                   priv->children[i],
-                                                   priv->children[i]->fops->inodelk,
-                                                   this->name, &local->loc,
-                                                   F_SETLK, &flock);
+                        STACK_WIND_COOKIE (frame, afr_nonblocking_inodelk_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->inodelk,
+                                           this->name, &local->loc,
+                                           F_SETLK, &flock);
 
-                                if (!--call_count)
-                                        break;
-
-                        }
+                        if (!--call_count)
+                                break;
                 }
         }
-
 out:
         return ret;
 }
