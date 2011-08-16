@@ -36,7 +36,7 @@
 void *iot_worker (void *arg);
 int iot_workers_scale (iot_conf_t *conf);
 int __iot_workers_scale (iot_conf_t *conf);
-
+struct volume_options options[];
 
 call_stub_t *
 __iot_dequeue (iot_conf_t *conf)
@@ -2157,11 +2157,12 @@ int
 init (xlator_t *this)
 {
         iot_conf_t      *conf = NULL;
-        dict_t          *options = this->options;
+        dict_t          *xl_options = this->options;
         int              thread_count = IOT_DEFAULT_THREADS;
         int              idle_time = IOT_DEFAULT_IDLE;
         int              ret = -1;
         int              i = 0;
+        char            *def_val = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads", GF_LOG_ERROR,
@@ -2196,10 +2197,23 @@ init (xlator_t *this)
 
         set_stack_size (conf);
 
-        thread_count = IOT_DEFAULT_THREADS;
+        if (xlator_get_volopt_info (&this->volume_options, "thread-count",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "thread-count not found");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2int32 (def_val, &conf->max_count)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "thread corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
-	if (dict_get (options, "thread-count")) {
-                thread_count = data_to_int32 (dict_get (options,
+	if (dict_get (xl_options, "thread-count")) {
+                thread_count = data_to_int32 (dict_get (xl_options,
                                                         "thread-count"));
                 if (thread_count < IOT_MIN_THREADS) {
                         gf_log ("io-threads", GF_LOG_WARNING,
@@ -2216,8 +2230,8 @@ init (xlator_t *this)
         }
         conf->max_count = thread_count;
 
-	if (dict_get (options, "idle-time")) {
-                idle_time = data_to_int32 (dict_get (options,
+	if (dict_get (xl_options, "idle-time")) {
+                idle_time = data_to_int32 (dict_get (xl_options,
                                                      "idle-time"));
                 if (idle_time < 0)
                         idle_time = 1;
@@ -2304,7 +2318,11 @@ struct volume_options options[] = {
 	{ .key  = {"thread-count"},
 	  .type = GF_OPTION_TYPE_INT,
 	  .min  = IOT_MIN_THREADS,
-	  .max  = IOT_MAX_THREADS
+	  .max  = IOT_MAX_THREADS,
+          .default_value = "16",
+          .description = "Number of threads in IO threads translator which "
+                         "perform concurrent IO operations"
+
 	},
         {.key   = {"idle-time"},
          .type  = GF_OPTION_TYPE_INT,

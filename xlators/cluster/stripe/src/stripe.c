@@ -37,6 +37,8 @@
 #include "libxlator.h"
 #include "byte-order.h"
 
+struct volume_options options[];
+
 void
 stripe_local_wipe (stripe_local_t *local)
 {
@@ -4030,6 +4032,7 @@ init (xlator_t *this)
         stripe_private_t *priv = NULL;
         xlator_list_t    *trav = NULL;
         data_t           *data = NULL;
+        char             *def_blk_size = NULL;
         int32_t           count = 0;
         int               ret = -1;
 
@@ -4093,20 +4096,55 @@ init (xlator_t *this)
                 goto out;
         }
 
-        priv->block_size = (128 * GF_UNIT_KB);
+        if (xlator_get_volopt_info (&this->volume_options, "block-size",
+                                    &def_blk_size, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of stripe "
+                         "block-size corrupt");
+                ret = -1;
+                goto out;
+        } else {
+                if (gf_string2bytesize (def_blk_size, &priv->block_size)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "stripe block-size corrupt");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+
         /* option stripe-pattern *avi:1GB,*pdf:4096 */
         data = dict_get (this->options, "block-size");
         if (!data) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "No \"option block-size <x>\" given, defaulting "
-                        "to 128KB");
+                        "to %s", def_blk_size);
         } else {
                 ret = set_stripe_block_size (this, priv, data->data);
                 if (ret)
                         goto out;
         }
 
-        priv->xattr_supported = 1;
+        if (xlator_get_volopt_info (&this->volume_options, "use-xattr",
+                                    &def_blk_size, NULL)) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "error setting(default) hard check for extended"
+                        " attribute");
+                goto out;
+
+        }
+        else {
+                if (gf_string2boolean (def_blk_size,
+                                       &priv->xattr_supported)) {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "error setting(default) hard check for extended"
+                                " attribute");
+                        goto out;
+                }
+        }
+
+
         data = dict_get (this->options, "use-xattr");
         if (data) {
                 if (gf_string2boolean (data->data,
@@ -4364,10 +4402,14 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
         { .key  = {"block-size"},
-          .type = GF_OPTION_TYPE_ANY
+          .type = GF_OPTION_TYPE_ANY,
+          .default_value = "128KB",
+          .description = "Size of the stripe unit that would be read "
+                         "from or written to the striped servers."
         },
         { .key  = {"use-xattr"},
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "true"
         },
         { .key  = {NULL} },
 };

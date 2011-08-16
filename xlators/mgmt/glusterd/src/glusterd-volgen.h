@@ -66,4 +66,6 @@ glusterd_check_voloption_flags (char *key, int32_t flags);
 int generate_brick_volfiles (glusterd_volinfo_t *volinfo);
 char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
+int glusterd_get_volopt_content (gf_boolean_t xml_out);
+
 #endif

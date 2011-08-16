@@ -474,6 +474,7 @@ nfs_init_state (xlator_t *this)
         unsigned int            fopspoolsize = 0;
         char                    *optstr = NULL;
         gf_boolean_t            boolt = _gf_false;
+        char                    *def_val = NULL;
 
         if (!this)
                 return NULL;
@@ -498,7 +499,21 @@ nfs_init_state (xlator_t *this)
                 goto free_nfs;
         }
 
-        nfs->memfactor = GF_NFS_DEFAULT_MEMFACTOR;
+        if (xlator_get_volopt_info (&this->volume_options, "nfs.mem-factor",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "nfs.mem-factor not found");
+                ret = -1;
+                goto free_rpcsvc;
+        } else {
+                if (gf_string2uint (def_val, &nfs->memfactor)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "nfs.mem-factor corrupt");
+                        ret = -1;
+                        goto free_rpcsvc;
+                }
+        }
+
         if (dict_get (this->options, "nfs.mem-factor")) {
                 ret = dict_get_str (this->options, "nfs.mem-factor",
                                     &optstr);
@@ -544,7 +559,21 @@ nfs_init_state (xlator_t *this)
                         nfs->dynamicvolumes = GF_NFS_DVM_ON;
         }
 
-        nfs->enable_ino32 = 0;
+        if (xlator_get_volopt_info (&this->volume_options, "nfs.enable-ino32",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         "nfs.enable-ino32 not found");
+                ret = -1;
+                goto free_foppool;
+        } else {
+                if (gf_string2boolean (def_val,(gf_boolean_t *) &nfs->enable_ino32 )) {
+                        gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                                 "nfs.enable-ino32 corrupt");
+                        ret = -1;
+                        goto free_foppool;
+                }
+        }
+
         if (dict_get (this->options, "nfs.enable-ino32")) {
                 ret = dict_get_str (this->options, "nfs.enable-ino32",
                                     &optstr);
@@ -750,11 +779,13 @@ struct volume_options options[] = {
         { .key  = {"nfs3.*.volume-access"},
           .type = GF_OPTION_TYPE_STR,
           .value = {"read-only", "read-write"},
+          .default_value = "read-write",
           .description = "Type of access desired for this subvolume: "
                          " read-only, read-write(default)"
         },
         { .key  = {"nfs3.*.trusted-write"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
           .description = "On an UNSTABLE write from client, return STABLE flag"
                          " to force client to not send a COMMIT request. In "
                          "some environments, combined with a replicated "
@@ -769,15 +800,17 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs3.*.trusted-sync"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
           .description = "All writes and COMMIT requests are treated as async."
                          " This implies that no write requests are guaranteed"
                          " to be on server disks when the write reply is "
-                         "received at the NFS client. Trusted sync includes "
+                         "received at the NFS client. Trusted sync includes"
                          " trusted-write behaviour. Off by default."
 
         },
         { .key  = {"nfs3.*.export-dir"},
           .type = GF_OPTION_TYPE_STR,
+           .default_value = "",
           .description = "By default, all subvolumes of nfs are exported as "
                          "individual exports. There are cases where a "
                          "subdirectory or subdirectories in the volume need to "
@@ -788,6 +821,7 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs3.export-dirs"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
           .description = "By default, all subvolumes of nfs are exported as "
                          "individual exports. There are cases where a "
                          "subdirectory or subdirectories in the volume need to "
@@ -797,6 +831,7 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs3.export-volumes"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
           .description = "Enable or disable exporting whole volumes, instead "
                          "if used in conjunction with nfs3.export-dir, can "
                          "allow setting up only subdirectories as exports. On "
@@ -804,6 +839,7 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.auth-unix"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "",
           .description = "Disable or enable the AUTH_UNIX authentication type."
                          "Must always be enabled for better interoperability."
                          "However, can be disabled if needed. Enabled by"
@@ -811,12 +847,14 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.auth-null"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "",
           .description = "Disable or enable the AUTH_NULL authentication type."
                          "Must always be enabled. This option is here only to"
                          " avoid unrecognized option warnings"
         },
         { .key  = {"rpc-auth.auth-unix.*"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
           .description = "Disable or enable the AUTH_UNIX authentication type "
                          "for a particular exported volume over-riding defaults"
                          " and general setting for AUTH_UNIX scheme. Must "
@@ -826,6 +864,7 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.auth-null.*"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "",
           .description = "Disable or enable the AUTH_NULL authentication type "
                          "for a particular exported volume over-riding defaults"
                          " and general setting for AUTH_NULL. Must always be "
@@ -834,6 +873,7 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.addr.allow"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
                          " connections are disallowed. This allows users to "
@@ -841,13 +881,15 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.addr.reject"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
                          " all connections are disallowed. This allows users to"
-                         "define a general rule for all exported volumes."
+                         " define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.*.allow"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
                          " connections are disallowed. This allows users to "
@@ -855,13 +897,15 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.addr.*.reject"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
                          " all connections are disallowed. This allows users to"
-                         "define a rule for a specific exported volume."
+                         " define a rule for a specific exported volume."
         },
         { .key  = {"rpc-auth.ports.insecure"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
           .description = "Allow client connections from unprivileged ports. By "
                          "default only privileged ports are allowed. This is a"
                          "global setting in case insecure ports are to be "
@@ -869,6 +913,7 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.ports.*.insecure"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "",
           .description = "Allow client connections from unprivileged ports. By "
                          "default only privileged ports are allowed. Use this"
                          " option to set enable or disable insecure ports for "
@@ -877,6 +922,7 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc-auth.addr.namelookup"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
           .description = "Users have the option of turning off name lookup for"
                   " incoming client connections using this option. In some "
                   "setups, the name server can take too long to reply to DNS "
@@ -902,6 +948,7 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs.enable-ino32"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
           .description = "For nfs clients or apps that do not support 64-bit "
                          "inode numbers, use this option to make NFS return "
                          "32-bit inode numbers instead. Disabled by default so "
@@ -909,6 +956,7 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc.register-with-portmap"},
           .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
           .description = "For systems that need to run multiple nfs servers, we"
                          "need to prevent more than one from registering with "
                          "portmap service. Use this option to turn off portmap "
@@ -916,11 +964,13 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs.port"},
           .type = GF_OPTION_TYPE_INT,
+          .default_value = "",
           .description = "Use this option on systems that need Gluster NFS to "
                          "be associated with a non-default port number."
         },
         { .key  = {"nfs.mem-factor"},
           .type = GF_OPTION_TYPE_INT,
+          .default_value = "15",
           .description = "Use this option to make NFS be faster on systems by "
                          "using more memory. This option specifies a multiple "
                          "that determines the total amount of memory used. "
@@ -929,11 +979,23 @@ struct volume_options options[] = {
                          "Please consult gluster-users list before using this "
                          "option."
         },
-        { .key  = {"nfs.*.disable"},
+        /* XXX These are synthetic options used to validate the options in   *
+         *     during volume set command and also to get visibiliity in      *
+         *     volume set help command                                       */
+        { .key  = {"nfs-disable"},
           .type = GF_OPTION_TYPE_BOOL,
-          .description = "This option is used to start or stop NFS server"
+          .default_value = "off",
+          .description = "This option is used to enable/disable NFS server "
                          "for individual volume."
         },
+        {
+          .key = {"nfs.transport-type"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
+          .description = "This options is used to change the transport type of"
+                        " NFS Server.",
+        },
+
         { .key  = {NULL} },
 };
 

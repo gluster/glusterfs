@@ -963,6 +963,8 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf1_cli_set_vol_rsp  rsp   = {0,};
         int                  ret   = 0;
+        dict_t               *dict = NULL;
+        char                 *help_str = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -978,9 +980,24 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
-        else
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+
+        if (ret)
+                goto out;
+
+        if (dict_get_str (dict, "help-str", &help_str))
                 cli_out ("Set volume %s", (rsp.op_ret) ? "unsuccessful":
                                                          "successful");
+        else
+                cli_out ("%s", help_str);
 
         ret = rsp.op_ret;
 

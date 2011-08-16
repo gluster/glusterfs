@@ -34,7 +34,7 @@
    - handle all cases in self heal layout reconstruction
    - complete linkfile selfheal
 */
-
+struct volume_options options[];
 
 void
 dht_layout_dump (dht_layout_t  *layout, const char *prefix)
@@ -359,6 +359,7 @@ init (xlator_t *this)
         int            ret = -1;
         int            i = 0;
         uint32_t       temp_free_disk = 0;
+        char          *def_val = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", this, err);
 
@@ -401,8 +402,27 @@ init (xlator_t *this)
                 gf_string2boolean (temp_str, &conf->use_readdirp);
         }
 
-        conf->disk_unit = 'p';
-        conf->min_free_disk = 10;
+        if (xlator_get_volopt_info (&this->volume_options, "min-free-disk",
+                                    &def_val, NULL)) {
+                gf_log (this->name, GF_LOG_ERROR, "Default value of "
+                         " min-free-disk not found");
+                ret = -1;
+                goto err;
+        } else {
+                if (gf_string2percent (def_val, &temp_free_disk) == 0) {
+                        if (temp_free_disk > 100) {
+                                gf_string2bytesize (temp_str,
+                                                    &conf->min_free_disk);
+                                conf->disk_unit = 'b';
+                        } else {
+                                conf->min_free_disk = (uint64_t)temp_free_disk;
+                                conf->disk_unit = 'p';
+                        }
+                } else {
+                        gf_string2bytesize (temp_str, &conf->min_free_disk);
+                        conf->disk_unit = 'b';
+                }
+        }
 
         if (dict_get_str (this->options, "min-free-disk", &temp_str) == 0) {
                 if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
@@ -550,6 +570,9 @@ struct volume_options options[] = {
         },
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
+          .default_value = "10%",
+          .description = "Percentage/Size of disk space that must be "
+                         "kept free."
         },
         { .key = {"unhashed-sticky-bit"},
           .type = GF_OPTION_TYPE_BOOL
