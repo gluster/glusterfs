@@ -130,6 +130,7 @@ typedef struct _afr_private {
         pthread_mutex_t  mutex;
         struct list_head saved_fds;   /* list of fds on which locks have succeeded */
         gf_boolean_t     optimistic_change_log;
+        gf_boolean_t     eager_lock;
 
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
@@ -652,6 +653,8 @@ typedef struct _afr_local {
         struct {
                 off_t start, len;
 
+                int *eager_lock;
+
                 char *basename;
                 char *new_basename;
 
@@ -700,6 +703,9 @@ typedef struct {
         unsigned int *pre_op_done;
         afr_fd_open_status_t *opened_on; /* which subvolumes the fd is open on */
         unsigned int *pre_op_piggyback;
+
+        unsigned int *lock_piggyback;
+        unsigned int *lock_acquired;
 
         int flags;
         int32_t wbflags;
@@ -985,4 +991,6 @@ int
 afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop);
 int
 afr_set_elem_count_get (unsigned char *elems, int child_count);
+afr_fd_ctx_t *
+afr_fd_ctx_get (fd_t *fd, xlator_t *this);
 #endif /* __AFR_H__ */
