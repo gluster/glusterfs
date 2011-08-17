@@ -1720,7 +1720,8 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->pathinfo) {
                                 plen = strlen (local->pathinfo);
                                 if (plen) {
-                                        alloc_len += plen;
+                                        /* extra byte(s) for \0 to be safe */
+                                        alloc_len += (plen + 2);
                                         local->pathinfo = GF_REALLOC (local->pathinfo,
                                                                       alloc_len);
                                         if (!local->pathinfo)
