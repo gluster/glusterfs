@@ -885,6 +885,9 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                 if (ret && (ENOENT != errno)) {
                         gf_log ("", GF_LOG_ERROR, "Unable to "
                                 "unlink stale pidfile: %s", pidfile);
+                } else if (ret && (ENOENT == errno)){
+                        ret = 0;
+                        gf_log ("", GF_LOG_INFO, "Brick already stopped");
                 }
                 goto out;
         }
@@ -1222,7 +1225,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
         if (ret == 0) {
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
-                ret = glusterd_brick_unlink_socket_file (volinfo, brickinfo);
+                (void) glusterd_brick_unlink_socket_file (volinfo, brickinfo);
         }
         return ret;
 }
