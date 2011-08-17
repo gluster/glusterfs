@@ -535,7 +535,7 @@ quota_readdir_cbk (call_frame_t *frame,
                         goto out;
                 }
 
-                newframe->local = local;
+                newframe->local = quota_local_ref (local);
 
                 dict = dict_new ();
                 if (!dict) {
@@ -2092,9 +2092,7 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 start_quota_txn (this, &local->loc, local->ctx, local->contri);
         }
 
-        /* TODO: free local in quota_local_unref only*/
         quota_local_unref (this, local);
-        GF_FREE (local);
 
         return 0;
 }
@@ -2286,10 +2284,8 @@ reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
         ret = 0;
 
 out:
-        if (local != NULL) {
+        if (local != NULL)
                 quota_local_unref (this, local);
-                GF_FREE (local);
-        }
 
         return ret;
 }

@@ -374,6 +374,8 @@ quota_local_unref (xlator_t *this, quota_local_t *local)
         loc_wipe (&local->parent_loc);
 
         LOCK_DESTROY (&local->lock);
+
+        GF_FREE (local);
 out:
         return 0;
 }
