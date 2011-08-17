@@ -571,7 +571,6 @@ nfs_init_state (xlator_t *this)
                         nfs->enable_ino32 = 1;
         }
 
-        nfs->override_portnum = GF_NFS3_PORT;
         if (dict_get (this->options, "nfs.port")) {
                 ret = dict_get_str (this->options, "nfs.port",
                                     &optstr);
