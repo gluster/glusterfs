@@ -102,7 +102,7 @@ glusterd_listener_family_name(void)
 	this = THIS;
 	GF_ASSERT (this);
 	conf = this->private;
-	GF_ASSERT (conf);   
+	GF_ASSERT (conf);
 	GF_ASSERT (conf->rpc);
 	
 	list_for_each_entry (listener, &conf->rpc->listeners, list)
@@ -110,7 +110,7 @@ glusterd_listener_family_name(void)
 
 	GF_ASSERT (listener->trans);
 
-	if (rpc_transport_get_myaddr(listener->trans, NULL, 0, 
+	if (rpc_transport_get_myaddr(listener->trans, NULL, 0,
 				     &ss, sizeof(ss)) != 0) {
 		gf_log ("glusterd", GF_LOG_ERROR,
 			"rpc_transport_get_myname failed: %s",
@@ -131,7 +131,7 @@ glusterd_listener_family_name(void)
 				ss.ss_family);
 			break;
 	}
-	       
+
 	return NULL;
 }
 
@@ -1163,7 +1163,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
         if ((family_name = glusterd_listener_family_name()) != NULL) {
                 runner_add_arg (&runner, "--xlator-option");
-                runner_argprintf (&runner, 
+                runner_argprintf (&runner,
                                   "%s-server.transport.address-family=%s",
                                   volinfo->volname, family_name);
         }
