@@ -318,6 +318,7 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
 {
         int32_t                 ret = -1;
         char                    filepath[PATH_MAX] = {0,};
+        char                    rbstatepath[PATH_MAX] = {0,};
         char                    buf[4096] = {0,};
         glusterd_conf_t         *priv = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
@@ -337,11 +338,23 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
                   GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname,
                   GLUSTERD_VOLUME_INFO_FILE);
 
+        snprintf (rbstatepath, 1024, "%s/%s/%s/%s", priv->workdir,
+                  GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname,
+                  GLUSTERD_VOLUME_RBSTATE_FILE);
+
         ret = glusterd_store_handle_new (filepath, &volinfo->shandle);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create store"
                         " handle for path: %s", filepath);
+                goto out;
+        }
+
+        ret = glusterd_store_handle_new (rbstatepath, &volinfo->rb_shandle);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to create store"
+                        " handle for path: %s", rbstatepath);
                 goto out;
         }
 
@@ -403,6 +416,28 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
         }
 
         dict_foreach (volinfo->dict, _setopts, volinfo->shandle);
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->rb_status);
+        ret = glusterd_store_save_value (volinfo->rb_shandle, GLUSTERD_STORE_KEY_RB_STATUS,
+                                         buf);
+        if (ret)
+                goto out;
+
+        if (volinfo->rb_status > GF_RB_STATUS_NONE) {
+                snprintf (buf, sizeof (buf), "%s:%s", volinfo->src_brick->hostname,
+                          volinfo->src_brick->path);
+                ret = glusterd_store_save_value (volinfo->rb_shandle, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
+                                                 buf);
+                if (ret)
+                        goto out;
+
+                snprintf (buf, sizeof (buf), "%s:%s", volinfo->dst_brick->hostname,
+                          volinfo->dst_brick->path);
+                ret = glusterd_store_save_value (volinfo->rb_shandle, GLUSTERD_STORE_KEY_RB_DST_BRICK,
+                                                 buf);
+                if (ret)
+                        goto out;
+        }
 
         ret = 0;
 
@@ -643,13 +678,16 @@ out:
 }
 
 int
-glusterd_store_handle_retrieve (char *path, glusterd_store_handle_t **handle)
+glusterd_store_handle_retrieve (char *path, glusterd_store_handle_t **handle,
+                                int *op_errno)
 {
         int32_t                 ret = -1;
         struct stat statbuf = {0};
 
         ret = stat (path, &statbuf);
         if (ret) {
+                if (op_errno)
+                        *op_errno = errno;
                 gf_log ("glusterd", GF_LOG_ERROR, "Unable to retrieve store "
                         "handle for %s, error: %s", path, strerror (errno));
                 goto out;
@@ -754,7 +792,8 @@ glusterd_retrieve_uuid ()
         if (!priv->handle) {
                 snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
                           GLUSTERD_INFO_FILE);
-                ret = glusterd_store_handle_retrieve (path, &handle);
+                ret = glusterd_store_handle_retrieve (path, &handle,
+                                                      NULL);
 
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to get store "
@@ -1053,7 +1092,8 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 
                 tmpvalue = NULL;
 
-                ret = glusterd_store_handle_retrieve (path, &brickinfo->shandle);
+                ret = glusterd_store_handle_retrieve (path, &brickinfo->shandle,
+                                                      NULL);
 
                 if (ret)
                         goto out;
@@ -1131,6 +1171,106 @@ out:
 
 
 int32_t
+glusterd_store_retrieve_rbstate (glusterd_volinfo_t *volinfo)
+{
+        int32_t                   ret                   = -1;
+        glusterd_store_iter_t     *iter                 = NULL;
+        char                      *key                  = NULL;
+        char                      *value                = NULL;
+        char                      buf[PATH_MAX]         = {0,};
+        char                      volpath[PATH_MAX]     = {0,};
+        char                      rbstatepath[PATH_MAX] = {0,};
+        glusterd_conf_t           *priv                 = NULL;
+        char                      path[PATH_MAX]        = {0,};
+        glusterd_store_op_errno_t op_errno              = GD_STORE_SUCCESS;
+        int                       rb_errno              = 0;
+
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
+        snprintf (rbstatepath, sizeof (path), "%s/%s", volpath,
+                  GLUSTERD_VOLUME_RBSTATE_FILE);
+
+        ret = glusterd_store_handle_retrieve (rbstatepath,
+                                              &volinfo->rb_shandle,
+                                              &rb_errno);
+
+        if (ret ) {
+                /* Backward compatibility */
+                if (rb_errno == ENOENT) {
+                        gf_log ("", GF_LOG_WARNING, "replace-brick persistent "
+                                "state not present.");
+                        ret = glusterd_store_handle_new (rbstatepath,
+                                                         &volinfo->rb_shandle);
+
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "Unable to create store"
+                                        " handle for path: %s", rbstatepath);
+                                goto out;
+                        }
+                        snprintf (buf, sizeof (buf), "%d", volinfo->rb_status);
+                        ret = glusterd_store_save_value (volinfo->rb_shandle,
+                                                         GLUSTERD_STORE_KEY_RB_STATUS,
+                                                         buf);
+                } else {
+                        gf_log ("", GF_LOG_CRITICAL, "Unable to retrieve rbstate");
+                }
+
+                goto out;
+        }
+
+        ret = glusterd_store_iter_new (volinfo->rb_shandle, &iter);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_iter_get_next (iter, &key, &value, &op_errno);
+        if (ret)
+                goto out;
+
+        while (!ret) {
+                if (!strncmp (key, GLUSTERD_STORE_KEY_RB_STATUS,
+                              strlen (GLUSTERD_STORE_KEY_RB_STATUS))) {
+                        volinfo->rb_status = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
+                                     strlen (GLUSTERD_STORE_KEY_RB_SRC_BRICK))
+                           && volinfo->rb_status > GF_RB_STATUS_NONE) {
+                        ret = glusterd_brickinfo_from_brick (value, &volinfo->src_brick);
+                        if (ret)
+                                goto out;
+
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_DST_BRICK,
+                                     strlen (GLUSTERD_STORE_KEY_RB_DST_BRICK))
+                           && volinfo->rb_status > GF_RB_STATUS_NONE) {
+                        ret = glusterd_brickinfo_from_brick (value, &volinfo->dst_brick);
+                        if (ret)
+                                goto out;
+                }
+
+                GF_FREE (key);
+                GF_FREE (value);
+                key = NULL;
+                value = NULL;
+
+                ret = glusterd_store_iter_get_next (iter, &key, &value,
+                                                    &op_errno);
+        }
+
+        if (op_errno != GD_STORE_EOF)
+                goto out;
+
+        ret = glusterd_store_iter_destroy (iter);
+
+        if (ret)
+                goto out;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
+
+int32_t
 glusterd_store_retrieve_volume (char    *volname)
 {
         int32_t                   ret                   = -1;
@@ -1141,9 +1281,7 @@ glusterd_store_retrieve_volume (char    *volname)
         char                      volpath[PATH_MAX]     = {0,};
         glusterd_conf_t           *priv                 = NULL;
         char                      path[PATH_MAX]        = {0,};
-        char                      dst_brick[PATH_MAX]   = {0, };
         int                       exists                = 0;
-        int                       dst_port              = -1;
         glusterd_store_op_errno_t op_errno              = GD_STORE_SUCCESS;
 
         ret = glusterd_volinfo_new (&volinfo);
@@ -1159,10 +1297,11 @@ glusterd_store_retrieve_volume (char    *volname)
         snprintf (path, sizeof (path), "%s/%s", volpath,
                   GLUSTERD_VOLUME_INFO_FILE);
 
-        ret = glusterd_store_handle_retrieve (path, &volinfo->shandle);
+        ret = glusterd_store_handle_retrieve (path, &volinfo->shandle, NULL);
 
         if (ret)
                 goto out;
+
 
         ret = glusterd_store_iter_new (volinfo->shandle, &iter);
 
@@ -1205,39 +1344,6 @@ glusterd_store_retrieve_volume (char    *volname)
                         if (ret)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
-                } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_STATUS,
-                                     strlen (GLUSTERD_STORE_KEY_RB_STATUS))) {
-                        glusterd_set_rb_status (volinfo, atoi (value));
-
-                } else if (volinfo->rb_status > GF_RB_STATUS_NONE &&
-                           !strncmp (key, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
-                                     strlen (GLUSTERD_STORE_KEY_RB_SRC_BRICK))) {
-                        ret = glusterd_brickinfo_from_brick (value,
-                                                             &volinfo->src_brick);
-                        if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to create"
-                                        " src brickinfo");
-                                goto out;
-                        }
-
-                } else if (volinfo->rb_status > GF_RB_STATUS_NONE &&
-                           !strncmp (key, GLUSTERD_STORE_KEY_RB_DST_BRICK,
-                                     strlen (GLUSTERD_STORE_KEY_RB_DST_BRICK))) {
-                        sscanf (value, "%d:%s", &dst_port, dst_brick);
-                        if (dst_port == -1 || dst_brick[0] == 0) {
-                                gf_log ("", GF_LOG_ERROR, "replace brick: "
-                                        "dst brick info is invalid");
-                                goto out;
-                        }
-                        ret = glusterd_brickinfo_from_brick (dst_brick,
-                                                             &volinfo->dst_brick);
-                        if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to create"
-                                        " dst brickinfo");
-                                goto out;
-                        }
-                        volinfo->dst_brick->port = dst_port;
-
                 } else {
                         exists = glusterd_check_option_exists (key, NULL);
                         if (exists == -1) {
@@ -1273,6 +1379,11 @@ glusterd_store_retrieve_volume (char    *volname)
                 goto out;
 
         ret = glusterd_store_iter_destroy (iter);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_retrieve_rbstate (volinfo);
 
         if (ret)
                 goto out;
@@ -1357,6 +1468,8 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
 
         ret = glusterd_store_handle_truncate (volinfo->shandle);
 
+        ret = glusterd_store_handle_truncate (volinfo->rb_shandle);
+
         snprintf (buf, sizeof (buf), "%d", volinfo->type);
         ret = glusterd_store_save_value (volinfo->shandle,
                                         GLUSTERD_STORE_KEY_VOL_TYPE, buf);
@@ -1399,29 +1512,6 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->rb_status);
-        ret = glusterd_store_save_value (volinfo->shandle, GLUSTERD_STORE_KEY_RB_STATUS,
-                                         buf);
-        if (ret)
-                goto out;
-
-        if (volinfo->rb_status > GF_RB_STATUS_NONE) {
-                snprintf (buf, sizeof (buf), "%s:%s", volinfo->src_brick->hostname,
-                          volinfo->src_brick->path);
-                ret = glusterd_store_save_value (volinfo->shandle, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
-                                                 buf);
-                if (ret)
-                        goto out;
-
-                snprintf (buf, sizeof (buf), "%d:%s:%s", volinfo->dst_brick->port,
-                          volinfo->dst_brick->hostname, volinfo->dst_brick->path);
-                ret = glusterd_store_save_value (volinfo->shandle, GLUSTERD_STORE_KEY_RB_DST_BRICK,
-                                                 buf);
-                if (ret)
-                        goto out;
-        }
-
-
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_create_brick (volinfo, brickinfo,
                                                    brick_count);
@@ -1432,8 +1522,28 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
 
         dict_foreach (volinfo->dict, _setopts, volinfo->shandle);
 
-        ret = 0;
+        snprintf (buf, sizeof (buf), "%d", volinfo->rb_status);
+        ret = glusterd_store_save_value (volinfo->rb_shandle, GLUSTERD_STORE_KEY_RB_STATUS,
+                                         buf);
+        if (ret)
+                goto out;
 
+        if (volinfo->rb_status > GF_RB_STATUS_NONE) {
+                snprintf (buf, sizeof (buf), "%s:%s", volinfo->src_brick->hostname,
+                          volinfo->src_brick->path);
+                ret = glusterd_store_save_value (volinfo->rb_shandle, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
+                                                 buf);
+                if (ret)
+                        goto out;
+
+                snprintf (buf, sizeof (buf), "%s:%s", volinfo->dst_brick->hostname,
+                          volinfo->dst_brick->path);
+                ret = glusterd_store_save_value (volinfo->rb_shandle, GLUSTERD_STORE_KEY_RB_DST_BRICK,
+                                                 buf);
+                if (ret)
+                        goto out;
+        }
+        ret = 0;
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -1624,7 +1734,8 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
         while (entry) {
                 snprintf (filepath, PATH_MAX, "%s/%s", path, entry->d_name);
-                ret = glusterd_store_handle_retrieve (filepath, &shandle);
+                ret = glusterd_store_handle_retrieve (filepath, &shandle,
+                                                      NULL);
                 if (ret)
                         goto out;
 
