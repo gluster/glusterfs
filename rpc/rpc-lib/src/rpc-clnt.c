@@ -1411,8 +1411,12 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         pthread_mutex_lock (&conn->lock);
         {
                 if (conn->connected == 0) {
-                        rpc_transport_connect (conn->trans,
-                                               conn->config.remote_port);
+                        ret = rpc_transport_connect (conn->trans,
+                                                     conn->config.remote_port);
+                        /* Below code makes sure the (re-)configured port lasts
+                           for just one successful connect attempt */
+                        if (!ret)
+                                conn->config.remote_port = 0;
                 }
 
                 ret = rpc_transport_submit_request (rpc->conn.trans,
