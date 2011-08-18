@@ -1376,12 +1376,14 @@ int32_t
 glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                              dict_t  *dict, int32_t count)
 {
-        int32_t                 ret = -1;
-        char                    key[512] = {0,};
-        glusterd_brickinfo_t    *brickinfo = NULL;
-        int32_t                 i = 1;
-        char                    *volume_id_str = NULL;
-        glusterd_voldict_ctx_t   ctx = {0};
+        int32_t                 ret             = -1;
+        char                    key[512]        = {0,};
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+        int32_t                 i               = 1;
+        char                    *volume_id_str  = NULL;
+        char                    *src_brick      = NULL;
+        char                    *dst_brick      = NULL;
+        glusterd_voldict_ctx_t   ctx            = {0};
 
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
@@ -1442,6 +1444,35 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         ret = dict_set_dynstr (dict, key, volume_id_str);
         if (ret)
                 goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_STATUS, count);
+        ret = dict_set_int32 (dict, key, volinfo->rb_status);
+        if (ret)
+                goto out;
+
+        if (volinfo->rb_status > GF_RB_STATUS_NONE) {
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_SRC_BRICK,
+                          count);
+                gf_asprintf (&src_brick, "%s:%s",
+                             volinfo->src_brick->hostname,
+                             volinfo->src_brick->path);
+                ret = dict_set_dynstr (dict, key, src_brick);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_DST_BRICK,
+                          count);
+                gf_asprintf (&dst_brick, "%s:%s",
+                             volinfo->dst_brick->hostname,
+                             volinfo->dst_brick->path);
+                ret = dict_set_dynstr (dict, key, dst_brick);
+                if (ret)
+                        goto out;
+        }
 
         ctx.dict = dict;
         ctx.count = count;
@@ -1793,12 +1824,15 @@ int32_t
 glusterd_import_volinfo (dict_t *vols, int count,
                          glusterd_volinfo_t **volinfo)
 {
-        int                ret = -1;
-        char               key[256] = {0};
-        char               *volname = NULL;
-        glusterd_volinfo_t *new_volinfo = NULL;
-        char               *volume_id_str = NULL;
-        char                    msg[2048] = {0};
+        int                ret               = -1;
+        char               key[256]          = {0};
+        char               *volname          = NULL;
+        glusterd_volinfo_t *new_volinfo      = NULL;
+        char               *volume_id_str    = NULL;
+        char               msg[2048]         = {0};
+        char               *src_brick        = NULL;
+        char               *dst_brick        = NULL;
+        int                rb_status         = 0;
 
         GF_ASSERT (vols);
         GF_ASSERT (volinfo);
@@ -1889,6 +1923,47 @@ glusterd_import_volinfo (dict_t *vols, int count,
         }
 
         uuid_parse (volume_id_str, new_volinfo->volume_id);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_STATUS, count);
+        ret = dict_get_int32 (vols, key, &rb_status);
+        if (ret)
+                goto out;
+        new_volinfo->rb_status = rb_status;
+
+        if (new_volinfo->rb_status > GF_RB_STATUS_NONE) {
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_SRC_BRICK,
+                          count);
+                ret = dict_get_str (vols, key, &src_brick);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_brickinfo_from_brick (src_brick,
+                                                     &new_volinfo->src_brick);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to create"
+                                " src brickinfo");
+                        goto out;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_DST_BRICK,
+                          count);
+                ret = dict_get_str (vols, key, &dst_brick);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_brickinfo_from_brick (dst_brick,
+                                                     &new_volinfo->dst_brick);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to create"
+                                " dst brickinfo");
+                        goto out;
+                }
+        }
+
 
         ret = glusterd_import_friend_volume_opts (vols, count, new_volinfo);
         if (ret)

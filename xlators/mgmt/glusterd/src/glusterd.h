@@ -192,6 +192,7 @@ struct glusterd_volinfo_ {
         int                     replica_count;
         int                     port;
         glusterd_store_handle_t *shandle;
+        glusterd_store_handle_t *rb_shandle;
 
         /* Defrag/rebalance related */
         gf_defrag_status_t      defrag_status;
@@ -242,6 +243,7 @@ enum glusterd_vol_comp_status_ {
 #define GLUSTERD_VOLUME_DIR_PREFIX "vols"
 #define GLUSTERD_PEER_DIR_PREFIX "peers"
 #define GLUSTERD_VOLUME_INFO_FILE "info"
+#define GLUSTERD_VOLUME_RBSTATE_FILE "rbstate"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"
 #define GLUSTERD_CKSUM_FILE "cksum"
 
