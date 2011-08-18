@@ -34,6 +34,9 @@
 #define CLI_DEFAULT_CONN_TIMEOUT             120
 #define CLI_DEFAULT_CMD_TIMEOUT              120
 #define DEFAULT_CLI_LOG_FILE_DIRECTORY     DATADIR "/log/glusterfs"
+#define CLI_VOL_STATUS_BRICK_LEN              55
+#define CLI_TAB_LENGTH                         8
+#define CLI_BRICK_STATUS_LINE_LEN             75
 
 enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
@@ -248,4 +251,14 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
 int32_t
 cli_cmd_log_level_parse (const char **words, int wordcount,
                          dict_t **options);
+
+int32_t
+cli_cmd_volume_status_parse (const char **words, int wordcount,
+                             dict_t **options);
+
+int
+cli_print_brick_status (char *brick, int port, int online, int pid);
+
+void
+cli_print_line (int len);
 #endif /* __CLI_H__ */

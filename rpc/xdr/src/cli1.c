@@ -776,3 +776,39 @@ gf_xdr_from_cli_log_level_rsp (struct iovec outmsg, void *args)
         return xdr_serialize_generic (outmsg, (void *)args,
                                       (xdrproc_t)xdr_gf1_cli_log_level_rsp);
 }
+
+ssize_t
+gf_xdr_serialize_cli_status_volume_rsp (struct iovec outmsg, void *rsp)
+{
+        return xdr_serialize_generic (outmsg, (void *)rsp,
+                                    (xdrproc_t)xdr_gf1_cli_status_volume_rsp);
+
+}
+
+ssize_t
+gf_xdr_to_cli_status_volume_req (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_status_volume_req);
+}
+
+ssize_t
+gf_xdr_from_cli_status_volume_req (struct iovec outmsg, void *args)
+{
+        return xdr_serialize_generic (outmsg, (void*)args,
+                                    (xdrproc_t)xdr_gf1_cli_status_volume_req);
+}
+
+ssize_t
+gf_xdr_to_cli_status_volume_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_status_volume_rsp);
+}
+
+ssize_t
+gf_xdr_from_cli_status_volume_rsp (struct iovec outmsg, void *args)
+{
+        return xdr_serialize_generic (outmsg, (void *)args,
+                                    (xdrproc_t)xdr_gf1_cli_status_volume_rsp);
+}

@@ -1211,6 +1211,74 @@ cli_cmd_log_level_cbk (struct cli_state *state, struct cli_cmd_word *word,
         return ret;
 }
 
+int
+cli_cmd_volume_status_cbk (struct cli_state *state,
+                              struct cli_cmd_word *word,
+                              const char **words, int wordcount)
+{
+        int                   ret         = -1;
+        rpc_clnt_procedure_t *proc        = NULL;
+        call_frame_t         *frame       = NULL;
+        dict_t               *dict        = NULL;
+        int                   parse_error = 0;
+
+        if (wordcount != 3) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STATUS_VOLUME];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_volume_status_parse (words, wordcount, &dict);
+        if (ret)
+                goto out;
+
+        if (proc->fn)
+                ret = proc->fn (frame, THIS, dict);
+
+ out:
+        return ret;
+}
+
+
+int
+cli_print_brick_status (char *brick, int port, int online, int pid)
+{
+        int  fieldlen = CLI_VOL_STATUS_BRICK_LEN;
+        char buf[80] = {0,};
+        int  bricklen = 0;
+        int  i = 0;
+        char *p = NULL;
+        int  num_tabs = 0;
+
+        bricklen = strlen (brick);
+        p = brick;
+        while (bricklen > 0) {
+                if (bricklen > fieldlen) {
+                        i++;
+                        strncpy (buf, p, fieldlen);
+                        buf[strlen(buf) + 1] = '\0';
+                        cli_out ("%s", buf);
+                        p = brick + i * fieldlen;
+                        bricklen -= fieldlen;
+                } else {
+                        num_tabs = (fieldlen - bricklen) / CLI_TAB_LENGTH + 1;
+                        printf ("%s", p);
+                        while (num_tabs-- != 0)
+                                printf ("\t");
+                        cli_out ("%d\t%c\t%d", port, online?'Y':'N', pid);
+                        bricklen = 0;
+                }
+        }
+
+        return 0;
+}
+
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
           cli_cmd_volume_info_cbk,
@@ -1308,6 +1376,10 @@ struct cli_cmd volume_cmds[] = {
         {"volume log level <VOLNAME> <XLATOR[*]> <LOGLEVEL>",
          cli_cmd_log_level_cbk,
          "log level for translator"},
+
+        { "volume status <VOLNAME>",
+          cli_cmd_volume_status_cbk,
+         "display status of specified volume"},
 
         { NULL, NULL, NULL }
 };

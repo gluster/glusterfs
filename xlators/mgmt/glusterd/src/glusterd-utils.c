@@ -2538,6 +2538,93 @@ out:
         return -1;
 }
 
+int32_t
+glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
+                            glusterd_brickinfo_t *brickinfo,
+                            dict_t  *dict, int32_t count)
+{
+
+        int             ret = -1;
+        char            key[8192] = {0,};
+        char            base_key[8192] = {0};
+        char            pidfile[PATH_MAX] = {0};
+        char            path[PATH_MAX] = {0};
+        FILE            *file = NULL;
+        int32_t         pid = -1;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+        GF_ASSERT (dict);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+
+        snprintf (base_key, sizeof (base_key), "brick%d", count);
+        snprintf (key, sizeof (key), "%s.hostname", base_key);
+        ret = dict_set_str (dict, key, brickinfo->hostname);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.path", base_key);
+        ret = dict_set_str (dict, key, brickinfo->path);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.port", base_key);
+        ret = dict_set_int32 (dict, key, brickinfo->port);
+        if (ret)
+                goto out;
+
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.status", base_key);
+        ret = dict_set_int32 (dict, key, brickinfo->signed_in);
+        if (ret)
+                goto out;
+
+        if (!brickinfo->signed_in)
+                goto out;
+
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
+                                    brickinfo->path);
+
+        file = fopen (pidfile, "r+");
+        if (!file) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                        pidfile);
+                ret = -1;
+                goto out;
+        }
+
+        ret = fscanf (file, "%d", &pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                        pidfile);
+                ret = -1;
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.pid", base_key);
+        ret = dict_set_int32 (dict, key, pid);
+        if (ret)
+                goto out;
+
+out:
+        if (ret)
+                gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
 int
 glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
                                 void *ctx)

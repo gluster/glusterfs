@@ -1856,6 +1856,48 @@ out:
         return ret;
 }
 
+static int
+glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
+{
+        int                 ret            = -1;
+        gf_boolean_t        exists         = _gf_false;
+        char               *volname        = NULL;
+        glusterd_conf_t    *priv           = NULL;
+        xlator_t           *this           = NULL;
+        char msg[2048]                     = {0,};
+
+        GF_ASSERT (dict);
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT(priv);
+
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+        if (!exists) {
+                snprintf (msg, sizeof(msg), "Volume %s does not exist", volname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+
+                *op_errstr = gf_strdup(msg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+ out:
+        if (ret && !(*op_errstr))
+                *op_errstr = gf_strdup ("Validation Failed for Status");
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning: %d", ret);
+        return ret;
+}
 
 int
 glusterd_query_extutil (char *resbuf, runner_t *runner)
@@ -6440,6 +6482,67 @@ out:
 }
 
 static int
+glusterd_op_status_volume (dict_t *dict, char **op_errstr,
+                           dict_t *rsp_dict)
+{
+        int                     ret = -1;
+        char                    *volname = NULL;
+        int                     count = 0;
+        int                     brick_count = 0;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_conf_t         *priv = NULL;
+        xlator_t                *this = NULL;
+	int32_t			brick_index = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+
+        GF_ASSERT (priv);
+
+        GF_ASSERT (dict);
+
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (!ret) {
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
+                                "does not exist", volname);
+                        goto out;
+                }
+        }
+
+        if (!rsp_dict) {
+                //this should happen only on source
+                ret = 0;
+                rsp_dict = glusterd_op_get_ctx (GD_OP_STATUS_VOLUME);
+        }
+
+        if (volname) {
+                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
+                                ret = glusterd_add_brick_to_dict (volinfo,
+                                                                  brickinfo,
+                                                                  rsp_dict,
+                                                                  brick_index);
+                                count++;
+                                brick_count = count;
+                        }
+			brick_index++;
+                }
+        }
+
+        ret = dict_set_int32 (rsp_dict, "count", brick_count);
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 glusterd_op_ac_none (glusterd_op_sm_event_t *event, void *ctx)
 {
         int ret = 0;
@@ -6664,6 +6767,7 @@ glusterd_op_build_payload (glusterd_op_t op, dict_t **req)
                 case GD_OP_GSYNC_SET:
                 case GD_OP_PROFILE_VOLUME:
                 case GD_OP_LOG_LEVEL:
+                case GD_OP_STATUS_VOLUME:
                         {
                                 dict_t  *dict = ctx;
                                 dict_copy (dict, req_dict);
@@ -7628,6 +7732,10 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_log_level (dict, op_errstr);
                         break;
 
+                case GD_OP_STATUS_VOLUME:
+                        ret = glusterd_op_stage_status_volume (dict, op_errstr);
+                        break;
+
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -7709,6 +7817,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                case GD_OP_LOG_LEVEL:
                        ret = glusterd_op_log_level (dict);
+                       break;
+
+               case GD_OP_STATUS_VOLUME:
+                       ret = glusterd_op_status_volume (dict, op_errstr, rsp_dict);
                        break;
 
                 default:
@@ -8733,6 +8845,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
                 case GD_OP_QUOTA:
                 case GD_OP_PROFILE_VOLUME:
                 case GD_OP_LOG_LEVEL:
+                case GD_OP_STATUS_VOLUME:
                         dict_unref (ctx);
                         break;
                 case GD_OP_DELETE_VOLUME:

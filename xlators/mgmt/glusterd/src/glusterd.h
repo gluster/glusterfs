@@ -77,6 +77,7 @@ typedef enum glusterd_op_ {
         GD_OP_PROFILE_VOLUME,
         GD_OP_QUOTA,
         GD_OP_LOG_LEVEL,
+        GD_OP_STATUS_VOLUME,
         GD_OP_MAX,
 } glusterd_op_t;
 
