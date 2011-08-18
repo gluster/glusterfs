@@ -3562,6 +3562,130 @@ out:
         return ret;
 }
 
+static int
+gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        gf1_cli_status_volume_rsp       rsp = {0,};
+        int                             ret = -1;
+        dict_t                          *dict = NULL;
+        char                            *hostname = NULL;
+        char                            *path = NULL;
+        int                             i = 0;
+        int                             port = 0;
+        int                             online = 0;
+        char                            key[1024] = {0,};
+        int                             pid = 0;
+        char                            brick[8192] = {0,};
+        char                            *volname = NULL;
+
+
+        if (req->rpc_status == -1)
+                goto out;
+
+        ret = gf_xdr_to_cli_status_volume_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("cli", GF_LOG_ERROR, "Volume status response error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received response to status cmd");
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                cli_out ("%s", rsp.op_errstr);
+        else if (rsp.op_ret)
+                cli_out ("Unable to obtain volume status information.");
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_unserialize (rsp.dict.dict_val,
+                                rsp.dict.dict_len,
+                                &dict);
+        if (ret)
+                goto out;
+
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        cli_out ("Brick status for volume: %s", volname);
+        cli_out ("Brick\t\t\t\t\t\t\tPort\tOnline\tPID");
+        for (i = 0; i < count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.path", i);
+                ret = dict_get_str (dict, key, &path);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.port", i);
+                ret = dict_get_int32 (dict, key, &port);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.status", i);
+                ret = dict_get_int32 (dict, key, &online);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.pid", i);
+                ret = dict_get_int32 (dict, key, &pid);
+
+                snprintf (brick, sizeof (brick) -1, "%s:%s", hostname, path);
+
+                cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
+                cli_print_brick_status (brick, port, online, pid);
+        }
+
+        ret = rsp.op_ret;
+
+ out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_status_volume (call_frame_t *frame, xlator_t *this,
+                            void *data)
+{
+        gf1_cli_status_volume_req       req  = {0,};
+        int                             ret  = 0;
+        dict_t                          *dict = NULL;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_STATUS_VOLUME, NULL,
+                              gf_xdr_from_cli_status_volume_req,
+                              this, gf_cli3_1_status_cbk,
+                              (xdrproc_t)xdr_gf1_cli_status_volume_req);
+
+ out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning: %d", ret);
+        return ret;
+}
 
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
@@ -3593,7 +3717,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_QUOTA]            = {"QUOTA", gf_cli3_1_quota},
         [GLUSTER_CLI_TOP_VOLUME]       = {"TOP_VOLUME", gf_cli3_1_top_volume},
         [GLUSTER_CLI_LOG_LEVEL]        = {"VOLUME_LOGLEVEL", gf_cli3_1_log_level},
-        [GLUSTER_CLI_GETWD]            = {"GETWD", gf_cli3_1_getwd}
+        [GLUSTER_CLI_GETWD]            = {"GETWD", gf_cli3_1_getwd},
+        [GLUSTER_CLI_STATUS_VOLUME]    = {"STATUS_VOLUME", gf_cli3_1_status_volume},
 };
 
 struct rpc_clnt_program cli_prog = {

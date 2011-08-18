@@ -1646,3 +1646,37 @@ out:
                 dict_destroy (dict);
         return ret;
 }
+
+int32_t
+cli_cmd_volume_status_parse (const char **words, int wordcount,
+                                dict_t **options)
+{
+        dict_t *dict            = NULL;
+        int     ret             = -1;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+
+        GF_ASSERT ((strncmp(words[0], "volume", 6) == 0));
+        GF_ASSERT ((strncmp(words[1], "status", 5) == 0));
+
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        GF_ASSERT(words[2]);
+
+        ret = dict_set_str (dict, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        *options = dict;
+
+ out:
+        if (ret && dict)
+                dict_destroy (dict);
+
+        return ret;
+}

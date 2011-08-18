@@ -1,7 +1,8 @@
  enum gf1_cluster_type {
         GF_CLUSTER_TYPE_NONE = 0,
         GF_CLUSTER_TYPE_STRIPE,
-        GF_CLUSTER_TYPE_REPLICATE
+        GF_CLUSTER_TYPE_REPLICATE,
+        GF_CLUSTER_TYPE_STRIPE_REPLICATE
 } ;
 
  enum gf1_cli_replace_op {
@@ -344,6 +345,7 @@ struct gf1_cli_gsync_set_rsp {
 struct gf1_cli_stats_volume_req {
         string           volname<>;
         gf1_cli_stats_op op;
+        opaque           dict_req<>;
 };
 
 struct gf1_cli_stats_volume_rsp {
@@ -378,13 +380,25 @@ struct gf1_cli_getwd_rsp {
 };
 
 struct gf1_cli_log_level_req {
-       char *volname;
-       char *xlator;
-       char *loglevel;
+       string volname<>;
+       string xlator<>;
+       string loglevel<>;
 };
 
 struct gf1_cli_log_level_rsp {
        int op_ret;
        int op_errno;
-       char *op_errstr;
+       string op_errstr<>;
+};
+
+struct gf1_cli_status_volume_req {
+        string  volname<>;
+        opaque  dict<>;
+};
+
+struct gf1_cli_status_volume_rsp {
+       int op_ret;
+       int op_errno;
+       string op_errstr<>;
+       opaque dict<>;
 };

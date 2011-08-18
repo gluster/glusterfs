@@ -698,3 +698,14 @@ out:
 
         return ret;
 }
+
+void
+cli_print_line (int len)
+{
+        GF_ASSERT (len > 0);
+
+        while (len--)
+                printf ("-");
+
+        printf ("\n");
+}

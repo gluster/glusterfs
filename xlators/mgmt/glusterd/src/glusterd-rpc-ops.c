@@ -57,7 +57,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         dict_t          *ctx = NULL;
         char            *free_ptr = NULL;
         glusterd_conf_t *conf = NULL;
-        xdrproc_t       xdrproc;
+        xdrproc_t       xdrproc = NULL;
 
         GF_ASSERT (THIS);
 
@@ -407,6 +407,26 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 break;
         }
 
+
+        case GD_OP_STATUS_VOLUME:
+        {
+                gf1_cli_status_volume_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                ctx = op_ctx;
+                dict_allocate_and_serialize (ctx,
+                             &rsp.dict.dict_val,
+                             (size_t*)&rsp.dict.dict_len);
+                free_ptr = rsp.dict.dict_val;
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_status_volume_rsp;
+                xdrproc = (xdrproc_t) xdr_gf1_cli_status_volume_rsp;
+                break;
+        }
         case GD_OP_NONE:
         case GD_OP_MAX:
         {
@@ -1219,6 +1239,62 @@ out:
         return ret;
 }
 
+void
+glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
+                                     void *data)
+{
+        glusterd_status_rsp_conv_t      *rsp_ctx = NULL;
+        data_t                          *new_value = NULL;
+        int32_t                         ret = 0;
+
+        if (strcmp (key, "count") == 0)
+                return;
+
+        rsp_ctx = data;
+        new_value = data_copy (value);
+        GF_ASSERT (new_value);
+
+        ret = dict_set (rsp_ctx->dict, key, new_value);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Unable to set key: %s in dict",
+                        key);
+
+        return;
+}
+
+int
+glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
+{
+        int                             ret = 0;
+        glusterd_status_rsp_conv_t      rsp_ctx = {0};
+        int32_t                         brick_count = 0;
+        int32_t                         count = 0;
+        dict_t                          *ctx_dict = NULL;
+        glusterd_op_t                   op = GD_OP_NONE;
+
+        GF_ASSERT (rsp_dict);
+
+        ret = dict_get_int32 (rsp_dict, "count", &brick_count);
+        if (ret) {
+                ret = 0; //no bricks in the rsp
+                goto out;
+        }
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_STATUS_VOLUME == op);
+        ctx_dict = glusterd_op_get_ctx (op);
+
+        ret = dict_get_int32 (ctx_dict, "count", &count);
+        rsp_ctx.count = count;
+        rsp_ctx.dict = ctx_dict;
+        dict_foreach (rsp_dict, glusterd_volume_status_add_peer_rsp, &rsp_ctx);
+        dict_del (ctx_dict, "count");
+        ret = dict_get_int32 (ctx_dict, "count", &brick_count);
+        ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
+out:
+        return ret;
+}
+
 int32_t
 glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
@@ -1326,6 +1402,12 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
                 case GD_OP_GSYNC_SET:
                         ret = glusterd_gsync_use_rsp_dict (dict, rsp.op_errstr);
+                        if (ret)
+                                goto out;
+                break;
+
+                case GD_OP_STATUS_VOLUME:
+                        ret = glusterd_volume_status_use_rsp_dict (dict);
                         if (ret)
                                 goto out;
                 break;
