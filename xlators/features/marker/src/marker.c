@@ -772,6 +772,7 @@ marker_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
         if (local == NULL) {
+                op_errno = EINVAL;
                 goto err;
         }
 
@@ -781,7 +782,7 @@ marker_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     FIRST_CHILD(this)->fops->unlink, &local->loc);
         return 0;
 err:
-        STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
 
         return 0;
 }
