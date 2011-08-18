@@ -321,7 +321,7 @@ afr_set_piggyback_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
 
                 memcpy (arr, pending[i], 3 * sizeof (int32_t));
 
-                arr[index]++;
+                arr[index] = hton32 (ntoh32 (arr[index]) + 1);
 
                 ret = dict_set_bin (xattr, priv->pending_key[i],
                                     arr, 3 * sizeof (int32_t));
