@@ -668,7 +668,7 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;

@@ -48,13 +48,23 @@ typedef int (*afr_post_remove_call_t) (call_frame_t *frame, xlator_t *this);
 
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
+typedef enum {
+        AFR_INODE_SET_READ_CTX = 1,
+        AFR_INODE_RM_STALE_CHILDREN,
+        AFR_INODE_SET_OPENDIR_DONE,
+        AFR_INODE_SET_SPLIT_BRAIN,
+        AFR_INODE_GET_READ_CTX,
+        AFR_INODE_GET_OPENDIR_DONE,
+        AFR_INODE_GET_SPLIT_BRAIN,
+} afr_inode_op_t;
+
 typedef struct afr_inode_params_ {
-        uint64_t mask_type;
+        afr_inode_op_t op;
         union {
                 gf_boolean_t value;
                 struct {
                         int32_t read_child;
-                        int32_t *fresh_children;
+                        int32_t *children;
                 } read_ctx;
         } u;
 } afr_inode_params_t;
@@ -869,7 +879,7 @@ afr_marker_getxattr (call_frame_t *frame, xlator_t *this,
                      loc_t *loc, const char *name,afr_local_t *local, afr_private_t *priv );
 
 int32_t *
-afr_fresh_children_create (int32_t child_count);
+afr_children_create (int32_t child_count);
 
 int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv);
@@ -902,19 +912,22 @@ afr_next_call_child (int32_t *fresh_children, unsigned char *child_up,
                      int32_t read_child);
 void
 afr_get_fresh_children (int32_t *success_children, int32_t *sources,
-                        int32_t *fresh_children, unsigned int child_count);
+                        int32_t *children, unsigned int child_count);
 void
-afr_fresh_children_add_child (int32_t *fresh_children, int32_t child,
+afr_children_add_child (int32_t *children, int32_t child,
                               int32_t child_count);
 void
-afr_reset_children (int32_t *fresh_children, int32_t child_count);
+afr_children_rm_child (int32_t *children, int32_t child,
+                             int32_t child_count);
+void
+afr_reset_children (int32_t *children, int32_t child_count);
 gf_boolean_t
 afr_error_more_important (int32_t old_errno, int32_t new_errno);
 int
 afr_errno_count (int32_t *children, int *child_errno,
                  unsigned int child_count, int32_t op_errno);
 int
-afr_get_children_count (int32_t *fresh_children, unsigned int child_count);
+afr_get_children_count (int32_t *children, unsigned int child_count);
 gf_boolean_t
 afr_is_child_present (int32_t *success_children, int32_t child_count,
                       int32_t child);
@@ -941,4 +954,7 @@ afr_transaction_type_get (ia_type_t ia_type);
 int32_t
 afr_resultant_errno_get (int32_t *children,
                          int *child_errno, unsigned int child_count);
+void
+afr_inode_rm_stale_children (xlator_t *this, inode_t *inode, int32_t read_child,
+                             int32_t *stale_children);
 #endif /* __AFR_H__ */

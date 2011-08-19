@@ -136,7 +136,7 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
                 goto out;
         }
 
-        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
@@ -254,7 +254,7 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
@@ -375,7 +375,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
@@ -495,7 +495,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
@@ -879,7 +879,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;
@@ -1013,7 +1013,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->fresh_children = afr_fresh_children_create (priv->child_count);
+        local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
                 op_errno = ENOMEM;
                 goto out;

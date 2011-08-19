@@ -310,7 +310,7 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
         sh = &local->self_heal;
         i = (long)cookie;
 
-        afr_fresh_children_add_child (sh->fresh_children, i, priv->child_count);
+        afr_children_add_child (sh->fresh_children, i, priv->child_count);
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {

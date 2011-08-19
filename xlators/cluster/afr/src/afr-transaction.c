@@ -404,53 +404,67 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 void
-afr_update_read_child (call_frame_t *frame, xlator_t *this, inode_t *inode,
-                       afr_transaction_type type)
+afr_transaction_rm_stale_children (call_frame_t *frame, xlator_t *this,
+                                   inode_t *inode, afr_transaction_type type)
 {
-        int             curr_read_child = -1;
-        int             new_read_child = -1;
+        int             i = -1;
+        int             count = 0;
+        int             read_child = -1;
         afr_private_t   *priv = NULL;
         afr_local_t     *local = NULL;
         int             **pending = NULL;
         int             idx = 0;
+        int32_t         *stale_children = NULL;
         int32_t         *fresh_children = NULL;
-        size_t          success_count = 0;
+        gf_boolean_t    rm_stale_children = _gf_false;
 
         idx = afr_index_for_transaction_type (type);
 
         priv = this->private;
         local = frame->local;
-        curr_read_child = afr_inode_get_read_ctx (this, inode, NULL);
         pending = local->pending;
 
-        GF_ASSERT (curr_read_child >= 0);
-
-        if (pending[curr_read_child][idx] != 0)
+        stale_children = afr_children_create (priv->child_count);
+        if (!stale_children)
                 goto out;
 
-        fresh_children = afr_fresh_children_create (priv->child_count);
-        if (!fresh_children)
-                goto out;
+        fresh_children = local->fresh_children;
+        read_child = afr_inode_get_read_ctx (this, inode, fresh_children);
 
-        for (new_read_child = 0; new_read_child < priv->child_count;
-             new_read_child++) {
+        GF_ASSERT (read_child >= 0);
 
-                if (!priv->child_up[new_read_child])
-                        /* child is down */
+        if (pending[read_child][idx] == 0)
+                read_child = -1;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!afr_is_child_present (fresh_children,
+                                           priv->child_count, i))
                         continue;
-
-                if (pending[new_read_child][idx] == 0)
-                        /* op just failed */
-                        continue;
-                fresh_children[success_count] = new_read_child;
-                success_count++;
+                if ((!priv->child_up[i]) || (pending[i][idx] == 0)) {
+                        /* child is down or op failed on it */
+                        rm_stale_children = _gf_true;
+                        afr_children_rm_child (fresh_children, i,
+                                               priv->child_count);
+                        stale_children[count++] = i;
+                }
         }
 
-        afr_inode_set_read_ctx (this, inode, fresh_children[0],
-                                fresh_children);
+        if (!rm_stale_children) {
+                GF_ASSERT (read_child >= 0);
+                goto out;
+        }
+
+        if (fresh_children[0] == -1) {
+                //All children failed. leave as-is
+                goto out;
+        }
+
+        if (read_child == -1)
+                read_child = fresh_children[0];
+        afr_inode_rm_stale_children (this, inode, read_child, stale_children);
 out:
-        if (fresh_children)
-                GF_FREE (fresh_children);
+        if (stale_children)
+                GF_FREE (stale_children);
         return;
 }
 
@@ -478,8 +492,9 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                               local->child_up, local->transaction.type);
 
         if (local->fd)
-                afr_update_read_child (frame, this, local->fd->inode,
-                                       local->transaction.type);
+                afr_transaction_rm_stale_children (frame, this,
+                                                   local->fd->inode,
+                                                   local->transaction.type);
 
         xattr = alloca (priv->child_count * sizeof (*xattr));
         memset (xattr, 0, (priv->child_count * sizeof (*xattr)));

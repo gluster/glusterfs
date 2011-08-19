@@ -130,7 +130,7 @@ afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
         i = (long)cookie;
 
 
-        afr_fresh_children_add_child (sh->fresh_children, i, priv->child_count);
+        afr_children_add_child (sh->fresh_children, i, priv->child_count);
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%s: failed to erase pending xattrs on %s (%s)",
