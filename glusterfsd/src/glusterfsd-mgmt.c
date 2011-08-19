@@ -604,8 +604,6 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                 goto out;
         }
 
-        glusterfs_graph_unknown_options (newvolfile_graph);
-
         ret = 0;
 out:
         return ret;
