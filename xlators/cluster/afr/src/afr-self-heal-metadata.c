@@ -160,8 +160,8 @@ afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
 
         if ((!IA_ISREG (sh->buf[sh->source].ia_type)) &&
             (!IA_ISDIR (sh->buf[sh->source].ia_type))) {
-                afr_fresh_children_add_child (sh->fresh_children, i,
-                                              priv->child_count);
+                afr_children_add_child (sh->fresh_children, i,
+                                        priv->child_count);
         }
         call_count = afr_frame_return (frame);
 

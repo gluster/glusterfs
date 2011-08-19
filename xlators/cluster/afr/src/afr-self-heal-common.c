@@ -1468,8 +1468,8 @@ afr_sh_purge_stale_entry (call_frame_t *frame, xlator_t *this)
                                    sh->entrybuf.ia_gfid)))
                         continue;
 
-                afr_fresh_children_add_child (sh->fresh_children,
-                                              i, priv->child_count);
+                afr_children_add_child (sh->fresh_children, i,
+                                        priv->child_count);
 
         }
         afr_sh_purge_entry_common (frame, this,
@@ -2094,9 +2094,9 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
                                                  priv->child_count,
                                                  gf_afr_mt_int32_t);
         }
-        sh->success_children = afr_fresh_children_create (priv->child_count);
-        sh->fresh_children = afr_fresh_children_create (priv->child_count);
-        sh->fresh_parent_dirs = afr_fresh_children_create (priv->child_count);
+        sh->success_children = afr_children_create (priv->child_count);
+        sh->fresh_children = afr_children_create (priv->child_count);
+        sh->fresh_parent_dirs = afr_children_create (priv->child_count);
 
 
         FRAME_SU_DO (sh_frame, afr_local_t);
