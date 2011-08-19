@@ -501,13 +501,12 @@ xlator_option_validate_addr (xlator_t *xl, const char *key, const char *value,
 
         if (!valid_internet_address ((char *)value)) {
                 snprintf (errstr, 256,
-                          "internet address '%s'  does not conform to standards.",
+                          "internet address '%s' does not conform to standards.",
                           value);
                 gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (errstr);
         }
-
-        if (ret && op_errstr)
-                *op_errstr = gf_strdup (errstr);
 
         ret = 0;
 
