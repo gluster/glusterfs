@@ -3109,12 +3109,12 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                         memset (output, 0, sizeof (output));
                         memset (read_blocks, 0, sizeof (read_blocks));
                         memset (write_blocks, 0, sizeof (write_blocks));
-                        snprintf (output, sizeof (output), "%13s", "Block Size:");
-                        snprintf (read_blocks, sizeof (read_blocks), "%13s",
-                                  "No of Reads:");
-                        snprintf (write_blocks, sizeof (write_blocks), "%13s",
-                                  "No of Writes:");
-                        index = 13;
+                        snprintf (output, sizeof (output), "%14s", "Block Size:");
+                        snprintf (read_blocks, sizeof (read_blocks), "%14s",
+                                  "No. of Reads:");
+                        snprintf (write_blocks, sizeof (write_blocks), "%14s",
+                                  "No. of Writes:");
+                        index = 14;
                 }
         }
 
@@ -3127,12 +3127,17 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 if (profile_info[i].fop_hits == 0)
                         continue;
                 if (is_header_printed == 0) {
-                        cli_out ("%11s %14s %14s %14s %20s %10s", "%-latency", "Avg-latency", "Min-Latency", "Max-Latency", "No of calls", "Fop");
-                        cli_out ("%11s %14s %14s %14s %20s %10s", "---------", "-----------", "-----------", "-----------", "-----------", "----");
+                        cli_out ("%10s %13s %13s %13s %14s %11s", "%-latency",
+                                 "Avg-latency", "Min-Latency", "Max-Latency",
+                                 "No. of calls", "Fop");
+                        cli_out ("%10s %13s %13s %13s %14s %11s", "---------",
+                                 "-----------", "-----------", "-----------",
+                                 "------------", "----");
                         is_header_printed = 1;
                 }
                 if (profile_info[i].fop_hits) {
-                        cli_out ("%11.2lf %11.2lf us %11.2lf us %11.2lf us %20"PRId64" %10s",
+                        cli_out ("%10.2lf %10.2lf us %10.2lf us %10.2lf us"
+                                 " %14"PRId64" %11s",
                                  profile_info[i].percentage_avg_latency,
                                  profile_info[i].avg_latency,
                                  profile_info[i].min_latency,
