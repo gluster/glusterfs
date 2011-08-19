@@ -28,9 +28,9 @@
 #include "statedump.h"
 #include "write-behind-mem-types.h"
 
-#define MAX_VECTOR_COUNT  8
-#define WB_AGGREGATE_SIZE 131072 /* 128 KB */
-#define WB_WINDOW_SIZE    1048576 /* 1MB */
+#define MAX_VECTOR_COUNT          8
+#define WB_AGGREGATE_SIZE         131072 /* 128 KB */
+#define WB_WINDOW_SIZE            1048576 /* 1MB */
 
 typedef struct list_head list_head_t;
 struct wb_conf;
@@ -55,22 +55,23 @@ typedef struct wb_file {
 }wb_file_t;
 
 typedef struct wb_request {
-        list_head_t     list;
-        list_head_t     winds;
-        list_head_t     unwinds;
-        list_head_t     other_requests;
-        call_stub_t    *stub;
-        size_t          write_size;
-        int32_t         refcount;
-        wb_file_t      *file;
-        glusterfs_fop_t fop;
+        list_head_t           list;
+        list_head_t           winds;
+        list_head_t           unwinds;
+        list_head_t           other_requests;
+        call_stub_t          *stub;
+        size_t                write_size;
+        int32_t               refcount;
+        wb_file_t            *file;
+        glusterfs_fop_t       fop;
+        gf_lkowner_t          lk_owner;
         union {
                 struct  {
-                        char write_behind;
-                        char stack_wound;
-                        char got_reply;
-                        char virgin;
-                        char flush_all;     /* while trying to sync to back-end,
+                        char  write_behind;
+                        char  stack_wound;
+                        char  got_reply;
+                        char  virgin;
+                        char  flush_all;     /* while trying to sync to back-end,
                                              * don't wait till a data of size
                                              * equal to configured aggregate-size
                                              * is accumulated, instead sync
@@ -87,12 +88,12 @@ typedef struct wb_request {
 } wb_request_t;
 
 struct wb_conf {
-        uint64_t     aggregate_size;
-        uint64_t     window_size;
-        uint64_t     disable_till;
-        gf_boolean_t enable_O_SYNC;
-        gf_boolean_t flush_behind;
-        gf_boolean_t enable_trickling_writes;
+        uint64_t         aggregate_size;
+        uint64_t         window_size;
+        uint64_t         disable_till;
+        gf_boolean_t     enable_O_SYNC;
+        gf_boolean_t     flush_behind;
+        gf_boolean_t     enable_trickling_writes;
 };
 
 typedef struct wb_local {
@@ -118,6 +119,71 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds);
 ssize_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size,
                  char enable_trickling_writes);
+
+/*
+  Below is a succinct explanation of the code deciding whether two regions
+  overlap, from Pavan <tcp@gluster.com>.
+
+  For any two ranges to be non-overlapping, either the end of the first
+  range is lesser than the start of the second, or vice versa. Example -
+
+  <--------->       <-------------->
+  p         q       x              y
+
+  ( q < x ) or (y < p) = > No overlap.
+
+  To check for *overlap*, we can negate this (using de morgan's laws), and
+  it becomes -
+
+  (q >= x ) and (y >= p)
+
+  Either that, or you write the negation using -
+
+  if (! ((q < x) or (y < p)) ) {
+  "Overlap"
+  }
+*/
+
+static inline char
+wb_requests_overlap (wb_request_t *request1, wb_request_t *request2)
+{
+        off_t r1_start = 0, r1_end = 0, r2_start = 0, r2_end = 0;
+
+        r1_start = request1->stub->args.writev.off;
+        r1_end = r1_start + iov_length (request1->stub->args.writev.vector,
+                                        request1->stub->args.writev.count);
+
+        r2_start = request2->stub->args.writev.off;
+        r2_end = r2_start + iov_length (request2->stub->args.writev.vector,
+                                        request2->stub->args.writev.count);
+
+        return ((r1_end >= r2_start) && (r2_end >= r1_start));
+}
+
+
+static inline char
+wb_overlap (list_head_t *list, wb_request_t *request)
+{
+        char          overlap = 0;
+        wb_request_t *tmp     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", list, out);
+        GF_VALIDATE_OR_GOTO ("write-behind", request, out);
+
+        list_for_each_entry (tmp, list, list) {
+                if (tmp == request) {
+                        break;
+                }
+
+                overlap = wb_requests_overlap (tmp, request);
+                if (overlap) {
+                        break;
+                }
+        }
+
+out:
+        return overlap;
+}
 
 
 static int
@@ -251,6 +317,8 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
 
                 request->flags.write_request.virgin = 1;
         }
+
+        request->lk_owner = frame->root->lk_owner;
 
         LOCK (&file->lock);
         {
@@ -421,19 +489,21 @@ out:
 ssize_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 {
-        wb_request_t   *dummy         = NULL, *request = NULL;
-        wb_request_t   *first_request = NULL, *next = NULL;
-        size_t          total_count   = 0, count = 0;
-        size_t          copied        = 0;
-        call_frame_t   *sync_frame    = NULL;
-        struct iobref  *iobref        = NULL;
-        wb_local_t     *local         = NULL;
-        struct iovec   *vector        = NULL;
-        ssize_t         current_size  = 0, bytes = 0;
-        size_t          bytecount     = 0;
-        wb_conf_t      *conf          = NULL;
-        fd_t           *fd            = NULL;
-        int32_t         op_errno      = -1;
+        wb_request_t  *dummy                = NULL, *request = NULL;
+        wb_request_t  *first_request        = NULL, *next = NULL;
+        size_t         total_count          = 0, count = 0;
+        size_t         copied               = 0;
+        call_frame_t  *sync_frame           = NULL;
+        struct iobref *iobref               = NULL;
+        wb_local_t    *local                = NULL;
+        struct iovec  *vector               = NULL;
+        ssize_t        current_size         = 0, bytes = 0;
+        size_t         bytecount            = 0;
+        wb_conf_t     *conf                 = NULL;
+        fd_t          *fd                   = NULL;
+        int32_t        op_errno             = -1;
+        off_t          next_offset_expected = 0;
+        gf_lkowner_t   lk_owner             = {0, };
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR ((file ? file->this->name
                                          : "write-behind"), frame,
@@ -485,6 +555,10 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 
                         first_request = request;
                         current_size = 0;
+
+                        next_offset_expected = request->stub->args.writev.off
+                                + request->write_size;
+                        lk_owner = request->lk_owner;
                 }
 
                 count += request->stub->args.writev.count;
@@ -514,14 +588,17 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                     || ((count + next->stub->args.writev.count)
                         > MAX_VECTOR_COUNT)
                     || ((current_size + next->write_size)
-                        > conf->aggregate_size)) {
-
+                        > conf->aggregate_size)
+                    || (next_offset_expected != next->stub->args.writev.off)
+                    || (!is_same_lkowner (&lk_owner, &next->lk_owner))) {
                         sync_frame = copy_frame (frame);
                         if (sync_frame == NULL) {
                                 bytes = -1;
                                 op_errno = ENOMEM;
                                 goto out;
                         }
+
+                        frame->root->lk_owner = lk_owner;
 
                         sync_frame->local = local;
                         local->file = file;
@@ -1518,12 +1595,11 @@ unwind:
 size_t
 __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
 {
-        wb_request_t *request         = NULL;
-        size_t        size            = 0;
-        char          first_request   = 1;
-        off_t         offset_expected = 0;
-        wb_conf_t    *conf            = NULL;
-        int           count           = 0;
+        wb_request_t *request           = NULL;
+        size_t        size              = 0;
+        char          first_request     = 1, overlap = 0;
+        wb_conf_t    *conf              = NULL;
+        int           count             = 0;
 
         GF_VALIDATE_OR_GOTO ("write-behind", file, out);
         GF_VALIDATE_OR_GOTO (file->this->name, list, out);
@@ -1541,12 +1617,11 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
                 if (!request->flags.write_request.stack_wound) {
                         if (first_request) {
                                 first_request = 0;
-                                offset_expected
-                                        = request->stub->args.writev.off;
-                        }
-
-                        if (request->stub->args.writev.off != offset_expected) {
-                                break;
+                        } else {
+                                overlap = wb_overlap (list, request);
+                                if (overlap) {
+                                        goto out;
+                                }
                         }
 
                         if ((file->flags & O_APPEND)
@@ -1554,12 +1629,10 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
                                  > conf->aggregate_size)
                                 || ((count + request->stub->args.writev.count)
                                     > MAX_VECTOR_COUNT))) {
-                                break;
+                                goto out;
                         }
 
                         size += request->write_size;
-                        offset_expected += request->write_size;
-                        file->aggregate_current -= request->write_size;
                         count += request->stub->args.writev.count;
 
                         request->flags.write_request.stack_wound = 1;
@@ -1568,19 +1641,23 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
         }
 
 out:
+        if (file != NULL) {
+                file->aggregate_current -= size;
+        }
+
         return size;
 }
 
 
 int32_t
 __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
-               char *non_contiguous_writes, char *incomplete_writes,
+               char *overlapping_writes, char *incomplete_writes,
                char *wind_all)
 {
         wb_request_t *request         = NULL;
         char          first_request   = 1;
-        off_t         offset_expected = 0;
         int32_t       ret             = -1;
+        char          overlap         = 0;
 
         GF_VALIDATE_OR_GOTO ("write-behind", list, out);
 
@@ -1605,8 +1682,6 @@ __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
                         if (first_request) {
                                 char flush = 0;
                                 first_request = 0;
-                                offset_expected
-                                        = request->stub->args.writev.off;
 
                                 flush = request->flags.write_request.flush_all;
                                 if (wind_all != NULL) {
@@ -1614,14 +1689,14 @@ __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
                                 }
                         }
 
-                        if (offset_expected != request->stub->args.writev.off) {
-                                if (non_contiguous_writes) {
-                                        *non_contiguous_writes = 1;
+                        overlap = wb_overlap (list, request);
+                        if (overlap) {
+                                if (overlapping_writes != NULL) {
+                                        *overlapping_writes = 1;
                                 }
+
                                 break;
                         }
-
-                        offset_expected += request->write_size;
                 }
         }
 
@@ -1638,7 +1713,7 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         size_t        size                   = 0;
         char          other_fop_in_queue     = 0;
         char          incomplete_writes      = 0;
-        char          non_contiguous_writes  = 0;
+        char          overlapping_writes     = 0;
         wb_request_t *request                = NULL;
         wb_file_t    *file                   = NULL;
         char          wind_all               = 0;
@@ -1655,7 +1730,7 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         file = request->file;
 
         ret = __wb_can_wind (list, &other_fop_in_queue,
-                             &non_contiguous_writes, &incomplete_writes,
+                             &overlapping_writes, &incomplete_writes,
                              &wind_all);
         if (ret == -1) {
                 gf_log (file->this->name, GF_LOG_WARNING,
@@ -1664,7 +1739,7 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         }
 
         if (!incomplete_writes && ((enable_trickling_writes)
-                                   || (wind_all) || (non_contiguous_writes)
+                                   || (wind_all) || (overlapping_writes)
                                    || (other_fop_in_queue)
                                    || (file->aggregate_current
                                        >= aggregate_conf))) {
@@ -1988,7 +2063,9 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
                         offset_expected = holder->stub->args.writev.off
                                 + holder->write_size;
 
-                        if (request->stub->args.writev.off != offset_expected) {
+                        if ((request->stub->args.writev.off != offset_expected)
+                            || (!is_same_lkowner (&request->lk_owner,
+                                                  &holder->lk_owner))) {
                                 holder = request;
                                 continue;
                         }
