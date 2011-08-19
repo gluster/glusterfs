@@ -1657,11 +1657,6 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
         GF_ASSERT (words);
         GF_ASSERT (options);
 
-
-        GF_ASSERT ((strncmp(words[0], "volume", 6) == 0));
-        GF_ASSERT ((strncmp(words[1], "status", 5) == 0));
-
-
         dict = dict_new ();
         if (!dict)
                 goto out;
