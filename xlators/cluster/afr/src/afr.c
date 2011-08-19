@@ -87,6 +87,18 @@ xlator_subvolume_index (xlator_t *this, xlator_t *subvol)
 
 
 int
+xlator_subvolume_count (xlator_t *this)
+{
+        int i = 0;
+        xlator_list_t *list = NULL;
+
+        for (list = this->children; list; list = list->next)
+                i++;
+        return i;
+}
+
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
         afr_private_t * priv        = NULL;
@@ -186,6 +198,7 @@ init (xlator_t *this)
         priv = this->private;
 
         priv->read_child = -1;
+
         GF_OPTION_INIT ("read-subvolume", read_subvol, xlator, out);
         if (read_subvol) {
                 priv->read_child = xlator_subvolume_index (this, read_subvol);
@@ -244,6 +257,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("strict-readdir", priv->strict_readdir, bool, out);
 
         priv->wait_count = 1;
+
+        child_count = xlator_subvolume_count (this);
 
         priv->child_count = child_count;
 

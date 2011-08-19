@@ -3035,7 +3035,7 @@ struct volume_options options[] = {
         },
         { .key = {"disable-for-first-nbytes"},
           .type = GF_OPTION_TYPE_SIZET,
-          .min = 1,
+          .min = 0,
           .max = 1 * GF_UNIT_MB,
           .default_value = "0",
         },
