@@ -567,12 +567,19 @@ static volume_option_t *
 xlator_volume_option_get_list (volume_opt_list_t *vol_list, const char *key)
 {
         volume_option_t         *opt = NULL;
+        volume_opt_list_t       *opt_list = NULL;
         volume_option_t         *found = NULL;
         int                      index = 0;
         int                      i = 0;
         char                    *cmp_key = NULL;
 
-        opt = vol_list->given_opt;
+        if (!vol_list->given_opt) {
+                opt_list = list_entry (vol_list->list.next, volume_opt_list_t,
+                                       list);
+                opt = opt_list->given_opt;
+        } else
+                opt = vol_list->given_opt;
+
         for (index = 0; opt[index].key && opt[index].key[0]; index++) {
                 for (i = 0; i < ZR_VOLUME_MAX_NUM_KEY; i++) {
                         cmp_key = opt[index].key[i];
