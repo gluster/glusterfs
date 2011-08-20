@@ -25,6 +25,7 @@
 #include <fnmatch.h>
 
 #include "xlator.h"
+#include "defaults.h"
 
 #define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
 
@@ -727,6 +728,14 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
 
         old_THIS = THIS;
         THIS = xlator;
+
+        /* Need this here, as this graph has not yet called init() */
+        if (!xlator->mem_acct.num_types) {
+                if (!xlator->mem_acct_init)
+                        xlator->mem_acct_init = default_mem_acct_init;
+                xlator->mem_acct_init (xlator);
+        }
+
         ret = xlator_options_validate (xlator, xlator->options, op_errstr);
         THIS = old_THIS;
 
