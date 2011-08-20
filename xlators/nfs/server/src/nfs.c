@@ -580,7 +580,11 @@ nfs_init_state (xlator_t *this)
         }
 
         if (dict_get(this->options, "transport.socket.listen-port") == NULL) {
-                ret = gf_asprintf (&optstr, "%d", nfs->override_portnum);
+                if (nfs->override_portnum)
+                        ret = gf_asprintf (&optstr, "%d",
+                                           nfs->override_portnum);
+                else
+                        ret = gf_asprintf (&optstr, "%d", GF_NFS3_PORT);
                 if (ret == -1) {
                         gf_log (GF_NFS, GF_LOG_ERROR, "failed mem-allocation");
                         goto free_foppool;
