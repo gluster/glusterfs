@@ -55,7 +55,6 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
-        int              i = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -63,18 +62,9 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 
 //      memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
         memset (sh->buf, 0, sizeof (struct iatt) * priv->child_count);
-        memset (sh->success, 0, sizeof (int) * priv->child_count);
+        memset (sh->success, 0, sizeof (*sh->success) * priv->child_count);
 
-/*         for (i = 0; i < priv->child_count; i++) { */
-/*                 sh->locked_nodes[i] = 1; */
-/*         } */
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->xattr[i])
-                        dict_unref (sh->xattr[i]);
-                sh->xattr[i] = NULL;
-        }
-
+        afr_reset_xattr (sh->xattr, priv->child_count);
         if (local->govinda_gOvinda) {
                 gf_log (this->name, GF_LOG_INFO,
                         "split-brain detected, aborting selfheal of %s",
@@ -438,9 +428,7 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
-        int              active_sinks = 0;
         int              source = 0;
-        int              i = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -448,26 +436,19 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
 
         source = sh->source;
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->sources[i] == 0 && local->child_up[i] == 1) {
-                        active_sinks++;
-                        sh->success[i] = 1;
-                }
-        }
-        sh->success[source] = 1;
-
-        if (active_sinks == 0) {
+        afr_sh_mark_source_sinks (frame, this);
+        if (sh->active_sinks == 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "no active sinks for performing self-heal on file %s",
                         local->loc.path);
                 afr_sh_metadata_finish (frame, this);
                 return 0;
         }
-        sh->active_sinks = active_sinks;
 
         gf_log (this->name, GF_LOG_TRACE,
                 "syncing metadata of %s from subvolume %s to %d active sinks",
-                local->loc.path, priv->children[source]->name, active_sinks);
+                local->loc.path, priv->children[source]->name,
+                sh->active_sinks);
 
         STACK_WIND (frame, afr_sh_metadata_getxattr_cbk,
                     priv->children[source],
@@ -558,8 +539,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 
         if ((!IA_ISREG (sh->buf[source].ia_type)) &&
             (!IA_ISDIR (sh->buf[source].ia_type))) {
-                afr_reset_children (sh->fresh_children,
-                                          priv->child_count);
+                afr_reset_children (sh->fresh_children, priv->child_count);
                 afr_get_fresh_children (sh->success_children, sh->sources,
                                         sh->fresh_children, priv->child_count);
                 afr_inode_set_read_ctx (this, sh->inode, sh->source,
@@ -579,43 +559,17 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             struct iatt *postparent)
 {
         afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
         int              call_count = 0;
         int              child_index = 0;
 
 
         local = frame->local;
-        sh = &local->self_heal;
-        priv = this->private;
 
         child_index = (long) cookie;
 
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "path %s on subvolume %s is of mode 0%o",
-                                local->loc.path,
-                                priv->children[child_index]->name,
-                                buf->ia_type);
-
-                        sh->buf[child_index] = *buf;
-                        if (xattr)
-                                sh->xattr[child_index] = dict_ref (xattr);
-                        sh->success_children[sh->success_count] = child_index;
-                        sh->success_count++;
-                } else {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "path %s on subvolume %s => -1 (%s)",
-                                local->loc.path,
-                                priv->children[child_index]->name,
-                                strerror (op_errno));
-
-                        sh->child_errno[child_index] = op_errno;
-                }
-        }
-        UNLOCK (&frame->lock);
+        afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
+                                           op_errno, inode, buf, xattr,
+                                           postparent, &local->loc);
 
         call_count = afr_frame_return (frame);
 

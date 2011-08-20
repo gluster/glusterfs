@@ -53,7 +53,7 @@ afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
 
 void
 afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
-                         int32_t *delta_matrix[], int success[],
+                         int32_t *delta_matrix[], unsigned char success[],
                          int child_count, afr_transaction_type type);
 
 int
@@ -82,6 +82,15 @@ afr_build_sources (xlator_t *xlator, dict_t **xattr, struct iatt *bufs,
                    int32_t *success_children, afr_transaction_type type);
 void
 afr_sh_common_reset (afr_self_heal_t *sh, unsigned int child_count);
+
+void
+afr_sh_common_lookup_resp_handler (call_frame_t *frame, void *cookie,
+                                   xlator_t *this,
+                                   int32_t op_ret, int32_t op_errno,
+                                   inode_t *inode, struct iatt *buf,
+                                   dict_t *xattr, struct iatt *postparent,
+                                   loc_t *loc);
+
 int
 afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                       afr_lookup_cbk_t lookup_cbk, gf_boolean_t set_gfid);
@@ -95,4 +104,22 @@ int
 afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
                              int child_index, struct iatt *buf,
                              struct iatt *postparent);
+int
+afr_sh_data_unlock (call_frame_t *frame, xlator_t *this,
+                    afr_lock_cbk_t lock_cbk);
+afr_local_t *
+afr_local_copy (afr_local_t *l, xlator_t *this);
+int
+afr_sh_data_lock (call_frame_t *frame, xlator_t *this,
+                  off_t start, off_t len,
+                  afr_lock_cbk_t success_handler,
+                  afr_lock_cbk_t failure_handler);
+void
+afr_sh_set_error (afr_self_heal_t *sh, int32_t op_errno);
+void
+afr_sh_mark_source_sinks (call_frame_t *frame, xlator_t *this);
+typedef int
+(*afr_fxattrop_cbk_t) (call_frame_t *frame, void *cookie,
+                       xlator_t *this, int32_t op_ret, int32_t op_errno,
+                       dict_t *xattr);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */

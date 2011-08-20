@@ -706,7 +706,7 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         if (sh->locked_nodes)
                 GF_FREE (sh->locked_nodes);
 
-        if (sh->healing_fd && !sh->healing_fd_opened) {
+        if (sh->healing_fd) {
                 fd_unref (sh->healing_fd);
                 sh->healing_fd = NULL;
         }
@@ -724,6 +724,14 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE (sh->fresh_parent_dirs);
 
         loc_wipe (&sh->parent_loc);
+
+        if (sh->checksum)
+                GF_FREE (sh->checksum);
+
+        if (sh->write_needed)
+                GF_FREE (sh->write_needed);
+        if (sh->healing_fd)
+                fd_unref (sh->healing_fd);
 }
 
 
@@ -794,6 +802,9 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         if (local->fresh_children)
                 GF_FREE (local->fresh_children);
+
+        if (local->fd_open_on)
+                GF_FREE (local->fd_open_on);
 
         { /* lookup */
                 if (local->cont.lookup.xattrs) {
@@ -897,21 +908,32 @@ afr_frame_return (call_frame_t *frame)
         return call_count;
 }
 
-
-/**
- * up_children_count - return the number of children that are up
- */
-
 int
-afr_up_children_count (int child_count, unsigned char *child_up)
+afr_set_elem_count_get (unsigned char *elems, int child_count)
 {
         int i   = 0;
         int ret = 0;
 
         for (i = 0; i < child_count; i++)
-                if (child_up[i])
+                if (elems[i])
                         ret++;
         return ret;
+}
+
+/**
+ * up_children_count - return the number of children that are up
+ */
+
+unsigned int
+afr_up_children_count (unsigned char *child_up, unsigned int child_count)
+{
+        return afr_set_elem_count_get (child_up, child_count);
+}
+
+unsigned int
+afr_locked_children_count (unsigned char *children, unsigned int child_count)
+{
+        return afr_set_elem_count_get (children, child_count);
 }
 
 gf_boolean_t
@@ -1172,7 +1194,7 @@ afr_is_transaction_running (afr_local_t *local)
         return ((local->inodelk_count > 0) || (local->entrylk_count > 0));
 }
 
-static void
+void
 afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
                       gf_boolean_t is_background, ia_type_t ia_type,
                       void (*gfid_sh_success_cbk) (call_frame_t *sh_frame,
@@ -1186,6 +1208,7 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
         GF_ASSERT (frame);
         GF_ASSERT (this);
         GF_ASSERT (inode);
+        GF_ASSERT (ia_type != IA_INVAL);
 
         local = frame->local;
         local->self_heal.background = is_background;
@@ -1444,7 +1467,7 @@ static void
 afr_lookup_perform_self_heal_if_needed (call_frame_t *frame, xlator_t *this,
                                         gf_boolean_t *sh_launched)
 {
-        size_t              up_count = 0;
+        unsigned int         up_count = 0;
         afr_private_t       *priv    = NULL;
         afr_local_t         *local   = NULL;
 
@@ -1453,7 +1476,7 @@ afr_lookup_perform_self_heal_if_needed (call_frame_t *frame, xlator_t *this,
         priv         = this->private;
         local        = frame->local;
 
-        up_count  = afr_up_children_count (priv->child_count, local->child_up);
+        up_count  = afr_up_children_count (local->child_up, priv->child_count);
         if (up_count == 1) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Only 1 child up - do not attempt to detect self heal");
@@ -1591,8 +1614,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
         if (local->op_ret < 0)
                 goto unwind;
         gfid_miss_count = afr_lookup_gfid_missing_count (local, this);
-        up_children_count = afr_up_children_count (priv->child_count,
-                                                   local->child_up);
+        up_children_count = afr_up_children_count (local->child_up,
+                                                   priv->child_count);
         enotconn_count = priv->child_count - up_children_count;
         if ((gfid_miss_count == local->success_count) &&
             (enotconn_count > 0)) {
@@ -1871,7 +1894,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         if (loc->parent)
                 local->cont.lookup.parent_ino = loc->parent->ino;
 
-        local->child_up = memdup (priv->child_up, priv->child_count);
+        local->child_up = memdup (priv->child_up,
+                                  sizeof (*local->child_up) * priv->child_count);
         if (NULL == local->child_up) {
                 op_errno = ENOMEM;
                 goto out;
@@ -1883,8 +1907,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->call_count = afr_up_children_count (priv->child_count,
-                                                   local->child_up);
+        local->call_count = afr_up_children_count (local->child_up,
+                                                   priv->child_count);
         call_count = local->call_count;
 
         if (local->call_count == 0) {
@@ -1994,7 +2018,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 
                 fd_ctx->opened_on = GF_CALLOC (sizeof (*fd_ctx->opened_on),
                                                priv->child_count,
-                                               gf_afr_mt_char);
+                                               gf_afr_mt_int32_t);
                 if (!fd_ctx->opened_on) {
                         ret = -ENOMEM;
                         goto unlock;
@@ -2011,12 +2035,13 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
+                INIT_LIST_HEAD (&fd_ctx->paused_calls);
+                INIT_LIST_HEAD (&fd_ctx->entries);
+
                 ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
                 if (ret)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "failed to set fd ctx (%p)", fd);
-
-                INIT_LIST_HEAD (&fd_ctx->entries);
         }
 unlock:
         UNLOCK (&fd->lock);
@@ -2108,7 +2133,7 @@ afr_flush_wind (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         priv = this->private;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_up_children_count (local->child_up, priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -2174,7 +2199,7 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_up_children_count (local->child_up, priv->child_count);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -2196,6 +2221,12 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         local->transaction.start  = 0;
         local->transaction.len    = 0;
 
+        ret = afr_open_fd_fix (transaction_frame, this, _gf_false);
+        if (ret) {
+                op_ret = -1;
+                op_errno = -ret;
+                goto out;
+        }
         afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
 
 
@@ -3474,8 +3505,8 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
         local->op_ret = -1;
         local->op_errno = EUCLEAN;
-        local->call_count = afr_up_children_count (priv->child_count,
-                                                   priv->child_up);
+        local->call_count = afr_up_children_count (priv->child_up,
+                                                   priv->child_count);
         if (local->call_count == 0) {
                 gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
                 return -ENOTCONN;
@@ -3531,19 +3562,22 @@ out:
 }
 
 int
-afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
+afr_transaction_local_init (afr_local_t *local, xlator_t *this)
 {
-        int i;
-        int child_up_count = 0;
-        int ret = -ENOMEM;
+        int            i = 0;
+        int            child_up_count = 0;
+        int            ret = -ENOMEM;
+        afr_private_t *priv = NULL;
 
+        priv = this->private;
         ret = afr_internal_lock_init (&local->internal_lock, priv->child_count,
                                       AFR_TRANSACTION_LK);
         if (ret < 0)
                 goto out;
 
         ret = -ENOMEM;
-        child_up_count = afr_up_children_count (priv->child_count, local->child_up);
+        child_up_count = afr_up_children_count (local->child_up,
+                                                priv->child_count);
         if (priv->optimistic_change_log && child_up_count == priv->child_count)
                 local->optimistic_change_log = 1;
 
@@ -3566,6 +3600,14 @@ afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children)
                 goto out;
+
+        if (local->fd) {
+                local->fd_open_on = GF_CALLOC (sizeof (*local->fd_open_on),
+                                               priv->child_count,
+                                               gf_afr_mt_int32_t);
+                if (!local->fd_open_on)
+                        goto out;
+        }
 
         for (i = 0; i < priv->child_count; i++) {
                 local->pending[i] = GF_CALLOC (sizeof (*local->pending[i]),

@@ -164,9 +164,6 @@ out:
 
                         sh->need_entry_self_heal  = _gf_true;
                         sh->forced_merge          = _gf_true;
-                        sh->type                  = local->fd->inode->ia_type;
-                        sh->background            = _gf_false;
-                        sh->unwind                = afr_examine_dir_sh_unwind;
 
                         afr_self_heal_type_str_get(&local->self_heal,
                                                    sh_type_str,
@@ -177,7 +174,9 @@ out:
                                 " forced merge option set",
                                 sh_type_str, local->loc.path);
 
-                        afr_self_heal (frame, this, local->fd->inode);
+                        afr_launch_self_heal (frame, this, local->fd->inode,
+                                              _gf_false, local->fd->inode->ia_type,
+                                              NULL, afr_examine_dir_sh_unwind);
                 } else {
                         afr_set_opendir_done (this, local->fd->inode);
 
@@ -205,7 +204,7 @@ afr_examine_dir (call_frame_t *frame, xlator_t *this)
                                                   sizeof (*local->cont.opendir.checksum),
                                                   gf_afr_mt_int32_t);
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_up_children_count (local->child_up, priv->child_count);
 
         local->call_count = call_count;
 
@@ -240,8 +239,8 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
         priv  = this->private;
         local = frame->local;
 
-        up_children_count = afr_up_children_count (priv->child_count,
-                                                   local->child_up);
+        up_children_count = afr_up_children_count (local->child_up,
+                                                   priv->child_count);
 
         LOCK (&frame->lock);
         {

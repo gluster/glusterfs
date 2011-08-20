@@ -143,7 +143,8 @@ __inodelk_grantable (pl_dom_list_t *dom, pl_inode_lock_t *lock)
         if (list_empty (&dom->inodelk_list))
                 goto out;
         list_for_each_entry (l, &dom->inodelk_list, list){
-                if (inodelk_conflict (lock, l)) {
+                if (inodelk_conflict (lock, l) &&
+                    !same_inodelk_owner (lock, l)) {
                         ret = l;
                         goto out;
                 }

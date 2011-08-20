@@ -166,7 +166,7 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-                        fd_ctx->opened_on[child_index] = 1;
+                        fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
                         fd_ctx->flags                  = local->cont.create.flags;
 
                         if (local->success_count == 0)
@@ -212,13 +212,16 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -228,7 +231,7 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_create_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -442,13 +445,16 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv  = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -458,7 +464,7 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_mknod_wind_cbk, (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->mknod,
@@ -667,13 +673,16 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv  = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -683,7 +692,7 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_mkdir_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -894,13 +903,16 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv  = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -910,7 +922,7 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_link_wind_cbk, (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->link,
@@ -1117,13 +1129,16 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1133,7 +1148,7 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_symlink_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -1338,13 +1353,16 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1354,7 +1372,7 @@ afr_rename_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_rename_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -1543,13 +1561,16 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv  = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1559,7 +1580,7 @@ afr_unlink_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_unlink_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -1741,13 +1762,16 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv  = this->private;
+        int_lock = &local->internal_lock;
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
+        call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1757,7 +1781,7 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
+                if (local->child_up[i] && int_lock->entry_locked_nodes[i]) {
                         STACK_WIND_COOKIE (frame, afr_rmdir_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
