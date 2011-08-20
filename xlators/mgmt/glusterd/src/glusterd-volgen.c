@@ -1971,7 +1971,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!rpc-auth.addr.%s.reject")) {
+        if (! strcmp (vme->option, "!rpc-auth.addr.*.reject")) {
                 ret = gf_asprintf (&aa, "rpc-auth.addr.%s.reject",
                                         volinfo->volname);
 
@@ -2009,7 +2009,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs3.%s.trusted-sync")) {
+        if (! strcmp (vme->option, "!nfs3.*.trusted-sync")) {
                 ret = gf_asprintf (&aa, "nfs3.%s.trusted-sync",
                                         volinfo->volname);
 
