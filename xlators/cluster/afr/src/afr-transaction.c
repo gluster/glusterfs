@@ -322,7 +322,7 @@ afr_set_piggyback_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
 
                 memcpy (arr, pending[i], pending_xattr_size);
 
-                arr[index]++;
+                arr[index] = hton32 (ntoh32(arr[index]) + 1);
 
                 ret = dict_set_bin (xattr, priv->pending_key[i],
                                     arr, pending_xattr_size);
@@ -468,6 +468,32 @@ out:
         return;
 }
 
+int
+afr_fxattrop_call_count (afr_transaction_type type, afr_internal_lock_t *int_lock,
+                         unsigned int child_count)
+{
+        int call_count = 0;
+
+        switch (type) {
+        case AFR_DATA_TRANSACTION:
+        case AFR_METADATA_TRANSACTION:
+                call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
+                                                        child_count);
+        break;
+
+        case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_RENAME_TRANSACTION:
+                call_count = afr_locked_children_count (int_lock->entry_locked_nodes,
+                                                        child_count);
+        break;
+        }
+
+        if (type == AFR_ENTRY_RENAME_TRANSACTION) {
+                call_count *= 2;
+        }
+        return call_count;
+}
+
 
 int
 afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
@@ -503,12 +529,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 dict_ref (xattr[i]);
         }
 
-        call_count = afr_up_children_count (priv->child_count, local->child_up);
-
-        if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
-                call_count *= 2;
-        }
-
+        call_count = afr_fxattrop_call_count (local->transaction.type, int_lock,
+                                              priv->child_count);
         local->call_count = call_count;
 
         if (local->fd)
@@ -545,6 +567,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->child_up[i])
+                        continue;
+                if (local->fd && !local->fd_open_on[i])
                         continue;
 
                 ret = afr_set_pending_dict (priv, xattr[i],
@@ -750,7 +774,6 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
 int
 afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 {
@@ -762,8 +785,10 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
         afr_fd_ctx_t *fdctx = NULL;
         afr_local_t *local = NULL;
         int          piggyback = 0;
+        afr_internal_lock_t *int_lock = NULL;
 
         local = frame->local;
+        int_lock = &local->internal_lock;
 
         xattr = alloca (priv->child_count * sizeof (*xattr));
         memset (xattr, 0, (priv->child_count * sizeof (*xattr)));
@@ -773,13 +798,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                 dict_ref (xattr[i]);
         }
 
-        call_count = afr_up_children_count (priv->child_count,
-                                            local->child_up);
-
-        if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
-                call_count *= 2;
-        }
-
+        call_count = afr_fxattrop_call_count (local->transaction.type, int_lock,
+                                              priv->child_count);
         if (call_count == 0) {
                 /* no child is up */
                 for (i = 0; i < priv->child_count; i++) {
@@ -803,6 +823,9 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->child_up[i])
                         continue;
+                if (local->fd && !local->fd_open_on[i])
+                        continue;
+
                 ret = afr_set_pending_dict (priv, xattr[i],
                                             local->pending);
 
@@ -1246,7 +1269,7 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         local = frame->local;
         priv  = this->private;
 
-        afr_transaction_local_init (local, priv);
+        afr_transaction_local_init (local, this);
 
         local->transaction.resume = afr_transaction_resume;
         local->transaction.type   = type;

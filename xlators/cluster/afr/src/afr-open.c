@@ -116,7 +116,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 
                         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-                        fd_ctx->opened_on[child_index] = 1;
+                        fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
                         fd_ctx->flags                  = local->cont.open.flags;
                         fd_ctx->wbflags                = local->cont.open.wbflags;
                 }
@@ -140,7 +140,6 @@ unlock:
 
         return 0;
 }
-
 
 int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
@@ -180,7 +179,6 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         frame->local = local;
         call_count   = local->call_count;
-
         loc_copy (&local->loc, loc);
 
         local->cont.open.flags   = flags;
@@ -209,446 +207,165 @@ out:
         return 0;
 }
 
+//NOTE: this function should be called with holding the lock on
+//fd to which fd_ctx belongs
+void
+afr_get_resumable_calls (xlator_t *this, afr_fd_ctx_t *fd_ctx,
+                         struct list_head *list)
+{
+        afr_fd_paused_call_t *paused_call = NULL;
+        afr_fd_paused_call_t *tmp = NULL;
+        afr_local_t           *call_local  = NULL;
+        afr_private_t         *priv        = NULL;
+        int                    i = 0;
+        gf_boolean_t           call = _gf_false;
+
+        priv = this->private;
+        list_for_each_entry_safe (paused_call, tmp, &fd_ctx->paused_calls,
+                                  call_list) {
+                call = _gf_true;
+                call_local = paused_call->frame->local;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (call_local->child_up[i] &&
+                            (fd_ctx->opened_on[i] == AFR_FD_OPENING))
+                                call = _gf_false;
+                }
+
+                if (call) {
+                        list_del_init (&paused_call->call_list);
+                        list_add (&paused_call->call_list, list);
+                }
+        }
+}
+
+void
+afr_resume_calls (xlator_t *this, struct list_head *list)
+{
+        afr_fd_paused_call_t *paused_call = NULL;
+        afr_fd_paused_call_t *tmp = NULL;
+        afr_local_t           *call_local  = NULL;
+
+        list_for_each_entry_safe (paused_call, tmp, list, call_list) {
+                list_del_init (&paused_call->call_list);
+                call_local = paused_call->frame->local;
+                call_local->fop_call_continue (paused_call->frame, this);
+                GF_FREE (paused_call);
+        }
+}
 
 int
-afr_openfd_sh_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        afr_internal_lock_t *int_lock    = NULL;
-        afr_local_t         *local       = NULL;
-        afr_private_t       *priv        = NULL;
-        afr_fd_ctx_t        *fd_ctx      = NULL;
-        uint64_t             ctx         = 0;
-        int                  ret         = 0;
-        int                  call_count  = 0;
-        int                  child_index = (long) cookie;
+        afr_local_t           *local       = NULL;
+        afr_private_t         *priv        = NULL;
+        afr_fd_ctx_t          *fd_ctx      = NULL;
+        int                    call_count  = 0;
+        int                    child_index = (long) cookie;
+        struct list_head       paused_calls = {0};
 
         priv     = this->private;
         local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret >= 0) {
-                        ret = fd_ctx_get (fd, this, &ctx);
-
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to get fd context, %p", fd);
-                                goto out;
-                        }
-
-                        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
-                        fd_ctx->opened_on[child_index] = 1;
-
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "fd for %s opened successfully on subvolume %s",
-                                local->loc.path, priv->children[child_index]->name);
-                }
-        }
-out:
-        UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                int_lock->lock_cbk = local->transaction.done;
-                local->transaction.resume (frame, this);
-        }
-
-        return 0;
-}
-
-
-static int
-__unopened_count (int child_count, unsigned int *opened_on, unsigned char *child_up)
-{
-        int i = 0;
-        int count = 0;
-
-        for (i = 0; i < child_count; i++) {
-                if (!opened_on[i] && child_up[i])
-                        count++;
-        }
-
-        return count;
-}
-
-
-int
-afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this, int32_t op_ret,
-                      int32_t op_errno)
-{
-        afr_local_t   *local      = NULL;
-        afr_private_t *priv       = NULL;
-        uint64_t       ctx        = 0;
-        afr_fd_ctx_t  *fd_ctx     = NULL;
-        int            abandon    = 0;
-        int            ret        = 0;
-        int            i          = 0;
-        int            call_count = 0;
-
-        priv  = this->private;
-        local = frame->local;
-
-        /*
-         * Some subvolumes might have come up on which we never
-         * opened this fd in the first place. Re-open fd's on those
-         * subvolumes now.
-         */
-
-        ret = fd_ctx_get (local->fd, this, &ctx);
-        if (ret < 0) {
+        //Note: No frame locking needed for this block of code
+        fd_ctx = afr_fd_ctx_get (local->fd, this);
+        if (!fd_ctx) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "failed to get fd context %p (%s)",
-                        local->fd, local->loc.path);
-                abandon = 1;
+                        "failed to get fd context, %p", local->fd);
                 goto out;
         }
 
-        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
         LOCK (&local->fd->lock);
         {
-                call_count = __unopened_count (priv->child_count,
-                                               fd_ctx->opened_on,
-                                               local->child_up);
-                for (i = 0; i < priv->child_count; i++) {
-                        fd_ctx->pre_op_done[i] = 0;
-                        fd_ctx->pre_op_piggyback[i] = 0;
+                if (op_ret >= 0) {
+                        fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
+                        gf_log (this->name, GF_LOG_INFO, "fd for %s opened "
+                                "successfully on subvolume %s", local->loc.path,
+                                priv->children[child_index]->name);
+                } else {
+                        //Change open status from OPENING to NOT OPENED.
+                        fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;
+                }
+                if (call_count == 0) {
+                        INIT_LIST_HEAD (&paused_calls);
+                        afr_get_resumable_calls (this, fd_ctx, &paused_calls);
                 }
         }
         UNLOCK (&local->fd->lock);
-
-        if (call_count == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "fd not open on any subvolume %p (%s)",
-                        local->fd, local->loc.path);
-                abandon = 1;
-                goto out;
-        }
-
-        local->call_count = call_count;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (!fd_ctx->opened_on[i] && local->child_up[i]) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "opening fd for %s on subvolume %s",
-                                local->loc.path, priv->children[i]->name);
-
-                        STACK_WIND_COOKIE (frame, afr_openfd_sh_open_cbk,
-                                           (void *)(long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->open,
-                                           &local->loc, fd_ctx->flags, local->fd,
-                                           fd_ctx->wbflags);
-
-                        if (!--call_count)
-                                break;
-                }
-        }
-
 out:
-        if (abandon)
-                local->transaction.resume (frame, this);
+        if (call_count == 0) {
+                afr_resume_calls (this, &paused_calls);
+                if (local->fop_call_continue)
+                        local->fop_call_continue (frame, this);
+                else
+                        AFR_STACK_DESTROY (frame);
+        }
 
         return 0;
 }
-
-
-static int
-afr_prepare_loc (call_frame_t *frame, fd_t *fd)
-{
-        afr_local_t    *local = NULL;
-        char           *name = NULL;
-        char           *path = NULL;
-        int             ret = 0;
-
-        if ((!fd) || (!fd->inode))
-                return -1;
-
-        local = frame->local;
-        ret = inode_path (fd->inode, NULL, (char **)&path);
-        if (ret <= 0) {
-                gf_log (frame->this->name, GF_LOG_DEBUG,
-                        "Unable to get path for gfid: %s",
-                        uuid_utoa (fd->inode->gfid));
-                return -1;
-        }
-
-        if (local->loc.path) {
-                if (strcmp (path, local->loc.path))
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "overwriting old loc->path %s with %s",
-                                local->loc.path, path);
-                GF_FREE ((char *)local->loc.path);
-        }
-        local->loc.path = path;
-
-        name = strrchr (local->loc.path, '/');
-        if (name)
-                name++;
-        local->loc.name = name;
-
-        if (local->loc.inode) {
-                inode_unref (local->loc.inode);
-        }
-        local->loc.inode = inode_ref (fd->inode);
-
-        if (local->loc.parent) {
-                inode_unref (local->loc.parent);
-        }
-
-        local->loc.parent = inode_parent (local->loc.inode, 0, NULL);
-
-        return 0;
-}
-
 
 int
-afr_openfd_sh (call_frame_t *frame, xlator_t *this)
+afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
+              int need_open_count, int *need_open)
 {
-        afr_local_t     *local  = NULL;
-        afr_self_heal_t *sh = NULL;
-        char            sh_type_str[256] = {0,};
+        afr_local_t     *local = NULL;
+        afr_private_t   *priv  = NULL;
+        int             i      = 0;
+        call_frame_t    *open_frame = NULL;
+        afr_local_t    *open_local = NULL;
+        int             ret    = -1;
+        int32_t         op_errno = 0;
+
+        GF_ASSERT (fd_ctx);
+        GF_ASSERT (need_open_count > 0);
+        GF_ASSERT (need_open);
 
         local = frame->local;
-        sh    = &local->self_heal;
-
-        GF_ASSERT (local->loc.path);
-        /* forcibly trigger missing-entries self-heal */
-
-        sh->need_missing_entry_self_heal = _gf_true;
-        sh->need_gfid_self_heal = _gf_true;
-        sh->data_lock_held      = _gf_true;
-        sh->need_data_self_heal = _gf_true;
-        sh->type                = local->fd->inode->ia_type;
-        sh->background          = _gf_false;
-        sh->unwind              = afr_openfd_sh_unwind;
-
-        afr_self_heal_type_str_get(&local->self_heal,
-                                   sh_type_str,
-                                   sizeof(sh_type_str));
-        gf_log (this->name, GF_LOG_INFO, "%s self-heal triggered. "
-                "path: %s, reason: Replicate up down flush, data lock is held",
-                sh_type_str, local->loc.path);
-
-        afr_self_heal (frame, this, local->fd->inode);
-
-        return 0;
-}
-
-
-int
-afr_openfd_flush_done (call_frame_t *frame, xlator_t *this)
-{
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-
-        uint64_t       ctx;
-        afr_fd_ctx_t * fd_ctx = NULL;
-
-        int _ret = -1;
-
         priv  = this->private;
-        local = frame->local;
-
-        LOCK (&local->fd->lock);
-        {
-                _ret = __fd_ctx_get (local->fd, this, &ctx);
-                if (_ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get fd context %p (%s)",
-                                local->fd, local->loc.path);
+        if (!local->fop_call_continue) {
+                open_frame = copy_frame (frame);
+                if (!open_frame) {
+                        ret = -ENOMEM;
                         goto out;
                 }
-
-                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
-                fd_ctx->down_count = priv->down_count;
-                fd_ctx->up_count   = priv->up_count;
-        }
-out:
-        UNLOCK (&local->fd->lock);
-
-        afr_local_transaction_cleanup (local, this);
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "The up/down flush is over");
-
-        fd_unref (local->fd);
-        local->openfd_flush_cbk (frame, this);
-
-        return 0;
-}
-
-
-
-int
-afr_openfd_xaction (call_frame_t *frame, xlator_t *this, fd_t *fd)
-{
-        afr_local_t   * local = NULL;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (this->private, out);
-
-        local = frame->local;
-
-        local->op = GF_FOP_FLUSH;
-
-        local->transaction.fop    = afr_openfd_sh;
-        local->transaction.done   = afr_openfd_flush_done;
-
-        local->transaction.start  = 0;
-        local->transaction.len    = 0;
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "doing up/down flush on fd=%p", fd);
-
-        afr_transaction (frame, this, AFR_DATA_TRANSACTION);
-
-out:
-        return 0;
-}
-
-
-
-int
-afr_openfd_xaction_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                             int32_t op_ret, int32_t op_errno, fd_t *fd)
-{
-        afr_internal_lock_t *int_lock    = NULL;
-        afr_local_t         *local       = NULL;
-        afr_private_t       *priv        = NULL;
-        int                  ret         = 0;
-        uint64_t             ctx         = 0;
-        afr_fd_ctx_t        *fd_ctx      = NULL;
-        int                  call_count  = 0;
-        int                  child_index = (long) cookie;
-
-        priv     = this->private;
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret >= 0) {
-                        ret = fd_ctx_get (fd, this, &ctx);
-
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to get fd context %p (%s)",
-                                        fd, local->loc.path);
-                                goto out;
-                        }
-
-                        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
-                        fd_ctx->opened_on[child_index] = 1;
-
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "fd for %s opened successfully on subvolume %s",
-                                local->loc.path, priv->children[child_index]->name);
+                ALLOC_OR_GOTO (open_local, afr_local_t, out);
+                ret = AFR_LOCAL_INIT (open_local, priv);
+                if (ret < 0) {
+                        op_errno = -ret;
+                        goto out;
                 }
-        }
-out:
-        UNLOCK (&frame->lock);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0) {
-                afr_openfd_xaction (frame, this, local->fd);
+                loc_copy (&open_local->loc, &local->loc);
+                open_local->fd = fd_ref (local->fd);
+        } else {
+                ret = 0;
+                open_frame = frame;
+                open_local = local;
         }
 
-        return 0;
-}
+        open_local->call_count = need_open_count;
 
-
-int
-afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
-{
-        afr_local_t   *local      = NULL;
-        afr_private_t *priv       = NULL;
-        uint64_t       ctx        = 0;
-        afr_fd_ctx_t  *fd_ctx     = NULL;
-        int            no_open    = 0;
-        int            ret        = 0;
-        int            i          = 0;
-        int            call_count = 0;
-
-        priv  = this->private;
-        local = frame->local;
-
-        /*
-         * If the file is already deleted while the fd is open, no need to
-         * perform the openfd flush, call the flush_cbk and get out.
-         */
-        ret = afr_prepare_loc (frame, fd);
-        if (ret < 0) {
-                local->openfd_flush_cbk (frame, this);
-                goto out;
-        }
-
-        /*
-         * Some subvolumes might have come up on which we never
-         * opened this fd in the first place. Re-open fd's on those
-         * subvolumes now.
-         */
-
-        local->fd = fd_ref (fd);
-
-        ret = fd_ctx_get (fd, this, &ctx);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to get fd context %p (%s)",
-                        fd, local->loc.path);
-                no_open = 1;
-                goto out;
-        }
-
-        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
-        LOCK (&local->fd->lock);
-        {
-                call_count = __unopened_count (priv->child_count,
-                                               fd_ctx->opened_on,
-                                               local->child_up);
-        }
-        UNLOCK (&local->fd->lock);
-
-        if (call_count == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "fd not open on any subvolume %p (%s)",
-                        fd, local->loc.path);
-                no_open = 1;
-                goto out;
-        }
-
-        local->call_count = call_count;
+        gf_log (this->name, GF_LOG_DEBUG, "need open count: %d",
+                need_open_count);
 
         for (i = 0; i < priv->child_count; i++) {
-                if (!fd_ctx->opened_on[i] && local->child_up[i]) {
-                        gf_log (this->name, GF_LOG_TRACE,
+                if (need_open[i]) {
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "opening fd for %s on subvolume %s",
                                 local->loc.path, priv->children[i]->name);
 
-                        STACK_WIND_COOKIE (frame, afr_openfd_xaction_open_cbk,
+                        STACK_WIND_COOKIE (open_frame, afr_openfd_fix_open_cbk,
                                            (void *)(long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->open,
-                                           &local->loc, fd_ctx->flags, fd,
-                                           fd_ctx->wbflags);
+                                           &open_local->loc, fd_ctx->flags,
+                                           open_local->fd, fd_ctx->wbflags);
 
-                        if (!--call_count)
-                                break;
                 }
         }
-
 out:
-        if (no_open)
-                afr_openfd_xaction (frame, this, fd);
-
-        return 0;
+        if (ret && open_frame)
+                AFR_STACK_DESTROY (open_frame);
+        return ret;
 }

@@ -57,6 +57,29 @@ afr_sh_select_source (int sources[], int child_count)
         return -1;
 }
 
+void
+afr_sh_mark_source_sinks (call_frame_t *frame, xlator_t *this)
+{
+        int              i = 0;
+        afr_local_t     *local      = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_private_t   *priv = NULL;
+        int              active_sinks = 0;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->sources[i] == 0 && local->child_up[i] == 1) {
+                        active_sinks++;
+                        sh->success[i] = 1;
+                } else if (sh->sources[i] == 1 && local->child_up[i] == 1) {
+                        sh->success[i] = 1;
+                }
+        }
+        sh->active_sinks = active_sinks;
+}
 
 /**
  * sink_count - return number of sinks in sources array
@@ -112,7 +135,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
                         ptr += sprintf (ptr, "%d ", pending_matrix[i][j]);
                 }
                 sprintf (ptr, "]");
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "pending_matrix: %s", buf);
         }
 
@@ -718,7 +741,7 @@ out:
 
 void
 afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
-                         int32_t *delta_matrix[], int success[],
+                         int32_t *delta_matrix[], unsigned char success[],
                          int child_count, afr_transaction_type type)
 {
         /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
@@ -970,12 +993,13 @@ afr_sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-static void
+void
 afr_sh_common_lookup_resp_handler (call_frame_t *frame, void *cookie,
                                    xlator_t *this,
                                    int32_t op_ret, int32_t op_errno,
                                    inode_t *inode, struct iatt *buf,
-                                   dict_t *xattr, struct iatt *postparent)
+                                   dict_t *xattr, struct iatt *postparent,
+                                   loc_t *loc)
 {
         int              child_index = 0;
         afr_local_t     *local = NULL;
@@ -991,15 +1015,13 @@ afr_sh_common_lookup_resp_handler (call_frame_t *frame, void *cookie,
         {
                 if (op_ret == 0) {
                         sh->buf[child_index] = *buf;
-                        sh->parentbuf        = *postparent;
                         sh->parentbufs[child_index] = *postparent;
                         sh->success_children[sh->success_count] = child_index;
                         sh->success_count++;
                         sh->xattr[child_index] = dict_ref (xattr);
                 } else {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "path %s on subvolume %s => -1 (%s)",
-                                local->loc.path,
+                        gf_log (this->name, GF_LOG_ERROR, "path %s on subvolume"
+                                " %s => -1 (%s)", loc->path,
                                 priv->children[child_index]->name,
                                 strerror (op_errno));
                         local->self_heal.child_errno[child_index] = op_errno;
@@ -1201,6 +1223,7 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this)
 
         if (sh->gfid_sh_success_cbk)
                 sh->gfid_sh_success_cbk (frame, this);
+        sh->type = sh->buf[sh->source].ia_type;
         sh_missing_entries_create (frame, this);
         return;
 out:
@@ -1227,7 +1250,7 @@ afr_sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 
         afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
                                            op_errno, inode, buf, xattr,
-                                           postparent);
+                                           postparent, &local->loc);
         call_count = afr_frame_return (frame);
 
         if (call_count == 0)
@@ -1417,6 +1440,8 @@ afr_sh_purge_entry_common (call_frame_t *frame, xlator_t *this,
         for (i = 0; i < priv->child_count; i++) {
                 if (!purge_condition (local, priv, i))
                         continue;
+                gf_log (this->name, GF_LOG_INFO, "purging the stale entry %s "
+                        "on %d", local->loc.path, i);
                 afr_sh_call_entry_expunge_remove (frame, this,
                                                   (long) i, &sh->buf[i],
                                                   afr_sh_remove_entry_cbk);
@@ -1536,6 +1561,8 @@ afr_sh_children_lookup_done (call_frame_t *frame, xlator_t *this)
                                                sh->child_errno,
                                                priv->child_count, ENOENT);
         if (fresh_child_enoents == fresh_parent_count) {
+                gf_log (this->name, GF_LOG_INFO, "Deleting stale file %s",
+                        local->loc.path);
                 afr_sh_set_error (sh, ENOENT);
                 sh->op_failed = 1;
                 afr_sh_purge_entry (frame, this);
@@ -1570,10 +1597,13 @@ afr_sh_children_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             struct iatt *postparent)
 {
         int              call_count = 0;
+        afr_local_t     *local = NULL;
+
+        local = frame->local;
 
         afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
                                            op_errno, inode, buf, xattr,
-                                           postparent);
+                                           postparent, &local->loc);
         call_count = afr_frame_return (frame);
 
         if (call_count == 0)
@@ -1669,10 +1699,15 @@ afr_sh_conflicting_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                                      dict_t *xattr, struct iatt *postparent)
 {
         int              call_count = 0;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+
+        local = frame->local;
+        sh = &local->self_heal;
 
         afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
                                            op_errno, inode, buf, xattr,
-                                           postparent);
+                                           postparent, &sh->parent_loc);
         call_count = afr_frame_return (frame);
 
         if (call_count == 0)
@@ -1716,8 +1751,7 @@ afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         priv  = this->private;
         sh    = &local->self_heal;
 
-        call_count = afr_up_children_count (priv->child_count,
-                                            local->child_up);
+        call_count = afr_up_children_count (local->child_up, priv->child_count);
 
         local->call_count = call_count;
 
@@ -1728,7 +1762,7 @@ afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 if (set_gfid) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "looking up %s with gfid: %s",
-                                local->loc.path, uuid_utoa (sh->sh_gfid_req));
+                                loc->path, uuid_utoa (sh->sh_gfid_req));
                         GF_ASSERT (!uuid_is_null (sh->sh_gfid_req));
                         afr_set_dict_gfid (xattr_req, sh->sh_gfid_req);
                 }
@@ -1739,7 +1773,7 @@ afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 if (local->child_up[i]) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "looking up %s on subvolume %s",
-                                local->loc.path, priv->children[i]->name);
+                                loc->path, priv->children[i]->name);
 
                         STACK_WIND_COOKIE (frame,
                                            lookup_cbk,
@@ -1906,12 +1940,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         shc->need_metadata_self_heal = sh->need_metadata_self_heal;
         shc->need_entry_self_heal = sh->need_entry_self_heal;
         shc->forced_merge = sh->forced_merge;
-        shc->healing_fd_opened = sh->healing_fd_opened;
         shc->data_lock_held = sh->data_lock_held;
-        if (sh->healing_fd && !sh->healing_fd_opened)
-                shc->healing_fd = fd_ref (sh->healing_fd);
-        else
-                shc->healing_fd = sh->healing_fd;
         shc->background = sh->background;
         shc->type = sh->type;
 
@@ -1919,7 +1948,8 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         if (l->loc.path)
                 loc_copy (&lc->loc, &l->loc);
 
-        lc->child_up  = memdup (l->child_up, priv->child_count);
+        lc->child_up  = memdup (l->child_up,
+                                sizeof (*lc->child_up) * priv->child_count);
         if (l->xattr_req)
                 lc->xattr_req = dict_ref (l->xattr_req);
 
@@ -1930,7 +1960,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         if (l->internal_lock.inode_locked_nodes)
                 lc->internal_lock.inode_locked_nodes =
                         memdup (l->internal_lock.inode_locked_nodes,
-                                priv->child_count);
+                                sizeof (*lc->internal_lock.inode_locked_nodes) * priv->child_count);
         else
                 lc->internal_lock.inode_locked_nodes =
                         GF_CALLOC (sizeof (*l->internal_lock.inode_locked_nodes),
@@ -1939,7 +1969,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         if (l->internal_lock.entry_locked_nodes)
                 lc->internal_lock.entry_locked_nodes =
                         memdup (l->internal_lock.entry_locked_nodes,
-                                priv->child_count);
+                                sizeof (*lc->internal_lock.entry_locked_nodes) * priv->child_count);
         else
                 lc->internal_lock.entry_locked_nodes =
                         GF_CALLOC (sizeof (*l->internal_lock.entry_locked_nodes),
@@ -1948,7 +1978,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         if (l->internal_lock.locked_nodes)
                 lc->internal_lock.locked_nodes =
                         memdup (l->internal_lock.locked_nodes,
-                                priv->child_count);
+                                sizeof (*lc->internal_lock.locked_nodes) * priv->child_count);
         else
                 lc->internal_lock.locked_nodes =
                         GF_CALLOC (sizeof (*l->internal_lock.locked_nodes),
@@ -1994,7 +2024,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
 
-        if (!sh->unwound) {
+        if (!sh->unwound && sh->unwind) {
                 sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno);
         }
 
@@ -2068,8 +2098,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
                                     gf_afr_mt_iatt);
         sh->child_errno = GF_CALLOC (priv->child_count, sizeof (int),
                                      gf_afr_mt_int);
-        sh->success = GF_CALLOC (priv->child_count, sizeof (int),
-                                 gf_afr_mt_int);
+        sh->success = GF_CALLOC (priv->child_count, sizeof (*sh->success),
+                                 gf_afr_mt_char);
         sh->xattr = GF_CALLOC (priv->child_count, sizeof (dict_t *),
                                gf_afr_mt_dict_t);
         sh->sources = GF_CALLOC (sizeof (*sh->sources), priv->child_count,

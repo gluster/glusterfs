@@ -44,9 +44,6 @@
 #include "compat-errno.h"
 #include "compat.h"
 
-#include "afr.h"
-
-
 /**
  * Common algorithm for inode read calls:
  *
@@ -399,6 +396,12 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
         local->cont.fstat.ino = fd->inode->ino;
         local->fd = fd_ref (fd);
 
+        op_ret = afr_open_fd_fix (frame, this, _gf_false);
+        if (op_ret) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
+        }
         STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) call_child,
                            children[call_child],
                            children[call_child]->fops->fstat,
@@ -1036,6 +1039,12 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         local->cont.readv.size       = size;
         local->cont.readv.offset     = offset;
 
+        op_ret = afr_open_fd_fix (frame, this, _gf_false);
+        if (op_ret) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
+        }
         STACK_WIND_COOKIE (frame, afr_readv_cbk,
                            (void *) (long) call_child,
                            children[call_child],

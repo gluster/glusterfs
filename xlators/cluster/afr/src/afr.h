@@ -29,6 +29,7 @@
 #include "call-stub.h"
 #include "compat-errno.h"
 #include "afr-mem-types.h"
+#include "afr-self-heal-algorithm.h"
 
 #include "libxlator.h"
 
@@ -147,17 +148,8 @@ typedef struct {
         gf_boolean_t forced_merge;        /* Is this a self-heal triggered to
                                              forcibly merge the directories? */
 
-        gf_boolean_t healing_fd_opened;   /* true if caller has already
-                                             opened fd */
-
-        gf_boolean_t data_lock_held;      /* true if caller has already
-                                             acquired 0-0 lock */
-
-        fd_t *healing_fd;                 /* set if callers has opened fd */
-
         gf_boolean_t background;          /* do self-heal in background
                                              if possible */
-
         ia_type_t type;                   /* st_mode of the entry we're doing
                                              self-heal on */
         inode_t   *inode;                 /* inode on which the self-heal is
@@ -208,7 +200,7 @@ typedef struct {
         int source;
         int active_source;
         int active_sinks;
-        int *success;
+        unsigned char *success;
         unsigned char *locked_nodes;
         int lock_count;
 
@@ -217,24 +209,31 @@ typedef struct {
 
         int   op_failed;
 
+        gf_boolean_t data_lock_held;
+        gf_boolean_t eof_reached;
+        fd_t  *healing_fd;
         int   file_has_holes;
         blksize_t block_size;
         off_t file_size;
         off_t offset;
+        unsigned char *write_needed;
+        uint8_t *checksum;
         afr_post_remove_call_t post_remove_call;
 
         loc_t parent_loc;
 
         call_frame_t *orig_frame;
+        call_frame_t *old_loop_frame;
         gf_boolean_t unwound;
 
-        /* private data for the particular self-heal algorithm */
-        void *private;
+        afr_sh_algo_private_t *private;
 
-        int (*flush_self_heal_cbk) (call_frame_t *frame, xlator_t *this);
-
+        afr_lock_cbk_t data_lock_success_handler;
+        afr_lock_cbk_t data_lock_failure_handler;
         int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
+        int (*sh_data_algo_start) (call_frame_t *frame, xlator_t *this);
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
+        afr_lock_cbk_t loop_completion_cbk;
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
         void (*gfid_sh_success_cbk) (call_frame_t *sh_frame, xlator_t *this);
 
@@ -327,12 +326,11 @@ typedef struct {
 
         uint64_t lock_number;
         int32_t lk_call_count;
+        int32_t lk_expected_count;
 
         int32_t lock_op_ret;
         int32_t lock_op_errno;
-
-        int (*lock_cbk) (call_frame_t *, xlator_t *);
-
+        afr_lock_cbk_t lock_cbk;
 } afr_internal_lock_t;
 
 typedef struct _afr_locked_fd {
@@ -365,6 +363,7 @@ typedef struct _afr_local {
         loc_t newloc;
 
         fd_t *fd;
+        int32_t *fd_open_on;
 
         glusterfs_fop_t fop;
 
@@ -387,7 +386,7 @@ typedef struct _afr_local {
         dict_t  *dict;
         int      optimistic_change_log;
 
-        int (*openfd_flush_cbk) (call_frame_t *frame, xlator_t *this);
+        int (*fop_call_continue) (call_frame_t *frame, xlator_t *this);
 
         /*
           This struct contains the arguments for the "continuation"
@@ -685,10 +684,20 @@ typedef struct _afr_local {
         struct marker_str     marker;
 } afr_local_t;
 
+typedef enum {
+        AFR_FD_NOT_OPENED,
+        AFR_FD_OPENED,
+        AFR_FD_OPENING
+} afr_fd_open_status_t;
+
+typedef struct {
+        struct list_head call_list;
+        call_frame_t    *frame;
+} afr_fd_paused_call_t;
 
 typedef struct {
         unsigned int *pre_op_done;
-        unsigned int *opened_on;     /* which subvolumes the fd is open on */
+        afr_fd_open_status_t *opened_on; /* which subvolumes the fd is open on */
         unsigned int *pre_op_piggyback;
 
         int flags;
@@ -703,6 +712,7 @@ typedef struct {
         struct list_head entries; /* needed for readdir failover */
 
         unsigned char *locked_on; /* which subvolumes locks have been successful */
+	struct list_head  paused_calls; /* queued calls while fix_open happens  */
 } afr_fd_ctx_t;
 
 
@@ -790,8 +800,11 @@ afr_inode_set_read_ctx (xlator_t *this, inode_t *inode, int32_t read_child,
 void
 afr_build_parent_loc (loc_t *parent, loc_t *child);
 
-int
-afr_up_children_count (int child_count, unsigned char *child_up);
+unsigned int
+afr_up_children_count (unsigned char *child_up, unsigned int child_count);
+
+unsigned int
+afr_locked_children_count (unsigned char *children, unsigned int child_count);
 
 gf_boolean_t
 afr_is_fresh_lookup (loc_t *loc, xlator_t *this);
@@ -831,7 +844,7 @@ int
 afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
 
 int
-afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd);
+afr_launch_openfd_self_heal (call_frame_t *frame, xlator_t *this, fd_t *fd);
 
 #define AFR_STACK_UNWIND(fop, frame, params ...)                \
         do {                                                    \
@@ -872,7 +885,7 @@ AFR_BASENAME (const char *str)
 }
 
 int
-afr_transaction_local_init (afr_local_t *local, afr_private_t *priv);
+afr_transaction_local_init (afr_local_t *local, xlator_t *this);
 
 int32_t
 afr_marker_getxattr (call_frame_t *frame, xlator_t *this,
@@ -957,4 +970,18 @@ afr_resultant_errno_get (int32_t *children,
 void
 afr_inode_rm_stale_children (xlator_t *this, inode_t *inode, int32_t read_child,
                              int32_t *stale_children);
+void
+afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                      gf_boolean_t is_background, ia_type_t ia_type,
+                      void (*gfid_sh_success_cbk) (call_frame_t *sh_frame,
+                                                   xlator_t *this),
+                      int (*unwind) (call_frame_t *frame, xlator_t *this,
+                                     int32_t op_ret, int32_t op_errno));
+int
+afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
+              int need_open_count, int *need_open);
+int
+afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop);
+int
+afr_set_elem_count_get (unsigned char *elems, int child_count);
 #endif /* __AFR_H__ */

@@ -1654,7 +1654,7 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
 
-	call_count = afr_up_children_count (priv->child_count, local->child_up);
+	call_count = afr_up_children_count (local->child_up, priv->child_count);
 
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);

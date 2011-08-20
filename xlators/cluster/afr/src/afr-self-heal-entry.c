@@ -60,17 +60,9 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        /*
-          TODO: cleanup sh->*
-        */
-
         if (sh->healing_fd)
                 fd_unref (sh->healing_fd);
         sh->healing_fd = NULL;
-
-        /* for (i = 0; i < priv->child_count; i++) { */
-        /*        sh->locked_nodes[i] = 0; */
-        /* } */
 
         sh->completion_cbk (frame, this);
 
@@ -2192,9 +2184,7 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
-        int              active_sinks = 0;
         int              source = 0;
-        int              i = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -2202,37 +2192,31 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
 
         source = sh->source;
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->sources[i] == 0 && local->child_up[i] == 1) {
-                        active_sinks++;
-                        sh->success[i] = 1;
-                }
-        }
+        afr_sh_mark_source_sinks (frame, this);
         if (source != -1)
                 sh->success[source] = 1;
 
-        if (active_sinks == 0) {
+        if (sh->active_sinks == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "no active sinks for self-heal on dir %s",
                         local->loc.path);
                 afr_sh_entry_finish (frame, this);
                 return 0;
         }
-        if (source == -1 && active_sinks < 2) {
+        if (source == -1 && sh->active_sinks < 2) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "cannot sync with 0 sources and 1 sink on dir %s",
                         local->loc.path);
                 afr_sh_entry_finish (frame, this);
                 return 0;
         }
-        sh->active_sinks = active_sinks;
 
         if (source != -1)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "self-healing directory %s from subvolume %s to "
                         "%d other",
                         local->loc.path, priv->children[source]->name,
-                        active_sinks);
+                        sh->active_sinks);
         else
                 gf_log (this->name, GF_LOG_DEBUG,
                         "no active sources for %s found. "
@@ -2302,25 +2286,13 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                          inode_t *inode, struct iatt *buf, dict_t *xattr,
                          struct iatt *postparent)
 {
+        int             call_count  = 0;
         afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-
-        int call_count  = -1;
-        int child_index = (long) cookie;
 
         local = frame->local;
-        sh = &local->self_heal;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret != -1) {
-                        sh->xattr[child_index] = dict_ref (xattr);
-                        sh->buf[child_index] = *buf;
-                        sh->success_children[sh->success_count] = child_index;
-                        sh->success_count++;
-                }
-        }
-        UNLOCK (&frame->lock);
+        afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
+                                           op_errno, inode, buf, xattr,
+                                           postparent, &local->loc);
 
         call_count = afr_frame_return (frame);
 

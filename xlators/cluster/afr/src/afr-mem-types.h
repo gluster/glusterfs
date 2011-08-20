@@ -43,6 +43,7 @@ enum gf_afr_mem_types_ {
         gf_afr_mt_pump_priv,
         gf_afr_mt_locked_fd,
         gf_afr_mt_inode_ctx_t,
+        gf_afr_fd_paused_call_t,
         gf_afr_mt_end
 };
 #endif
