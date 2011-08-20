@@ -2087,7 +2087,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!rpc-auth.addr.%s.reject")) {
+        if (! strcmp (vme->option, "!rpc-auth.addr.*.reject")) {
                 ret = gf_asprintf (&aa, "rpc-auth.addr.%s.reject",
                                         volinfo->volname);
 
@@ -2125,7 +2125,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-        if (! strcmp (vme->option, "!nfs3.%s.trusted-sync")) {
+        if (! strcmp (vme->option, "!nfs3.*.trusted-sync")) {
                 ret = gf_asprintf (&aa, "nfs3.%s.trusted-sync",
                                         volinfo->volname);
 
@@ -2206,6 +2206,13 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
+        if ( (strcmp (vme->voltype, "nfs/server") == 0) &&
+             (vme->option && vme->option[0]!='!') ) {
+               ret = xlator_set_option (xl, vme->option, vme->value);
+                if (ret)
+                        return -1;
+        }
+
 
         /*key = strchr (vme->key, '.') + 1;
 
@@ -2221,18 +2228,6 @@ nfs_option_handler (volgen_graph_t *graph,
         }*/
 
         return 0;
-}
-
-static int
-nfs_spec_option_handler (volgen_graph_t *graph,
-                            struct volopt_map_entry *vme, void *param)
-{
-        int ret = 0;
-
-        ret = nfs_option_handler (graph, vme, param);
-        if (!ret)
-                return basic_option_handler (graph, vme, NULL);
-        return ret;
 }
 
 /* builds a graph for nfs server role, with option overrides in mod_dict */
@@ -2323,10 +2318,10 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (mod_dict) {
                         dict_copy (mod_dict, set_dict);
                         ret = volgen_graph_set_options_generic (&cgraph, set_dict, voliter,
-                                                                nfs_spec_option_handler);
+                                                                basic_option_handler);
                 } else {
                         ret = volgen_graph_set_options_generic (&cgraph, voliter->dict, voliter,
-                                                                nfs_spec_option_handler);
+                                                                basic_option_handler);
                 }
 
                 ret = volgen_graph_merge_sub (graph, &cgraph);
@@ -2334,7 +2329,24 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                         goto out;
         }
 
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+
+                if (mod_dict) {
+                        dict_copy (mod_dict, set_dict);
+                        ret = volgen_graph_set_options_generic (graph, set_dict, voliter,
+                                                                nfs_option_handler);
+                } else {
+                        ret = volgen_graph_set_options_generic (graph, voliter->dict, voliter,
+                                                                nfs_option_handler);
+                }
+
+                if (ret)
+                        gf_log ("glusterd", GF_LOG_WARNING, "Could not set "
+                                 "vol-options for the volume %s", voliter->volname);
+        }
+
  out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         dict_destroy (set_dict);
 
         return ret;
