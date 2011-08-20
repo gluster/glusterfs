@@ -32,8 +32,12 @@ quota_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 {
         int ret = -1;
 
-        if (!loc)
-                return ret;
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", path, out);
+        /* Not checking for parent because while filling
+         * loc of root, parent will be NULL
+         */
 
         if (inode) {
                 loc->inode = inode_ref (inode);
@@ -59,7 +63,7 @@ quota_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 loc_wipe:
         if (ret < 0)
                 loc_wipe (loc);
-
+out:
         return ret;
 }
 
@@ -180,6 +184,7 @@ __add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
         uuid_copy (contribution->gfid, loc->parent->gfid);
 
 	LOCK_INIT (&contribution->lock);
+        INIT_LIST_HEAD (&contribution->contri_list);
 
         list_add_tail (&contribution->contri_list, &ctx->contribution_head);
 
@@ -363,7 +368,7 @@ quota_local_unref (xlator_t *this, quota_local_t *local)
 
         QUOTA_SAFE_DECREMENT (&local->lock, local->ref, ref);
 
-        if (ref > 0)
+        if (ref != 0)
                 goto out;
 
         if (local->fd != NULL)
