@@ -1007,8 +1007,8 @@ struct volume_options options[] = {
         },
         { .key  = {"rpc.register-with-portmap"},
           .type = GF_OPTION_TYPE_BOOL,
-          .description = "For systems that need to run multiple nfs servers, we"
-                         "need to prevent more than one from registering with "
+          .description = "For systems that need to run multiple nfs servers, "
+                         "only one registration is possible with "
                          "portmap service. Use this option to turn off portmap "
                          "registration for Gluster NFS. On by default"
         },
