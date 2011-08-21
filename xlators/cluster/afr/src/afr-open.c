@@ -331,6 +331,7 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                         goto out;
                 }
                 ALLOC_OR_GOTO (open_local, afr_local_t, out);
+                open_frame->local = open_local;
                 ret = AFR_LOCAL_INIT (open_local, priv);
                 if (ret < 0) {
                         op_errno = -ret;

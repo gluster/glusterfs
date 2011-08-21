@@ -1341,7 +1341,7 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         local->fd                 = fd_ref (fd);
 
-        op_ret = afr_open_fd_fix (frame, this, _gf_false);
+        op_ret = afr_open_fd_fix (transaction_frame, this, _gf_false);
         if (ret) {
                 op_errno = -op_ret;
                 op_ret = -1;
