@@ -2251,6 +2251,8 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         uint64_t        ctx = 0;
         afr_fd_ctx_t    *fd_ctx = NULL;
         int             ret = 0;
+        afr_fd_paused_call_t *paused_call = NULL;
+        afr_fd_paused_call_t *tmp = NULL;
 
         ret = fd_ctx_get (fd, this, &ctx);
         if (ret < 0)
@@ -2270,6 +2272,11 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
 
                 if (fd_ctx->pre_op_piggyback)
                         GF_FREE (fd_ctx->pre_op_piggyback);
+                list_for_each_entry_safe (paused_call, tmp, &fd_ctx->paused_calls,
+                                          call_list) {
+                        list_del_init (&paused_call->call_list);
+                        GF_FREE (paused_call);
+                }
 
                 GF_FREE (fd_ctx);
         }
