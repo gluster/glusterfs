@@ -1853,11 +1853,12 @@ out:
 int32_t
 glusterd_store_retrieve_volumes (xlator_t  *this)
 {
-        int32_t         ret = 0;
-        char            path[PATH_MAX] = {0,};
-        glusterd_conf_t *priv = NULL;
-        DIR             *dir = NULL;
-        struct dirent   *entry = NULL;
+        int32_t                ret              = 0;
+        char                   path[PATH_MAX]   = {0,};
+        glusterd_conf_t       *priv             = NULL;
+        DIR                   *dir              = NULL;
+        struct dirent         *entry            = NULL;
+        glusterd_volinfo_t    *volinfo          = NULL;
 
         GF_ASSERT (this);
         priv = this->private;
@@ -1887,9 +1888,12 @@ glusterd_store_retrieve_volumes (xlator_t  *this)
 
                 ret = glusterd_store_retrieve_rbstate (entry->d_name);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to restore "
-                                "rbstate for volume: %s", entry->d_name);
-                        goto out;
+                        /* Backward compatibility */
+                        gf_log ("", GF_LOG_INFO, "Creating a new rbstate "
+                                "for volume: %s.", entry->d_name);
+                        ret = glusterd_volinfo_find (entry->d_name, &volinfo);
+                        ret = glusterd_store_create_rbstate_shandle_on_absence (volinfo);
+                        ret = glusterd_store_perform_rbstate_store (volinfo);
                 }
                 glusterd_for_each_entry (entry, dir);
         }
