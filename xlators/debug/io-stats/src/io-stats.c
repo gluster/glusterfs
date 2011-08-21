@@ -2398,6 +2398,8 @@ init (xlator_t *this)
         int                 i = 0;
         char               *sys_log_str = NULL;
         int                 sys_log_level = -1;
+        char               *log_str = NULL;
+        int                 log_level = -1;
         int                 ret = -1;
 
         if (!this)
@@ -2473,6 +2475,12 @@ init (xlator_t *this)
         if (sys_log_str) {
                 sys_log_level = glusterd_check_log_level (sys_log_str);
                 set_sys_log_level (sys_log_level);
+        }
+
+        GF_OPTION_INIT ("log-level", log_str, str, out);
+        if (log_str) {
+                log_level = glusterd_check_log_level (log_str);
+                gf_log_set_loglevel (log_level);
         }
 
         this->private = conf;
