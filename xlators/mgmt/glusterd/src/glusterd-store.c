@@ -1136,13 +1136,16 @@ out:
 }
 
 int
-glusterd_store_handle_retrieve (char *path, glusterd_store_handle_t **handle)
+glusterd_store_handle_retrieve (char *path, glusterd_store_handle_t **handle,
+                                int *op_errno)
 {
         int32_t                 ret = -1;
         struct stat statbuf = {0};
 
         ret = stat (path, &statbuf);
         if (ret) {
+                if (op_errno)
+                        *op_errno = errno;
                 gf_log ("glusterd", GF_LOG_ERROR, "Unable to retrieve store "
                         "handle for %s, error: %s", path, strerror (errno));
                 goto out;
@@ -1241,7 +1244,7 @@ glusterd_retrieve_uuid ()
         if (!priv->handle) {
                 snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
                           GLUSTERD_INFO_FILE);
-                ret = glusterd_store_handle_retrieve (path, &handle);
+                ret = glusterd_store_handle_retrieve (path, &handle, NULL);
 
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to get store "
@@ -1547,7 +1550,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 
                 tmpvalue = NULL;
 
-                ret = glusterd_store_handle_retrieve (path, &brickinfo->shandle);
+                ret = glusterd_store_handle_retrieve (path, &brickinfo->shandle, NULL);
 
                 if (ret)
                         goto out;
@@ -1625,7 +1628,7 @@ out:
 
 
 int32_t
-glusterd_store_retrieve_rbstate (char   *volname)
+glusterd_store_retrieve_rbstate (char   *volname, int *rb_errno)
 {
         int32_t                   ret                   = -1;
         glusterd_volinfo_t        *volinfo              = NULL;
@@ -1650,7 +1653,7 @@ glusterd_store_retrieve_rbstate (char   *volname)
         snprintf (path, sizeof (path), "%s/%s", volpath,
                   GLUSTERD_VOLUME_RBSTATE_FILE);
 
-        ret = glusterd_store_handle_retrieve (path, &volinfo->rb_shandle);
+        ret = glusterd_store_handle_retrieve (path, &volinfo->rb_shandle, rb_errno);
 
         if (ret)
                 goto out;
@@ -1736,7 +1739,7 @@ glusterd_store_retrieve_volume (char    *volname)
         snprintf (path, sizeof (path), "%s/%s", volpath,
                   GLUSTERD_VOLUME_INFO_FILE);
 
-        ret = glusterd_store_handle_retrieve (path, &volinfo->shandle);
+        ret = glusterd_store_handle_retrieve (path, &volinfo->shandle, NULL);
 
         if (ret)
                 goto out;
@@ -1859,6 +1862,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this)
         DIR                   *dir              = NULL;
         struct dirent         *entry            = NULL;
         glusterd_volinfo_t    *volinfo          = NULL;
+        int                    rb_errno         = 0;
 
         GF_ASSERT (this);
         priv = this->private;
@@ -1886,14 +1890,20 @@ glusterd_store_retrieve_volumes (xlator_t  *this)
                         goto out;
                 }
 
-                ret = glusterd_store_retrieve_rbstate (entry->d_name);
+                ret = glusterd_store_retrieve_rbstate (entry->d_name,
+                                                       &rb_errno);
                 if (ret) {
                         /* Backward compatibility */
-                        gf_log ("", GF_LOG_INFO, "Creating a new rbstate "
-                                "for volume: %s.", entry->d_name);
-                        ret = glusterd_volinfo_find (entry->d_name, &volinfo);
-                        ret = glusterd_store_create_rbstate_shandle_on_absence (volinfo);
-                        ret = glusterd_store_perform_rbstate_store (volinfo);
+                        if (rb_errno == ENOENT) {
+                                gf_log ("", GF_LOG_INFO, "Creating a new rbstate "
+                                        "for volume: %s.", entry->d_name);
+                                ret = glusterd_volinfo_find (entry->d_name, &volinfo);
+                                ret = glusterd_store_create_rbstate_shandle_on_absence (volinfo);
+                                ret = glusterd_store_perform_rbstate_store (volinfo);
+                        } else {
+                                gf_log ("", GF_LOG_CRITICAL, "Unable to retrieve rbstate.");
+                                goto out;
+                        }
                 }
                 glusterd_for_each_entry (entry, dir);
         }
@@ -2189,7 +2199,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
         while (entry) {
                 snprintf (filepath, PATH_MAX, "%s/%s", path, entry->d_name);
-                ret = glusterd_store_handle_retrieve (filepath, &shandle);
+                ret = glusterd_store_handle_retrieve (filepath, &shandle, NULL);
                 if (ret)
                         goto out;
 
