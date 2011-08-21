@@ -1158,8 +1158,10 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 GF_ASSERT (value);
                 gf_log (this->name, GF_LOG_INFO, "client rpc init command");
                 ret = client_set_remote_options (value, this);
-                if (ret)
+                if (ret) {
+                        (void) client_destroy_rpc (this);
                         ret = client_init_rpc (this);
+                }
 
                 if (!ret) {
                         op_ret      = 0;
@@ -1969,11 +1971,9 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
 
         GF_OPTION_INIT ("remote-subvolume", conf->opt.remote_subvolume,
                         path, out);
-        if (!conf->opt.remote_subvolume) {
-                gf_log (this->name, GF_LOG_ERROR,
+        if (!conf->opt.remote_subvolume)
+                gf_log (this->name, GF_LOG_WARNING,
                         "option 'remote-subvolume' not given");
-                goto out;
-        }
 
         ret = 0;
 out:
