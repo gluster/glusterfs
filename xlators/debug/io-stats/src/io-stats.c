@@ -2335,6 +2335,8 @@ reconfigure (xlator_t *this, dict_t *options)
         int                 ret = -1;
         char               *sys_log_str = NULL;
         int                 sys_log_level = -1;
+        char               *log_str = NULL;
+        int                 log_level = -1;
 
         if (!this || !this->private)
                 goto out;
@@ -2354,6 +2356,12 @@ reconfigure (xlator_t *this, dict_t *options)
         if (sys_log_str) {
                 sys_log_level = glusterd_check_log_level (sys_log_str);
                 set_sys_log_level (sys_log_level);
+        }
+
+        GF_OPTION_RECONF ("log-level", log_str, options, str, out);
+        if (log_str) {
+                log_level = glusterd_check_log_level (log_str);
+                gf_log_set_loglevel (log_level);
         }
 
         ret = 0;
