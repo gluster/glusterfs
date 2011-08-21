@@ -407,6 +407,7 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
                         ret = afr_pause_fd_fop (frame, this, fd_ctx);
                         if (ret)
                                 goto unlock;
+                        fop_continue = _gf_false;
                 }
         }
 unlock:
