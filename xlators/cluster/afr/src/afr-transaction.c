@@ -440,7 +440,7 @@ afr_transaction_rm_stale_children (call_frame_t *frame, xlator_t *this,
                 if (!afr_is_child_present (fresh_children,
                                            priv->child_count, i))
                         continue;
-                if ((!priv->child_up[i]) || (pending[i][idx] == 0)) {
+                if (pending[i][idx] == 0) {
                         /* child is down or op failed on it */
                         rm_stale_children = _gf_true;
                         afr_children_rm_child (fresh_children, i,
