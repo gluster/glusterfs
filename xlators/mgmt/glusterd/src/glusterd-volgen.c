@@ -1748,7 +1748,7 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
 
         char                    *xlator_type = NULL;
         void                    *dl_handle = NULL;
-        volume_opt_list_t          vol_opt_handle;
+        volume_opt_list_t          vol_opt_handle = {{0},};
         char                    *key = NULL;
         struct volopt_map_entry *vme = NULL;
         int                      ret = -1;
@@ -1776,6 +1776,8 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                 ret = 0;
                 goto out;
         }
+
+        INIT_LIST_HEAD (&vol_opt_handle.list);
 
         for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
 
