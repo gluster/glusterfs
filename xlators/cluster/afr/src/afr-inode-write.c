@@ -355,7 +355,6 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
         afr_local_t             *local = NULL;
         afr_private_t           *priv = NULL;
         gf_boolean_t            fop_continue = _gf_true;
-        gf_boolean_t            queue_fop = _gf_false;
 
         local = frame->local;
         priv  = this->private;
@@ -384,6 +383,7 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
                         fd_ctx->up_count   = priv->up_count;
                         fd_ctx->down_count = priv->down_count;
                 }
+
                 for (i = 0; i < priv->child_count; i++) {
                         if ((fd_ctx->opened_on[i] == AFR_FD_NOT_OPENED) &&
                             local->child_up[i]) {
@@ -396,11 +396,11 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
                                 need_open_count++;
                         } else if (pause_fop && local->child_up[i] &&
                                    (fd_ctx->opened_on[i] == AFR_FD_OPENING)) {
-                                queue_fop = _gf_true;
+                                local->fop_paused = _gf_true;
                         }
                 }
 
-                if (queue_fop) {
+                if (local->fop_paused) {
                         GF_ASSERT (pause_fop);
                         gf_log (this->name, GF_LOG_INFO, "Pause fd %p",
                                 local->fd);

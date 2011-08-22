@@ -263,6 +263,7 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                    call_count  = 0;
         int                    child_index = (long) cookie;
         struct list_head       paused_calls = {0};
+        gf_boolean_t           fop_paused = _gf_false;
 
         priv     = this->private;
         local    = frame->local;
@@ -277,6 +278,7 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        fop_paused = local->fop_paused;
         LOCK (&local->fd->lock);
         {
                 if (op_ret >= 0) {
@@ -297,12 +299,17 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         if (call_count == 0) {
                 afr_resume_calls (this, &paused_calls);
+                //If the fop is paused then resume_calls will continue the fop
+                if (fop_paused)
+                        goto done;
+
                 if (local->fop_call_continue)
                         local->fop_call_continue (frame, this);
                 else
                         AFR_STACK_DESTROY (frame);
         }
 
+done:
         return 0;
 }
 
