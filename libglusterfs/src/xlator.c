@@ -156,7 +156,6 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
         }
         *dl_handle = handle;
 
-        INIT_LIST_HEAD (&opt_list->list);
 
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                          gf_common_mt_volume_opt_list_t);
