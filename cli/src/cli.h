@@ -105,6 +105,7 @@ struct cli_state {
         char                 *remote_host;
         int                   remote_port;
         int                   mode;
+        int                   await_connected;
 };
 
 struct cli_local {

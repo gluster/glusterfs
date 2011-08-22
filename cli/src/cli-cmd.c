@@ -132,7 +132,9 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
 	if ( strcmp (word->word,"help")==0 )
 		goto callback;
 
-        ret = cli_cmd_await_connected (cli_cmd_needs_connection (word));
+        state->await_connected = cli_cmd_needs_connection (word);
+
+        ret = cli_cmd_await_connected (state->await_connected);
         if (ret) {
                 cli_out ("Connection failed. Please check if gluster "
                           "daemon is operational.");

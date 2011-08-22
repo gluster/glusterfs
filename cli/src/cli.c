@@ -352,6 +352,12 @@ cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         {
                 gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
                 connected = 0;
+                if (!global_state->prompt && global_state->await_connected) {
+                        ret = 1;
+                        cli_out ("Connection failed. Please check if gluster "
+                                  "daemon is operational.");
+                        exit (ret);
+                }
                 break;
         }
 
