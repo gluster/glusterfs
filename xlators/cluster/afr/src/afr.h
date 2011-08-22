@@ -386,6 +386,7 @@ typedef struct _afr_local {
         dict_t  *dict;
         int      optimistic_change_log;
 
+        gf_boolean_t    fop_paused;
         int (*fop_call_continue) (call_frame_t *frame, xlator_t *this);
 
         /*
