@@ -119,36 +119,23 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
         afr_self_heal_t *sh         = NULL;
         int              i          = 0;
         int              call_count = 0;
-        int              source     = 0;
 
         local = frame->local;
         sh    = &local->self_heal;
         priv  = this->private;
 
-        source = sh->source;
-
-        call_count        = (sh->active_sinks + 1);
+        call_count        = afr_set_elem_count_get (sh->success,
+                                                    priv->child_count);
         local->call_count = call_count;
 
-        /* closed source */
-        gf_log (this->name, GF_LOG_DEBUG,
-                "closing fd of %s on %s",
-                local->loc.path, priv->children[sh->source]->name);
-
-        STACK_WIND_COOKIE (frame, afr_sh_data_flush_cbk,
-                           (void *) (long) sh->source,
-                           priv->children[sh->source],
-                           priv->children[sh->source]->fops->flush,
-                           sh->healing_fd);
-        call_count--;
-
-        if (call_count == 0)
+        if (call_count == 0) {
+                afr_sh_data_done (frame, this);
                 return 0;
+        }
 
         for (i = 0; i < priv->child_count; i++) {
-                if (sh->sources[i] || !local->child_up[i])
+                if (!sh->success[i])
                         continue;
-
                 gf_log (this->name, GF_LOG_DEBUG,
                         "closing fd of %s on %s",
                         local->loc.path, priv->children[i]->name);
