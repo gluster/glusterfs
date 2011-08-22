@@ -406,7 +406,10 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                                 l->owner);
 
                         list_add (&l->blocked_locks, &released);
-
+                        if (path) {
+                                GF_FREE (path);
+                                path = NULL;
+                        }
                 }
 
                 list_for_each_entry_safe (l, tmp, &dom->inodelk_list, list) {
@@ -429,8 +432,10 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                                 path, trans,
                                 (uint64_t) l->client_pid,
                                 l->owner);
-
-
+                        if (path) {
+                                GF_FREE (path);
+                                path = NULL;
+                        }
                 }
         }
 unlock:
