@@ -548,7 +548,7 @@ quota_readdir_cbk (call_frame_t *frame,
         call_frame_t  *newframe           = NULL;
         loc_t          loc                = {0, };
 
-        local = frame->local;
+        local = quota_local_ref (frame->local);
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -557,11 +557,11 @@ quota_readdir_cbk (call_frame_t *frame,
 
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
 
-                return 0;
+                goto end;
         } else if (op_ret == 0) {
                 get_dirty_inode_size (frame, this);
 
-                return 0;
+                goto end;
         }
 
         local->dentry_child_count =  0;
@@ -582,7 +582,8 @@ quota_readdir_cbk (call_frame_t *frame,
 
         if (count == 0) {
                 get_dirty_inode_size (frame, this);
-                return 0;
+                goto end;
+
         }
 
         local->frame = frame;
@@ -610,11 +611,22 @@ quota_readdir_cbk (call_frame_t *frame,
                 if (ret < 0)
                         goto out;
 
-                newframe = copy_frame (frame);
-                if (!newframe) {
-                        ret = -1;
-                        goto out;
+                ret = 0;
+
+                LOCK (&local->lock);
+                {
+                        if (local->err != -2) {
+                                newframe = copy_frame (frame);
+                                if (!newframe) {
+                                        ret = -1;
+                                }
+                        } else
+                                ret = -1;
                 }
+                UNLOCK (&local->lock);
+
+                if (ret == -1)
+                        goto out;
 
                 newframe->local = quota_local_ref (local);
 
@@ -642,6 +654,8 @@ quota_readdir_cbk (call_frame_t *frame,
 
                 loc_wipe (&loc);
 
+                newframe = NULL;
+
         out:
                 if (dict) {
                         dict_unref (dict);
@@ -665,6 +679,8 @@ quota_readdir_cbk (call_frame_t *frame,
         if (ret && val != -2) {
                 release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         }
+end:
+        quota_local_unref (this, local);
 
         return 0;
 }
