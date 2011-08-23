@@ -928,7 +928,7 @@ int32_t
 sp_get_ancestors (char *path, char **parent, char **grand_parent)
 {
         int32_t  ret = -1, i = 0;
-        char    *cpy = NULL;
+        char    *cpy = NULL, *tmp = NULL;
 
         if (!path || !parent || !grand_parent) {
                 ret = 0;
@@ -940,7 +940,14 @@ sp_get_ancestors (char *path, char **parent, char **grand_parent)
                         break;
                 }
 
+                tmp = cpy;
+
                 cpy = gf_strdup (path);
+
+                if (tmp != NULL) {
+                        GF_FREE (tmp);
+                }
+
                 if (cpy == NULL) {
                         ret = -errno;
                         goto out;
@@ -950,16 +957,20 @@ sp_get_ancestors (char *path, char **parent, char **grand_parent)
                 switch (i)
                 {
                 case 0:
-                        *parent = path;
+                        *parent = gf_strdup (path);
                         break;
                 case 1:
-                        *grand_parent = path;
+                        *grand_parent = gf_strdup (path);
                         break;
                 }
         }
 
         ret = 0;
 out:
+        if (cpy != NULL) {
+                GF_FREE (cpy);
+        }
+
         return ret;
 }
 
