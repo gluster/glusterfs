@@ -526,4 +526,57 @@ glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,
 int
 glusterd_handle_log_level (rpcsvc_request_t *req);
 
+
+/* handler functions */
+int32_t glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx);
+
+int glusterd_handle_gsync_set (rpcsvc_request_t *req);
+int glusterd_handle_quota (rpcsvc_request_t *req);
+int glusterd_handle_replace_brick (rpcsvc_request_t *req);
+int glusterd_handle_log_filename (rpcsvc_request_t *req);
+int glusterd_handle_log_locate (rpcsvc_request_t *req);
+int glusterd_handle_log_level (rpcsvc_request_t *req);
+int glusterd_handle_log_rotate (rpcsvc_request_t *req);
+int glusterd_handle_create_volume (rpcsvc_request_t *req);
+int glusterd_handle_cli_start_volume (rpcsvc_request_t *req);
+int glusterd_handle_cli_stop_volume (rpcsvc_request_t *req);
+int glusterd_handle_cli_delete_volume (rpcsvc_request_t *req);
+
+
+/* op-sm functions */
+int glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr);
+int glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+int glusterd_op_quota (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_quota (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
+                                     dict_t *rsp_dict);
+int glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict);
+int glusterd_op_log_level (dict_t *dict);
+int glusterd_op_log_filename (dict_t *dict);
+int glusterd_op_log_rotate (dict_t *dict);
+int glusterd_op_stage_log_level (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_log_filename (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_create_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_start_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_stop_volume (dict_t *dict);
+int glusterd_op_delete_volume (dict_t *dict);
+
+int glusterd_op_add_brick (dict_t *dict, char **op_errstr);
+int glusterd_op_remove_brick (dict_t *dict);
+int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_remove_brick (dict_t *dict);
+
+
+
+/* misc */
+void glusterd_do_replace_brick (void *data);
+int glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick);
+int glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags);
+
+
 #endif

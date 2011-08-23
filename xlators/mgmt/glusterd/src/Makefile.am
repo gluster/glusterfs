@@ -3,10 +3,12 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mgmt
 glusterd_la_LDFLAGS = -module -avoidversion $(LIBXML2_LIBS)
 glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c glusterd-op-sm.c \
 	glusterd-utils.c glusterd-rpc-ops.c glusterd-store.c glusterd-handshake.c \
-	glusterd-pmap.c glusterd-volgen.c glusterd-rebalance.c
+	glusterd-pmap.c glusterd-volgen.c glusterd-rebalance.c glusterd-quota.c \
+	glusterd-geo-rep.c glusterd-replace-brick.c glusterd-log-ops.c \
+	glusterd-volume-ops.c glusterd-brick-ops.c
 
-glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la\
-		     $(top_builddir)/rpc/xdr/src/libgfxdr.la\
+glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+		     $(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		     $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
 
 noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h glusterd-sm.h \
