@@ -1839,9 +1839,12 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->xattr = dict_copy_with_ref (xattr, NULL);
         } else {
                 /* first aggregate everything into xattr and then copy into
-                 * local->xattr.
+                 * local->xattr. This is required as we want to have
+                 * 'local->xattr' as the proper final dictionary passed above
+                 * distribute xlator.
                  */
                 dht_aggregate_xattr (xattr, local->xattr);
+                local->xattr = dict_copy (xattr, local->xattr);
         }
 out:
         if (is_last_call (this_call_cnt)) {
