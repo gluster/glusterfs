@@ -469,6 +469,8 @@ validate_auth_options (xlator_t *this, dict_t *dict)
         xlator_list_t *trav = NULL;
         data_pair_t   *pair = NULL;
         char          *tail = NULL;
+        char          *addr = NULL;
+        char          *tmp_str = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO ("server", dict, out);
@@ -492,9 +494,47 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 
                         if (*tail == '.') {
                                 error = 0;
-                                break;
+
+                                /* when we are here, the key is checked for
+                                 * valid auth.allow.<xlator>
+                                 * Now we verify the ip address
+                                 */
+                                if (!strcmp (pair->value->data, "*")) {
+                                     error = 0;
+                                     goto out;
+                                }
+
+                                addr = strtok_r (pair->value->data, ",",
+                                                &tmp_str);
+                                if (!addr)
+                                        addr = pair->value->data;
+
+                                while (addr) {
+
+                                        if (valid_internet_address (addr) ||
+                                        valid_wildcard_internet_address (addr))
+                                        {
+                                                error = 0;
+                                        } else {
+                                                error = -1;
+                                                gf_log (this->name, GF_LOG_ERROR,
+                                                        "internet address '%s'"
+                                                        " does not conform to"
+                                                        " standards.", addr);
+                                                goto out;
+
+                                        }
+                                        if (tmp_str)
+                                                addr = strtok_r (NULL, ",",
+                                                                 &tmp_str);
+                                        else
+                                                addr = NULL;
+                                }
+
                         }
+
                 }
+
                 if (-1 == error) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "volume '%s' defined as subvolume, but no "
@@ -504,6 +544,7 @@ validate_auth_options (xlator_t *this, dict_t *dict)
                 }
                 trav = trav->next;
         }
+
 out:
         return error;
 }

@@ -445,6 +445,9 @@ char valid_host_name (char *address, int length);
 char valid_ipv4_address (char *address, int length);
 char valid_ipv6_address (char *address, int length);
 char valid_internet_address (char *address);
+char valid_ipv4_wildcard_check (char *address);
+char valid_ipv6_wildcard_check (char *address);
+char valid_wildcard_internet_address (char *address);
 
 char *uuid_utoa (uuid_t uuid);
 char *uuid_utoa_r (uuid_t uuid, char *dst);
