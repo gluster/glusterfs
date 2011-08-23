@@ -1,0 +1,1038 @@
+/*
+  Copyright (c) 2011 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
+
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
+
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
+*/
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
+#include "common-utils.h"
+#include "cli1.h"
+#include "glusterd.h"
+#include "glusterd-op-sm.h"
+#include "glusterd-store.h"
+#include "glusterd-utils.h"
+#include "glusterd-volgen.h"
+#include "run.h"
+
+#define glusterd_op_start_volume_args_get(dict, volname, flags) \
+        glusterd_op_stop_volume_args_get (dict, volname, flags)
+
+int
+glusterd_handle_create_volume (rpcsvc_request_t *req)
+{
+        int32_t                 ret         = -1;
+        gf1_cli_create_vol_req  cli_req     = {0,};
+        dict_t                 *dict        = NULL;
+        glusterd_brickinfo_t   *brickinfo   = NULL;
+        char                   *brick       = NULL;
+        char                   *bricks      = NULL;
+        char                   *volname     = NULL;
+        int                    brick_count = 0;
+        char                   *tmpptr      = NULL;
+        int                    i           = 0;
+        char                   *brick_list  = NULL;
+        void                   *cli_rsp     = NULL;
+        char                    err_str[2048] = {0,};
+        gf1_cli_create_vol_rsp  rsp         = {0,};
+        glusterd_conf_t        *priv        = NULL;
+        xlator_t               *this        = NULL;
+        char                   *free_ptr    = NULL;
+        char                   *trans_type  = NULL;
+        uuid_t                  volume_id   = {0,};
+        glusterd_brickinfo_t    *tmpbrkinfo = NULL;
+        glusterd_volinfo_t      tmpvolinfo = {{0},};
+
+        GF_ASSERT (req);
+
+        INIT_LIST_HEAD (&tmpvolinfo.bricks);
+
+        this = THIS;
+        GF_ASSERT(this);
+
+        priv = this->private;
+
+        ret = -1;
+        if (!gf_xdr_to_cli_create_vol_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                snprintf (err_str, sizeof (err_str), "Garbage args received");
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received create volume req");
+
+        if (cli_req.bricks.bricks_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.bricks.bricks_val,
+                                        cli_req.bricks.bricks_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        snprintf (err_str, sizeof (err_str), "Unable to decode "
+                                  "the buffer");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.bricks.bricks_val;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "name");
+                goto out;
+        }
+        gf_cmd_log ("Volume create", "on volname: %s attempted", volname);
+
+        if ((ret = glusterd_check_volume_exists (volname))) {
+                snprintf(err_str, 2048, "Volume %s already exists", volname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "brick count");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "transport", &trans_type);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get transport-type");
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "transport-type");
+                goto out;
+        }
+        ret = dict_get_str (dict, "bricks", &bricks);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "bricks");
+                goto out;
+        }
+
+        uuid_generate (volume_id);
+        free_ptr = gf_strdup (uuid_utoa (volume_id));
+        ret = dict_set_dynstr (dict, "volume-id", free_ptr);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "unable to set volume-id");
+                snprintf (err_str, sizeof (err_str), "Unable to set volume "
+                          "id");
+                goto out;
+        }
+        free_ptr = NULL;
+
+        if (bricks) {
+                brick_list = gf_strdup (bricks);
+                free_ptr = brick_list;
+        }
+
+        gf_cmd_log ("Volume create", "on volname: %s type:%s count:%d bricks:%s",
+                    cli_req.volname, ((cli_req.type == 0)? "DEFAULT":
+                    ((cli_req.type == 1)? "STRIPE":"REPLICATE")), cli_req.count,
+                    bricks);
+
+
+        while ( i < brick_count) {
+                i++;
+                brick= strtok_r (brick_list, " \n", &tmpptr);
+                brick_list = tmpptr;
+                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                if (ret) {
+                        snprintf (err_str, sizeof (err_str), "Unable to get "
+                                  "brick info from brick %s", brick);
+                        goto out;
+                }
+
+                ret = glusterd_new_brick_validate (brick, brickinfo, err_str,
+                                                   sizeof (err_str));
+                if (ret)
+                        goto out;
+                ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
+                                                     brickinfo->hostname,
+                                                     brickinfo->path,
+                                                     &tmpvolinfo, &tmpbrkinfo);
+                if (!ret) {
+                        ret = -1;
+                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
+                                  " one of the arguments contain the other",
+                                  tmpbrkinfo->hostname, tmpbrkinfo->path, brick);
+                        goto out;
+                }
+                list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
+                brickinfo = NULL;
+        }
+
+        ret = glusterd_op_begin (req, GD_OP_CREATE_VOLUME, dict);
+        gf_cmd_log ("Volume create", "on volname: %s %s", volname,
+                    (ret != 0) ? "FAILED": "SUCCESS");
+
+out:
+        if (ret) {
+                if (dict)
+                        dict_unref (dict);
+                rsp.op_ret = -1;
+                rsp.op_errno = 0;
+                rsp.volname = "";
+                if (err_str[0] == '\0')
+                        snprintf (err_str, sizeof (err_str), "Operation failed");
+                rsp.op_errstr = err_str;
+                cli_rsp = &rsp;
+                glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
+                                      gf_xdr_serialize_cli_create_vol_rsp,
+                                      (xdrproc_t)xdr_gf1_cli_create_vol_rsp);
+
+                ret = 0; //Client response sent, prevent second response
+        }
+
+        if (free_ptr)
+                GF_FREE(free_ptr);
+
+        glusterd_volume_brickinfos_delete (&tmpvolinfo);
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
+        if (cli_req.volname)
+                free (cli_req.volname); // its a malloced by xdr
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        return ret;
+}
+
+int
+glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_start_vol_req           cli_req = {0,};
+        char                            *dup_volname = NULL;
+        dict_t                          *dict = NULL;
+        glusterd_op_t                   cli_op = GD_OP_START_VOLUME;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_start_vol_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received start vol req"
+                "for volume %s", cli_req.volname);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        dup_volname = gf_strdup (cli_req.volname);
+        if (!dup_volname)
+                goto out;
+
+        ret = dict_set_dynstr (dict, "volname", dup_volname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "flags", cli_req.flags);
+        if (ret)
+                goto out;
+        ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
+
+        gf_cmd_log ("volume start","on volname: %s %s", cli_req.volname,
+                    ((ret == 0) ? "SUCCESS": "FAILED"));
+
+out:
+        if (ret && dict)
+                dict_unref (dict);
+        if (cli_req.volname)
+                free (cli_req.volname); //its malloced by xdr
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret)
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     NULL, "operation failed");
+
+        return ret;
+}
+
+
+int
+glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_stop_vol_req           cli_req = {0,};
+        char                            *dup_volname = NULL;
+        dict_t                          *dict = NULL;
+        glusterd_op_t                   cli_op = GD_OP_STOP_VOLUME;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_stop_vol_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received stop vol req"
+                "for volume %s", cli_req.volname);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        dup_volname = gf_strdup (cli_req.volname);
+        if (!dup_volname)
+                goto out;
+
+        ret = dict_set_dynstr (dict, "volname", dup_volname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "flags", cli_req.flags);
+        if (ret)
+                goto out;
+
+        ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict);
+        gf_cmd_log ("Volume stop","on volname: %s %s", cli_req.volname,
+                    ((ret)?"FAILED":"SUCCESS"));
+
+out:
+        if (cli_req.volname)
+                free (cli_req.volname); //its malloced by xdr
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret) {
+                if (dict)
+                        dict_unref (dict);
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     NULL, "operation failed");
+        }
+
+        return ret;
+}
+
+int
+glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
+{
+        int32_t                           ret = -1;
+        gf1_cli_delete_vol_req            cli_req = {0,};
+        glusterd_op_delete_volume_ctx_t   *ctx = NULL;
+        glusterd_op_t                     cli_op = GD_OP_DELETE_VOLUME;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_delete_vol_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+        gf_cmd_log ("Volume delete","on volname: %s attempted", cli_req.volname);
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received delete vol req"
+                "for volume %s", cli_req.volname);
+
+
+        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_delete_volume_ctx_t);
+        if (!ctx)
+                goto out;
+
+        strncpy (ctx->volume_name, cli_req.volname, GD_VOLUME_NAME_MAX);
+
+        ret = glusterd_op_begin (req, GD_OP_DELETE_VOLUME, ctx);
+        gf_cmd_log ("Volume delete", "on volname: %s %s", cli_req.volname,
+                   ((ret) ? "FAILED" : "SUCCESS"));
+
+out:
+        if (cli_req.volname)
+                free (cli_req.volname); //its malloced by xdr
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret) {
+                if (ctx)
+                        GF_FREE (ctx);
+
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     NULL, "operation failed");
+        }
+
+        return ret;
+}
+
+/* op-sm */
+int
+glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = 0;
+        char                                    *volname = NULL;
+        gf_boolean_t                            exists = _gf_false;
+        char                                    *bricks = NULL;
+        char                                    *brick_list = NULL;
+        char                                    *free_ptr = NULL;
+        glusterd_brickinfo_t                    *brick_info = NULL;
+        int32_t                                 brick_count = 0;
+        int32_t                                 i = 0;
+        char                                    *brick = NULL;
+        char                                    *tmpptr = NULL;
+        char                                    cmd_str[1024];
+        xlator_t                                *this = NULL;
+        glusterd_conf_t                         *priv = NULL;
+        char                                    msg[2048] = {0};
+        uuid_t                                  volume_uuid;
+        char                                    *volume_uuid_str;
+
+        this = THIS;
+        if (!this) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "this is NULL");
+                goto out;
+        }
+
+        priv = this->private;
+        if (!priv) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "priv is NULL");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+
+        if (exists) {
+                snprintf (msg, sizeof (msg), "Volume %s already exists",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        } else {
+                ret = 0;
+        }
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                goto out;
+        }
+        ret = dict_get_str (dict, "volume-id", &volume_uuid_str);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume id");
+                goto out;
+        }
+        ret = uuid_parse (volume_uuid_str, volume_uuid);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to parse volume id");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "bricks", &bricks);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                goto out;
+        }
+
+        if (bricks) {
+                brick_list = gf_strdup (bricks);
+                if (!brick_list) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        goto out;
+                } else {
+                        free_ptr = brick_list;
+                }
+        }
+
+        while ( i < brick_count) {
+                i++;
+                brick= strtok_r (brick_list, " \n", &tmpptr);
+                brick_list = tmpptr;
+
+                if (!glusterd_store_is_valid_brickpath (volname, brick) ||
+                        !glusterd_is_valid_volfpath (volname, brick)) {
+                        snprintf (msg, sizeof (msg), "brick path %s is too "
+                                  "long.", brick);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_brickinfo_from_brick (brick, &brick_info);
+                if (ret)
+                        goto out;
+                snprintf (cmd_str, 1024, "%s", brick_info->path);
+                ret = glusterd_resolve_brick (brick_info);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "cannot resolve "
+                                "brick: %s:%s", brick_info->hostname,
+                                brick_info->path);
+                        goto out;
+                }
+
+                if (!uuid_compare (brick_info->uuid, priv->uuid)) {
+                        ret = glusterd_brick_create_path (brick_info->hostname,
+                                                          brick_info->path,
+                                                          volume_uuid,
+                                                          0777, op_errstr);
+                        if (ret)
+                                goto out;
+                        brick_list = tmpptr;
+                }
+                glusterd_brickinfo_delete (brick_info);
+                brick_info = NULL;
+        }
+out:
+        if (free_ptr)
+                GF_FREE (free_ptr);
+        if (brick_info)
+                glusterd_brickinfo_delete (brick_info);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int
+glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags)
+{
+        int ret = -1;
+
+        if (!dict || !volname || !flags)
+                goto out;
+
+        ret = dict_get_str (dict, "volname", volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "flags", flags);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get flags");
+                goto out;
+        }
+out:
+        return ret;
+}
+
+int
+glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = 0;
+        char                                    *volname = NULL;
+        int                                     flags = 0;
+        gf_boolean_t                            exists = _gf_false;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+        char                                    msg[2048];
+        glusterd_conf_t                         *priv = NULL;
+
+        priv = THIS->private;
+        if (!priv) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "priv is NULL");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_op_start_volume_args_get (dict, &volname, &flags);
+        if (ret)
+                goto out;
+
+        exists = glusterd_check_volume_exists (volname);
+
+        if (!exists) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
+                gf_log ("", GF_LOG_ERROR, "%s",
+                        msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+        } else {
+                ret = 0;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to resolve brick %s:%s",
+                                brickinfo->hostname, brickinfo->path);
+                        goto out;
+                }
+
+                if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
+                        ret = glusterd_brick_create_path (brickinfo->hostname,
+                                                          brickinfo->path,
+                                                          volinfo->volume_id,
+                                                          0777, op_errstr);
+                        if (ret)
+                                goto out;
+                }
+
+                if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
+                        if (glusterd_is_volume_started (volinfo)) {
+                                snprintf (msg, sizeof (msg), "Volume %s already"
+                                          " started", volname);
+                                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                                *op_errstr = gf_strdup (msg);
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        }
+
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int
+glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = -1;
+        char                                    *volname = NULL;
+        int                                     flags = 0;
+        gf_boolean_t                            exists = _gf_false;
+        gf_boolean_t                            is_run = _gf_false;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        char                                    msg[2048] = {0};
+
+
+        ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
+        if (ret)
+                goto out;
+
+        exists = glusterd_check_volume_exists (volname);
+
+        if (!exists) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        } else {
+                ret = 0;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
+                if (_gf_false == glusterd_is_volume_started (volinfo)) {
+                        snprintf (msg, sizeof(msg), "Volume %s "
+                                  "is not in the started state", volname);
+                        gf_log ("", GF_LOG_ERROR, "Volume %s "
+                                "has not been started", volname);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+                ret = glusterd_check_gsync_running (volinfo, &is_run);
+                if (ret && (is_run == _gf_false))
+                        gf_log ("", GF_LOG_WARNING, "Unable to get the status"
+                                 " of active "GEOREP" session");
+                if (is_run) {
+                        gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
+                                "for the volume %s ", volname);
+                        snprintf (msg, sizeof(msg), GEOREP" sessions are active "
+                                  "for the volume '%s'.\nUse 'volume "GEOREP" "
+                                  "status' command for more info. Use 'force'"
+                                  "option to ignore and stop stop the volume",
+                                   volname);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
+        }
+
+
+out:
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int
+glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = 0;
+        char                                    *volname = NULL;
+        gf_boolean_t                            exists = _gf_false;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        char                                    msg[2048] = {0};
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+
+        if (!exists) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        } else {
+                ret = 0;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        if (glusterd_is_volume_started (volinfo)) {
+                snprintf (msg, sizeof (msg), "Volume %s has been started."
+                          "Volume needs to be stopped before deletion.",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int
+glusterd_op_create_volume (dict_t *dict, char **op_errstr)
+{
+        int                   ret        = 0;
+        char                 *volname    = NULL;
+        glusterd_conf_t      *priv       = NULL;
+        glusterd_volinfo_t   *volinfo    = NULL;
+        gf_boolean_t          vol_added = _gf_false;
+        glusterd_brickinfo_t *brickinfo  = NULL;
+        xlator_t             *this       = NULL;
+        char                 *brick      = NULL;
+        int32_t               count      = 0;
+        int32_t               i          = 1;
+        char                 *bricks     = NULL;
+        char                 *brick_list = NULL;
+        char                 *free_ptr   = NULL;
+        char                 *saveptr    = NULL;
+        int32_t               sub_count  = 0;
+        char                 *trans_type = NULL;
+        char                 *str        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = glusterd_volinfo_new (&volinfo);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        strncpy (volinfo->volname, volname, GLUSTERD_MAX_VOLUME_NAME);
+        GF_ASSERT (volinfo->volname);
+
+        ret = dict_get_int32 (dict, "type", &volinfo->type);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get type");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &volinfo->brick_count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "port", &volinfo->port);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get port");
+                goto out;
+        }
+
+        count = volinfo->brick_count;
+
+        ret = dict_get_str (dict, "bricks", &bricks);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                goto out;
+        }
+
+        if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
+                ret = dict_get_int32 (dict, "replica-count",
+                                      &sub_count);
+                if (ret)
+                        goto out;
+        } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
+                ret = dict_get_int32 (dict, "stripe-count",
+                                      &sub_count);
+                if (ret)
+                        goto out;
+        } else if (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type) {
+                ret = dict_get_int32 (dict, "stripe-count",
+                                      &volinfo->stripe_count);
+                if (ret)
+                        goto out;
+                ret = dict_get_int32 (dict, "replica-count",
+                                      &volinfo->replica_count);
+                if (ret)
+                        goto out;
+
+                sub_count = volinfo->stripe_count * volinfo->replica_count;
+        }
+
+        ret = dict_get_str (dict, "transport", &trans_type);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get transport");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volume-id", &str);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume-id");
+                goto out;
+        }
+        ret = uuid_parse (str, volinfo->volume_id);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "unable to parse uuid %s", str);
+                goto out;
+        }
+
+        if (strcasecmp (trans_type, "rdma") == 0) {
+                volinfo->transport_type = GF_TRANSPORT_RDMA;
+                volinfo->nfs_transport_type = GF_TRANSPORT_RDMA;
+        } else if (strcasecmp (trans_type, "tcp") == 0) {
+                volinfo->transport_type = GF_TRANSPORT_TCP;
+                volinfo->nfs_transport_type = GF_TRANSPORT_TCP;
+        } else {
+                volinfo->transport_type = GF_TRANSPORT_BOTH_TCP_RDMA;
+                volinfo->nfs_transport_type = GF_DEFAULT_NFS_TRANSPORT;
+        }
+
+        volinfo->sub_count = sub_count;
+
+        if (bricks) {
+                brick_list = gf_strdup (bricks);
+                free_ptr = brick_list;
+        }
+
+        if (count)
+                brick = strtok_r (brick_list+1, " \n", &saveptr);
+
+        while ( i <= count) {
+                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret)
+                        goto out;
+                list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
+                brick = strtok_r (NULL, " \n", &saveptr);
+                i++;
+        }
+
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        if (ret) {
+                glusterd_store_delete_volume (volinfo);
+                *op_errstr = gf_strdup ("Failed to store the Volume information");
+                goto out;
+        }
+
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
+        if (ret) {
+                *op_errstr = gf_strdup ("Failed to create volume files");
+                goto out;
+        }
+
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret) {
+                *op_errstr = gf_strdup ("Failed to compute checksum of volume");
+                goto out;
+        }
+
+        volinfo->defrag_status = 0;
+        list_add_tail (&volinfo->vol_list, &priv->volumes);
+        vol_added = _gf_true;
+out:
+        if (free_ptr)
+                GF_FREE(free_ptr);
+        if (!vol_added && volinfo)
+                glusterd_volinfo_delete (volinfo);
+        return ret;
+}
+
+int
+glusterd_op_start_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = 0;
+        char                                    *volname = NULL;
+        int                                     flags = 0;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+
+        ret = glusterd_op_start_volume_args_get (dict, &volname, &flags);
+        if (ret)
+                goto out;
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_brick_start (volinfo, brickinfo);
+                if (ret)
+                        goto out;
+        }
+
+        glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STARTED);
+
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        if (ret)
+                goto out;
+
+        ret = glusterd_check_generate_start_nfs ();
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
+        return ret;
+}
+
+
+int
+glusterd_op_stop_volume (dict_t *dict)
+{
+        int                                     ret = 0;
+        int                                     flags = 0;
+        char                                    *volname = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+
+        ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
+        if (ret)
+                goto out;
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_brick_stop (volinfo, brickinfo);
+                if (ret)
+                        goto out;
+        }
+
+        glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STOPPED);
+
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        if (ret)
+                goto out;
+
+        if (glusterd_are_all_volumes_stopped ()) {
+                if (glusterd_is_nfs_started ()) {
+                        ret = glusterd_nfs_server_stop ();
+                        if (ret)
+                                goto out;
+                }
+        } else {
+                ret = glusterd_check_generate_start_nfs ();
+        }
+
+out:
+        return ret;
+}
+
+int
+glusterd_op_delete_volume (dict_t *dict)
+{
+        int                                     ret = 0;
+        char                                    *volname = NULL;
+        glusterd_conf_t                         *priv = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        xlator_t                                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_delete_volume (volinfo);
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
