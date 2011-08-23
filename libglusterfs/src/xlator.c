@@ -169,6 +169,8 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
                 gf_log ("xlator", GF_LOG_DEBUG,
                          "Strict option validation not enforced -- neglecting");
         }
+        opt_list->given_opt = vol_opt->given_opt;
+
         INIT_LIST_HEAD (&vol_opt->list);
         list_add_tail (&vol_opt->list, &opt_list->list);
 
