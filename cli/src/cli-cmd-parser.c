@@ -36,7 +36,6 @@
 #include "protocol-common.h"
 #include "cli1-xdr.h"
 
-
 static const char *
 id_sel (void *wcon)
 {
@@ -636,6 +635,43 @@ out:
 }
 
 int32_t
+cli_cmd_valid_ip_list (char *iplist)
+{
+        int     ret = 0;
+        char    *duplist = NULL;
+        char    *addr = NULL;
+        char    *saveptr = NULL;
+
+        GF_ASSERT (iplist);
+        duplist = gf_strdup (iplist);
+
+        if (!duplist) {
+                ret = -1;
+                goto out;
+        }
+
+        addr = strtok_r (duplist, ",", &saveptr);
+        if (!addr) {
+                ret = -1;
+                goto out;
+        }
+        while (addr) {
+                if (!valid_internet_address (addr) &&
+                    !valid_wildcard_internet_address (addr)) {
+                        cli_out ("Invalid ip or wildcard : %s", addr);
+                        ret= -1;
+                        goto out;
+                }
+                addr = strtok_r (NULL, ",", &saveptr);
+        }
+out:
+        if (duplist)
+                GF_FREE (duplist);
+        gf_log ("cli", GF_LOG_INFO, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t  *dict = NULL;
@@ -691,10 +727,18 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
 		if ( !key || !value) {
 			ret = -1;
 			goto out;
-        	}
+	        }
 
                 count++;
-
+                if (!strncmp ("auth.allow", key, sizeof (key)) ||
+                    !strncmp ("auth.reject", key, sizeof (key))) {
+                        ret = cli_cmd_valid_ip_list (value);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "invalid ips given");
+                                goto out;
+                        }
+                }
                 sprintf (str, "key%d", count);
                 ret = dict_set_str (dict, str, key);
                 if (ret)
