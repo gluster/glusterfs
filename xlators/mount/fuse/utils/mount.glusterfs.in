@@ -149,7 +149,7 @@ start_glusterfs ()
             cmd_line1=$(echo "$cmd_line1 $mount_point");
             $cmd_line1
 
-            inode=$(stat -c %i $mount_point 2>/dev/null);          
+            inode=$(stat -c %i $mount_point 2>/dev/null);
             # this is required if the stat returns error
             if [ -z "$inode" ]; then
                 inode="0";
@@ -176,6 +176,63 @@ man 8 mount.glusterfs
 To display the version number of the mount helper:
 mount.glusterfs --version"
 
+}
+
+# check for recursive mounts. i.e, mounting over an existing brick
+check_recursive_mount ()
+{
+    if [ $2 = "/" ]; then
+        echo Cannot mount over root;
+        exit 2;
+    fi
+    # GFID check first
+    # remove trailing / from mount point
+    mnt_dir=${2%/};
+
+    # check whether getfattr exists
+    which getfattr > /dev/null;
+    if [ $? -ne 0 ]; then
+        return;
+    fi
+
+    getfattr -n trusted.gfid $mnt_dir 2>/dev/null | grep -iq "trusted.gfid=";
+    if [ $? -eq 0 ]; then
+        echo "ERROR: $mnt_dir is in use as a brick of a gluster volume";
+        exit 2;
+    fi
+
+    # check if the mount point is a brick's parent directory
+    brick_path=(`cat /etc/glusterd/vols/*/bricks/* | grep ^path | cut -d "=" -f 2`);
+    root_inode=`stat -Lc %i /`;
+    root_dev=`stat -Lc %d /`;
+    mnt_inode=`stat -Lc %i $mnt_dir`;
+    mnt_dev=`stat -Lc %d $mnt_dir`;
+    for brick in "$brick_path";
+    do
+        # evaluate brick path to see if this is local, if non-local, skip iteration
+        ls $brick > /dev/null 2>&1;
+        if [ $? -ne 0 ]; then
+            continue;
+        fi
+        getfattr -n trusted.gfid "$brick" 2>/dev/null | grep -iq "trusted.gfid=";
+        if [ $? -ne 0 ]; then
+            continue;
+        else
+            # brick is local
+            while [ 1 ];
+            do
+                tmp_brick="$brick";
+                brick="$brick"/..;
+                brick_dev=`stat -Lc %d $brick`;
+                brick_inode=`stat -Lc %i $brick`;
+                if [ "$mnt_inode" -eq "$brick_inode" -a "$mnt_dev" -eq "$brick_dev" ]; then
+                    echo ERROR: $mnt_dir is a parent of the brick $tmp_brick;
+                    exit 2;
+                fi
+                [ "$root_inode" -ne "$brick_inode" -o "$root_dev" -ne "$brick_dev" ] || break;
+            done;
+        fi
+    done;
 }
 
 main ()
@@ -273,6 +330,8 @@ main ()
         echo "$mount_point"
         exit 0;
     fi
+
+    check_recursive_mount "$@";
 
     fs_options=$(echo "$fs_options,$new_fs_options");
 
