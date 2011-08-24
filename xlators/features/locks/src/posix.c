@@ -1102,7 +1102,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                                 can_block);
 
                 if (ret == -1) {
-                        if ((can_block) && (F_UNLCK != reqlock->fl_type)) {
+                        if ((can_block) && (F_UNLCK != flock->l_type)) {
                                 pl_trace_block (this, frame, fd, NULL, cmd, flock, NULL);
                                 goto out;
                         }
