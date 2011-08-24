@@ -23,6 +23,7 @@
 #include "config.h"
 #endif
 #include <time.h>
+#include <grp.h>
 #include <sys/uio.h>
 #include <sys/resource.h>
 
@@ -299,10 +300,37 @@ glusterd_check_gsync_present ()
 
 }
 
-int
+static int
+group_write_allow (char *path, gid_t gid)
+{
+        struct stat st = {0,};
+        int ret        = 0;
+
+        ret = stat (path, &st);
+        if (ret == -1)
+                goto out;
+        GF_ASSERT (S_ISDIR (st.st_mode));
+
+        ret = chown (path, -1, gid);
+        if (ret == -1)
+                goto out;
+
+        ret = chmod (path, (st.st_mode & ~S_IFMT) | S_IWGRP|S_IXGRP|S_ISVTX);
+
+ out:
+        if (ret == -1)
+                gf_log ("", GF_LOG_CRITICAL,
+                        "failed to set up write access to %s for group %d (%s)",
+                        path, gid, strerror (errno));
+        return ret;
+}
+
+static int
 glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
 {
-        int ret = 0;
+        char *greplg_s   = NULL;
+        struct group *gr = NULL;
+        int ret          = 0;
 
         GF_ASSERT (georepdir);
         GF_ASSERT (conf);
@@ -351,11 +379,29 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                         "Unable to create "GEOREP" slave log directory");
                 goto out;
         }
-        ret = 0;
+
+        ret = dict_get_str (THIS->options, GEOREP"-log-group", &greplg_s);
+        if (ret)
+                ret = 0;
+        else {
+                gr = getgrnam (greplg_s);
+                if (!gr) {
+                        gf_log ("glusterd", GF_LOG_CRITICAL,
+                                "group "GEOREP"-log-group %s does not exist", greplg_s);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = group_write_allow (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP,
+                                         gr->gr_gid);
+                if (ret == 0)
+                        ret = group_write_allow (DEFAULT_LOG_FILE_DIRECTORY"/"
+                                                 GEOREP"-slaves", gr->gr_gid);
+        }
+
  out:
         gf_log("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
-
 }
 #endif
 
@@ -417,12 +463,17 @@ configure_syncdaemon (glusterd_conf_t *conf)
                          "/usr/local/libexec/glusterfs/gsyncd", ".", "^ssh:", NULL);
         RUN_GSYNCD_CMD;
 
-        /* gluster-command */
+        /* gluster-command-dir */
         /* XXX $sbindir should be used (throughout the codebase) */
         runinit_gsyncd_setrx (&runner, conf);
-        runner_add_args (&runner, "gluster-command",
-                         GFS_PREFIX"/sbin/glusterfs "
-                          "--xlator-option *-dht.assert-no-child-down=true",
+        runner_add_args (&runner, "gluster-command-dir", GFS_PREFIX"/sbin/",
+                         ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* gluster-params */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "gluster-params",
+                         "xlator-option=*-dht.assert-no-child-down=true",
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -470,11 +521,16 @@ configure_syncdaemon (glusterd_conf_t *conf)
          * slave pre-configuration
          ************/
 
-        /* gluster-command */
+        /* gluster-command-dir */
         runinit_gsyncd_setrx (&runner, conf);
-        runner_add_args (&runner, "gluster-command",
-                         GFS_PREFIX"/sbin/glusterfs "
-                          "--xlator-option *-dht.assert-no-child-down=true",
+        runner_add_args (&runner, "gluster-command-dir", GFS_PREFIX"/sbin/",
+                         ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* gluster-params */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "gluster-params",
+                         "xlator-option=*-dht.assert-no-child-down=true",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -1001,6 +1057,8 @@ struct volume_options options[] = {
         { .key  = {"mountbroker-"GEOREP".*"},
           .type = GF_OPTION_TYPE_ANY,
         },
-
+        { .key = {GEOREP"-log-group"},
+          .type = GF_OPTION_TYPE_ANY,
+        },
         { .key   = {NULL} },
 };

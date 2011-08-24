@@ -1,7 +1,6 @@
 import re
 import os
 import sys
-import pwd
 import stat
 import time
 import errno
@@ -579,41 +578,126 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         """determine our position in the connectibility matrix"""
         return True
 
+    class Mounter(object):
+        """Abstract base class for mounter backends"""
+
+        def __init__(self, params):
+            self.params = params
+
+        @classmethod
+        def get_glusterprog(cls):
+            return os.path.join(gconf.gluster_command_dir, cls.glusterprog)
+
+        def umount_l(self, d):
+            """perform lazy umount"""
+            po = Popen(self.make_umount_argv(d), stderr=subprocess.PIPE)
+            po.wait()
+            return po
+
+        @classmethod
+        def make_umount_argv(cls, d):
+            raise NotImplementedError
+
+        def make_mount_argv(self, *a):
+            raise NotImplementedError
+
+        def cleanup_mntpt(self):
+            pass
+
+        def handle_mounter(self, po):
+            po.wait()
+
+        def inhibit(self, *a):
+            """inhibit a gluster filesystem
+
+            Mount glusterfs over a temporary mountpoint,
+            change into the mount, and lazy unmount the
+            filesystem.
+            """
+            mounted = False
+            try:
+                po = Popen(self.make_mount_argv(*a), **self.mountkw)
+                self.handle_mounter(po)
+                po.terminate_geterr()
+                d = self.mntpt
+                mounted = True
+                logging.debug('auxiliary glusterfs mount in place')
+                os.chdir(d)
+                self.umount_l(d).terminate_geterr()
+                mounted = False
+            finally:
+                try:
+                    if mounted:
+                        self.umount_l(d).terminate_geterr(fail_on_err = False)
+                    self.cleanup_mntpt()
+                except:
+                    logging.warn('stale mount possibly left behind on ' + d)
+            logging.debug('auxiliary glusterfs mount prepared')
+
+    class DirectMounter(Mounter):
+        """mounter backend which calls mount(8), umount(8) directly"""
+
+        mountkw = {'stderr': subprocess.PIPE}
+        glusterprog = 'glusterfs'
+
+        @staticmethod
+        def make_umount_argv(d):
+            return ['umount', '-l', d]
+
+        def make_mount_argv(self):
+            self.mntpt = tempfile.mkdtemp(prefix = 'gsyncd-aux-mount-')
+            return [self.get_glusterprog()] + ['--' + p for p in self.params] + [self.mntpt]
+
+        def cleanup_mntpt(self):
+            os.rmdir(self.mntpt)
+
+    class MountbrokerMounter(Mounter):
+        """mounter backend using the mountbroker gluster service"""
+
+        mountkw = {'stderr': subprocess.PIPE, 'stdout': subprocess.PIPE}
+        glusterprog = 'gluster'
+
+        @classmethod
+        def make_cli_argv(cls):
+            return [cls.get_glusterprog()] + gconf.gluster_cli_options.split() + ['system::']
+
+        @classmethod
+        def make_umount_argv(cls, d):
+            return cls.make_cli_argv() + ['umount', d, 'lazy']
+
+        def make_mount_argv(self, label):
+            return self.make_cli_argv() + \
+                   ['mount', label, 'user-map-root=' + syncdutils.getusername()] + self.params
+
+        def handle_mounter(self, po):
+            self.mntpt = po.stdout.readline()[:-1]
+            po.stdout.close()
+            sup(self, po)
+            if po.returncode != 0:
+                # if cli terminated with error due to being
+                # refused by glusterd, what it put
+                # out on stdout is a diagnostic message
+                logging.error('glusterd answered: %s' % self.mntpt)
+
     def connect(self):
         """inhibit the resource beyond
 
-        - create temprorary mount point
-        - call glusterfs to mount the volume over there
-        - change to mounted fs root
-        - lazy umount + delete temp. mount point
+        Choose mounting backend (direct or mountbroker),
+        set up glusterfs parameters and perform the mount
+        with given backend
         """
-        def umount_l(d):
-            po = Popen(['umount', '-l', d], stderr=subprocess.PIPE)
-            po.wait()
-            return po
-        d = tempfile.mkdtemp(prefix='gsyncd-aux-mount-')
-        mounted = False
-        try:
-            po = Popen(gconf.gluster_command.split() + \
-                       (gconf.gluster_log_level and ['-L', gconf.gluster_log_level] or []) + \
-                       ['-l', gconf.gluster_log_file, '-s', self.host,
-                        '--volfile-id', self.volume, '--client-pid=-1', d],
-                       stderr=subprocess.PIPE)
-            po.wait()
-            po.terminate_geterr()
-            mounted = True
-            logging.debug('auxiliary glusterfs mount in place')
-            os.chdir(d)
-            umount_l(d).terminate_geterr()
-            mounted = False
-        finally:
-            try:
-                if mounted:
-                    umount_l(d).terminate_geterr(fail_on_err = False)
-                os.rmdir(d)
-            except:
-                logging.warn('stale mount possibly left behind on ' + d)
-        logging.debug('auxiliary glusterfs mount prepared')
+
+        label = getattr(gconf, 'mountbroker', None)
+        if not label:
+            uid = os.geteuid()
+            if uid != 0:
+                label = syncdutils.getusername(uid)
+        mounter = label and self.MountbrokerMounter or self.DirectMounter
+        params = gconf.gluster_params.split() + \
+                   (gconf.gluster_log_level and ['log-level=' + gconf.gluster_log_level] or []) + \
+                   ['log-file=' + gconf.gluster_log_file, 'volfile-server=' + self.host,
+                    'volfile-id=' + self.volume, 'client-pid=-1']
+        mounter(params).inhibit(*[l for l in [label] if l])
 
     def connect_remote(self, *a, **kw):
         sup(self, *a, **kw)
@@ -653,7 +737,7 @@ class SSH(AbstractUrl, SlaveRemote):
         if m:
             u, h = m.groups()
         else:
-            u, h = pwd.getpwuid(os.geteuid()).pw_name, self.remote_addr
+            u, h = syncdutils.getusername(), self.remote_addr
         remote_addr = '@'.join([u, gethostbyname(h)])
         return ':'.join([remote_addr, self.inner_rsc.get_url(canonical=True)])
 

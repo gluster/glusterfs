@@ -1,5 +1,6 @@
 import os
 import sys
+import pwd
 import time
 import fcntl
 import shutil
@@ -216,3 +217,8 @@ class Thread(baseThread):
 
 class GsyncdError(Exception):
     pass
+
+def getusername(uid = None):
+    if uid == None:
+        uid = os.geteuid()
+    return pwd.getpwuid(uid).pw_name

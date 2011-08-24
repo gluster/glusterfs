@@ -42,7 +42,7 @@ else
 fi
 
 if [ $config_wanted = 1 ]; then
-    wd="`${gluster} system:: getwd`"
+    wd="`${gluster} --log-file=/dev/stderr system:: getwd`"
     if [ $? -eq 0 ]; then
         config_file="$wd/geo-replication/gsyncd.conf"
     fi
