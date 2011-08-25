@@ -39,6 +39,18 @@
 #include "inode.h"
 
 #ifdef GF_SOLARIS_HOST_OS
+int
+solaris_filter_special_keys (const char *key)
+{
+        xlator_t *this = THIS;
+
+        if ((strcmp ("SUNWattr_ro", key) == 0) ||
+            (strcmp ("SUNWattr_rw", key) == 0))
+                return 0;
+
+        return 1;
+}
+
 int 
 solaris_fsetxattr(int fd, 
 		  const char* key, 
@@ -48,7 +60,11 @@ solaris_fsetxattr(int fd,
 {
 	int attrfd = -1;
 	int ret = 0;
-	
+
+        ret = solaris_filter_special_keys (key);
+        if (!ret)
+                goto out;
+
 	attrfd = openat (fd, key, flags|O_CREAT|O_WRONLY|O_XATTR, 0777);
 	if (attrfd >= 0) {
 		ftruncate (attrfd, 0);
@@ -61,7 +77,8 @@ solaris_fsetxattr(int fd,
 				fd, errno);
 		return -1;
 	}
-	
+
+out:
 	return 0;
 }
 
@@ -229,6 +246,10 @@ solaris_setxattr(const char *path,
 	int ret = 0;
         char *mapped_path = NULL;
 
+        ret = solaris_filter_special_keys (key);
+        if (!ret)
+                goto out;
+
         ret = solaris_xattr_resolve_path (path, &mapped_path);
         if (!ret) {
                 attrfd = attropen (mapped_path,  key, flags|O_CREAT|O_WRONLY,
@@ -250,6 +271,8 @@ solaris_setxattr(const char *path,
 	}
         if (mapped_path)
                 GF_FREE (mapped_path);	
+
+out:
 	return ret;
 }
 
