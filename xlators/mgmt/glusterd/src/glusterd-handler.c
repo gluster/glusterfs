@@ -2415,6 +2415,40 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
+glusterd_friend_remove_notify (glusterd_peerinfo_t *peerinfo, rpcsvc_request_t *req)
+{
+        int ret = -1;
+        glusterd_friend_sm_event_t *new_event = NULL;
+
+        ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
+                                            &new_event);
+        if (!ret) {
+                new_event->peerinfo = peerinfo;
+                ret = glusterd_friend_sm_inject_event (new_event);
+
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
+
+                if (!req) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "Unable to find the request for responding "
+                                "to User (%s)", peerinfo->hostname);
+                        goto out;
+                }
+
+                glusterd_xfer_cli_probe_resp (req, -1, ENOTCONN,
+                                              peerinfo->hostname, peerinfo->port);
+        } else {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Unable to create event for removing peer %s",
+                        peerinfo->hostname);
+        }
+
+out:
+        return ret;
+}
+
+int
 glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event,
                           void *data)
@@ -2448,10 +2482,10 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         }
 
         case RPC_CLNT_DISCONNECT:
+        {
+                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT %d",
+                        peerinfo->state.state);
 
-                //Inject friend disconnected here
-
-                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
                 peerinfo->connected = 0;
 
                 /*
@@ -2482,9 +2516,19 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                         gf_log (this->name, GF_LOG_ERROR, "Unable"
                                 " to enque local lock flush event.");
 
+                //Inject friend disconnected here
+                if (peerinfo->state.state == GD_FRIEND_STATE_DEFAULT)  {
+                        /* Remove the friend as it was the newly requested
+                           'peer' and connection with this peer didn't
+                           succeed. we have opportunity to notify user
+                        */
+                        glusterd_friend_remove_notify (peerinfo,
+                                                       peerctx->args.req);
+                }
+
                 //default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
                 break;
-
+        }
         default:
                 gf_log (this->name, GF_LOG_TRACE,
                         "got some other RPC event %d", event);
