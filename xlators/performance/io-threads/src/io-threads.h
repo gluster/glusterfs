@@ -57,6 +57,7 @@ typedef enum {
         IOT_PRI_HI = 0, /* low latency */
         IOT_PRI_NORMAL, /* normal */
         IOT_PRI_LO,     /* bulk */
+        IOT_PRI_LEAST,  /* least */
         IOT_PRI_MAX,
 } iot_pri_t;
 
@@ -73,6 +74,8 @@ struct iot_conf {
 
         struct list_head     reqs[IOT_PRI_MAX];
 
+        int32_t              ac_iot_limit[IOT_PRI_MAX];
+        int32_t              ac_iot_count[IOT_PRI_MAX];
         int                  queue_size;
         pthread_attr_t       w_attr;
 
