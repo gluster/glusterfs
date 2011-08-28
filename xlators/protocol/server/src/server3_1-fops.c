@@ -55,7 +55,8 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_statfs_rsp);
+                             xdr_serialize_statfs_rsp,
+                             (xdrproc_t)xdr_gfs3_statfs_rsp);
 
         return 0;
 }
@@ -170,7 +171,8 @@ out:
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_lookup_rsp);
+                             (gfs_serialize_t)xdr_serialize_lookup_rsp,
+                             (xdrproc_t)xdr_gfs3_lookup_rsp);
 
         if (rsp.dict.dict_val)
                 GF_FREE (rsp.dict.dict_val);
@@ -221,7 +223,8 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_lk_rsp);
+                             xdr_serialize_lk_rsp,
+                             (xdrproc_t)xdr_gfs3_lk_rsp);
 
         return 0;
 }
@@ -261,7 +264,8 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -303,7 +307,8 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -342,7 +347,8 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
         return 0;
 }
 
@@ -381,7 +387,8 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -409,7 +416,8 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -451,7 +459,8 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_rmdir_rsp);
+                             xdr_serialize_rmdir_rsp,
+                             (xdrproc_t)xdr_gfs3_rmdir_rsp);
 
         return 0;
 }
@@ -490,7 +499,8 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_mkdir_rsp);
+                             xdr_serialize_mkdir_rsp,
+                             (xdrproc_t)xdr_gfs3_mkdir_rsp);
 
         return 0;
 }
@@ -529,7 +539,8 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_mknod_rsp);
+                             xdr_serialize_mknod_rsp,
+                             (xdrproc_t)xdr_gfs3_mknod_rsp);
 
 
         return 0;
@@ -559,7 +570,8 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -596,7 +608,8 @@ unwind:
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_readdir_rsp);
+                             xdr_serialize_readdir_rsp,
+                             (xdrproc_t)xdr_gfs3_readdir_rsp);
 
         readdir_rsp_cleanup (&rsp);
 
@@ -617,7 +630,8 @@ server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -655,7 +669,8 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_opendir_rsp);
+                             xdr_serialize_opendir_rsp,
+                             (xdrproc_t)xdr_gfs3_opendir_rsp);
 
         return 0;
 }
@@ -681,7 +696,8 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -742,7 +758,8 @@ out:
                         state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_getxattr_rsp);
+                             xdr_serialize_getxattr_rsp,
+                             (xdrproc_t)xdr_gfs3_getxattr_rsp);
 
         if (rsp.dict.dict_val)
                 GF_FREE (rsp.dict.dict_val);
@@ -806,7 +823,8 @@ out:
                         state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fgetxattr_rsp);
+                             xdr_serialize_fgetxattr_rsp,
+                             (xdrproc_t)xdr_gfs3_fgetxattr_rsp);
 
         if (rsp.dict.dict_val)
                 GF_FREE (rsp.dict.dict_val);
@@ -835,7 +853,8 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.inode ? state->loc.inode->ino : 0,
                         op_ret, strerror (op_errno));
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -863,7 +882,8 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }
@@ -917,7 +937,8 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_rename_rsp);
+                             xdr_serialize_rename_rsp,
+                             (xdrproc_t)xdr_gfs3_rename_rsp);
 
         return 0;
 }
@@ -966,7 +987,8 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_unlink_rsp);
+                             xdr_serialize_unlink_rsp,
+                             (xdrproc_t)xdr_gfs3_unlink_rsp);
 
         return 0;
 }
@@ -1006,7 +1028,8 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_symlink_rsp);
+                             xdr_serialize_symlink_rsp,
+                             (xdrproc_t)xdr_gfs3_symlink_rsp);
 
         return 0;
 }
@@ -1051,7 +1074,8 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_link_rsp);
+                             xdr_serialize_link_rsp,
+                             (xdrproc_t)xdr_gfs3_link_rsp);
 
         return 0;
 }
@@ -1084,7 +1108,8 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_truncate_rsp);
+                             xdr_serialize_truncate_rsp,
+                             (xdrproc_t)xdr_gfs3_truncate_rsp);
 
         return 0;
 }
@@ -1115,7 +1140,8 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fstat_rsp);
+                             xdr_serialize_fstat_rsp,
+                             (xdrproc_t)xdr_gfs3_fstat_rsp);
 
         return 0;
 }
@@ -1148,7 +1174,8 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_ftruncate_rsp);
+                             xdr_serialize_ftruncate_rsp,
+                             (xdrproc_t)xdr_gfs3_ftruncate_rsp);
 
         return 0;
 }
@@ -1176,7 +1203,8 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
 
         return 0;
@@ -1210,7 +1238,8 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fsync_rsp);
+                             xdr_serialize_fsync_rsp,
+                             (xdrproc_t)xdr_gfs3_fsync_rsp);
 
         return 0;
 }
@@ -1242,7 +1271,8 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_writev_rsp);
+                             xdr_serialize_writev_rsp,
+                             (xdrproc_t)xdr_gfs3_write_rsp);
 
         return 0;
 }
@@ -1276,7 +1306,8 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, vector, count, iobref,
-                             xdr_serialize_readv_rsp);
+                             xdr_serialize_readv_rsp,
+                             (xdrproc_t)xdr_gfs3_read_rsp);
 
         return 0;
 }
@@ -1310,7 +1341,8 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_rchecksum_rsp);
+                             xdr_serialize_rchecksum_rsp,
+                             (xdrproc_t)xdr_gfs3_rchecksum_rsp);
 
         return 0;
 }
@@ -1348,7 +1380,8 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_open_rsp);
+                             xdr_serialize_open_rsp,
+                             (xdrproc_t)xdr_gfs3_open_rsp);
         return 0;
 }
 
@@ -1426,7 +1459,8 @@ out:
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_create_rsp);
+                             xdr_serialize_create_rsp,
+                             (xdrproc_t)xdr_gfs3_create_rsp);
 
         return 0;
 }
@@ -1463,7 +1497,8 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp.path = "";
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_readlink_rsp);
+                             xdr_serialize_readlink_rsp,
+                             (xdrproc_t)xdr_gfs3_readlink_rsp);
 
         return 0;
 }
@@ -1494,7 +1529,8 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_stat_rsp);
+                             xdr_serialize_stat_rsp,
+                             (xdrproc_t)xdr_gfs3_stat_rsp);
 
         return 0;
 }
@@ -1528,7 +1564,8 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_setattr_rsp);
+                             xdr_serialize_setattr_rsp,
+                             (xdrproc_t)xdr_gfs3_setattr_rsp);
 
         return 0;
 }
@@ -1562,7 +1599,8 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fsetattr_rsp);
+                             xdr_serialize_fsetattr_rsp,
+                             (xdrproc_t)xdr_gfs3_fsetattr_rsp);
 
         return 0;
 }
@@ -1632,7 +1670,8 @@ out:
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_xattrop_rsp);
+                             xdr_serialize_xattrop_rsp,
+                             (xdrproc_t)xdr_gfs3_xattrop_rsp);
 
         if (rsp.dict.dict_val)
                 GF_FREE (rsp.dict.dict_val);
@@ -1706,7 +1745,8 @@ out:
                         strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fxattrop_rsp);
+                             xdr_serialize_fxattrop_rsp,
+                             (xdrproc_t)xdr_gfs3_fxattrop_rsp);
 
         if (rsp.dict.dict_val)
                 GF_FREE (rsp.dict.dict_val);
@@ -1749,7 +1789,8 @@ out:
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_readdirp_rsp);
+                             xdr_serialize_readdirp_rsp,
+                             (xdrproc_t)xdr_gfs3_readdirp_rsp);
 
         readdirp_rsp_cleanup (&rsp);
 
@@ -3158,7 +3199,8 @@ server_release (rpcsvc_request_t *req)
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
         ret = 0;
 out:
         return ret;
@@ -3182,7 +3224,8 @@ server_releasedir (rpcsvc_request_t *req)
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
         ret = 0;
 out:
         return ret;
@@ -5017,7 +5060,8 @@ server_null (rpcsvc_request_t *req)
         rsp.op_ret = 0;
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_common_rsp);
+                             (gfs_serialize_t)xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }

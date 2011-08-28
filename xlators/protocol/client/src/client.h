@@ -164,7 +164,7 @@ int client_submit_request (xlator_t *this, void *req,
                            struct iobref *iobref, gfs_serialize_t sfunc,
                            struct iovec *rsphdr, int rsphdr_count,
                            struct iovec *rsp_payload, int rsp_count,
-                           struct iobref *rsp_iobref);
+                           struct iobref *rsp_iobref, xdrproc_t xdrproc);
 
 int protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx);
 int protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx);

@@ -47,7 +47,7 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                        struct iobref *iobref, gfs_serialize_t sfunc,
                        struct iovec *rsphdr, int rsphdr_count,
                        struct iovec *rsp_payload, int rsp_payload_count,
-                       struct iobref *rsp_iobref)
+                       struct iobref *rsp_iobref, xdrproc_t xdrproc)
 {
         int            ret         = -1;
         clnt_conf_t   *conf        = NULL;
@@ -56,6 +56,7 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         int            count       = 0;
         char           start_ping  = 0;
         struct iobref *new_iobref  = NULL;
+        ssize_t        xdr_size    = 0;
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, prog, out);
@@ -78,48 +79,52 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 goto out;
        }
 
-        iobuf = iobuf_get (this->ctx->iobuf_pool);
-        if (!iobuf) {
-                goto out;
-        };
+        if (req && xdrproc) {
+                xdr_size = xdr_sizeof (xdrproc, req);
+                iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
+                if (!iobuf) {
+                        goto out;
+                };
 
-        new_iobref = iobref_new ();
-        if (!new_iobref) {
-                goto out;
-        }
-
-        if (iobref != NULL) {
-                ret = iobref_merge (new_iobref, iobref);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "cannot merge iobref passed from caller "
-                                "into new_iobref");
-                }
-        }
-
-        ret = iobref_add (new_iobref, iobuf);
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "cannot add iobuf into iobref");
-                goto out;
-        }
-
-        iov.iov_base = iobuf->ptr;
-        iov.iov_len  = 128 * GF_UNIT_KB;
-
-        /* Create the xdr payload */
-        if (req && sfunc) {
-                ret = sfunc (iov, req);
-                if (ret == -1) {
-                        /* callingfn so that, we can get to know which xdr
-                           function was called */
-                        gf_log_callingfn (this->name, GF_LOG_WARNING,
-                                          "XDR payload creation failed");
+                new_iobref = iobref_new ();
+                if (!new_iobref) {
                         goto out;
                 }
-                iov.iov_len = ret;
-                count = 1;
+
+                if (iobref != NULL) {
+                        ret = iobref_merge (new_iobref, iobref);
+                        if (ret != 0) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cannot merge iobref passed from caller "
+                                        "into new_iobref");
+                        }
+                }
+
+                ret = iobref_add (new_iobref, iobuf);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot add iobuf into iobref");
+                        goto out;
+                }
+
+                iov.iov_base = iobuf->ptr;
+                iov.iov_len  = iobuf_size (iobuf);
+
+                /* Create the xdr payload */
+                if (sfunc) {
+                        ret = sfunc (iov, req);
+                        if (ret == -1) {
+                                /* callingfn so that, we can get to know which xdr
+                                   function was called */
+                                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                                  "XDR payload creation failed");
+                                goto out;
+                        }
+                        iov.iov_len = ret;
+                        count = 1;
+                }
         }
+
         /* Send the msg */
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL,
                                0, new_iobref, frame, rsphdr, rsphdr_count,

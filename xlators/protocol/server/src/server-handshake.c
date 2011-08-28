@@ -326,7 +326,8 @@ fail:
         rsp.op_ret   = ret;
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_getspec_rsp);
+                             (gfs_serialize_t)xdr_serialize_getspec_rsp,
+                             (xdrproc_t)xdr_gf_getspec_rsp);
 
         return 0;
 }
@@ -620,7 +621,8 @@ fail:
         rsp.op_errno = gf_errno_to_error (op_errno);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_setvolume_rsp);
+                             (gfs_serialize_t)xdr_serialize_setvolume_rsp,
+                             (xdrproc_t)xdr_gf_setvolume_rsp);
 
 
         if (args.dict.dict_val)
@@ -650,7 +652,8 @@ server_ping (rpcsvc_request_t *req)
         rsp.op_ret = 0;
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp);
+                             xdr_serialize_common_rsp,
+                             (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
 }

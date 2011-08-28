@@ -198,7 +198,8 @@ typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *args);
 int
 server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                      struct iovec *payload, int payloadcount,
-                     struct iobref *iobref, gfs_serialize_t sfunc);
+                     struct iobref *iobref, gfs_serialize_t sfunc,
+                     xdrproc_t xdrproc);
 
 int xdr_to_glusterfs_req (rpcsvc_request_t *req, void *arg,
                           gfs_serialize_t sfunc);

@@ -212,7 +212,7 @@ client_start_ping (void *data)
 
         ret = client_submit_request (this, NULL, frame, conf->handshake,
                                      GF_HNDSK_PING, client_ping_cbk, NULL, NULL,
-                                     NULL, 0, NULL, 0, NULL);
+                                     NULL, 0, NULL, 0, NULL, NULL);
         if (ret)
                 goto fail;
 
@@ -360,7 +360,8 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
         ret = client_submit_request (this, &req, frame, conf->handshake,
                                      GF_HNDSK_GETSPEC, client3_getspec_cbk,
                                      NULL, xdr_from_getspec_req, NULL, 0,
-                                     NULL, 0, NULL);
+                                     NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gf_getspec_req);
 
         if (ret)
                 goto unwind;
@@ -633,7 +634,8 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                      GFS3_OP_OPENDIR,
                                      client3_1_reopendir_cbk, NULL,
                                      xdr_from_opendir_req, NULL, 0, NULL, 0,
-                                     NULL);
+                                     NULL,
+                                     (xdrproc_t)xdr_gfs3_opendir_req);
         if (ret)
                 goto out;
 
@@ -714,7 +716,8 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         local = NULL;
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_OPEN, client3_1_reopen_cbk, NULL,
-                                     xdr_from_open_req, NULL, 0, NULL, 0, NULL);
+                                     xdr_from_open_req, NULL, 0, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfs3_open_req);
         if (ret)
                 goto out;
 
@@ -1040,7 +1043,8 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
         ret = client_submit_request (this, &req, fr, conf->handshake,
                                      GF_HNDSK_SETVOLUME, client_setvolume_cbk,
                                      NULL, xdr_from_setvolume_req, NULL, 0,
-                                     NULL, 0, NULL);
+                                     NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gf_setvolume_req);
 
 fail:
         if (req.dict.dict_val)
@@ -1233,7 +1237,8 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
                                      GF_PMAP_PORTBYBRICK,
                                      client_query_portmap_cbk,
                                      NULL, xdr_from_pmap_port_by_brick_req,
-                                     NULL, 0, NULL, 0, NULL);
+                                     NULL, 0, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_pmap_port_by_brick_req);
 
 fail:
         return ret;
@@ -1329,7 +1334,7 @@ client_handshake (xlator_t *this, struct rpc_clnt *rpc)
         ret = client_submit_request (this, &req, frame, conf->dump,
                                      GF_DUMP_DUMP, client_dump_version_cbk,
                                      NULL, xdr_from_dump_req, NULL, 0, NULL, 0,
-                                     NULL);
+                                     NULL, (xdrproc_t)xdr_gf_dump_req);
 
 out:
         return ret;
