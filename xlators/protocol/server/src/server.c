@@ -38,39 +38,46 @@
 
 struct iobuf *
 gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
-                     struct iovec *outmsg)
+                     struct iovec *outmsg, xdrproc_t xdrproc)
 {
-        struct iobuf            *iob = NULL;
-        ssize_t                  retlen = -1;
+        struct iobuf *iob      = NULL;
+        ssize_t       retlen   = 0;
+        ssize_t       xdr_size = 0;
 
         GF_VALIDATE_OR_GOTO ("server", req, ret);
 
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
-        iob = iobuf_get (req->svc->ctx->iobuf_pool);
-        if (!iob) {
-                gf_log_callingfn ("", GF_LOG_ERROR, "Failed to get iobuf");
-                goto ret;
-        }
+        if (arg && xdrproc) {
+                xdr_size = xdr_sizeof (xdrproc, arg);
+                iob = iobuf_get2 (req->svc->ctx->iobuf_pool, xdr_size);
+                if (!iob) {
+                        gf_log_callingfn (THIS->name, GF_LOG_ERROR,
+                                          "Failed to get iobuf");
+                        goto ret;
+                };
 
-        iobuf_to_iovec (iob, outmsg);
-        /* Use the given serializer to translate the give C structure in arg
-         * to XDR format which will be written into the buffer in outmsg.
-         */
-        /* retlen is used to received the error since size_t is unsigned and we
-         * need -1 for error notification during encoding.
-         */
-        retlen = sfunc (*outmsg, arg);
-        if (retlen == -1) {
-                /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
-                   failure of RPC return values.. client should get
-                   notified about this, so there are no missing frames */
-                gf_log_callingfn ("", GF_LOG_ERROR, "Failed to encode message");
-                req->rpc_err = GARBAGE_ARGS;
-                retlen = 0;
+                iobuf_to_iovec (iob, outmsg);
+                /* Use the given serializer to translate the give C structure in arg
+                 * to XDR format which will be written into the buffer in outmsg.
+                 */
+                /* retlen is used to received the error since size_t is unsigned and we
+                 * need -1 for error notification during encoding.
+                 */
+                retlen = -1;
+                if (sfunc) {
+                        retlen = sfunc (*outmsg, arg);
+                        if (retlen == -1) {
+                                /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
+                                   failure of RPC return values.. client should get
+                                   notified about this, so there are no missing frames */
+                                gf_log_callingfn ("", GF_LOG_ERROR, "Failed to encode message");
+                                req->rpc_err = GARBAGE_ARGS;
+                                retlen = 0;
+                        }
+                }
         }
-
         outmsg->iov_len = retlen;
 ret:
         if (retlen == -1) {
@@ -83,11 +90,11 @@ ret:
 
 
 
-/* Generic reply function for NFSv3 specific replies. */
 int
 server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                      struct iovec *payload, int payloadcount,
-                     struct iobref *iobref, gfs_serialize_t sfunc)
+                     struct iobref *iobref, gfs_serialize_t sfunc,
+                     xdrproc_t xdrproc)
 {
         struct iobuf           *iob        = NULL;
         int                     ret        = -1;
@@ -111,7 +118,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                 new_iobref = 1;
         }
 
-        iob = gfs_serialize_reply (req, arg, sfunc, &rsp);
+        iob = gfs_serialize_reply (req, arg, sfunc, &rsp, xdrproc);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
                 goto ret;

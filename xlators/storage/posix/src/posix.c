@@ -1989,7 +1989,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 align = 4096;    /* align to page boundary */
         }
 
-        iobuf = iobuf_get (this->ctx->iobuf_pool);
+        iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
         if (!iobuf) {
                 op_errno = ENOMEM;
                 goto out;
