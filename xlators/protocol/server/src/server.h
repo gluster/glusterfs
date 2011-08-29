@@ -193,16 +193,10 @@ extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpcsvc_program glusterfs3_1_fop_prog;
 extern struct rpcsvc_program gluster_ping_prog;
 
-typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *args);
-
 int
 server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                      struct iovec *payload, int payloadcount,
-                     struct iobref *iobref, gfs_serialize_t sfunc,
-                     xdrproc_t xdrproc);
-
-int xdr_to_glusterfs_req (rpcsvc_request_t *req, void *arg,
-                          gfs_serialize_t sfunc);
+                     struct iobref *iobref, xdrproc_t xdrproc);
 
 int gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict);
 int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);

@@ -23,7 +23,8 @@
 #endif
 
 #include "common-utils.h"
-#include "cli1.h"
+#include "cli1-xdr.h"
+#include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
@@ -65,7 +66,8 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
 
         INIT_LIST_HEAD (&tmpvolinfo.bricks);
 
-        if (!gf_xdr_to_cli_add_brick_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_add_brick_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 snprintf (err_str, sizeof (err_str), "Garbage args received");
@@ -221,7 +223,6 @@ out:
                 rsp.op_errstr = err_str;
                 cli_rsp = &rsp;
                 glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                      gf_xdr_serialize_cli_add_brick_rsp,
                                       (xdrproc_t)xdr_gf1_cli_add_brick_rsp);
                 ret = 0; //sent error to cli, prevent second reply
         }
@@ -265,7 +266,8 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_remove_brick_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_remove_brick_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -417,7 +419,6 @@ out:
                 rsp.op_errstr = err_str;
                 cli_rsp = &rsp;
                 glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                      gf_xdr_serialize_cli_remove_brick_rsp,
                                       (xdrproc_t)xdr_gf1_cli_remove_brick_rsp);
 
                 ret = 0; //sent error to cli, prevent second reply

@@ -43,10 +43,10 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 
-#include "glusterd1.h"
-#include "cli1.h"
-#include "rpc-clnt.h"
 #include "glusterd1-xdr.h"
+#include "cli1-xdr.h"
+#include "xdr-generic.h"
+#include "rpc-clnt.h"
 #include "glusterd-volgen.h"
 
 #include <sys/resource.h>
@@ -459,7 +459,7 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gd_xdr_to_mgmt_cluster_lock_req (req->msg[0], &lock_req)) {
+        if (!xdr_to_generic (req->msg[0], &lock_req, (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -565,7 +565,7 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         gd1_mgmt_stage_op_req           op_req = {{0},};
 
         GF_ASSERT (req);
-        if (!gd_xdr_to_mgmt_stage_op_req (req->msg[0], &op_req)) {
+        if (!xdr_to_generic (req->msg[0], &op_req, (xdrproc_t)xdr_gd1_mgmt_stage_op_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -596,7 +596,7 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gd_xdr_to_mgmt_commit_op_req (req->msg[0], &op_req)) {
+        if (!xdr_to_generic (req->msg[0], &op_req, (xdrproc_t)xdr_gd1_mgmt_commit_op_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -631,7 +631,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
         gf_boolean_t                    run_fsm = _gf_true;
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_probe_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_probe_req)) {
                 //failed to decode msg;
                 gf_log ("", GF_LOG_ERROR, "xdr decoding error");
                 req->rpc_err = GARBAGE_ARGS;
@@ -698,7 +698,7 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         GF_ASSERT (priv);
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_probe_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_probe_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -762,7 +762,7 @@ glusterd_handle_cli_list_friends (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_peer_list_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_peer_list_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -808,7 +808,7 @@ glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_get_vol_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_get_vol_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -867,7 +867,7 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_set_vol_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_set_vol_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -924,7 +924,7 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_set_vol_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_set_vol_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1008,7 +1008,7 @@ glusterd_handle_sync_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_sync_volume_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_sync_volume_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1082,7 +1082,6 @@ out:
                 if (msg[0] == '\0')
                         snprintf (msg, sizeof (msg), "Operation failed");
                 glusterd_submit_reply(req, &cli_rsp, NULL, 0, NULL,
-                                      gf_xdr_from_cli_sync_volume_rsp,
                                       (xdrproc_t)xdr_gf1_cli_sync_volume_rsp);
                 if (free_hostname && cli_req.hostname)
                         free (cli_req.hostname);
@@ -1119,7 +1118,6 @@ glusterd_fsm_log_send_resp (rpcsvc_request_t *req, int op_ret,
                                                 (size_t *)&rsp.fsm_log.fsm_log_len);
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_from_cli_fsm_log_rsp,
                                      (xdrproc_t)xdr_gf1_cli_fsm_log_rsp);
         if (rsp.fsm_log.fsm_log_val)
                 GF_FREE (rsp.fsm_log.fsm_log_val);
@@ -1143,7 +1141,7 @@ glusterd_handle_fsm_log (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_fsm_log_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_fsm_log_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 snprintf (msg, sizeof (msg), "Garbage request");
@@ -1197,7 +1195,6 @@ glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status)
         rsp.op_ret = status;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_cluster_lock_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -1218,7 +1215,6 @@ glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status)
         glusterd_get_uuid (&rsp.uuid);
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_cluster_unlock_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -1236,7 +1232,8 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gd_xdr_to_mgmt_cluster_unlock_req (req->msg[0], &unlock_req)) {
+        if (!xdr_to_generic (req->msg[0], &unlock_req,
+                             (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1291,7 +1288,6 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
         }
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_stage_op_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_stage_op_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -1333,7 +1329,6 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
 
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_commit_op_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -1353,7 +1348,7 @@ glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
         gf_boolean_t            run_fsm = _gf_true;
 
         GF_ASSERT (req);
-        if (!gd_xdr_to_mgmt_friend_req (req->msg[0], &friend_req)) {
+        if (!xdr_to_generic (req->msg[0], &friend_req, (xdrproc_t)xdr_gd1_mgmt_friend_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1391,7 +1386,7 @@ glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req)
         char               remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
         GF_ASSERT (req);
-        if (!gd_xdr_to_mgmt_friend_req (req->msg[0], &friend_req)) {
+        if (!xdr_to_generic (req->msg[0], &friend_req, (xdrproc_t)xdr_gd1_mgmt_friend_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1494,7 +1489,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         priv = this->private;
         GF_ASSERT (priv);
 
-        if (!gd_xdr_to_mgmt_friend_update (req->msg[0], &friend_req)) {
+        if (!xdr_to_generic (req->msg[0], &friend_req, (xdrproc_t)xdr_gd1_mgmt_friend_update)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1581,7 +1576,6 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
 out:
         uuid_copy (rsp.uuid, priv->uuid);
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_friend_update_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
         if (dict) {
                 if (!dict->extra_stdfree && friend_req.friends.friends_val)
@@ -1613,12 +1607,11 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gd_xdr_to_mgmt_probe_req (req->msg[0], &probe_req)) {
+        if (!xdr_to_generic (req->msg[0], &probe_req, (xdrproc_t)xdr_gd1_mgmt_probe_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-
 
         this = THIS;
 
@@ -1660,7 +1653,6 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         rsp.hostname = probe_req.hostname;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_probe_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO, "Responded to %s, op_ret: %d, "
@@ -1690,7 +1682,7 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_stats_volume_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_stats_volume_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1772,7 +1764,6 @@ glusterd_handle_getwd (rpcsvc_request_t *req)
         rsp.wd = priv->workdir;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_from_cli_getwd_rsp,
                                      (xdrproc_t)xdr_gf1_cli_getwd_rsp);
 
         glusterd_friend_sm ();
@@ -2085,7 +2076,6 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
         rsp.hostname = hostname;
         rsp.port = port;
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_friend_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -2117,7 +2107,6 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
         rsp.port = port;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_friend_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO,
@@ -2142,7 +2131,6 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
         rsp.port = port;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_probe_rsp,
                                      (xdrproc_t)xdr_gf1_cli_probe_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO, "Responded to CLI, ret: %d",ret);
@@ -2164,7 +2152,6 @@ glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
         rsp.hostname = hostname;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_deprobe_rsp,
                                      (xdrproc_t)xdr_gf1_cli_deprobe_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO, "Responded to CLI, ret: %d",ret);
@@ -2227,7 +2214,6 @@ out:
         rsp.op_ret = ret;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_peer_list_rsp,
                                      (xdrproc_t)xdr_gf1_cli_peer_list_rsp);
         if (rsp.friends.friends_val)
                 GF_FREE (rsp.friends.friends_val);
@@ -2331,7 +2317,6 @@ out:
         rsp.op_ret = ret;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_peer_list_rsp,
                                      (xdrproc_t)xdr_gf1_cli_peer_list_rsp);
 
         if (volumes)
@@ -2352,7 +2337,8 @@ glusterd_handle_status_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_status_volume_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_status_volume_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;

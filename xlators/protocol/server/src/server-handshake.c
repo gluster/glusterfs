@@ -266,7 +266,7 @@ server_getspec (rpcsvc_request_t *req)
         conn = req->trans->private;
         this = req->svc->mydata;
         conf = this->private;
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_getspec_req)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 op_errno = EINVAL;
@@ -326,7 +326,6 @@ fail:
         rsp.op_ret   = ret;
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_getspec_rsp,
                              (xdrproc_t)xdr_gf_getspec_rsp);
 
         return 0;
@@ -360,7 +359,7 @@ server_setvolume (rpcsvc_request_t *req)
 
         params = dict_new ();
         reply  = dict_new ();
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_setvolume_req)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gf_setvolume_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
@@ -621,7 +620,6 @@ fail:
         rsp.op_errno = gf_errno_to_error (op_errno);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_setvolume_rsp,
                              (xdrproc_t)xdr_gf_setvolume_rsp);
 
 
@@ -652,7 +650,6 @@ server_ping (rpcsvc_request_t *req)
         rsp.op_ret = 0;
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;

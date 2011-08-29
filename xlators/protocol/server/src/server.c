@@ -37,8 +37,8 @@
 #include "rpcsvc.h"
 
 struct iobuf *
-gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
-                     struct iovec *outmsg, xdrproc_t xdrproc)
+gfs_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
+                     xdrproc_t xdrproc)
 {
         struct iobuf *iob      = NULL;
         ssize_t       retlen   = 0;
@@ -65,17 +65,15 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
                 /* retlen is used to received the error since size_t is unsigned and we
                  * need -1 for error notification during encoding.
                  */
-                retlen = -1;
-                if (sfunc) {
-                        retlen = sfunc (*outmsg, arg);
-                        if (retlen == -1) {
-                                /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
-                                   failure of RPC return values.. client should get
-                                   notified about this, so there are no missing frames */
-                                gf_log_callingfn ("", GF_LOG_ERROR, "Failed to encode message");
-                                req->rpc_err = GARBAGE_ARGS;
-                                retlen = 0;
-                        }
+
+                retlen = xdr_serialize_generic (*outmsg, arg, xdrproc);
+                if (retlen == -1) {
+                        /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
+                           failure of RPC return values.. client should get
+                           notified about this, so there are no missing frames */
+                        gf_log_callingfn ("", GF_LOG_ERROR, "Failed to encode message");
+                        req->rpc_err = GARBAGE_ARGS;
+                        retlen = 0;
                 }
         }
         outmsg->iov_len = retlen;
@@ -93,8 +91,7 @@ ret:
 int
 server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                      struct iovec *payload, int payloadcount,
-                     struct iobref *iobref, gfs_serialize_t sfunc,
-                     xdrproc_t xdrproc)
+                     struct iobref *iobref, xdrproc_t xdrproc)
 {
         struct iobuf           *iob        = NULL;
         int                     ret        = -1;
@@ -118,7 +115,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                 new_iobref = 1;
         }
 
-        iob = gfs_serialize_reply (req, arg, sfunc, &rsp, xdrproc);
+        iob = gfs_serialize_reply (req, arg, &rsp, xdrproc);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
                 goto ret;
@@ -162,21 +159,6 @@ ret:
 }
 
 /* */
-int
-xdr_to_glusterfs_req (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc)
-{
-        int                     ret = -1;
-
-        GF_VALIDATE_OR_GOTO ("server", req, out);
-
-        ret = sfunc (req->msg[0], arg);
-
-        if (ret > 0)
-                ret = 0;
-out:
-        return ret;
-}
-
 int
 server_fd (xlator_t *this)
 {

@@ -38,7 +38,7 @@
 #include "graph-utils.h"
 #include "trie.h"
 #include "glusterd-mem-types.h"
-#include "cli1.h"
+#include "cli1-xdr.h"
 #include "glusterd-volgen.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"

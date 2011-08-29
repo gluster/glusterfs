@@ -46,6 +46,8 @@
 #include "glusterd-volgen.h"
 #include "glusterd-pmap.h"
 
+#include "xdr-generic.h"
+
 #include <sys/resource.h>
 #include <inttypes.h>
 #include <signal.h>
@@ -306,8 +308,7 @@ int
 glusterd_submit_request (struct rpc_clnt *rpc, void *req,
                          call_frame_t *frame, rpc_clnt_prog_t *prog,
                          int procnum, struct iobref *iobref,
-                         gd_serialize_t sfunc, xlator_t *this,
-                         fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+                         xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         struct iobuf            *iobuf      = NULL;
@@ -319,35 +320,36 @@ glusterd_submit_request (struct rpc_clnt *rpc, void *req,
         GF_ASSERT (rpc);
         GF_ASSERT (this);
 
-        req_size = xdr_sizeof (xdrproc, req);
-        iobuf = iobuf_get2 (this->ctx->iobuf_pool, req_size);
-        if (!iobuf) {
-                goto out;
-        };
-
-        if (!iobref) {
-                iobref = iobref_new ();
-                if (!iobref) {
+        if (req) {
+                req_size = xdr_sizeof (xdrproc, req);
+                iobuf = iobuf_get2 (this->ctx->iobuf_pool, req_size);
+                if (!iobuf) {
                         goto out;
+                };
+
+                if (!iobref) {
+                        iobref = iobref_new ();
+                        if (!iobref) {
+                                goto out;
+                        }
+
+                        new_iobref = 1;
                 }
 
-                new_iobref = 1;
-        }
+                iobref_add (iobref, iobuf);
 
-        iobref_add (iobref, iobuf);
+                iov.iov_base = iobuf->ptr;
+                iov.iov_len  = iobuf_pagesize (iobuf);
 
-        iov.iov_base = iobuf->ptr;
-        iov.iov_len  = iobuf_pagesize (iobuf);
-
-        /* Create the xdr payload */
-        if (req && sfunc) {
-                ret = sfunc (iov, req);
+                /* Create the xdr payload */
+                ret = xdr_serialize_generic (iov, req, xdrproc);
                 if (ret == -1) {
                         goto out;
                 }
                 iov.iov_len = ret;
                 count = 1;
         }
+
         /* Send the msg */
         ret = rpc_clnt_submit (rpc, prog, procnum, cbkfn,
                                &iov, count,
@@ -379,8 +381,7 @@ out:
 
 struct iobuf *
 glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
-                          gd_serialize_t sfunc, struct iovec *outmsg,
-                          xdrproc_t xdrproc)
+                          struct iovec *outmsg, xdrproc_t xdrproc)
 {
         struct iobuf            *iob = NULL;
         ssize_t                  retlen = -1;
@@ -403,7 +404,7 @@ glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
         /* retlen is used to received the error since size_t is unsigned and we
          * need -1 for error notification during encoding.
          */
-        retlen = sfunc (*outmsg, arg);
+        retlen = xdr_serialize_generic (*outmsg, arg, xdrproc);
         if (retlen == -1) {
                 gf_log ("", GF_LOG_ERROR, "Failed to encode message");
                 goto ret;
@@ -422,8 +423,7 @@ ret:
 int
 glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                        struct iovec *payload, int payloadcount,
-                       struct iobref *iobref, gd_serialize_t sfunc,
-                       xdrproc_t xdrproc)
+                       struct iobref *iobref, xdrproc_t xdrproc)
 {
         struct iobuf           *iob        = NULL;
         int                     ret        = -1;
@@ -435,7 +435,6 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                 goto out;
         }
 
-
         if (!iobref) {
                 iobref = iobref_new ();
                 if (!iobref) {
@@ -446,7 +445,7 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                 new_iobref = 1;
         }
 
-        iob = glusterd_serialize_reply (req, arg, sfunc, &rsp, xdrproc);
+        iob = glusterd_serialize_reply (req, arg, &rsp, xdrproc);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
         } else {

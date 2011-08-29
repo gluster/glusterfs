@@ -37,7 +37,6 @@
 /* ugly #includes below */
 #include "protocol-common.h"
 #include "glusterfs3-xdr.h"
-#include "glusterfs3.h"
 #include "xdr-nfs3.h"
 #include "rpcsvc.h"
 

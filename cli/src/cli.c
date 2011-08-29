@@ -74,6 +74,8 @@
 #include "call-stub.h"
 #include <fnmatch.h>
 
+#include "xdr-generic.h"
+
 extern int connected;
 /* using argp for command line parsing */
 static char gf_doc[] = "";
@@ -265,8 +267,7 @@ int
 cli_submit_request (void *req, call_frame_t *frame,
                     rpc_clnt_prog_t *prog,
                     int procnum, struct iobref *iobref,
-                    cli_serialize_t sfunc, xlator_t *this,
-                    fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+                    xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         int                     count      = 0;
@@ -278,30 +279,30 @@ cli_submit_request (void *req, call_frame_t *frame,
 
         GF_ASSERT (this);
 
-        xdr_size = xdr_sizeof (xdrproc, req);
-        iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
-        if (!iobuf) {
-                goto out;
-        };
-
-        if (!iobref) {
-                iobref = iobref_new ();
-                if (!iobref) {
+        if (req) {
+                xdr_size = xdr_sizeof (xdrproc, req);
+                iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
+                if (!iobuf) {
                         goto out;
+                };
+
+                if (!iobref) {
+                        iobref = iobref_new ();
+                        if (!iobref) {
+                                goto out;
+                        }
+
+                        new_iobref = 1;
                 }
 
-                new_iobref = 1;
-        }
+                iobref_add (iobref, iobuf);
 
-        iobref_add (iobref, iobuf);
-
-        iov.iov_base = iobuf->ptr;
-        iov.iov_len  = iobuf_size (iobuf);
+                iov.iov_base = iobuf->ptr;
+                iov.iov_len  = iobuf_size (iobuf);
 
 
-        /* Create the xdr payload */
-        if (req && sfunc) {
-                ret = sfunc (iov, req);
+                /* Create the xdr payload */
+                ret = xdr_serialize_generic (iov, req, xdrproc);
                 if (ret == -1) {
                         goto out;
                 }

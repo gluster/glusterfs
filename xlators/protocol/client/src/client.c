@@ -44,10 +44,10 @@ int client_destroy_rpc (xlator_t *this);
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                        rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
-                       struct iobref *iobref, gfs_serialize_t sfunc,
-                       struct iovec *rsphdr, int rsphdr_count,
-                       struct iovec *rsp_payload, int rsp_payload_count,
-                       struct iobref *rsp_iobref, xdrproc_t xdrproc)
+                       struct iobref *iobref,  struct iovec *rsphdr,
+                       int rsphdr_count, struct iovec *rsp_payload,
+                       int rsp_payload_count, struct iobref *rsp_iobref,
+                       xdrproc_t xdrproc)
 {
         int            ret         = -1;
         clnt_conf_t   *conf        = NULL;
@@ -111,18 +111,16 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 iov.iov_len  = iobuf_size (iobuf);
 
                 /* Create the xdr payload */
-                if (sfunc) {
-                        ret = sfunc (iov, req);
-                        if (ret == -1) {
-                                /* callingfn so that, we can get to know which xdr
-                                   function was called */
-                                gf_log_callingfn (this->name, GF_LOG_WARNING,
-                                                  "XDR payload creation failed");
-                                goto out;
-                        }
-                        iov.iov_len = ret;
-                        count = 1;
+                ret = xdr_serialize_generic (iov, req, xdrproc);
+                if (ret == -1) {
+                        /* callingfn so that, we can get to know which xdr
+                           function was called */
+                        gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                          "XDR payload creation failed");
+                        goto out;
                 }
+                iov.iov_len = ret;
+                count = 1;
         }
 
         /* Send the msg */

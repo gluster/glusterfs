@@ -101,23 +101,6 @@ out:
         return ret;
 }
 
-static int
-xdr_to_glusterfs_req (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc)
-{
-        int                     ret = -1;
-
-        if (!req)
-                return -1;
-
-        ret = sfunc (req->msg[0], arg);
-
-        if (ret > 0)
-                ret = 0;
-
-        return ret;
-}
-
-
 int
 server_getspec (rpcsvc_request_t *req)
 {
@@ -134,7 +117,7 @@ server_getspec (rpcsvc_request_t *req)
         gf_getspec_rsp    rsp  = {0,};
 
 
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_getspec_req)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
@@ -191,7 +174,6 @@ fail:
                 rsp.spec = "";
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_serialize_getspec_rsp,
                                (xdrproc_t)xdr_gf_getspec_rsp);
         if (args.key)
                 free (args.key);//malloced by xdr
@@ -346,7 +328,7 @@ glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = xdr_to_dump_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_dump_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "failed to decode XDR");
                 goto out;
@@ -421,7 +403,7 @@ glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
 
         ret = glusterd_submit_request (peerctx->peerinfo->rpc, &req, frame,
                                        &glusterd_dump_prog, GF_DUMP_DUMP,
-                                       NULL, xdr_from_dump_req, this,
+                                       NULL, this,
                                        glusterd_peer_dump_version_cbk,
                                        (xdrproc_t)xdr_gf_dump_req);
 out:

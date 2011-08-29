@@ -47,7 +47,7 @@
 #include "glusterd-store.h"
 #include "glusterd-volgen.h"
 #include "syscall.h"
-#include "cli1.h"
+#include "cli1-xdr.h"
 #include "common-utils.h"
 #include "run.h"
 

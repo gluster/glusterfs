@@ -55,7 +55,6 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_statfs_rsp,
                              (xdrproc_t)xdr_gfs3_statfs_rsp);
 
         return 0;
@@ -171,7 +170,6 @@ out:
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_lookup_rsp,
                              (xdrproc_t)xdr_gfs3_lookup_rsp);
 
         if (rsp.dict.dict_val)
@@ -223,7 +221,6 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_lk_rsp,
                              (xdrproc_t)xdr_gfs3_lk_rsp);
 
         return 0;
@@ -264,7 +261,6 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -307,7 +303,6 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -347,7 +342,6 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
         return 0;
 }
@@ -387,7 +381,6 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -416,7 +409,6 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -459,7 +451,6 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_rmdir_rsp,
                              (xdrproc_t)xdr_gfs3_rmdir_rsp);
 
         return 0;
@@ -499,7 +490,6 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_mkdir_rsp,
                              (xdrproc_t)xdr_gfs3_mkdir_rsp);
 
         return 0;
@@ -539,7 +529,6 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_mknod_rsp,
                              (xdrproc_t)xdr_gfs3_mknod_rsp);
 
 
@@ -570,7 +559,6 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -608,7 +596,6 @@ unwind:
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_readdir_rsp,
                              (xdrproc_t)xdr_gfs3_readdir_rsp);
 
         readdir_rsp_cleanup (&rsp);
@@ -630,7 +617,6 @@ server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -669,7 +655,6 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_opendir_rsp,
                              (xdrproc_t)xdr_gfs3_opendir_rsp);
 
         return 0;
@@ -696,7 +681,6 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -758,7 +742,6 @@ out:
                         state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_getxattr_rsp,
                              (xdrproc_t)xdr_gfs3_getxattr_rsp);
 
         if (rsp.dict.dict_val)
@@ -823,7 +806,6 @@ out:
                         state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fgetxattr_rsp,
                              (xdrproc_t)xdr_gfs3_fgetxattr_rsp);
 
         if (rsp.dict.dict_val)
@@ -853,7 +835,6 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.inode ? state->loc.inode->ino : 0,
                         op_ret, strerror (op_errno));
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -882,7 +863,6 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -937,7 +917,6 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_rename_rsp,
                              (xdrproc_t)xdr_gfs3_rename_rsp);
 
         return 0;
@@ -987,7 +966,6 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_unlink_rsp,
                              (xdrproc_t)xdr_gfs3_unlink_rsp);
 
         return 0;
@@ -1028,7 +1006,6 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_symlink_rsp,
                              (xdrproc_t)xdr_gfs3_symlink_rsp);
 
         return 0;
@@ -1074,7 +1051,6 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_link_rsp,
                              (xdrproc_t)xdr_gfs3_link_rsp);
 
         return 0;
@@ -1108,7 +1084,6 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_truncate_rsp,
                              (xdrproc_t)xdr_gfs3_truncate_rsp);
 
         return 0;
@@ -1140,7 +1115,6 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fstat_rsp,
                              (xdrproc_t)xdr_gfs3_fstat_rsp);
 
         return 0;
@@ -1174,7 +1148,6 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_ftruncate_rsp,
                              (xdrproc_t)xdr_gfs3_ftruncate_rsp);
 
         return 0;
@@ -1203,7 +1176,6 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
 
@@ -1238,7 +1210,6 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fsync_rsp,
                              (xdrproc_t)xdr_gfs3_fsync_rsp);
 
         return 0;
@@ -1271,7 +1242,6 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_writev_rsp,
                              (xdrproc_t)xdr_gfs3_write_rsp);
 
         return 0;
@@ -1306,7 +1276,6 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, vector, count, iobref,
-                             xdr_serialize_readv_rsp,
                              (xdrproc_t)xdr_gfs3_read_rsp);
 
         return 0;
@@ -1341,7 +1310,6 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_rchecksum_rsp,
                              (xdrproc_t)xdr_gfs3_rchecksum_rsp);
 
         return 0;
@@ -1380,7 +1348,6 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_open_rsp,
                              (xdrproc_t)xdr_gfs3_open_rsp);
         return 0;
 }
@@ -1459,7 +1426,6 @@ out:
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_create_rsp,
                              (xdrproc_t)xdr_gfs3_create_rsp);
 
         return 0;
@@ -1497,7 +1463,6 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp.path = "";
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_readlink_rsp,
                              (xdrproc_t)xdr_gfs3_readlink_rsp);
 
         return 0;
@@ -1529,7 +1494,6 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_stat_rsp,
                              (xdrproc_t)xdr_gfs3_stat_rsp);
 
         return 0;
@@ -1564,7 +1528,6 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_setattr_rsp,
                              (xdrproc_t)xdr_gfs3_setattr_rsp);
 
         return 0;
@@ -1599,7 +1562,6 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fsetattr_rsp,
                              (xdrproc_t)xdr_gfs3_fsetattr_rsp);
 
         return 0;
@@ -1670,7 +1632,6 @@ out:
                         op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_xattrop_rsp,
                              (xdrproc_t)xdr_gfs3_xattrop_rsp);
 
         if (rsp.dict.dict_val)
@@ -1745,7 +1706,6 @@ out:
                         strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_fxattrop_rsp,
                              (xdrproc_t)xdr_gfs3_fxattrop_rsp);
 
         if (rsp.dict.dict_val)
@@ -1789,7 +1749,6 @@ out:
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_readdirp_rsp,
                              (xdrproc_t)xdr_gfs3_readdirp_rsp);
 
         readdirp_rsp_cleanup (&rsp);
@@ -2726,7 +2685,7 @@ server_stat (rpcsvc_request_t *req)
         /* Initialize args first, then decode */
         args.path = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_stat_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_stat_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -2771,7 +2730,7 @@ server_setattr (rpcsvc_request_t *req)
 
         args.path = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_setattr_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_setattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -2817,7 +2776,7 @@ server_fsetattr (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_fsetattr_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fsetattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -2864,7 +2823,7 @@ server_readlink (rpcsvc_request_t *req)
 
         args.path = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_readlink_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_readlink_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -2914,7 +2873,7 @@ server_create (rpcsvc_request_t *req)
         args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_create_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_create_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3007,7 +2966,7 @@ server_open (rpcsvc_request_t *req)
 
         args.path = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_open_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_open_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3052,7 +3011,7 @@ server_readv (rpcsvc_request_t *req)
         if (!req)
                 goto out;
 
-        if (!xdr_to_readv_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_read_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3098,7 +3057,7 @@ server_writev (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        len = xdr_to_writev_req (req->msg[0], &args);
+        len = xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_write_req);
         if (len == 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3189,7 +3148,7 @@ server_release (rpcsvc_request_t *req)
         gf_common_rsp        rsp  = {0,};
         int                  ret  = -1;
 
-        if (!xdr_to_release_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_release_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3199,7 +3158,6 @@ server_release (rpcsvc_request_t *req)
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
         ret = 0;
 out:
@@ -3214,7 +3172,7 @@ server_releasedir (rpcsvc_request_t *req)
         gf_common_rsp        rsp  = {0,};
         int                  ret  = -1;
 
-        if (!xdr_to_release_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_release_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3224,7 +3182,6 @@ server_releasedir (rpcsvc_request_t *req)
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
         ret = 0;
 out:
@@ -3243,7 +3200,7 @@ server_fsync (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_fsync_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fsync_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3287,7 +3244,7 @@ server_flush (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_flush_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_flush_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3330,7 +3287,7 @@ server_ftruncate (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_ftruncate_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_ftruncate_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3373,7 +3330,7 @@ server_fstat (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_fstat_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fstat_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3416,7 +3373,7 @@ server_truncate (rpcsvc_request_t *req)
                 return ret;
 
         args.path = alloca (req->msg[0].iov_len);
-        if (!xdr_to_truncate_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_truncate_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3464,7 +3421,7 @@ server_unlink (rpcsvc_request_t *req)
         args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_unlink_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_unlink_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3516,7 +3473,7 @@ server_setxattr (rpcsvc_request_t *req)
         args.path          = alloca (req->msg[0].iov_len);
         args.dict.dict_val = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_setxattr_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_setxattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3602,7 +3559,7 @@ server_fsetxattr (rpcsvc_request_t *req)
         conn = req->trans->xl_private;
 
         args.dict.dict_val = alloca (req->msg[0].iov_len);
-        if (!xdr_to_fsetxattr_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fsetxattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3681,7 +3638,7 @@ server_fxattrop (rpcsvc_request_t *req)
         conn = req->trans->xl_private;
 
         args.dict.dict_val = alloca (req->msg[0].iov_len);
-        if (!xdr_to_fxattrop_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fxattrop_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3764,7 +3721,7 @@ server_xattrop (rpcsvc_request_t *req)
         args.dict.dict_val = alloca (req->msg[0].iov_len);
         args.path          = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_xattrop_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_xattrop_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3840,7 +3797,7 @@ server_getxattr (rpcsvc_request_t *req)
         args.path = alloca (req->msg[0].iov_len);
         args.name = alloca (4096);
 
-        if (!xdr_to_getxattr_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_getxattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3890,7 +3847,7 @@ server_fgetxattr (rpcsvc_request_t *req)
                 return ret;
 
         args.name = alloca (4096);
-        if (!xdr_to_fgetxattr_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fgetxattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3939,7 +3896,7 @@ server_removexattr (rpcsvc_request_t *req)
         args.path = alloca (req->msg[0].iov_len);
         args.name = alloca (4096);
 
-        if (!xdr_to_removexattr_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_removexattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3987,7 +3944,7 @@ server_opendir (rpcsvc_request_t *req)
 
         args.path = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_opendir_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_opendir_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4031,7 +3988,7 @@ server_readdirp (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_readdirp_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_readdirp_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4085,7 +4042,7 @@ server_readdir (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_readdir_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_readdir_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4138,7 +4095,7 @@ server_fsyncdir (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_fsyncdir_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fsyncdir_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4187,7 +4144,7 @@ server_mknod (rpcsvc_request_t *req)
         args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_mknod_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_mknod_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4286,7 +4243,7 @@ server_mkdir (rpcsvc_request_t *req)
         args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_mkdir_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_mkdir_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4380,7 +4337,7 @@ server_rmdir (rpcsvc_request_t *req)
         args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_rmdir_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_rmdir_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4431,7 +4388,7 @@ server_inodelk (rpcsvc_request_t *req)
         args.path   = alloca (req->msg[0].iov_len);
         args.volume = alloca (4096);
 
-        if (!xdr_to_inodelk_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_inodelk_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4504,7 +4461,7 @@ server_finodelk (rpcsvc_request_t *req)
                 return ret;
 
         args.volume = alloca (4096);
-        if (!xdr_to_finodelk_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_finodelk_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4580,7 +4537,7 @@ server_entrylk (rpcsvc_request_t *req)
         args.volume = alloca (4096);
         args.name   = alloca (4096);
 
-        if (!xdr_to_entrylk_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_entrylk_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4632,7 +4589,7 @@ server_fentrylk (rpcsvc_request_t *req)
         args.name   = alloca (4096);
         args.volume = alloca (4096);
 
-        if (!xdr_to_fentrylk_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fentrylk_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4680,7 +4637,7 @@ server_access (rpcsvc_request_t *req)
                 return ret;
 
         args.path = alloca (req->msg[0].iov_len);
-        if (!xdr_to_access_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_access_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4731,7 +4688,7 @@ server_symlink (rpcsvc_request_t *req)
         args.bname    = alloca (req->msg[0].iov_len);
         args.linkname = alloca (4096);
 
-        if (!xdr_to_symlink_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_symlink_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4826,7 +4783,7 @@ server_link (rpcsvc_request_t *req)
         args.newpath  = alloca (req->msg[0].iov_len);
         args.newbname = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_link_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_link_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4879,7 +4836,7 @@ server_rename (rpcsvc_request_t *req)
         args.newpath  = alloca (req->msg[0].iov_len);
         args.newbname = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_rename_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_rename_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4930,7 +4887,7 @@ server_lk (rpcsvc_request_t *req)
 
         conn = req->trans->xl_private;
 
-        if (!xdr_to_lk_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_lk_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5019,7 +4976,7 @@ server_rchecksum (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        if (!xdr_to_rchecksum_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_rchecksum_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5060,7 +5017,6 @@ server_null (rpcsvc_request_t *req)
         rsp.op_ret = 0;
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_common_rsp,
                              (xdrproc_t)xdr_gf_common_rsp);
 
         return 0;
@@ -5085,7 +5041,7 @@ server_lookup (rpcsvc_request_t *req)
         args.bname         = alloca (req->msg[0].iov_len);
         args.dict.dict_val = alloca (req->msg[0].iov_len);
 
-        if (!xdr_to_lookup_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_lookup_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto err;
@@ -5177,7 +5133,7 @@ server_statfs (rpcsvc_request_t *req)
                 return ret;
 
         args.path = alloca (req->msg[0].iov_len);
-        if (!xdr_to_statfs_req (req->msg[0], &args)) {
+        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_statfs_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
