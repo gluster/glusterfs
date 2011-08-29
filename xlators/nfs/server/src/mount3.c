@@ -425,6 +425,9 @@ __volume_subdir (char *dirpath, char **volname)
         if (!subdir)
                 goto out;
 
+        if (!volname)
+                goto out;
+
         if (!*volname)
                 goto out;
 
@@ -683,7 +686,7 @@ mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         if (!volume_subdir)
                 goto err;
 
-        ret = mnt3_resolve_subdir (req, ms, exp, exp->expname);
+        ret = mnt3_resolve_subdir (req, ms, exp, volume_subdir);
         if (ret < 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve export dir: %s"
                         , exp->expname);
