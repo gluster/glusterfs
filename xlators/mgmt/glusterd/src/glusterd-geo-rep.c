@@ -23,7 +23,8 @@
 #endif
 
 #include "common-utils.h"
-#include "cli1.h"
+#include "cli1-xdr.h"
+#include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
@@ -61,7 +62,8 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         priv = THIS->private;
 
-        if (!gf_xdr_to_cli_gsync_set_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_gsync_set_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }

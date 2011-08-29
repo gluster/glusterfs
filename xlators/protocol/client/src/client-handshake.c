@@ -30,7 +30,7 @@
 #include "compat-errno.h"
 
 #include "glusterfs3.h"
-#include "portmap.h"
+#include "portmap-xdr.h"
 
 extern rpc_clnt_prog_t clnt3_1_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
@@ -211,8 +211,8 @@ client_start_ping (void *data)
                 goto fail;
 
         ret = client_submit_request (this, NULL, frame, conf->handshake,
-                                     GF_HNDSK_PING, client_ping_cbk, NULL, NULL,
-                                     NULL, 0, NULL, 0, NULL, NULL);
+                                     GF_HNDSK_PING, client_ping_cbk, NULL,
+                                     NULL, 0, NULL, 0, NULL, (xdrproc_t)NULL);
         if (ret)
                 goto fail;
 
@@ -316,7 +316,7 @@ client3_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_getspec_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_getspec_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
                         "XDR decoding failed, returning EINVAL");
@@ -359,8 +359,7 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
 
         ret = client_submit_request (this, &req, frame, conf->handshake,
                                      GF_HNDSK_GETSPEC, client3_getspec_cbk,
-                                     NULL, xdr_from_getspec_req, NULL, 0,
-                                     NULL, 0, NULL,
+                                     NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf_getspec_req);
 
         if (ret)
@@ -418,7 +417,7 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_open_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_open_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
@@ -520,7 +519,7 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_opendir_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_opendir_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
@@ -633,8 +632,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_OPENDIR,
                                      client3_1_reopendir_cbk, NULL,
-                                     xdr_from_opendir_req, NULL, 0, NULL, 0,
-                                     NULL,
+                                     NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_opendir_req);
         if (ret)
                 goto out;
@@ -716,7 +714,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         local = NULL;
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_OPEN, client3_1_reopen_cbk, NULL,
-                                     xdr_from_open_req, NULL, 0, NULL, 0, NULL,
+                                     NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_open_req);
         if (ret)
                 goto out;
@@ -828,7 +826,7 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 goto out;
         }
 
-        ret = xdr_to_setvolume_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_setvolume_rsp);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 op_ret = -1;
@@ -1042,8 +1040,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
 
         ret = client_submit_request (this, &req, fr, conf->handshake,
                                      GF_HNDSK_SETVOLUME, client_setvolume_cbk,
-                                     NULL, xdr_from_setvolume_req, NULL, 0,
-                                     NULL, 0, NULL,
+                                     NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf_setvolume_req);
 
 fail:
@@ -1148,7 +1145,7 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
                 goto out;
         }
 
-        ret = xdr_to_pmap_port_by_brick_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_port_by_brick_rsp);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 goto out;
@@ -1236,8 +1233,7 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
         ret = client_submit_request (this, &req, fr, &clnt_pmap_prog,
                                      GF_PMAP_PORTBYBRICK,
                                      client_query_portmap_cbk,
-                                     NULL, xdr_from_pmap_port_by_brick_req,
-                                     NULL, 0, NULL, 0, NULL,
+                                     NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_pmap_port_by_brick_req);
 
 fail:
@@ -1265,7 +1261,7 @@ client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_dump_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_dump_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding failed");
                 goto out;
@@ -1333,7 +1329,7 @@ client_handshake (xlator_t *this, struct rpc_clnt *rpc)
         req.gfs_id = 0xbabe;
         ret = client_submit_request (this, &req, frame, conf->dump,
                                      GF_DUMP_DUMP, client_dump_version_cbk,
-                                     NULL, xdr_from_dump_req, NULL, 0, NULL, 0,
+                                     NULL, NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gf_dump_req);
 
 out:

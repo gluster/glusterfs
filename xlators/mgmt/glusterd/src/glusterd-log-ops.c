@@ -23,7 +23,8 @@
 #endif
 
 #include "common-utils.h"
-#include "cli1.h"
+#include "cli1-xdr.h"
+#include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
@@ -42,7 +43,8 @@ glusterd_handle_log_filename (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_log_filename_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_log_filename_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -99,7 +101,8 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
 
         priv    = THIS->private;
 
-        if (!gf_xdr_to_cli_log_locate_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_log_locate_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -172,7 +175,6 @@ out:
                 rsp.path = "Operation failed";
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_log_locate_rsp,
                                      (xdrproc_t)xdr_gf1_cli_log_locate_rsp);
 
         if (cli_req.brick)
@@ -197,7 +199,8 @@ glusterd_handle_log_level (rpcsvc_request_t *req)
         GF_ASSERT(req);
 
 
-        if (!gf_xdr_to_cli_log_level_req(req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_log_level_req)) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Failed to decode rpc message");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -248,7 +251,8 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!gf_xdr_to_cli_log_rotate_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_log_rotate_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;

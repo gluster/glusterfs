@@ -161,7 +161,7 @@ int client_local_wipe (clnt_local_t *local);
 int client_submit_request (xlator_t *this, void *req,
                            call_frame_t *frame, rpc_clnt_prog_t *prog,
                            int procnum, fop_cbk_fn_t cbk,
-                           struct iobref *iobref, gfs_serialize_t sfunc,
+                           struct iobref *iobref,
                            struct iovec *rsphdr, int rsphdr_count,
                            struct iovec *rsp_payload, int rsp_count,
                            struct iobref *rsp_iobref, xdrproc_t xdrproc);

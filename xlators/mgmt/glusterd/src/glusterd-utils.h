@@ -71,15 +71,13 @@ glusterd_get_uuid (uuid_t *uuid);
 int
 glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                        struct iovec *payload, int payloadcount,
-                       struct iobref *iobref, gd_serialize_t sfunc,
-                       xdrproc_t xdrproc);
+                       struct iobref *iobref, xdrproc_t xdrproc);
 
 int
 glusterd_submit_request (struct rpc_clnt *rpc, void *req,
                          call_frame_t *frame, rpc_clnt_prog_t *prog,
                          int procnum, struct iobref *iobref,
-                         gd_serialize_t sfunc, xlator_t *this,
-                         fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
+                         xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 int32_t
 glusterd_volinfo_new (glusterd_volinfo_t **volinfo);
 

@@ -1,3 +1,12 @@
+ enum gf_cli_defrag_type {
+        GF_DEFRAG_CMD_START = 1,
+        GF_DEFRAG_CMD_STOP,
+        GF_DEFRAG_CMD_STATUS,
+        GF_DEFRAG_CMD_START_LAYOUT_FIX,
+        GF_DEFRAG_CMD_START_MIGRATE_DATA,
+        GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE
+} ;
+
  enum gf1_cluster_type {
         GF_CLUSTER_TYPE_NONE = 0,
         GF_CLUSTER_TYPE_STRIPE,

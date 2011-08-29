@@ -43,8 +43,8 @@
 #include "run.h"
 
 #include "syscall.h"
-#include "cli1.h"
-
+#include "cli1-xdr.h"
+#include "xdr-generic.h"
 
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
@@ -574,7 +574,8 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
         GF_ASSERT (req);
 
         priv    = THIS->private;
-        if (!gf_xdr_to_cli_defrag_vol_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_defrag_vol_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -615,7 +616,6 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
 out:
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_defrag_vol_rsp_v2,
                                      (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp);
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
@@ -638,7 +638,8 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 
         priv    = THIS->private;
 
-        if (!gf_xdr_to_cli_defrag_vol_req (req->msg[0], &cli_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_defrag_vol_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -686,7 +687,6 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 
 out:
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gf_xdr_serialize_cli_defrag_vol_rsp,
                                      (xdrproc_t)xdr_gf1_cli_defrag_vol_rsp);
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr

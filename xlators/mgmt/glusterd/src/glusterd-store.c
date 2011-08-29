@@ -44,8 +44,6 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 
-#include "glusterd1.h"
-#include "cli1.h"
 #include "rpc-clnt.h"
 #include "common-utils.h"
 

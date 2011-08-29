@@ -30,7 +30,8 @@
 #include "glusterd.h"
 #include "glusterd-utils.h"
 
-#include "portmap.h"
+#include "portmap-xdr.h"
+#include "xdr-generic.h"
 #include "protocol-common.h"
 #include "rpcsvc.h"
 
@@ -290,27 +291,6 @@ out:
         return 0;
 }
 
-
-typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *data);
-
-
-static int
-xdr_to_glusterfs_req (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc)
-{
-        int                     ret = -1;
-
-        if (!req)
-                return -1;
-
-        ret = sfunc (req->msg[0], arg);
-
-        if (ret > 0)
-                ret = 0;
-
-        return ret;
-}
-
-
 int
 gluster_pmap_portbybrick (rpcsvc_request_t *req)
 {
@@ -319,7 +299,8 @@ gluster_pmap_portbybrick (rpcsvc_request_t *req)
         char                     *brick = NULL;
         int                       port = 0;
 
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_port_by_brick_req)) {
+        if (!xdr_to_generic (req->msg[0], &args,
+                             (xdrproc_t)xdr_pmap_port_by_brick_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
@@ -335,7 +316,6 @@ gluster_pmap_portbybrick (rpcsvc_request_t *req)
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_port_by_brick_rsp,
                                (xdrproc_t)xdr_pmap_port_by_brick_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
@@ -350,7 +330,8 @@ gluster_pmap_brickbyport (rpcsvc_request_t *req)
         pmap_brick_by_port_req    args = {0,};
         pmap_brick_by_port_rsp    rsp  = {0,};
 
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_brick_by_port_req)) {
+        if (!xdr_to_generic (req->msg[0], &args,
+                             (xdrproc_t)xdr_pmap_brick_by_port_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
@@ -363,7 +344,6 @@ gluster_pmap_brickbyport (rpcsvc_request_t *req)
 fail:
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_brick_by_port_rsp,
                                (xdrproc_t)xdr_pmap_brick_by_port_rsp);
 
         return 0;
@@ -385,7 +365,8 @@ gluster_pmap_signup (rpcsvc_request_t *req)
         pmap_signup_rsp    rsp  = {0,};
 
 
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_signup_req)) {
+        if (!xdr_to_generic (req->msg[0], &args,
+                             (xdrproc_t)xdr_pmap_signup_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
@@ -395,7 +376,6 @@ gluster_pmap_signup (rpcsvc_request_t *req)
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_signup_rsp,
                                (xdrproc_t)xdr_pmap_signup_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
@@ -411,7 +391,8 @@ gluster_pmap_signin (rpcsvc_request_t *req)
         glusterd_brickinfo_t *brickinfo = NULL;
         int                ret = -1;
 
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_signin_req)) {
+        if (!xdr_to_generic (req->msg[0], &args,
+                             (xdrproc_t)xdr_pmap_signin_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
@@ -423,7 +404,6 @@ gluster_pmap_signin (rpcsvc_request_t *req)
                                       &brickinfo);
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_signin_rsp,
                                (xdrproc_t)xdr_pmap_signin_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
@@ -444,7 +424,8 @@ gluster_pmap_signout (rpcsvc_request_t *req)
         int                 ret = -1;
         glusterd_brickinfo_t *brickinfo = NULL;
 
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_signout_req)) {
+        if (!xdr_to_generic (req->msg[0], &args,
+                             (xdrproc_t)xdr_pmap_signout_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
@@ -457,7 +438,6 @@ gluster_pmap_signout (rpcsvc_request_t *req)
                                       &brickinfo);
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (gd_serialize_t)xdr_from_pmap_signout_rsp,
                                (xdrproc_t)xdr_pmap_signout_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr

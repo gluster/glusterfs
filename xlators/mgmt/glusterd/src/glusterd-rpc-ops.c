@@ -25,8 +25,9 @@
 
 #include "rpc-clnt.h"
 #include "glusterd1-xdr.h"
-#include "glusterd1.h"
-#include "cli1.h"
+#include "cli1-xdr.h"
+
+#include "xdr-generic.h"
 
 #include "compat-errno.h"
 #include "glusterd-op-sm.h"
@@ -52,7 +53,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                                void *op_ctx, char *op_errstr)
 {
         int32_t         ret = -1;
-        gd_serialize_t  sfunc = NULL;
         void            *cli_rsp = NULL;
         dict_t          *ctx = NULL;
         char            *free_ptr = NULL;
@@ -77,7 +77,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_create_vol_rsp;
                 xdrproc = (xdrproc_t)xdr_gf1_cli_create_vol_rsp;
                 break;
         }
@@ -93,7 +92,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_start_vol_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_start_vol_rsp;
                 break;
         }
@@ -109,7 +107,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_stop_vol_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_stop_vol_rsp;
                 break;
         }
@@ -125,7 +122,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_delete_vol_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_delete_vol_rsp;
                 break;
         }
@@ -137,7 +133,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 rsp.op_errno = op_errno;
                 //rsp.volname = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_defrag_vol_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_defrag_vol_rsp;
                 break;
         }
@@ -153,7 +148,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_add_brick_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_add_brick_rsp;
                 break;
         }
@@ -169,7 +163,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 rsp.op_errno = op_errno;
                 rsp.volname = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_remove_brick_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_remove_brick_rsp;
                 break;
         }
@@ -189,7 +182,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         rsp.op_errstr = "";
                 rsp.volname = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_replace_brick_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_replace_brick_rsp;
                 break;
         }
@@ -215,7 +207,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 }
 
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_set_vol_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_set_vol_rsp;
                 break;
         }
@@ -232,7 +223,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "Error while resetting options";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_reset_vol_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_reset_vol_rsp;
                 break;
         }
@@ -247,7 +237,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_log_filename_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_log_filename_rsp;
                 break;
         }
@@ -261,7 +250,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_log_rotate_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_log_rotate_rsp;
                 break;
         }
@@ -275,7 +263,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_from_cli_sync_volume_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_sync_volume_rsp;
                 break;
         }
@@ -310,7 +297,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 if (op_errstr)
                         rsp.op_errstr = op_errstr;
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_gsync_set_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_gsync_set_rsp;
                 break;
         }
@@ -337,7 +323,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         (size_t*)&rsp.stats_info.stats_info_len);
                 free_ptr = rsp.stats_info.stats_info_val;
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_from_cli_stats_volume_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_stats_volume_rsp;
                 break;
         }
@@ -386,7 +371,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         }
                 }
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_quota_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_quota_rsp;
                 break;
         }
@@ -402,7 +386,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         rsp.op_errstr = "";
 
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_log_level_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_log_level_rsp;
                 break;
         }
@@ -423,7 +406,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                              (size_t*)&rsp.dict.dict_len);
                 free_ptr = rsp.dict.dict_val;
                 cli_rsp = &rsp;
-                sfunc = gf_xdr_serialize_cli_status_volume_rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_status_volume_rsp;
                 break;
         }
@@ -436,7 +418,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         }
 
         ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
-                                     sfunc, xdrproc);
+                                     xdrproc);
 
         if (free_ptr)
                 GF_FREE (free_ptr);
@@ -461,7 +443,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gd_xdr_to_mgmt_probe_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 //rsp.op_ret   = -1;
@@ -548,7 +530,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gd_xdr_to_mgmt_friend_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -648,7 +630,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
                 goto inject;
         }
 
-        ret = gd_xdr_to_mgmt_friend_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -730,7 +712,7 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-/*        ret = gd_xdr_to_mgmt_friend_update_rsp (*iov, &rsp);
+/*        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -768,7 +750,7 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gd_xdr_to_mgmt_cluster_lock_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -827,7 +809,7 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gd_xdr_to_mgmt_cluster_unlock_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -1078,7 +1060,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gd_xdr_to_mgmt_stage_op_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_stage_op_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -1319,7 +1301,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gd_xdr_to_mgmt_commit_op_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -1473,8 +1455,7 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
 
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->mgmt,
                                        GD_MGMT_PROBE_QUERY,
-                                       NULL, gd_xdr_from_mgmt_probe_req,
-                                       this, glusterd3_1_probe_cbk,
+                                       NULL, this, glusterd3_1_probe_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_probe_req);
 
 out:
@@ -1527,8 +1508,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
 
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->mgmt,
                                        GD_MGMT_FRIEND_ADD,
-                                       NULL, gd_xdr_from_mgmt_friend_req,
-                                       this, glusterd3_1_friend_add_cbk,
+                                       NULL, this, glusterd3_1_friend_add_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_req);
 
 
@@ -1569,8 +1549,7 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
         req.hostname = peerinfo->hostname;
         req.port = peerinfo->port;
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->mgmt,
-                                       GD_MGMT_FRIEND_REMOVE,
-                                       NULL, gd_xdr_from_mgmt_friend_req,
+                                       GD_MGMT_FRIEND_REMOVE, NULL,
                                        this, glusterd3_1_friend_remove_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_req);
 
@@ -1616,8 +1595,7 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         dummy_frame = create_frame (this, this->ctx->pool);
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt,
-                                       GD_MGMT_FRIEND_UPDATE,
-                                       NULL, gd_xdr_from_mgmt_friend_update,
+                                       GD_MGMT_FRIEND_UPDATE, NULL,
                                        this, glusterd3_1_friend_update_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_update);
 
@@ -1656,7 +1634,6 @@ glusterd3_1_cluster_lock (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_CLUSTER_LOCK,
                                        NULL,
-                                       gd_xdr_from_mgmt_cluster_lock_req,
                                        this, glusterd3_1_cluster_lock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
 out:
@@ -1691,7 +1668,6 @@ glusterd3_1_cluster_unlock (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_CLUSTER_UNLOCK,
                                        NULL,
-                                       gd_xdr_from_mgmt_cluster_unlock_req,
                                        this, glusterd3_1_cluster_unlock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
 out:
@@ -1751,7 +1727,6 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_STAGE_OP,
                                        NULL,
-                                       gd_xdr_from_mgmt_stage_op_req,
                                        this, glusterd3_1_stage_op_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_stage_op_req);
 
@@ -1814,7 +1789,6 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_COMMIT_OP,
                                        NULL,
-                                       gd_xdr_from_mgmt_commit_op_req,
                                        this, glusterd3_1_commit_op_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_commit_op_req);
 
@@ -1874,7 +1848,7 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret =  gd_xdr_to_mgmt_brick_op_rsp (*iov, &rsp);
+        ret =  xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -2044,7 +2018,6 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                 ret = glusterd_submit_request (brickinfo->rpc, req, dummy_frame,
                                                &glusterd_glusterfs_3_1_mgmt_prog,
                                                req->op, NULL,
-                                               gd_xdr_from_mgmt_brick_op_req,
                                                this, glusterd3_1_brick_op_cbk,
                                                (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
                 if (req) {

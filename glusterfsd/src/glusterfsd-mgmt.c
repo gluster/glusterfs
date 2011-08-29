@@ -37,18 +37,14 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 #include "glusterfs3.h"
-#include "portmap.h"
-#include "glusterd1.h"
+#include "portmap-xdr.h"
+#include "glusterd1-xdr.h"
+#include "xdr-generic.h"
 
 #include "glusterfsd.h"
 #include "rpcsvc.h"
 
 static char is_mgmt_rpc_reconnect;
-
-typedef ssize_t (*mgmt_serialize_t) (struct iovec outmsg, void *args);
-typedef ssize_t (*gf_serialize_t) (struct iovec outmsg, void *args);
-
-
 
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
@@ -69,8 +65,7 @@ mgmt_cbk_spec (void *data)
 
 struct iobuf *
 glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
-                           gf_serialize_t sfunc, struct iovec *outmsg,
-                           xdrproc_t xdrproc)
+                           struct iovec *outmsg, xdrproc_t xdrproc)
 {
         struct iobuf            *iob = NULL;
         ssize_t                  retlen = -1;
@@ -93,7 +88,7 @@ glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
         /* retlen is used to received the error since size_t is unsigned and we
          * need -1 for error notification during encoding.
          */
-        retlen = sfunc (*outmsg, arg);
+        retlen = xdr_serialize_generic (*outmsg, arg, xdrproc);
         if (retlen == -1) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to encode message");
                 goto ret;
@@ -112,8 +107,7 @@ ret:
 int
 glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
                         struct iovec *payload, int payloadcount,
-                        struct iobref *iobref, gf_serialize_t sfunc,
-                        xdrproc_t xdrproc)
+                        struct iobref *iobref, xdrproc_t xdrproc)
 {
         struct iobuf           *iob        = NULL;
         int                     ret        = -1;
@@ -136,7 +130,7 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
                 new_iobref = 1;
         }
 
-        iob = glusterfs_serialize_reply (req, arg, sfunc, &rsp, xdrproc);
+        iob = glusterfs_serialize_reply (req, arg, &rsp, xdrproc);
         if (!iob) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to serialize reply");
                 goto out;
@@ -186,7 +180,6 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
 
         if (ret == 0)
                 ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                              gd_xdr_serialize_mgmt_brick_op_rsp,
                                               (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
 
         if (rsp.output.output_val)
@@ -253,7 +246,6 @@ glusterfs_translator_info_response_send (rpcsvc_request_t *req, int ret,
                                         (size_t *)&rsp.output.output_len);
 
         ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     gd_xdr_serialize_mgmt_brick_op_rsp,
                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
         if (rsp.output.output_val)
                 GF_FREE (rsp.output.output_val);
@@ -283,7 +275,8 @@ glusterfs_handle_translator_info_get (rpcsvc_request_t *req)
 
         active = ctx->active;
         any = active->first;
-        if (!gd_xdr_to_mgmt_brick_op_req (req->msg[0], &xlator_req)) {
+        if (!xdr_to_generic (req->msg[0], &xlator_req,
+                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -405,8 +398,7 @@ int
 mgmt_submit_request (void *req, call_frame_t *frame,
                      glusterfs_ctx_t *ctx,
                      rpc_clnt_prog_t *prog, int procnum,
-                     mgmt_serialize_t sfunc, fop_cbk_fn_t cbkfn,
-                     xdrproc_t xdrproc)
+                     fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         int                     count      = 0;
@@ -420,22 +412,21 @@ mgmt_submit_request (void *req, call_frame_t *frame,
                 goto out;
         }
 
-        xdr_size = xdr_sizeof (xdrproc, req);
+        if (req) {
+                xdr_size = xdr_sizeof (xdrproc, req);
 
-        iobuf = iobuf_get2 (ctx->iobuf_pool, xdr_size);
-        if (!iobuf) {
-                goto out;
-        };
+                iobuf = iobuf_get2 (ctx->iobuf_pool, xdr_size);
+                if (!iobuf) {
+                        goto out;
+                };
 
-        iobref_add (iobref, iobuf);
+                iobref_add (iobref, iobuf);
 
-        iov.iov_base = iobuf->ptr;
-        iov.iov_len  = iobuf_pagesize (iobuf);
+                iov.iov_base = iobuf->ptr;
+                iov.iov_len  = iobuf_pagesize (iobuf);
 
-
-        /* Create the xdr payload */
-        if (req && sfunc) {
-                ret = sfunc (iov, req);
+                /* Create the xdr payload */
+                ret = xdr_serialize_generic (iov, req, xdrproc);
                 if (ret == -1) {
                         gf_log (THIS->name, GF_LOG_WARNING, "failed to create XDR payload");
                         goto out;
@@ -628,7 +619,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_getspec_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_getspec_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding error");
                 ret   = -1;
@@ -728,8 +719,7 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         req.flags = 0;
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
-                                   GF_HNDSK_GETSPEC, xdr_from_getspec_req,
-                                   mgmt_getspec_cbk,
+                                   GF_HNDSK_GETSPEC, mgmt_getspec_cbk,
                                    (xdrproc_t)xdr_gf_getspec_req);
         return ret;
 }
@@ -928,7 +918,7 @@ mgmt_pmap_signin2_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_pmap_signin_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_signin_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "XDR decode error");
                 rsp.op_ret   = -1;
@@ -967,7 +957,7 @@ mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_pmap_signin_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_signin_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "XDR decode error");
                 rsp.op_ret   = -1;
@@ -994,8 +984,7 @@ mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
         pmap_req.brick = brick_name;
 
         ret = mgmt_submit_request (&pmap_req, frame, ctx, &clnt_pmap_prog,
-                                   GF_PMAP_SIGNIN, xdr_from_pmap_signin_req,
-                                   mgmt_pmap_signin2_cbk,
+                                   GF_PMAP_SIGNIN, mgmt_pmap_signin2_cbk,
                                    (xdrproc_t)xdr_pmap_signin_req);
         if (ret)
                 goto out;
@@ -1029,8 +1018,7 @@ glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx)
         req.brick = cmd_args->brick_name;
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
-                                   GF_PMAP_SIGNIN, xdr_from_pmap_signin_req,
-                                   mgmt_pmap_signin_cbk,
+                                   GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
                                    (xdrproc_t)xdr_pmap_signin_req);
 
 out:
@@ -1056,7 +1044,7 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ctx = glusterfs_ctx_get ();
-        ret = xdr_to_pmap_signout_rsp (*iov, &rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_signout_rsp);
         if (ret < 0) {
                 gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
@@ -1097,8 +1085,7 @@ glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
         req.brick = cmd_args->brick_name;
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
-                                   GF_PMAP_SIGNOUT, xdr_from_pmap_signout_req,
-                                   mgmt_pmap_signout_cbk,
+                                   GF_PMAP_SIGNOUT, mgmt_pmap_signout_cbk,
                                    (xdrproc_t)xdr_pmap_signout_req);
 out:
         return ret;

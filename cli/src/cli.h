@@ -184,8 +184,7 @@ int
 cli_submit_request (void *req, call_frame_t *frame,
                     rpc_clnt_prog_t *prog,
                     int procnum, struct iobref *iobref,
-                    cli_serialize_t sfunc, xlator_t *this,
-                    fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
+                    xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
 int32_t
 cli_cmd_volume_create_parse (const char **words, int wordcount,
