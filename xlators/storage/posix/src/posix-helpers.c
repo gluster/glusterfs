@@ -65,6 +65,35 @@ typedef struct {
         loc_t       *loc;
 } posix_xattr_filler_t;
 
+static char* posix_ignore_xattrs[] = {
+        "gfid-req",
+        GLUSTERFS_ENTRYLK_COUNT,
+        GLUSTERFS_INODELK_COUNT,
+        GLUSTERFS_POSIXLK_COUNT,
+        NULL
+};
+
+static gf_boolean_t
+posix_xattr_ignorable (char *key, posix_xattr_filler_t *filler)
+{
+        int          i = 0;
+        gf_boolean_t ignore = _gf_false;
+
+        GF_ASSERT (key);
+        if (!key)
+                goto out;
+        for (i = 0; posix_ignore_xattrs[i]; i++) {
+                if (!strcmp (key, posix_ignore_xattrs[i])) {
+                        ignore = _gf_true;
+                        goto out;
+                }
+        }
+        if ((!strcmp (key, GF_CONTENT_KEY))
+            && (!IA_ISREG (filler->stbuf->ia_type)))
+                ignore = _gf_true;
+out:
+        return ignore;
+}
 
 static void
 _posix_xattr_get_set (dict_t *xattr_req,
@@ -82,8 +111,8 @@ _posix_xattr_get_set (dict_t *xattr_req,
         ssize_t  req_size  = 0;
 
 
-        if (!strcmp (key, "gfid-req"))
-                return;
+        if (posix_xattr_ignorable (key, filler))
+                goto out;
         /* should size be put into the data_t ? */
         if (!strcmp (key, GF_CONTENT_KEY)
             && IA_ISREG (filler->stbuf->ia_type)) {
@@ -175,6 +204,8 @@ _posix_xattr_get_set (dict_t *xattr_req,
                                         filler->real_path, key);
                 }
         }
+out:
+        return;
 }
 
 
