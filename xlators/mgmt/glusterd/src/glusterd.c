@@ -263,7 +263,7 @@ extern int mkdir_if_missing (char *path);
 
 #if SYNCDAEMON_COMPILE
 static int
-glusterd_check_gsync_present ()
+glusterd_check_gsync_present (int *valid_state)
 {
         char                buff[PATH_MAX] = {0, };
         runner_t            runner = {0,};
@@ -274,28 +274,43 @@ glusterd_check_gsync_present ()
         runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "--version", NULL);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         ret = runner_start (&runner);
-        if (ret == -1)
+        if (ret == -1) {
+                if (errno == ENOENT) {
+                        gf_log ("glusterd", GF_LOG_INFO, GEOREP
+                                 " module not installed in the system");
+                        *valid_state = 0;
+                }
+                else {
+                        gf_log ("glusterd", GF_LOG_ERROR, GEOREP
+                                  " module not working as desired");
+                        *valid_state = -1;
+                }
                 goto out;
+        }
 
         ptr = fgets(buff, sizeof(buff), runner_chio (&runner, STDOUT_FILENO));
         if (ptr) {
                 if (!strstr (buff, "gsyncd")) {
                         ret = -1;
+                        gf_log ("glusterd", GF_LOG_ERROR, GEOREP" module not "
+                                 "working as desired");
+                        *valid_state = -1;
                         goto out;
                 }
         } else {
                 ret = -1;
+                gf_log ("glusterd", GF_LOG_ERROR, GEOREP" module not "
+                         "working as desired");
+                *valid_state = -1;
                 goto out;
         }
+
         ret = 0;
  out:
 
-        ret = runner_end (&runner);
-        if (ret == -1)
-                        gf_log ("", GF_LOG_INFO, "geo-replication module not"
-                                " installed in the system");
+        runner_end (&runner);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 
 }
@@ -430,16 +445,17 @@ configure_syncdaemon (glusterd_conf_t *conf)
 #if SYNCDAEMON_COMPILE
         runner_t runner = {0,};
         char georepdir[PATH_MAX] = {0,};
+        int valid_state = 0;
 
         ret = setenv ("_GLUSTERD_CALLED_", "1", 1);
         if (ret < 0) {
                 ret = 0;
                 goto out;
         }
-
-        ret = glusterd_check_gsync_present ();
+        valid_state = -1;
+        ret = glusterd_check_gsync_present (&valid_state);
         if (-1 == ret) {
-                ret = 0;
+                ret = valid_state;
                 goto out;
         }
 
