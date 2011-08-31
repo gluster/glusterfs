@@ -31,6 +31,17 @@
 #define PTR(num) ((void *)((long)(num)))
 
 
+static uid_t
+r00t ()
+{
+        struct posix_acl_conf *conf = NULL;
+
+        conf = THIS->private;
+
+        return conf->super_uid;
+}
+
+
 int
 whitelisted_xattr (const char *key)
 {
@@ -49,6 +60,19 @@ int
 frame_is_user (call_frame_t *frame, uid_t uid)
 {
         return (frame->root->uid == uid);
+}
+
+
+int
+frame_is_super_user (call_frame_t *frame)
+{
+        int ret;
+
+        ret = frame_is_user (frame, r00t());
+        if (!ret)
+                ret = frame_is_user (frame, 0);
+
+        return ret;
 }
 
 
@@ -127,7 +151,7 @@ sticky_permits (call_frame_t *frame, inode_t *parent, inode_t *inode)
         par = posix_acl_ctx_get (parent, frame->this);
         ctx = posix_acl_ctx_get (inode, frame->this);
 
-        if (frame_is_user (frame, 0))
+        if (frame_is_super_user (frame))
                 return 1;
 
         if (!(par->perm & S_ISVTX))
@@ -163,7 +187,7 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
         if (!ctx)
                 goto red;
 
-        if (frame->root->uid == 0)
+        if (frame_is_super_user (frame))
                 goto green;
 
         ret = posix_acl_get (inode, frame->this, &acl, NULL);
@@ -176,7 +200,7 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
 
         if (acl->count > 3)
                 acl_present = 1;
-        
+
         for (i = 0; i < acl->count; i++) {
                 switch (ace->tag) {
                 case POSIX_ACL_USER_OBJ:
@@ -1414,7 +1438,7 @@ setattr_scrutiny (call_frame_t *frame, inode_t *inode, struct iatt *buf,
 {
         struct posix_acl_ctx   *ctx = NULL;
 
-        if (frame->root->uid == 0)
+        if (frame_is_super_user (frame))
                 return 0;
 
         ctx = posix_acl_ctx_get (inode, frame->this);
@@ -1453,7 +1477,7 @@ setattr_scrutiny (call_frame_t *frame, inode_t *inode, struct iatt *buf,
         }
 
         if (valid & GF_SET_ATTR_UID) {
-                if ((frame->root->uid != 0) &&
+                if ((!frame_is_super_user (frame)) &&
                     (buf->ia_uid != ctx->uid))
                         return EPERM;
         }
@@ -1565,7 +1589,7 @@ setxattr_scrutiny (call_frame_t *frame, inode_t *inode, dict_t *xattr)
         struct posix_acl_ctx   *ctx = NULL;
         int                     found = 0;
 
-        if (frame->root->uid == 0)
+        if (frame_is_super_user (frame))
                 return 0;
 
         ctx = posix_acl_ctx_get (inode, frame->this);
@@ -1806,7 +1830,7 @@ posix_acl_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         struct  posix_acl_ctx  *ctx = NULL;
         int                     op_errno = EACCES;
 
-        if (frame_is_user (frame, 0))
+        if (frame_is_super_user (frame))
                 goto green;
 
         ctx = posix_acl_ctx_get (loc->inode, this);
@@ -1860,6 +1884,21 @@ out:
 
 
 int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        struct posix_acl_conf *conf = NULL;
+
+        conf = this->private;
+
+        GF_OPTION_RECONF ("super-uid", conf->super_uid, options, uint32, err);
+
+        return 0;
+err:
+        return -1;
+}
+
+
+int
 init (xlator_t *this)
 {
         struct posix_acl_conf   *conf = NULL;
@@ -1888,7 +1927,11 @@ init (xlator_t *this)
 
         conf->minimal_acl = minacl;
 
+        GF_OPTION_INIT ("super-uid", conf->super_uid, uint32, err);
+
         return 0;
+err:
+        return -1;
 }
 
 
@@ -1932,4 +1975,14 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .forget           = posix_acl_forget
+};
+
+
+struct volume_options options[] = {
+        { .key  = {"super-uid"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "0",
+          .description = "UID to be treated as super user's id instead of 0",
+        },
+        { .key = {NULL} },
 };

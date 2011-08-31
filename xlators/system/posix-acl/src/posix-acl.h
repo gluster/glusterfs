@@ -68,6 +68,7 @@ struct posix_acl_ctx {
 
 struct posix_acl_conf {
         gf_lock_t         acl_lock;
+        uid_t             super_uid;
         struct posix_acl *minimal_acl;
 };
 
