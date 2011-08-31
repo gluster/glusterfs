@@ -1478,7 +1478,7 @@ gf_cli3_1_print_limit_list (char *volname, char *limit_list,
         /* Mount a temporary client to fetch the disk usage
          * of the directory on which the limit is set.
          */
-        ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-s",
+        ret = runcmd (SBIN_DIR"/glusterfs", "-s",
                       "localhost", "--volfile-id", volname, "-l",
                       DEFAULT_LOG_FILE_DIRECTORY"/quota-list.log",
                       mountdir, NULL);

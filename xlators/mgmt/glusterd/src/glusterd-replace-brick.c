@@ -639,7 +639,7 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
         GF_ASSERT (port);
 
         runinit (&runner);
-        runner_add_arg (&runner, GFS_PREFIX"/sbin/glusterfs");
+        runner_add_arg (&runner, SBIN_DIR"/glusterfs");
         runner_argprintf (&runner, "-f" "%s/vols/%s/"RB_DSTBRICKVOL_FILENAME,
                           priv->workdir, volinfo->volname);
         runner_argprintf (&runner, "-p" "%s/vols/%s/"RB_DSTBRICK_PIDFILE,
@@ -677,7 +677,7 @@ rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
         priv = THIS->private;
 
         runinit (&runner);
-        runner_add_arg (&runner, GFS_PREFIX"/sbin/glusterfs");
+        runner_add_arg (&runner, SBIN_DIR"/glusterfs");
         runner_argprintf (&runner, "-f" "%s/vols/%s/"RB_CLIENTVOL_FILENAME,
                           priv->workdir, volinfo->volname);
         runner_argprintf (&runner, "%s/vols/%s/"RB_CLIENT_MOUNTPOINT,

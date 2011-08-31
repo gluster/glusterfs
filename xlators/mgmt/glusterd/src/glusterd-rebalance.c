@@ -556,7 +556,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_end (&runner);
 
         runinit (&runner);
-        runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfs",
+        runner_add_args (&runner, SBIN_DIR"/glusterfs",
                          "-s", "localhost", "--volfile-id", volinfo->volname,
                          "--xlator-option", "*dht.use-readdirp=yes",
                          "--xlator-option", "*dht.lookup-unhashed=yes",
