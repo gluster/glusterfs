@@ -431,7 +431,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min  = 1,
           .max  = 1024,
-          .default_value = "16",
+          .default_value = "1",
           .description = "Maximum number blocks per file for which self-heal "
                          "process would be applied simultaneously."
         },
