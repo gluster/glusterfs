@@ -1159,7 +1159,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
 	}
 #endif
-	runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfsd",
+	runner_add_args (&runner, SBIN_DIR"/glusterfsd",
                          "-s", "localhost", "--volfile-id", volfile,
                          "-p", pidfile, "-S", socketpath,
                          "--brick-name", brickinfo->path,
@@ -2409,11 +2409,11 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
         snprintf (volfileid, sizeof (volfileid), "gluster/%s", server);
 
         if (pmap_signin)
-                ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-s", "localhost",
+                ret = runcmd (SBIN_DIR"/glusterfs", "-s", "localhost",
                               "--volfile-id", volfileid,
                               "-p", pidfile, "-l", logfile, NULL);
         else
-                ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-f", volfile,
+                ret = runcmd (SBIN_DIR"/glusterfs", "-f", volfile,
                               "-p", pidfile, "-l", logfile, NULL);
 
 out:

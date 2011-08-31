@@ -17,7 +17,7 @@ AM_CFLAGS = -fPIC -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)\
 	-DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS)\
 	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
-	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) -DGFS_PREFIX=\"$(prefix)\"
+	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) -DSBIN_DIR=\"$(sbindir)\"
 
 
 CLEANFILES =

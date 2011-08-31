@@ -634,7 +634,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         /** invoke glusterfs on the mountpoint */
 
         runinit (&runner);
-        runner_add_arg (&runner, GFS_PREFIX"/sbin/glusterfs");
+        runner_add_arg (&runner, SBIN_DIR"/glusterfs");
         seq_dict_foreach (argdict, _runner_add, &runner);
         runner_add_arg (&runner, mtptemp);
         ret = runner_run_reuse (&runner);

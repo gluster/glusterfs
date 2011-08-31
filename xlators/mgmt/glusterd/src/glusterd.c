@@ -480,9 +480,8 @@ configure_syncdaemon (glusterd_conf_t *conf)
         RUN_GSYNCD_CMD;
 
         /* gluster-command-dir */
-        /* XXX $sbindir should be used (throughout the codebase) */
         runinit_gsyncd_setrx (&runner, conf);
-        runner_add_args (&runner, "gluster-command-dir", GFS_PREFIX"/sbin/",
+        runner_add_args (&runner, "gluster-command-dir", SBIN_DIR"/",
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -539,7 +538,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
 
         /* gluster-command-dir */
         runinit_gsyncd_setrx (&runner, conf);
-        runner_add_args (&runner, "gluster-command-dir", GFS_PREFIX"/sbin/",
+        runner_add_args (&runner, "gluster-command-dir", SBIN_DIR"/",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 
