@@ -2740,26 +2740,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.offset = args->offset;
         req.fd     = fdctx->remote_fd;
@@ -3488,26 +3469,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.size   = args->size;
         req.offset = args->offset;
@@ -3594,26 +3556,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.size   = args->size;
         req.offset = args->offset;
@@ -3653,26 +3596,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         conf = this->private;
 
@@ -3723,26 +3647,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.fd   = fdctx->remote_fd;
         req.data = args->flags;
@@ -3781,26 +3686,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.fd = fdctx->remote_fd;
 
@@ -3895,26 +3781,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.fd   = fdctx->remote_fd;
         req.data = args->flags;
@@ -4069,26 +3936,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.fd    = fdctx->remote_fd;
         req.flags = args->flags;
@@ -4155,26 +4003,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         local = GF_CALLOC (1, sizeof (*local),
                            gf_client_mt_clnt_local_t);
@@ -4525,26 +4354,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.fd     = fdctx->remote_fd;
         req.flags  = args->flags;
@@ -4706,26 +4516,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         ret = client_cmd_to_gf_cmd (args->cmd, &gf_cmd);
         if (ret) {
@@ -4869,26 +4660,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         if (args->cmd == F_GETLK || args->cmd == F_GETLK64)
                 gf_cmd = GF_LK_GETLK;
@@ -5009,26 +4781,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.fd  = fdctx->remote_fd;
         req.cmd = args->cmd_entrylk;
@@ -5075,26 +4828,7 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.len    = args->len;
         req.offset = args->offset;
@@ -5144,26 +4878,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         readdir_rsp_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_readdir_rsp, &rsp)
                 + args->size;
@@ -5263,26 +4978,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         readdirp_rsp_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_readdirp_rsp, &rsp)
                 + args->size;
@@ -5418,26 +5114,7 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (args->fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
-                        " fd ctx. EBADFD", args->fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
+        CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, unwind);
 
         req.fd = fdctx->remote_fd;
         req.valid = args->valid;

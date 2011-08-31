@@ -35,6 +35,31 @@
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
 #define CLIENT_DUMP_LOCKS     "trusted.glusterfs.clientlk-dump"
 
+#define CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, label)           \
+        do {                                                            \
+                pthread_mutex_lock (&conf->lock);                       \
+                {                                                       \
+                        fdctx = this_fd_get_ctx (args->fd, this);       \
+                }                                                       \
+                pthread_mutex_unlock (&conf->lock);                     \
+                                                                        \
+                if (fdctx == NULL) {                                    \
+                        gf_log (this->name, GF_LOG_WARNING,             \
+                                "(%s): failed to get fd ctx. EBADFD",   \
+                                uuid_utoa (args->fd->inode->gfid));     \
+                        op_errno = EBADFD;                              \
+                        goto label;                                     \
+                }                                                       \
+                                                                        \
+                if (fdctx->remote_fd == -1) {                           \
+                        gf_log (this->name, GF_LOG_WARNING,             \
+                                "(%s): failed to get fd ctx. EBADFD",   \
+                                uuid_utoa (args->fd->inode->gfid));     \
+                        op_errno = EBADFD;                              \
+                        goto label;                                     \
+                }                                                       \
+        } while (0);
+
 struct clnt_options {
         char *remote_subvolume;
         int   ping_timeout;
