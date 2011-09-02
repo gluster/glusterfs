@@ -115,7 +115,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("metadata-self-heal",
                           priv->metadata_self_heal, options, bool, out);
 
-        GF_OPTION_RECONF ("data-self-heal", priv->data_self_heal, options, bool,
+        GF_OPTION_RECONF ("data-self-heal", priv->data_self_heal, options, str,
                           out);
 
         GF_OPTION_RECONF ("entry-self-heal", priv->entry_self_heal, options,
@@ -227,7 +227,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("background-self-heal-count",
                         priv->background_self_heal_count, uint32, out);
 
-        GF_OPTION_INIT ("data-self-heal", priv->data_self_heal, bool, out);
+        GF_OPTION_INIT ("data-self-heal", priv->data_self_heal, str, out);
 
         GF_OPTION_INIT ("data-self-heal-algorithm",
                         priv->data_self_heal_algorithm, str, out);
@@ -414,7 +414,11 @@ struct volume_options options[] = {
           .default_value = "16",
         },
         { .key  = {"data-self-heal"},
-          .type = GF_OPTION_TYPE_BOOL,
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
+          .value = {"1", "on", "yes", "true", "enable",
+                    "0", "off", "no", "false", "disable",
+                    "open"},
           .default_value = "on",
         },
         { .key  = {"data-self-heal-algorithm"},

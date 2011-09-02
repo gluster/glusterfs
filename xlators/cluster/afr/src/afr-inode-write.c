@@ -325,22 +325,20 @@ afr_trigger_open_fd_self_heal (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t             *local = NULL;
         afr_self_heal_t         *sh = NULL;
-        char                    sh_type_str[256] = {0};
+        inode_t                 *inode = NULL;
+        char                    *reason = NULL;
 
         local = frame->local;
         sh    = &local->self_heal;
+        inode = local->fd->inode;
 
-        sh->need_missing_entry_self_heal = _gf_true;
-        sh->need_gfid_self_heal = _gf_true;
-        sh->need_data_self_heal = _gf_true;
-        afr_self_heal_type_str_get(&local->self_heal, sh_type_str,
-                                   sizeof(sh_type_str));
-        gf_log (this->name, GF_LOG_INFO, "%s self-heal triggered. "
-                "path: %s, reason: Replicate up down flush, data lock "
-                "is held", sh_type_str, local->loc.path);
+        sh->do_missing_entry_self_heal = _gf_true;
+        sh->do_gfid_self_heal = _gf_true;
+        sh->do_data_self_heal = _gf_true;
 
-        afr_launch_self_heal (frame, this, local->fd->inode, _gf_true,
-                              local->fd->inode->ia_type, NULL, NULL);
+        reason = "subvolume came online";
+        afr_launch_self_heal (frame, this, inode, _gf_true, inode->ia_type,
+                              reason, NULL, NULL);
 }
 
 int

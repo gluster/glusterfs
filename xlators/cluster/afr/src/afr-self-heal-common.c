@@ -1924,11 +1924,11 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 
         shc->unwind = sh->unwind;
         shc->gfid_sh_success_cbk = sh->gfid_sh_success_cbk;
-        shc->need_missing_entry_self_heal = sh->need_missing_entry_self_heal;
-        shc->need_gfid_self_heal = sh->need_gfid_self_heal;
-        shc->need_data_self_heal = sh->need_data_self_heal;
-        shc->need_metadata_self_heal = sh->need_metadata_self_heal;
-        shc->need_entry_self_heal = sh->need_entry_self_heal;
+        shc->do_missing_entry_self_heal = sh->do_missing_entry_self_heal;
+        shc->do_gfid_self_heal = sh->do_gfid_self_heal;
+        shc->do_data_self_heal = sh->do_data_self_heal;
+        shc->do_metadata_self_heal = sh->do_metadata_self_heal;
+        shc->do_entry_self_heal = sh->do_entry_self_heal;
         shc->forced_merge = sh->forced_merge;
         shc->data_lock_held = sh->data_lock_held;
         shc->background = sh->background;
@@ -2065,9 +2065,9 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         gf_log (this->name, GF_LOG_TRACE,
                 "performing self heal on %s (metadata=%d data=%d entry=%d)",
                 local->loc.path,
-                local->self_heal.need_metadata_self_heal,
-                local->self_heal.need_data_self_heal,
-                local->self_heal.need_entry_self_heal);
+                local->self_heal.do_metadata_self_heal,
+                local->self_heal.do_data_self_heal,
+                local->self_heal.do_entry_self_heal);
 
         sh_frame        = copy_frame (frame);
         afr_set_lk_owner (sh_frame, this);
@@ -2120,9 +2120,9 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
 
         FRAME_SU_DO (sh_frame, afr_local_t);
-        if (sh->need_missing_entry_self_heal) {
+        if (sh->do_missing_entry_self_heal) {
                 afr_self_heal_conflicting_entries (sh_frame, this);
-        } else if (sh->need_gfid_self_heal) {
+        } else if (sh->do_gfid_self_heal) {
                 GF_ASSERT (!uuid_is_null (sh->sh_gfid_req));
                 afr_self_heal_gfids (sh_frame, this);
         } else {
@@ -2143,24 +2143,24 @@ afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
         GF_ASSERT (str && (size > strlen (" missing-entry gfid "
                                           "meta-data data entry")));
 
-        if (self_heal_p->need_metadata_self_heal) {
+        if (self_heal_p->do_metadata_self_heal) {
                 snprintf (str, size, " meta-data");
         }
 
-        if (self_heal_p->need_data_self_heal) {
+        if (self_heal_p->do_data_self_heal) {
                 snprintf (str + strlen(str), size - strlen(str), " data");
         }
 
-        if (self_heal_p->need_entry_self_heal) {
+        if (self_heal_p->do_entry_self_heal) {
                 snprintf (str + strlen(str), size - strlen(str), " entry");
         }
 
-        if (self_heal_p->need_missing_entry_self_heal) {
+        if (self_heal_p->do_missing_entry_self_heal) {
                 snprintf (str + strlen(str), size - strlen(str),
                          " missing-entry");
         }
 
-        if (self_heal_p->need_gfid_self_heal) {
+        if (self_heal_p->do_gfid_self_heal) {
                 snprintf (str + strlen(str), size - strlen(str), " gfid");
         }
 }

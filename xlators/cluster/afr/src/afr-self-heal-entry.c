@@ -2328,7 +2328,7 @@ afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
         priv = this->private;
         local = frame->local;
 
-        if (local->self_heal.need_entry_self_heal && priv->entry_self_heal) {
+        if (local->self_heal.do_entry_self_heal && priv->entry_self_heal) {
                 afr_sh_entrylk (frame, this, &local->loc, NULL,
                                 afr_sh_post_nonblocking_entry_cbk);
         } else {

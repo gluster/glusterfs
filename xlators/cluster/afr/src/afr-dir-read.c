@@ -106,15 +106,17 @@ afr_examine_dir_readdir_cbk (call_frame_t *frame, void *cookie,
         afr_self_heal_t * sh          = NULL;
         gf_dirent_t *     entry       = NULL;
         gf_dirent_t *     tmp         = NULL;
+        char              *reason     = NULL;
         int               child_index = 0;
         uint32_t          entry_cksum = 0;
         int               call_count  = 0;
         off_t             last_offset = 0;
-        char              sh_type_str[256] = {0,};
+        inode_t           *inode      = NULL;
 
         priv  = this->private;
         local = frame->local;
         sh    = &local->self_heal;
+        inode = local->fd->inode;
 
         child_index = (long) cookie;
 
@@ -162,23 +164,15 @@ out:
                                         priv->child_count,
                                         local->child_up)) {
 
-                        sh->need_entry_self_heal  = _gf_true;
+                        sh->do_entry_self_heal  = _gf_true;
                         sh->forced_merge          = _gf_true;
 
-                        afr_self_heal_type_str_get(&local->self_heal,
-                                                   sh_type_str,
-                                                   sizeof(sh_type_str));
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s self-heal triggered. path: %s, "
-                                "reason: checksums of directory differ,"
-                                " forced merge option set",
-                                sh_type_str, local->loc.path);
-
-                        afr_launch_self_heal (frame, this, local->fd->inode,
-                                              _gf_false, local->fd->inode->ia_type,
-                                              NULL, afr_examine_dir_sh_unwind);
+                        reason = "checksums of directory differ";
+                        afr_launch_self_heal (frame, this, inode, _gf_false,
+                                              inode->ia_type, reason, NULL,
+                                              afr_examine_dir_sh_unwind);
                 } else {
-                        afr_set_opendir_done (this, local->fd->inode);
+                        afr_set_opendir_done (this, inode);
 
                         AFR_STACK_UNWIND (opendir, frame, local->op_ret,
                                           local->op_errno, local->fd);

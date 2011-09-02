@@ -55,6 +55,72 @@
 #include "afr-self-heal.h"
 #include "afr-self-heal-common.h"
 
+int
+afr_stale_child_up (afr_local_t *local, xlator_t *this)
+{
+        int             i = 0;
+        afr_private_t   *priv = NULL;
+        int             up = -1;
+
+        priv = this->private;
+
+        if (!local->fresh_children)
+                local->fresh_children = afr_children_create (priv->child_count);
+        if (!local->fresh_children)
+                goto out;
+
+        afr_inode_get_read_ctx (this, local->fd->inode, local->fresh_children);
+        if (priv->child_count == afr_get_children_count (local->fresh_children,
+                                                         priv->child_count))
+                goto out;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->child_up[i])
+                        continue;
+                if (afr_is_child_present (local->fresh_children,
+                                          priv->child_count, i))
+                        continue;
+                up = i;
+                break;
+        }
+out:
+        return up;
+}
+
+void
+afr_perform_data_self_heal (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_private_t   *priv = NULL;
+        inode_t         *inode = NULL;
+        int             st_child = -1;
+        char            reason[64] = {0};
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+        inode = local->fd->inode;
+
+        if (!IA_ISREG (inode->ia_type))
+                goto out;
+
+        st_child = afr_stale_child_up (local, this);
+        if (st_child < 0)
+                goto out;
+
+        sh->do_data_self_heal          = _gf_true;
+        sh->do_metadata_self_heal      = _gf_true;
+        sh->do_gfid_self_heal          = _gf_true;
+        sh->do_missing_entry_self_heal = _gf_true;
+
+        snprintf (reason, sizeof (reason), "stale subvolume %d detected",
+                  st_child);
+        afr_launch_self_heal (frame, this, inode, _gf_true, inode->ia_type,
+                              reason, NULL, NULL);
+out:
+        return;
+}
 
 int
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -62,7 +128,11 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *postbuf)
 {
         afr_local_t * local = frame->local;
+        afr_private_t *priv = NULL;
 
+        priv = this->private;
+        if (afr_open_only_data_self_heal (priv->data_self_heal))
+                afr_perform_data_self_heal (frame, this);
         AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
                           local->fd);
         return 0;
@@ -80,7 +150,9 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
         int            ret         = 0;
         int            call_count  = -1;
         int            child_index = (long) cookie;
+        afr_private_t *priv        = NULL;
 
+        priv = this->private;
         local = frame->local;
 
         LOCK (&frame->lock);
@@ -133,6 +205,8 @@ unlock:
                                     this, this->fops->ftruncate,
                                     fd, 0);
                 } else {
+                        if (afr_open_only_data_self_heal (priv->data_self_heal))
+                                afr_perform_data_self_heal (frame, this);
                         AFR_STACK_UNWIND (open, frame, local->op_ret,
                                           local->op_errno, local->fd);
                 }
@@ -153,6 +227,7 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
         int32_t         wind_flags = flags & (~O_TRUNC);
+        //We can't let truncation to happen outside transaction.
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);

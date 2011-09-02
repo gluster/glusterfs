@@ -92,7 +92,7 @@ typedef struct _afr_private {
 
         char **pending_key;
 
-        gf_boolean_t data_self_heal;              /* on/off */
+        char         *data_self_heal;              /* on/off/open */
         char *       data_self_heal_algorithm;    /* name of algorithm */
         unsigned int data_self_heal_window_size;  /* max number of pipelined
                                                      read/writes */
@@ -140,11 +140,11 @@ typedef struct {
         /* External interface: These are variables (some optional) that
            are set by whoever has triggered self-heal */
 
-        gf_boolean_t need_data_self_heal;
-        gf_boolean_t need_metadata_self_heal;
-        gf_boolean_t need_entry_self_heal;
-        gf_boolean_t need_gfid_self_heal;
-        gf_boolean_t need_missing_entry_self_heal;
+        gf_boolean_t do_data_self_heal;
+        gf_boolean_t do_metadata_self_heal;
+        gf_boolean_t do_entry_self_heal;
+        gf_boolean_t do_gfid_self_heal;
+        gf_boolean_t do_missing_entry_self_heal;
 
         gf_boolean_t forced_merge;        /* Is this a self-heal triggered to
                                              forcibly merge the directories? */
@@ -979,7 +979,7 @@ afr_inode_rm_stale_children (xlator_t *this, inode_t *inode, int32_t read_child,
                              int32_t *stale_children);
 void
 afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
-                      gf_boolean_t is_background, ia_type_t ia_type,
+                      gf_boolean_t background, ia_type_t ia_type, char *reason,
                       void (*gfid_sh_success_cbk) (call_frame_t *sh_frame,
                                                    xlator_t *this),
                       int (*unwind) (call_frame_t *frame, xlator_t *this,
@@ -991,6 +991,14 @@ int
 afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop);
 int
 afr_set_elem_count_get (unsigned char *elems, int child_count);
+
 afr_fd_ctx_t *
 afr_fd_ctx_get (fd_t *fd, xlator_t *this);
+
+gf_boolean_t
+afr_open_only_data_self_heal (char *data_self_heal);
+
+gf_boolean_t
+afr_data_self_heal_enabled (char *data_self_heal);
+
 #endif /* __AFR_H__ */
