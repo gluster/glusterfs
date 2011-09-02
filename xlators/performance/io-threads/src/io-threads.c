@@ -170,45 +170,110 @@ do_iot_schedule (iot_conf_t *conf, call_stub_t *stub, int pri)
         return ret;
 }
 
-int
-iot_schedule_least (iot_conf_t *conf, call_stub_t *stub)
+char*
+iot_get_pri_meaning (iot_pri_t pri)
 {
-        return do_iot_schedule (conf, stub, IOT_PRI_LEAST);
+        char    *name = NULL;
+        switch (pri) {
+        case IOT_PRI_HI:
+                name = "fast";
+                break;
+        case IOT_PRI_NORMAL:
+                name = "normal";
+                break;
+        case IOT_PRI_LO:
+                name = "slow";
+                break;
+        case IOT_PRI_LEAST:
+                name = "least priority";
+                break;
+        case IOT_PRI_MAX:
+                name = "invalid";
+                break;
+        }
+        return name;
 }
 
 int
-iot_schedule_slow (iot_conf_t *conf, call_stub_t *stub)
+iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
 {
-        return do_iot_schedule (conf, stub, IOT_PRI_LO);
+        int             ret = -1;
+        iot_pri_t       pri = IOT_PRI_MAX - 1;
+
+        if (frame->root->pid < 0) {
+                pri = IOT_PRI_LEAST;
+                goto out;
+        }
+
+        switch (stub->fop) {
+        case GF_FOP_OPEN:
+        case GF_FOP_STAT:
+        case GF_FOP_FSTAT:
+        case GF_FOP_LOOKUP:
+        case GF_FOP_ACCESS:
+        case GF_FOP_READLINK:
+        case GF_FOP_OPENDIR:
+        case GF_FOP_STATFS:
+        case GF_FOP_READDIR:
+        case GF_FOP_READDIRP:
+                pri = IOT_PRI_HI;
+                break;
+
+        case GF_FOP_CREATE:
+        case GF_FOP_FLUSH:
+        case GF_FOP_LK:
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FENTRYLK:
+        case GF_FOP_UNLINK:
+        case GF_FOP_SETATTR:
+        case GF_FOP_FSETATTR:
+        case GF_FOP_MKNOD:
+        case GF_FOP_MKDIR:
+        case GF_FOP_RMDIR:
+        case GF_FOP_SYMLINK:
+        case GF_FOP_RENAME:
+        case GF_FOP_LINK:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_GETXATTR:
+        case GF_FOP_FGETXATTR:
+        case GF_FOP_FSETXATTR:
+        case GF_FOP_REMOVEXATTR:
+                pri = IOT_PRI_NORMAL;
+                break;
+
+        case GF_FOP_READ:
+        case GF_FOP_WRITE:
+        case GF_FOP_FSYNC:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_FSYNCDIR:
+        case GF_FOP_XATTROP:
+        case GF_FOP_FXATTROP:
+                pri = IOT_PRI_LO;
+                break;
+
+        case GF_FOP_RCHECKSUM:
+                pri = IOT_PRI_LEAST;
+                break;
+
+        case GF_FOP_NULL:
+        case GF_FOP_FORGET:
+        case GF_FOP_RELEASE:
+        case GF_FOP_RELEASEDIR:
+        case GF_FOP_GETSPEC:
+        case GF_FOP_MAXVALUE:
+                //fail compilation on missing fop
+                //new fop must choose priority.
+                break;
+        }
+out:
+        ret = do_iot_schedule (this->private, stub, pri);
+        gf_log (this->name, GF_LOG_DEBUG, "%s scheduled as %s fop",
+                gf_fop_list[stub->fop], iot_get_pri_meaning (pri));
+        return ret;
 }
-
-int
-iot_schedule_fast (iot_conf_t *conf, call_stub_t *stub)
-{
-        return do_iot_schedule (conf, stub, IOT_PRI_HI);
-}
-
-int
-iot_schedule (iot_conf_t *conf, call_stub_t *stub)
-{
-        return do_iot_schedule (conf, stub, IOT_PRI_NORMAL);
-}
-
-
-int
-iot_schedule_unordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
-{
-        return do_iot_schedule (conf, stub, 0);
-}
-
-
-int
-iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
-{
-
-        return do_iot_schedule (conf, stub, 0);
-}
-
 
 int
 iot_lookup_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
@@ -248,7 +313,7 @@ iot_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                 goto out;
         }
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -300,7 +365,7 @@ iot_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -351,7 +416,7 @@ iot_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -397,7 +462,7 @@ iot_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
                 goto out;
         }
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (access, frame, -1, -ret);
@@ -446,7 +511,7 @@ iot_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
                 goto out;
         }
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -499,7 +564,7 @@ iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -551,7 +616,7 @@ iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -600,7 +665,7 @@ iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (rmdir, frame, -1, -ret, NULL, NULL);
@@ -651,7 +716,7 @@ iot_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -702,7 +767,7 @@ iot_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -752,7 +817,7 @@ iot_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto out;
         }
 
-	ret = iot_schedule_fast (this->private, stub);
+	ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -808,7 +873,7 @@ iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -864,7 +929,7 @@ iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto out;
 	}
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -913,7 +978,7 @@ iot_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto out;
 	}
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
 		STACK_UNWIND_STRICT (flush, frame, -1, -ret);
@@ -963,7 +1028,7 @@ iot_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
                 goto out;
 	}
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -1019,7 +1084,7 @@ iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
 	}
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
 		STACK_UNWIND_STRICT (writev, frame, -1, -ret, NULL, NULL);
@@ -1071,7 +1136,7 @@ iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 goto out;
 	}
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
 		STACK_UNWIND_STRICT (lk, frame, -1, -ret, NULL);
@@ -1119,7 +1184,7 @@ iot_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
 	}
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -1168,7 +1233,7 @@ iot_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto out;
 	}
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
 		STACK_UNWIND_STRICT (fstat, frame, -1, -ret, NULL);
@@ -1220,7 +1285,7 @@ iot_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 goto out;
 	}
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -1273,7 +1338,7 @@ iot_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 goto out;
 	}
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
 		STACK_UNWIND_STRICT (ftruncate, frame, -1, -ret, NULL, NULL);
@@ -1324,7 +1389,7 @@ iot_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
 	}
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -1374,7 +1439,7 @@ iot_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (link, frame, -1, -ret, NULL, NULL, NULL,
@@ -1420,7 +1485,7 @@ iot_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
                 goto out;
         }
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (opendir, frame, -1, -ret, NULL);
@@ -1466,7 +1531,7 @@ iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
                 goto out;
         }
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (fsyncdir, frame, -1, -ret);
@@ -1511,7 +1576,7 @@ iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (statfs, frame, -1, -ret, NULL);
@@ -1559,7 +1624,7 @@ iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -1607,7 +1672,7 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 
 out:
         if (ret < 0) {
@@ -1655,7 +1720,7 @@ iot_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (fgetxattr, frame, -1, -ret, NULL);
@@ -1703,7 +1768,7 @@ iot_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (fsetxattr, frame, -1, -ret);
@@ -1751,7 +1816,7 @@ iot_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        ret = iot_schedule (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (removexattr, frame, -1, -ret);
@@ -1799,7 +1864,7 @@ iot_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto out;
         }
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (readdirp, frame, -1, -ret, NULL);
@@ -1846,10 +1911,203 @@ iot_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto out;
         }
 
-        ret = iot_schedule_fast (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (readdir, frame, -1, -ret, NULL);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+        return 0;
+}
+
+int
+iot_inodelk_cbk (call_frame_t *frame, void *cookie,
+                 xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+iot_inodelk_wrapper (call_frame_t *frame, xlator_t *this, const char *volume,
+                     loc_t *loc, int32_t cmd, struct gf_flock *lock)
+{
+        STACK_WIND (frame, iot_inodelk_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->inodelk, volume, loc, cmd, lock);
+        return 0;
+}
+
+
+int
+iot_inodelk (call_frame_t *frame, xlator_t *this,
+             const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *lock)
+{
+        call_stub_t     *stub = NULL;
+        int             ret = -1;
+
+        stub = fop_inodelk_stub (frame, iot_inodelk_wrapper,
+                                 volume, loc, cmd, lock);
+        if (!stub) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule (frame, this, stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND_STRICT (inodelk, frame, -1, -ret);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+        return 0;
+}
+
+int
+iot_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (finodelk, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+iot_finodelk_wrapper (call_frame_t *frame, xlator_t *this,
+                      const char *volume, fd_t *fd, int32_t cmd,
+                      struct gf_flock *lock)
+{
+        STACK_WIND (frame, iot_finodelk_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->finodelk, volume, fd, cmd, lock);
+        return 0;
+}
+
+
+int
+iot_finodelk (call_frame_t *frame, xlator_t *this,
+              const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
+{
+        call_stub_t     *stub = NULL;
+        int             ret = -1;
+
+        stub = fop_finodelk_stub (frame, iot_finodelk_wrapper,
+                                  volume, fd, cmd, lock);
+        if (!stub) {
+                gf_log (this->private, GF_LOG_ERROR,"cannot get finodelk stub"
+                        "(out of memory)");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule (frame, this, stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND_STRICT (finodelk, frame, -1, -ret);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+        return 0;
+}
+
+int
+iot_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+iot_entrylk_wrapper (call_frame_t *frame, xlator_t *this,
+                     const char *volume, loc_t *loc, const char *basename,
+                     entrylk_cmd cmd, entrylk_type type)
+{
+        STACK_WIND (frame, iot_entrylk_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->entrylk,
+                    volume, loc, basename, cmd, type);
+        return 0;
+}
+
+
+int
+iot_entrylk (call_frame_t *frame, xlator_t *this,
+             const char *volume, loc_t *loc, const char *basename,
+             entrylk_cmd cmd, entrylk_type type)
+{
+        call_stub_t     *stub = NULL;
+        int             ret = -1;
+
+        stub = fop_entrylk_stub (frame, iot_entrylk_wrapper,
+                                 volume, loc, basename, cmd, type);
+        if (!stub) {
+                gf_log (this->private, GF_LOG_ERROR,"cannot get entrylk stub"
+                        "(out of memory)");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule (frame, this, stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND_STRICT (entrylk, frame, -1, -ret);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+        return 0;
+}
+
+int
+iot_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fentrylk, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+iot_fentrylk_wrapper (call_frame_t *frame, xlator_t *this,
+                      const char *volume, fd_t *fd, const char *basename,
+                      entrylk_cmd cmd, entrylk_type type)
+{
+        STACK_WIND (frame, iot_fentrylk_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->fentrylk,
+                    volume, fd, basename, cmd, type);
+        return 0;
+}
+
+
+int
+iot_fentrylk (call_frame_t *frame, xlator_t *this,
+              const char *volume, fd_t *fd, const char *basename,
+              entrylk_cmd cmd, entrylk_type type)
+{
+        call_stub_t     *stub = NULL;
+        int             ret = -1;
+
+        stub = fop_fentrylk_stub (frame, iot_fentrylk_wrapper,
+                                  volume, fd, basename, cmd, type);
+        if (!stub) {
+                gf_log (this->private, GF_LOG_ERROR,"cannot get fentrylk stub"
+                        "(out of memory)");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule (frame, this, stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND_STRICT (fentrylk, frame, -1, -ret);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1894,7 +2152,7 @@ iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (xattrop, frame, -1, -ret, NULL);
@@ -1941,7 +2199,7 @@ iot_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-        ret = iot_schedule_slow (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (fxattrop, frame, -1, -ret, NULL);
@@ -1990,7 +2248,7 @@ iot_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto out;
         }
 
-        ret = iot_schedule_least (this->private, stub);
+        ret = iot_schedule (frame, this, stub);
 out:
         if (ret < 0) {
                 STACK_UNWIND_STRICT (rchecksum, frame, -1, -ret, -1, NULL);
@@ -2256,6 +2514,10 @@ struct xlator_fops fops = {
         .removexattr = iot_removexattr,
         .readdir     = iot_readdir,
         .readdirp    = iot_readdirp,
+        .inodelk     = iot_inodelk,
+        .finodelk    = iot_finodelk,
+        .entrylk     = iot_entrylk,
+        .fentrylk    = iot_fentrylk,
         .xattrop     = iot_xattrop,
 	.fxattrop    = iot_fxattrop,
         .rchecksum   = iot_rchecksum,
