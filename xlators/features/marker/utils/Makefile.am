@@ -1,7 +1,3 @@
-SUBDIRS = syncdaemon
-
-gsyncddir = $(libexecdir)/glusterfs
-
-gsyncd_SCRIPTS = gsyncd
+SUBDIRS = syncdaemon src
 
 CLEANFILES =
