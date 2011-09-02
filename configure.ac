@@ -109,7 +109,7 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/marker/Makefile
                 xlators/features/marker/src/Makefile
                 xlators/features/marker/utils/Makefile
-                xlators/features/marker/utils/gsyncd
+                xlators/features/marker/utils/src/Makefile
                 xlators/features/marker/utils/syncdaemon/Makefile
 		xlators/features/read-only/Makefile
 		xlators/features/read-only/src/Makefile
