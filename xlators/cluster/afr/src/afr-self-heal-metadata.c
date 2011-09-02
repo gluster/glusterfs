@@ -637,7 +637,7 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
 
-        if (local->self_heal.need_metadata_self_heal && priv->metadata_self_heal) {
+        if (local->self_heal.do_metadata_self_heal && priv->metadata_self_heal) {
                 afr_sh_metadata_lock (frame, this);
         } else {
                 afr_sh_metadata_done (frame, this);

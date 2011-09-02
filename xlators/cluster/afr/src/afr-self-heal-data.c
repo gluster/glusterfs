@@ -1336,7 +1336,8 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
-        if (sh->need_data_self_heal && priv->data_self_heal) {
+        if (sh->do_data_self_heal &&
+            afr_data_self_heal_enabled (priv->data_self_heal)) {
                 afr_sh_data_open (frame, this);
         } else {
                 gf_log (this->name, GF_LOG_TRACE,

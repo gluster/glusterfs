@@ -2497,7 +2497,7 @@ init (xlator_t *this)
         priv->favorite_child = source_child;
         priv->background_self_heal_count = 0;
 
-	priv->data_self_heal     = 1;
+	priv->data_self_heal     = "on";
 	priv->metadata_self_heal = 1;
 	priv->entry_self_heal    = 1;
 

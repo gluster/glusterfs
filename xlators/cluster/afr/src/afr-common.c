@@ -980,9 +980,7 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
         read_child = afr_inode_get_read_ctx (this, local->cont.lookup.inode,
                                              NULL);
         if (read_child < 0) {
-                ret = -EIO;
-                local->op_ret = -1;
-                local->op_errno = EIO;
+                ret = -1;
                 goto out;
         }
         gf_log (this->name, GF_LOG_DEBUG, "Building lookup response from %d",
@@ -1024,28 +1022,28 @@ afr_lookup_update_lk_counts (afr_local_t *local, xlator_t *this,
 }
 
 static void
-afr_lookup_set_self_heal_data_by_xattr (afr_local_t *local, xlator_t *this,
-                                        dict_t *xattr)
+afr_lookup_set_self_heal_params_by_xattr (afr_local_t *local, xlator_t *this,
+                                          dict_t *xattr)
 {
         GF_ASSERT (local);
         GF_ASSERT (this);
         GF_ASSERT (xattr);
 
         if (afr_sh_has_metadata_pending (xattr, this)) {
-                local->self_heal.need_metadata_self_heal = _gf_true;
+                local->self_heal.do_metadata_self_heal = _gf_true;
                 gf_log(this->name, GF_LOG_DEBUG,
                        "metadata self-heal is pending for %s.",
                        local->loc.path);
         }
 
         if (afr_sh_has_entry_pending (xattr, this)) {
-                local->self_heal.need_entry_self_heal = _gf_true;
+                local->self_heal.do_entry_self_heal = _gf_true;
                 gf_log(this->name, GF_LOG_DEBUG,
                        "entry self-heal is pending for %s.", local->loc.path);
         }
 
         if (afr_sh_has_data_pending (xattr, this)) {
-                local->self_heal.need_data_self_heal = _gf_true;
+                local->self_heal.do_data_self_heal = _gf_true;
                 gf_log(this->name, GF_LOG_DEBUG,
                        "data self-heal is pending for %s.", local->loc.path);
         }
@@ -1059,12 +1057,12 @@ afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
                 /* mismatching permissions */
                 gf_log (this->name, GF_LOG_INFO,
                         "permissions differ for %s ", local->loc.path);
-                local->self_heal.need_metadata_self_heal = _gf_true;
+                local->self_heal.do_metadata_self_heal = _gf_true;
         }
 
         if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
-                local->self_heal.need_metadata_self_heal = _gf_true;
+                local->self_heal.do_metadata_self_heal = _gf_true;
                 gf_log (this->name, GF_LOG_INFO,
                         "ownership differs for %s ", local->loc.path);
         }
@@ -1073,7 +1071,7 @@ afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
             && IA_ISREG (buf->ia_type)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "size differs for %s ", local->loc.path);
-                local->self_heal.need_data_self_heal = _gf_true;
+                local->self_heal.do_data_self_heal = _gf_true;
         }
 
         if (uuid_compare (buf->ia_gfid, lookup_buf->ia_gfid)) {
@@ -1084,17 +1082,18 @@ afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
 }
 
 static void
-afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this)
+afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this,
+                                       gf_boolean_t split_brain)
 {
         GF_ASSERT (local);
         GF_ASSERT (this);
 
         if ((local->success_count > 0) && (local->enoent_count > 0)) {
-                local->self_heal.need_metadata_self_heal = _gf_true;
-                local->self_heal.need_data_self_heal     = _gf_true;
-                local->self_heal.need_entry_self_heal    = _gf_true;
-                local->self_heal.need_gfid_self_heal    = _gf_true;
-                local->self_heal.need_missing_entry_self_heal    = _gf_true;
+                local->self_heal.do_metadata_self_heal = _gf_true;
+                local->self_heal.do_data_self_heal     = _gf_true;
+                local->self_heal.do_entry_self_heal    = _gf_true;
+                local->self_heal.do_gfid_self_heal    = _gf_true;
+                local->self_heal.do_missing_entry_self_heal    = _gf_true;
                 gf_log(this->name, GF_LOG_INFO,
                        "entries are missing in lookup of %s.",
                        local->loc.path);
@@ -1102,12 +1101,11 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this)
                 goto out;
         }
 
-        if ((local->success_count > 0) &&
-            afr_is_split_brain (this, local->cont.lookup.inode) &&
+        if ((local->success_count > 0) && split_brain &&
             IA_ISREG (local->cont.lookup.inode->ia_type)) {
-                local->self_heal.need_data_self_heal = _gf_true;
-                local->self_heal.need_gfid_self_heal    = _gf_true;
-                local->self_heal.need_missing_entry_self_heal    = _gf_true;
+                local->self_heal.do_data_self_heal = _gf_true;
+                local->self_heal.do_gfid_self_heal    = _gf_true;
+                local->self_heal.do_missing_entry_self_heal    = _gf_true;
                 gf_log (this->name, GF_LOG_WARNING,
                         "split brain detected during lookup of %s.",
                         local->loc.path);
@@ -1123,11 +1121,12 @@ afr_can_self_heal_proceed (afr_self_heal_t *sh, afr_private_t *priv)
         GF_ASSERT (sh);
         GF_ASSERT (priv);
 
-        return (sh->need_gfid_self_heal
-                || sh->need_missing_entry_self_heal
-                || (priv->data_self_heal && sh->need_data_self_heal)
-                || (priv->metadata_self_heal && sh->need_metadata_self_heal)
-                || (priv->entry_self_heal && sh->need_entry_self_heal));
+        return (sh->do_gfid_self_heal
+                || sh->do_missing_entry_self_heal
+                || (afr_data_self_heal_enabled (priv->data_self_heal) &&
+                    sh->do_data_self_heal)
+                || (priv->metadata_self_heal && sh->do_metadata_self_heal)
+                || (priv->entry_self_heal && sh->do_entry_self_heal));
 }
 
 afr_transaction_type
@@ -1193,7 +1192,7 @@ afr_is_transaction_running (afr_local_t *local)
 
 void
 afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
-                      gf_boolean_t is_background, ia_type_t ia_type,
+                      gf_boolean_t background, ia_type_t ia_type, char *reason,
                       void (*gfid_sh_success_cbk) (call_frame_t *sh_frame,
                                                    xlator_t *this),
                       int (*unwind) (call_frame_t *frame, xlator_t *this,
@@ -1201,6 +1200,7 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
 {
         afr_local_t             *local = NULL;
         char                    sh_type_str[256] = {0,};
+        char                    *bg = "";
 
         GF_ASSERT (frame);
         GF_ASSERT (this);
@@ -1208,7 +1208,7 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
         GF_ASSERT (ia_type != IA_INVAL);
 
         local = frame->local;
-        local->self_heal.background = is_background;
+        local->self_heal.background = background;
         local->self_heal.type       = ia_type;
         local->self_heal.unwind     = unwind;
         local->self_heal.gfid_sh_success_cbk     = gfid_sh_success_cbk;
@@ -1217,9 +1217,11 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
                                     sh_type_str,
                                     sizeof (sh_type_str));
 
+        if (background)
+                bg = "background";
         gf_log (this->name, GF_LOG_INFO,
-                "background %s self-heal triggered. path: %s",
-                sh_type_str, local->loc.path);
+                "%s %s self-heal triggered. path: %s, reason: %s", bg,
+                sh_type_str, local->loc.path, reason);
 
         afr_self_heal (frame, this, inode);
 }
@@ -1351,8 +1353,27 @@ afr_lookup_conflicting_entries (afr_local_t *local, xlator_t *this)
         return conflict;
 }
 
+gf_boolean_t
+afr_open_only_data_self_heal (char *data_self_heal)
+{
+        return !strcmp (data_self_heal, "open");
+}
+
+gf_boolean_t
+afr_data_self_heal_enabled (char *data_self_heal)
+{
+        gf_boolean_t    enabled = _gf_false;
+
+        if (gf_string2boolean (data_self_heal, &enabled) == -1) {
+                enabled = !strcmp (data_self_heal, "open");
+                GF_ASSERT (enabled);
+        }
+
+        return enabled;
+}
+
 static void
-afr_lookup_set_self_heal_data (afr_local_t *local, xlator_t *this)
+afr_lookup_set_self_heal_params (afr_local_t *local, xlator_t *this)
 {
         int                     i = 0;
         struct iatt             *bufs = NULL;
@@ -1360,15 +1381,20 @@ afr_lookup_set_self_heal_data (afr_local_t *local, xlator_t *this)
         afr_private_t           *priv = NULL;
         int32_t                 child1 = -1;
         int32_t                 child2 = -1;
+        afr_self_heal_t         *sh = NULL;
+        gf_boolean_t            split_brain = _gf_false;
 
         priv  = this->private;
-        afr_detect_self_heal_by_lookup_status (local, this);
+        sh = &local->self_heal;
+
+        split_brain = afr_is_split_brain (this, local->cont.lookup.inode);
+        afr_detect_self_heal_by_lookup_status (local, this, split_brain);
 
         if (afr_lookup_gfid_missing_count (local, this))
-                local->self_heal.need_gfid_self_heal    = _gf_true;
+                local->self_heal.do_gfid_self_heal    = _gf_true;
 
         if (_gf_true == afr_lookup_conflicting_entries (local, this))
-                local->self_heal.need_missing_entry_self_heal    = _gf_true;
+                local->self_heal.do_missing_entry_self_heal    = _gf_true;
         else
                 afr_update_gfid_from_iatts (local->self_heal.sh_gfid_req,
                                             local->cont.lookup.bufs,
@@ -1386,9 +1412,12 @@ afr_lookup_set_self_heal_data (afr_local_t *local, xlator_t *this)
         xattr = local->cont.lookup.xattrs;
         for (i = 0; i < local->success_count; i++) {
                 child1 = local->cont.lookup.success_children[i];
-                afr_lookup_set_self_heal_data_by_xattr (local, this,
-                                                        xattr[child1]);
+                afr_lookup_set_self_heal_params_by_xattr (local, this,
+                                                          xattr[child1]);
         }
+        if (afr_open_only_data_self_heal (priv->data_self_heal)
+            && !split_brain)
+                sh->do_data_self_heal = _gf_false;
 }
 
 int
@@ -1461,12 +1490,13 @@ afr_post_gfid_sh_success (call_frame_t *sh_frame, xlator_t *this)
 }
 
 static void
-afr_lookup_perform_self_heal_if_needed (call_frame_t *frame, xlator_t *this,
-                                        gf_boolean_t *sh_launched)
+afr_lookup_perform_self_heal (call_frame_t *frame, xlator_t *this,
+                              gf_boolean_t *sh_launched)
 {
         unsigned int         up_count = 0;
         afr_private_t       *priv    = NULL;
         afr_local_t         *local   = NULL;
+        char                *reason  = NULL;
 
         GF_ASSERT (sh_launched);
         *sh_launched = _gf_false;
@@ -1480,14 +1510,15 @@ afr_lookup_perform_self_heal_if_needed (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        afr_lookup_set_self_heal_data (local, this);
+        afr_lookup_set_self_heal_params (local, this);
         if (afr_can_self_heal_proceed (&local->self_heal, priv)) {
                 if  (afr_is_transaction_running (local))
                         goto out;
 
+                reason = "lookup detected pending operations";
                 afr_launch_self_heal (frame, this, local->cont.lookup.inode,
                                       _gf_true, local->cont.lookup.buf.ia_type,
-                                      afr_post_gfid_sh_success,
+                                      reason, afr_post_gfid_sh_success,
                                       afr_self_heal_lookup_unwind);
                 *sh_launched = _gf_true;
         }
@@ -1554,29 +1585,19 @@ afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
                                      local->cont.lookup.success_children,
                                      priv->child_count, local->loc.path,
                                      this->name)) {
-                if (fail_conflict == _gf_false) {
+                if (fail_conflict == _gf_false)
                         ret = 0;
-                } else {
-                        local->op_ret = -1;
-                        local->op_errno = EIO;
-                }
                 goto out;
         }
 
         if (!afr_is_transaction_running (local)) {
                 ret = afr_lookup_select_read_child (local, this, &read_child);
-                if (ret) {
-                        local->op_ret = -1;
-                        local->op_errno = EIO;
+                if (ret)
                         goto out;
-                }
 
                 ret = afr_lookup_set_read_ctx (local, this, read_child);
-                if (ret) {
-                        local->op_ret = -1;
-                        local->op_errno = EIO;
+                if (ret)
                         goto out;
-                }
         }
 
         ret = afr_lookup_build_response_params (local, this);
@@ -1590,6 +1611,10 @@ afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
 
         ret = 0;
 out:
+        if (ret) {
+                local->op_ret = -1;
+                local->op_errno = EIO;
+        }
         return ret;
 }
 
@@ -1629,7 +1654,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
                 goto unwind;
         uuid_copy (local->self_heal.sh_gfid_req, local->cont.lookup.gfid_req);
 
-        afr_lookup_perform_self_heal_if_needed (frame, this, &sh_launched);
+        afr_lookup_perform_self_heal (frame, this, &sh_launched);
         if (sh_launched) {
                 unwind = 0;
                 goto unwind;
@@ -3311,7 +3336,7 @@ afr_priv_dump (xlator_t *this)
                 gf_proc_dump_write(key, "%s", priv->pending_key[i]);
         }
         gf_proc_dump_build_key(key, key_prefix, "data_self_heal");
-        gf_proc_dump_write(key, "%d", priv->data_self_heal);
+        gf_proc_dump_write(key, "%s", priv->data_self_heal);
         gf_proc_dump_build_key(key, key_prefix, "metadata_self_heal");
         gf_proc_dump_write(key, "%d", priv->metadata_self_heal);
         gf_proc_dump_build_key(key, key_prefix, "entry_self_heal");
