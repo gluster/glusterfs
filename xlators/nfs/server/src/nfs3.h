@@ -204,6 +204,9 @@ struct nfs3_local {
         fd_t                    *resolve_dir_fd;
         char                    *resolventry;
         nfs3_lookup_type_t      lookuptype;
+        gf_dirent_t             *hashmatch;
+        gf_dirent_t             *entrymatch;
+        off_t                   lastentryoffset;
 };
 
 #define nfs3_is_revalidate_lookup(cst) ((cst)->lookuptype == GF_NFS3_REVALIDATE)

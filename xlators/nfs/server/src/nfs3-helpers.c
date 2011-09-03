@@ -2802,32 +2802,54 @@ out:
 
 
 int
-nfs3_fh_resolve_check_response (nfs3_call_state_t *cs, gf_dirent_t *candidate,
-                                int response, off_t last_offt)
+nfs3_fh_resolve_determine_response (nfs3_call_state_t *cs) {
+
+        int     response = GF_NFS3_FHRESOLVE_NOTFOUND;
+
+        if (!cs)
+                return response;
+
+        if ((cs->hashmatch) && (cs->entrymatch))
+                response = GF_NFS3_FHRESOLVE_FOUND;
+        else if ((cs->hashmatch) && (!cs->entrymatch))
+                response = GF_NFS3_FHRESOLVE_DIRFOUND;
+        else if ((!cs->hashmatch) && (cs->entrymatch))
+                response = GF_NFS3_FHRESOLVE_FOUND;
+        else if ((!cs->hashmatch) && (!cs->entrymatch))
+                response = GF_NFS3_FHRESOLVE_NOTFOUND;
+
+        return response;
+}
+
+
+int
+nfs3_fh_resolve_check_response (nfs3_call_state_t *cs)
 {
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
+        int             response = GF_NFS3_FHRESOLVE_NOTFOUND;
 
         if (!cs)
                 return ret;
 
+        response = nfs3_fh_resolve_determine_response (cs);
         switch (response) {
 
         case GF_NFS3_FHRESOLVE_DIRFOUND:
                 nfs3_fh_resolve_close_cwd (cs);
                 nfs3_fh_resolve_dir_hard (cs, cs->resolvedloc.inode->gfid,
-                                          candidate->d_name);
+                                          cs->hashmatch->d_name);
                 break;
 
         case GF_NFS3_FHRESOLVE_FOUND:
                 nfs3_fh_resolve_close_cwd (cs);
-                nfs3_fh_resolve_found (cs, candidate);
+                nfs3_fh_resolve_found (cs, cs->entrymatch);
                 break;
 
         case GF_NFS3_FHRESOLVE_NOTFOUND:
                 nfs_user_root_create (&nfu);
                 nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->resolve_dir_fd,
-                              GF_NFS3_DTPREF, last_offt,
+                              GF_NFS3_DTPREF, cs->lastentryoffset,
                               nfs3_fh_resolve_readdir_cbk, cs);
                 break;
         }
@@ -2840,27 +2862,30 @@ nfs3_fh_resolve_search_dir (nfs3_call_state_t *cs, gf_dirent_t *entries)
 {
         gf_dirent_t     *candidate = NULL;
         int             ret = GF_NFS3_FHRESOLVE_NOTFOUND;
-        off_t           lastoff = 0;
 
         if ((!cs) || (!entries))
                 return -EFAULT;
 
         if (list_empty (&entries->list))
-                goto not_found;
+                goto search_done;
 
         list_for_each_entry (candidate, &entries->list, list) {
-                lastoff = candidate->d_off;
+                cs->lastentryoffset = candidate->d_off;
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Candidate: %s, gfid: %s",
                         candidate->d_name,
                         uuid_utoa (candidate->d_stat.ia_gfid));
                 ret = nfs3_fh_resolve_check_entry (&cs->resolvefh, candidate,
                                                    cs->hashidx);
-                if (ret != GF_NFS3_FHRESOLVE_NOTFOUND)
-                        break;
+                if (ret == GF_NFS3_FHRESOLVE_FOUND)
+                        cs->entrymatch = gf_dirent_for_name (candidate->d_name);
+                else if (ret == GF_NFS3_FHRESOLVE_DIRFOUND) {
+                        if (cs->hashmatch)
+                                gf_dirent_free (cs->hashmatch);
+                        cs->hashmatch = gf_dirent_for_name (candidate->d_name);
+                }
         }
 
-not_found:
-        nfs3_fh_resolve_check_response (cs, candidate, ret, lastoff);
+search_done:
         return ret;
 }
 
@@ -2871,18 +2896,21 @@ nfs3_fh_resolve_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              gf_dirent_t *entries)
 {
         nfs3_call_state_t       *cs = NULL;
+        nfs_user_t              nfu = {0, };
 
         cs = frame->local;
         if (op_ret <= 0) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Directory read done: %s: %s",
                         cs->resolvedloc.path, strerror (op_ret));
-                cs->resolve_ret = -1;
-                cs->resolve_errno = ESTALE;
-                nfs3_call_resume (cs);
+                nfs3_fh_resolve_check_response (cs);
                 goto err;
         }
 
         nfs3_fh_resolve_search_dir (cs, entries);
+        nfs_user_root_create (&nfu);
+        nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->resolve_dir_fd,
+                      GF_NFS3_DTPREF, cs->lastentryoffset,
+                      nfs3_fh_resolve_readdir_cbk, cs);
 
 err:
         return 0;
