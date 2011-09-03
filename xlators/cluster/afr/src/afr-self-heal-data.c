@@ -63,6 +63,15 @@ int
 afr_sh_data_finish (call_frame_t *frame, xlator_t *this);
 
 int
+afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this,
+                      afr_fxattrop_cbk_t fxattrop_cbk);
+
+int
+afr_post_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
+                               xlator_t *this, int32_t op_ret, int32_t op_errno,
+                               dict_t *xattr);
+
+int
 afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
@@ -353,15 +362,26 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
                                int32_t op_errno, dict_t *xattr)
 {
         int             call_count = 0;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+                local = frame->local;
+                sh = &local->self_heal;
+                if (NULL == sh->old_loop_frame) {
+                        GF_ASSERT (sh->data_lock_held);
+                        afr_sh_data_fxattrop (frame, this,
+                                              afr_post_sh_data_fxattrop_cbk);
+                        goto out;
+                }
+
                 afr_sh_data_lock (frame, this, 0, 0,
                                   afr_post_sh_big_lock_success,
                                   afr_post_sh_big_lock_failure);
         }
-
+out:
         return 0;
 }
 
