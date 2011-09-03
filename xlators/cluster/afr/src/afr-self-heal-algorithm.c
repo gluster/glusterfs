@@ -92,7 +92,7 @@ sh_number_of_writes_needed (unsigned char *write_needed, int child_count)
 
 
 static int
-sh_loop_driver_done (call_frame_t *frame, xlator_t *this,
+sh_loop_driver_done (call_frame_t *sh_frame, xlator_t *this,
                      call_frame_t *last_loop_frame)
 {
         afr_private_t           *priv         = NULL;
@@ -103,13 +103,13 @@ sh_loop_driver_done (call_frame_t *frame, xlator_t *this,
         int32_t                 diff_blocks  = 0;
 
         priv         = this->private;
-        local        = frame->local;
+        local        = sh_frame->local;
         sh           = &local->self_heal;
         sh_priv      = sh->private;
         total_blocks = sh_priv->total_blocks;
         diff_blocks  = sh_priv->diff_blocks;
 
-        sh_private_cleanup (frame, this);
+        sh_private_cleanup (sh_frame, this);
         if (sh->op_failed) {
                 GF_ASSERT (!last_loop_frame);
                 //loop_finish should have happened and the old_loop should be NULL
@@ -117,7 +117,7 @@ sh_loop_driver_done (call_frame_t *frame, xlator_t *this,
                         "self-heal aborting on %s",
                         local->loc.path);
 
-                local->self_heal.algo_abort_cbk (frame, this);
+                local->self_heal.algo_abort_cbk (sh_frame, this);
         } else {
                 GF_ASSERT (last_loop_frame);
                 if (diff_blocks == total_blocks) {
@@ -131,8 +131,11 @@ sh_loop_driver_done (call_frame_t *frame, xlator_t *this,
                                 ((diff_blocks * 1.0)/total_blocks) * 100);
                 }
 
-                sh->old_loop_frame = last_loop_frame;
-                local->self_heal.algo_completion_cbk (frame, this);
+                if (sh_frame == last_loop_frame)
+                        sh->old_loop_frame = NULL;
+                else
+                        sh->old_loop_frame = last_loop_frame;
+                local->self_heal.algo_completion_cbk (sh_frame, this);
         }
 
         return 0;
