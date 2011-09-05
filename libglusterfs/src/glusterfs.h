@@ -352,6 +352,7 @@ struct _glusterfs_ctx {
         struct list_head    mempool_list; /* used to keep a global list of
                                              mempools, used to log details of
                                              mempool in statedump */
+        char                *statedump_path;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

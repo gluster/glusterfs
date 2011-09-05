@@ -4000,7 +4000,76 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_statedump_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                                int count, void *myframe)
+{
+        gf1_cli_statedump_vol_rsp       rsp = {0,};
+        int                             ret = -1;
 
+        if (-1 == req->rpc_status)
+                goto out;
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gf1_cli_statedump_vol_rsp);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
+                goto out;
+        }
+        gf_log ("cli", GF_LOG_DEBUG, "Recieved response to statedump");
+        if (rsp.op_ret)
+                cli_out ("%s", rsp.op_errstr);
+        else
+                cli_out ("Volume statedump sucessful");
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_statedump_volume (call_frame_t *frame, xlator_t *this,
+                            void *data)
+{
+        gf1_cli_statedump_vol_req       req = {0,};
+        dict_t                          *options = NULL;
+        char                            *volname = NULL;
+        char                            *option_str = NULL;
+        int                             option_cnt = 0;
+        int                             ret = -1;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        options = data;
+
+        ret = dict_get_str (options, "volname", &volname);
+        if (ret)
+                goto out;
+        req.volname = volname;
+
+        ret = dict_get_str (options, "options", &option_str);
+        if (ret)
+                goto out;
+        req.options = option_str;
+
+        ret = dict_get_int32 (options, "option-cnt", &option_cnt);
+        if (ret)
+                goto out;
+        req.option_cnt = option_cnt;
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_STATEDUMP_VOLUME, NULL,
+                              this, gf_cli3_1_statedump_volume_cbk,
+                              (xdrproc_t)xdr_gf1_cli_statedump_vol_req);
+
+out:
+        if (options)
+                dict_destroy (options);
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
@@ -4036,7 +4105,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_STATUS_VOLUME]    = {"STATUS_VOLUME", gf_cli3_1_status_volume},
         [GLUSTER_CLI_MOUNT]            = {"MOUNT", gf_cli3_1_mount},
         [GLUSTER_CLI_UMOUNT]           = {"UMOUNT", gf_cli3_1_umount},
-        [GLUSTER_CLI_HEAL_VOLUME]      = {"HEAL_VOLUME", gf_cli3_1_heal_volume}
+        [GLUSTER_CLI_HEAL_VOLUME]      = {"HEAL_VOLUME", gf_cli3_1_heal_volume},
+        [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", gf_cli3_1_statedump_volume},
 };
 
 struct rpc_clnt_program cli_prog = {

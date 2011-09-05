@@ -508,7 +508,7 @@ reconfigure (xlator_t *this, dict_t *options)
         gf_boolean_t              trace;
         data_t                   *data;
         int                       ret = 0;
-
+        char                     *statedump_path = NULL;
         conf = this->private;
 
         if (!conf) {
@@ -536,6 +536,27 @@ reconfigure (xlator_t *this, dict_t *options)
 			" to %d", conf->trace);
 
 	}
+
+        /*ret = dict_get_str (options, "statedump-path", &statedump_path);
+        if (!ret) {
+                gf_path_strip_trailing_slashes (statedump_path);
+                if (this->ctx->statedump_path)
+                        GF_FREE (this->ctx->statedump_path);
+                this->ctx->statedump_path = gf_strdup (statedump_path);
+        }*/
+        GF_OPTION_RECONF ("statedump-path", statedump_path,
+                          options, path, out);
+        if (!statedump_path) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error while reconfiguring statedump path");
+                ret = -1;
+                goto out;
+        }
+        gf_path_strip_trailing_slashes (statedump_path);
+        if (this->ctx->statedump_path)
+                GF_FREE (this->ctx->statedump_path);
+        this->ctx->statedump_path = gf_strdup (statedump_path);
+
         if (!conf->auth_modules)
                 conf->auth_modules = dict_new ();
 
@@ -582,7 +603,7 @@ init (xlator_t *this)
         int32_t            ret      = -1;
         server_conf_t     *conf     = NULL;
         rpcsvc_listener_t *listener = NULL;
-
+        char              *statedump_path = NULL;
         GF_VALIDATE_OR_GOTO ("init", this, out);
 
         if (this->children == NULL) {
@@ -613,6 +634,22 @@ init (xlator_t *this)
         ret = dict_get_str (this->options, "config-directory", &conf->conf_dir);
         if (ret)
                 conf->conf_dir = CONFDIR;
+
+        /*ret = dict_get_str (this->options, "statedump-path", &statedump_path);
+        if (!ret) {
+                gf_path_strip_trailing_slashes (statedump_path);
+                this->ctx->statedump_path = statedump_path;
+        }*/
+        GF_OPTION_INIT ("statedump-path", statedump_path, path, out);
+        if (statedump_path) {
+                gf_path_strip_trailing_slashes (statedump_path);
+                this->ctx->statedump_path = gf_strdup (statedump_path);
+        } else {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error setting statedump path");
+                ret = -1;
+                goto out;
+        }
 
         /* Authentication modules */
         conf->auth_modules = dict_new ();
@@ -817,6 +854,10 @@ struct volume_options options[] = {
         },
         { .key   = {"rpc-auth-allow-insecure"},
           .type  = GF_OPTION_TYPE_BOOL,
+        },
+        { .key           = {"statedump-path"},
+          .type          = GF_OPTION_TYPE_PATH,
+          .default_value = "/tmp"
         },
         { .key   = {NULL} },
 };

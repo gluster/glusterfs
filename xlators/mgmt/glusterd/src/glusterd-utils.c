@@ -4161,3 +4161,112 @@ glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo)
                 replicates = _gf_true;
         return replicates;
 }
+
+int
+glusterd_set_dump_options (char *dumpoptions_path, char *options,
+                           int option_cnt)
+{
+        int     ret = -1;
+        char    *dup_options = NULL;
+        char    *option = NULL;
+        char    *tmpptr = NULL;
+        FILE    *fp = NULL;
+
+        if (0 == option_cnt) {
+                ret = 0;
+                goto out;
+        }
+
+        fp = fopen (dumpoptions_path, "w");
+        if (!fp) {
+                ret = -1;
+                goto out;
+        }
+        dup_options = gf_strdup (options);
+        gf_log ("", GF_LOG_INFO, "Recieved following statedump options: %s",
+                dup_options);
+        option = strtok_r (dup_options, " ", &tmpptr);
+        while (option) {
+                fprintf (fp, "%s=yes\n", option);
+                option = strtok_r (NULL, " ", &tmpptr);
+        }
+
+out:
+        if (fp)
+                fclose (fp);
+        return ret;
+}
+
+int
+glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
+                          glusterd_brickinfo_t *brickinfo,
+                          char *options, int option_cnt)
+{
+        int                     ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *conf = NULL;
+        char                    pidfile_path[PATH_MAX] = {0,};
+        char                    path[PATH_MAX] = {0,};
+        char                    dumpoptions_path[PATH_MAX] = {0,};
+        FILE                    *pidfile = NULL;
+        pid_t                   pid = -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        if (uuid_is_null (brickinfo->uuid)) {
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Cannot resolve brick %s:%s",
+                                brickinfo->hostname, brickinfo->path);
+                        goto out;
+                }
+        }
+
+        if (uuid_compare (brickinfo->uuid, conf->uuid)) {
+                ret = 0;
+                goto out;
+        }
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile_path, path, brickinfo->hostname,
+                                    brickinfo->path);
+
+        pidfile = fopen (pidfile_path, "r");
+        if (!pidfile) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                        pidfile_path);
+                ret = -1;
+                goto out;
+        }
+
+        ret = fscanf (pidfile, "%d", &pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get pid of brick process");
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (dumpoptions_path, sizeof (dumpoptions_path),
+                  "/tmp/glusterdump.%d.options", pid);
+        glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
+
+
+        gf_log ("", GF_LOG_INFO, "Performing statedump on brick with pid %d",
+                pid);
+
+        kill (pid, SIGUSR1);
+
+        sleep (1);
+        unlink (dumpoptions_path);
+
+        ret = 0;
+out:
+        if (pidfile)
+                fclose (pidfile);
+        return ret;
+}
+

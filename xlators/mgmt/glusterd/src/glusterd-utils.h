@@ -352,6 +352,11 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 gf_boolean_t
 glusterd_is_fuse_available ();
 
+int
+glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
+                          glusterd_brickinfo_t *brickinfo,
+                          char *options, int option_cnt);
+
 gf_boolean_t
 glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo);
 gf_boolean_t

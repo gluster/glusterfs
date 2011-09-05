@@ -447,6 +447,65 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_statedump_vol_req       cli_req = {0,};
+        char                            *dup_volname = NULL;
+        char                            *dup_options = NULL;
+        dict_t                          *dict = NULL;
+
+        GF_ASSERT (req);
+
+        ret = -1;
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_statedump_vol_req)) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+        gf_log ("glusterd", GF_LOG_INFO, "Recieved statedump request for "
+                "volume %s with options %s", cli_req.volname, cli_req.options);
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        dup_volname = gf_strdup (cli_req.volname);
+        if (!dup_volname)
+                goto out;
+        ret = dict_set_dynstr (dict, "volname", dup_volname);
+        if (ret)
+                goto out;
+
+        dup_options = gf_strdup(cli_req.options);
+        if (!dup_volname)
+                goto out;
+        ret = dict_set_dynstr (dict, "options", dup_options);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "option_cnt", cli_req.option_cnt);
+        if (ret)
+                goto out;
+
+        ret = glusterd_op_begin (req, GD_OP_STATEDUMP_VOLUME, dict);
+
+        gf_cmd_log ("statedump", "on volume %s %s", cli_req.volname,
+                    ((0 == ret) ? "SUCCEEDED" : "FAILED"));
+
+out:
+        if (ret && dict)
+                dict_unref (dict);
+        if (cli_req.volname)
+                free (cli_req.volname);
+        if (cli_req.options)
+                free (cli_req.options);
+        glusterd_friend_sm ();
+        glusterd_op_sm();
+
+        return ret;
+}
 
 /* op-sm */
 int
@@ -605,6 +664,37 @@ glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags)
                 gf_log ("", GF_LOG_ERROR, "Unable to get flags");
                 goto out;
         }
+out:
+        return ret;
+}
+
+int
+glusterd_op_statedump_volume_args_get (dict_t *dict, char **volname,
+                                       char **options, int *option_cnt)
+{
+        int ret = -1;
+
+        if (!dict || !volname || !options || !option_cnt)
+                goto out;
+
+        ret = dict_get_str (dict, "volname", volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volname");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "options", options);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get options");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "option_cnt", option_cnt);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get option count");
+                goto out;
+        }
+
 out:
         return ret;
 }
@@ -901,6 +991,46 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
+        return ret;
+}
+
+int
+glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr)
+{
+        int                     ret = -1;
+        char                    *volname = NULL;
+        char                    *options = NULL;
+        int                     option_cnt = 0;
+        gf_boolean_t            is_running = _gf_false;
+        glusterd_volinfo_t      *volinfo = NULL;
+        char                    msg[2408] = {0,};
+
+        ret = glusterd_op_statedump_volume_args_get (dict, &volname, &options,
+                                                     &option_cnt);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Volume %s does not exist",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        is_running = glusterd_is_volume_started (volinfo);
+        if (!is_running) {
+                snprintf (msg, sizeof(msg), "Volume %s is not in a started"
+                          " state", volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -1204,3 +1334,34 @@ glusterd_op_heal_volume (dict_t *dict, char **op_errstr)
 
         return ret;
 }
+
+int
+glusterd_op_statedump_volume (dict_t *dict)
+{
+        int                     ret = 0;
+        char                    *volname = NULL;
+        char                    *options = NULL;
+        int                     option_cnt = 0;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+
+        ret = glusterd_op_statedump_volume_args_get (dict, &volname, &options,
+                                                     &option_cnt);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+        gf_log ("", GF_LOG_DEBUG, "Performing statedump on volume %s", volname);
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_brick_statedump (volinfo, brickinfo, options,
+                                                option_cnt);
+                if (ret)
+                        goto out;
+        }
+
+out:
+        return ret;
+}
+
