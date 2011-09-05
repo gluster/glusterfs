@@ -198,10 +198,12 @@ call_bail (void *data)
                         trav->rpcreq->procnum, trav->rpcreq->xid, frame_sent,
                         conn->frame_timeout);
 
+                clnt = rpc_clnt_ref (clnt);
                 trav->rpcreq->rpc_status = -1;
 		trav->rpcreq->cbkfn (trav->rpcreq, &iov, 1, trav->frame);
 
                 rpc_clnt_reply_deinit (trav->rpcreq, clnt->reqpool);
+                clnt = rpc_clnt_unref (clnt);
                 list_del_init (&trav->list);
                 mem_put (conn->rpc_clnt->saved_frames_pool, trav);
         }
@@ -311,6 +313,7 @@ __saved_frame_get (struct saved_frames *frames, int64_t callid)
 void
 saved_frames_unwind (struct saved_frames *saved_frames)
 {
+        struct rpc_clnt      *clnt = NULL;
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
         struct mem_pool      *saved_frames_pool = NULL;
@@ -340,6 +343,7 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                                   trav->rpcreq->procnum, timestr);
 		saved_frames->count--;
 
+                clnt = rpc_clnt_ref (trav->rpcreq->conn->rpc_clnt);
                 trav->rpcreq->rpc_status = -1;
                 trav->rpcreq->cbkfn (trav->rpcreq, &iov, 1, trav->frame);
 
@@ -348,6 +352,7 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                 rpc_clnt_reply_deinit (trav->rpcreq,
                                        trav->rpcreq->conn->rpc_clnt->reqpool);
 
+                clnt = rpc_clnt_unref (clnt);
 		list_del_init (&trav->list);
                 mem_put (saved_frames_pool, trav);
 	}
