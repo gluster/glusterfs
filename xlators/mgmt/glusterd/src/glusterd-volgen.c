@@ -193,6 +193,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0},
         {"features.quota-timeout",               "features/quota",            "timeout", "0", DOC, 0},
+        {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, NO_DOC, 0},
         {NULL,                                                                }
 };
 

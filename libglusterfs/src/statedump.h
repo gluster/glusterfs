@@ -26,11 +26,6 @@
 
 #define GF_DUMP_MAX_BUF_LEN 4096
 
-#define GF_DUMP_LOGFILE_ROOT "/tmp/glusterdump"
-#define GF_DUMP_LOGFILE_ROOT_LEN 256
-
-#define GF_DUMP_OPTIONFILE "/tmp/glusterdump.input"
-
 typedef struct gf_dump_xl_options_ {
         gf_boolean_t    dump_priv;
         gf_boolean_t    dump_inode;

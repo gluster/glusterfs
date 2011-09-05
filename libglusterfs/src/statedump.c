@@ -23,6 +23,7 @@
 #include "iobuf.h"
 #include "statedump.h"
 #include "stack.h"
+#include "common-utils.h"
 
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
@@ -62,13 +63,13 @@ gf_proc_dump_unlock (void)
 
 
 static int
-gf_proc_dump_open (void)
+gf_proc_dump_open (char *dump_dir, char *brickname)
 {
-        char path[256];
+        char path[PATH_MAX] = {0,};
         int  dump_fd = -1;
 
-        memset (path, 0, sizeof (path));
-        snprintf (path, sizeof (path), "%s.%d", GF_DUMP_LOGFILE_ROOT, getpid ());
+        snprintf (path, sizeof (path), "%s/%s.%d.dump", (dump_dir ?
+                  dump_dir : "/tmp"), brickname, getpid());
 
         dump_fd = open (path, O_CREAT|O_RDWR|O_TRUNC|O_APPEND, 0600);
         if (dump_fd < 0)
@@ -356,50 +357,6 @@ gf_proc_dump_oldgraph_xlator_info (xlator_t *top)
 }
 
 static int
-gf_proc_dump_parse_set_option (char *key, char *value)
-{
-        gf_boolean_t    *opt_key = NULL;
-        gf_boolean_t    opt_value = _gf_false;
-        char buf[GF_DUMP_MAX_BUF_LEN];
-        int ret = -1;
-
-        if (!strncasecmp (key, "mem", 3)) {
-                opt_key = &dump_options.dump_mem;
-        } else if (!strncasecmp (key, "iobuf", 5)) {
-                opt_key = &dump_options.dump_iobuf;
-        } else if (!strncasecmp (key, "callpool", 8)) {
-                opt_key = &dump_options.dump_callpool;
-        } else if (!strncasecmp (key, "priv", 4)) {
-                opt_key = &dump_options.xl_options.dump_priv;
-        } else if (!strncasecmp (key, "fd", 2)) {
-                opt_key = &dump_options.xl_options.dump_fd;
-        } else if (!strncasecmp (key, "inode", 5)) {
-                opt_key = &dump_options.xl_options.dump_inode;
-        } else if (!strncasecmp (key, "inodectx", strlen ("inodectx"))) {
-                opt_key = &dump_options.xl_options.dump_inodectx;
-        } else if (!strncasecmp (key, "fdctx", strlen ("fdctx"))) {
-                opt_key = &dump_options.xl_options.dump_fdctx;
-        }
-
-        if (!opt_key) {
-                //None of dump options match the key, return back
-                snprintf (buf, sizeof (buf), "[Warning]:None of the options "
-                          "matched key : %s\n", key);
-                ret = write (gf_dump_fd, buf, strlen (buf));
-
-                return -1;
-        }
-
-        opt_value = (strncasecmp (value, "yes", 3) ?
-                     _gf_false: _gf_true);
-
-        GF_PROC_DUMP_SET_OPTION (*opt_key, opt_value);
-
-        return 0;
-}
-
-
-static int
 gf_proc_dump_enable_all_options ()
 {
 
@@ -435,7 +392,53 @@ gf_proc_dump_disable_all_options ()
 }
 
 static int
-gf_proc_dump_options_init ()
+gf_proc_dump_parse_set_option (char *key, char *value)
+{
+        gf_boolean_t    *opt_key = NULL;
+        gf_boolean_t    opt_value = _gf_false;
+        char buf[GF_DUMP_MAX_BUF_LEN];
+        int ret = -1;
+
+        if (!strncasecmp (key, "all", 3)) {
+                (void)gf_proc_dump_enable_all_options ();
+                return 0;
+        } else if (!strncasecmp (key, "mem", 3)) {
+                opt_key = &dump_options.dump_mem;
+        } else if (!strncasecmp (key, "iobuf", 5)) {
+                opt_key = &dump_options.dump_iobuf;
+        } else if (!strncasecmp (key, "callpool", 8)) {
+                opt_key = &dump_options.dump_callpool;
+        } else if (!strncasecmp (key, "priv", 4)) {
+                opt_key = &dump_options.xl_options.dump_priv;
+        } else if (!strncasecmp (key, "fd", 2)) {
+                opt_key = &dump_options.xl_options.dump_fd;
+        } else if (!strncasecmp (key, "inode", 5)) {
+                opt_key = &dump_options.xl_options.dump_inode;
+        } else if (!strncasecmp (key, "inodectx", strlen ("inodectx"))) {
+                opt_key = &dump_options.xl_options.dump_inodectx;
+        } else if (!strncasecmp (key, "fdctx", strlen ("fdctx"))) {
+                opt_key = &dump_options.xl_options.dump_fdctx;
+        }
+
+        if (!opt_key) {
+                //None of dump options match the key, return back
+                snprintf (buf, sizeof (buf), "[Warning]:None of the options "
+                          "matched key : %s\n", key);
+                ret = write (gf_dump_fd, buf, strlen (buf));
+
+                return -1;
+        }
+
+        opt_value = (strncasecmp (value, "yes", 3) ?
+                     _gf_false: _gf_true);
+
+        GF_PROC_DUMP_SET_OPTION (*opt_key, opt_value);
+
+        return 0;
+}
+
+static int
+gf_proc_dump_options_init (char *dump_name)
 {
         int     ret = -1;
         FILE    *fp = NULL;
@@ -443,9 +446,12 @@ gf_proc_dump_options_init ()
         char    dumpbuf[GF_DUMP_MAX_BUF_LEN];
         char    *key = NULL, *value = NULL;
         char    *saveptr = NULL;
+        char    dump_option_file[PATH_MAX];
 
+        snprintf (dump_option_file, sizeof (dump_option_file),
+                  "/tmp/glusterdump.%d.options", getpid ());
 
-        fp = fopen (GF_DUMP_OPTIONFILE, "r");
+        fp = fopen (dump_option_file, "r");
 
         if (!fp) {
                 //ENOENT, return success
@@ -489,19 +495,26 @@ gf_proc_dump_info (int signum)
         int                ret  = -1;
         glusterfs_ctx_t   *ctx  = NULL;
         glusterfs_graph_t *trav = NULL;
+        char               brick_name[PATH_MAX] = {0,};
 
         gf_proc_dump_lock ();
-        ret = gf_proc_dump_open ();
-        if (ret < 0)
-                goto out;
-
-        ret = gf_proc_dump_options_init ();
-        if (ret < 0)
-                goto out;
 
         ctx = glusterfs_ctx_get ();
         if (!ctx)
-                goto close;
+                goto out;
+
+        if (ctx->cmd_args.brick_name) {
+                GF_REMOVE_SLASH_FROM_PATH (ctx->cmd_args.brick_name, brick_name);
+        } else
+                strncpy (brick_name, "glusterdump", sizeof (brick_name));
+
+        ret = gf_proc_dump_options_init (brick_name);
+        if (ret < 0)
+                goto out;
+
+        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
+        if (ret < 0)
+                goto out;
 
         if (GF_PROC_DUMP_IS_OPTION_ENABLED (mem)) {
                 gf_proc_dump_mem_info ();
@@ -534,7 +547,6 @@ gf_proc_dump_info (int signum)
                 i++;
         }
 
-close:
         gf_proc_dump_close ();
 out:
         gf_proc_dump_unlock ();

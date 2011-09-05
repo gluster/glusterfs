@@ -1510,6 +1510,72 @@ out:
         return ret;
 }
 
+int
+cli_cmd_volume_statedump_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                              const char **words, int wordcount)
+{
+        int                             ret = -1;
+        rpc_clnt_procedure_t            *proc = NULL;
+        call_frame_t                    *frame = NULL;
+        dict_t                          *options = NULL;
+        int                             sent = 0;
+        int                             parse_error = 0;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        if (wordcount < 3) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        if (wordcount > 3) {
+               ret = cli_cmd_volume_statedump_options_parse (words, wordcount,
+                                                              &options);
+               if (ret) {
+                       parse_error = 1;
+                       gf_log ("cli", GF_LOG_ERROR, "Error parsing "
+                               "statedump options");
+                       cli_out ("Error parsing options");
+                       cli_usage_out (word->pattern);
+               }
+        } else {
+                options = dict_new ();
+                if (!options) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "Could not create dict");
+                        goto out;
+                }
+                ret = dict_set_str (options, "options","");
+                if (ret)
+                        goto out;
+                ret = dict_set_int32 (options, "option-cnt", 0);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_set_str (options, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STATEDUMP_VOLUME];
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error = 0))
+                        cli_out ("Volume statedump failed");
+        }
+
+        return ret;
+}
+
+
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
           cli_cmd_volume_info_cbk,
@@ -1615,6 +1681,10 @@ struct cli_cmd volume_cmds[] = {
         { "volume heal <VOLNAME>",
           cli_cmd_volume_heal_cbk,
           "Start healing of volume specified by <VOLNAME>"},
+
+        {"volume statedump <VOLNAME> [all|mem|iobuf|callpool|priv|fd|inode]...",
+         cli_cmd_volume_statedump_cbk,
+         "perform statedump on bricks"},
 
         { NULL, NULL, NULL }
 };

@@ -80,6 +80,7 @@ typedef enum glusterd_op_ {
         GD_OP_STATUS_VOLUME,
         GD_OP_REBALANCE,
         GD_OP_HEAL_VOLUME,
+        GD_OP_STATEDUMP_VOLUME,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -541,17 +542,9 @@ glusterd_handle_log_level (rpcsvc_request_t *req);
 /* handler functions */
 int32_t glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx);
 
-int glusterd_handle_gsync_set (rpcsvc_request_t *req);
-int glusterd_handle_quota (rpcsvc_request_t *req);
-int glusterd_handle_replace_brick (rpcsvc_request_t *req);
-int glusterd_handle_log_filename (rpcsvc_request_t *req);
-int glusterd_handle_log_locate (rpcsvc_request_t *req);
-int glusterd_handle_log_level (rpcsvc_request_t *req);
-int glusterd_handle_log_rotate (rpcsvc_request_t *req);
-int glusterd_handle_create_volume (rpcsvc_request_t *req);
-int glusterd_handle_cli_start_volume (rpcsvc_request_t *req);
-int glusterd_handle_cli_stop_volume (rpcsvc_request_t *req);
-int glusterd_handle_cli_delete_volume (rpcsvc_request_t *req);
+/* removed other definitions as they have been defined elsewhere in this file*/
+
+int glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req);
 
 int glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                                   size_t len, int cmd, defrag_cbk_fn_t cbk);
@@ -590,12 +583,15 @@ int glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr);
 int glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 
+int glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_statedump_volume (dict_t *dict);
 
 /* misc */
 void glusterd_do_replace_brick (void *data);
 int glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
                                       int force, int *need_migrate);
 int glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags);
-
+int glusterd_op_statedump_volume_args_get (dict_t *dict, char **volname,
+                                           char **options, int *option_cnt);
 
 #endif

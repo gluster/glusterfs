@@ -2784,8 +2784,8 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_STATUS_VOLUME]  = {"STATUS_VOLUME", GLUSTER_CLI_STATUS_VOLUME, glusterd_handle_status_volume, NULL, NULL},
         [GLUSTER_CLI_MOUNT]         = { "MOUNT", GLUSTER_CLI_MOUNT, glusterd_handle_mount, NULL, NULL},
         [GLUSTER_CLI_UMOUNT]        = { "UMOUNT", GLUSTER_CLI_UMOUNT, glusterd_handle_umount, NULL, NULL},
-        [GLUSTER_CLI_HEAL_VOLUME]  = { "HEAL_VOLUME", GLUSTER_CLI_HEAL_VOLUME, glusterd_handle_cli_heal_volume, NULL, NULL}
-
+        [GLUSTER_CLI_HEAL_VOLUME]  = { "HEAL_VOLUME", GLUSTER_CLI_HEAL_VOLUME, glusterd_handle_cli_heal_volume, NULL, NULL},
+        [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", GLUSTER_CLI_STATEDUMP_VOLUME, glusterd_handle_cli_statedump_volume, NULL, NULL},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

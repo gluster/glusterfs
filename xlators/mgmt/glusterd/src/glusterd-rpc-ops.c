@@ -470,6 +470,20 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 break;
 
         }
+        case GD_OP_STATEDUMP_VOLUME:
+        {
+                gf1_cli_statedump_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                xdrproc = (xdrproc_t) xdr_gf1_cli_statedump_vol_rsp;
+                break;
+        }
         case GD_OP_NONE:
         case GD_OP_MAX:
         {

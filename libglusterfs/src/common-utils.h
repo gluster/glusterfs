@@ -133,6 +133,18 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
                 }                                                       \
 	} while (0);
 
+#define GF_REMOVE_SLASH_FROM_PATH(path, string)                         \
+        do {                                                            \
+                int i = 0;                                              \
+                for (i = 1; i < strlen (path); i++) {                   \
+                        string[i-1] = path[i];                          \
+                        if (string[i-1] == '/')                         \
+                                string[i-1] = '-';                      \
+                }                                                       \
+        } while (0);                                                    \
+
+
+
 #define GF_FILE_CONTENT_REQUESTED(_xattr_req,_content_limit) \
 	(dict_get_uint64 (_xattr_req, "glusterfs.content", _content_limit) == 0)
 
@@ -386,4 +398,5 @@ char *gf_uint64_2human_readable (uint64_t);
 int validate_brick_name (char *brick);
 char *get_host_name (char *word, char **host);
 char *get_path_name (char *word, char **path);
+void gf_path_strip_trailing_slashes (char *path);
 #endif /* _COMMON_UTILS_H */

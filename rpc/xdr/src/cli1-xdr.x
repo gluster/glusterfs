@@ -466,4 +466,17 @@ struct gf1_cli_heal_vol_rsp {
        string  volname<>;
        string op_errstr<>;
        opaque  dict<>;
-}  ;
+};
+struct gf1_cli_statedump_vol_req {
+        string  volname<>;
+        string  options<>;
+        int     option_cnt;
+};
+
+struct gf1_cli_statedump_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+        string  op_errstr<>;
+        opaque  dict<>;
+};

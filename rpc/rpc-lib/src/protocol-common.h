@@ -206,6 +206,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_MOUNT,
         GLUSTER_CLI_UMOUNT,
         GLUSTER_CLI_HEAL_VOLUME,
+        GLUSTER_CLI_STATEDUMP_VOLUME,
         GLUSTER_CLI_MAXVALUE,
 };
 
