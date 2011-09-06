@@ -2400,9 +2400,9 @@ init (xlator_t *this)
         if (!this)
                 return -1;
 
-        if (!this->children || this->children->next) {
+        if (!this->children) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "io_stats translator requires one subvolume");
+                        "io_stats translator requires atleast one subvolume");
                 return -1;
         }
 
