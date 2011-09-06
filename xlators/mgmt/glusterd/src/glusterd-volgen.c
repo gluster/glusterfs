@@ -1829,8 +1829,8 @@ nfs_option_handler (glusterfs_graph_t *graph,
                 if (ret)
                         return -1;
         }
-        if (! strcmp (vme->option, "!rpc-auth.auth.null.*")) {
-                ret = gf_asprintf (&aa, "rpc-auth.auth.null.%s",
+        if (! strcmp (vme->option, "!rpc-auth.auth-null.*")) {
+                ret = gf_asprintf (&aa, "rpc-auth.auth-null.%s",
                                         volinfo->volname);
 
                 if (ret != -1) {
