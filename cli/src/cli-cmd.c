@@ -31,6 +31,7 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
+#include "protocol-common.h"
 
 #include <fnmatch.h>
 
@@ -281,14 +282,14 @@ seconds_from_now (unsigned secs, struct timespec *ts)
 }
 
 int
-cli_cmd_await_response ()
+cli_cmd_await_response (unsigned time)
 {
         struct  timespec        ts = {0,};
         int                     ret = 0;
 
         cli_op_ret = -1;
 
-        seconds_from_now (CLI_DEFAULT_CMD_TIMEOUT, &ts);
+        seconds_from_now (time, &ts);
         while (!cmd_done && !ret) {
                 ret = pthread_cond_timedwait (&cond, &cond_mutex,
                                         &ts);
@@ -366,7 +367,11 @@ cli_cmd_submit (void *req, call_frame_t *frame,
                 int procnum, struct iobref *iobref,
                 xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
-        int     ret = -1;
+        int             ret = -1;
+        unsigned        timeout = 0;
+
+        timeout = (GLUSTER_CLI_PROFILE_VOLUME == procnum) ?
+                   CLI_TOP_CMD_TIMEOUT : CLI_DEFAULT_CMD_TIMEOUT;
 
         cli_cmd_lock ();
         cmd_sent = 0;
@@ -375,7 +380,7 @@ cli_cmd_submit (void *req, call_frame_t *frame,
 
         if (!ret) {
                 cmd_sent = 1;
-                ret = cli_cmd_await_response ();
+                ret = cli_cmd_await_response (timeout);
         } else
                 cli_cmd_unlock ();
 

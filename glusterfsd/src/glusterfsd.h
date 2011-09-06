@@ -24,7 +24,8 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
-
+#include "rpcsvc.h"
+#include "glusterd1-xdr.h"
 
 #define DEFAULT_GLUSTERD_VOLFILE              CONFDIR "/glusterd.vol"
 #define DEFAULT_CLIENT_VOLFILE                CONFDIR "/glusterfs.vol"
@@ -81,9 +82,22 @@ enum argp_option_keys {
         ARGP_USER_MAP_ROOT_KEY            = 156,
 };
 
+struct _gfd_vol_top_priv_t {
+        rpcsvc_request_t        *req;
+        gd1_mgmt_brick_op_req   xlator_req;
+        int32_t                 blk_count;
+        int32_t                 blk_size;
+        double                  throughput;
+        double                  time;
+        int32_t                 ret;
+};
+typedef struct _gfd_vol_top_priv_t gfd_vol_top_priv_t;
+
 int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
 void cleanup_and_exit (int signum);
 
+void *glusterfs_volume_top_read_perf (void *args);
+void *glusterfs_volume_top_write_perf (void *args);
 #endif /* __GLUSTERFSD_H__ */
