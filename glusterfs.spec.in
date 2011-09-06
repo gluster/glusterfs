@@ -136,6 +136,13 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 /sbin/ldconfig
 /sbin/chkconfig --add glusterd
 
+#create rbstate file
+if [ -d /etc/glusterd/vols ]; then
+for file in `find /etc/glusterd/vols -type f -name info`;
+do
+grep "rb_" $file &> /tmp/rbstate && mv /tmp/rbstate `dirname $file` && sed -i.bck '/rb_/d' $file
+done
+fi
 
 #update  /etc/ld.so.conf.d
 echo "%{_prefix}/lib64" > /etc/ld.so.conf.d/glusterfs.conf
