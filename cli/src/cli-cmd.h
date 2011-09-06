@@ -83,7 +83,7 @@ struct cli_cmd_word *cli_cmd_nextword (struct cli_cmd_word *word,
                                        const char *text);
 void cli_cmd_tokens_destroy (char **tokens);
 
-int cli_cmd_await_response ();
+int cli_cmd_await_response (unsigned time);
 
 int cli_cmd_broadcast_response (int32_t status);
 

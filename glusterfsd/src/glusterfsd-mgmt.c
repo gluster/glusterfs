@@ -22,6 +22,7 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <pthread.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -38,11 +39,12 @@
 #include "protocol-common.h"
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
-#include "glusterd1-xdr.h"
 #include "xdr-generic.h"
 
 #include "glusterfsd.h"
+#include "glusterfsd-mem-types.h"
 #include "rpcsvc.h"
+#include "cli1-xdr.h"
 
 static char is_mgmt_rpc_reconnect;
 
@@ -253,28 +255,83 @@ glusterfs_translator_info_response_send (rpcsvc_request_t *req, int ret,
 }
 
 int
+glusterfs_handle_translator_info_get_cont (gfd_vol_top_priv_t *priv)
+{
+        int                     ret = -1;
+        xlator_t                *any = NULL;
+        xlator_t                *xlator = NULL;
+        glusterfs_graph_t       *active = NULL;
+        glusterfs_ctx_t         *ctx = NULL;
+        char                    msg[2048] = {0,};
+        dict_t                  *output = NULL;
+        dict_t                  *dict = NULL;
+
+        GF_ASSERT (priv);
+
+        dict = dict_new ();
+        ret = dict_unserialize (priv->xlator_req.input.input_val,
+                                priv->xlator_req.input.input_len, &dict);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto cont;
+        }
+        ret = dict_set_double (dict, "time", priv->time);
+        if (ret)
+                goto cont;
+        ret = dict_set_double (dict, "throughput", priv->throughput);
+        if (ret)
+                goto cont;
+
+cont:
+        ctx = glusterfs_ctx_get ();
+        GF_ASSERT (ctx);
+        active = ctx->active;
+        any = active->first;
+
+        xlator = xlator_search_by_name (any, priv->xlator_req.name);
+        if (!xlator) {
+                snprintf (msg, sizeof (msg), "xlator %s is not loaded",
+                          priv->xlator_req.name);
+                goto out;
+        }
+
+        output = dict_new ();
+        ret = xlator->notify (xlator, GF_EVENT_TRANSLATOR_INFO, dict, output);
+
+out:
+        ret = glusterfs_translator_info_response_send (priv->req, ret,
+                                                       msg, output);
+
+        if (priv->xlator_req.name)
+                free (priv->xlator_req.name);
+        if (priv->xlator_req.input.input_val)
+                free (priv->xlator_req.input.input_val);
+        if (dict)
+                dict_unref (dict);
+        if (output)
+                dict_unref (output);
+        GF_FREE (priv);
+
+        return ret;
+}
+
+int
 glusterfs_handle_translator_info_get (rpcsvc_request_t *req)
 {
         int32_t                  ret     = -1;
         gd1_mgmt_brick_op_req    xlator_req = {0,};
         dict_t                   *dict    = NULL;
-        xlator_t                 *xlator = NULL;
-        xlator_t                 *any = NULL;
-        dict_t                   *output = NULL;
-        char                     msg[2048] = {0};
-        glusterfs_ctx_t          *ctx = NULL;
-        glusterfs_graph_t        *active = NULL;
         xlator_t                 *this = NULL;
+        gf1_cli_top_op            top_op = 0;
+        int32_t                  blk_size = 0;
+        int32_t                  blk_count = 0;
+        gfd_vol_top_priv_t       *priv = NULL;
+        pthread_t                tid = -1;
 
         GF_ASSERT (req);
         this = THIS;
         GF_ASSERT (this);
 
-        ctx = glusterfs_ctx_get ();
-        GF_ASSERT (ctx);
-
-        active = ctx->active;
-        any = active->first;
         if (!xdr_to_generic (req->msg[0], &xlator_req,
                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
                 //failed to decode msg;
@@ -293,27 +350,268 @@ glusterfs_handle_translator_info_get (rpcsvc_request_t *req)
                 goto out;
         }
 
-        xlator = xlator_search_by_name (any, xlator_req.name);
-        if (!xlator) {
-                snprintf (msg, sizeof (msg), "xlator %s is not loaded",
-                          xlator_req.name);
+        priv = GF_MALLOC (sizeof (gfd_vol_top_priv_t), gfd_mt_vol_top_priv_t);
+        if (!priv) {
+                gf_log ("glusterd", GF_LOG_ERROR, "failed to allocate memory");
+                goto out;
+        }
+        priv->xlator_req = xlator_req;
+        priv->req = req;
+
+        ret = dict_get_int32 (dict, "top-op", (int32_t *)&top_op);
+        if ((!ret) && (GF_CLI_TOP_READ_PERF == top_op ||
+            GF_CLI_TOP_WRITE_PERF == top_op)) {
+                ret = dict_get_int32 (dict, "blk-size", &blk_size);
+                if (ret)
+                        goto cont;
+                ret = dict_get_int32 (dict, "blk-cnt", &blk_count);
+                if (ret)
+                        goto cont;
+                priv->blk_size = blk_size;
+                priv->blk_count = blk_count;
+                if (GF_CLI_TOP_READ_PERF == top_op) {
+                        ret = pthread_create (&tid, NULL,
+                                              glusterfs_volume_top_read_perf,
+                                              priv);
+                } else if ( GF_CLI_TOP_WRITE_PERF == top_op) {
+                        ret = pthread_create (&tid, NULL,
+                                              glusterfs_volume_top_write_perf,
+                                              priv);
+                }
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Thread create failed");
+                        goto cont;
+                }
+                gf_log ("glusterd", GF_LOG_DEBUG, "Created new thread with "
+                        "tid %u", (unsigned int)tid);
+                goto out;
+        }
+cont:
+        priv->throughput = 0;
+        priv->time = 0;
+        ret = glusterfs_handle_translator_info_get_cont (priv);
+out:
+        if (dict)
+                dict_unref (dict);
+        return ret;
+}
+
+void *
+glusterfs_volume_top_write_perf (void *args)
+{
+        int32_t                 fd = -1;
+        int32_t                 input_fd = -1;
+        char                    export_path[PATH_MAX];
+        char                    *buf = NULL;
+        int32_t                 blk_size = 0;
+        int32_t                 blk_count = 0;
+        int32_t                 iter = 0;
+        int32_t                 ret = -1;
+        int64_t                 total_blks = 0;
+        struct timeval          begin, end = {0,};
+        double                  throughput = 0;
+        double                  time = 0;
+        gfd_vol_top_priv_t      *priv = NULL;
+
+        GF_ASSERT (args);
+        priv = (gfd_vol_top_priv_t *)args;
+
+        blk_size = priv->blk_size;
+        blk_count = priv->blk_count;
+
+        snprintf (export_path, sizeof (export_path), "%s/%s",
+                  priv->xlator_req.name, ".gf-tmp-stats-perf");
+
+        fd = open (export_path, O_CREAT|O_RDWR, S_IRWXU);
+        if (-1 == fd) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not open tmp file");
+                goto out;
+        }
+
+        buf = GF_MALLOC (blk_size * sizeof(*buf), gf_common_mt_char);
+        if (!buf) {
                 ret = -1;
                 goto out;
         }
 
-        output = dict_new ();
-        ret = xlator->notify (xlator, GF_EVENT_TRANSLATOR_INFO, dict, output);
+        input_fd = open ("/dev/urandom", O_RDONLY);
+        if (-1 == input_fd) {
+                ret = -1;
+                gf_log ("glusterd",GF_LOG_ERROR, "Unable to open input file");
+                goto out;
+        }
+
+        gettimeofday (&begin, NULL);
+        for (iter = 0; iter < blk_count; iter++) {
+                ret = read (input_fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = write (fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                total_blks += ret;
+        }
+        ret = 0;
+        if (total_blks != (blk_size * blk_count)) {
+                gf_log ("glusterd", GF_LOG_WARNING, "Error in write");
+                ret = -1;
+                goto out;
+        }
+
+        gettimeofday (&end, NULL);
+        time = (end.tv_sec - begin.tv_sec) * 1e6
+                     + (end.tv_usec - begin.tv_usec);
+        throughput = total_blks / time;
+        gf_log ("glusterd", GF_LOG_INFO, "Throughput %.2f Mbps time %.2f secs "
+                "bytes written %"PRId64, throughput, time, total_blks);
+
 out:
-        ret = glusterfs_translator_info_response_send (req, ret, msg, output);
-        if (dict)
-                dict_unref (dict);
-        if (xlator_req.input.input_val)
-                free (xlator_req.input.input_val); // malloced by xdr
-        if (output)
-                dict_unref (output);
-        if (xlator_req.name)
-                free (xlator_req.name); //malloced by xdr
-        return ret;
+        priv->throughput = throughput;
+        priv->time = time;
+
+        if (fd >= 0)
+                close (fd);
+        if (input_fd >= 0)
+                close (input_fd);
+        if (buf)
+                GF_FREE (buf);
+        unlink (export_path);
+
+        (void)glusterfs_handle_translator_info_get_cont (priv);
+
+        return NULL;
+}
+
+void *
+glusterfs_volume_top_read_perf (void *args)
+{
+        int32_t                 fd = -1;
+        int32_t                 input_fd = -1;
+        int32_t                 output_fd = -1;
+        char                    export_path[PATH_MAX];
+        char                    *buf = NULL;
+        int32_t                 blk_size = 0;
+        int32_t                 blk_count = 0;
+        int32_t                 iter = 0;
+        int32_t                 ret = -1;
+        int64_t                 total_blks = 0;
+        struct timeval          begin, end = {0,};
+        double                  throughput = 0;
+        double                  time = 0;
+        gfd_vol_top_priv_t      *priv = NULL;
+
+        GF_ASSERT (args);
+        priv = (gfd_vol_top_priv_t *)args;
+
+        blk_size = priv->blk_size;
+        blk_count = priv->blk_count;
+
+        snprintf (export_path, sizeof (export_path), "%s/%s",
+                  priv->xlator_req.name, ".gf-tmp-stats-perf");
+        fd = open (export_path, O_CREAT|O_RDWR, S_IRWXU);
+        if (-1 == fd) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not open tmp file");
+                goto out;
+        }
+
+        buf = GF_MALLOC (blk_size * sizeof(*buf), gf_common_mt_char);
+        if (!buf) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not allocate memory");
+                goto out;
+        }
+
+        input_fd = open ("/dev/urandom", O_RDONLY);
+        if (-1 == input_fd) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not open input file");
+                goto out;
+        }
+
+        output_fd = open ("/dev/null", O_RDWR);
+        if (-1 == output_fd) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_ERROR, "Could not open output file");
+                goto out;
+        }
+
+        for (iter = 0; iter < blk_count; iter++) {
+                ret = read (input_fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = write (fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = fsync (fd);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "could not flush cache");
+                goto out;
+        }
+        ret = lseek (fd, 0L, 0);
+        if (ret != 0) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "could not seek back to start");
+                ret = -1;
+                goto out;
+        }
+        gettimeofday (&begin, NULL);
+        for (iter = 0; iter < blk_count; iter++) {
+                ret = read (fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = write (output_fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                total_blks += ret;
+        }
+        ret = 0;
+        if ((blk_size * blk_count) != total_blks) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_WARNING, "Error in write");
+                goto out;
+        }
+
+        gettimeofday (&end, NULL);
+        time = (end.tv_sec - begin.tv_sec) * 1e6
+               + (end.tv_usec - begin.tv_usec);
+        throughput = total_blks / time;
+        gf_log ("glusterd", GF_LOG_INFO, "Throughput %.2f Mbps time %.2f secs "
+                "bytes read %"PRId64, throughput, time, total_blks);
+
+out:
+        priv->throughput = throughput;
+        priv->time = time;
+
+        if (fd >= 0)
+                close (fd);
+        if (input_fd >= 0)
+                close (input_fd);
+        if (output_fd >= 0)
+                close (output_fd);
+        if (buf)
+                GF_FREE (buf);
+        unlink (export_path);
+
+        (void)glusterfs_handle_translator_info_get_cont (priv);
+
+        return NULL;
 }
 
 int
