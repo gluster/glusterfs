@@ -3014,13 +3014,13 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
                                         if (loc)
                                                 gf_log (this->name, GF_LOG_ERROR,
                                                         "getxattr failed on %s while doing "
-                                                        "xattrop: %s", path,
-                                                        strerror (op_errno));
+                                                        "xattrop: Key:%s (%s)", path,
+                                                        trav->key, strerror (op_errno));
                                         else
                                                 gf_log (this->name, GF_LOG_ERROR,
                                                         "fgetxattr failed on fd=%d while doing "
-                                                        "xattrop: %s", _fd,
-                                                        strerror (op_errno));
+                                                        "xattrop: Key:%s (%s)", _fd,
+                                                        trav->key, strerror (op_errno));
                                 }
 
                                 op_ret = -1;
