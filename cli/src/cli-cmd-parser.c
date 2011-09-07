@@ -170,9 +170,11 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         int32_t index = 0;
         char    *bricks = NULL;
         int32_t brick_count = 0;
-        char    *opwords_cl[] = { "replica", "stripe", NULL };
-        char    *opwords_tr[] = { "transport", NULL };
+        char    *opwords[] = { "replica", "stripe", "transport", NULL };
         char    *w = NULL;
+        int      op_count = 0;
+        int32_t  replica_count = 1;
+        int32_t  stripe_count = 1;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -215,146 +217,111 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 goto out;
         }
 
-        if (wordcount < 6) {
-                /* seems no options are given, go directly to the parse_brick */
-                brick_index = 3;
-                type = GF_CLUSTER_TYPE_NONE;
-                trans_type = gf_strdup ("tcp");
-                goto parse_bricks;
-        }
+        type = GF_CLUSTER_TYPE_NONE;
+        index = 3;
 
-        w = str_getunamb (words[3], opwords_cl);
-        if (!w) {
-                type = GF_CLUSTER_TYPE_NONE;
-                index = 3;
-        } else if ((strcmp (w, "replica")) == 0) {
-                type = GF_CLUSTER_TYPE_REPLICATE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
-                count = strtol (words[4], NULL, 0);
-                if (!count || (count < 2)) {
-                        cli_out ("replica count should be greater than 1");
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_int32 (dict, "replica-count", count);
-                if (ret)
-                        goto out;
-                index = 5;
-        } else if ((strcmp (w, "stripe")) == 0) {
-                type = GF_CLUSTER_TYPE_STRIPE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
-                count = strtol (words[4], NULL, 0);
-                if (!count || (count < 2)) {
-                        cli_out ("stripe count should be greater than 1");
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_int32 (dict, "stripe-count", count);
-                if (ret)
-                        goto out;
-                index = 5;
-        } else {
-                GF_ASSERT (!"opword mismatch");
+        while (op_count < 3) {
                 ret = -1;
-                goto out;
+                w = str_getunamb (words[index], opwords);
+                if (!w) {
+                        break;
+                } else if ((strcmp (w, "replica")) == 0) {
+                        switch (type) {
+                        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                        case GF_CLUSTER_TYPE_REPLICATE:
+                                cli_out ("replica option given twice");
+                                goto out;
+                        case GF_CLUSTER_TYPE_NONE:
+                                type = GF_CLUSTER_TYPE_REPLICATE;
+                                break;
+                        case GF_CLUSTER_TYPE_STRIPE:
+                                type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
+                                break;
+                        }
+
+                        if (wordcount < (index+2)) {
+                                ret = -1;
+                                goto out;
+                        }
+                        replica_count = strtol (words[index+1], NULL, 0);
+                        if (replica_count < 2) {
+                                cli_out ("replica count should be greater than 1");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_int32 (dict, "replica-count", replica_count);
+                        if (ret)
+                                goto out;
+
+                        index += 2;
+
+                } else if ((strcmp (w, "stripe")) == 0) {
+                        switch (type) {
+                        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                        case GF_CLUSTER_TYPE_STRIPE:
+                                cli_out ("stripe option given twice");
+                                goto out;
+                        case GF_CLUSTER_TYPE_NONE:
+                                type = GF_CLUSTER_TYPE_STRIPE;
+                                break;
+                        case GF_CLUSTER_TYPE_REPLICATE:
+                                type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
+                                break;
+                        }
+                        if (wordcount < (index + 2)) {
+                                ret = -1;
+                                goto out;
+                        }
+                        stripe_count = strtol (words[index+1], NULL, 0);
+                        if (stripe_count < 2) {
+                                cli_out ("stripe count should be greater than 1");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_int32 (dict, "stripe-count", stripe_count);
+                        if (ret)
+                                goto out;
+
+                        index += 2;
+
+                } else if ((strcmp (w, "transport")) == 0) {
+                        if (trans_type) {
+                                cli_out ("'transport' option given more"
+                                         " than one time");
+                                goto out;
+                        }
+                        if ((strcasecmp (words[index+1], "tcp") == 0)) {
+                                trans_type = gf_strdup ("tcp");
+                        } else if ((strcasecmp (words[index+1], "rdma") == 0)) {
+                                trans_type = gf_strdup ("rdma");
+                        } else if ((strcasecmp (words[index+1], "tcp,rdma") == 0) ||
+                                   (strcasecmp (words[index+1], "rdma,tcp") == 0)) {
+                                trans_type = gf_strdup ("tcp,rdma");
+                        } else {
+                                gf_log ("", GF_LOG_ERROR, "incorrect transport"
+                                        " protocol specified");
+                                ret = -1;
+                                goto out;
+                        }
+                        index += 2;
+                } else {
+                        GF_ASSERT (!"opword mismatch");
+                        ret = -1;
+                        goto out;
+                }
+                op_count++;
         }
 
-        /* Ie, how many bricks together forms a subvolume of distribute */
-        sub_count = count;
+        if (!trans_type)
+                trans_type = gf_strdup ("tcp");
+
+        sub_count = stripe_count * replica_count;
+
         /* reset the count value now */
         count = 1;
 
-        /* It can be a 'stripe x replicate' (ie, RAID01) type of volume */
-        w = str_getunamb (words[5], opwords_cl);
-        if (w && ((strcmp (w, "replica")) == 0)) {
-                if (type == GF_CLUSTER_TYPE_REPLICATE) {
-                        cli_out ("'replica' option is already given");
-                        ret = -1;
-                        goto out;
-                }
-                /* The previous one should have been 'stripe' option */
-                type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
-
-                if (wordcount < 7) {
-                        ret = -1;
-                        goto out;
-                }
-                count = strtol (words[6], NULL, 0);
-                if (!count || (count < 2)) {
-                        cli_out ("replica count should be greater than 1");
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_set_int32 (dict, "replica-count", count);
-                if (ret)
-                        goto out;
-                index = 7;
-        } else if (w && ((strcmp (w, "stripe")) == 0)) {
-                if (type == GF_CLUSTER_TYPE_STRIPE) {
-                        cli_out ("'stripe' option is already given");
-                        ret = -1;
-                        goto out;
-                }
-
-                /* The previous one should have been 'replica' option */
-                type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
-
-                if (wordcount < 7) {
-                        ret = -1;
-                        goto out;
-                }
-                count = strtol (words[6], NULL, 0);
-                if (!count || (count < 2)) {
-                        cli_out ("stripe count should be greater than 1");
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_int32 (dict, "stripe-count", count);
-                if (ret)
-                        goto out;
-                index = 7;
-        } else if (w) {
-                GF_ASSERT (!"opword mismatch");
-                ret = -1;
-                goto out;
-        }
-
-        sub_count *= count;
-
         brick_index = index;
 
-        if (str_getunamb (words[index], opwords_tr)) {
-                brick_index = index+2;
-                if (wordcount < (index + 2)) {
-                        ret = -1;
-                        goto out;
-                }
-
-                if ((strcasecmp (words[index+1], "tcp") == 0)) {
-                        trans_type = gf_strdup ("tcp");
-                } else if ((strcasecmp (words[index+1], "rdma") == 0)) {
-                        trans_type = gf_strdup ("rdma");
-                } else if ((strcasecmp (words[index+1], "tcp,rdma") == 0) ||
-                           (strcasecmp (words[index+1], "rdma,tcp") == 0)) {
-                        trans_type = gf_strdup ("tcp,rdma");
-                } else {
-                        gf_log ("", GF_LOG_ERROR, "incorrect transport"
-                                       " protocol specified");
-                        ret = -1;
-                        goto out;
-                }
-        } else {
-                trans_type = gf_strdup ("tcp");
-        }
-
-parse_bricks:
         ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
                                     &brick_count);
         if (ret)
