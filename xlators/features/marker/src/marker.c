@@ -31,6 +31,8 @@
 #include "marker-common.h"
 #include "byte-order.h"
 
+#define _GF_UID_GID_CHANGED 1
+
 void
 fini (xlator_t *this);
 
@@ -1021,8 +1023,9 @@ marker_rename_release_oldp_lock (call_frame_t *frame, void *cookie,
                 local->err = op_errno;
         }
 
-        //Reset frame uid and gid if reset.
-        MARKER_SET_UID_GID (frame->root, local);
+        //Reset frame uid and gid if set.
+        if (cookie == (void *) _GF_UID_GID_CHANGED)
+                MARKER_RESET_UID_GID (frame, frame->root, local);
 
         lock.l_type   = F_UNLCK;
         lock.l_whence = SEEK_SET;
@@ -1094,9 +1097,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Removexattr requires uid and gid to be 0,
                  * reset them in the callback.
                  */
-                MARKER_SET_UID_GID (local, frame->root);
-                frame->root->uid = 0;
-                frame->root->gid = 0;
+                MARKER_SET_UID_GID (frame, local, frame->root);
 
                 STACK_WIND (frame, marker_rename_release_oldp_lock,
                             FIRST_CHILD(this),
@@ -1147,6 +1148,10 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         oplocal = local->oplocal;
 
+        //Reset frame uid and gid if set.
+        if (cookie == (void *) _GF_UID_GID_CHANGED)
+                MARKER_RESET_UID_GID (frame, frame->root, local);
+
         if ((op_ret < 0) && (op_errno != ENOATTR)) {
                 local->err = op_errno;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -1196,6 +1201,10 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
         local = frame->local;
         oplocal = local->oplocal;
 
+        //Reset frame uid and gid if set.
+        if (cookie == (void *) _GF_UID_GID_CHANGED)
+                MARKER_RESET_UID_GID (frame, frame->root, local);
+
         if ((op_ret < 0) && (op_errno != ENOATTR)) {
                 local->err = op_errno;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -1222,6 +1231,11 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                         local->err = errno;
                         goto err;
                 }
+
+                /* getxattr requires uid and gid to be 0,
+                 * reset them in the callback.
+                 */
+                MARKER_SET_UID_GID (frame, local, frame->root);
 
                 STACK_WIND (frame, marker_do_rename,
                             FIRST_CHILD(this),
@@ -1267,6 +1281,11 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
                 local->err = errno;
                 goto quota_err;
         }
+
+        /* getxattr requires uid and gid to be 0,
+         * reset them in the callback.
+         */
+        MARKER_SET_UID_GID (frame, local, frame->root);
 
         STACK_WIND (frame, marker_get_newpath_contribution, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr, &oplocal->loc,
