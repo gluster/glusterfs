@@ -2920,12 +2920,17 @@ server_create (rpcsvc_request_t *req)
                 buf = NULL;
         }
 
-        state->resolve.type   = RESOLVE_NOT;
         state->resolve.path   = gf_strdup (args.path);
         state->resolve.bname  = gf_strdup (args.bname);
         state->mode           = args.mode;
         state->flags          = gf_flags_to_flags (args.flags);
         memcpy (state->resolve.pargfid, args.pargfid, 16);
+
+        if (state->flags & O_EXCL) {
+                state->resolve.type = RESOLVE_NOT;
+        } else {
+                state->resolve.type = RESOLVE_DONTCARE;
+        }
 
         ret = 0;
         resolve_and_resume (frame, server_create_resume);

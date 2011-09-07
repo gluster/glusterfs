@@ -140,12 +140,13 @@ dht_linkfile_unlink (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        unlink_local = dht_local_init (unlink_frame);
+        /* Using non-fop value here, as anyways, 'local->fop' is not used in
+           this particular case */
+        unlink_local = dht_local_init (unlink_frame, loc, NULL,
+                                       GF_FOP_MAXVALUE);
         if (!unlink_local) {
                 goto err;
         }
-
-        loc_copy (&unlink_local->loc, loc);
 
         STACK_WIND (unlink_frame, dht_linkfile_unlink_cbk,
                     subvol, subvol->fops->unlink,

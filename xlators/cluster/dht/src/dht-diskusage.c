@@ -98,7 +98,9 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
                 goto err;
         }
 
-        statfs_local = dht_local_init (statfs_frame);
+        /* local->fop value is not used in this case */
+        statfs_local = dht_local_init (statfs_frame, NULL, NULL,
+                                       GF_FOP_MAXVALUE);
         if (!statfs_local) {
                 goto err;
         }
@@ -141,12 +143,13 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         goto err;
                 }
 
-                statfs_local = dht_local_init (statfs_frame);
+                /* In this case, 'local->fop' is not used */
+                statfs_local = dht_local_init (statfs_frame, loc, NULL,
+                                               GF_FOP_MAXVALUE);
                 if (!statfs_local) {
                         goto err;
                 }
 
-                loc_copy (&statfs_local->loc, loc);
                 loc_t tmp_loc = { .inode = NULL,
                                   .path = "/",
                 };

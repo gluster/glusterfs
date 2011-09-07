@@ -181,6 +181,8 @@ int syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf);
 
 int syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags);
 int syncop_listxattr (xlator_t *subvol, loc_t *loc, dict_t **dict);
+int syncop_getxattr (xlator_t *xl, loc_t *loc, dict_t **dict, const char *key);
+int syncop_fgetxattr (xlator_t *xl, fd_t *fd, dict_t **dict, const char *key);
 int syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name);
 
 int syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
@@ -197,8 +199,13 @@ int syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
                   struct iovec **vector, int *count, struct iobref **iobref);
 
 int syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset);
+int syncop_truncate (xlator_t *subvol, loc_t *loc, off_t offset);
 
 int syncop_unlink (xlator_t *subvol, loc_t *loc);
+
+int syncop_fsync (xlator_t *subvol, fd_t *fd);
+int syncop_fstat (xlator_t *subvol, fd_t *fd, struct iatt *stbuf);
+int syncop_stat (xlator_t *subvol, loc_t *loc, struct iatt *stbuf);
 
 
 #endif /* _SYNCOP_H */
