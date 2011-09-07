@@ -1036,7 +1036,7 @@ mnt3svc_dump (rpcsvc_request_t *req)
 
         sfunc = (mnt3_serializer)xdr_serialize_mountlist;
         mlist = mnt3svc_build_mountlist (ms, &ret);
-        arg = mlist;
+        arg = &mlist;
 
         if (!mlist) {
                 if (ret != 0) {
