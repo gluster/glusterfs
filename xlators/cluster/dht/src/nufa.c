@@ -23,7 +23,7 @@
 #include "config.h"
 #endif
 
-#include "dht-common.c"
+#include "dht-common.h"
 
 /* TODO: all 'TODO's in dht.c holds good */
 
@@ -169,18 +169,9 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        local = dht_local_init (frame);
+        local = dht_local_init (frame, loc, NULL, GF_FOP_LOOKUP);
         if (!local) {
                 op_errno = ENOMEM;
-                goto err;
-        }
-
-        ret = loc_dup (loc, &local->loc);
-        if (ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "copying location failed for path=%s",
-                        loc->path);
                 goto err;
         }
 
@@ -191,14 +182,12 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
-        cached_subvol = dht_subvol_get_cached (this, local->loc.inode);
+        cached_subvol = local->cached_subvol;
 
-        local->cached_subvol = cached_subvol;
         local->hashed_subvol = hashed_subvol;
 
         if (is_revalidate (loc)) {
-                local->layout = layout = dht_layout_get (this, loc->inode);
-
+                layout = local->layout;
                 if (!layout) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "revalidate without cache. path=%s",
@@ -215,7 +204,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                         goto do_fresh_lookup;
                 }
 
-                local->inode    = inode_ref (loc->inode);
+                local->inode = inode_ref (loc->inode);
 
                 local->call_cnt = layout->cnt;
                 call_cnt = local->call_cnt;
@@ -314,7 +303,6 @@ nufa_create (call_frame_t *frame, xlator_t *this,
         xlator_t    *subvol = NULL;
         xlator_t    *avail_subvol = NULL;
         int          op_errno = -1;
-        int          ret = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -324,7 +312,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
         dht_get_du_info (frame, this, loc);
 
-        local = dht_local_init (frame);
+        local = dht_local_init (frame, loc, fd, GF_FOP_CREATE);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -348,13 +336,6 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
         if (subvol != avail_subvol) {
                 /* create a link file instead of actual file */
-                ret = loc_copy (&local->loc, loc);
-                if (ret == -1) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-
-                local->fd = fd_ref (fd);
                 local->params = dict_ref (params);
                 local->mode = mode;
                 local->flags = flags;
@@ -421,7 +402,6 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
         xlator_t    *subvol = NULL;
         xlator_t    *avail_subvol = NULL;
         int          op_errno = -1;
-        int          ret = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -431,7 +411,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
         dht_get_du_info (frame, this, loc);
 
-        local = dht_local_init (frame);
+        local = dht_local_init (frame, loc, NULL, GF_FOP_MKNOD);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -456,11 +436,6 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
         if (avail_subvol != subvol) {
                 /* Create linkfile first */
-                ret = loc_copy (&local->loc, loc);
-                if (ret == -1) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
 
                 local->params = dict_ref (params);
                 local->mode = mode;

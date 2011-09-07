@@ -494,8 +494,8 @@ syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags)
 }
 
 int
-syncop_listxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, dict_t *dict)
+syncop_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, dict_t *dict)
 {
         struct syncargs *args = NULL;
 
@@ -516,8 +516,38 @@ syncop_listxattr (xlator_t *subvol, loc_t *loc, dict_t **dict)
 {
         struct syncargs args = {0, };
 
-        SYNCOP (subvol, (&args), syncop_listxattr_cbk, subvol->fops->getxattr,
+        SYNCOP (subvol, (&args), syncop_getxattr_cbk, subvol->fops->getxattr,
                 loc, NULL);
+
+        if (dict)
+                *dict = args.xattr;
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
+syncop_getxattr (xlator_t *subvol, loc_t *loc, dict_t **dict, const char *key)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_getxattr_cbk, subvol->fops->getxattr,
+                loc, key);
+
+        if (dict)
+                *dict = args.xattr;
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
+syncop_fgetxattr (xlator_t *subvol, fd_t *fd, dict_t **dict, const char *key)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_getxattr_cbk, subvol->fops->fgetxattr,
+                fd, key);
 
         if (dict)
                 *dict = args.xattr;
@@ -855,4 +885,98 @@ syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset)
 
         errno = args.op_errno;
         return args.op_ret;
+}
+
+int
+syncop_truncate (xlator_t *subvol, loc_t *loc, off_t offset)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_ftruncate_cbk, subvol->fops->truncate,
+                loc, offset);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
+syncop_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  struct iatt *prebuf, struct iatt *postbuf)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+
+}
+
+int
+syncop_fsync (xlator_t *subvol, fd_t *fd)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_fsync_cbk, subvol->fops->fsync,
+                fd, 0);
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}
+
+int
+syncop_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+        if (op_ret == 0)
+                args->iatt1 = *stbuf;
+
+        __wake (args);
+
+        return 0;
+
+}
+
+int
+syncop_fstat (xlator_t *subvol, fd_t *fd, struct iatt *stbuf)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_fstat_cbk, subvol->fops->fstat,
+                fd);
+
+        if (stbuf)
+                *stbuf = args.iatt1;
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}
+
+int
+syncop_stat (xlator_t *subvol, loc_t *loc, struct iatt *stbuf)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_fstat_cbk, subvol->fops->stat,
+                loc);
+
+        if (stbuf)
+                *stbuf = args.iatt1;
+
+        errno = args.op_errno;
+        return args.op_ret;
+
 }

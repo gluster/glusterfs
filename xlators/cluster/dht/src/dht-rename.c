@@ -487,17 +487,18 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto err;
                 }
 
-                link_local = dht_local_init (link_frame);
+                /* fop value sent as maxvalue because it is not used
+                   anywhere in this case */
+                link_local = dht_local_init (link_frame, &local->loc2, NULL,
+                                             GF_FOP_MAXVALUE);
                 if (!link_local) {
                         goto err;
                 }
 
-                loc_copy (&link_local->loc, &local->loc2);
                 if (link_local->loc.inode)
                         inode_unref (link_local->loc.inode);
                 link_local->loc.inode = inode_ref (local->loc.inode);
                 uuid_copy (link_local->gfid, local->loc.inode->gfid);
-                link_frame->local = link_local;
 
                 dht_linkfile_create (link_frame, dht_rename_links_create_cbk,
                                      src_cached, dst_hashed, &link_local->loc);
@@ -813,17 +814,14 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         if (newloc->inode)
                 dst_cached = dht_subvol_get_cached (this, newloc->inode);
 
-        local = dht_local_init (frame);
+        local = dht_local_init (frame, oldloc, NULL, GF_FOP_RENAME);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
         }
-
-        ret = loc_copy (&local->loc, oldloc);
-        if (ret == -1) {
-                op_errno = ENOMEM;
-                goto err;
-        }
+        /* cached_subvol will be set from dht_local_init, reset it to NULL,
+           as the logic of handling rename is different  */
+        local->cached_subvol = NULL;
 
         ret = loc_copy (&local->loc2, newloc);
         if (ret == -1) {

@@ -3218,8 +3218,8 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "ftruncate failed on fd=%p: %s",
-                        fd, strerror (errno));
+                        "ftruncate failed on fd=%p (%"PRId64": %s",
+                        fd, offset, strerror (errno));
                 goto out;
         }
 
