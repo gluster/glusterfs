@@ -64,13 +64,27 @@ enum {
                 }                                                \
         } while (0)
 
-#define MARKER_SET_UID_GID(dest, src)           \
+#define _MARKER_SET_UID_GID(dest, src)          \
         do {                                    \
                 if (src->uid != -1 &&           \
                     src->gid != -1) {           \
                         dest->uid = src->uid;   \
                         dest->gid = src->gid;   \
                 }                               \
+        } while (0)
+
+#define MARKER_SET_UID_GID(frame, dest, src)                    \
+        do {                                                    \
+                _MARKER_SET_UID_GID (dest, src);                \
+                frame->root->uid = 0;                           \
+                frame->root->gid = 0;                           \
+                frame->cookie = (void *) _GF_UID_GID_CHANGED;   \
+        } while (0)
+
+#define MARKER_RESET_UID_GID(frame, dest, src)                  \
+        do {                                                    \
+                _MARKER_SET_UID_GID (dest, src);                \
+                frame->cookie = NULL;                           \
         } while (0)
 
 struct marker_local{
