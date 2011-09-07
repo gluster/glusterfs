@@ -1559,6 +1559,7 @@ glusterd_op_build_payload (dict_t **req)
                 case GD_OP_PROFILE_VOLUME:
                 case GD_OP_LOG_LEVEL:
                 case GD_OP_STATUS_VOLUME:
+                case GD_OP_REBALANCE:
                         {
                                 dict_t  *dict = ctx;
                                 dict_copy (dict, req_dict);
@@ -2331,6 +2332,10 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_status_volume (dict, op_errstr);
                         break;
 
+                case GD_OP_REBALANCE:
+                        ret = glusterd_op_stage_rebalance (dict, op_errstr);
+                        break;
+
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -2416,6 +2421,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                case GD_OP_STATUS_VOLUME:
                        ret = glusterd_op_status_volume (dict, op_errstr, rsp_dict);
+                       break;
+
+               case GD_OP_REBALANCE:
+                       ret = glusterd_op_rebalance (dict, op_errstr, rsp_dict);
                        break;
 
                 default:
@@ -3414,6 +3423,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_PROFILE_VOLUME:
                 case GD_OP_LOG_LEVEL:
                 case GD_OP_STATUS_VOLUME:
+                case GD_OP_REBALANCE:
                         dict_unref (ctx);
                         break;
                 case GD_OP_DELETE_VOLUME:

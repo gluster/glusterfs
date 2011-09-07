@@ -78,6 +78,7 @@ typedef enum glusterd_op_ {
         GD_OP_QUOTA,
         GD_OP_LOG_LEVEL,
         GD_OP_STATUS_VOLUME,
+        GD_OP_REBALANCE,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -567,6 +568,8 @@ int glusterd_op_remove_brick (dict_t *dict);
 int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_remove_brick (dict_t *dict);
 
+int glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr);
+int glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 
 
 /* misc */
