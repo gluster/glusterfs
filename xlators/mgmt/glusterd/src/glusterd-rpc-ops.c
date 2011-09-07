@@ -409,6 +409,51 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 xdrproc = (xdrproc_t) xdr_gf1_cli_status_volume_rsp;
                 break;
         }
+        case GD_OP_REBALANCE:
+        {
+                gf2_cli_defrag_vol_rsp rsp = {0,};
+                int32_t                status = 0;
+
+                ctx = op_ctx;
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+
+                if (ctx) {
+                        ret = dict_get_uint64 (ctx, "files", &rsp.files);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_DEBUG,
+                                        "failed to get the file count");
+                        }
+                        ret = dict_get_uint64 (ctx, "size", &rsp.size);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_DEBUG,
+                                        "failed to get the size of migration");
+                        }
+                        ret = dict_get_uint64 (ctx, "lookups", &rsp.lookedup_files);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_DEBUG,
+                                        "failed to get lookuped file count");
+                        }
+
+                        ret = dict_get_int32 (ctx, "status", &status);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_TRACE,
+                                        "failed to get status");
+                        }
+                }
+                /* needed by 'rebalance status' */
+                if (status)
+                        rsp.op_errno = status;
+
+                cli_rsp = &rsp;
+                xdrproc = (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp;
+                break;
+        }
         case GD_OP_NONE:
         case GD_OP_MAX:
         {
@@ -1257,6 +1302,66 @@ out:
         return ret;
 }
 
+int
+glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
+{
+        int            ret      = 0;
+        dict_t        *ctx_dict = NULL;
+        glusterd_op_t  op       = GD_OP_NONE;
+        uint64_t       value    = 0;
+        int32_t        value32  = 0;
+
+        GF_ASSERT (rsp_dict);
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_REBALANCE == op);
+
+        ctx_dict = glusterd_op_get_ctx (op);
+
+        if (!ctx_dict)
+                goto out;
+
+        ret = dict_get_uint64 (rsp_dict, "files", &value);
+        if (!ret) {
+                ret = dict_set_uint64 (ctx_dict, "files", value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set the file count");
+                }
+        }
+
+        ret = dict_get_uint64 (rsp_dict, "size", &value);
+        if (!ret) {
+                ret = dict_set_uint64 (ctx_dict, "size", value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set the size of migration");
+                }
+        }
+
+        ret = dict_get_uint64 (rsp_dict, "lookups", &value);
+        if (!ret) {
+                ret = dict_set_uint64 (ctx_dict, "lookups", value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set lookuped file count");
+                }
+        }
+
+        ret = dict_get_int32 (rsp_dict, "status", &value32);
+        if (!ret) {
+                ret = dict_set_int32 (ctx_dict, "status", value32);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set status");
+                }
+        }
+
+out:
+        return ret;
+}
+
+
 int32_t
 glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
@@ -1372,6 +1477,12 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = glusterd_volume_status_use_rsp_dict (dict);
                         if (ret)
                                 goto out;
+
+                case GD_OP_REBALANCE:
+                        ret = glusterd_volume_rebalance_use_rsp_dict (dict);
+                        if (ret)
+                                goto out;
+
                 break;
 
                 default:
