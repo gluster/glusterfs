@@ -1780,7 +1780,10 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 (void) glusterd_store_iter_destroy (iter);
 
-                args.mode = GD_MODE_SWITCH_ON;
+                if (state == GD_FRIEND_STATE_REJECTED)
+                        args.mode = GD_MODE_ON;
+                else
+                        args.mode = GD_MODE_SWITCH_ON;
                 ret = glusterd_friend_add (hostname, 0, state, &uuid,
                                            NULL, &peerinfo, 1, &args);
 
