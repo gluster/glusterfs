@@ -1230,6 +1230,15 @@ _copy (dict_t *unused,
         dict_set ((dict_t *)newdict, key, (value));
 }
 
+static void
+_remove (dict_t *dict,
+         char *key,
+         data_t *value,
+         void *unused)
+{
+        dict_del ((dict_t *)dict, key);
+}
+
 
 dict_t *
 dict_copy (dict_t *dict,
@@ -1246,6 +1255,20 @@ dict_copy (dict_t *dict,
         dict_foreach (dict, _copy, new);
 
         return new;
+}
+
+int
+dict_reset (dict_t *dict)
+{
+        int32_t         ret = -1;
+        if (!dict) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
+                goto out;
+        }
+        dict_foreach (dict, _remove, NULL);
+        ret = 0;
+out:
+        return ret;
 }
 
 dict_t *

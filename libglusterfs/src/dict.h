@@ -146,6 +146,8 @@ dict_t *dict_copy (dict_t *this, dict_t *new);
 GF_MUST_CHECK dict_t *dict_new (void);
 dict_t *dict_copy_with_ref (dict_t *this, dict_t *new);
 
+GF_MUST_CHECK int dict_reset (dict_t *dict);
+
 GF_MUST_CHECK int dict_get_int8 (dict_t *this, char *key, int8_t *val);
 GF_MUST_CHECK int dict_set_int8 (dict_t *this, char *key, int8_t val);
 
