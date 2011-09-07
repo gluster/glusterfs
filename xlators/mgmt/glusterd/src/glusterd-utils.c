@@ -1423,6 +1423,12 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
         memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.stripe_count", count);
+        ret = dict_set_int32 (dict, key, volinfo->stripe_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
         ret = dict_set_int64 (dict, key, volinfo->cksum);
         if (ret)
@@ -1892,6 +1898,17 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
                 goto out;
+        }
+
+        /* not having a 'stripe_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.stripe_count", count);
+        ret = dict_get_int32 (vols, key, &new_volinfo->stripe_count);
+        if (!ret) {
+                if (new_volinfo->stripe_count)
+                        new_volinfo->replica_count = (new_volinfo->sub_count /
+                                                      new_volinfo->stripe_count);
         }
 
         memset (key, 0, sizeof (key));
