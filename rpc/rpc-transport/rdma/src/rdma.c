@@ -3046,7 +3046,8 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                  * because of server sending entire msg as inline without
                  * doing rdma writes.
                  */
-                iobref_add (post->ctx.iobref, post->ctx.hdr_iobuf);
+                if (post->ctx.hdr_iobuf)
+                        iobref_add (post->ctx.iobref, post->ctx.hdr_iobuf);
         }
 
         pollin = rpc_transport_pollin_alloc (peer->trans,
@@ -3177,7 +3178,7 @@ rdma_recv_reply (rdma_peer_t *peer, rdma_post_t *post)
         }
 
         ctx = rpc_req->conn_private;
-        if (post->ctx.iobref == NULL) {
+        if ((post->ctx.iobref == NULL) && ctx->rsp_iobref) {
                 post->ctx.iobref = iobref_ref (ctx->rsp_iobref);
         }
 
