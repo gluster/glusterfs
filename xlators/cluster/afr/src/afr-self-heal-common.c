@@ -1087,7 +1087,6 @@ afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
 {
         afr_local_t     *local         = NULL;
         afr_local_t     *impunge_local = NULL;
-        afr_self_heal_t *sh            = NULL;
         afr_self_heal_t *impunge_sh    = NULL;
         int32_t         op_errno       = 0;
         afr_private_t   *priv          = NULL;
@@ -1104,7 +1103,6 @@ afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
         ALLOC_OR_GOTO (impunge_local, afr_local_t, out);
 
         local = frame->local;
-        sh = &local->self_heal;
         new_frame->local = impunge_local;
         impunge_sh = &impunge_local->self_heal;
         impunge_sh->sh_frame = frame;

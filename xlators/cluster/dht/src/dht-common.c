@@ -1031,7 +1031,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 {
         xlator_t     *subvol = NULL;
         xlator_t     *hashed_subvol = NULL;
-        xlator_t     *cached_subvol = NULL;
         dht_local_t  *local  = NULL;
         dht_conf_t   *conf = NULL;
         int           ret    = -1;
@@ -1083,7 +1082,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         }
 
 
-        cached_subvol = local->cached_subvol;
         if (!hashed_subvol)
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
         local->hashed_subvol = hashed_subvol;

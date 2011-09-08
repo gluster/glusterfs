@@ -381,6 +381,13 @@ typedef enum {
 extern char *glusterfs_strevent (glusterfs_event_t ev);
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
+/*
+ * Some macros (e.g. ALLOC_OR_GOTO) set variables in function scope, but the
+ * calling function might not only declare the variable to keep the macro happy
+ * and not use it otherwise.  In such cases, the following can be used to
+ * suppress the "set but not used" warning that would otherwise occur.
+ */
+#define GF_UNUSED __attribute__((unused))
 
 int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);

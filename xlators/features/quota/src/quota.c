@@ -144,8 +144,8 @@ out:
 quota_local_t *
 quota_local_new ()
 {
-        quota_local_t   *local  = NULL;
-        int32_t          ret    = 0;
+        quota_local_t     *local  = NULL;
+        GF_UNUSED int32_t  ret    = 0;
 
         QUOTA_LOCAL_ALLOC_OR_GOTO (local, quota_local_t, err);
 err:
@@ -156,8 +156,8 @@ err:
 quota_dentry_t *
 __quota_dentry_new (quota_inode_ctx_t *ctx, char *name, ino_t par)
 {
-        quota_dentry_t *dentry = NULL;
-        int32_t         ret    = 0;
+        quota_dentry_t    *dentry = NULL;
+        GF_UNUSED int32_t  ret    = 0;
 
         QUOTA_ALLOC_OR_GOTO (dentry, quota_dentry_t, err);
 

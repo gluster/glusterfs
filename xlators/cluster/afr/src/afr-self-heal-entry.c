@@ -897,9 +897,7 @@ afr_sh_entry_call_impunge_done (call_frame_t *impunge_frame, xlator_t *this,
         afr_self_heal_t *impunge_sh = NULL;
         call_frame_t    *frame = NULL;
         int32_t          impunge_ret_child = 0;
-        afr_private_t   *priv = NULL;
 
-        priv = this->private;
         AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
                                 frame, local, sh);
 
@@ -918,12 +916,10 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         int              call_count = 0;
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
-        afr_self_heal_t *impunge_sh = NULL;
         int              child_index = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
-        impunge_sh = &impunge_local->self_heal;
         child_index = (long) cookie;
 
         if (op_ret == 0) {
@@ -1247,11 +1243,9 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
         dict_t          *dict          = NULL;
         struct iatt     *buf           = NULL;
         int              ret           = 0;
-        afr_self_heal_t *impunge_sh    = NULL;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
-        impunge_sh    = &impunge_local->self_heal;
 
         buf = &impunge_local->cont.symlink.buf;
 
@@ -1734,7 +1728,6 @@ int
 afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
                             gf_dirent_t *entry)
 {
-        afr_private_t   *priv = NULL;
         afr_local_t     *local  = NULL;
         afr_self_heal_t *sh  = NULL;
         int              ret = -1;
@@ -1745,7 +1738,6 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         int              op_ret = -1;
         mode_t           entry_mode = 0;
 
-        priv = this->private;
         local = frame->local;
         sh = &local->self_heal;
 

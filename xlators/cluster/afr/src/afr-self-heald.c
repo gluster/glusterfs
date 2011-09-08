@@ -115,10 +115,7 @@ _perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
         struct iatt      parent = {0};;
         int              ret = 0;
         loc_t            entry_loc = {0};
-        afr_private_t    *priv = NULL;
         dict_t           *xattr_req = NULL;
-
-        priv = this->private;
 
         xattr_req = dict_new ();
         if (!xattr_req) {
@@ -525,3 +522,4 @@ afr_set_root_gfid (dict_t *dict)
 
         return ret;
 }
+

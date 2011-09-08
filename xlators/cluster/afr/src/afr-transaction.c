@@ -336,14 +336,11 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_internal_lock_t *int_lock = NULL;
         afr_private_t       *priv     = NULL;
         afr_local_t         *local    = NULL;
-        int                  child_index = 0;
         int                  call_count = -1;
 
         priv     = this->private;
         local    = frame->local;
         int_lock = &local->internal_lock;
-
-        child_index = (long) cookie;
 
         LOCK (&frame->lock);
         {
