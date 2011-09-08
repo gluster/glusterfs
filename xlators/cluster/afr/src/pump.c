@@ -249,13 +249,11 @@ static int
 pump_update_resume_state (xlator_t *this, const char *path)
 {
         afr_private_t *priv = NULL;
-        pump_private_t *pump_priv = NULL;
 
         pump_state_t state;
         const char *resume_path = NULL;
 
         priv = this->private;
-        pump_priv = priv->pump_private;
 
         state = pump_get_state ();
 
@@ -284,13 +282,9 @@ pump_update_resume_state (xlator_t *this, const char *path)
 static gf_boolean_t
 is_pump_traversal_allowed (xlator_t *this, const char *path)
 {
-        afr_private_t *priv = NULL;
-
         pump_state_t state;
         const char *resume_path = NULL;
         gf_boolean_t ret = _gf_true;
-
-        priv = this->private;
 
         state = pump_get_state ();
 
@@ -472,11 +466,7 @@ out:
 static int
 pump_update_resume_path (xlator_t *this)
 {
-        afr_private_t *priv = NULL;
-
         const char *resume_path = NULL;
-
-        priv = this->private;
 
         resume_path = pump_get_resume_path (this);
 
@@ -2386,7 +2376,7 @@ init (xlator_t *this)
 	xlator_list_t * trav        = NULL;
 	int             i           = 0;
 	int             ret         = -1;
-	int             op_errno    = 0;
+	GF_UNUSED int   op_errno    = 0;
 
         int source_child = 0;
 

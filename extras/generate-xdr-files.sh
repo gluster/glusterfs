@@ -43,6 +43,12 @@ append_licence_header ()
 #include "xdr-common.h"
 #include "compat.h"
 
+#if defined(__GNUC__)
+#if __GNUC__ >= 4
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
+#endif
+
 EOF
 
     cat $src_file >> $dst_file;

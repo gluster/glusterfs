@@ -178,7 +178,7 @@ init (xlator_t *this)
         xlator_list_t * trav        = NULL;
         int             i           = 0;
         int             ret         = -1;
-        int             op_errno    = 0;
+        GF_UNUSED int   op_errno    = 0;
         xlator_t * read_subvol     = NULL;
         xlator_t * fav_child       = NULL;
 

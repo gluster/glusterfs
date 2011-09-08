@@ -588,7 +588,6 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         afr_private_t       *priv     = NULL;
         struct gf_flock flock = {0,};
         struct gf_flock full_flock = {0,};
-        struct gf_flock *flock_use = &flock;
         int call_count = 0;
         int i = 0;
         int piggyback = 0;
@@ -636,7 +635,6 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                         }
 
                         piggyback = 0;
-                        flock_use = &full_flock;
 
                         LOCK (&local->fd->lock);
                         {

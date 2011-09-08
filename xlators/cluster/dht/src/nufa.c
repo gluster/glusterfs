@@ -150,7 +150,6 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
              loc_t *loc, dict_t *xattr_req)
 {
         xlator_t     *hashed_subvol = NULL;
-        xlator_t     *cached_subvol = NULL;
         xlator_t     *subvol = NULL;
         dht_local_t  *local  = NULL;
         dht_conf_t   *conf = NULL;
@@ -182,7 +181,6 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
-        cached_subvol = local->cached_subvol;
 
         local->hashed_subvol = hashed_subvol;
 

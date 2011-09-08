@@ -92,14 +92,12 @@ afr_perform_data_self_heal (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
         inode_t         *inode = NULL;
         int             st_child = -1;
         char            reason[64] = {0};
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
         inode = local->fd->inode;
 
         if (!IA_ISREG (inode->ia_type))
@@ -392,13 +390,13 @@ int
 afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
               int need_open_count, int *need_open)
 {
-        afr_local_t     *local = NULL;
-        afr_private_t   *priv  = NULL;
-        int             i      = 0;
-        call_frame_t    *open_frame = NULL;
-        afr_local_t    *open_local = NULL;
-        int             ret    = -1;
-        int32_t         op_errno = 0;
+        afr_local_t       *local = NULL;
+        afr_private_t     *priv  = NULL;
+        int               i      = 0;
+        call_frame_t      *open_frame = NULL;
+        afr_local_t      *open_local = NULL;
+        int               ret    = -1;
+        GF_UNUSED int32_t op_errno = 0;
 
         GF_ASSERT (fd_ctx);
         GF_ASSERT (need_open_count > 0);
