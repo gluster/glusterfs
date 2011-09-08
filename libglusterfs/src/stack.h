@@ -46,6 +46,7 @@ typedef struct _call_pool_t call_pool_t;
 #include "globals.h"
 
 #define NFS_PID 1
+#define LOW_PRIO_PROC_PID -1
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
                              call_frame_t *prev_frame,
                              xlator_t *this,

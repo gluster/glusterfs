@@ -961,7 +961,7 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs ();
+                ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 
 out:
         return ret;
@@ -1133,7 +1133,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 }
         } else {
                 if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                        ret = glusterd_check_generate_start_nfs ();
+                        ret = glusterd_nodesvcs_handle_graph_change (volinfo);
         }
 
 out:

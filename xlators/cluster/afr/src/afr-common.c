@@ -54,6 +54,7 @@
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-self-heal-common.h"
+#include "afr-self-heald.h"
 #include "pump.h"
 
 #define AFR_ICTX_OPENDIR_DONE_MASK     0x0000000200000000ULL
@@ -132,7 +133,7 @@ afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
 
         ret = dict_set_dynptr (dict, "gfid-req", pgfid, sizeof (uuid_t));
         if (ret)
-                gf_log (THIS->name, GF_LOG_DEBUG, "gfid set failed");
+                gf_log (THIS->name, GF_LOG_ERROR, "gfid set failed");
 
 out:
         if (ret && pgfid)
@@ -1961,15 +1962,15 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                         loc->path, GLUSTERFS_ENTRYLK_COUNT);
         }
 
-        ret = dict_get_ptr (xattr_req, "gfid-req", &gfid_req);
+        ret = dict_get_ptr (local->xattr_req, "gfid-req", &gfid_req);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to get the gfid from dict");
         } else {
                 uuid_copy (local->cont.lookup.gfid_req, gfid_req);
+                if (local->loc.parent)
+                        dict_del (local->xattr_req, "gfid-req");
         }
-        if (local->loc.parent != NULL)
-                dict_del (xattr_req, "gfid-req");
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -3395,11 +3396,12 @@ afr_notify (xlator_t *this, int32_t event,
         int             up_children         = 0;
         int             down_children       = 0;
         int             propagate           = 0;
-
         int             had_heard_from_all  = 0;
         int             have_heard_from_all = 0;
         int             idx                 = -1;
         int             ret                 = -1;
+        int             call_psh            = 0;
+        int             up_child            = AFR_ALL_CHILDREN;
 
         priv = this->private;
 
@@ -3445,6 +3447,12 @@ afr_notify (xlator_t *this, int32_t event,
                                         "going online.", ((xlator_t *)data)->name);
                         } else {
                                 event = GF_EVENT_CHILD_MODIFIED;
+                                gf_log (this->name, GF_LOG_INFO, "subvol %d came up, "
+                                        "start crawl", idx);
+                                if (had_heard_from_all) {
+                                        call_psh = 1;
+                                        up_child = idx;
+                                }
                         }
 
                         priv->last_event[idx] = event;
@@ -3509,6 +3517,8 @@ afr_notify (xlator_t *this, int32_t event,
 
                 LOCK (&priv->lock);
                 {
+                        up_children = afr_up_children_count (priv->child_up,
+                                                             priv->child_count);
                         for (i = 0; i < priv->child_count; i++) {
                                 if (priv->last_event[i] == GF_EVENT_CHILD_UP) {
                                         event = GF_EVENT_CHILD_UP;
@@ -3523,11 +3533,18 @@ afr_notify (xlator_t *this, int32_t event,
                         }
                 }
                 UNLOCK (&priv->lock);
+                if (up_children > 1) {
+                        gf_log (this->name, GF_LOG_INFO, "All subvolumes came "
+                                "up, start crawl");
+                        call_psh = 1;
+                }
         }
 
         ret = 0;
         if (propagate)
                 ret = default_notify (this, event, data);
+        if (call_psh)
+                afr_proactive_self_heal (this, up_child);
 
 out:
         return ret;
@@ -3766,4 +3783,10 @@ afr_get_children_count (int32_t *children, unsigned int child_count)
                 count++;
         }
         return count;
+}
+
+void
+afr_set_low_priority (call_frame_t *frame)
+{
+        frame->root->pid = LOW_PRIO_PROC_PID;
 }

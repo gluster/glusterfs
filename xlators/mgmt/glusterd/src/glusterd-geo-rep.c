@@ -1310,7 +1310,7 @@ glusterd_marker_create_volfile (glusterd_volinfo_t *volinfo)
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs ();
+                ret = glusterd_nodesvcs_handle_graph_change (volinfo);
         ret = 0;
 out:
         return ret;

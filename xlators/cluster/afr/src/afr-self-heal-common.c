@@ -2031,12 +2031,6 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         return 0;
 }
 
-static inline void
-afr_set_low_priority (call_frame_t *frame)
-{
-        frame->root->pid = -1;
-}
-
 int
 afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {

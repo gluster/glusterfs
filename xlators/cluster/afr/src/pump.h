@@ -26,10 +26,6 @@
 #define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
 
-#define IS_ROOT_PATH(path) (!strcmp (path, "/"))
-#define IS_ENTRY_CWD(entry) (!strcmp (entry, "."))
-#define IS_ENTRY_PARENT(entry) (!strcmp (entry, ".."))
-
 #define PUMP_CMD_START  "trusted.glusterfs.pump.start"
 #define PUMP_CMD_COMMIT "trusted.glusterfs.pump.commit"
 #define PUMP_CMD_ABORT  "trusted.glusterfs.pump.abort"

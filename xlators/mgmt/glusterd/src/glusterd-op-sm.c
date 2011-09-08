@@ -96,11 +96,6 @@ static char *glusterd_op_sm_event_names[] = {
         "GD_OP_EVENT_INVALID"
 };
 
-
-static int
-glusterd_restart_brick_servers (glusterd_volinfo_t *);
-
-
 char*
 glusterd_op_sm_state_name_get (int state)
 {
@@ -271,12 +266,12 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
         int                                      ret           = 0;
         char                                    *volname       = NULL;
- 	int                                      exists        = 0;
- 	char					*key	       = NULL;
+        int                                      exists        = 0;
+        char                                    *key               = NULL;
         char                                    *key_fixed     = NULL;
         char                                    *value         = NULL;
- 	char					 str[100]      = {0, };
- 	int					 count	       = 0;
+        char                                     str[100]      = {0, };
+        int                                      count         = 0;
         int                                      dict_count    = 0;
         char                                     errstr[2048]  = {0, };
         glusterd_volinfo_t                      *volinfo       = NULL;
@@ -352,21 +347,21 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-	for ( count = 1; ret != 1 ; count++ ) {
+        for ( count = 1; ret != 1 ; count++ ) {
                 global_opt = _gf_false;
-		sprintf (str, "key%d", count);
-		ret = dict_get_str (dict, str, &key);
+                sprintf (str, "key%d", count);
+                ret = dict_get_str (dict, str, &key);
 
 
-		if (ret)
+                if (ret)
                         break;
 
-		exists = glusterd_check_option_exists (key, &key_fixed);
+                exists = glusterd_check_option_exists (key, &key_fixed);
                 if (exists == -1) {
                         ret = -1;
                         goto out;
                 }
-		if (!exists) {
+                if (!exists) {
                         gf_log ("", GF_LOG_ERROR, "Option with name: %s "
                                 "does not exist", key);
                         ret = snprintf (errstr, 2048,
@@ -378,7 +373,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         *op_errstr = gf_strdup (errstr);
                         ret = -1;
                         goto out;
-        	}
+                }
 
                 sprintf (str, "value%d", count);
                 ret = dict_get_str (dict, str, &value);
@@ -734,10 +729,11 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, int32_t is_force)
         if (ret)
                 goto out;
 
-        if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs ();
-        if (ret)
-                goto out;
+        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
+                ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
+                if (ret)
+                        goto out;
+        }
 
         ret = 0;
 
@@ -807,25 +803,6 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
 }
 
 static int
-glusterd_restart_brick_servers (glusterd_volinfo_t *volinfo)
-{
-        if (!volinfo)
-                return -1;
-        if (glusterd_stop_bricks (volinfo)) {
-                gf_log ("", GF_LOG_ERROR, "Restart Failed: Unable to "
-                                          "stop brick servers");
-                return -1;
-        }
-        usleep (500000);
-        if (glusterd_start_bricks (volinfo)) {
-                gf_log ("", GF_LOG_ERROR, "Restart Failed: Unable to "
-                                          "start brick servers");
-                return -1;
-        }
-        return 0;
-}
-
-static int
 glusterd_volset_help (dict_t *dict)
 {
         int                     ret = -1;
@@ -853,11 +830,10 @@ glusterd_op_set_volume (dict_t *dict)
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *priv = NULL;
         int                                      count = 1;
-        int                                      restart_flag = 0;
-	char					*key = NULL;
-	char					*key_fixed = NULL;
-	char					*value = NULL;
-	char					 str[50] = {0, };
+        char                                    *key = NULL;
+        char                                    *key_fixed = NULL;
+        char                                    *value = NULL;
+        char                                     str[50] = {0, };
         gf_boolean_t                             global_opt    = _gf_false;
         glusterd_volinfo_t                      *voliter = NULL;
         int32_t                                  dict_count = 0;
@@ -894,7 +870,7 @@ glusterd_op_set_volume (dict_t *dict)
                 goto out;
         }
 
-	for ( count = 1; ret != -1 ; count++ ) {
+        for ( count = 1; ret != -1 ; count++ ) {
 
                 global_opt = _gf_false;
                 sprintf (str, "key%d", count);
@@ -976,19 +952,12 @@ glusterd_op_set_volume (dict_t *dict)
                         goto out;
                 }
 
-                if (restart_flag) {
-                        if (glusterd_restart_brick_servers (volinfo)) {
-                                ret = -1;
-                                goto out;
-                        }
-                }
-
                 ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
                 if (ret)
                         goto out;
 
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                        ret = glusterd_check_generate_start_nfs ();
+                        ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
                         if (ret) {
                                 gf_log ("", GF_LOG_WARNING,
                                          "Unable to restart NFS-Server");
@@ -1008,20 +977,13 @@ glusterd_op_set_volume (dict_t *dict)
                                 goto out;
                         }
 
-                        if (restart_flag) {
-                                if (glusterd_restart_brick_servers (volinfo)) {
-                                        ret = -1;
-                                        goto out;
-                                }
-                        }
-
                         ret = glusterd_store_volinfo (volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
                         if (ret)
                                 goto out;
 
                         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                                ret = glusterd_check_generate_start_nfs ();
+                                ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
                                 if (ret) {
                                         gf_log ("", GF_LOG_WARNING,
                                                 "Unable to restart NFS-Server");
@@ -1212,13 +1174,13 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 goto out;
                 break;
         }
-	ret = glusterd_create_volfiles_and_notify_services (volinfo);
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
-	if (ret) {
+        if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
-					  " 'volume set'");
-		ret = -1;
-		goto out;
+                                          " 'volume set'");
+                ret = -1;
+                goto out;
         }
 
         ret = glusterd_store_volinfo (volinfo,
@@ -1227,7 +1189,7 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_check_generate_start_nfs ();
+                ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
 
         ret = 0;
 
@@ -1249,7 +1211,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
-	int32_t			brick_index = 0;
+        int32_t                 brick_index = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1286,7 +1248,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                                 count++;
                                 brick_count = count;
                         }
-			brick_index++;
+                        brick_index++;
                 }
         }
 
@@ -1908,12 +1870,12 @@ glusterd_op_brick_disconnect (void *data)
         brickinfo = ev_ctx->brickinfo;
         GF_ASSERT (brickinfo);
 
-	if (brickinfo->timer) {
-		gf_timer_call_cancel (THIS->ctx, brickinfo->timer);
-		brickinfo->timer = NULL;
+        if (brickinfo->timer) {
+                gf_timer_call_cancel (THIS->ctx, brickinfo->timer);
+                brickinfo->timer = NULL;
                 gf_log ("", GF_LOG_DEBUG,
                         "Cancelled timer thread");
-	}
+        }
 
         glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_ACC, ev_ctx);
         glusterd_op_sm ();

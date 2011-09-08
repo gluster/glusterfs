@@ -2549,6 +2549,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
             (strcmp (name, GF_XATTR_PATHINFO_KEY) == 0)) {
                 snprintf (host_buf, 1024, "<POSIX:%s:%s>", priv->hostname,
                           real_path);
+                size = strlen (host_buf) + 1;
                 ret = dict_set_str (dict, GF_XATTR_PATHINFO_KEY,
                                     host_buf);
                 if (ret < 0) {

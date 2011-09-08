@@ -852,6 +852,15 @@ init (xlator_t *this)
                 exit (1);
         }
 
+        snprintf (voldir, PATH_MAX, "%s/glustershd", dirname);
+        ret = mkdir (voldir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create glustershd directory %s"
+                        " ,errno = %d", voldir, errno);
+                exit (1);
+        }
+
         ret = glusterd_rpcsvc_options_build (this->options);
         if (ret)
                 goto out;

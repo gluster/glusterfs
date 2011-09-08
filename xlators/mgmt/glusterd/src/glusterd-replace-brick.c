@@ -528,7 +528,7 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
         gf_log ("", GF_LOG_DEBUG,
                 "Attempting to kill src");
 
-        ret = glusterd_nfs_server_stop ();
+        ret = glusterd_nfs_server_stop (volinfo);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to stop nfs, ret: %d",
@@ -570,7 +570,7 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
         }
 
 out:
-        ret = glusterd_nfs_server_start ();
+        ret = glusterd_nfs_server_start (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to start nfs, ret: %d",
                         ret);
@@ -1678,7 +1678,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 }
 
 
-                ret = glusterd_nfs_server_stop ();
+                ret = glusterd_nodesvcs_stop (volinfo);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR,
                                 "Unable to stop nfs server, ret: %d", ret);
@@ -1690,13 +1690,13 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 			gf_log ("", GF_LOG_CRITICAL, "Unable to add "
 				"dst-brick: %s to volume: %s",
 				dst_brick, volinfo->volname);
-		        (void) glusterd_check_generate_start_nfs ();
+		        (void) glusterd_nodesvcs_handle_graph_change (volinfo);
 			goto out;
 		}
 
 		volinfo->defrag_status = 0;
 
-		ret = glusterd_check_generate_start_nfs ();
+		ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 		if (ret) {
                         gf_log ("", GF_LOG_CRITICAL,
                                 "Failed to generate nfs volume file");

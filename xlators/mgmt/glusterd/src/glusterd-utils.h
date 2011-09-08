@@ -142,14 +142,30 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status);
 int
 glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo);
 
-gf_boolean_t
-glusterd_is_nfs_started ();
+void
+glusterd_get_nodesvc_volfile (char *server, char *workdir,
+                                    char *volfile, size_t len);
 
+gf_boolean_t
+glusterd_is_nodesvc_running ();
+
+gf_boolean_t
+glusterd_is_nodesvc_running ();
+
+void
+glusterd_get_nodesvc_dir (char *server, char *workdir,
+                                char *path, size_t len);
 int32_t
 glusterd_nfs_server_start ();
 
 int32_t
 glusterd_nfs_server_stop ();
+
+int32_t
+glusterd_shd_start ();
+
+int32_t
+glusterd_shd_stop ();
 
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
@@ -161,6 +177,22 @@ glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
                             glusterd_volume_status status);
 int
 glusterd_check_generate_start_nfs (void);
+
+int
+glusterd_check_generate_start_shd (void);
+
+int
+glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_nodesvcs_handle_reconfigure (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_nodesvcs_start (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_nodesvcs_stop (glusterd_volinfo_t *volinfo);
+
 int32_t
 glusterd_volume_count_get (void);
 int32_t
@@ -290,4 +322,9 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 gf_boolean_t
 glusterd_is_fuse_available ();
 
+gf_boolean_t
+glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo);
+gf_boolean_t
+glusterd_is_brick_decommissioned (glusterd_volinfo_t *volinfo, char *hostname,
+                                  char *path);
 #endif

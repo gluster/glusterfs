@@ -140,6 +140,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("data-self-heal-algorithm",
                           priv->data_self_heal_algorithm, options, str, out);
 
+        GF_OPTION_RECONF ("self-heal-daemon", priv->shd.enabled, options, bool, out);
+
         GF_OPTION_RECONF ("read-subvolume", read_subvol, options, xlator, out);
 
         if (read_subvol) {
@@ -240,6 +242,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("entry-self-heal", priv->entry_self_heal, bool, out);
 
+        GF_OPTION_INIT ("self-heal-daemon", priv->shd.enabled, bool, out);
+
         GF_OPTION_INIT ("data-change-log", priv->data_change_log, bool, out);
 
         GF_OPTION_INIT ("metadata-change-log", priv->metadata_change_log, bool,
@@ -316,6 +320,13 @@ init (xlator_t *this)
         priv->last_event = GF_CALLOC (child_count, sizeof (*priv->last_event),
                                       gf_afr_mt_int32_t);
         if (!priv->last_event) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        priv->shd.pos = GF_CALLOC (sizeof (*priv->shd.pos), child_count,
+                                   gf_afr_mt_afr_brick_pos_t);
+        if (!priv->shd.pos) {
                 ret = -ENOMEM;
                 goto out;
         }
@@ -472,6 +483,10 @@ struct volume_options options[] = {
           .default_value = "off",
         },
         { .key = {"entrylk-trace"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+        { .key = {"self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },
