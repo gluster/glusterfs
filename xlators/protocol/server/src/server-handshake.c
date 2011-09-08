@@ -261,9 +261,7 @@ server_getspec (rpcsvc_request_t *req)
         xlator_t            *this                   = NULL;
         gf_getspec_req       args                   = {0,};
         gf_getspec_rsp       rsp                    = {0,};
-        server_connection_t *conn                   = NULL;
 
-        conn = req->trans->private;
         this = req->svc->mydata;
         conf = this->private;
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req)) {

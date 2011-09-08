@@ -603,7 +603,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
         int32_t  op_errno = 0;
 
         void *        transport = NULL;
-        pid_t         pid       = -1;
 
         pl_inode_t *     pinode   = NULL;
         int              ret      = -1;
@@ -626,7 +625,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 
         entrylk_trace_in (this, frame, volume, fd, loc, basename, cmd, type);
 
-        pid       = frame->root->pid;
         owner     = frame->root->lk_owner;
         transport = frame->root->trans;
 

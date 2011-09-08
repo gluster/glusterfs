@@ -484,15 +484,11 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
                  xlator_t *this, int32_t op_ret, int32_t op_errno,
                  gf_dirent_t *entries)
 {
-        afr_private_t * priv        = NULL;
         afr_local_t *   local       = NULL;
         gf_dirent_t *   entry       = NULL;
         gf_dirent_t *   tmp         = NULL;
-        int             child_index = -1;
 
-        priv     = this->private;
         local = frame->local;
-        child_index = (long) cookie;
 
         if (op_ret == -1)
                 goto out;

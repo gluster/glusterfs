@@ -52,12 +52,8 @@ nfs_fop_local_init (xlator_t *nfsx)
 void
 nfs_fop_local_wipe (xlator_t *nfsx, struct nfs_fop_local *l)
 {
-        struct nfs_state        *nfs = NULL;
-
         if ((!nfsx) || (!l))
                 return;
-
-        nfs = nfsx->private;
 
         if (l->iobref)
                 iobref_unref (l->iobref);

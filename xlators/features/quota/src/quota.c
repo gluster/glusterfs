@@ -201,7 +201,6 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t           validate_count = 0, link_count = 0;
         int32_t            ret            = 0;
         quota_inode_ctx_t *ctx            = NULL;
-        quota_priv_t      *priv           = NULL;
         int64_t           *size           = 0;
         uint64_t           value          = 0;
         call_stub_t       *stub           = NULL;
@@ -213,9 +212,6 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         GF_ASSERT (local);
-
-        priv = this->private;
-
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO_WITH_ERROR ("quota", this, unwind, op_errno,
                                         EINVAL);
@@ -511,13 +507,10 @@ __quota_init_inode_ctx (inode_t *inode, int64_t limit, xlator_t *this,
         int32_t            ret  = -1;
         int64_t           *size = 0;
         quota_inode_ctx_t *ctx  = NULL;
-        quota_priv_t      *priv = NULL;
 
         if (inode == NULL) {
                 goto out;
         }
-
-        priv = this->private;
 
         QUOTA_ALLOC_OR_GOTO (ctx, quota_inode_ctx_t, out);
 
@@ -587,7 +580,6 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local  = NULL;
         quota_inode_ctx_t *ctx    = NULL;
         quota_dentry_t    *dentry = NULL;
-        quota_priv_t      *priv   = NULL;
         int64_t           *size   = 0;
         uint64_t           value  = 0;
 
@@ -602,8 +594,6 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            || (IA_ISLNK (buf->ia_type))))) {
                 goto unwind;
         }
-
-        priv = this->private;
 
         ret = quota_inode_ctx_get (local->loc.inode, local->limit, this, dict,
                                    buf, &ctx, 1);

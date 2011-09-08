@@ -52,7 +52,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         void                   *cli_rsp     = NULL;
         char                    err_str[2048] = {0,};
         gf1_cli_create_vol_rsp  rsp         = {0,};
-        glusterd_conf_t        *priv        = NULL;
         xlator_t               *this        = NULL;
         char                   *free_ptr    = NULL;
         char                   *trans_type  = NULL;
@@ -66,8 +65,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 
         this = THIS;
         GF_ASSERT(this);
-
-        priv = this->private;
 
         ret = -1;
         if (!xdr_to_generic (req->msg[0], &cli_req,

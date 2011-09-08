@@ -1837,7 +1837,6 @@ posix_open (call_frame_t *frame, xlator_t *this,
         int32_t               _fd          = -1;
         struct posix_fd      *pfd          = NULL;
         struct posix_private *priv         = NULL;
-        char                  was_present  = 1;
         gid_t                 gid          = 0;
         struct iatt           stbuf        = {0, };
 
@@ -1867,9 +1866,6 @@ posix_open (call_frame_t *frame, xlator_t *this,
                 flags |= O_DIRECT;
 
         op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
-        if ((op_ret == -1) && (errno == ENOENT)) {
-                was_present = 0;
-        }
 
         _fd = open (real_path, flags, 0);
         if (_fd == -1) {
@@ -1959,7 +1955,6 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         struct iovec           vec        = {0,};
         struct posix_fd *      pfd        = NULL;
         struct iatt            stbuf      = {0,};
-        int                    align      = 1;
         int                    ret        = -1;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1983,10 +1978,6 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_WARNING, "size=%"GF_PRI_SIZET, size);
                 goto out;
-        }
-
-        if (pfd->flags & O_DIRECT) {
-                align = 4096;    /* align to page boundary */
         }
 
         iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
@@ -2281,7 +2272,6 @@ posix_flush (call_frame_t *frame, xlator_t *this,
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
-        struct posix_fd * pfd      = NULL;
         int               ret      = -1;
         uint64_t          tmp_pfd  = 0;
 
@@ -2296,7 +2286,6 @@ posix_flush (call_frame_t *frame, xlator_t *this,
                         "pfd is NULL on fd=%p", fd);
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         op_ret = 0;
 
@@ -2879,7 +2868,6 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
-        struct posix_fd * pfd      = NULL;
         int               ret      = -1;
         uint64_t          tmp_pfd  = 0;
 
@@ -2894,7 +2882,6 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
                         "pfd is NULL, fd=%p", fd);
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         op_ret = 0;
 
@@ -3501,7 +3488,6 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         int                   real_path_len  = -1;
         char                 *entry_path     = NULL;
         int                   entry_path_len = -1;
-        struct posix_private *priv           = NULL;
         struct iatt           stbuf          = {0, };
         char                  base_path[PATH_MAX] = {0,};
         gf_dirent_t          *tmp_entry      = NULL;
@@ -3512,8 +3498,6 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, out);
 
         INIT_LIST_HEAD (&entries.list);
-
-        priv = this->private;
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {

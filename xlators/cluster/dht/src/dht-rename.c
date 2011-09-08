@@ -172,9 +172,7 @@ int
 dht_rename_dir_do (call_frame_t *frame, xlator_t *this)
 {
         dht_local_t  *local = NULL;
-        dht_conf_t   *conf = NULL;
 
-        conf = this->private;
         local = frame->local;
 
         if (local->op_ret == -1)

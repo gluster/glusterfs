@@ -1186,11 +1186,9 @@ cli_cmd_log_level_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t *proc        = NULL;
         call_frame_t         *frame       = NULL;
         dict_t               *dict        = NULL;
-        int                   parse_error = 0;
 
         if (wordcount != 6) {
           cli_usage_out (word->pattern);
-          parse_error = 1;
           goto out;
         }
 
@@ -1220,11 +1218,9 @@ cli_cmd_volume_status_cbk (struct cli_state *state,
         rpc_clnt_procedure_t *proc        = NULL;
         call_frame_t         *frame       = NULL;
         dict_t               *dict        = NULL;
-        int                   parse_error = 0;
 
         if (wordcount != 3) {
                 cli_usage_out (word->pattern);
-                parse_error = 1;
                 goto out;
         }
 

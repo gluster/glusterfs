@@ -50,7 +50,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         char                            err_str[2048] = {0,};
         gf1_cli_add_brick_rsp           rsp = {0,};
         glusterd_volinfo_t              *volinfo = NULL;
-        glusterd_conf_t                 *priv = NULL;
         xlator_t                        *this = NULL;
         char                            *free_ptr = NULL;
         glusterd_brickinfo_t            *tmpbrkinfo = NULL;
@@ -59,8 +58,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
 
         this = THIS;
         GF_ASSERT(this);
-
-        priv = this->private;
 
         GF_ASSERT (req);
 
@@ -450,9 +447,6 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
         char                                    *free_ptr2  = NULL;
         char                                    *saveptr = NULL;
         int32_t                                 ret = -1;
-        glusterd_conf_t                         *priv = NULL;
-
-        priv = THIS->private;
 
         GF_ASSERT (volinfo);
 
@@ -523,13 +517,10 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick)
 
         glusterd_brickinfo_t    *brickinfo = NULL;
         char                    *dup_brick = NULL;
-        glusterd_conf_t         *priv = NULL;
         int32_t                 ret = -1;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brick);
-
-        priv = THIS->private;
 
         dup_brick = gf_strdup (brick);
         if (!dup_brick)

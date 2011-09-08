@@ -1509,12 +1509,10 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postparent)
 {
         afr_local_t *   local = NULL;
-        afr_private_t * priv  = NULL;
         int call_count  = -1;
         int child_index = (long) cookie;
 
         local = frame->local;
-        priv  = this->private;
 
         LOCK (&frame->lock);
         {
@@ -1709,13 +1707,11 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *postparent)
 {
         afr_local_t *   local = NULL;
-        afr_private_t * priv  = NULL;
         int call_count  = -1;
         int child_index = (long) cookie;
         int read_child  = 0;
 
         local = frame->local;
-        priv = this->private;
 
         LOCK (&frame->lock);
         {

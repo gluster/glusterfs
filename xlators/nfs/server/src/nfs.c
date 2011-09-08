@@ -750,10 +750,8 @@ err:
 int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
-        struct nfs_state        *nfs = NULL;
         xlator_t                *subvol = NULL;
 
-        nfs = (struct nfs_state *)this->private;
         subvol = (xlator_t *)data;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Notification received: %d",

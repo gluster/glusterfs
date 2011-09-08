@@ -786,7 +786,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
                         loc_t *loc, dht_layout_t *layout)
 {
         dht_local_t *local    = NULL;
-        uint32_t     holes    = 0;
         uint32_t     down     = 0;
         uint32_t     misc     = 0;
         int          ret      = 0;
@@ -802,7 +801,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
                               &local->selfheal.down,
                               &local->selfheal.misc);
 
-        holes    = local->selfheal.hole_cnt;
         down     = local->selfheal.down;
         misc     = local->selfheal.misc;
 

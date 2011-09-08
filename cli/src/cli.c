@@ -271,7 +271,6 @@ cli_submit_request (void *req, call_frame_t *frame,
 {
         int                     ret         = -1;
         int                     count      = 0;
-        char                    start_ping = 0;
         struct iovec            iov         = {0, };
         struct iobuf            *iobuf = NULL;
         char                    new_iobref = 0;
@@ -314,17 +313,6 @@ cli_submit_request (void *req, call_frame_t *frame,
         ret = rpc_clnt_submit (global_rpc, prog, procnum, cbkfn,
                                &iov, count,
                                NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
-
-        if (ret == 0) {
-                pthread_mutex_lock (&global_rpc->conn.lock);
-                {
-                        if (!global_rpc->conn.ping_started) {
-                                start_ping = 1;
-                        }
-                }
-                pthread_mutex_unlock (&global_rpc->conn.lock);
-        }
-
         ret = 0;
 
 out:

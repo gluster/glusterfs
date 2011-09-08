@@ -95,14 +95,12 @@ static int
 sh_loop_driver_done (call_frame_t *sh_frame, xlator_t *this,
                      call_frame_t *last_loop_frame)
 {
-        afr_private_t           *priv         = NULL;
         afr_local_t             *local        = NULL;
         afr_self_heal_t         *sh           = NULL;
         afr_sh_algo_private_t   *sh_priv      = NULL;
         int32_t                 total_blocks = 0;
         int32_t                 diff_blocks  = 0;
 
-        priv         = this->private;
         local        = sh_frame->local;
         sh           = &local->self_heal;
         sh_priv      = sh->private;
@@ -358,18 +356,13 @@ static int
 sh_loop_return (call_frame_t *sh_frame, xlator_t *this, call_frame_t *loop_frame,
                 int32_t op_ret, int32_t op_errno)
 {
-        afr_private_t *             priv     = NULL;
         afr_local_t *               loop_local = NULL;
         afr_self_heal_t *           loop_sh    = NULL;
         afr_local_t *               sh_local = NULL;
         afr_self_heal_t            *sh       = NULL;
-        afr_sh_algo_private_t      *sh_priv  = NULL;
-
-        priv  = this->private;
 
         sh_local = sh_frame->local;
         sh       = &sh_local->self_heal;
-        sh_priv  = sh->private;
 
         if (loop_frame) {
                 loop_local = loop_frame->local;
@@ -405,7 +398,6 @@ sh_loop_write_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
         call_frame_t               *sh_frame    = NULL;
         afr_local_t *               sh_local    = NULL;
         afr_self_heal_t            *sh          = NULL;
-        afr_sh_algo_private_t      *sh_priv     = NULL;
         int                         call_count  = 0;
         int                         child_index = 0;
 
@@ -416,7 +408,6 @@ sh_loop_write_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
         sh_frame = loop_sh->sh_frame;
         sh_local = sh_frame->local;
         sh       = &sh_local->self_heal;
-        sh_priv  = sh->private;
 
         child_index =  (long) cookie;
 
@@ -631,15 +622,12 @@ sh_diff_checksum (call_frame_t *loop_frame, xlator_t *this)
         afr_private_t           *priv         = NULL;
         afr_local_t             *loop_local   = NULL;
         afr_self_heal_t         *loop_sh      = NULL;
-        afr_sh_algo_private_t   *loop_sh_priv = NULL;
         int                     call_count    = 0;
         int                     i             = 0;
 
         priv         = this->private;
         loop_local   = loop_frame->local;
         loop_sh      = &loop_local->self_heal;
-
-        loop_sh_priv = loop_sh->private;
 
         call_count = loop_sh->active_sinks + 1;  /* sinks and source */
 

@@ -813,7 +813,6 @@ mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
         int                     ret = -EFAULT;
         struct mount3_state     *ms = NULL;
         struct mnt3_export      *exp = NULL;
-        struct nfs_state        *nfs = NULL;
 
         if ((!req) || (!path) || (!e))
                 return -1;
@@ -825,7 +824,6 @@ mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
                 goto err;
         }
 
-        nfs = (struct nfs_state *)ms->nfsx->private;
         gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
         exp = mnt3_mntpath_to_export (ms, path);
         if (exp) {

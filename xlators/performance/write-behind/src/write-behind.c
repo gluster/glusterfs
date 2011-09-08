@@ -2903,7 +2903,6 @@ out:
 int32_t
 init (xlator_t *this)
 {
-        dict_t    *options = NULL;
         wb_conf_t *conf    = NULL;
         int32_t    ret     = -1;
 
@@ -2919,8 +2918,6 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "dangling volume. check volfile");
         }
-
-        options = this->options;
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_wb_mt_wb_conf_t);
         if (conf == NULL) {

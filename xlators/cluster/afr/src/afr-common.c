@@ -429,9 +429,7 @@ afr_inode_rm_stale_children (xlator_t *this, inode_t *inode, int32_t read_child,
                              int32_t *stale_children)
 {
         afr_inode_params_t params = {0};
-        afr_private_t      *priv  = NULL;
 
-        priv = this->private;
         GF_ASSERT (read_child >= 0);
         GF_ASSERT (stale_children);
 
@@ -1155,14 +1153,12 @@ afr_lookup_select_read_child (afr_local_t *local, xlator_t *this,
         int                     ret            = -1;
         dict_t                  **xattrs       = NULL;
         int32_t                 *success_children = NULL;
-        struct iatt             *bufs          = NULL;
         afr_transaction_type    type           = AFR_METADATA_TRANSACTION;
 
         GF_ASSERT (local);
         GF_ASSERT (this);
         GF_ASSERT (local->success_count > 0);
 
-        bufs = local->cont.lookup.bufs;
         success_children = local->cont.lookup.success_children;
         /*We can take the success_children[0] only because we already
          *handle the conflicting children other wise, we could select the

@@ -76,11 +76,9 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
 
         sh->completion_cbk (frame, this);
 
@@ -253,14 +251,12 @@ afr_sh_data_setattr_fstat_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret, int32_t op_errno,
                                struct iatt *buf)
 {
-        afr_private_t   *priv  = NULL;
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         int child_index = (long) cookie;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
 
         GF_ASSERT (sh->source == child_index);
         if (op_ret != -1)
@@ -535,12 +531,10 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
         struct afr_sh_algorithm *sh_algo = NULL;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
 
         sh->algo_completion_cbk = afr_sh_data_erase_pending;
         sh->algo_abort_cbk      = afr_sh_data_fail;
@@ -815,12 +809,10 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         int32_t                  nsources         = 0;
         int32_t                  prev_read_child  = -1;
         int32_t                  config_read_child = -1;
-        afr_self_heal_t          *sh = NULL;
 
         priv = this->private;
         bufs = local->cont.lookup.bufs;
         success_children = local->cont.lookup.success_children;
-        sh = &local->self_heal;
 
         pending_matrix = afr_create_pending_matrix (priv->child_count);
         if (NULL == pending_matrix)
@@ -1165,11 +1157,9 @@ afr_sh_data_lock_rec (call_frame_t *frame, xlator_t *this, off_t start, off_t le
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        afr_self_heal_t     *sh       = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        sh       = &local->self_heal;
 
         int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
         int_lock->selfheal_lk_type    = AFR_DATA_SELF_HEAL_LK;
@@ -1227,13 +1217,10 @@ afr_sh_data_lock (call_frame_t *frame, xlator_t *this,
                   afr_lock_cbk_t failure_handler)
 {
         afr_local_t *   local = NULL;
-        afr_private_t * priv  = NULL;
         afr_self_heal_t * sh  = NULL;
-
 
         local = frame->local;
         sh    = &local->self_heal;
-        priv  = this->private;
 
         sh->data_lock_success_handler = success_handler;
         sh->data_lock_failure_handler = failure_handler;

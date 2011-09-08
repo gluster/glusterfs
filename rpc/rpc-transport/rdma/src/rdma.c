@@ -491,8 +491,6 @@ __rdma_create_read_chunks (rdma_peer_t *peer, rdma_ioq_t *entry,
                            rdma_request_context_t *request_ctx)
 {
         int32_t            ret      = -1;
-        rdma_device_t     *device   = NULL;
-        rdma_private_t    *priv     = NULL;
         int                pos      = 0;
 
         GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, peer, out);
@@ -500,9 +498,6 @@ __rdma_create_read_chunks (rdma_peer_t *peer, rdma_ioq_t *entry,
         GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, ptr, out);
         GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, *ptr, out);
         GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, request_ctx, out);
-
-        priv = peer->trans->private;
-        device = priv->device;
 
         request_ctx->iobref = iobref_ref (entry->iobref);
 
@@ -1013,7 +1008,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
         }
 
         if ((wtype != rdma_noch) || (rtype != rdma_noch)) {
-                request_ctx = mem_get (priv->device->request_ctx_pool);
+                request_ctx = mem_get (device->request_ctx_pool);
                 if (request_ctx == NULL) {
                         ret = -1;
                         goto out;
@@ -1021,7 +1016,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
 
                 memset (request_ctx, 0, sizeof (*request_ctx));
 
-                request_ctx->pool = priv->device->request_ctx_pool;
+                request_ctx->pool = device->request_ctx_pool;
                 request_ctx->peer = peer;
 
                 entry->msg.request.rpc_req->conn_private = request_ctx;
@@ -1156,11 +1151,6 @@ __rdma_send_reply_inline (rdma_peer_t *peer, rdma_ioq_t *entry,
         rdma_header_t  *header    = NULL;
         int32_t         send_size = 0, ret = 0;
         char           *buf       = NULL;
-        rdma_private_t *priv      = NULL;
-        rdma_device_t  *device    = NULL;
-
-        priv = peer->trans->private;
-        device = priv->device;
 
         send_size = iov_length (entry->rpchdr, entry->rpchdr_count)
                 + iov_length (entry->proghdr, entry->proghdr_count)
@@ -1440,13 +1430,8 @@ __rdma_send_reply_type_nomsg (rdma_peer_t *peer, rdma_ioq_t *entry,
         char               *buf          = NULL;
         uint32_t            payload_size = 0;
         int                 count        = 0, i = 0;
-        rdma_private_t     *priv         = NULL;
-        rdma_device_t      *device       = NULL;
         int32_t             ret          = 0;
         struct iovec        vector[MAX_IOVEC];
-
-        priv = peer->trans->private;
-        device = priv->device;
 
         header = (rdma_header_t *)post->buf;
 
@@ -1512,11 +1497,6 @@ __rdma_send_reply_type_msg (rdma_peer_t *peer, rdma_ioq_t *entry,
         int32_t             send_size    = 0, ret = 0;
         char               *ptr          = NULL;
         uint32_t            payload_size = 0;
-        rdma_private_t     *priv         = NULL;
-        rdma_device_t      *device       = NULL;
-
-        priv = peer->trans->private;
-        device = priv->device;
 
         send_size = iov_length (entry->rpchdr, entry->rpchdr_count)
                 + iov_length (entry->proghdr, entry->proghdr_count)
@@ -4327,7 +4307,6 @@ static int
 rdma_handshake_pollerr (rpc_transport_t *this)
 {
         rdma_private_t *priv = this->private;
-        int32_t ret = 0;
         char need_unref = 0, connected = 0;
 
         gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
@@ -4348,7 +4327,6 @@ rdma_handshake_pollerr (rpc_transport_t *this)
                                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                         "close () - error: %s",
                                         strerror (errno));
-                                ret = -errno;
                         }
                         priv->tcp_connected = priv->connected = 0;
                         priv->sock = -1;

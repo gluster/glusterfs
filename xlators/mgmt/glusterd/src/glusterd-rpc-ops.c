@@ -431,13 +431,10 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
         gd1_mgmt_probe_rsp    rsp   = {{0},};
-        glusterd_conf_t       *conf = NULL;
         int                   ret   = 0;
         glusterd_peerinfo_t           *peerinfo = NULL;
         glusterd_friend_sm_event_t    *event = NULL;
         glusterd_probe_ctx_t          *ctx = NULL;
-
-        conf  = THIS->private;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -512,7 +509,6 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                             int count, void *myframe)
 {
         gd1_mgmt_friend_rsp           rsp   = {{0},};
-        glusterd_conf_t               *conf = NULL;
         int                           ret   = -1;
         glusterd_friend_sm_event_t        *event = NULL;
         glusterd_friend_sm_event_type_t    event_type = GD_FRIEND_EVENT_NONE;
@@ -521,8 +517,6 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         int32_t                       op_errno = -1;
         glusterd_probe_ctx_t          *ctx = NULL;
         glusterd_friend_update_ctx_t  *ev_ctx = NULL;
-
-        conf  = THIS->private;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -699,7 +693,6 @@ int32_t
 glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                               int count, void *myframe)
 {
-        gd1_mgmt_cluster_lock_rsp     rsp   = {{0},};
         int                           ret   = -1;
         int32_t                       op_ret = 0;
         char                          str[50] = {0,};
@@ -707,22 +700,9 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
         GF_ASSERT (req);
 
         if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
                 goto out;
         }
 
-/*        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
-                goto out;
-        }
-        uuid_unparse (rsp.uuid, str);
-
-        op_ret = rsp.op_ret;
-*/
         gf_log ("glusterd", GF_LOG_INFO,
                 "Received %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", str);
@@ -1475,7 +1455,6 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
         glusterd_peerinfo_t        *peerinfo = NULL;
         glusterd_conf_t            *priv     = NULL;
         glusterd_friend_sm_event_t *event    = NULL;
-        glusterd_friend_req_ctx_t  *ctx      = NULL;
         dict_t                     *vols     = NULL;
 
 
@@ -1488,8 +1467,6 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         GF_ASSERT (priv);
-
-        ctx = event->ctx;
 
         peerinfo = event->peerinfo;
 

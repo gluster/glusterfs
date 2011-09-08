@@ -1922,14 +1922,12 @@ glusterd_op_brick_disconnect (void *data)
 static int
 glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
-        glusterd_conf_t        *priv              = NULL;
         dict_t                 *dict              = NULL;
         int                     ret               = 0;
         gf_boolean_t            commit_ack_inject = _gf_true;
         glusterd_op_t           op                = GD_OP_NONE;
 
         op = glusterd_op_get_op ();
-        priv = THIS->private;
         GF_ASSERT (event);
 
         if (opinfo.pending_count > 0)
@@ -2800,7 +2798,6 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         char                        *op_errstr = NULL;
         glusterd_op_t               op = GD_OP_NONE;
         dict_t                      *op_ctx = NULL;
-        gf_boolean_t                free_errstr = _gf_true;
         glusterd_req_ctx_t          *req_ctx = NULL;
 
         GF_ASSERT (event);
@@ -2818,7 +2815,6 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
                 gf_log ("glusterd", GF_LOG_ERROR, "unknown response received "
                         "from %s:%s", brickinfo->hostname, brickinfo->path);
                 ret = -1;
-                free_errstr = _gf_true;
                 goto out;
         }
 

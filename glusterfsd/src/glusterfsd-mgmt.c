@@ -772,15 +772,9 @@ int
 glusterfs_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                      void *data)
 {
-        xlator_t            *this = NULL;
-        rpc_transport_t     *xprt = NULL;
-
         if (!xl || !data) {
                 goto out;
         }
-
-        this = xl;
-        xprt = data;
 
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
@@ -1031,11 +1025,8 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         pmap_signout_rsp  rsp   = {0,};
-        call_frame_t    *frame = NULL;
         int              ret   = 0;
         glusterfs_ctx_t  *ctx = NULL;
-
-        frame = myframe;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1058,8 +1049,6 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 out:
-//        if (frame)
-//                STACK_DESTROY (frame->root);
         return 0;
 }
 

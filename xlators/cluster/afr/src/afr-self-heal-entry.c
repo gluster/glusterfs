@@ -54,11 +54,9 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
 
         if (sh->healing_fd)
                 fd_unref (sh->healing_fd);
@@ -420,13 +418,11 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
         afr_local_t     *expunge_local = NULL;
         afr_self_heal_t *expunge_sh = NULL;
         int              active_src = 0;
-        call_frame_t    *frame = NULL;
         int32_t          valid = 0;
 
         priv = this->private;
         expunge_local = expunge_frame->local;
         expunge_sh = &expunge_local->self_heal;
-        frame = expunge_sh->sh_frame;
 
         active_src = (long) cookie;
 
@@ -941,7 +937,6 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         afr_self_heal_t *sh = NULL;
         afr_self_heal_t *impunge_sh = NULL;
         call_frame_t    *frame = NULL;
-        int              active_src = 0;
         int              child_index = 0;
         int32_t          impunge_ret_child = 0;
 
@@ -951,7 +946,6 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         frame = impunge_sh->sh_frame;
         local = frame->local;
         sh    = &local->self_heal;
-        active_src = impunge_sh->active_source;
         child_index = (long) cookie;
 
         if (op_ret == 0) {
@@ -992,14 +986,12 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
-        afr_self_heal_t *impunge_sh = NULL;
         int              child_index = 0;
         struct iatt      stbuf = {0};
         int32_t          valid = 0;
 
         priv          = this->private;
         impunge_local = impunge_frame->local;
-        impunge_sh    = &impunge_local->self_heal;
 
         child_index = (long) cookie;
 
@@ -1352,7 +1344,6 @@ afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
         int              child_index = -1;
         call_frame_t    *frame = NULL;
         int              call_count = -1;
-        int              active_src = -1;
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         int32_t          impunge_ret_child = 0;
@@ -1363,7 +1354,6 @@ afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
         frame         = impunge_sh->sh_frame;
         local         = frame->local;
         sh            = &local->self_heal;
-        active_src    = impunge_sh->active_source;
 
         child_index = (long) cookie;
 
@@ -1763,7 +1753,6 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
         int              call_count = 0;
         int              child_index = 0;
         call_frame_t    *frame = NULL;
-        int              active_src = 0;
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         int32_t          impunge_ret_child = 0;
@@ -1775,7 +1764,6 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
         local         = frame->local;
         sh            = &local->self_heal;
         child_index = (long) cookie;
-        active_src = impunge_sh->active_source;
 
         if ((op_ret == -1 && op_errno == ENOENT)
             || (IA_ISLNK (impunge_sh->impunging_entry_mode))) {

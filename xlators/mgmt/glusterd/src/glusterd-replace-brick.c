@@ -1449,9 +1449,6 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         glusterd_brickinfo_t                    *old_brickinfo = NULL;
         glusterd_brickinfo_t                    *new_brickinfo = NULL;
         int32_t                                 ret = -1;
-        glusterd_conf_t                         *priv = NULL;
-
-        priv = THIS->private;
 
         GF_ASSERT (volinfo);
 
