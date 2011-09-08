@@ -283,7 +283,6 @@ gf_add_cmdline_options (glusterfs_graph_t *graph, cmd_args_t *cmd_args)
 int
 glusterfs_graph_validate_options (glusterfs_graph_t *graph)
 {
-        volume_opt_list_t  *vol_opt = NULL;
         xlator_t           *trav = NULL;
         int                 ret = -1;
         char               *errstr = NULL;
@@ -293,9 +292,6 @@ glusterfs_graph_validate_options (glusterfs_graph_t *graph)
         while (trav) {
                 if (list_empty (&trav->volume_options))
                         continue;
-
-                vol_opt = list_entry (trav->volume_options.next,
-                                      volume_opt_list_t, list);
 
                 ret = xlator_options_validate (trav, trav->options, &errstr);
                 if (ret) {

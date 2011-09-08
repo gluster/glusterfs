@@ -402,11 +402,9 @@ nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v)
 void
 nfs3_call_state_wipe (nfs3_call_state_t *cs)
 {
-        struct nfs3_state       *nfs3 = NULL;
         if (!cs)
                 return;
 
-        nfs3 = cs->nfs3state;
         if (cs->fd) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "fd 0x%lx ref: %d",
                         (long)cs->fd, cs->fd->refcount);
@@ -1400,9 +1398,7 @@ int
 nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, int32_t accbits)
 {
         access3res      res;
-        uint64_t        deviceid = 0;
 
-        deviceid = nfs3_request_xlator_deviceid (req);
         nfs3_fill_access3res (&res, status, accbits);
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_access3res);

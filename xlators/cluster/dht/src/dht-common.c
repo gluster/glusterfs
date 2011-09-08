@@ -150,7 +150,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     inode_t *inode, struct iatt *stbuf, dict_t *xattr,
                     struct iatt *postparent)
 {
-        dht_conf_t   *conf                    = NULL;
         dht_local_t  *local                   = NULL;
         int           this_call_cnt           = 0;
         call_frame_t *prev                    = NULL;
@@ -164,7 +163,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_VALIDATE_OR_GOTO ("dht", this->private, out);
         GF_VALIDATE_OR_GOTO ("dht", cookie, out);
 
-        conf  = this->private;
         local = frame->local;
         prev  = cookie;
 
@@ -553,7 +551,6 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            inode_t *inode, struct iatt *buf, dict_t *xattr,
                            struct iatt *postparent)
 {
-        dht_conf_t   *conf          = NULL;
         dht_local_t  *local         = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev          = NULL;
@@ -569,8 +566,6 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
         GF_VALIDATE_OR_GOTO ("dht", cookie, out);
         GF_VALIDATE_OR_GOTO ("dht", this->private, out);
-
-        conf   = this->private;
 
         local  = frame->local;
         loc    = &local->loc;
@@ -2962,13 +2957,11 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         off_t         next_offset = 0;
         int           count = 0;
         dht_layout_t *layout = 0;
-        dht_conf_t   *conf   = NULL;
         xlator_t     *subvol = 0;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
-        conf  = this->private;
 
         if (op_ret < 0)
                 goto done;
@@ -3051,7 +3044,6 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 off_t yoff, int whichop)
 {
         dht_local_t  *local  = NULL;
-        dht_conf_t   *conf = NULL;
         int           op_errno = -1;
         xlator_t     *xvol = NULL;
         off_t         xoff = 0;
@@ -3060,8 +3052,6 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
-
-        conf = this->private;
 
         local = dht_local_init (frame);
         if (!local) {
@@ -3287,14 +3277,11 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
         int          op_errno = -1;
         int          ret = -1;
         xlator_t    *avail_subvol = NULL;
-        dht_conf_t  *conf = NULL;
         dht_local_t *local = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
-
-        conf = this->private;
 
         dht_get_du_info (frame, this, loc);
 
@@ -3499,10 +3486,8 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         call_frame_t *prev = NULL;
         dht_layout_t *layout = NULL;
-        dht_local_t  *local = NULL;
 
         prev = cookie;
-        local = frame->local;
 
         if (op_ret == -1)
                 goto out;
@@ -3711,15 +3696,12 @@ dht_create (call_frame_t *frame, xlator_t *this,
         int          op_errno = -1;
         int          ret = -1;
         xlator_t    *subvol = NULL;
-        dht_conf_t  *conf = NULL;
         dht_local_t *local = NULL;
         xlator_t    *avail_subvol = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
-
-        conf = this->private;
 
         dht_get_du_info (frame, this, loc);
 
@@ -3838,9 +3820,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           subvol_filled = 0;
         call_frame_t *prev = NULL;
         dht_layout_t *layout = NULL;
-        dht_conf_t   *conf = NULL;
 
-        conf = this->private;
         local = frame->local;
         prev  = cookie;
         layout = local->layout;

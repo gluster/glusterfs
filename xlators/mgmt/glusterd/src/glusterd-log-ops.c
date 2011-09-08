@@ -89,7 +89,6 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         int32_t                 ret     = -1;
         gf1_cli_log_locate_req  cli_req = {0,};
         gf1_cli_log_locate_rsp  rsp     = {0,};
-        glusterd_conf_t        *priv = NULL;
         glusterd_volinfo_t     *volinfo = NULL;
         glusterd_brickinfo_t   *brickinfo = NULL;
         char                    tmp_str[PATH_MAX] = {0,};
@@ -98,8 +97,6 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         glusterd_brickinfo_t   *tmpbrkinfo = NULL;
 
         GF_ASSERT (req);
-
-        priv    = THIS->private;
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
                              (xdrproc_t)xdr_gf1_cli_log_locate_req)) {

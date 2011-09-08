@@ -2063,16 +2063,12 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
                 const char     *path;
         } *stub;
         xlator_t             *this = NULL;
-        inode_t              *inode = NULL;
-        const char           *path = NULL;
         char                 *filename = NULL;
         FILE                 *logfp = NULL;
         struct ios_dump_args args = {0};
 
         stub  = data;
         this  = stub->this;
-        inode = stub->inode;
-        path  = stub->path;
 
         filename = alloca (value->len + 1);
         memset (filename, 0, value->len + 1);
@@ -2393,7 +2389,6 @@ mem_acct_init (xlator_t *this)
 int
 init (xlator_t *this)
 {
-        dict_t             *options = NULL;
         struct ios_conf    *conf = NULL;
         int                 i = 0;
         char               *sys_log_str = NULL;
@@ -2418,8 +2413,6 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "dangling volume. check volfile ");
         }
-
-        options = this->options;
 
         conf = GF_CALLOC (1, sizeof(*conf), gf_io_stats_mt_ios_conf);
 

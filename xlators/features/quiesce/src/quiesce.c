@@ -34,12 +34,8 @@
 void
 gf_quiesce_local_wipe (xlator_t *this, quiesce_local_t *local)
 {
-        quiesce_priv_t  *priv  = NULL;
-
         if (!local || !this || !this->private)
                 return;
-
-        priv  = this->private;
 
         if (local->loc.inode)
                 loc_wipe (&local->loc);
@@ -108,7 +104,6 @@ gf_quiesce_timeout (void *data)
 {
         xlator_t       *this = NULL;
         quiesce_priv_t *priv = NULL;
-        int             need_dequeue = 0;
 
         this = data;
         priv = this->private;
@@ -117,7 +112,6 @@ gf_quiesce_timeout (void *data)
         LOCK (&priv->lock);
         {
                 priv->pass_through = _gf_true;
-                need_dequeue = (priv->queue_size)? 1:0;
         }
         UNLOCK (&priv->lock);
 
@@ -168,11 +162,8 @@ quiesce_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -202,11 +193,8 @@ int32_t
 quiesce_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -235,11 +223,8 @@ int32_t
 quiesce_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -268,11 +253,8 @@ quiesce_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, const char *path,
                       struct iatt *buf)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -301,11 +283,8 @@ int32_t
 quiesce_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -336,11 +315,8 @@ quiesce_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iovec *vector,
                    int32_t count, struct iatt *stbuf, struct iobref *iobref)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -370,11 +346,8 @@ int32_t
 quiesce_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -405,11 +378,8 @@ quiesce_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -438,11 +408,8 @@ int32_t
 quiesce_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -471,11 +438,8 @@ int32_t
 quiesce_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -504,11 +468,8 @@ int32_t
 quiesce_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -536,11 +497,8 @@ int32_t
 quiesce_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct statvfs *buf)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -569,11 +527,8 @@ int32_t
 quiesce_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -603,11 +558,8 @@ int32_t
 quiesce_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -638,11 +590,8 @@ quiesce_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, uint32_t weak_checksum,
                        uint8_t *strong_checksum)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -673,11 +622,8 @@ int32_t
 quiesce_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;
@@ -707,11 +653,8 @@ int32_t
 quiesce_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
-        quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
         quiesce_local_t *local = NULL;
-
-        priv = this->private;
 
         local = frame->local;
         frame->local = NULL;

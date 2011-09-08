@@ -652,11 +652,9 @@ afr_unlock_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno)
 {
         afr_local_t         *local = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int32_t             child_index = (long)cookie;
 
         local = frame->local;
-        int_lock = &local->internal_lock;
 
         afr_trace_entrylk_out (frame, AFR_ENTRYLK_TRANSACTION,
                                AFR_UNLOCK_OP, NULL, op_ret,
@@ -732,13 +730,10 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
-        int done = 0;
         int child_index = (long) cookie;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        priv     = this->private;
 
         LOCK (&frame->lock);
         {
@@ -750,7 +745,6 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         "please load features/locks xlator on server");
                                 local->op_ret = op_ret;
                                 int_lock->lock_op_ret = op_ret;
-                                done = 1;
                         }
 
                         local->child_up[child_index] = 0;
@@ -796,7 +790,6 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t         *local       = NULL;
         loc_t               *lower       = NULL;
         loc_t               *higher      = NULL;
-        const char          *lower_name  = NULL;
         const char          *higher_name = NULL;
         int child_index = (long) cookie;
 
@@ -837,10 +830,6 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             local->transaction.basename,
                             &local->transaction.new_parent_loc,
                             local->transaction.new_basename);
-
-        lower_name = (lower == &local->transaction.parent_loc ?
-                      local->transaction.basename :
-                      local->transaction.new_basename);
 
         higher = (lower == &local->transaction.parent_loc ?
                   &local->transaction.new_parent_loc :
@@ -916,11 +905,8 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
         afr_internal_lock_t *int_lock    = NULL;
         afr_local_t         *local       = NULL;
         afr_private_t       *priv        = NULL;
-        afr_fd_ctx_t        *fd_ctx      = NULL;
         loc_t               *lower       = NULL;
-        loc_t               *higher      = NULL;
         const char          *lower_name  = NULL;
-        const char          *higher_name = NULL;
         struct gf_flock flock = {0,};
         uint64_t ctx = 0;
         int ret = 0;
@@ -950,8 +936,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 
                         return 0;
                 }
-
-                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
                 /* skip over children that or down
                    or don't have the fd open */
@@ -1042,14 +1026,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
                               local->transaction.basename :
                               local->transaction.new_basename);
 
-                higher = (lower == &local->transaction.parent_loc ?
-                          &local->transaction.new_parent_loc :
-                          &local->transaction.parent_loc);
-
-                higher_name = (higher == &local->transaction.parent_loc ?
-                               local->transaction.basename :
-                               local->transaction.new_basename);
-
                 afr_trace_entrylk_in (frame, AFR_ENTRYLK_TRANSACTION,
                                       AFR_LOCK_OP, lower_name, child_index);
 
@@ -1137,13 +1113,11 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
         int call_count          = 0;
         int child_index         = (long) cookie;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        priv     = this->private;
 
         afr_trace_entrylk_out (frame, AFR_ENTRYLK_TRANSACTION,
                                AFR_LOCK_OP, NULL, op_ret,
@@ -1312,13 +1286,11 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
         int call_count  = 0;
         int child_index = (long) cookie;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        priv     = this->private;
 
         afr_trace_inodelk_out (frame, AFR_INODELK_NB_TRANSACTION,
                                AFR_LOCK_OP, NULL, op_ret,
@@ -1589,7 +1561,6 @@ afr_post_unlock_lower_cbk (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local       = NULL;
         loc_t               *lower       = NULL;
         loc_t               *higher      = NULL;
-        const char          *lower_name  = NULL;
         const char          *higher_name = NULL;
 
         local    = frame->local;
@@ -1599,10 +1570,6 @@ afr_post_unlock_lower_cbk (call_frame_t *frame, xlator_t *this)
                             local->transaction.basename,
                             &local->transaction.new_parent_loc,
                             local->transaction.new_basename);
-
-        lower_name = (lower == &local->transaction.parent_loc ?
-                      local->transaction.basename :
-                      local->transaction.new_basename);
 
         higher = (lower == &local->transaction.parent_loc ?
                   &local->transaction.new_parent_loc :
@@ -1632,9 +1599,7 @@ afr_rename_unlock (call_frame_t *frame, xlator_t *this)
         afr_internal_lock_t *int_lock    = NULL;
         afr_local_t         *local       = NULL;
         loc_t               *lower       = NULL;
-        loc_t               *higher      = NULL;
         const char          *lower_name  = NULL;
-        const char          *higher_name = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -1647,15 +1612,6 @@ afr_rename_unlock (call_frame_t *frame, xlator_t *this)
         lower_name = (lower == &local->transaction.parent_loc ?
                       local->transaction.basename :
                       local->transaction.new_basename);
-
-        higher = (lower == &local->transaction.parent_loc ?
-                  &local->transaction.new_parent_loc :
-                  &local->transaction.parent_loc);
-
-        higher_name = (higher == &local->transaction.parent_loc ?
-                       local->transaction.basename :
-                       local->transaction.new_basename);
-
 
         if (__is_lower_locked (frame, this)) {
                 gf_log (this->name, GF_LOG_DEBUG,

@@ -718,12 +718,10 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = this->private;
-        loc_t       *   loc   = NULL;
         int call_count  = -1;
         int child_index = (long) cookie;
 
         local = frame->local;
-        loc   = &local->loc;
 
         LOCK (&frame->lock);
         {

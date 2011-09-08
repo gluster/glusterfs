@@ -362,10 +362,7 @@ posix_acl_ref (xlator_t *this, struct posix_acl *acl)
 struct posix_acl *
 posix_acl_dup (xlator_t *this, struct posix_acl *acl)
 {
-        struct posix_acl_conf  *conf = NULL;
         struct posix_acl       *dup = NULL;
-
-        conf = this->private;
 
         dup = posix_acl_new (this, acl->count);
         if (!dup)

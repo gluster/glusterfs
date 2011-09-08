@@ -490,10 +490,7 @@ new_client_lock (struct gf_flock *flock, uint64_t owner,
                  int32_t cmd, fd_t *fd)
 {
         client_posix_lock_t *new_lock = NULL;
-        xlator_t            *this = NULL;
 
-
-        this = THIS;
         new_lock = GF_CALLOC (1, sizeof (*new_lock),
                               gf_client_mt_clnt_lock_t);
         if (!new_lock) {
@@ -668,9 +665,7 @@ client_remove_reserve_lock (xlator_t *this, call_frame_t *frame,
                             client_posix_lock_t *lock)
 {
         struct gf_flock unlock;
-        clnt_local_t *local = NULL;
 
-        local = frame->local;
         construct_reserve_unlock (&unlock, frame, lock);
 
         STACK_WIND (frame, client_remove_reserve_lock_cbk,

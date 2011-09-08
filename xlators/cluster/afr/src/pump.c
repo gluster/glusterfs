@@ -218,7 +218,6 @@ static int
 pump_save_path (xlator_t *this, const char *path)
 {
         afr_private_t *priv = NULL;
-        pump_private_t *pump_priv = NULL;
         pump_state_t state;
         dict_t *dict = NULL;
         loc_t  loc = {0};
@@ -230,7 +229,6 @@ pump_save_path (xlator_t *this, const char *path)
                 return 0;
 
         priv = this->private;
-        pump_priv = priv->pump_private;
 
         GF_ASSERT (priv->root_inode);
 
@@ -352,14 +350,12 @@ static gf_boolean_t
 is_pump_traversal_allowed (xlator_t *this, const char *path)
 {
         afr_private_t *priv = NULL;
-        pump_private_t *pump_priv = NULL;
 
         pump_state_t state;
         const char *resume_path = NULL;
         gf_boolean_t ret = _gf_true;
 
         priv = this->private;
-        pump_priv = priv->pump_private;
 
         state = pump_get_state ();
 
@@ -404,7 +400,6 @@ static int
 gf_pump_traverse_directory (loc_t *loc)
 {
         xlator_t *this = NULL;
-        afr_private_t *priv = NULL;
         fd_t     *fd   = NULL;
 
         off_t       offset   = 0;
@@ -422,7 +417,6 @@ gf_pump_traverse_directory (loc_t *loc)
 
         INIT_LIST_HEAD (&entries.list);
         this = THIS;
-        priv = this->private;
 
         GF_ASSERT (loc->inode);
 
@@ -553,12 +547,10 @@ static int
 pump_update_resume_path (xlator_t *this)
 {
         afr_private_t *priv = NULL;
-        pump_private_t *pump_priv = NULL;
 
         const char *resume_path = NULL;
 
         priv = this->private;
-        pump_priv = priv->pump_private;
 
         resume_path = pump_get_resume_path (this);
 
@@ -583,7 +575,6 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
         afr_private_t  *priv      = NULL;
-        pump_private_t *pump_priv = NULL;
         loc_t           loc       = {0};
         int             i         = 0;
         int             ret       = 0;
@@ -591,7 +582,6 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
         int             sink      = 1;
 
         priv      = this->private;
-        pump_priv = priv->pump_private;
 
         build_root_loc (priv->root_inode, &loc);
 
@@ -779,12 +769,10 @@ pump_task_completion (int ret, call_frame_t *sync_frame, void *data)
 {
         xlator_t *this = NULL;
         afr_private_t *priv = NULL;
-        pump_private_t *pump_priv = NULL;
 
         this = THIS;
 
         priv = this->private;
-        pump_priv = priv->pump_private;
 
         inode_unref (priv->root_inode);
         STACK_DESTROY (sync_frame->root);
@@ -1579,11 +1567,9 @@ static int
 afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{

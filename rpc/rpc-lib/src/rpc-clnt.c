@@ -310,7 +310,6 @@ saved_frames_unwind (struct saved_frames *saved_frames)
 {
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
-        struct mem_pool      *saved_frames_pool = NULL;
         struct tm            *frame_sent_tm = NULL;
         char                 timestr[256] = {0,};
 
@@ -341,8 +340,6 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                 trav->rpcreq->rpc_status = -1;
                 trav->rpcreq->cbkfn (trav->rpcreq, &iov, 1, trav->frame);
 
-                saved_frames_pool
-                        = trav->rpcreq->conn->rpc_clnt->saved_frames_pool;
                 rpc_clnt_reply_deinit (trav->rpcreq,
                                        trav->rpcreq->conn->rpc_clnt->reqpool);
 

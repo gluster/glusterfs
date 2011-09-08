@@ -1075,7 +1075,6 @@ out:
 static gf_boolean_t
 client_set_remote_options (char *value, xlator_t *this)
 {
-        clnt_conf_t  *conf            = NULL;
         char         *dup_value       = NULL;
         char         *host            = NULL;
         char         *subvol          = NULL;
@@ -1085,8 +1084,6 @@ client_set_remote_options (char *value, xlator_t *this)
         char         *tmp             = NULL;
         int           remote_port     = 0;
         gf_boolean_t  ret             = _gf_false;
-
-        conf = this->private;
 
         dup_value = gf_strdup (value);
         host = strtok_r (dup_value, ":", &tmp);

@@ -383,7 +383,6 @@ fd_destroy (fd_t *fd)
         xlator_t    *xl = NULL;
         int          i = 0;
         xlator_t    *old_THIS = NULL;
-        struct mem_pool *tmp_pool = NULL;
 
         if (fd == NULL){
                 gf_log_callingfn ("xlator", GF_LOG_ERROR, "invalid arugument");
@@ -396,8 +395,6 @@ fd_destroy (fd_t *fd)
         }
         if (!fd->_ctx)
                 goto out;
-
-        tmp_pool = fd->inode->table->fd_mem_pool;
 
         if (IA_ISDIR (fd->inode->ia_type)) {
                 for (i = 0; i < fd->xl_count; i++) {
@@ -429,7 +426,6 @@ fd_destroy (fd_t *fd)
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
         mem_put (fd);
-        tmp_pool = NULL;
 out:
         return;
 }

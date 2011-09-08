@@ -134,14 +134,11 @@ __dentry_unhash (dentry_t *dentry)
 static void
 __dentry_unset (dentry_t *dentry)
 {
-        struct mem_pool *tmp_pool = NULL;
-
         if (!dentry) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
                 return;
         }
 
-        tmp_pool = dentry->inode->table->dentry_pool;
         __dentry_unhash (dentry);
 
         list_del_init (&dentry->inode_list);
@@ -155,8 +152,6 @@ __dentry_unset (dentry_t *dentry)
         }
 
         mem_put (dentry);
-        tmp_pool = NULL;
-
 }
 
 
@@ -307,7 +302,6 @@ __inode_destroy (inode_t *inode)
         int          index = 0;
         xlator_t    *xl = NULL;
         xlator_t    *old_THIS = NULL;
-        struct mem_pool *tmp_pool = NULL;
 
         if (!inode) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
@@ -318,8 +312,6 @@ __inode_destroy (inode_t *inode)
                 gf_log (THIS->name, GF_LOG_WARNING, "_ctx not found");
                 goto noctx;
         }
-
-        tmp_pool = inode->table->inode_pool;
 
         for (index = 0; index < inode->table->xl->graph->xl_count; index++) {
                 if (inode->_ctx[index].xl_key) {
@@ -337,8 +329,6 @@ noctx:
         LOCK_DESTROY (&inode->lock);
         //  memset (inode, 0xb, sizeof (*inode));
         mem_put (inode);
-        tmp_pool = NULL;
-
 }
 
 

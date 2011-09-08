@@ -569,11 +569,9 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
         glusterd_volinfo_t     *volinfo = NULL;
         gf2_cli_defrag_vol_rsp rsp = {0,};
         char                    msg[2048] = {0};
-        glusterd_conf_t        *priv = NULL;
 
         GF_ASSERT (req);
 
-        priv    = THIS->private;
         if (!xdr_to_generic (req->msg[0], &cli_req,
                              (xdrproc_t)xdr_gf1_cli_defrag_vol_req)) {
                 //failed to decode msg;
@@ -628,15 +626,12 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 {
         int32_t                ret           = -1;
         gf1_cli_defrag_vol_req cli_req       = {0,};
-        glusterd_conf_t         *priv = NULL;
         char                   cmd_str[4096] = {0,};
         glusterd_volinfo_t      *volinfo = NULL;
         gf1_cli_defrag_vol_rsp rsp = {0,};
         char                    msg[2048] = {0};
 
         GF_ASSERT (req);
-
-        priv    = THIS->private;
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
                              (xdrproc_t)xdr_gf1_cli_defrag_vol_req)) {

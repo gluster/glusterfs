@@ -832,14 +832,11 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
         int                     ret = -1;
         char                    msg[2048] = {0};
         uuid_t                  uuid = {0};
-        glusterd_conf_t         *priv = NULL;
 
         GF_ASSERT (THIS && THIS->private);
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
         GF_ASSERT (op_errstr);
-
-        priv = THIS->private;
 
         if (GLUSTERD_STATUS_STARTED != volinfo->status) {
                 snprintf (msg, sizeof (msg), "Volume %s needs to be started "
@@ -1004,12 +1001,9 @@ stop_gsync (char *master, char *slave, char **msg)
         char            pidfile[PATH_MAX] = {0,};
         char            buf [1024] = {0,};
         int             i       = 0;
-        glusterd_conf_t *priv = NULL;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
-
-        priv = THIS->private;
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
         if (pfd == -2) {
@@ -1310,12 +1304,9 @@ glusterd_set_marker_gsync (glusterd_volinfo_t *volinfo)
         int                      ret     = -1;
         int                      marker_set = _gf_false;
         char                    *gsync_status = NULL;
-        glusterd_conf_t         *priv = NULL;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
-
-        priv = THIS->private;
 
         marker_set = glusterd_volinfo_get_boolean (volinfo, VKEY_MARKER_XTIME);
         if (marker_set == -1) {

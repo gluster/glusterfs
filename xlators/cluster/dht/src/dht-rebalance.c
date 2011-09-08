@@ -452,12 +452,10 @@ static int
 rebalance_task (void *data)
 {
         int           ret   = -1;
-        xlator_t     *this  = NULL;
         dht_local_t  *local = NULL;
         call_frame_t *frame = NULL;
 
         frame = data;
-        this = THIS;
 
         local = frame->local;
 

@@ -388,13 +388,11 @@ out:
 int
 fuse_resolve_entry_simple (fuse_state_t *state)
 {
-        xlator_t     *this      = NULL;
         fuse_resolve_t *resolve   = NULL;
         inode_t      *parent    = NULL;
         inode_t      *inode     = NULL;
         int           ret       = 0;
 
-        this  = state->this;
         resolve = state->resolve_now;
 
         parent = inode_find (state->itable, resolve->pargfid);

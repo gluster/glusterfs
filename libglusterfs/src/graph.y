@@ -445,8 +445,6 @@ preprocess (FILE *srcfp, FILE *dstfp)
         char    in_backtick = 0;
 	int     line = 1;
         int     column = 0;
-        int     backtick_line = 0;
-        int     backtick_column = 0;
         int     character = 0;
 
 
@@ -484,9 +482,6 @@ preprocess (FILE *srcfp, FILE *dstfp)
 			} else {
 				i = 0;
 				cmd[i] = '\0';
-
-				backtick_column = column;
-				backtick_line = line;
 			}
 
 			in_backtick = !in_backtick;

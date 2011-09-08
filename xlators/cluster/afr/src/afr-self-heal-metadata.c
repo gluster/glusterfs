@@ -560,12 +560,8 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t     *local = NULL;
         int              call_count = 0;
-        int              child_index = 0;
-
 
         local = frame->local;
-
-        child_index = (long) cookie;
 
         afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
                                            op_errno, inode, buf, xattr,

@@ -3822,11 +3822,7 @@ call_stub_destroy_unwind (call_stub_t *stub)
 void
 call_stub_destroy (call_stub_t *stub)
 {
-        struct mem_pool *tmp_pool = NULL;
-
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-        tmp_pool = stub->stub_mem_pool;
 
         if (stub->wind) {
                 call_stub_destroy_wind (stub);
@@ -3837,8 +3833,6 @@ call_stub_destroy (call_stub_t *stub)
         stub->stub_mem_pool = NULL;
         mem_put (stub);
 out:
-        tmp_pool = NULL;
-
         return;
 }
 

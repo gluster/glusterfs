@@ -230,12 +230,9 @@ posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf)
 int
 posix_lstat_with_gfid (xlator_t *this, const char *path, struct iatt *stbuf_p)
 {
-        struct posix_private  *priv    = NULL;
         int                    ret     = 0;
         struct stat            lstatbuf = {0, };
         struct iatt            stbuf = {0, };
-
-        priv = this->private;
 
         ret = lstat (path, &lstatbuf);
         if (ret == -1)
@@ -259,12 +256,9 @@ out:
 int
 posix_fstat_with_gfid (xlator_t *this, int fd, struct iatt *stbuf_p)
 {
-        struct posix_private  *priv    = NULL;
         int                    ret     = 0;
         struct stat            fstatbuf = {0, };
         struct iatt            stbuf = {0, };
-
-        priv = this->private;
 
         ret = fstat (fd, &fstatbuf);
         if (ret == -1)

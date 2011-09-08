@@ -1241,12 +1241,8 @@ afr_sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 {
         int                     call_count = 0;
         afr_local_t             *local = NULL;
-        afr_self_heal_t         *sh = NULL;
-        afr_private_t           *priv = NULL;
 
         local = frame->local;
-        sh = &local->self_heal;
-        priv = this->private;
 
         afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
                                            op_errno, inode, buf, xattr,
@@ -1852,11 +1848,9 @@ afr_sh_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        afr_self_heal_t     *sh       = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        sh       = &local->self_heal;
 
         int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
         int_lock->selfheal_lk_type    = AFR_ENTRY_SELF_HEAL_LK;
@@ -1876,15 +1870,11 @@ static int
 afr_self_heal_parent_entrylk (call_frame_t *frame, xlator_t *this,
                               afr_lock_cbk_t lock_cbk)
 {
-        afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
         afr_self_heal_t     *sh       = NULL;
-        afr_private_t       *priv     = NULL;
 
         local    = frame->local;
-        int_lock = &local->internal_lock;
         sh       = &local->self_heal;
-        priv     = this->private;
 
         gf_log (this->name, GF_LOG_TRACE,
                 "attempting to recreate missing entries for path=%s",
