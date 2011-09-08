@@ -347,6 +347,7 @@ struct _glusterfs_ctx {
                                          got changed */
         pid_t               mtab_pid; /* pid of the process which updates the mtab */
         int                 process_mode; /*mode in which process is runninng*/
+	struct syncenv      *env;         /* The env pointer to the synctasks */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

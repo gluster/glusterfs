@@ -76,6 +76,7 @@
 #include "call-stub.h"
 #include <fnmatch.h>
 #include "rpc-clnt.h"
+#include "syncop.h"
 
 #include "daemon.h"
 
@@ -408,7 +409,6 @@ get_volfp (glusterfs_ctx_t *ctx)
 
         return specfp;
 }
-
 
 static int
 gf_remember_xlator_option (struct list_head *options, char *arg)
@@ -1056,7 +1056,6 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         return 0;
 }
 
-
 static int
 logging_init (glusterfs_ctx_t *ctx)
 {
@@ -1578,6 +1577,13 @@ main (int argc, char *argv[])
         ret = daemonize (ctx);
         if (ret)
                 goto out;
+
+	ctx->env = syncenv_new (0);
+        if (!ctx->env) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Could not create new sync-environment");
+                goto out;
+        }
 
         ret = glusterfs_volumes_init (ctx);
         if (ret)

@@ -955,7 +955,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
-        ret = glusterd_check_generate_start_nfs ();
+        ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
@@ -994,13 +994,9 @@ glusterd_op_stop_volume (dict_t *dict)
                 goto out;
 
         if (glusterd_are_all_volumes_stopped ()) {
-                if (glusterd_is_nfs_started ()) {
-                        ret = glusterd_nfs_server_stop ();
-                        if (ret)
-                                goto out;
-                }
+                ret = glusterd_nodesvcs_stop (volinfo);
         } else {
-                ret = glusterd_check_generate_start_nfs ();
+                ret = glusterd_nodesvcs_handle_graph_change (volinfo);
         }
 
 out:

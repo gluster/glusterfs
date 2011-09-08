@@ -116,6 +116,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, NO_DOC, 0     },
         {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC, 0},
         {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
@@ -380,6 +381,13 @@ xlator_set_option (xlator_t *xl, char *key, char *value)
         }
 
         return dict_set_dynstr (xl->options, key, dval);
+}
+
+static int
+xlator_get_option (xlator_t *xl, char *key, char **value)
+{
+        GF_ASSERT (xl);
+        return dict_get_str (xl->options, key, value);
 }
 
 static inline xlator_t *
@@ -685,14 +693,11 @@ volgen_graph_set_options_generic (volgen_graph_t *graph, dict_t *dict,
 }
 
 static int
-basic_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
-                      void *param)
+no_filter_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                          void *param)
 {
         xlator_t *trav;
         int ret = 0;
-
-        if (vme->option[0] == '!')
-                return 0;
 
         for (trav = first_of (graph); trav; trav = trav->next) {
                 if (strcmp (trav->type, vme->voltype) != 0)
@@ -700,10 +705,23 @@ basic_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
 
                 ret = xlator_set_option (trav, vme->option, vme->value);
                 if (ret)
-                        return -1;
+                        break;
         }
+        return ret;
+}
 
-        return 0;
+static int
+basic_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                      void *param)
+{
+        int     ret = 0;
+
+        if (vme->option[0] == '!')
+                goto out;
+
+        ret = no_filter_option_handler (graph, vme, param);
+out:
+        return ret;
 }
 
 static int
@@ -991,14 +1009,39 @@ glusterd_get_trans_type_rb (gf_transport_type ttype)
 }
 
 static int
-volgen_graph_merge_sub (volgen_graph_t *dgraph, volgen_graph_t *sgraph)
+_xl_link_children (xlator_t *parent, xlator_t *children, size_t child_count)
+{
+        xlator_t        *trav = NULL;
+        size_t          seek = 0;
+        int             ret = -1;
+
+        if (child_count == 0)
+                goto out;
+        seek = child_count;
+        for (trav = children; --seek; trav = trav->next);
+        for (; child_count--; trav = trav->prev) {
+                ret = volgen_xlator_link (parent, trav);
+                if (ret)
+                        goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+volgen_graph_merge_sub (volgen_graph_t *dgraph, volgen_graph_t *sgraph,
+                        size_t child_count)
 {
         xlator_t *trav = NULL;
+        int      ret   = 0;
 
         GF_ASSERT (dgraph->graph.first);
 
-        if (volgen_xlator_link (first_of (dgraph), first_of (sgraph)) == -1)
-                return -1;
+        ret = _xl_link_children (first_of (dgraph), first_of (sgraph),
+                                 child_count);
+        if (ret)
+                goto out;
 
         for (trav = first_of (dgraph); trav->next; trav = trav->next);
 
@@ -1006,7 +1049,8 @@ volgen_graph_merge_sub (volgen_graph_t *dgraph, volgen_graph_t *sgraph)
         trav->next->prev = trav;
         dgraph->graph.xl_count += sgraph->graph.xl_count;
 
-        return 0;
+out:
+        return ret;
 }
 
 static int
@@ -1082,10 +1126,11 @@ build_graph_generic (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 set_dict = dict_copy (volinfo->dict, NULL);
                 if (!set_dict)
                         return -1;
-                dict_copy (mod_dict, set_dict);
-                /* XXX dict_copy swallows errors */
-        } else
+                 dict_copy (mod_dict, set_dict);
+                 /* XXX dict_copy swallows errors */
+        } else {
                 set_dict = volinfo->dict;
+        }
 
         ret = builder (graph, volinfo, set_dict, param);
         if (!ret)
@@ -1097,10 +1142,24 @@ build_graph_generic (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         return ret;
 }
 
-static void
-get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
+static gf_transport_type
+transport_str_to_type (char *tt)
 {
-        switch (volinfo->transport_type) {
+        gf_transport_type type = GF_TRANSPORT_TCP;
+
+        if (!strcmp ("tcp", tt))
+                type = GF_TRANSPORT_TCP;
+        else if (!strcmp ("rdma", tt))
+                type = GF_TRANSPORT_RDMA;
+        else if (!strcmp ("tcp,rdma", tt))
+                type = GF_TRANSPORT_BOTH_TCP_RDMA;
+        return type;
+}
+
+static void
+transport_type_to_str (gf_transport_type type, char *tt)
+{
+        switch (type) {
         case GF_TRANSPORT_RDMA:
                 strcpy (tt, "rdma");
                 break;
@@ -1114,20 +1173,20 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 }
 
 static void
+get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
+{
+        transport_type_to_str (volinfo->transport_type, tt);
+}
+
+static void
 get_vol_nfs_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 {
-        switch (volinfo->nfs_transport_type) {
-        case GF_TRANSPORT_RDMA:
-                strcpy (tt, "rdma");
-                break;
-        case GF_TRANSPORT_TCP:
-                strcpy (tt, "tcp");
-                break;
-        case GF_TRANSPORT_BOTH_TCP_RDMA:
+        if (volinfo->nfs_transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
                 gf_log ("", GF_LOG_ERROR, "%s:nfs transport cannot be both"
                         " tcp and rdma", volinfo->volname);
                 GF_ASSERT (0);
         }
+        transport_type_to_str (volinfo->nfs_transport_type, tt);
 }
 
 /*  gets the volinfo, dict, a character array for filling in
@@ -1795,35 +1854,17 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
 }
 
 static int
-client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                      dict_t *set_dict, void *param)
+volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                            dict_t *set_dict, void *param)
 {
-        int                      sub_count          = 0;
-        int                      dist_count         = 0;
+        int                      i                  = 0;
+        int                      ret                = -1;
         char                     transt[16]         = {0,};
         char                    *volname            = NULL;
-        dict_t                  *dict               = NULL;
         glusterd_brickinfo_t    *brick = NULL;
-        char                    *replicate_args[]   = {"cluster/replicate",
-                                                       "%s-replicate-%d"};
-        char                    *stripe_args[]      = {"cluster/stripe",
-                                                       "%s-stripe-%d"};
-        char                   **cluster_args       = NULL;
-        int                      i                  = 0;
-        int                      j                  = 0;
-        int                      ret                = -1;
-        xlator_t                *xl                 = NULL;
-        xlator_t                *txl                = NULL;
-        xlator_t                *trav               = NULL;
-        int                      removed_bricks     = 0;
-        int                      index_of_removed_brick = 0;
-        char                    *removed_bricklist  = NULL;
-        char                     volume_name[1024]  = {0,};
-        int                      idx                = 0;
+        xlator_t                *xl                = NULL;
 
         volname = volinfo->volname;
-        dict    = volinfo->dict;
-        GF_ASSERT (dict);
 
         if (volinfo->brick_count == 0) {
                 gf_log ("", GF_LOG_ERROR,
@@ -1848,6 +1889,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 strcpy (transt, "tcp");
 
         i = 0;
+        ret = -1;
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                 ret = -1;
                 xl = volgen_graph_add_nolink (graph, "protocol/client",
@@ -1863,19 +1905,6 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 ret = xlator_set_option (xl, "transport-type", transt);
                 if (ret)
                         goto out;
-                if (brick->decommissioned) {
-                        if (!removed_bricklist) {
-                                removed_bricklist = GF_CALLOC (16 * GF_UNIT_KB,
-                                                               1, gf_common_mt_char);
-                                index_of_removed_brick = i;
-                        }
-                        if (removed_bricks)
-                                strcat (removed_bricklist, ",");
-                        snprintf (volume_name, 1024, "%s-client-%d", volname, i);
-                        strcat (removed_bricklist, volume_name);
-                        removed_bricks++;
-                }
-
                 i++;
         }
         if (i != volinfo->brick_count) {
@@ -1884,138 +1913,283 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         "differs from brick count (%d)", i,
                         volinfo->brick_count);
 
+                ret = -1;
                 goto out;
         }
+        ret = 0;
+out:
+        return ret;
+}
 
-        sub_count = volinfo->sub_count;
-        if (sub_count > 1) {
-                switch (volinfo->type) {
-                case GF_CLUSTER_TYPE_REPLICATE:
-                        cluster_args = replicate_args;
-                        break;
-                case GF_CLUSTER_TYPE_STRIPE:
-                        cluster_args = stripe_args;
-                        break;
-                case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                        /* Replicate after the clients, then stripe */
-                        if (volinfo->replica_count == 0) {
+static int
+volgen_graph_build_clusters (volgen_graph_t *graph,
+                             glusterd_volinfo_t *volinfo, char *xl_type,
+                             char *xl_namefmt, size_t child_count,
+                             size_t sub_count)
+{
+        int             i = 0;
+        int             j = 0;
+        xlator_t        *txl = NULL;
+        xlator_t        *xl  = NULL;
+        xlator_t        *trav = NULL;
+        char            *volname = NULL;
+        int             ret     = -1;
+
+        if (child_count == 0)
+                goto out;
+        volname = volinfo->volname;
+        txl = first_of (graph);
+        for (trav = txl; --child_count; trav = trav->next);
+        for (;; trav = trav->prev) {
+                if (i % sub_count == 0) {
+                        xl = volgen_graph_add_nolink (graph, xl_type,
+                                                      xl_namefmt, volname, j);
+                        if (!xl) {
                                 ret = -1;
                                 goto out;
                         }
-                        sub_count = volinfo->replica_count;
-                        cluster_args = replicate_args;
+                        j++;
+                }
+
+                ret = volgen_xlator_link (xl, trav);
+                if (ret)
+                        goto out;
+
+                if (trav == txl)
+                        break;
+                i++;
+        }
+
+        ret = j;
+out:
+        return ret;
+}
+
+gf_boolean_t
+_xl_is_client_decommissioned (xlator_t *xl, glusterd_volinfo_t *volinfo)
+{
+        int             ret = 0;
+        gf_boolean_t    decommissioned = _gf_false;
+        char            *hostname = NULL;
+        char            *path = NULL;
+
+        GF_ASSERT (!strcmp (xl->type, "protocol/client"));
+        ret = xlator_get_option (xl, "remote-host", &hostname);
+        if (ret) {
+                GF_ASSERT (0);
+                gf_log ("glusterd", GF_LOG_ERROR, "Failed to get remote-host "
+                        "from client %s", xl->name);
+                goto out;
+        }
+        ret = xlator_get_option (xl, "remote-subvolume", &path);
+        if (ret) {
+                GF_ASSERT (0);
+                gf_log ("glusterd", GF_LOG_ERROR, "Failed to get remote-host "
+                        "from client %s", xl->name);
+                goto out;
+        }
+
+        decommissioned = glusterd_is_brick_decommissioned (volinfo, hostname,
+                                                           path);
+out:
+        return decommissioned;
+}
+
+gf_boolean_t
+_xl_has_decommissioned_clients (xlator_t *xl, glusterd_volinfo_t *volinfo)
+{
+        xlator_list_t   *xl_child = NULL;
+        gf_boolean_t    decommissioned = _gf_false;
+        xlator_t        *cxl = NULL;
+
+        if (!xl)
+                goto out;
+
+        if (!strcmp (xl->type, "protocol/client")) {
+                decommissioned = _xl_is_client_decommissioned (xl, volinfo);
+                goto out;
+        }
+
+        xl_child = xl->children;
+        while (xl_child) {
+                cxl = xl_child->xlator;
+                decommissioned = _xl_is_client_decommissioned (cxl, volinfo);
+                if (decommissioned)
+                        break;
+
+                xl_child = xl_child->next;
+        }
+out:
+        return decommissioned;
+}
+
+static int
+_graph_get_decommissioned_children (xlator_t *dht, glusterd_volinfo_t *volinfo,
+                                    char **children)
+{
+        int             ret = -1;
+        xlator_list_t   *xl_child = NULL;
+        xlator_t        *cxl = NULL;
+        gf_boolean_t    comma = _gf_false;
+
+        *children = NULL;
+        xl_child = dht->children;
+        while (xl_child) {
+                cxl = xl_child->xlator;
+                if (_xl_has_decommissioned_clients (cxl, volinfo)) {
+                        if (!*children) {
+                                *children = GF_CALLOC (16 * GF_UNIT_KB, 1,
+                                                       gf_common_mt_char);
+                                if (!*children)
+                                        goto out;
+                        }
+
+                        if (comma)
+                                strcat (*children, ",");
+                        strcat (*children, cxl->name);
+                        comma = _gf_true;
+                }
+
+                xl_child = xl_child->next;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+volgen_graph_build_dht_cluster (volgen_graph_t *graph,
+                                glusterd_volinfo_t *volinfo, size_t child_count)
+{
+        int32_t                 clusters                 = 0;
+        int                     ret                      = -1;
+        char                    *decommissioned_children = NULL;
+        xlator_t                *dht                     = NULL;
+
+        GF_ASSERT (child_count > 1);
+        clusters = volgen_graph_build_clusters (graph,  volinfo,
+                                                "cluster/distribute", "%s-dht",
+                                                child_count, child_count);
+        if (clusters < 0)
+                goto out;
+        dht = first_of (graph);
+        ret = _graph_get_decommissioned_children (dht, volinfo,
+                                                  &decommissioned_children);
+        if (ret)
+                goto out;
+        if (decommissioned_children) {
+                ret = xlator_set_option (dht, "decommissioned-bricks",
+                                         decommissioned_children);
+                if (ret)
+                        goto out;
+        }
+        ret = 0;
+out:
+        if (decommissioned_children)
+                GF_FREE (decommissioned_children);
+        return ret;
+}
+
+static int
+volume_volgen_graph_build_clusters (volgen_graph_t *graph,
+                                    glusterd_volinfo_t *volinfo)
+{
+        char                    *replicate_args[]   = {"cluster/replicate",
+                                                       "%s-replicate-%d"};
+        char                    *stripe_args[]      = {"cluster/stripe",
+                                                       "%s-stripe-%d"};
+        int                     rclusters           = 0;
+        int                     clusters            = 0;
+        int                     dist_count          = 0;
+        int                     ret                 = -1;
+
+        if (volinfo->sub_count > 1) {
+                switch (volinfo->type) {
+                case GF_CLUSTER_TYPE_REPLICATE:
+                        clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                           replicate_args[0],
+                                                           replicate_args[1],
+                                                           volinfo->brick_count,
+                                                           volinfo->sub_count);
+                        if (clusters < 0)
+                                goto out;
+                        break;
+                case GF_CLUSTER_TYPE_STRIPE:
+                        clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                           stripe_args[0],
+                                                           stripe_args[1],
+                                                           volinfo->brick_count,
+                                                           volinfo->sub_count);
+                        if (clusters < 0)
+                                goto out;
+                        break;
+                case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                        /* Replicate after the clients, then stripe */
+                        if (volinfo->replica_count == 0)
+                                return -1;
+                        clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                           replicate_args[0],
+                                                           replicate_args[1],
+                                                           volinfo->brick_count,
+                                                           volinfo->replica_count);
+                        if (clusters < 0)
+                                goto out;
+
+                        rclusters = volinfo->brick_count/volinfo->replica_count;
+                        GF_ASSERT (rclusters == clusters);
+                        clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                           stripe_args[0],
+                                                           stripe_args[1],
+                                                           rclusters,
+                                                           volinfo->stripe_count);
+                        if (clusters < 0)
+                                goto out;
                         break;
                 default:
                         gf_log ("", GF_LOG_ERROR, "volume inconsistency: "
                                 "unrecognized clustering type");
-                        ret = -1;
                         goto out;
-                }
-
-                i = 0;
-                j = 0;
-                txl = first_of (graph);
-                for (trav = txl; trav->next; trav = trav->next);
-                for (;; trav = trav->prev) {
-                        if (i % sub_count == 0) {
-                                xl = volgen_graph_add_nolink (graph,
-                                                              cluster_args[0],
-                                                              cluster_args[1],
-                                                              volname, j);
-                                if (!xl) {
-                                        ret = -1;
-                                        goto out;
-                                }
-                                j++;
-                        }
-
-                        ret = volgen_xlator_link (xl, trav);
-                        if (ret)
-                                goto out;
-
-                        if (trav == txl)
-                                break;
-                        i++;
-                }
-
-                if (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type) {
-                        sub_count = volinfo->stripe_count;
-                        cluster_args = stripe_args;
-
-                        i = 0;
-                        txl = first_of (graph);
-                        for (trav = txl; --j; trav = trav->next);
-                        for (;; trav = trav->prev) {
-                                if (i % sub_count == 0) {
-                                        xl = volgen_graph_add_nolink (graph,
-                                                                      cluster_args[0],
-                                                                      cluster_args[1],
-                                                                      volname, j);
-                                        if (!xl) {
-                                                ret = -1;
-                                                goto out;
-                                        }
-                                        j++;
-                                }
-
-                                ret = volgen_xlator_link (xl, trav);
-                                if (ret)
-                                        goto out;
-
-                                if (trav == txl)
-                                        break;
-                                i++;
-                        }
-
                 }
         }
 
-
-        if (volinfo->sub_count)
+        if (volinfo->sub_count) {
                 dist_count = volinfo->brick_count / volinfo->sub_count;
-        else
+                GF_ASSERT (dist_count == clusters);
+        } else {
                 dist_count = volinfo->brick_count;
-        if (dist_count > 1) {
-                xl = volgen_graph_add_nolink (graph, "cluster/distribute",
-                                              "%s-dht", volname);
-                if (!xl) {
-                        ret = -1;
-                        goto out;
-                }
-
-                trav = xl;
-                for (i = 0; i < dist_count; i++)
-                        trav = trav->next;
-                for (; trav != xl; trav = trav->prev) {
-                        ret = volgen_xlator_link (xl, trav);
-                        if (ret)
-                                goto out;
-                }
-
-                if (removed_bricks) {
-                        if (volinfo->sub_count) {
-                                idx = index_of_removed_brick / volinfo->sub_count;
-                                if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
-                                        snprintf (volume_name, 1024, "%s-replicate-%d",
-                                                  volname, idx);
-                                        strcpy (removed_bricklist, volume_name);
-                                } else if (volinfo->type != GF_CLUSTER_TYPE_NONE) {
-                                        snprintf (volume_name, 1024, "%s-stripe-%d  ",
-                                                  volname, idx);
-                                        strcpy (removed_bricklist, volume_name);
-                                }
-                        }
-                        ret = xlator_set_option (xl, "decommissioned-bricks",
-                                                 removed_bricklist);
-                        if (ret)
-                                goto out;
-                }
         }
+
+        if (dist_count > 1) {
+                ret = volgen_graph_build_dht_cluster (graph, volinfo,
+                                                      dist_count);
+                if (ret)
+                        goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict, void *param)
+{
+        int                      ret                = 0;
+        xlator_t                *xl                 = NULL;
+        char                    *volname            = NULL;
+
+        volname = volinfo->volname;
+        ret = volgen_graph_build_clients (graph, volinfo, set_dict, param);
+        if (ret)
+                goto out;
+
+        ret = volume_volgen_graph_build_clusters (graph, volinfo);
+        if (ret)
+                goto out;
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
         if (ret == -1)
                 goto out;
-
         if (ret) {
                 xl = volgen_graph_add (graph, "features/quota", volname);
 
@@ -2030,6 +2204,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        ret = -1;
         xl = volgen_graph_add_as (graph, "debug/io-stats", volname);
         if (!xl)
                 goto out;
@@ -2040,11 +2215,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!ret)
                 ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                         &sys_loglevel_option_handler);
-
 out:
-        if (removed_bricklist)
-                GF_FREE (removed_bricklist);
-
         return ret;
 }
 
@@ -2059,8 +2230,28 @@ build_client_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 }
 
 static int
+shd_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                           void *param)
+{
+        int                     ret = 0;
+        struct volopt_map_entry new_vme = {0};
+        int                     shd = 0;
+
+        shd = !strcmp (vme->option, "!self-heal-daemon");
+        if ((vme->option[0] == '!') && !shd)
+                goto out;
+        new_vme = *vme;
+        if (shd)
+                new_vme.option = "self-heal-daemon";
+
+        ret = no_filter_option_handler (graph, &new_vme, param);
+out:
+        return ret;
+}
+
+static int
 nfs_option_handler (volgen_graph_t *graph,
-                            struct volopt_map_entry *vme, void *param)
+                    struct volopt_map_entry *vme, void *param)
 {
         xlator_t *xl = NULL;
         char *aa = NULL;
@@ -2234,6 +2425,93 @@ nfs_option_handler (volgen_graph_t *graph,
         return 0;
 }
 
+static int
+build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
+{
+        volgen_graph_t     cgraph         = {0};
+        glusterd_volinfo_t *voliter       = NULL;
+        xlator_t           *this          = NULL;
+        glusterd_conf_t    *priv          = NULL;
+        dict_t             *set_dict      = NULL;
+        int                ret            = 0;
+        gf_boolean_t       valid_config   = _gf_false;
+        xlator_t           *iostxl        = NULL;
+        int                rclusters       = 0;
+        int                replica_count  = 0;
+
+        this = THIS;
+        priv = this->private;
+
+        set_dict = dict_new ();
+        if (!set_dict) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        iostxl = volgen_graph_add_as (graph, "debug/io-stats", "glustershd");
+        if (!iostxl) {
+                ret = -1;
+                goto out;
+        }
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+
+                if (voliter->type == GF_CLUSTER_TYPE_REPLICATE)
+                        replica_count = voliter->sub_count;
+                else if (voliter->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
+                        replica_count = voliter->replica_count;
+                else
+                        continue;
+
+                valid_config = _gf_true;
+
+                ret = dict_set_str (set_dict, "cluster.self-heal-daemon", "on");
+                if (ret)
+                        goto out;
+
+                dict_copy (voliter->dict, set_dict);
+                if (mod_dict)
+                        dict_copy (mod_dict, set_dict);
+
+                memset (&cgraph, 0, sizeof (cgraph));
+                ret = volgen_graph_build_clients (&cgraph, voliter, set_dict,
+                                                  NULL);
+                if (ret)
+                        goto out;
+
+                rclusters = volgen_graph_build_clusters (&cgraph, voliter,
+                                                        "cluster/replicate",
+                                                        "%s-replicate-%d",
+                                                        voliter->brick_count,
+                                                        replica_count);
+                if (rclusters < 0) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = volgen_graph_set_options_generic (&cgraph, set_dict, voliter,
+                                                        shd_option_handler);
+                if (ret)
+                        goto out;
+
+                ret = volgen_graph_merge_sub (graph, &cgraph, rclusters);
+                if (ret)
+                        goto out;
+
+                ret = dict_reset (set_dict);
+                if (ret)
+                        goto out;
+        }
+out:
+        if (set_dict)
+                dict_unref (set_dict);
+        if (!valid_config)
+                ret = -EINVAL;
+        return ret;
+}
+
 /* builds a graph for nfs server role, with option overrides in mod_dict */
 static int
 build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
@@ -2259,14 +2537,6 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 return -1;
         }
 
-        ret = dict_set_str (set_dict, VKEY_PERF_STAT_PREFETCH, "off");
-        if (ret)
-                goto out;
-
-        ret = dict_set_str (set_dict, "performance.client-io-threads", "off");
-        if (ret)
-                goto out;
-
         nfsxl = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
         if (!nfsxl) {
                 ret = -1;
@@ -2274,7 +2544,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
         }
         ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
         if (ret)
-                goto out;;
+                goto out;
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
@@ -2313,11 +2583,19 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 else
                         get_transport_type (voliter, voliter->dict, nfs_xprt, _gf_true);
 
+                ret = dict_set_str (set_dict, VKEY_PERF_STAT_PREFETCH, "off");
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str (set_dict, "performance.client-io-threads", "off");
+                if (ret)
+                        goto out;
+
                 ret = dict_set_str (set_dict, "client-transport-type",
                                     nfs_xprt);
                 ret = build_client_graph (&cgraph, voliter, set_dict);
                 if (ret)
-                        goto out;;
+                        goto out;
 
                 if (mod_dict) {
                         dict_copy (mod_dict, set_dict);
@@ -2328,7 +2606,13 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                                                                 basic_option_handler);
                 }
 
-                ret = volgen_graph_merge_sub (graph, &cgraph);
+                if (ret)
+                        goto out;
+
+                ret = volgen_graph_merge_sub (graph, &cgraph, 1);
+                if (ret)
+                        goto out;
+                ret = dict_reset (set_dict);
                 if (ret)
                         goto out;
         }
@@ -2336,8 +2620,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
 
                 if (mod_dict) {
-                        dict_copy (mod_dict, set_dict);
-                        ret = volgen_graph_set_options_generic (graph, set_dict, voliter,
+                        ret = volgen_graph_set_options_generic (graph, mod_dict, voliter,
                                                                 nfs_option_handler);
                 } else {
                         ret = volgen_graph_set_options_generic (graph, voliter->dict, voliter,
@@ -2509,79 +2792,94 @@ out:
         return ret;
 }
 
-static void
-get_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
-{
-        char  path[PATH_MAX] = {0,};
-        glusterd_conf_t *priv = NULL;
-
-        priv = THIS->private;
-
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-
-        snprintf (filename, PATH_MAX, "%s/%s-fuse.vol",
-                  path, volinfo->volname);
-}
-
-static void
-get_rdma_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
-{
-        char  path[PATH_MAX] = {0,};
-        glusterd_conf_t *priv = NULL;
-
-        priv = THIS->private;
-
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-
-        snprintf (filename, PATH_MAX, "%s/%s.rdma-fuse.vol",
-                  path, volinfo->volname);
-}
-
 static int
-generate_client_volfile (glusterd_volinfo_t *volinfo)
+generate_single_transport_client_volfile (glusterd_volinfo_t *volinfo,
+                                          char *filepath, dict_t *dict)
 {
         volgen_graph_t graph = {0,};
-        char    filename[PATH_MAX] = {0,};
         int     ret = -1;
-        dict_t *dict = NULL;
-
-        get_client_filepath (filename, volinfo);
-
-        if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
-                dict = dict_new ();
-                if (!dict)
-                        goto out;
-                ret = dict_set_str (dict, "client-transport-type", "tcp");
-                if (ret)
-                        goto out;
-        }
 
         ret = build_client_graph (&graph, volinfo, dict);
         if (!ret)
-                ret = volgen_write_volfile (&graph, filename);
+                ret = volgen_write_volfile (&graph, filepath);
 
         volgen_graph_free (&graph);
 
-        if (dict) {
-                /* This means, transport type is both RDMA and TCP */
+        return ret;
+}
 
-                memset (&graph, 0, sizeof (graph));
-                get_rdma_client_filepath (filename, volinfo);
+void
+get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo, gf_transport_type type)
+{
+        char  path[PATH_MAX] = {0,};
+        glusterd_conf_t *priv = NULL;
 
-                ret = dict_set_str (dict, "client-transport-type", "rdma");
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+
+        switch (type) {
+        case GF_TRANSPORT_TCP:
+                snprintf (filepath, PATH_MAX, "%s/%s-fuse.vol",
+                          path, volinfo->volname);
+                break;
+        case GF_TRANSPORT_RDMA:
+                snprintf (filepath, PATH_MAX, "%s/%s.rdma-fuse.vol",
+                          path, volinfo->volname);
+                break;
+        default:
+                GF_ASSERT (0);
+                break;
+        }
+}
+
+static void
+enumerate_transport_reqs (gf_transport_type type, char **types)
+{
+        switch (type) {
+        case GF_TRANSPORT_TCP:
+                types[0] = "tcp";
+                break;
+        case GF_TRANSPORT_RDMA:
+                types[0] = "rdma";
+                break;
+        case GF_TRANSPORT_BOTH_TCP_RDMA:
+                types[0] = "tcp";
+                types[1] = "rdma";
+                break;
+        }
+}
+
+static int
+generate_client_volfiles (glusterd_volinfo_t *volinfo)
+{
+        char               filepath[PATH_MAX] = {0,};
+        int                ret = -1;
+        char               *types[] = {NULL, NULL, NULL};
+        int                i = 0;
+        dict_t             *dict = NULL;
+        gf_transport_type  type = GF_TRANSPORT_TCP;
+
+        enumerate_transport_reqs (volinfo->transport_type, types);
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+        for (i = 0; types[i]; i++) {
+                memset (filepath, 0, sizeof (filepath));
+                ret = dict_set_str (dict, "client-transport-type", types[i]);
                 if (ret)
                         goto out;
-
-                ret = build_client_graph (&graph, volinfo, dict);
-                if (!ret)
-                        ret = volgen_write_volfile (&graph, filename);
-
-                volgen_graph_free (&graph);
-
-                dict_unref (dict);
+                type = transport_str_to_type (types[i]);
+                get_client_filepath (filepath, volinfo, type);
+                ret = generate_single_transport_client_volfile (volinfo,
+                                                                filepath,
+                                                                dict);
+                if (ret)
+                        goto out;
         }
-
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -2593,7 +2891,7 @@ glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
 
         ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
         if (!ret)
-                ret = generate_client_volfile (volinfo);
+                ret = generate_client_volfiles (volinfo);
         if (!ret)
                 ret = glusterd_fetchspec_notify (THIS);
 
@@ -2612,7 +2910,7 @@ glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        ret = generate_client_volfile (volinfo);
+        ret = generate_client_volfiles (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Could not generate volfile for client");
@@ -2625,34 +2923,62 @@ out:
         return ret;
 }
 
-void
-glusterd_get_nfs_filepath (char *filename)
+int
+glusterd_create_global_volfile (int (*builder) (volgen_graph_t *graph,
+                                                dict_t *set_dict),
+                                char *filepath, dict_t  *mod_dict)
 {
-        char  path[PATH_MAX] = {0,};
-        glusterd_conf_t *priv  = NULL;
+        volgen_graph_t graph = {0,};
+        int     ret = -1;
 
-        priv = THIS->private;
+        ret = builder (&graph, mod_dict);
+        if (!ret)
+                ret = volgen_write_volfile (&graph, filepath);
 
-        GLUSTERD_GET_NFS_DIR (path, priv);
+        volgen_graph_free (&graph);
 
-        snprintf (filename, PATH_MAX, "%s/nfs-server.vol", path);
+        return ret;
 }
 
 int
 glusterd_create_nfs_volfile ()
 {
-        volgen_graph_t graph = {0,};
-        char    filename[PATH_MAX] = {0,};
-        int     ret = -1;
+        char            filepath[PATH_MAX] = {0,};
+        glusterd_conf_t *conf = THIS->private;
 
-        glusterd_get_nfs_filepath (filename);
+        glusterd_get_nodesvc_volfile ("nfs", conf->workdir,
+                                            filepath, sizeof (filepath));
+        return glusterd_create_global_volfile (build_nfs_graph,
+                                               filepath, NULL);
+}
 
-        ret = build_nfs_graph (&graph, NULL);
-        if (!ret)
-                ret = volgen_write_volfile (&graph, filename);
+int
+glusterd_create_shd_volfile ()
+{
+        char            filepath[PATH_MAX] = {0,};
+        int             ret = -1;
+        glusterd_conf_t *conf = THIS->private;
+        dict_t          *mod_dict = NULL;
 
-        volgen_graph_free (&graph);
+        mod_dict = dict_new ();
+        if (!mod_dict)
+                goto out;
 
+        ret = dict_set_uint32 (mod_dict, "cluster.background-self-heal-count", 0);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (mod_dict, "cluster.data-self-heal", "on");
+        if (ret)
+                goto out;
+
+        glusterd_get_nodesvc_volfile ("glustershd", conf->workdir,
+                                            filepath, sizeof (filepath));
+        ret = glusterd_create_global_volfile (build_shd_graph, filepath,
+                                              mod_dict);
+out:
+        if (mod_dict)
+                dict_unref (mod_dict);
         return ret;
 }
 

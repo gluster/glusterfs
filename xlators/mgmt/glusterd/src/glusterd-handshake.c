@@ -53,10 +53,17 @@ build_volfile_path (const char *volname, char *path,
         char               *free_ptr    = NULL;
         char               *tmp         = NULL;
         glusterd_volinfo_t *volinfo     = NULL;
+        char               *server      = NULL;
 
         priv    = THIS->private;
 
-        if (volname[0] != '/') {
+        if (strstr (volname, "gluster/")) {
+                server = strchr (volname, '/') + 1;
+                glusterd_get_nodesvc_volfile (server, priv->workdir,
+                                                    path, path_len);
+                ret = 1;
+                goto out;
+        } else if (volname[0] != '/') {
                 /* Normal behavior */
                 dup_volname = gf_strdup (volname);
         } else {

@@ -50,6 +50,12 @@ typedef int (*afr_post_remove_call_t) (call_frame_t *frame, xlator_t *this);
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
 typedef enum {
+        AFR_POS_UNKNOWN,
+        AFR_POS_LOCAL,
+        AFR_POS_REMOTE
+} afr_child_pos_t;
+
+typedef enum {
         AFR_INODE_SET_READ_CTX = 1,
         AFR_INODE_RM_STALE_CHILDREN,
         AFR_INODE_SET_OPENDIR_DONE,
@@ -74,6 +80,13 @@ typedef struct afr_inode_ctx_ {
         uint64_t masks;
         int32_t  *fresh_children;//increasing order of latency
 } afr_inode_ctx_t;
+
+typedef struct afr_self_heald_ {
+        gf_boolean_t    enabled;
+        gf_boolean_t    pending;
+        gf_boolean_t    inprogress;
+        afr_child_pos_t *pos;
+} afr_self_heald_t;
 
 typedef struct _afr_private {
         gf_lock_t lock;               /* to guard access to child_count, etc */
@@ -134,6 +147,7 @@ typedef struct _afr_private {
 
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
+        afr_self_heald_t       shd;
 } afr_private_t;
 
 typedef struct {
@@ -240,7 +254,6 @@ typedef struct {
 
         call_frame_t *sh_frame;
 } afr_self_heal_t;
-
 
 typedef enum {
         AFR_DATA_TRANSACTION,          /* truncate, write, ... */
@@ -1001,4 +1014,6 @@ afr_open_only_data_self_heal (char *data_self_heal);
 gf_boolean_t
 afr_data_self_heal_enabled (char *data_self_heal);
 
+void
+afr_set_low_priority (call_frame_t *frame);
 #endif /* __AFR_H__ */

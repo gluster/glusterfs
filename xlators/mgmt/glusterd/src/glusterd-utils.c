@@ -822,6 +822,23 @@ out:
         return ret;
 }
 
+gf_boolean_t
+glusterd_is_brick_decommissioned (glusterd_volinfo_t *volinfo, char *hostname,
+                                  char *path)
+{
+        gf_boolean_t            decommissioned = _gf_false;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        int                     ret = -1;
+
+        ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
+                                             &brickinfo);
+        if (ret)
+                goto out;
+        decommissioned = brickinfo->decommissioned;
+out:
+        return decommissioned;
+}
+
 int32_t
 glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
@@ -2204,6 +2221,7 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
         int                     i = 1;
         gf_boolean_t            update = _gf_false;
         gf_boolean_t            stale_nfs = _gf_false;
+        gf_boolean_t            stale_shd = _gf_false;
 
         GF_ASSERT (vols);
         GF_ASSERT (status);
@@ -2228,16 +2246,20 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
         }
 
         if (update) {
-                if (glusterd_is_nfs_started ())
+                if (glusterd_is_nodesvc_running ("nfs"))
                         stale_nfs = _gf_true;
+                if (glusterd_is_nodesvc_running ("glustershd"))
+                        stale_shd = _gf_true;
                 ret = glusterd_import_friend_volumes (vols);
                 if (ret)
                         goto out;
                 if (_gf_false == glusterd_are_all_volumes_stopped ()) {
-                        ret = glusterd_check_generate_start_nfs ();
+                        ret = glusterd_nodesvcs_handle_graph_change (NULL);
                 } else {
                         if (stale_nfs)
                                 glusterd_nfs_server_stop ();
+                        if (stale_shd)
+                                glusterd_shd_stop ();
                 }
         }
 
@@ -2249,29 +2271,81 @@ out:
 }
 
 gf_boolean_t
-glusterd_is_nfs_started ()
+glusterd_is_service_running (char *pidfile)
 {
-        int32_t                 ret = -1;
-        xlator_t                *this = NULL;
-        glusterd_conf_t         *priv = NULL;
-        char                    pidfile[PATH_MAX] = {0,};
+        FILE            *file = NULL;
+        gf_boolean_t    running = _gf_false;
+        gf_boolean_t    locked = _gf_false;
+        int             ret = 0;
+        int             fno = 0;
 
-        this = THIS;
-        GF_ASSERT(this);
+        file = fopen (pidfile, "r+");
+        if (!file)
+                goto out;
 
-        priv = this->private;
+        fno = fileno (file);
+        ret = lockf (fno, F_TLOCK, 0);
+        if (!ret) {
+                locked = _gf_true;
+                goto out;
+        }
 
-        GLUSTERD_GET_NFS_PIDFILE(pidfile);
-        ret = access (pidfile, F_OK);
+        running = _gf_true;
+out:
+        if (locked) {
+                GF_ASSERT (file);
+                if (lockf (fno, F_ULOCK, 0) < 0)
+                        gf_log ("", GF_LOG_WARNING, "Cannot unlock pidfile: %s"
+                                " reason: %s", pidfile, strerror(errno));
+        }
+        if (file)
+                fclose (file);
+        return running;
+}
 
-        if (ret == 0)
-                return _gf_true;
-        else
-                return _gf_false;
+void
+glusterd_get_nodesvc_dir (char *server, char *workdir,
+                                char *path, size_t len)
+{
+        GF_ASSERT (len == PATH_MAX);
+        snprintf (path, len, "%s/%s", workdir, server);
+}
+
+void
+glusterd_get_nodesvc_rundir (char *server, char *workdir,
+                                   char *path, size_t len)
+{
+        char    dir[PATH_MAX] = {0};
+        GF_ASSERT (len == PATH_MAX);
+
+        glusterd_get_nodesvc_dir (server, workdir, dir, sizeof (dir));
+        snprintf (path, len, "%s/run", dir);
+}
+
+void
+glusterd_get_nodesvc_pidfile (char *server, char *workdir,
+                                    char *path, size_t len)
+{
+        char    dir[PATH_MAX] = {0};
+        GF_ASSERT (len == PATH_MAX);
+
+        glusterd_get_nodesvc_rundir (server, workdir, dir, sizeof (dir));
+        snprintf (path, len, "%s/%s.pid", dir, server);
+}
+
+void
+glusterd_get_nodesvc_volfile (char *server, char *workdir,
+                                    char *volfile, size_t len)
+{
+        char  dir[PATH_MAX] = {0,};
+        GF_ASSERT (len == PATH_MAX);
+
+        glusterd_get_nodesvc_dir (server, workdir, dir, sizeof (dir));
+        snprintf (volfile, len, "%s/%s-server.vol", dir, server);
 }
 
 int32_t
-glusterd_nfs_server_start ()
+glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
 {
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
@@ -2279,16 +2353,16 @@ glusterd_nfs_server_start ()
         char                    pidfile[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
         char                    volfile[PATH_MAX] = {0,};
-        char                    path[PATH_MAX] = {0,};
         char                    rundir[PATH_MAX] = {0,};
+        char                    volfileid[256]   = {0};
 
         this = THIS;
         GF_ASSERT(this);
 
         priv = this->private;
 
-        GLUSTERD_GET_NFS_DIR(path, priv);
-        snprintf (rundir, PATH_MAX, "%s/run", path);
+        glusterd_get_nodesvc_rundir (server, priv->workdir,
+                                           rundir, sizeof (rundir));
         ret = mkdir (rundir, 0777);
 
         if ((ret == -1) && (EEXIST != errno)) {
@@ -2297,21 +2371,68 @@ glusterd_nfs_server_start ()
                 goto out;
         }
 
-        GLUSTERD_GET_NFS_PIDFILE(pidfile);
-        glusterd_get_nfs_filepath (volfile);
-
+        glusterd_get_nodesvc_pidfile (server, priv->workdir,
+                                            pidfile, sizeof (pidfile));
+        glusterd_get_nodesvc_volfile (server, priv->workdir,
+                                            volfile, sizeof (volfile));
         ret = access (volfile, F_OK);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Nfs Volfile %s is not present",
-                        volfile);
+                gf_log ("", GF_LOG_ERROR, "%s Volfile %s is not present",
+                        server, volfile);
                 goto out;
         }
 
-        snprintf (logfile, PATH_MAX, "%s/nfs.log", DEFAULT_LOG_FILE_DIRECTORY);
+        snprintf (logfile, PATH_MAX, "%s/%s.log", DEFAULT_LOG_FILE_DIRECTORY,
+                  server);
+        snprintf (volfileid, sizeof (volfileid), "gluster/%s", server);
 
-        ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-f", volfile,
-                      "-p", pidfile, "-l", logfile, NULL);
+        if (pmap_signin)
+                ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-s", "localhost",
+                              "--volfile-id", volfileid,
+                              "-p", pidfile, "-l", logfile, NULL);
+        else
+                ret = runcmd (GFS_PREFIX"/sbin/glusterfs", "-f", volfile,
+                              "-p", pidfile, "-l", logfile, NULL);
 
+out:
+        return ret;
+}
+
+int
+glusterd_nfs_server_start ()
+{
+        return glusterd_nodesvc_start ("nfs", _gf_false);
+}
+
+int
+glusterd_shd_start ()
+{
+        return glusterd_nodesvc_start ("glustershd", _gf_true);
+}
+
+gf_boolean_t
+glusterd_is_nodesvc_running (char *server)
+{
+        char                    pidfile[PATH_MAX] = {0,};
+        glusterd_conf_t         *priv = THIS->private;
+
+        glusterd_get_nodesvc_pidfile (server, priv->workdir,
+                                            pidfile, sizeof (pidfile));
+        return glusterd_is_service_running (pidfile);
+}
+
+int32_t
+glusterd_nodesvc_stop (char *server, int sig)
+{
+        char                    pidfile[PATH_MAX] = {0,};
+        glusterd_conf_t         *priv = THIS->private;
+        int                     ret = 0;
+
+        if (!glusterd_is_nodesvc_running (server))
+                goto out;
+        glusterd_get_nodesvc_pidfile (server, priv->workdir,
+                                            pidfile, sizeof (pidfile));
+        ret = glusterd_service_stop (server, pidfile, sig, _gf_true);
 out:
         return ret;
 }
@@ -2336,26 +2457,27 @@ glusterd_nfs_pmap_deregister ()
 
 }
 
-int32_t
+int
 glusterd_nfs_server_stop ()
 {
-        xlator_t                *this = NULL;
-        glusterd_conf_t         *priv = NULL;
-        char                    pidfile[PATH_MAX] = {0,};
-        char                    path[PATH_MAX] = {0,};
+        int                     ret = 0;
+        gf_boolean_t            deregister = _gf_false;
 
-        this = THIS;
-        GF_ASSERT(this);
+        if (glusterd_is_nodesvc_running ("nfs"))
+                deregister = _gf_true;
+        ret = glusterd_nodesvc_stop ("nfs", SIGKILL);
+        if (ret)
+                goto out;
+        if (deregister)
+                glusterd_nfs_pmap_deregister ();
+out:
+        return ret;
+}
 
-        priv = this->private;
-
-        GLUSTERD_GET_NFS_DIR(path, priv);
-        GLUSTERD_GET_NFS_PIDFILE(pidfile);
-
-        glusterd_service_stop ("nfsd", pidfile, SIGKILL, _gf_true);
-        glusterd_nfs_pmap_deregister ();
-
-        return 0;
+int
+glusterd_shd_stop ()
+{
+        return glusterd_nodesvc_stop ("glustershd", SIGTERM);
 }
 
 int
@@ -2392,23 +2514,119 @@ out:
 }
 
 int
-glusterd_check_generate_start_nfs ()
+glusterd_check_generate_start_service (int (*create_volfile) (),
+                                       int (*stop) (), int (*start) ())
 {
         int ret = -1;
 
-        ret = glusterd_create_nfs_volfile ();
+        ret = create_volfile ();
         if (ret)
                 goto out;
 
-        if (glusterd_is_nfs_started ()) {
-                ret = glusterd_nfs_server_stop ();
-                if (ret)
-                        goto out;
-        }
+        ret = stop ();
+        if (ret)
+                goto out;
 
-        ret = glusterd_nfs_server_start ();
+        ret = start ();
 out:
         return ret;
+}
+
+int
+glusterd_reconfigure_nodesvc (int (*create_volfile) ())
+{
+        int ret = -1;
+
+        ret = create_volfile ();
+        if (ret)
+                goto out;
+
+        ret = glusterd_fetchspec_notify (THIS);
+out:
+        return ret;
+}
+
+int
+glusterd_reconfigure_shd ()
+{
+        int (*create_volfile) () = glusterd_create_shd_volfile;
+        return glusterd_reconfigure_nodesvc (create_volfile);
+}
+
+int
+glusterd_check_generate_start_nfs ()
+{
+        int ret = 0;
+
+        ret = glusterd_check_generate_start_service (glusterd_create_nfs_volfile,
+                                                     glusterd_nfs_server_stop,
+                                                     glusterd_nfs_server_start);
+        return ret;
+}
+
+int
+glusterd_check_generate_start_shd ()
+{
+        int ret = 0;
+
+        ret = glusterd_check_generate_start_service (glusterd_create_shd_volfile,
+                                                     glusterd_shd_stop,
+                                                     glusterd_shd_start);
+        if (ret == -EINVAL)
+                ret = 0;
+        return ret;
+}
+
+int
+glusterd_nodesvcs_batch_op (glusterd_volinfo_t *volinfo,
+                             int (*nfs_op) (), int (*shd_op) ())
+{
+        int     ret = 0;
+
+        ret = nfs_op ();
+        if (ret)
+                goto out;
+
+        if (volinfo && !glusterd_is_volume_replicate (volinfo))
+                goto out;
+
+        ret = shd_op ();
+        if (ret)
+                goto out;
+out:
+        return ret;
+}
+
+int
+glusterd_nodesvcs_start (glusterd_volinfo_t *volinfo)
+{
+        return glusterd_nodesvcs_batch_op (volinfo,
+                                            glusterd_nfs_server_start,
+                                            glusterd_shd_start);
+}
+
+int
+glusterd_nodesvcs_stop (glusterd_volinfo_t *volinfo)
+{
+        return glusterd_nodesvcs_batch_op (volinfo,
+                                            glusterd_nfs_server_stop,
+                                            glusterd_shd_stop);
+}
+
+int
+glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo)
+{
+        return glusterd_nodesvcs_batch_op (volinfo,
+                                      glusterd_check_generate_start_nfs,
+                                      glusterd_check_generate_start_shd);
+}
+
+int
+glusterd_nodesvcs_handle_reconfigure (glusterd_volinfo_t *volinfo)
+{
+        return glusterd_nodesvcs_batch_op (volinfo,
+                                            glusterd_check_generate_start_nfs,
+                                            glusterd_reconfigure_shd);
 }
 
 int
@@ -2510,7 +2728,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         glusterd_volinfo_t       *volinfo = NULL;
         glusterd_brickinfo_t     *brickinfo = NULL;
         int                      ret = 0;
-        gf_boolean_t             start_nfs = _gf_false;
+        gf_boolean_t             start_nodesvcs = _gf_false;
 
         GF_ASSERT (conf);
 
@@ -2521,11 +2739,11 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                              brick_list) {
                                 glusterd_brick_start (volinfo, brickinfo);
                         }
-                        start_nfs = _gf_true;
+                        start_nodesvcs = _gf_true;
                 }
         }
-        if (start_nfs)
-                glusterd_check_generate_start_nfs ();
+        if (start_nodesvcs)
+                glusterd_nodesvcs_handle_graph_change (NULL);
         return ret;
 }
 
@@ -3740,3 +3958,12 @@ out:
         return ret;
 }
 
+gf_boolean_t
+glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo)
+{
+        gf_boolean_t    replicates = _gf_false;
+        if (volinfo && ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) ||
+            (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)))
+                replicates = _gf_true;
+        return replicates;
+}

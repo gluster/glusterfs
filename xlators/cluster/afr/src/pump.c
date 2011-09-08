@@ -149,71 +149,6 @@ pump_set_resume_path (xlator_t *this, const char *path)
         return ret;
 }
 
-static void
-build_child_loc (loc_t *parent, loc_t *child, char *path, char *name)
-{
-        child->path = path;
-        child->name = name;
-
-        child->parent = inode_ref (parent->inode);
-        child->inode = inode_new (parent->inode->table);
-}
-
-static char *
-build_file_path (loc_t *loc, gf_dirent_t *entry)
-{
-        xlator_t *this = NULL;
-        char *file_path = NULL;
-        int pathlen = 0;
-        int total_size = 0;
-
-        this = THIS;
-
-        pathlen = STRLEN_0 (loc->path);
-
-        if (IS_ROOT_PATH (loc->path)) {
-                total_size = pathlen + entry->d_len;
-                file_path = GF_CALLOC (1, total_size, gf_afr_mt_char);
-                if (!file_path) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        return NULL;
-                }
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "constructing file path of size=%d"
-                        "pathlen=%d, d_len=%d",
-                        total_size, pathlen,
-                        entry->d_len);
-
-                snprintf(file_path, total_size, "%s%s", loc->path, entry->d_name);
-
-        } else {
-                total_size = pathlen + entry->d_len + 1; /* for the extra '/' in the path */
-                file_path = GF_CALLOC (1, total_size + 1, gf_afr_mt_char);
-                if (!file_path) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        return NULL;
-                }
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "constructing file path of size=%d"
-                        "pathlen=%d, d_len=%d",
-                        total_size, pathlen,
-                        entry->d_len);
-
-                snprintf(file_path, total_size, "%s/%s", loc->path, entry->d_name);
-        }
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "path=%s and d_name=%s", loc->path, entry->d_name);
-        gf_log (this->name, GF_LOG_TRACE,
-                "constructed file_path=%s of size=%d", file_path, total_size);
-
-        return file_path;
-}
-
 static int
 pump_save_path (xlator_t *this, const char *path)
 {
@@ -232,7 +167,7 @@ pump_save_path (xlator_t *this, const char *path)
 
         GF_ASSERT (priv->root_inode);
 
-        build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (priv->root_inode, &loc);
 
         dict = dict_new ();
         dict_ret = dict_set_str (dict, PUMP_PATH, (char *)path);
@@ -450,14 +385,15 @@ gf_pump_traverse_directory (loc_t *loc)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "found readdir entry=%s", entry->d_name);
 
-                        file_path = build_file_path (loc, entry);
+                        file_path = afr_build_file_path (loc, entry);
                         if (!file_path) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "file path construction failed");
                                 goto out;
                         }
 
-                        build_child_loc (loc, &entry_loc, file_path, entry->d_name);
+                        afr_build_child_loc (loc, &entry_loc, file_path,
+                                             entry->d_name);
 
                         if (!IS_ENTRY_CWD (entry->d_name) &&
                                            !IS_ENTRY_PARENT (entry->d_name)) {
@@ -530,19 +466,6 @@ out:
 
 }
 
-void
-build_root_loc (inode_t *inode, loc_t *loc)
-{
-        loc->path = "/";
-        loc->name = "";
-        loc->inode = inode;
-        loc->ino = 1;
-        loc->inode->ino = 1;
-        memset (loc->inode->gfid, 0, 16);
-        loc->inode->gfid[15] = 1;
-
-}
-
 static int
 pump_update_resume_path (xlator_t *this)
 {
@@ -583,7 +506,7 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv      = this->private;
 
-        build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (priv->root_inode, &loc);
 
         ret = syncop_removexattr (priv->children[source], &loc,
                                           PUMP_PATH);
@@ -618,7 +541,7 @@ pump_complete_migration (xlator_t *this)
 
         GF_ASSERT (priv->root_inode);
 
-        build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (priv->root_inode, &loc);
 
         dict = dict_new ();
 
@@ -656,20 +579,6 @@ pump_complete_migration (xlator_t *this)
 }
 
 static int
-pump_set_root_gfid (dict_t *dict)
-{
-        uuid_t gfid;
-        int ret = 0;
-
-        memset (gfid, 0, 16);
-        gfid[15] = 1;
-
-        ret = afr_set_dict_gfid (dict, gfid);
-
-        return ret;
-}
-
-static int
 pump_lookup_sink (loc_t *loc)
 {
         xlator_t *this = NULL;
@@ -682,7 +591,7 @@ pump_lookup_sink (loc_t *loc)
 
         xattr_req = dict_new ();
 
-        ret = pump_set_root_gfid (xattr_req);
+        ret = afr_set_root_gfid (xattr_req);
         if (ret)
                 goto out;
 
@@ -721,7 +630,7 @@ pump_task (void *data)
 
         GF_ASSERT (priv->root_inode);
 
-        build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (priv->root_inode, &loc);
         xattr_req = dict_new ();
         if (!xattr_req) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -730,7 +639,7 @@ pump_task (void *data)
                 goto out;
         }
 
-        pump_set_root_gfid (xattr_req);
+        afr_set_root_gfid (xattr_req);
         ret = syncop_lookup (this, &loc, xattr_req,
                              &iatt, &xattr_rsp, &parent);
 
@@ -746,7 +655,7 @@ pump_task (void *data)
 
         pump_update_resume_path (this);
 
-        pump_set_root_gfid (xattr_req);
+        afr_set_root_gfid (xattr_req);
         ret = pump_lookup_sink (&loc);
         if (ret) {
                 pump_update_resume_path (this);
@@ -894,7 +803,7 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 
         GF_ASSERT (priv->root_inode);
 
-        build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (priv->root_inode, &loc);
 
         data = data_ref (dict_get (local->dict, PUMP_CMD_START));
         if (!data) {
@@ -1132,7 +1041,7 @@ pump_execute_start (call_frame_t *frame, xlator_t *this)
 
         GF_ASSERT (priv->root_inode);
 
-        build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (priv->root_inode, &loc);
 
 	STACK_WIND (frame,
 		    pump_cmd_start_getxattr_cbk,

@@ -263,11 +263,6 @@ enum glusterd_vol_comp_status_ {
 
 typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
-#define GLUSTERD_GET_NFS_DIR(path, priv)                                \
-        do {                                                            \
-                snprintf (path, PATH_MAX, "%s/nfs", priv->workdir);\
-        } while (0);                                                    \
-
 #define GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv) \
         snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,\
                   volinfo->volname);
@@ -276,10 +271,6 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
         snprintf (path, PATH_MAX, "%s/%s/%s/%s", priv->workdir,\
                   GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname, \
                   GLUSTERD_BRICK_INFO_DIR);
-
-#define GLUSTERD_GET_NFS_PIDFILE(pidfile)                               \
-                snprintf (pidfile, PATH_MAX, "%s/nfs/run/nfs.pid", \
-                          priv->workdir);                               \
 
 #define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {               \
                 int i = 0;                                              \
