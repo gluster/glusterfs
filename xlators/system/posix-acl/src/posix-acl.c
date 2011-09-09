@@ -512,7 +512,8 @@ posix_acl_inherit_mode (struct posix_acl *acl, mode_t modein)
                 mode &= (group_ce->perm << 3) | ~S_IRWXG;
         }
 
-        newmode = ((modein & S_IFMT) | (mode & (S_IRWXU|S_IRWXG|S_IRWXO)));
+        newmode = ((modein & (S_IFMT | S_ISUID | S_ISGID | S_ISVTX)) |
+		   (mode & (S_IRWXU|S_IRWXG|S_IRWXO)));
 
         return newmode;
 }
