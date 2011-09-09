@@ -2537,6 +2537,147 @@ unwind:
 
 
 int32_t
+quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 struct iatt *buf, struct iatt *preparent,
+                 struct iatt *postparent)
+{
+        int32_t            ret    = -1;
+        quota_local_t     *local  = NULL;
+        quota_inode_ctx_t *ctx    = NULL;
+        quota_dentry_t    *dentry = NULL;
+
+        local = frame->local;
+        if (op_ret < 0) {
+                goto unwind;
+        }
+
+        ret = quota_inode_ctx_get (inode, -1, this, NULL, buf, &ctx, 1);
+        if ((ret == -1) || (ctx == NULL)) {
+                gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
+                        "context in inode(ino:%"PRId64", gfid:%s)",
+                        inode->ino, uuid_utoa (inode->gfid));
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        LOCK (&ctx->lock);
+        {
+                ctx->buf = *buf;
+
+                dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
+                                             local->loc.parent->ino);
+                if (dentry == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot create a new dentry (par:%"
+                                PRId64", name:%s) for inode(ino:%"
+                                PRId64", gfid:%s)", local->loc.parent->ino,
+                                local->loc.name, local->loc.inode->ino,
+                                uuid_utoa (local->loc.inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unlock;
+                }
+        }
+unlock:
+        UNLOCK (&ctx->lock);
+
+unwind:
+        QUOTA_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode,
+                            buf, preparent, postparent);
+        return 0;
+}
+
+
+int
+quota_mknod_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    mode_t mode, dev_t rdev, dict_t *parms)
+{
+        quota_local_t *local    = NULL;
+        int32_t        op_errno = EINVAL;
+
+        local = frame->local;
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
+                goto unwind;
+        }
+
+        if (local->op_ret == -1) {
+                op_errno = local->op_errno;
+                goto unwind;
+        }
+
+        STACK_WIND (frame, quota_mknod_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, parms);
+
+        return 0;
+
+unwind:
+        QUOTA_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL,
+                            NULL, NULL);
+        return 0;
+}
+
+
+int
+quota_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+             dev_t rdev, dict_t *parms)
+{
+        int32_t            ret            = -1;
+        quota_local_t     *local          = NULL;
+        call_stub_t       *stub           = NULL;
+
+        local = quota_local_new ();
+        if (local == NULL) {
+                goto err;
+        }
+
+        frame->local = local;
+
+        ret = loc_copy (&local->loc, loc);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                goto err;
+        }
+
+        stub = fop_mknod_stub (frame, quota_mknod_helper, loc, mode, rdev,
+                               parms);
+        if (stub == NULL) {
+                goto err;
+        }
+
+        local->link_count = 1;
+        local->stub = stub;
+        local->delta = 0;
+
+        quota_check_limit (frame, loc->parent, this, NULL, 0);
+
+        stub = NULL;
+
+        LOCK (&local->lock);
+        {
+                local->link_count = 0;
+                if (local->validate_count == 0) {
+                        stub = local->stub;
+                        local->stub = NULL;
+                }
+        }
+        UNLOCK (&local->lock);
+
+        if (stub != NULL) {
+                call_resume (stub);
+        }
+
+        return 0;
+err:
+        QUOTA_STACK_UNWIND (mknod, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+
+        return 0;
+}
+
+
+int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
@@ -2738,6 +2879,7 @@ struct xlator_fops fops = {
         .fsync     = quota_fsync,
         .setattr   = quota_setattr,
         .fsetattr  = quota_fsetattr,
+        .mknod     = quota_mknod
 };
 
 struct xlator_cbks cbks = {
