@@ -1669,7 +1669,7 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
                 goto out;
         }
 
-        ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"Description",
+        ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"description",
                                               "%s",  dscrpt );
         if (ret < 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
