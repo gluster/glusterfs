@@ -856,23 +856,36 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                          "rebalance process");
                         goto done;
                 }
-                if (rsp.op_errno == 0)
-                        status = "not started";
-                if (rsp.op_errno == 1)
-                        status = "step 1: layout fix in progress";
-                if (rsp.op_errno == 2)
-                        status = "step 2: data migration in progress";
-                if (rsp.op_errno == 3)
-                        status = "stopped";
-                if (rsp.op_errno == 4)
-                        status = "completed";
-                if (rsp.op_errno == 5)
-                        status = "failed";
-                if (rsp.op_errno == 6)
-                        status = "step 1: layout fix complete";
-                if (rsp.op_errno == 7)
-                        status = "step 2: data migration complete";
 
+                switch (rsp.op_errno) {
+                case GF_DEFRAG_STATUS_NOT_STARTED:
+                        status = "not started";
+                        break;
+                case GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED:
+                        status = "step 1: layout fix in progress";
+                        break;
+                case GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED:
+                        status = "step 2: data migration in progress";
+                        break;
+                case GF_DEFRAG_STATUS_STOPPED:
+                        status = "stopped";
+                        break;
+                case GF_DEFRAG_STATUS_COMPLETE:
+                        status = "completed";
+                        break;
+                case GF_DEFRAG_STATUS_FAILED:
+                        status = "failed";
+                        break;
+                case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
+                        status = "step 1: layout fix complete";
+                        break;
+                case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
+                        status = "step 2: data migration complete";
+                        break;
+                case GF_DEFRAG_STATUS_PAUSED:
+                        status = "paused";
+                        break;
+                }
                 if (rsp.files && (rsp.op_errno == 1)) {
                         cli_out ("rebalance %s: fixed layout %"PRId64,
                                  status, rsp.files);
@@ -1061,6 +1074,87 @@ out:
                 free (rsp.volname);
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
+        return ret;
+}
+
+int
+gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
+                                 int count, void *myframe)
+{
+        gf2_cli_defrag_vol_rsp  rsp     = {0,};
+        char                    *status  = "unknown";
+        int                      ret     = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        ret = rsp.op_ret;
+        if (rsp.op_ret == -1) {
+                if (strcmp (rsp.op_errstr, ""))
+                        cli_out ("%s", rsp.op_errstr);
+                else
+                        cli_out ("failed to get the status of "
+                                 "remove-brick process");
+                goto out;
+        }
+
+        switch (rsp.op_errno) {
+        case GF_DEFRAG_STATUS_NOT_STARTED:
+                status = "not started";
+                break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED:
+        case GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED:
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
+                status = "in progress";
+                break;
+        case GF_DEFRAG_STATUS_STOPPED:
+                status = "stopped";
+                break;
+        case GF_DEFRAG_STATUS_COMPLETE:
+        case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
+                status = "completed";
+                break;
+        case GF_DEFRAG_STATUS_FAILED:
+                status = "failed";
+                break;
+        case GF_DEFRAG_STATUS_PAUSED:
+                status = "paused";
+                break;
+        }
+
+        if (rsp.files && (rsp.op_errno == 1)) {
+                cli_out ("remove-brick %s: fixed layout %"PRId64,
+                         status, rsp.files);
+                goto out;
+        }
+        if (rsp.files && (rsp.op_errno == 6)) {
+                cli_out ("remove-brick %s: fixed layout %"PRId64,
+                         status, rsp.files);
+                goto out;
+        }
+        if (rsp.files) {
+                cli_out ("remove-brick %s: decommissioned %"PRId64
+                         " files of size %"PRId64, status,
+                         rsp.files, rsp.size);
+                goto out;
+        }
+
+        cli_out ("remove-brick %s", status);
+
+out:
+        if (rsp.op_errstr)
+                free (rsp.op_errstr); //malloced by xdr
+        if (rsp.volname)
+                free (rsp.volname); //malloced by xdr
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -2160,8 +2254,11 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_remove_brick_req  req = {0,};
+        gf1_cli_defrag_vol_req    status_req = {0,};
         int                       ret = 0;
-        dict_t                    *dict = NULL;
+        dict_t                   *dict = NULL;
+        int32_t                   command = 0;
+        char                     *volname = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -2170,30 +2267,45 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_get_str (dict, "volname", &req.volname);
-
+        ret = dict_get_str (dict, "volname", &volname);
         if (ret)
                 goto out;
 
         ret = dict_get_int32 (dict, "count", &req.count);
-
         if (ret)
                 goto out;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.bricks.bricks_val,
-                                           (size_t *)&req.bricks.bricks_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get serialized length of dict");
+        ret = dict_get_int32 (dict, "command", &command);
+        if (ret)
                 goto out;
+
+        if (command != GF_OP_CMD_STATUS) {
+                req.volname = volname;
+
+                ret = dict_allocate_and_serialize (dict,
+                                                   &req.bricks.bricks_val,
+                                                   (size_t *)&req.bricks.bricks_len);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to get serialized length of dict");
+                        goto out;
+                }
+
+                ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                                      GLUSTER_CLI_REMOVE_BRICK, NULL,
+                                      this, gf_cli3_1_remove_brick_cbk,
+                                      (xdrproc_t) xdr_gf1_cli_remove_brick_req);
+        } else {
+                /* Need rebalance status to e sent :-) */
+                status_req.volname = volname;
+                status_req.cmd = GF_DEFRAG_CMD_STATUS;
+
+                ret = cli_cmd_submit (&status_req, frame, cli_rpc_prog,
+                                      GLUSTER_CLI_DEFRAG_VOLUME, NULL,
+                                      this, gf_cli3_remove_brick_status_cbk,
+                                      (xdrproc_t) xdr_gf1_cli_defrag_vol_req);
+
         }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_REMOVE_BRICK, NULL,
-                              this, gf_cli3_1_remove_brick_cbk,
-                              (xdrproc_t) xdr_gf1_cli_remove_brick_req);
-
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);

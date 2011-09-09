@@ -1690,6 +1690,46 @@ dht_common_setxattr_cbk (call_frame_t *frame, void *cookie,
 }
 
 int
+dht_checking_pathinfo_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int op_ret, int op_errno, dict_t *xattr)
+{
+        int           i     = -1;
+        int           ret   = -1;
+        char         *value = NULL;
+        dht_local_t  *local = NULL;
+        dht_conf_t   *conf  = NULL;
+        call_frame_t *prev  = NULL;
+        int           this_call_cnt = 0;
+
+        local = frame->local;
+        prev = cookie;
+        conf = this->private;
+
+        if (op_ret == -1)
+                goto out;
+
+
+        ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &value);
+        if (ret)
+                goto out;
+
+        if (!strcmp (value, local->key)) {
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (conf->subvolumes[i] == prev->this)
+                                conf->decommissioned_bricks[i] = prev->this;
+                }
+        }
+
+out:
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                DHT_STACK_UNWIND (setxattr, frame, local->op_ret, ENOTSUP);
+        }
+        return 0;
+
+}
+
+int
 dht_setxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr, int flags)
 {
@@ -1769,6 +1809,28 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto err;
 
+        }
+
+        tmp = dict_get (xattr, "decommission-brick");
+        if (tmp) {
+                /* This operation should happen only on '/' */
+                if (__is_root_gfid (loc->inode->gfid) != 0) {
+                        op_errno = ENOTSUP;
+                        goto err;
+                }
+
+                memcpy (value, tmp->data, ((tmp->len < 4095) ? tmp->len : 4095));
+                local->key = gf_strdup (value);
+                local->call_cnt = conf->subvolume_cnt;
+
+                for (i = 0 ; i < conf->subvolume_cnt; i++) {
+                        /* Get the pathinfo, and then compare */
+                        STACK_WIND (frame, dht_checking_pathinfo_cbk,
+                                    conf->subvolumes[i],
+                                    conf->subvolumes[i]->fops->getxattr,
+                                    loc, GF_XATTR_PATHINFO_KEY);
+                }
+                return 0;
         }
 
         tmp = dict_get (xattr, GF_XATTR_FIX_LAYOUT_KEY);

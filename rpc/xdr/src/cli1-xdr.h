@@ -42,8 +42,22 @@ enum gf_cli_defrag_type {
 	GF_DEFRAG_CMD_START_LAYOUT_FIX = 1 + 3,
 	GF_DEFRAG_CMD_START_MIGRATE_DATA = 1 + 4,
 	GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE = 1 + 5,
+	GF_DEFRAG_CMD_START_FORCE = 1 + 6,
 };
 typedef enum gf_cli_defrag_type gf_cli_defrag_type;
+
+enum gf_defrag_status_t {
+	GF_DEFRAG_STATUS_NOT_STARTED = 0,
+	GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED = 1,
+	GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED = 2,
+	GF_DEFRAG_STATUS_STOPPED = 3,
+	GF_DEFRAG_STATUS_COMPLETE = 4,
+	GF_DEFRAG_STATUS_FAILED = 5,
+	GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE = 6,
+	GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE = 7,
+	GF_DEFRAG_STATUS_PAUSED = 8,
+};
+typedef enum gf_defrag_status_t gf_defrag_status_t;
 
 enum gf1_cluster_type {
 	GF_CLUSTER_TYPE_NONE = 0,
@@ -63,6 +77,17 @@ enum gf1_cli_replace_op {
 	GF_REPLACE_OP_COMMIT_FORCE = 0 + 6,
 };
 typedef enum gf1_cli_replace_op gf1_cli_replace_op;
+
+enum gf1_op_commands {
+	GF_OP_CMD_NONE = 0,
+	GF_OP_CMD_START = 0 + 1,
+	GF_OP_CMD_COMMIT = 0 + 2,
+	GF_OP_CMD_PAUSE = 0 + 3,
+	GF_OP_CMD_ABORT = 0 + 4,
+	GF_OP_CMD_STATUS = 0 + 5,
+	GF_OP_CMD_COMMIT_FORCE = 0 + 6,
+};
+typedef enum gf1_op_commands gf1_op_commands;
 
 enum gf_quota_type {
 	GF_QUOTA_OPTION_TYPE_NONE = 0,
@@ -593,8 +618,10 @@ typedef struct gf1_cli_umount_rsp gf1_cli_umount_rsp;
 
 #if defined(__STDC__) || defined(__cplusplus)
 extern  bool_t xdr_gf_cli_defrag_type (XDR *, gf_cli_defrag_type*);
+extern  bool_t xdr_gf_defrag_status_t (XDR *, gf_defrag_status_t*);
 extern  bool_t xdr_gf1_cluster_type (XDR *, gf1_cluster_type*);
 extern  bool_t xdr_gf1_cli_replace_op (XDR *, gf1_cli_replace_op*);
+extern  bool_t xdr_gf1_op_commands (XDR *, gf1_op_commands*);
 extern  bool_t xdr_gf_quota_type (XDR *, gf_quota_type*);
 extern  bool_t xdr_gf1_cli_friends_list (XDR *, gf1_cli_friends_list*);
 extern  bool_t xdr_gf1_cli_get_volume (XDR *, gf1_cli_get_volume*);
@@ -663,8 +690,10 @@ extern  bool_t xdr_gf1_cli_umount_rsp (XDR *, gf1_cli_umount_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf_cli_defrag_type ();
+extern bool_t xdr_gf_defrag_status_t ();
 extern bool_t xdr_gf1_cluster_type ();
 extern bool_t xdr_gf1_cli_replace_op ();
+extern bool_t xdr_gf1_op_commands ();
 extern bool_t xdr_gf_quota_type ();
 extern bool_t xdr_gf1_cli_friends_list ();
 extern bool_t xdr_gf1_cli_get_volume ();

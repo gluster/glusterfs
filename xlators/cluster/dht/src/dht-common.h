@@ -202,6 +202,9 @@ struct dht_conf {
         uint32_t       dir_spread_cnt;
 
 	struct syncenv *env; /* The env pointer to the rebalance synctask */
+
+        /* to keep track of nodes which are decomissioned */
+        xlator_t     **decommissioned_bricks;
 };
 typedef struct dht_conf dht_conf_t;
 

@@ -800,6 +800,7 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         gf_answer_t             answer = GF_ANSWER_NO;
         int                     sent = 0;
         int                     parse_error = 0;
+        int                     need_question = 0;
 
         const char *question = "Removing brick(s) can result in data loss. "
                                "Do you want to Continue?";
@@ -808,7 +809,8 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options);
+        ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options,
+                                                 &need_question);
 
         if (ret) {
                 cli_usage_out (word->pattern);
@@ -816,11 +818,13 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
                 goto out;
         }
 
-        answer = cli_cmd_get_confirmation (state, question);
-
-        if (GF_ANSWER_NO == answer) {
-                ret = 0;
-                goto out;
+        if (!(state->mode & GLUSTER_MODE_SCRIPT) && need_question) {
+                /* we need to ask question only in case of 'commit or force' */
+                answer = cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
+                        goto out;
+                }
         }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_REMOVE_BRICK];
@@ -1304,7 +1308,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_add_brick_cbk,
           "add brick to volume <VOLNAME>"},
 
-        { "volume remove-brick <VOLNAME> <BRICK> ...",
+        { "volume remove-brick <VOLNAME> <BRICK> ... {start|pause|abort|status|commit|force}",
           cli_cmd_volume_remove_brick_cbk,
           "remove brick from volume <VOLNAME>"},
 

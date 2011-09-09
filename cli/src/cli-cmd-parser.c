@@ -753,7 +753,7 @@ out:
 
 int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
-                                   dict_t **options)
+                                   dict_t **options, int *question)
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
@@ -765,6 +765,10 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         int32_t j = 0;
         char    *tmp_brick = NULL;
         char    *tmp_brick1 = NULL;
+        char    *opwords[] = { "start", "commit", "pause", "abort", "status",
+                               "force", NULL };
+        char    *w = NULL;
+        int32_t  command = GF_OP_CMD_NONE;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -782,19 +786,53 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         GF_ASSERT (volname);
 
         ret = dict_set_str (dict, "volname", volname);
-
         if (ret)
                 goto out;
+
+        w = str_getunamb (words[wordcount - 1], opwords);
+        if (!w) {
+                /* Should be default 'force' */
+                command = GF_OP_CMD_COMMIT_FORCE;
+                if (question)
+                        *question = 1;
+        } else {
+                /* handled this option */
+                wordcount--;
+                if (!strcmp ("start", w)) {
+                        command = GF_OP_CMD_START;
+                } else if (!strcmp ("commit", w)) {
+                        command = GF_OP_CMD_COMMIT;
+                        if (question)
+                                *question = 1;
+                } else if (!strcmp ("pause", w)) {
+                        command = GF_OP_CMD_PAUSE;
+                } else if (!strcmp ("abort", w)) {
+                        command = GF_OP_CMD_ABORT;
+                } else if (!strcmp ("status", w)) {
+                        command = GF_OP_CMD_STATUS;
+                } else if (!strcmp ("force", w)) {
+                        command = GF_OP_CMD_COMMIT_FORCE;
+                        if (question)
+                                *question = 1;
+                } else {
+                        GF_ASSERT (!"opword mismatch");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         if (wordcount < 4) {
                 ret = -1;
                 goto out;
         }
 
-        brick_index = 3;
-
+        ret = dict_set_int32 (dict, "command", command);
         if (ret)
-                goto out;
+                gf_log ("cli", GF_LOG_INFO, "failed to set 'command' %d",
+                        command);
+
+
+        brick_index = 3;
 
         tmp_index = brick_index;
         tmp_brick = GF_MALLOC(2048 * sizeof(*tmp_brick), gf_common_mt_char);
@@ -805,7 +843,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                 ret = -1;
                 goto out;
         }
- 
+
         tmp_brick1 = GF_MALLOC(2048 * sizeof(*tmp_brick1), gf_common_mt_char);
 
         if (!tmp_brick1) {
@@ -850,7 +888,6 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         }
 
         ret = dict_set_int32 (dict, "count", brick_count);
-
         if (ret)
                 goto out;
 
