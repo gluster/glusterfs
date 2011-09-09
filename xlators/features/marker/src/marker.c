@@ -468,7 +468,7 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                quota_set_inode_xattr (this, &local->loc);
+                mq_set_inode_xattr (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -539,7 +539,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                inspect_file_xattr (this, &local->loc, NULL, *buf);
+                mq_inspect_file_xattr (this, &local->loc, NULL, *buf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -609,7 +609,7 @@ marker_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -684,7 +684,7 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                reduce_parent_size (this, &local->loc, -1);
+                mq_reduce_parent_size (this, &local->loc, -1);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -751,7 +751,7 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if ((priv->feature_enabled & GF_QUOTA) && (local->ia_nlink == 1))
-                reduce_parent_size (this, &local->loc, -1);
+                mq_reduce_parent_size (this, &local->loc, -1);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -853,7 +853,7 @@ marker_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -930,10 +930,10 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                                      NULL, NULL, NULL);
         }
 
-        reduce_parent_size (this, &oplocal->loc, oplocal->contribution);
+        mq_reduce_parent_size (this, &oplocal->loc, oplocal->contribution);
 
         if (local->loc.inode != NULL) {
-                reduce_parent_size (this, &local->loc, local->contribution);
+                mq_reduce_parent_size (this, &local->loc, local->contribution);
         }
 
         newloc.inode = inode_ref (oplocal->loc.inode);
@@ -944,7 +944,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
         newloc.parent = inode_ref (local->loc.parent);
         newloc.ino = oplocal->loc.inode->ino;
 
-        quota_rename_update_newpath (this, &newloc);
+        mq_rename_update_newpath (this, &newloc);
 
         loc_wipe (&newloc);
 
@@ -1398,11 +1398,11 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 goto rename_wind;
         }
 
-        ret = quota_inode_loc_fill (NULL, newloc->parent, &local->parent_loc);
+        ret = mq_inode_loc_fill (NULL, newloc->parent, &local->parent_loc);
         if (ret < 0)
                 goto err;
 
-        ret = quota_inode_loc_fill (NULL, oldloc->parent, &oplocal->parent_loc);
+        ret = mq_inode_loc_fill (NULL, oldloc->parent, &oplocal->parent_loc);
         if (ret < 0)
                 goto err;
 
@@ -1472,7 +1472,7 @@ marker_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1540,7 +1540,7 @@ marker_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1608,7 +1608,7 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                inspect_file_xattr (this, &local->loc, NULL, *buf);
+                mq_inspect_file_xattr (this, &local->loc, NULL, *buf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1677,7 +1677,7 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if ((priv->feature_enabled & GF_QUOTA) && (S_ISREG (local->mode))) {
-                inspect_file_xattr (this, &local->loc, NULL, *buf);
+                mq_inspect_file_xattr (this, &local->loc, NULL, *buf);
         }
 
         if (priv->feature_enabled & GF_XTIME)
@@ -2140,7 +2140,7 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA) {
-                quota_xattr_state (this, &local->loc, dict, *buf);
+                mq_xattr_state (this, &local->loc, dict, *buf);
         }
 
 out:
@@ -2171,7 +2171,7 @@ marker_lookup (call_frame_t *frame, xlator_t *this,
                 goto err;
 
         if ((priv->feature_enabled & GF_QUOTA) && xattr_req)
-                quota_req_xattr (this, loc, xattr_req);
+                mq_req_xattr (this, loc, xattr_req);
 wind:
         STACK_WIND (frame, marker_lookup_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
@@ -2442,7 +2442,7 @@ marker_forget (xlator_t *this, inode_t *inode)
                 goto out;
         }
 
-        quota_forget (this, ctx->quota_ctx);
+        mq_forget (this, ctx->quota_ctx);
 
         GF_FREE (ctx);
 out:

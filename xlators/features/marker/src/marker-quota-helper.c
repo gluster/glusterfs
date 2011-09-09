@@ -28,7 +28,7 @@
 #include "marker-mem-types.h"
 
 int
-quota_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
+mq_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 {
         int ret = -1;
 
@@ -69,7 +69,7 @@ out:
 
 
 int32_t
-quota_inode_loc_fill (const char *parent_gfid, inode_t *inode, loc_t *loc)
+mq_inode_loc_fill (const char *parent_gfid, inode_t *inode, loc_t *loc)
 {
         char            *resolvedpath = NULL;
         inode_t         *parent       = NULL;
@@ -97,7 +97,7 @@ ignore_parent:
         if (ret < 0)
                 goto err;
 
-        ret = quota_loc_fill (loc, inode, parent, resolvedpath);
+        ret = mq_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0)
                 goto err;
 
@@ -112,7 +112,7 @@ err:
 
 
 quota_inode_ctx_t *
-quota_alloc_inode_ctx ()
+mq_alloc_inode_ctx ()
 {
         int32_t                  ret    = -1;
         quota_inode_ctx_t       *ctx    = NULL;
@@ -131,7 +131,7 @@ out:
 }
 
 inode_contribution_t *
-get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
+mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
 {
         inode_contribution_t    *contri = NULL;
         inode_contribution_t    *temp   = NULL;
@@ -151,8 +151,8 @@ out:
 
 
 int32_t
-delete_contribution_node (dict_t *dict, char *key,
-                          inode_contribution_t *contribution)
+mq_delete_contribution_node (dict_t *dict, char *key,
+                             inode_contribution_t *contribution)
 {
         if (dict_get (dict, key) != NULL)
                 goto out;
@@ -164,7 +164,7 @@ out:
 
 
 inode_contribution_t *
-__add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
+__mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 {
         int32_t ret = 0;
         inode_contribution_t *contribution = NULL;
@@ -194,7 +194,7 @@ out:
 
 
 inode_contribution_t *
-add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
+mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 {
         inode_contribution_t *contribution = NULL;
 
@@ -206,7 +206,7 @@ add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 
         LOCK (&ctx->lock);
         {
-                contribution = __add_new_contribution_node (this, ctx, loc);
+                contribution = __mq_add_new_contribution_node (this, ctx, loc);
         }
         UNLOCK (&ctx->lock);
 
@@ -215,8 +215,8 @@ add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 
 
 int32_t
-dict_set_contribution (xlator_t *this, dict_t *dict,
-                       loc_t *loc)
+mq_dict_set_contribution (xlator_t *this, dict_t *dict,
+                          loc_t *loc)
 {
         int32_t ret              = -1;
         char    contri_key [512] = {0, };
@@ -246,8 +246,8 @@ out:
 
 
 int32_t
-quota_inode_ctx_get (inode_t *inode, xlator_t *this,
-                     quota_inode_ctx_t **ctx)
+mq_inode_ctx_get (inode_t *inode, xlator_t *this,
+                  quota_inode_ctx_t **ctx)
 {
         int32_t             ret      = -1;
         uint64_t            ctx_int  = 0;
@@ -280,7 +280,7 @@ out:
 
 
 quota_inode_ctx_t *
-__quota_inode_ctx_new (inode_t *inode, xlator_t *this)
+__mq_inode_ctx_new (inode_t *inode, xlator_t *this)
 {
         int32_t               ret        = -1;
         quota_inode_ctx_t    *quota_ctx  = NULL;
@@ -296,7 +296,7 @@ __quota_inode_ctx_new (inode_t *inode, xlator_t *this)
         LOCK (&inode->lock);
         {
                 if (mark_ctx->quota_ctx == NULL) {
-                        quota_ctx = quota_alloc_inode_ctx ();
+                        quota_ctx = mq_alloc_inode_ctx ();
                         if (quota_ctx == NULL) {
                                 ret = -1;
                                 goto unlock;
@@ -316,13 +316,13 @@ out:
 
 
 quota_inode_ctx_t *
-quota_inode_ctx_new (inode_t * inode, xlator_t *this)
+mq_inode_ctx_new (inode_t * inode, xlator_t *this)
 {
-        return __quota_inode_ctx_new (inode, this);
+        return __mq_inode_ctx_new (inode, this);
 }
 
 quota_local_t *
-quota_local_new ()
+mq_local_new ()
 {
         int32_t         ret     = -1;
         quota_local_t  *local   = NULL;
@@ -347,7 +347,7 @@ out:
 }
 
 quota_local_t *
-quota_local_ref (quota_local_t *local)
+mq_local_ref (quota_local_t *local)
 {
         LOCK (&local->lock);
         {
@@ -360,7 +360,7 @@ quota_local_ref (quota_local_t *local)
 
 
 int32_t
-quota_local_unref (xlator_t *this, quota_local_t *local)
+mq_local_unref (xlator_t *this, quota_local_t *local)
 {
         int32_t ref = 0;
         if (local == NULL)
@@ -387,13 +387,13 @@ out:
 
 
 inode_contribution_t *
-get_contribution_from_loc (xlator_t *this, loc_t *loc)
+mq_get_contribution_from_loc (xlator_t *this, loc_t *loc)
 {
         int32_t               ret          = 0;
         quota_inode_ctx_t    *ctx          = NULL;
         inode_contribution_t *contribution = NULL;
 
-        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                                   "cannot get marker-quota context from inode "
@@ -404,7 +404,7 @@ get_contribution_from_loc (xlator_t *this, loc_t *loc)
                 goto err;
         }
 
-        contribution = get_contribution_node (loc->parent, ctx);
+        contribution = mq_get_contribution_node (loc->parent, ctx);
         if (contribution == NULL) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                                   "inode (ino:%"PRId64", gfid:%s, path:%s ) has"
