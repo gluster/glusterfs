@@ -2297,7 +2297,7 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_REMOVE_BRICK:
-                        ret = glusterd_op_stage_remove_brick (dict);
+                        ret = glusterd_op_stage_remove_brick (dict, op_errstr);
                         break;
 
                 case GD_OP_LOG_FILENAME:
@@ -2387,7 +2387,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_REMOVE_BRICK:
-                        ret = glusterd_op_remove_brick (dict);
+                        ret = glusterd_op_remove_brick (dict, op_errstr);
                         break;
 
                 case GD_OP_LOG_FILENAME:
@@ -2565,6 +2565,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr)
         int32_t                                 i = 1;
         char                                    key[256] = {0,};
         glusterd_pending_node_t                 *pending_node = NULL;
+        int32_t                                 force = 0;
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -2586,6 +2587,12 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        ret = dict_get_int32 (dict, "force", &force);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_INFO, "force flag is not set");
+                ret = 0;
+                goto out;
+        }
 
         while ( i <= count) {
                 snprintf (key, 256, "brick%d", i);

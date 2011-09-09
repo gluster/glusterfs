@@ -4,7 +4,20 @@
         GF_DEFRAG_CMD_STATUS,
         GF_DEFRAG_CMD_START_LAYOUT_FIX,
         GF_DEFRAG_CMD_START_MIGRATE_DATA,
-        GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE
+        GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE,
+        GF_DEFRAG_CMD_START_FORCE /* used by remove-brick data migration */
+} ;
+
+ enum gf_defrag_status_t {
+        GF_DEFRAG_STATUS_NOT_STARTED,
+        GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED,
+        GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED,
+        GF_DEFRAG_STATUS_STOPPED,
+        GF_DEFRAG_STATUS_COMPLETE,
+        GF_DEFRAG_STATUS_FAILED,
+        GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE,
+        GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE,
+        GF_DEFRAG_STATUS_PAUSED
 } ;
 
  enum gf1_cluster_type {
@@ -22,6 +35,16 @@
         GF_REPLACE_OP_ABORT,
         GF_REPLACE_OP_STATUS,
         GF_REPLACE_OP_COMMIT_FORCE
+} ;
+
+ enum gf1_op_commands {
+        GF_OP_CMD_NONE = 0,
+        GF_OP_CMD_START,
+        GF_OP_CMD_COMMIT,
+        GF_OP_CMD_PAUSE,
+        GF_OP_CMD_ABORT,
+        GF_OP_CMD_STATUS,
+        GF_OP_CMD_COMMIT_FORCE
 } ;
 
 enum gf_quota_type {

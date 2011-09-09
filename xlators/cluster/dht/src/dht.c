@@ -255,6 +255,47 @@ out:
 
 
 int
+dht_parse_decommissioned_bricks (xlator_t *this, dht_conf_t *conf,
+                                 const char *bricks)
+{
+        int         i  = 0;
+        int         ret  = -1;
+        char       *tmpstr = NULL;
+        char       *dup_brick = NULL;
+        char       *node = NULL;
+
+        if (!conf || !bricks)
+                goto out;
+
+        dup_brick = gf_strdup (bricks);
+        node = strtok_r (dup_brick, ",", &tmpstr);
+        while (node) {
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (!strcmp (conf->subvolumes[i]->name, node)) {
+                                conf->decommissioned_bricks[i] =
+                                        conf->subvolumes[i];
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "decommissioning subvolume %s",
+                                        conf->subvolumes[i]->name);
+                                break;
+                        }
+                }
+                if (i == conf->subvolume_cnt) {
+                        /* Wrong node given. */
+                        goto out;
+                }
+                node = strtok_r (NULL, ",", &tmpstr);
+        }
+
+        ret = 0;
+out:
+        if (dup_brick)
+                GF_FREE (dup_brick);
+
+        return ret;
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
         dht_conf_t      *conf = NULL;
@@ -298,6 +339,12 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
                           options, uint32, out);
+
+        if (dict_get_str (options, "decommissioned-bricks", &temp_str) == 0) {
+                ret = dht_parse_decommissioned_bricks (this, conf, temp_str);
+                if (ret == -1)
+                        goto out;
+        }
 
         ret = 0;
 out:
@@ -360,14 +407,14 @@ init (xlator_t *this)
                 goto err;
         }
 
-        ret = dht_layouts_init (this, conf);
-        if (ret == -1) {
-                goto err;
+        if (dict_get_str (this->options, "decommissioned-bricks", &temp_str) == 0) {
+                ret = dht_parse_decommissioned_bricks (this, conf, temp_str);
+                if (ret == -1)
+                        goto err;
         }
 
-        conf->du_stats = GF_CALLOC (conf->subvolume_cnt, sizeof (dht_du_t),
-                                    gf_dht_mt_dht_du_t);
-        if (!conf->du_stats) {
+        ret = dht_layouts_init (this, conf);
+        if (ret == -1) {
                 goto err;
         }
 
@@ -500,6 +547,9 @@ struct volume_options options[] = {
         },
         { .key  = {"directory-layout-spread"},
           .type = GF_OPTION_TYPE_INT,
+        },
+        { .key  = {"decommissioned-bricks"},
+          .type = GF_OPTION_TYPE_ANY,
         },
         { .key  = {NULL} },
 };

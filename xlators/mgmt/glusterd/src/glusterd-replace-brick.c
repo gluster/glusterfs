@@ -1486,7 +1486,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
 
         volinfo->brick_count++;
 
-        ret = glusterd_op_perform_remove_brick (volinfo, old_brick);
+        ret = glusterd_op_perform_remove_brick (volinfo, old_brick, 1, NULL);
         if (ret)
                 goto out;
 

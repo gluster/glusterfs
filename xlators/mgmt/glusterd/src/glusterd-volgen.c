@@ -1811,10 +1811,15 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char                   **cluster_args       = NULL;
         int                      i                  = 0;
         int                      j                  = 0;
-        int                      ret                = 0;
+        int                      ret                = -1;
         xlator_t                *xl                 = NULL;
         xlator_t                *txl                = NULL;
         xlator_t                *trav               = NULL;
+        int                      removed_bricks     = 0;
+        int                      index_of_removed_brick = 0;
+        char                    *removed_bricklist  = NULL;
+        char                     volume_name[1024]  = {0,};
+        int                      idx                = 0;
 
         volname = volinfo->volname;
         dict    = volinfo->dict;
@@ -1824,7 +1829,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 gf_log ("", GF_LOG_ERROR,
                         "volume inconsistency: brick count is 0");
 
-                return -1;
+                goto out;
         }
         if (volinfo->sub_count && volinfo->sub_count < volinfo->brick_count &&
             volinfo->brick_count % volinfo->sub_count != 0) {
@@ -1834,7 +1839,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         "number of bricks per cluster (%d) in a multi-cluster "
                         "setup",
                         volinfo->brick_count, volinfo->sub_count);
-                return -1;
+                goto out;
         }
 
         get_transport_type (volinfo, set_dict, transt, _gf_false);
@@ -1844,19 +1849,32 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         i = 0;
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+                ret = -1;
                 xl = volgen_graph_add_nolink (graph, "protocol/client",
                                               "%s-client-%d", volname, i);
                 if (!xl)
-                        return -1;
+                        goto out;
                 ret = xlator_set_option (xl, "remote-host", brick->hostname);
                 if (ret)
-                        return -1;
+                        goto out;
                 ret = xlator_set_option (xl, "remote-subvolume", brick->path);
                 if (ret)
-                        return -1;
+                        goto out;
                 ret = xlator_set_option (xl, "transport-type", transt);
                 if (ret)
-                        return -1;
+                        goto out;
+                if (brick->decommissioned) {
+                        if (!removed_bricklist) {
+                                removed_bricklist = GF_CALLOC (16 * GF_UNIT_KB,
+                                                               1, gf_common_mt_char);
+                                index_of_removed_brick = i;
+                        }
+                        if (removed_bricks)
+                                strcat (removed_bricklist, ",");
+                        snprintf (volume_name, 1024, "%s-client-%d", volname, i);
+                        strcat (removed_bricklist, volume_name);
+                        removed_bricks++;
+                }
 
                 i++;
         }
@@ -1866,7 +1884,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         "differs from brick count (%d)", i,
                         volinfo->brick_count);
 
-                return -1;
+                goto out;
         }
 
         sub_count = volinfo->sub_count;
@@ -1880,15 +1898,18 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         break;
                 case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                         /* Replicate after the clients, then stripe */
-                        if (volinfo->replica_count == 0)
-                                return -1;
+                        if (volinfo->replica_count == 0) {
+                                ret = -1;
+                                goto out;
+                        }
                         sub_count = volinfo->replica_count;
                         cluster_args = replicate_args;
                         break;
                 default:
                         gf_log ("", GF_LOG_ERROR, "volume inconsistency: "
                                 "unrecognized clustering type");
-                        return -1;
+                        ret = -1;
+                        goto out;
                 }
 
                 i = 0;
@@ -1901,14 +1922,16 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                                               cluster_args[0],
                                                               cluster_args[1],
                                                               volname, j);
-                                if (!xl)
-                                        return -1;
+                                if (!xl) {
+                                        ret = -1;
+                                        goto out;
+                                }
                                 j++;
                         }
 
                         ret = volgen_xlator_link (xl, trav);
                         if (ret)
-                                return -1;
+                                goto out;
 
                         if (trav == txl)
                                 break;
@@ -1928,14 +1951,16 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                                                       cluster_args[0],
                                                                       cluster_args[1],
                                                                       volname, j);
-                                        if (!xl)
-                                                return -1;
+                                        if (!xl) {
+                                                ret = -1;
+                                                goto out;
+                                        }
                                         j++;
                                 }
 
                                 ret = volgen_xlator_link (xl, trav);
                                 if (ret)
-                                        return -1;
+                                        goto out;
 
                                 if (trav == txl)
                                         break;
@@ -1953,8 +1978,10 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (dist_count > 1) {
                 xl = volgen_graph_add_nolink (graph, "cluster/distribute",
                                               "%s-dht", volname);
-                if (!xl)
-                        return -1;
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
 
                 trav = xl;
                 for (i = 0; i < dist_count; i++)
@@ -1962,28 +1989,50 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 for (; trav != xl; trav = trav->prev) {
                         ret = volgen_xlator_link (xl, trav);
                         if (ret)
-                                return -1;
+                                goto out;
+                }
+
+                if (removed_bricks) {
+                        if (volinfo->sub_count) {
+                                idx = index_of_removed_brick / volinfo->sub_count;
+                                if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
+                                        snprintf (volume_name, 1024, "%s-replicate-%d",
+                                                  volname, idx);
+                                        strcpy (removed_bricklist, volume_name);
+                                } else if (volinfo->type != GF_CLUSTER_TYPE_NONE) {
+                                        snprintf (volume_name, 1024, "%s-stripe-%d  ",
+                                                  volname, idx);
+                                        strcpy (removed_bricklist, volume_name);
+                                }
+                        }
+                        ret = xlator_set_option (xl, "decommissioned-bricks",
+                                                 removed_bricklist);
+                        if (ret)
+                                goto out;
                 }
         }
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
         if (ret == -1)
-                return -1;
+                goto out;
+
         if (ret) {
                 xl = volgen_graph_add (graph, "features/quota", volname);
 
-                if (!xl)
-                        return -1;
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
         }
 
         ret = volgen_graph_set_options_generic (graph, set_dict, volname,
                                                 &perfxl_option_handler);
         if (ret)
-                return -1;
+                goto out;
 
         xl = volgen_graph_add_as (graph, "debug/io-stats", volname);
         if (!xl)
-                return -1;
+                goto out;
 
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &loglevel_option_handler);
@@ -1991,6 +2040,11 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!ret)
                 ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                         &sys_loglevel_option_handler);
+
+out:
+        if (removed_bricklist)
+                GF_FREE (removed_bricklist);
+
         return ret;
 }
 

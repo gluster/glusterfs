@@ -46,6 +46,7 @@
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 
+/* return values - 0: success, +ve: stopped, -ve: failure */
 int
 gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
@@ -66,7 +67,8 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         if (!fd)
                 goto out;
 
-        if (defrag->cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE) {
+        if ((defrag->cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE) ||
+            (defrag->cmd == GF_DEFRAG_CMD_START_FORCE)) {
                 strcpy (force_string, "force");
         } else {
                 strcpy (force_string, "not-force");
@@ -105,9 +107,11 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 }
                 UNLOCK (&defrag->lock);
 
-                if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED) {
+                if (volinfo->defrag_status !=
+                    GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED) {
+                        /* It can be one of 'stopped|paused|commit' etc */
                         closedir (fd);
-                        ret = -1;
+                        ret = 1;
                         goto out;
                 }
         }
@@ -144,6 +148,7 @@ out:
         return ret;
 }
 
+/* return values - 0: success, +ve: stopped, -ve: failure */
 int
 gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
 {
@@ -187,9 +192,11 @@ gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
                                 break;
                 }
 
-                if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED) {
+                if (volinfo->defrag_status !=
+                    GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) {
+                        /* It can be one of 'stopped|paused|commit' etc */
                         closedir (fd);
-                        ret = -1;
+                        ret = 1;
                         goto out;
                 }
         }
@@ -210,6 +217,7 @@ glusterd_defrag_start (void *data)
         int                     ret     = -1;
         struct stat             stbuf   = {0,};
 
+        THIS = volinfo->xl;
         defrag = volinfo->defrag;
         if (!defrag)
                 goto out;
@@ -240,8 +248,10 @@ glusterd_defrag_start (void *data)
 
                 /* Step 1: Fix layout of all the directories */
                 ret = gf_glusterd_rebalance_fix_layout (volinfo, defrag->mount);
+                if (ret < 0)
+                        volinfo->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                /* in both 'stopped' or 'failure' cases goto out */
                 if (ret) {
-                        volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
                         goto out;
                 }
 
@@ -257,8 +267,10 @@ glusterd_defrag_start (void *data)
 
                 /* Step 2: Iterate over directories to move data */
                 ret = gf_glusterd_rebalance_move_data (volinfo, defrag->mount);
+                if (ret < 0)
+                        volinfo->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                /* in both 'stopped' or 'failure' cases goto out */
                 if (ret) {
-                        volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
                         goto out;
                 }
 
@@ -267,7 +279,8 @@ glusterd_defrag_start (void *data)
         }
 
         /* Completed whole process */
-        if (defrag->cmd == GF_DEFRAG_CMD_START)
+        if ((defrag->cmd == GF_DEFRAG_CMD_START) ||
+            (defrag->cmd == GF_DEFRAG_CMD_START_FORCE))
                 volinfo->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
 
         volinfo->rebalance_files = defrag->total_files;
@@ -281,9 +294,13 @@ out:
 
                 ret = runcmd ("umount", "-l", defrag->mount, NULL);
                 LOCK_DESTROY (&defrag->lock);
+
+                if (defrag->cbk_fn) {
+                        defrag->cbk_fn (volinfo, volinfo->defrag_status);
+                }
+
                 GF_FREE (defrag);
         }
-
         return NULL;
 }
 
@@ -332,7 +349,7 @@ glusterd_defrag_stop (glusterd_volinfo_t *volinfo, u_quad_t *files,
 
         LOCK (&volinfo->defrag->lock);
         {
-                volinfo->defrag_status = GF_DEFRAG_STATUS_STOPED;
+                volinfo->defrag_status = GF_DEFRAG_STATUS_STOPPED;
                 *files = volinfo->defrag->total_files;
                 *size = volinfo->defrag->total_data;
         }
@@ -497,7 +514,7 @@ out:
 
 int
 glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
-                              size_t len, int cmd)
+                              size_t len, int cmd, defrag_cbk_fn_t cbk)
 {
         int                    ret = -1;
         glusterd_defrag_info_t *defrag =  NULL;
@@ -551,6 +568,9 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_end (&runner);
 
         volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED;
+
+        if (cbk)
+                defrag->cbk_fn = cbk;
 
         ret = pthread_create (&defrag->th, NULL, glusterd_defrag_start,
                               volinfo);
@@ -635,7 +655,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         case GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE:
         {
                 ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
-                                                    cli_req.cmd);
+                                                    cli_req.cmd, NULL);
                 rsp.op_ret = ret;
                 break;
         }
@@ -845,7 +865,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_START_MIGRATE_DATA:
         case GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE:
                 ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
-                                                    cmd);
+                                                    cmd, NULL);
                  break;
          case GF_DEFRAG_CMD_STOP:
                  ret = glusterd_defrag_stop (volinfo, &files, &size,

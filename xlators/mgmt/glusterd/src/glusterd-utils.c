@@ -548,6 +548,8 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
                 goto out;
         }
 
+        new_volinfo->xl = THIS;
+
         *volinfo = new_volinfo;
 
         ret = 0;

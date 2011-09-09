@@ -579,6 +579,12 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
                 return -1;
         }
 
+        conf->decommissioned_bricks = GF_CALLOC (cnt, sizeof (xlator_t *),
+                                                 gf_dht_mt_xlator_t);
+        if (!conf->decommissioned_bricks) {
+                return -1;
+        }
+
         return 0;
 }
 

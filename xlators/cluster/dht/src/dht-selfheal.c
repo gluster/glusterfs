@@ -460,8 +460,22 @@ static inline int
 dht_get_layout_count (xlator_t *this, dht_layout_t *layout, int new_layout)
 {
         int i = 0;
+        int j = 0;
         int err = 0;
         int count = 0;
+        dht_conf_t *conf = NULL;
+
+        /* Gets in use only for replace-brick, remove-brick */
+        conf = this->private;
+        for (i = 0; i < layout->cnt; i++) {
+                for (j = 0; j < conf->subvolume_cnt; j++) {
+                        if (conf->decommissioned_bricks[j] &&
+                            conf->decommissioned_bricks[j] == layout->list[i].xlator) {
+                                layout->list[i].err = -EINVAL;
+                                break;
+                        }
+                }
+        }
 
         for (i = 0; i < layout->cnt; i++) {
                 err = layout->list[i].err;
