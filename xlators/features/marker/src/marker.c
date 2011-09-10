@@ -1054,6 +1054,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_stub_t    *stub                 = NULL;
         int32_t         ret                  = 0;
         char            contri_key [512]     = {0, };
+        loc_t           newloc               = {0, };
 
         local = (marker_local_t *) frame->local;
 
@@ -1099,10 +1100,21 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
                 MARKER_SET_UID_GID (frame, local, frame->root);
 
+                newloc.inode = inode_ref (oplocal->loc.inode);
+                newloc.path = gf_strdup (local->loc.path);
+                newloc.name = strrchr (newloc.path, '/');
+                if (newloc.name)
+                        newloc.name++;
+
+                newloc.parent = inode_ref (local->loc.parent);
+                newloc.ino = oplocal->loc.inode->ino;
+
                 STACK_WIND (frame, marker_rename_release_oldp_lock,
                             FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->removexattr, &local->loc,
+                            FIRST_CHILD(this)->fops->removexattr, &newloc,
                             contri_key);
+
+                loc_wipe (&newloc);
         } else {
                 frame->local = NULL;
 
