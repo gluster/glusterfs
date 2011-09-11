@@ -190,6 +190,8 @@ def main_i():
     op.add_option('--canonicalize-escape-url', dest='url_print', action='callback', callback=store_local_curry('canon_esc'))
 
     tunables = [ norm(o.get_opt_string()[2:]) for o in op.option_list if o.callback in (store_abs, 'store_true', None) and o.get_opt_string() not in ('--version', '--help') ]
+    remote_tunables = [ 'listen', 'go_daemon', 'timeout', 'session_owner', 'config_file' ]
+    rq_remote_tunables = { 'listen': True }
 
     # precedence for sources of values: 1) commandline, 2) cfg file, 3) defaults
     # -- for this to work out we need to tell apart defaults from explicitly set
@@ -205,6 +207,19 @@ def main_i():
         sys.stderr.write("error: incorrect number of arguments\n\n")
         sys.stderr.write(op.get_usage() + "\n")
         sys.exit(1)
+
+    if os.getenv('_GSYNCD_RESTRICTED_'):
+        allopts = {}
+        allopts.update(opts.__dict__)
+        allopts.update(rconf)
+        bannedtuns = set(allopts.keys()) - set(remote_tunables)
+        if bannedtuns:
+            raise GsyncdError('following tunables cannot be set with restricted SSH invocaton: ' + \
+                              ', '.join(bannedtuns))
+        for k, v in rq_remote_tunables.items():
+            if not k in allopts or allopts[k] != v:
+                raise GsyncdError('tunable %s is not set to value %s required for restricted SSH invocaton' % \
+                                  (k, v))
 
     if getattr(confdata, 'rx', None):
         # peers are regexen, don't try to parse them
