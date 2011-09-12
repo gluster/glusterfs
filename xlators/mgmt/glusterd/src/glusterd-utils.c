@@ -1057,7 +1057,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         FILE                    *file = NULL;
         gf_boolean_t            is_locked = _gf_false;
         char                    socketpath[PATH_MAX] = {0};
-
+#ifdef DEBUG
+        char                    valgrind_logfile[PATH_MAX] = {0};
+#endif
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
@@ -1138,12 +1140,32 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 port = pmap_registry_alloc (THIS);
 
         runinit (&runner);
-        runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfsd",
+
+#ifdef DEBUG
+        if (priv->valgrind) {
+                if (volinfo->logdir) {
+                        snprintf (valgrind_logfile, PATH_MAX,
+                                  "%s/valgrind-%s-%s.log", volinfo->logdir,
+                                  volinfo->volname, exp_path);
+                } else {
+                         snprintf (valgrind_logfile, PATH_MAX,
+                                   "%s/bricks/valgrnd-%s-%s.log",
+                                   DEFAULT_LOG_FILE_DIRECTORY,
+                                   volinfo->volname, exp_path);
+                }
+                /* Run bricks with valgrind */
+                runner_add_args (&runner, "valgrind", "--leak-check=full",
+                                "--trace-children=yes", NULL);
+                runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
+	}
+#endif
+	runner_add_args (&runner, GFS_PREFIX"/sbin/glusterfsd",
                          "-s", "localhost", "--volfile-id", volfile,
                          "-p", pidfile, "-S", socketpath,
                          "--brick-name", brickinfo->path,
-                         "-l", brickinfo->logfile, "--brick-port",  NULL);
+                         "-l", brickinfo->logfile, NULL);
 
+	runner_add_arg (&runner, "--brick-port");
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
                 runner_argprintf (&runner, "%d", port);
         } else {

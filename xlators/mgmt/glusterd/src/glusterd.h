@@ -112,6 +112,9 @@ typedef struct {
         glusterd_sm_tr_log_t op_sm_log;
         struct rpc_clnt_program *gfs_mgmt;
         struct list_head mount_specs;
+#ifdef DEBUG
+        gf_boolean_t      valgrind;
+#endif
 } glusterd_conf_t;
 
 typedef enum gf_brick_status {

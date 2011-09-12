@@ -762,6 +762,9 @@ init (xlator_t *this)
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
 
+#ifdef DEBUG
+        char              *valgrind_str      = NULL;
+#endif
         dir_data = dict_get (this->options, "working-directory");
 
         if (!dir_data) {
@@ -943,8 +946,23 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        /* Set option to run bricks on valgrind if enabled in glusterd.vol */
+#ifdef DEBUG
+        conf->valgrind = _gf_false;
+        ret = dict_get_str (this->options, "brick-with-valgrind", &valgrind_str);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "cannot get brick-with-valgrind value");
+        }
+        if (valgrind_str) {
+                if (gf_string2boolean (valgrind_str, &(conf->valgrind))) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "brick-with-valgrind value not a boolean string");
+                }
+        }
+#endif
         this->private = conf;
-        //this->ctx->top = this;
+        /* this->ctx->top = this;*/
 
         ret = glusterd_uuid_init (first_time);
         if (ret < 0)
@@ -1090,11 +1108,9 @@ struct volume_options options[] = {
         { .key  = {"downgrade"},
           .type = GF_OPTION_TYPE_BOOL,
         },
-
         { .key = {"bind-insecure"},
           .type = GF_OPTION_TYPE_BOOL,
         },
-
         { .key  = {"mountbroker-root"},
           .type = GF_OPTION_TYPE_PATH,
         },
@@ -1109,6 +1125,9 @@ struct volume_options options[] = {
         },
         { .key = {GEOREP"-log-group"},
           .type = GF_OPTION_TYPE_ANY,
+        },
+        { .key = {"brick-with-valgrind"},
+          .type = GF_OPTION_TYPE_BOOL,
         },
         { .key   = {NULL} },
 };
