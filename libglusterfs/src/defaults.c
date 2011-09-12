@@ -1248,9 +1248,10 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_CHILD_MODIFIED:
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_CHILD_UP:
+        case GF_EVENT_AUTH_FAILED:
         {
                 xlator_list_t *parent = this->parents;
-                /* Handle case of CHILD_* event specially, send it to fuse */
+                /* Handle case of CHILD_* & AUTH_FAILED event specially, send it to fuse */
                 if (!parent && this->ctx && this->ctx->master)
                         xlator_notify (this->ctx->master, event, this->graph, NULL);
 
