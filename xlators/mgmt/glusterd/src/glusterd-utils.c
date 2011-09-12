@@ -56,7 +56,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <rpc/pmap_clnt.h>
-
+#include <unistd.h>
 #ifdef GF_SOLARIS_HOST_OS
 #include <sys/sockio.h>
 #endif
@@ -1304,6 +1304,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         char                    sort_filepath[PATH_MAX] = {0};
         gf_boolean_t            unlink_sortfile = _gf_false;
         int                     sort_fd = 0;
+        runner_t                runner;
 
         GF_ASSERT (volinfo);
 
@@ -1318,7 +1319,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0644);
 
         if (-1 == fd) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open %s, errno: %d",
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to open %s, errno: %d",
                         cksum_path, errno);
                 ret = -1;
                 goto out;
@@ -1330,7 +1331,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
                   volinfo->volname);
         sort_fd = mkstemp (sort_filepath);
         if (sort_fd < 0) {
-                gf_log ("", GF_LOG_ERROR, "Could not generate temp file, "
+                gf_log (THIS->name, GF_LOG_ERROR, "Could not generate temp file, "
                         "reason: %s for volume: %s", strerror (errno),
                         volinfo->volname);
                 goto out;
@@ -1338,16 +1339,29 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
                 unlink_sortfile = _gf_true;
         }
 
-        ret = runcmd ("sort", filepath, "-o", sort_filepath, NULL);
+        /* sort the info file, result in sort_filepath */
+        sort_fd = open (sort_filepath, O_WRONLY | O_CREAT, 0644);
+        if (sort_fd < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to open file %s",
+                        sort_filepath);
+                goto out;
+        }
+
+        runinit (&runner);
+        runner_add_args (&runner, "sort", filepath, NULL);
+        runner_redir (&runner, STDOUT_FILENO, sort_fd);
+
+        ret = runner_run (&runner);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "failed to sort file %s to %s",
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to sort file %s to %s",
                         filepath, sort_filepath);
                 goto out;
         }
+        close (sort_fd);
         ret = get_checksum_for_path (sort_filepath, &cksum);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get checksum"
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to get checksum"
                         " for path: %s", sort_filepath);
                 goto out;
         }
@@ -1370,11 +1384,9 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
 out:
         if (fd > 0)
                close (fd);
-        if (sort_fd > 0)
-               close (sort_fd);
         if (unlink_sortfile)
                unlink (sort_filepath);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
 }
