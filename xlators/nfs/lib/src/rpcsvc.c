@@ -2638,30 +2638,33 @@ tx_remaining:
         /* If we've broken out of the loop above then we must unblock
          * the transmission now.
          */
-        nfs_rpcsvc_socket_unblock_tx (conn->sockfd);
-        if (list_empty (&conn->txbufs))
-                conn->eventidx = event_select_on (conn->stage->eventpool,
-                                                  conn->sockfd, conn->eventidx,
-                                                  -1, 0);
-
-        return 0;
+        if (written != -1) {
+                nfs_rpcsvc_socket_unblock_tx (conn->sockfd);
+                if (list_empty (&conn->txbufs))
+                        conn->eventidx = event_select_on (conn->stage->eventpool,
+                                                          conn->sockfd, conn->eventidx,
+                                                          -1, 0);
+                return 0;
+        } else
+                return -1;
 }
 
 
 int
 nfs_rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
 {
+        int ret = -1;
         if (!conn)
                 return -1;
 
 
         pthread_mutex_lock (&conn->connlock);
         {
-                __nfs_rpcsvc_conn_data_poll_out (conn);
+                ret = __nfs_rpcsvc_conn_data_poll_out (conn);
         }
         pthread_mutex_unlock (&conn->connlock);
 
-        return 0;
+        return ret;
 }
 
 
@@ -2685,7 +2688,8 @@ nfs_rpcsvc_conn_data_handler (int fd, int idx, void *data, int poll_in,
                 return 0;
         }
 
-        if (poll_in) {
+        /* don't handle poll_in if we failed when we handled poll_out */
+        if ((ret != -1) && poll_in) {
                 ret = 0;
                 ret = nfs_rpcsvc_conn_data_poll_in (conn);
         }
