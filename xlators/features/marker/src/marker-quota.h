@@ -41,7 +41,7 @@
                 _local = _frame->local;                 \
                 _frame->local = NULL;                   \
                 STACK_DESTROY (_frame->root);           \
-                quota_local_unref (_this, _local);      \
+                mq_local_unref (_this, _local);         \
         } while (0)
 
 
@@ -126,36 +126,36 @@ struct quota_local {
 typedef struct quota_local quota_local_t;
 
 int32_t
-get_lock_on_parent (call_frame_t *, xlator_t *);
+mq_get_lock_on_parent (call_frame_t *, xlator_t *);
 
 int32_t
-quota_req_xattr (xlator_t *, loc_t *, dict_t *);
+mq_req_xattr (xlator_t *, loc_t *, dict_t *);
 
 int32_t
 init_quota_priv (xlator_t *);
 
 int32_t
-quota_xattr_state (xlator_t *, loc_t *, dict_t *, struct iatt);
+mq_xattr_state (xlator_t *, loc_t *, dict_t *, struct iatt);
 
 int32_t
-quota_set_inode_xattr (xlator_t *, loc_t *);
+mq_set_inode_xattr (xlator_t *, loc_t *);
 
 int
-initiate_quota_txn (xlator_t *, loc_t *);
+mq_initiate_quota_txn (xlator_t *, loc_t *);
 
 int32_t
-quota_dirty_inode_readdir (call_frame_t *, void *, xlator_t *,
-                           int32_t, int32_t, fd_t *);
+mq_dirty_inode_readdir (call_frame_t *, void *, xlator_t *,
+                        int32_t, int32_t, fd_t *);
 
 int32_t
-reduce_parent_size (xlator_t *, loc_t *, int64_t);
+mq_reduce_parent_size (xlator_t *, loc_t *, int64_t);
 
 int32_t
-quota_rename_update_newpath (xlator_t *, loc_t *);
+mq_rename_update_newpath (xlator_t *, loc_t *);
 
 int32_t
-inspect_file_xattr (xlator_t *this, loc_t *loc, dict_t *dict, struct iatt buf);
+mq_inspect_file_xattr (xlator_t *this, loc_t *loc, dict_t *dict, struct iatt buf);
 
 int32_t
-quota_forget (xlator_t *, quota_inode_ctx_t *);
+mq_forget (xlator_t *, quota_inode_ctx_t *);
 #endif

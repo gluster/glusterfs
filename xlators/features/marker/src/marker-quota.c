@@ -159,8 +159,8 @@ mq_assign_lk_owner (xlator_t *this, call_frame_t *frame)
 
 
 int32_t
-loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
-                    uint64_t ino, char *name)
+mq_loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
+                       uint64_t ino, char *name)
 {
         int32_t   ret  = -1;
         int32_t   len  = 0;
@@ -208,8 +208,8 @@ out:
 }
 
 int32_t
-dirty_inode_updation_done (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno)
+mq_dirty_inode_updation_done (call_frame_t *frame, void *cookie, xlator_t *this,
+                              int32_t op_ret, int32_t op_errno)
 {
         QUOTA_STACK_DESTROY (frame, this);
 
@@ -217,8 +217,8 @@ dirty_inode_updation_done (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
-release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
-                             int32_t op_ret, int32_t op_errno)
+mq_release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno)
 {
         struct gf_flock   lock  = {0, };
         quota_local_t    *local = NULL;
@@ -230,7 +230,7 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 local->err = -1;
 
-                dirty_inode_updation_done (frame, NULL, this, 0, 0);
+                mq_dirty_inode_updation_done (frame, NULL, this, 0, 0);
 
                 return 0;
         }
@@ -248,7 +248,7 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (ret == -1) {
                 local->err = -1;
                 frame->local = NULL;
-                dirty_inode_updation_done (frame, NULL, this, 0, 0);
+                mq_dirty_inode_updation_done (frame, NULL, this, 0, 0);
                 return 0;
         }
 
@@ -259,7 +259,7 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         STACK_WIND (frame,
-                    dirty_inode_updation_done,
+                    mq_dirty_inode_updation_done,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &loc, F_SETLKW, &lock);
@@ -268,14 +268,14 @@ release_lock_on_dirty_inode (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 out:
-        dirty_inode_updation_done (frame, NULL, this, -1, 0);
+        mq_dirty_inode_updation_done (frame, NULL, this, -1, 0);
 
         return 0;
 }
 
 int32_t
-mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *dict)
+mq_mark_inode_undirty (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         int32_t        ret     = -1;
         int64_t       *size    = NULL;
@@ -312,7 +312,7 @@ wind:
         if (ret)
                 goto err;
 
-        STACK_WIND (frame, release_lock_on_dirty_inode,
+        STACK_WIND (frame, mq_release_lock_on_dirty_inode,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
                     &local->loc, newdict, 0);
@@ -322,7 +322,7 @@ err:
         if (op_ret == -1 || ret == -1) {
                 local->err = -1;
 
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         }
 
         if (newdict)
@@ -332,9 +332,9 @@ err:
 }
 
 int32_t
-update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
-                   struct iatt *buf, dict_t *dict, struct iatt *postparent)
+mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, inode_t *inode,
+                      struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
         int32_t          ret      = -1;
         dict_t          *new_dict = NULL;
@@ -381,7 +381,7 @@ update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret)
                 goto err;
 
-        STACK_WIND (frame, mark_inode_undirty, FIRST_CHILD(this),
+        STACK_WIND (frame, mq_mark_inode_undirty, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->loc,
                     GF_XATTROP_ADD_ARRAY64, new_dict);
 
@@ -391,7 +391,7 @@ err:
         if (op_ret == -1 || ret == -1) {
                 local->err = -1;
 
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         }
 
         if (new_dict)
@@ -424,7 +424,7 @@ out:
 }
 
 int32_t
-get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
+mq_get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
 {
         int32_t        ret   = -1;
         dict_t        *dict  = NULL;
@@ -445,7 +445,7 @@ get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
         if (ret)
                 goto err;
 
-        STACK_WIND (frame, update_size_xattr, FIRST_CHILD(this),
+        STACK_WIND (frame, mq_update_size_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, dict);
         ret =0;
 
@@ -453,7 +453,7 @@ err:
         if (ret) {
                 local->err = -1;
 
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         }
 
         if (dict)
@@ -463,15 +463,15 @@ err:
 }
 
 int32_t
-get_child_contribution (call_frame_t *frame,
-                        void *cookie,
-                        xlator_t *this,
-                        int32_t op_ret,
-                        int32_t op_errno,
-                        inode_t *inode,
-                        struct iatt *buf,
-                        dict_t *dict,
-                        struct iatt *postparent)
+mq_get_child_contribution (call_frame_t *frame,
+                           void *cookie,
+                           xlator_t *this,
+                           int32_t op_ret,
+                           int32_t op_errno,
+                           inode_t *inode,
+                           struct iatt *buf,
+                           dict_t *dict,
+                           struct iatt *postparent)
 {
         int32_t        ret                = -1;
         int32_t        val                = 0;
@@ -491,7 +491,7 @@ get_child_contribution (call_frame_t *frame,
                 val = -2;
                 if (!mq_test_and_set_local_err (local, &val) &&
                     val != -2)
-                        release_lock_on_dirty_inode (local->frame, NULL, this, 0, 0);
+                        mq_release_lock_on_dirty_inode (local->frame, NULL, this, 0, 0);
 
                 goto exit;
         }
@@ -518,24 +518,24 @@ out:
         UNLOCK (&local->lock);
 
         if (val == 0) {
-                quota_dirty_inode_readdir (local->frame, NULL, this,
+                mq_dirty_inode_readdir (local->frame, NULL, this,
                                                    0, 0, NULL);
         }
-        quota_local_unref (this, local);
+        mq_local_unref (this, local);
 
         return 0;
 exit:
-        quota_local_unref (this, local);
+        mq_local_unref (this, local);
         return 0;
 }
 
 int32_t
-quota_readdir_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   gf_dirent_t *entries)
+mq_readdir_cbk (call_frame_t *frame,
+                void *cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                gf_dirent_t *entries)
 {
         char           contri_key [512]   = {0, };
         int32_t        ret                = 0;
@@ -548,18 +548,18 @@ quota_readdir_cbk (call_frame_t *frame,
         call_frame_t  *newframe           = NULL;
         loc_t          loc                = {0, };
 
-        local = quota_local_ref (frame->local);
+        local = mq_local_ref (frame->local);
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "readdir failed %s", strerror (op_errno));
                 local->err = -1;
 
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
 
                 goto end;
         } else if (op_ret == 0) {
-                get_dirty_inode_size (frame, this);
+                mq_get_dirty_inode_size (frame, this);
 
                 goto end;
         }
@@ -581,7 +581,7 @@ quota_readdir_cbk (call_frame_t *frame,
         }
 
         if (count == 0) {
-                get_dirty_inode_size (frame, this);
+                mq_get_dirty_inode_size (frame, this);
                 goto end;
 
         }
@@ -606,8 +606,8 @@ quota_readdir_cbk (call_frame_t *frame,
                         continue;
                 }
 
-                ret = loc_fill_from_name (this, &loc, &local->loc,
-                                          entry->d_ino, entry->d_name);
+                ret = mq_loc_fill_from_name (this, &loc, &local->loc,
+                                             entry->d_ino, entry->d_name);
                 if (ret < 0)
                         goto out;
 
@@ -628,7 +628,7 @@ quota_readdir_cbk (call_frame_t *frame,
                 if (ret == -1)
                         goto out;
 
-                newframe->local = quota_local_ref (local);
+                newframe->local = mq_local_ref (local);
 
                 dict = dict_new ();
                 if (!dict) {
@@ -645,7 +645,7 @@ quota_readdir_cbk (call_frame_t *frame,
                         goto out;
 
                 STACK_WIND (newframe,
-                            get_child_contribution,
+                            mq_get_child_contribution,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup,
                             &loc, dict);
@@ -668,7 +668,7 @@ quota_readdir_cbk (call_frame_t *frame,
 
                         if (newframe) {
                                 newframe->local = NULL;
-                                quota_local_unref(this, local);
+                                mq_local_unref(this, local);
                                 QUOTA_STACK_DESTROY (newframe, this);
                         }
 
@@ -677,21 +677,21 @@ quota_readdir_cbk (call_frame_t *frame,
         }
 
         if (ret && val != -2) {
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         }
 end:
-        quota_local_unref (this, local);
+        mq_local_unref (this, local);
 
         return 0;
 }
 
 int32_t
-quota_dirty_inode_readdir (call_frame_t *frame,
-                           void *cookie,
-                           xlator_t *this,
-                           int32_t op_ret,
-                           int32_t op_errno,
-                           fd_t *fd)
+mq_dirty_inode_readdir (call_frame_t *frame,
+                        void *cookie,
+                        xlator_t *this,
+                        int32_t op_ret,
+                        int32_t op_errno,
+                        fd_t *fd)
 {
         quota_local_t *local = NULL;
 
@@ -699,7 +699,7 @@ quota_dirty_inode_readdir (call_frame_t *frame,
 
         if (op_ret == -1) {
                 local->err = -1;
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
                 return 0;
         }
 
@@ -707,7 +707,7 @@ quota_dirty_inode_readdir (call_frame_t *frame,
                 local->fd = fd_ref (fd);
 
         STACK_WIND (frame,
-                    quota_readdir_cbk,
+                    mq_readdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdir,
                     local->fd, READDIR_BUF, local->d_off);
@@ -716,15 +716,15 @@ quota_dirty_inode_readdir (call_frame_t *frame,
 }
 
 int32_t
-check_if_still_dirty (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      inode_t *inode,
-                      struct iatt *buf,
-                      dict_t *dict,
-                      struct iatt *postparent)
+mq_check_if_still_dirty (call_frame_t *frame,
+                         void *cookie,
+                         xlator_t *this,
+                         int32_t op_ret,
+                         int32_t op_errno,
+                         inode_t *inode,
+                         struct iatt *buf,
+                         dict_t *dict,
+                         struct iatt *postparent)
 {
         int8_t           dirty          = -1;
         int32_t          ret            = -1;
@@ -753,7 +753,7 @@ check_if_still_dirty (call_frame_t *frame,
 
         //the inode is not dirty anymore
         if (dirty == 0) {
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
 
                 return 0;
         }
@@ -763,7 +763,7 @@ check_if_still_dirty (call_frame_t *frame,
         local->d_off = 0;
 
         STACK_WIND(frame,
-                   quota_dirty_inode_readdir,
+                   mq_dirty_inode_readdir,
                    FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->opendir,
                    &local->loc, fd);
@@ -773,7 +773,7 @@ check_if_still_dirty (call_frame_t *frame,
 err:
         if (op_ret == -1 || ret == -1) {
                 local->err = -1;
-                release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0);
         }
 
         if (fd != NULL) {
@@ -784,8 +784,8 @@ err:
 }
 
 int32_t
-get_dirty_xattr (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno)
+mq_get_dirty_xattr (call_frame_t *frame, void *cookie,
+                    xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
         int32_t        ret       = -1;
         dict_t        *xattr_req = NULL;
@@ -793,7 +793,7 @@ get_dirty_xattr (call_frame_t *frame, void *cookie,
         marker_conf_t *priv      = NULL;
 
         if (op_ret == -1) {
-                dirty_inode_updation_done (frame, NULL, this, 0, 0);
+                mq_dirty_inode_updation_done (frame, NULL, this, 0, 0);
                 return 0;
         }
 
@@ -812,7 +812,7 @@ get_dirty_xattr (call_frame_t *frame, void *cookie,
                 goto err;
 
         STACK_WIND (frame,
-                    check_if_still_dirty,
+                    mq_check_if_still_dirty,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup,
                     &local->loc,
@@ -822,7 +822,7 @@ get_dirty_xattr (call_frame_t *frame, void *cookie,
 err:
         if (ret) {
                 local->err = -1;
-                release_lock_on_dirty_inode(frame, NULL, this, 0, 0);
+                mq_release_lock_on_dirty_inode(frame, NULL, this, 0, 0);
         }
 
         if (xattr_req)
@@ -835,10 +835,10 @@ err:
  * 0 other wise
  */
 int32_t
-update_dirty_inode (xlator_t *this,
-                    loc_t *loc,
-                    quota_inode_ctx_t *ctx,
-                    inode_contribution_t *contribution)
+mq_update_dirty_inode (xlator_t *this,
+                       loc_t *loc,
+                       quota_inode_ctx_t *ctx,
+                       inode_contribution_t *contribution)
 {
         int32_t          ret        = -1;
         quota_local_t   *local      = NULL;
@@ -860,7 +860,7 @@ update_dirty_inode (xlator_t *this,
 
         mq_assign_lk_owner (this, frame);
 
-        local = quota_local_new ();
+        local = mq_local_new ();
         if (local == NULL)
                 goto fr_destroy;
 
@@ -886,7 +886,7 @@ update_dirty_inode (xlator_t *this,
         }
 
         STACK_WIND (frame,
-                    get_dirty_xattr,
+                    mq_get_dirty_xattr,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->loc, F_SETLKW, &lock);
@@ -901,8 +901,8 @@ out:
 
 
 int32_t
-quota_inode_creation_done (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno)
+mq_inode_creation_done (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno)
 {
         if (frame == NULL)
                 return 0;
@@ -914,9 +914,9 @@ quota_inode_creation_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
-quota_xattr_creation_release_lock (call_frame_t *frame, void *cookie,
-                                   xlator_t *this, int32_t op_ret,
-                                   int32_t op_errno)
+mq_xattr_creation_release_lock (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno)
 {
         struct gf_flock  lock  = {0, };
         quota_local_t   *local = NULL;
@@ -930,7 +930,7 @@ quota_xattr_creation_release_lock (call_frame_t *frame, void *cookie,
         lock.l_pid    = 0;
 
         STACK_WIND (frame,
-                    quota_inode_creation_done,
+                    mq_inode_creation_done,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->loc,
@@ -941,8 +941,8 @@ quota_xattr_creation_release_lock (call_frame_t *frame, void *cookie,
 
 
 int32_t
-create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *dict)
+mq_create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         int32_t          ret       = -1;
         dict_t          *newdict   = NULL;
@@ -968,19 +968,19 @@ create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto err;
                 }
 
-                STACK_WIND (frame, quota_xattr_creation_release_lock,
+                STACK_WIND (frame, mq_xattr_creation_release_lock,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->setxattr,
                             &local->loc, newdict, 0);
         } else {
-                quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+                mq_xattr_creation_release_lock (frame, NULL, this, 0, 0);
         }
 
         ret = 0;
 
 err:
         if (ret < 0) {
-                quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+                mq_xattr_creation_release_lock (frame, NULL, this, 0, 0);
         }
 
         if (newdict != NULL)
@@ -991,7 +991,7 @@ err:
 
 
 int32_t
-quota_create_xattr (xlator_t *this, call_frame_t *frame)
+mq_create_xattr (xlator_t *this, call_frame_t *frame)
 {
         int32_t               ret       = 0;
         int64_t              *value     = NULL;
@@ -1010,12 +1010,12 @@ quota_create_xattr (xlator_t *this, call_frame_t *frame)
 
         priv = (marker_conf_t *) this->private;
 
-        ret = quota_inode_ctx_get (local->loc.inode, this, &ctx);
+        ret = mq_inode_ctx_get (local->loc.inode, this, &ctx);
         if (ret < 0) {
-                ctx = quota_inode_ctx_new (local->loc.inode, this);
+                ctx = mq_inode_ctx_new (local->loc.inode, this);
                 if (ctx == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "quota_inode_ctx_new failed");
+                                "mq_inode_ctx_new failed");
                         ret = -1;
                         goto out;
                 }
@@ -1033,7 +1033,7 @@ quota_create_xattr (xlator_t *this, call_frame_t *frame)
         }
 
         if (strcmp (local->loc.path, "/") != 0) {
-                contri = add_new_contribution_node (this, ctx, &local->loc);
+                contri = mq_add_new_contribution_node (this, ctx, &local->loc);
                 if (contri == NULL)
                         goto err;
 
@@ -1045,7 +1045,7 @@ quota_create_xattr (xlator_t *this, call_frame_t *frame)
                         goto free_value;
         }
 
-        STACK_WIND (frame, create_dirty_xattr, FIRST_CHILD(this),
+        STACK_WIND (frame, mq_create_dirty_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->loc,
                     GF_XATTROP_ADD_ARRAY64, dict);
         ret = 0;
@@ -1065,7 +1065,7 @@ err:
 
 out:
         if (ret < 0) {
-                quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+                mq_xattr_creation_release_lock (frame, NULL, this, 0, 0);
         }
 
         return 0;
@@ -1073,10 +1073,10 @@ out:
 
 
 int32_t
-quota_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
-                               xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               inode_t *inode, struct iatt *buf, dict_t *dict,
-                               struct iatt *postparent)
+mq_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int32_t op_ret, int32_t op_errno,
+                            inode_t *inode, struct iatt *buf, dict_t *dict,
+                            struct iatt *postparent)
 {
         quota_local_t        *local           = NULL;
         int64_t              *size            = NULL, *contri = NULL;
@@ -1112,18 +1112,18 @@ quota_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
         }
 
 out:
-        quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+        mq_xattr_creation_release_lock (frame, NULL, this, 0, 0);
         return 0;
 
 create_xattr:
-        quota_create_xattr (this, frame);
+        mq_create_xattr (this, frame);
         return 0;
 }
 
 
 int32_t
-quota_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno)
+mq_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
+              int32_t op_ret, int32_t op_errno)
 {
         dict_t        *xattr_req = NULL;
         quota_local_t *local     = NULL;
@@ -1140,13 +1140,13 @@ quota_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        ret = quota_req_xattr (this, &local->loc, xattr_req);
+        ret = mq_req_xattr (this, &local->loc, xattr_req);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot request xattr");
                 goto err;
         }
 
-        STACK_WIND (frame, quota_check_n_set_inode_xattr, FIRST_CHILD(this),
+        STACK_WIND (frame, mq_check_n_set_inode_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, xattr_req);
 
         dict_unref (xattr_req);
@@ -1154,20 +1154,20 @@ quota_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 err:
-        quota_xattr_creation_release_lock (frame, NULL, this, 0, 0);
+        mq_xattr_creation_release_lock (frame, NULL, this, 0, 0);
 
         if (xattr_req)
                 dict_unref (xattr_req);
         return 0;
 
 lock_err:
-        quota_inode_creation_done (frame, NULL, this, 0, 0);
+        mq_inode_creation_done (frame, NULL, this, 0, 0);
         return 0;
 }
 
 
 int32_t
-quota_set_inode_xattr (xlator_t *this, loc_t *loc)
+mq_set_inode_xattr (xlator_t *this, loc_t *loc)
 {
         struct gf_flock  lock  = {0, };
         quota_local_t   *local = NULL;
@@ -1180,7 +1180,7 @@ quota_set_inode_xattr (xlator_t *this, loc_t *loc)
                 goto err;
         }
 
-        local = quota_local_new ();
+        local = mq_local_new ();
         if (local == NULL) {
                 goto err;
         }
@@ -1200,7 +1200,7 @@ quota_set_inode_xattr (xlator_t *this, loc_t *loc)
         lock.l_whence = SEEK_SET;
 
         STACK_WIND (frame,
-                    quota_get_xattr,
+                    mq_get_xattr,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->loc, F_SETLKW, &lock);
@@ -1215,7 +1215,7 @@ err:
 
 
 int32_t
-get_parent_inode_local (xlator_t *this, quota_local_t *local)
+mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
 {
         int32_t            ret = -1;
         quota_inode_ctx_t *ctx = NULL;
@@ -1234,8 +1234,8 @@ get_parent_inode_local (xlator_t *this, quota_local_t *local)
 
         loc_wipe (&local->parent_loc);
 
-        ret = quota_inode_loc_fill (NULL, local->loc.parent,
-                                    &local->parent_loc);
+        ret = mq_inode_loc_fill (NULL, local->loc.parent,
+                                 &local->parent_loc);
         if (ret < 0) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                         "failed to build parent loc of %s",
@@ -1243,7 +1243,7 @@ get_parent_inode_local (xlator_t *this, quota_local_t *local)
                 goto out;
         }
 
-        ret = quota_inode_ctx_get (local->loc.inode, this, &ctx);
+        ret = mq_inode_ctx_get (local->loc.inode, this, &ctx);
         if (ret < 0) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                         "inode ctx get failed");
@@ -1268,12 +1268,12 @@ out:
 
 
 int32_t
-xattr_updation_done (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     dict_t *dict)
+mq_xattr_updation_done (call_frame_t *frame,
+                        void *cookie,
+                        xlator_t *this,
+                        int32_t op_ret,
+                        int32_t op_errno,
+                        dict_t *dict)
 {
         QUOTA_STACK_DESTROY (frame, this);
         return 0;
@@ -1281,8 +1281,8 @@ xattr_updation_done (call_frame_t *frame,
 
 
 int32_t
-quota_inodelk_cbk (call_frame_t *frame, void *cookie,
-                   xlator_t *this, int32_t op_ret, int32_t op_errno)
+mq_inodelk_cbk (call_frame_t *frame, void *cookie,
+                xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
         int32_t         ret    = 0;
         gf_boolean_t    status = _gf_false;
@@ -1297,7 +1297,7 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
                                 local->parent_loc.path, strerror (op_errno));
                 }
 
-                xattr_updation_done (frame, NULL, this, 0, 0, NULL);
+                mq_xattr_updation_done (frame, NULL, this, 0, 0, NULL);
 
                 return 0;
         }
@@ -1307,20 +1307,20 @@ quota_inodelk_cbk (call_frame_t *frame, void *cookie,
 
         if ((strcmp (local->parent_loc.path, "/") == 0)
             || (local->delta == 0)) {
-                xattr_updation_done (frame, NULL, this, 0, 0, NULL);
+                mq_xattr_updation_done (frame, NULL, this, 0, 0, NULL);
         } else {
-                ret = get_parent_inode_local (this, local);
+                ret = mq_get_parent_inode_local (this, local);
                 if (ret < 0) {
-                        xattr_updation_done (frame, NULL, this, 0, 0, NULL);
+                        mq_xattr_updation_done (frame, NULL, this, 0, 0, NULL);
                         goto out;
                 }
                 status = _gf_true;
 
                 ret = mq_test_and_set_ctx_updation_status (local->ctx, &status);
                 if (ret == 0 && status == _gf_false) {
-                        get_lock_on_parent (frame, this);
+                        mq_get_lock_on_parent (frame, this);
                 } else {
-                        xattr_updation_done (frame, NULL, this, 0, 0, NULL);
+                        mq_xattr_updation_done (frame, NULL, this, 0, 0, NULL);
                 }
         }
 out:
@@ -1330,9 +1330,9 @@ out:
 
 //now release lock on the parent inode
 int32_t
-quota_release_parent_lock (call_frame_t *frame, void *cookie,
-                           xlator_t *this, int32_t op_ret,
-                           int32_t op_errno)
+mq_release_parent_lock (call_frame_t *frame, void *cookie,
+                        xlator_t *this, int32_t op_ret,
+                        int32_t op_errno)
 {
         int32_t            ret      = 0;
         quota_local_t     *local    = NULL;
@@ -1350,7 +1350,7 @@ quota_release_parent_lock (call_frame_t *frame, void *cookie,
                                   strerror (local->err));
         }
 
-        ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
+        ret = mq_inode_ctx_get (local->parent_loc.inode, this, &ctx);
         if (ret < 0)
                 goto wind;
 
@@ -1374,7 +1374,7 @@ wind:
         lock.l_pid    = 0;
 
         STACK_WIND (frame,
-                    quota_inodelk_cbk,
+                    mq_inodelk_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->parent_loc,
@@ -1382,19 +1382,19 @@ wind:
 
         return 0;
 err:
-        xattr_updation_done (frame, NULL, this,
+        mq_xattr_updation_done (frame, NULL, this,
                              0, 0 , NULL);
         return 0;
 }
 
 
 int32_t
-quota_mark_undirty (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    dict_t *dict)
+mq_mark_undirty (call_frame_t *frame,
+                 void *cookie,
+                 xlator_t *this,
+                 int32_t op_ret,
+                 int32_t op_errno,
+                 dict_t *dict)
 {
         int32_t            ret          = -1;
         int64_t           *size         = NULL;
@@ -1417,7 +1417,7 @@ quota_mark_undirty (call_frame_t *frame,
 
         //update the size of the parent inode
         if (dict != NULL) {
-                ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
+                ret = mq_inode_ctx_get (local->parent_loc.inode, this, &ctx);
                 if (ret < 0) {
                         op_errno = EINVAL;
                         goto err;
@@ -1451,7 +1451,7 @@ quota_mark_undirty (call_frame_t *frame,
                 goto err;
         }
 
-        STACK_WIND (frame, quota_release_parent_lock,
+        STACK_WIND (frame, mq_release_parent_lock,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
                     &local->parent_loc, newdict, 0);
@@ -1461,7 +1461,7 @@ err:
         if ((op_ret == -1) || (ret < 0)) {
                 local->err = op_errno;
 
-                quota_release_parent_lock (frame, NULL, this, 0, 0);
+                mq_release_parent_lock (frame, NULL, this, 0, 0);
         }
 
         if (newdict)
@@ -1472,12 +1472,12 @@ err:
 
 
 int32_t
-quota_update_parent_size (call_frame_t *frame,
-                          void *cookie,
-                          xlator_t *this,
-                          int32_t op_ret,
-                          int32_t op_errno,
-                          dict_t *dict)
+mq_update_parent_size (call_frame_t *frame,
+                       void *cookie,
+                       xlator_t *this,
+                       int32_t op_ret,
+                       int32_t op_errno,
+                       dict_t *dict)
 {
         int64_t             *size       = NULL;
         int32_t              ret        = -1;
@@ -1514,7 +1514,7 @@ quota_update_parent_size (call_frame_t *frame,
                 goto err;
         }
 
-        ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
+        ret = mq_inode_ctx_get (local->parent_loc.inode, this, &ctx);
         if (ret < 0) {
                 op_errno = EINVAL;
                 goto err;
@@ -1538,7 +1538,7 @@ quota_update_parent_size (call_frame_t *frame,
         }
 
         STACK_WIND (frame,
-                    quota_mark_undirty,
+                    mq_mark_undirty,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop,
                     &local->parent_loc,
@@ -1548,7 +1548,7 @@ quota_update_parent_size (call_frame_t *frame,
 err:
         if (op_ret == -1 || ret < 0) {
                 local->err = op_errno;
-                quota_release_parent_lock (frame, NULL, this, 0, 0);
+                mq_release_parent_lock (frame, NULL, this, 0, 0);
         }
 
         if (newdict)
@@ -1558,11 +1558,11 @@ err:
 }
 
 int32_t
-quota_update_inode_contribution (call_frame_t *frame, void *cookie,
-                                 xlator_t *this, int32_t op_ret,
-                                 int32_t op_errno, inode_t *inode,
-                                 struct iatt *buf, dict_t *dict,
-                                 struct iatt *postparent)
+mq_update_inode_contribution (call_frame_t *frame, void *cookie,
+                              xlator_t *this, int32_t op_ret,
+                              int32_t op_errno, inode_t *inode,
+                              struct iatt *buf, dict_t *dict,
+                              struct iatt *postparent)
 {
         int32_t               ret              = -1;
         int64_t              *size             = NULL, size_int = 0;
@@ -1640,7 +1640,7 @@ unlock:
         local->delta = size_int - contri_int;
 
         if (local->delta == 0) {
-                quota_mark_undirty (frame, NULL, this, 0, 0, NULL);
+                mq_mark_undirty (frame, NULL, this, 0, 0, NULL);
                 return 0;
         }
 
@@ -1663,7 +1663,7 @@ unlock:
         }
 
         STACK_WIND (frame,
-                    quota_update_parent_size,
+                    mq_update_parent_size,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop,
                     &local->loc,
@@ -1675,7 +1675,7 @@ err:
         if (op_ret == -1 || ret < 0) {
                 local->err = op_errno;
 
-                quota_release_parent_lock (frame, NULL, this, 0, 0);
+                mq_release_parent_lock (frame, NULL, this, 0, 0);
         }
 
         if (newdict)
@@ -1685,9 +1685,9 @@ err:
 }
 
 int32_t
-quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
-                                   xlator_t *this, int32_t op_ret,
-                                   int32_t op_errno)
+mq_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno)
 {
         int32_t            ret              = -1;
         char               contri_key [512] = {0, };
@@ -1715,7 +1715,7 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
         priv = this->private;
 
         //update parent ctx
-        ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
+        ret = mq_inode_ctx_get (local->parent_loc.inode, this, &ctx);
         if (ret == -1) {
                 op_errno = EINVAL;
                 goto err;
@@ -1757,7 +1757,7 @@ quota_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
 
         mq_set_ctx_updation_status (local->ctx, _gf_false);
 
-        STACK_WIND (frame, quota_update_inode_contribution, FIRST_CHILD(this),
+        STACK_WIND (frame, mq_update_inode_contribution, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, newdict);
 
         ret = 0;
@@ -1768,7 +1768,7 @@ err:
 
                 mq_set_ctx_updation_status (local->ctx, _gf_false);
 
-                quota_release_parent_lock (frame, NULL, this, 0, 0);
+                mq_release_parent_lock (frame, NULL, this, 0, 0);
         }
 
         if (newdict)
@@ -1778,8 +1778,8 @@ err:
 }
 
 int32_t
-quota_markdirty (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno)
+mq_markdirty (call_frame_t *frame, void *cookie,
+              xlator_t *this, int32_t op_ret, int32_t op_errno)
 {
         int32_t        ret      = -1;
         dict_t        *dict     = NULL;
@@ -1798,7 +1798,7 @@ quota_markdirty (call_frame_t *frame, void *cookie,
 
                 mq_set_ctx_updation_status (local->ctx, _gf_false);
 
-                quota_inodelk_cbk (frame, NULL, this, 0, 0);
+                mq_inodelk_cbk (frame, NULL, this, 0, 0);
 
                 return 0;
         }
@@ -1818,7 +1818,7 @@ quota_markdirty (call_frame_t *frame, void *cookie,
         if (ret == -1)
                 goto err;
 
-        STACK_WIND (frame, quota_fetch_child_size_and_contri,
+        STACK_WIND (frame, mq_fetch_child_size_and_contri,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
                     &local->parent_loc, dict, 0);
@@ -1830,7 +1830,7 @@ err:
 
                 mq_set_ctx_updation_status (local->ctx, _gf_false);
 
-                quota_release_parent_lock (frame, NULL, this, 0, 0);
+                mq_release_parent_lock (frame, NULL, this, 0, 0);
         }
 
         if (dict)
@@ -1841,7 +1841,7 @@ err:
 
 
 int32_t
-get_lock_on_parent (call_frame_t *frame, xlator_t *this)
+mq_get_lock_on_parent (call_frame_t *frame, xlator_t *this)
 {
         struct gf_flock  lock  = {0, };
         quota_local_t   *local = NULL;
@@ -1865,7 +1865,7 @@ get_lock_on_parent (call_frame_t *frame, xlator_t *this)
         lock.l_whence = SEEK_SET;
 
         STACK_WIND (frame,
-                    quota_markdirty,
+                    mq_markdirty,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->parent_loc, F_SETLKW, &lock);
@@ -1880,9 +1880,9 @@ fr_destroy:
 
 
 int
-start_quota_txn (xlator_t *this, loc_t *loc,
-                 quota_inode_ctx_t *ctx,
-                 inode_contribution_t *contri)
+mq_start_quota_txn (xlator_t *this, loc_t *loc,
+                    quota_inode_ctx_t *ctx,
+                    inode_contribution_t *contri)
 {
         int32_t        ret      = -1;
         call_frame_t  *frame    = NULL;
@@ -1894,7 +1894,7 @@ start_quota_txn (xlator_t *this, loc_t *loc,
 
         mq_assign_lk_owner (this, frame);
 
-        local = quota_local_new ();
+        local = mq_local_new ();
         if (local == NULL)
                 goto fr_destroy;
 
@@ -1904,15 +1904,15 @@ start_quota_txn (xlator_t *this, loc_t *loc,
         if (ret < 0)
                 goto fr_destroy;
 
-        ret = quota_inode_loc_fill (NULL, local->loc.parent,
-                                    &local->parent_loc);
+        ret = mq_inode_loc_fill (NULL, local->loc.parent,
+                                 &local->parent_loc);
         if (ret < 0)
                 goto fr_destroy;
 
         local->ctx = ctx;
         local->contri = contri;
 
-        ret = get_lock_on_parent (frame, this);
+        ret = mq_get_lock_on_parent (frame, this);
         if (ret == -1)
                 goto err;
 
@@ -1928,7 +1928,7 @@ err:
 
 
 int
-initiate_quota_txn (xlator_t *this, loc_t *loc)
+mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
 {
         int32_t               ret          = -1;
         gf_boolean_t          status       = _gf_false;
@@ -1939,7 +1939,7 @@ initiate_quota_txn (xlator_t *this, loc_t *loc)
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
-        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "inode ctx get failed, aborting quota txn");
@@ -1947,7 +1947,7 @@ initiate_quota_txn (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        contribution = get_contribution_node (loc->parent, ctx);
+        contribution = mq_get_contribution_node (loc->parent, ctx);
         if (contribution == NULL)
                 goto out;
 
@@ -1961,7 +1961,7 @@ initiate_quota_txn (xlator_t *this, loc_t *loc)
                 goto out;
 
         if (status == _gf_false) {
-                start_quota_txn (this, loc, ctx, contribution);
+                mq_start_quota_txn (this, loc, ctx, contribution);
         }
 
         ret = 0;
@@ -1975,7 +1975,7 @@ out:
 /*                                int64_t contribution) */
 /* { */
 /*   if (size != contribution) { */
-/*     initiate_quota_txn (this, loc); */
+/*     mq_initiate_quota_txn (this, loc); */
 /*   } */
 
 /*   return 0; */
@@ -1983,10 +1983,10 @@ out:
 
 
 int32_t
-inspect_directory_xattr (xlator_t *this,
-                         loc_t *loc,
-                         dict_t *dict,
-                         struct iatt buf)
+mq_inspect_directory_xattr (xlator_t *this,
+                            loc_t *loc,
+                            dict_t *dict,
+                            struct iatt buf)
 {
         int32_t               ret                 = 0;
         int8_t                dirty               = -1;
@@ -2000,12 +2000,12 @@ inspect_directory_xattr (xlator_t *this,
 
         priv = this->private;
 
-        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0) {
-                ctx = quota_inode_ctx_new (loc->inode, this);
+                ctx = mq_inode_ctx_new (loc->inode, this);
                 if (ctx == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "quota_inode_ctx_new failed");
+                                "mq_inode_ctx_new failed");
                         ret = -1;
                         goto out;
                 }
@@ -2022,7 +2022,7 @@ inspect_directory_xattr (xlator_t *this,
         if (strcmp (loc->path, "/") != 0) {
                 not_root = _gf_true;
 
-                contribution = add_new_contribution_node (this, ctx, loc);
+                contribution = mq_add_new_contribution_node (this, ctx, loc);
                 if (contribution == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "cannot add a new contributio node");
@@ -2057,27 +2057,27 @@ inspect_directory_xattr (xlator_t *this,
                 " contri=%"PRId64, size_int, contri_int);
 
         if (dirty) {
-                ret = update_dirty_inode (this, loc, ctx, contribution);
+                ret = mq_update_dirty_inode (this, loc, ctx, contribution);
         }
 
         if ((!dirty || ret == 0) && (not_root == _gf_true) &&
             (size_int != contri_int)) {
-                initiate_quota_txn (this, loc);
+                mq_initiate_quota_txn (this, loc);
         }
 
         ret = 0;
 out:
         if (ret)
-                quota_set_inode_xattr (this, loc);
+                mq_set_inode_xattr (this, loc);
 
         return 0;
 }
 
 int32_t
-inspect_file_xattr (xlator_t *this,
-                    loc_t *loc,
-                    dict_t *dict,
-                    struct iatt buf)
+mq_inspect_file_xattr (xlator_t *this,
+                       loc_t *loc,
+                       dict_t *dict,
+                       struct iatt buf)
 {
         int32_t               ret              = -1;
         uint64_t              contri_int       = 0, size = 0;
@@ -2089,18 +2089,18 @@ inspect_file_xattr (xlator_t *this,
 
         priv = this->private;
 
-        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0) {
-                ctx = quota_inode_ctx_new (loc->inode, this);
+                ctx = mq_inode_ctx_new (loc->inode, this);
                 if (ctx == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "quota_inode_ctx_new failed");
+                                "mq_inode_ctx_new failed");
                         ret = -1;
                         goto out;
                 }
         }
 
-        contribution = add_new_contribution_node (this, ctx, loc);
+        contribution = mq_add_new_contribution_node (this, ctx, loc);
         if (contribution == NULL)
                 goto out;
 
@@ -2132,10 +2132,10 @@ inspect_file_xattr (xlator_t *this,
                                 "size=%"PRId64 " contri=%"PRId64, size, contri_int);
 
                         if (size != contri_int) {
-                                initiate_quota_txn (this, loc);
+                                mq_initiate_quota_txn (this, loc);
                         }
                 } else
-                        initiate_quota_txn (this, loc);
+                        mq_initiate_quota_txn (this, loc);
         }
 
 out:
@@ -2143,25 +2143,25 @@ out:
 }
 
 int32_t
-quota_xattr_state (xlator_t *this,
-                   loc_t *loc,
-                   dict_t *dict,
-                   struct iatt buf)
+mq_xattr_state (xlator_t *this,
+                loc_t *loc,
+                dict_t *dict,
+                struct iatt buf)
 {
         if (buf.ia_type == IA_IFREG ||
             buf.ia_type == IA_IFLNK) {
                 k ++;
-                inspect_file_xattr (this, loc, dict, buf);
+                mq_inspect_file_xattr (this, loc, dict, buf);
         } else if (buf.ia_type == IA_IFDIR)
-                inspect_directory_xattr (this, loc, dict, buf);
+                mq_inspect_directory_xattr (this, loc, dict, buf);
 
         return 0;
 }
 
 int32_t
-quota_req_xattr (xlator_t *this,
-                 loc_t *loc,
-                 dict_t *dict)
+mq_req_xattr (xlator_t *this,
+              loc_t *loc,
+              dict_t *dict)
 {
         int32_t               ret       = -1;
         marker_conf_t        *priv      = NULL;
@@ -2176,7 +2176,7 @@ quota_req_xattr (xlator_t *this,
         if (strcmp (loc->path, "/") == 0)
                 goto set_size;
 
-        ret = dict_set_contribution (this, dict, loc);
+        ret = mq_dict_set_contribution (this, dict, loc);
         if (ret == -1)
                 goto out;
 
@@ -2201,8 +2201,8 @@ out:
 
 
 int32_t
-quota_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno)
+mq_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
 {
         QUOTA_STACK_DESTROY (frame, this);
 
@@ -2210,8 +2210,8 @@ quota_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
-quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno)
+_mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno)
 {
         int32_t        ret                = 0;
         char           contri_key [512]   = {0, };
@@ -2220,7 +2220,7 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (quota_local_t *) frame->local;
 
         if (op_ret == -1 || local->err == -1) {
-                quota_removexattr_cbk (frame, NULL, this, -1, 0);
+                mq_removexattr_cbk (frame, NULL, this, -1, 0);
                 return 0;
         }
 
@@ -2229,23 +2229,23 @@ quota_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->hl_count > 1) {
                 GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
 
-                STACK_WIND (frame, quota_removexattr_cbk, FIRST_CHILD(this),
+                STACK_WIND (frame, mq_removexattr_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->removexattr,
                             &local->loc, contri_key);
                 ret = 0;
         } else {
-                quota_removexattr_cbk (frame, NULL, this, 0, 0);
+                mq_removexattr_cbk (frame, NULL, this, 0, 0);
         }
 
         if (strcmp (local->parent_loc.path, "/") != 0) {
-                ret = get_parent_inode_local (this, local);
+                ret = mq_get_parent_inode_local (this, local);
                 if (ret < 0)
                         goto out;
 
-                start_quota_txn (this, &local->loc, local->ctx, local->contri);
+                mq_start_quota_txn (this, &local->loc, local->ctx, local->contri);
         }
 out:
-        quota_local_unref (this, local);
+        mq_local_unref (this, local);
 
         return 0;
 }
@@ -2264,7 +2264,7 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 local->err = -1;
 
-        ret = quota_inode_ctx_get (local->parent_loc.inode, this, &ctx);
+        ret = mq_inode_ctx_get (local->parent_loc.inode, this, &ctx);
 
         LOCK (&local->contri->lock);
         {
@@ -2295,7 +2295,7 @@ mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         lock.l_pid    = 0;
 
         STACK_WIND (frame,
-                    quota_inode_remove_done,
+                    _mq_inode_remove_done,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, &local->parent_loc,
@@ -2358,7 +2358,7 @@ err:
 }
 
 int32_t
-reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
+mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
 {
         int32_t                  ret           = -1;
         struct gf_flock          lock          = {0,};
@@ -2373,15 +2373,15 @@ reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
 
         priv = this->private;
 
-        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0)
                 goto out;
 
-        contribution = get_contribution_node (loc->parent, ctx);
+        contribution = mq_get_contribution_node (loc->parent, ctx);
         if (contribution == NULL)
                 goto out;
 
-        local = quota_local_new ();
+        local = mq_local_new ();
         if (local == NULL) {
                 ret = -1;
                 goto out;
@@ -2409,7 +2409,7 @@ reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
         local->ctx = ctx;
         local->contri = contribution;
 
-        ret = quota_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
+        ret = mq_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
         if (ret < 0)
                 goto out;
 
@@ -2445,7 +2445,7 @@ reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
 
 out:
         if (local != NULL)
-                quota_local_unref (this, local);
+                mq_local_unref (this, local);
 
         return ret;
 }
@@ -2459,7 +2459,7 @@ init_quota_priv (xlator_t *this)
 
 
 int32_t
-quota_rename_update_newpath (xlator_t *this, loc_t *loc)
+mq_rename_update_newpath (xlator_t *this, loc_t *loc)
 {
         int32_t               ret          = -1;
         quota_inode_ctx_t    *ctx          = NULL;
@@ -2469,23 +2469,23 @@ quota_rename_update_newpath (xlator_t *this, loc_t *loc)
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
-        ret = quota_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0)
                 goto out;
 
-        contribution = add_new_contribution_node (this, ctx, loc);
+        contribution = mq_add_new_contribution_node (this, ctx, loc);
         if (contribution == NULL) {
                 ret = -1;
                 goto out;
         }
 
-        initiate_quota_txn (this, loc);
+        mq_initiate_quota_txn (this, loc);
 out:
         return ret;
 }
 
 int32_t
-quota_forget (xlator_t *this, quota_inode_ctx_t *ctx)
+mq_forget (xlator_t *this, quota_inode_ctx_t *ctx)
 {
         inode_contribution_t *contri = NULL;
         inode_contribution_t *next   = NULL;
