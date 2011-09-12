@@ -813,20 +813,7 @@ glusterd_check_voloption_flags (char *key, int32_t flags)
         struct volopt_map_entry *vmep = NULL;
         int   ret = 0;
 
-        if (!strchr (key, '.')) {
-                ret = option_complete (key, &completion);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
-                        return _gf_false;
-                }
-
-                if (!completion) {
-                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
-                                        key);
-                        return _gf_false;
-                }
-        }
-
+        COMPLETE_OPTION(key, completion, ret);
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
                         if (vmep->flags & flags)
@@ -846,20 +833,7 @@ glusterd_check_globaloption (char *key)
         struct volopt_map_entry *vmep = NULL;
         int   ret = 0;
 
-        if (!strchr (key, '.')) {
-                ret = option_complete (key, &completion);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
-                        return _gf_false;
-                }
-
-                if (!completion) {
-                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
-                                        key);
-                        return _gf_false;
-                }
-        }
-
+        COMPLETE_OPTION(key, completion, ret);
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
                         if ((vmep->type == GLOBAL_DOC) ||
@@ -880,20 +854,7 @@ glusterd_check_localoption (char *key)
         struct volopt_map_entry *vmep = NULL;
         int   ret = 0;
 
-        if (!strchr (key, '.')) {
-                ret = option_complete (key, &completion);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
-                        return _gf_false;
-                }
-
-                if (!completion) {
-                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
-                                        key);
-                        return _gf_false;
-               }
-        }
-
+        COMPLETE_OPTION(key, completion, ret);
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
                         if ((vmep->type == DOC) ||
@@ -914,20 +875,7 @@ glusterd_check_voloption (char *key)
         struct volopt_map_entry *vmep = NULL;
         int ret = 0;
 
-        if (!strchr (key, '.')) {
-                ret = option_complete (key, &completion);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
-                        return _gf_false;
-                }
-
-                if (!completion) {
-                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
-                                        key);
-                        return _gf_false;
-                }
-        }
-
+        COMPLETE_OPTION(key, completion, ret);
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
                         if ((vmep->type == DOC) ||

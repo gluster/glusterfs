@@ -36,6 +36,26 @@
 #define VKEY_FEATURES_QUOTA       "features.quota"
 #define VKEY_PERF_STAT_PREFETCH   "performance.stat-prefetch"
 
+#define COMPLETE_OPTION(key, completion, ret)                           \
+        do {                                                            \
+                if (!strchr (key, '.')) {                               \
+                        ret = option_complete (key, &completion);       \
+                        if (ret) {                                      \
+                                gf_log ("", GF_LOG_ERROR, "Out of memory"); \
+                                return _gf_false;                       \
+                        }                                               \
+                                                                        \
+                        if (!completion) {                              \
+                                gf_log ("", GF_LOG_ERROR, "option %s does not" \
+                                        "exist", key);                  \
+                                return _gf_false;                       \
+                        }                                               \
+                }                                                       \
+                                                                        \
+                if (completion)                                         \
+                        GF_FREE (completion);                           \
+        } while (0);
+
 typedef enum gd_volopt_flags_ {
         OPT_FLAG_NONE,
         OPT_FLAG_FORCE = 1,
