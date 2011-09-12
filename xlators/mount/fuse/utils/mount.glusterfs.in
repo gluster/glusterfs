@@ -162,6 +162,7 @@ start_glusterfs ()
 
     if [ $err -eq "1" ]; then
             echo "Mount failed. Please check the log file for more details."
+            umount $mount_point > /dev/null 2>&1;
             exit 1;
     fi
 }

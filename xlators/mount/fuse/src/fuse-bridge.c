@@ -22,6 +22,8 @@
 static int gf_fuse_conn_err_log;
 static int gf_fuse_xattr_enotsup_log;
 
+void fini (xlator_t *this_xl);
+
 fuse_fd_ctx_t *
 __fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this)
 {
@@ -3885,6 +3887,14 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 break;
         }
 
+        case GF_EVENT_AUTH_FAILED:
+        {
+                /* Authentication failure is an error and glusterfs should stop */
+               gf_log (this->name, GF_LOG_ERROR, "Server authenication failed. Shutting down.");
+               fini (this);
+               break;
+        }
+
         default:
                 break;
         }
@@ -4249,6 +4259,10 @@ fini (xlator_t *this_xl)
                 gf_fuse_unmount (mount_point, priv->fd);
                 close (priv->fuse_dump_fd);
         }
+        /* Process should terminate once fuse xlator is finished.
+         * Required for AUTH_FAILED event.
+         */
+        raise (SIGTERM);
 }
 
 struct xlator_fops fops = {

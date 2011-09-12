@@ -396,6 +396,7 @@ char eventstring[GF_EVENT_MAXVAL+1][64] = {
         "New Volfile",
         "Translator Info",
         "Trigger Volume Heal",
+        "Authentication Failed",
         "Invalid event",
 };
 

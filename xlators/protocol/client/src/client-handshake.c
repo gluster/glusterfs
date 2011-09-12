@@ -814,7 +814,8 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         gf_setvolume_rsp      rsp           = {0,};
         int                   ret           = 0;
         int32_t               op_ret        = 0;
-        int32_t               op_errno        = 0;
+        int32_t               op_errno      = 0;
+        gf_boolean_t          auth_fail     = _gf_false;
 
         frame = myframe;
         this  = frame->this;
@@ -872,6 +873,12 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                         "SETVOLUME on remote-host failed: %s",
                         remote_error ? remote_error : strerror (op_errno));
                 errno = op_errno;
+                if (remote_error &&
+                   (strncmp ("Authentication failed",remote_error,
+                             sizeof (remote_error)) == 0)) {
+                        auth_fail = _gf_true;
+                        op_ret = 0;
+                }
                 if (op_errno == ESTALE) {
                         ret = default_notify (this, GF_EVENT_VOLFILE_MODIFIED, NULL);
                         if (ret)
@@ -929,7 +936,17 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         client_post_handshake (frame, frame->this);
 
 out:
-
+        if (auth_fail) {
+                gf_log (this->name, GF_LOG_INFO, "sending AUTH_FAILED event");
+                ret = default_notify (this, GF_EVENT_AUTH_FAILED, NULL);
+                if (ret)
+                        gf_log (this->name, GF_LOG_INFO,
+                                "notify of AUTH_FAILED failed");
+                conf->connecting = 0;
+                conf->connected = 0;
+                conf->last_sent_event = GF_EVENT_AUTH_FAILED;
+                ret = -1;
+        }
         if (-1 == op_ret) {
                 /* Let the connection/re-connection happen in
                  * background, for now, don't hang here,
@@ -942,6 +959,7 @@ out:
                                 "notify of CHILD_CONNECTING failed");
                 conf->last_sent_event = GF_EVENT_CHILD_CONNECTING;
                 conf->connecting= 1;
+                ret = 0;
         }
 
         if (rsp.dict.dict_val)
@@ -952,7 +970,7 @@ out:
         if (reply)
                 dict_unref (reply);
 
-        return 0;
+        return ret;
 }
 
 int
