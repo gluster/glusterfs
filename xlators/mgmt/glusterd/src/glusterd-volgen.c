@@ -772,6 +772,9 @@ glusterd_check_globaloption (char *key)
                 }
         }
 
+        if (completion)
+                GF_FREE (completion);
+
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
                         if ((vmep->type == GLOBAL_DOC) ||
@@ -806,6 +809,9 @@ glusterd_check_localoption (char *key)
                }
         }
 
+        if (completion)
+                GF_FREE (completion);
+
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
                         if ((vmep->type == DOC) ||
@@ -839,6 +845,9 @@ glusterd_check_voloption (char *key)
                         return _gf_false;
                 }
         }
+
+        if (completion)
+                GF_FREE (completion);
 
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
