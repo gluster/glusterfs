@@ -237,6 +237,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         glusterd_peerinfo_t                     *peerinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
         gf_boolean_t                            is_run         = _gf_false;
+        dict_t                                  *ctx           = NULL;
 
         ret = dict_get_str (dict, "src-brick", &src_brick);
 
@@ -380,6 +381,20 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                           "volume: %s", src_brick, volname);
                 *op_errstr = gf_strdup (msg);
                 goto out;
+        }
+
+        ctx = glusterd_op_get_ctx();
+        if (ctx) {
+                if (!glusterd_is_fuse_available ()) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to open /dev/"
+                                "fuse (%s), replace-brick command failed",
+                                strerror (errno));
+                        snprintf (msg, sizeof(msg), "Fuse unavailable\n "
+                                "Replace-brick failed");
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
         }
 
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {

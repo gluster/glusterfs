@@ -785,6 +785,8 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr)
         int                ret           = 0;
         char              *volname       = NULL;
         gf_boolean_t       exists        = _gf_false;
+        int                type          = 0;
+        dict_t            *ctx           = NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
@@ -803,6 +805,29 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr)
                 *op_errstr = gf_strdup ("Invalid volume name");
                 ret = -1;
                 goto out;
+        }
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get 'type' for quota op");
+                *op_errstr = gf_strdup ("Volume quota failed, internal error "
+                                        ", unable to get type of operation");
+                goto out;
+        }
+
+
+        ctx = glusterd_op_get_ctx();
+        if (ctx && (type == GF_QUOTA_OPTION_TYPE_ENABLE
+                    || type == GF_QUOTA_OPTION_TYPE_LIST)) {
+                /* Fuse mount req. only for enable & list-usage options*/
+                if (!glusterd_is_fuse_available ()) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to open /dev/"
+                                "fuse (%s), quota command failed",
+                                strerror (errno));
+                        *op_errstr = gf_strdup ("Fuse unavailable");
+                        ret = -1;
+                        goto out;
+                }
         }
 
 out:

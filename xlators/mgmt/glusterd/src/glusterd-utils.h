@@ -286,4 +286,8 @@ int32_t
 glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                             glusterd_brickinfo_t *brickinfo,
                             dict_t  *dict, int32_t count);
+
+gf_boolean_t
+glusterd_is_fuse_available ();
+
 #endif
