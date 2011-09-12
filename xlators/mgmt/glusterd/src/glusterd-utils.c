@@ -94,6 +94,20 @@ glusterd_unset_lock_owner (uuid_t owner)
 }
 
 gf_boolean_t
+glusterd_is_fuse_available ()
+{
+
+        int     fd = 0;
+
+        fd = open ("/dev/fuse", O_RDWR);
+
+        if (fd > -1 && !close (fd))
+                return _gf_true;
+        else
+                return _gf_false;
+}
+
+gf_boolean_t
 glusterd_is_loopback_localhost (const struct sockaddr *sa, char *hostname)
 {
         GF_ASSERT (sa);

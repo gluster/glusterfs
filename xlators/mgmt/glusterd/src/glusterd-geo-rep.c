@@ -942,6 +942,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         gf_boolean_t            exists   = _gf_false;
         glusterd_volinfo_t      *volinfo = NULL;
         char                    errmsg[PATH_MAX] = {0,};
+        dict_t                  *ctx = NULL;
 
 
         ret = dict_get_int32 (dict, "type", &type);
@@ -981,7 +982,24 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         case GF_GSYNC_OPTION_TYPE_START:
                 ret = glusterd_op_verify_gsync_start_options (volinfo, slave,
                                                               op_errstr);
+                if (ret)
+                        goto out;
+                ctx = glusterd_op_get_ctx();
+                if (ctx) {
+                        /*gsyncd does a fuse mount to start the geo-rep session*/
+                        if (!glusterd_is_fuse_available ()) {
+                                gf_log ("glusterd", GF_LOG_ERROR, "Unable to open"
+                                        " /dev/fuse (%s), geo-replication start"
+                                        " failed", strerror (errno));
+                                snprintf (errmsg, sizeof(errmsg),
+                                          "fuse unvailable");
+                                *op_errstr = gf_strdup (errmsg);
+                                ret = -1;
+                                goto out;
+                        }
+                }
                 break;
+
         case GF_GSYNC_OPTION_TYPE_STOP:
                 ret = glusterd_op_verify_gsync_running (volinfo, slave,
                                                         op_errstr);
