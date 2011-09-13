@@ -539,7 +539,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_inspect_file_xattr (this, &local->loc, NULL, *buf);
+                mq_set_inode_xattr (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1610,7 +1610,7 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_inspect_file_xattr (this, &local->loc, NULL, *buf);
+                mq_set_inode_xattr (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1679,7 +1679,7 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if ((priv->feature_enabled & GF_QUOTA) && (S_ISREG (local->mode))) {
-                mq_inspect_file_xattr (this, &local->loc, NULL, *buf);
+                mq_set_inode_xattr (this, &local->loc);
         }
 
         if (priv->feature_enabled & GF_XTIME)
