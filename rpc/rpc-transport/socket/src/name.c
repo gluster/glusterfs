@@ -402,7 +402,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         memset (&hints, 0, sizeof (hints));
         hints.ai_family = addr->sa_family;
         hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags    = AI_PASSIVE;
+        hints.ai_flags    = AI_PASSIVE | AI_ADDRCONFIG;
 
         ret = getaddrinfo(listen_host, service, &hints, &res);
         if (ret != 0) {
