@@ -222,3 +222,28 @@ def getusername(uid = None):
     if uid == None:
         uid = os.geteuid()
     return pwd.getpwuid(uid).pw_name
+
+def boolify(s):
+    """
+    Generic string to boolean converter
+
+    return
+    - Quick return if string 's' is of type bool
+    - True if it's in true_list
+    - False if it's in false_list
+    - Warn if it's not present in either and return False
+    """
+    true_list  = ['true', 'yes', '1', 'on']
+    false_list = ['false', 'no', '0', 'off']
+
+    if isinstance(s, bool):
+        return s
+
+    rv = False
+    lstr = s.lower()
+    if lstr in true_list:
+        rv = True
+    elif not lstr in false_list:
+        logging.warn("Unknown string (%s) in string to boolean conversion defaulting to False\n" % (s))
+
+    return rv

@@ -9,7 +9,7 @@ from errno import ENOENT, ENODATA
 from threading import currentThread, Condition, Lock
 
 from gconf import gconf
-from syncdutils import FreeObject, Thread, GsyncdError
+from syncdutils import FreeObject, Thread, GsyncdError, boolify
 
 URXTIME = (-1, 0)
 
@@ -346,7 +346,7 @@ class GMaster(object):
                 self.add_failjob(path, 'remote-entries-fail')
                 return
         dd = set(des) - set(dem)
-        if dd:
+        if dd and not boolify(gconf.ignore_deletes):
             self.slave.server.purge(path, dd)
         chld = []
         for e in dem:
