@@ -332,18 +332,20 @@ glusterd_defrag_stop (glusterd_volinfo_t *volinfo, u_quad_t *files,
         GF_ASSERT (size);
         GF_ASSERT (op_errstr);
 
-        if (!volinfo || !volinfo->defrag) {
+        if (!volinfo) {
                 ret = -1;
                 goto out;
         }
 
         ret = glusterd_defrag_stop_validate (volinfo, op_errstr, len);
-        if (ret)
+        if (ret) {
+                /* rebalance may be happening on other nodes */
+                ret = 0;
                 goto out;
+        }
 
         ret = 0;
         if (volinfo->defrag_status == GF_DEFRAG_STATUS_NOT_STARTED) {
-                volinfo->defrag = NULL;
                 goto out;
         }
 
@@ -691,10 +693,11 @@ out:
 int
 glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
 {
-        int32_t                 ret           = -1;
-        gf1_cli_defrag_vol_req  cli_req       = {0,};
-        glusterd_conf_t        *priv          = NULL;
-        dict_t                 *dict          = NULL;
+        int32_t                 ret     = -1;
+        gf1_cli_defrag_vol_req  cli_req = {0,};
+        glusterd_conf_t        *priv    = NULL;
+        dict_t                 *dict    = NULL;
+        char                   *volname = NULL;
 
         GF_ASSERT (req);
 
@@ -713,11 +716,16 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
         if (!dict)
                 goto out;
 
-        ret = dict_set_str (dict, "volname", cli_req.volname);
+        volname = gf_strdup (cli_req.volname);
+        if (!volname)
+                goto out;
+
+        /* let 'volname' be freed in dict_destroy */
+        ret = dict_set_dynstr (dict, "volname", volname);
         if (ret)
                 goto out;
 
-        ret = dict_set_str (dict, "node-uuid", uuid_utoa (priv->uuid));
+        ret = dict_set_static_bin (dict, "node-uuid", priv->uuid, 16);
         if (ret)
                 goto out;
 
@@ -738,6 +746,7 @@ out:
                 ret = glusterd_op_send_cli_response (GD_OP_REBALANCE, ret, 0, req,
                                                      NULL, "operation failed");
         }
+
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
 
@@ -806,8 +815,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         glusterd_volinfo_t *volinfo   = NULL;
         uint64_t            files     = 0;
         uint64_t            size      = 0;
-        char               *uuid_str  = NULL;
-        uuid_t              node_uuid = {0,};
+        void               *node_uuid = NULL;
         glusterd_conf_t    *priv      = NULL;
         dict_t             *tmp_dict  = NULL;
 
@@ -824,6 +832,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 gf_log (THIS->name, GF_LOG_DEBUG, "command not given");
                 goto out;
         }
+
         ret = glusterd_rebalance_cmd_validate (cmd, volname, &volinfo,
                                                msg, sizeof (msg));
         if (ret) {
@@ -833,16 +842,9 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         if ((cmd != GF_DEFRAG_CMD_STATUS) ||
             (cmd != GF_DEFRAG_CMD_STOP)) {
-                ret = dict_get_str (dict, "node-uuid", &uuid_str);
+                ret = dict_get_ptr (dict, "node-uuid", &node_uuid);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG, "node-uuid not found");
-                        goto out;
-                }
-
-                ret = uuid_parse (uuid_str, node_uuid);
-                if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
-                                "uuid-unparse failed %s", uuid_str);
                         goto out;
                 }
 
@@ -850,11 +852,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                    issued the command */
                 if (uuid_compare (node_uuid, priv->uuid)) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
-                                "not the source node %s %s", uuid_str,
-                                uuid_utoa (priv->uuid));
-                        /* Need to initialize the 'volinfo->defrag' to some
-                           value to say operation is in progress */
-                        volinfo->defrag = (void *)1;
+                                "not the source node %s", uuid_utoa (priv->uuid));
                         goto out;
                 }
         }
