@@ -155,7 +155,7 @@ def main_i():
     op.add_option('--session-owner',       metavar='ID')
     op.add_option('-s', '--ssh-command',   metavar='CMD',   default='ssh')
     op.add_option('--rsync-command',       metavar='CMD',   default='rsync')
-    op.add_option('--rsync-extra',         metavar='ARGS',  default='-sS', help=SUPPRESS_HELP)
+    op.add_option('--rsync-extra',         metavar='ARGS',  default='-S', help=SUPPRESS_HELP)
     op.add_option('--timeout',             metavar='SEC',   type=int, default=120)
     op.add_option('--sync-jobs',           metavar='N',     type=int, default=3)
     op.add_option('--turns',               metavar='N',     type=int, default=0, help=SUPPRESS_HELP)
