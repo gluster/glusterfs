@@ -664,23 +664,32 @@ check_prepare_mountbroker_root (char *mountbroker_root)
 static void
 _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
 {
-        glusterd_conf_t *priv  = THIS->private;
-        char *label            = NULL;
-        gf_boolean_t georep    = _gf_false;
-        char *pdesc            = value->data;
-        char *volname          = NULL;
-        int *ret               = data;
-        int rv                 = 0;
-        gf_mount_spec_t *mspec = NULL;
-        char *user             = NULL;
+        glusterd_conf_t *priv           = THIS->private;
+        char            *label          = NULL;
+        gf_boolean_t     georep         = _gf_false;
+        gf_boolean_t     ghadoop        = _gf_false;
+        char            *pdesc          = value->data;
+        char            *volname        = NULL;
+        int             *ret            = data;
+        int              rv             = 0;
+        gf_mount_spec_t *mspec          = NULL;
+        char            *user           = NULL;
+        char            *volfile_server = NULL;
 
         if (*ret == -1)
                 return;
 
         label = strtail (key, "mountbroker.");
+
+        /* check for presence of geo-rep/hadoop label */
         if (!label) {
-                georep = _gf_true;
                 label = strtail (key, "mountbroker-"GEOREP".");
+                if (label)
+                        georep = _gf_true;
+
+                label = strtail (key, "mountbroker-"GHADOOP".");
+                if (label)
+                        ghadoop = _gf_true;
         }
 
         if (!label)
@@ -691,7 +700,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
                 goto err;
         mspec->label = label;
 
-        if (georep) {
+        if (georep || ghadoop) {
                 volname = gf_strdup (pdesc);
                 if (!volname)
                         goto err;
@@ -701,7 +710,20 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
                         user++;
                 } else
                         user = label;
-                rv = make_georep_mountspec (mspec, volname, user);
+
+                if (georep)
+                        rv = make_georep_mountspec (mspec, volname, user);
+
+                if (ghadoop) {
+                        volfile_server = strchr (user, ':');
+                        if (volfile_server)
+                                *volfile_server++ = '\0';
+                        else
+                                volfile_server = "localhost";
+
+                        rv = make_ghadoop_mountspec (mspec, volname, user, volfile_server);
+                }
+
                 GF_FREE (volname);
                 if (rv != 0)
                         goto err;
@@ -1071,6 +1093,9 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_ANY,
         },
         { .key  = {"mountbroker-"GEOREP".*"},
+          .type = GF_OPTION_TYPE_ANY,
+        },
+        { .key  = {"mountbroker-"GHADOOP".*"},
           .type = GF_OPTION_TYPE_ANY,
         },
         { .key = {GEOREP"-log-group"},
