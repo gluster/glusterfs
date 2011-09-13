@@ -148,6 +148,7 @@ def main_i():
     op.add_option('-p', '--pid-file',      metavar='PIDF',  type=str, action='callback', callback=store_abs)
     op.add_option('-l', '--log-file',      metavar='LOGF',  type=str, action='callback', callback=store_abs)
     op.add_option('--state-file',          metavar='STATF', type=str, action='callback', callback=store_abs)
+    op.add_option('--ignore-deletes',      default=False, action='store_true')
     op.add_option('-L', '--log-level',     metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',   default=os.path.abspath(sys.argv[0]))
     op.add_option('--volume-id',           metavar='UUID')
@@ -188,7 +189,7 @@ def main_i():
     op.add_option('--canonicalize-url',        dest='url_print', action='callback', callback=store_local_curry('canon'))
     op.add_option('--canonicalize-escape-url', dest='url_print', action='callback', callback=store_local_curry('canon_esc'))
 
-    tunables = [ norm(o.get_opt_string()[2:]) for o in op.option_list if o.callback in (store_abs, None) and o.get_opt_string() not in ('--version', '--help') ]
+    tunables = [ norm(o.get_opt_string()[2:]) for o in op.option_list if o.callback in (store_abs, 'store_true', None) and o.get_opt_string() not in ('--version', '--help') ]
 
     # precedence for sources of values: 1) commandline, 2) cfg file, 3) defaults
     # -- for this to work out we need to tell apart defaults from explicitly set
