@@ -69,6 +69,7 @@ void trap (void);
 #define GF_UNIT_PB_STRING    "PB"
 
 #define GEOREP "geo-replication"
+#define GHADOOP "glusterfs-hadoop"
 
 enum _gf_boolean
 {
