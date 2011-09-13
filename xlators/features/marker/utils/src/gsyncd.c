@@ -30,10 +30,12 @@
 
 #include "common-utils.h"
 #include "run.h"
+#include "procdiggy.h"
 
 #define _GLUSTERD_CALLED_ "_GLUSTERD_CALLED_"
 #define _GSYNCD_DISPATCHED_ "_GSYNCD_DISPATCHED_"
 #define GSYNCD_CONF "geo-replication/gsyncd.conf"
+#define GSYNCD_PY "gsyncd.py"
 #define RSYNC "rsync"
 
 int restricted = 0;
@@ -128,9 +130,12 @@ invoke_gsyncd (int argc, char **argv)
                         goto error;
         }
 
+        if (chdir ("/") == -1)
+                goto error;
+
         j = 0;
         nargv[j++] = PYTHON;
-        nargv[j++] = GSYNCD_PREFIX"/python/syncdaemon/gsyncd.py";
+        nargv[j++] = GSYNCD_PREFIX"/python/syncdaemon/"GSYNCD_PY;
         for (i = 1; i < argc; i++)
                 nargv[j++] = argv[i];
         if (config_file[0]) {
@@ -149,10 +154,72 @@ invoke_gsyncd (int argc, char **argv)
         return 1;
 }
 
+
+static int
+find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
+{
+        char buf[NAME_MAX * 2] = {0,};
+        char *p                = NULL;
+        int zeros              = 0;
+        int ret                = 0;
+        int fd                 = -1;
+        pid_t *pida            = (pid_t *)data;
+
+        if (ppid != pida[0])
+                return 0;
+
+        ret = gf_asprintf (&p, PROC"/%d/cmdline", pid);
+        if (ret == -1) {
+                fprintf (stderr, "out of memory\n");
+                return -1;
+        }
+
+        fd = open (p, O_RDONLY);
+        if (fd == -1)
+                return 0;
+        ret = read (fd, buf, sizeof (buf));
+        close (fd);
+        if (ret == -1)
+                return 0;
+        for (zeros = 0, p = buf; zeros < 2 && p < buf + ret; p++)
+                zeros += !*p;
+
+        ret = 0;
+        switch (zeros) {
+        case 2:
+                if ((strcmp (basename (buf), basename (PYTHON)) ||
+                     strcmp (basename (buf + strlen (buf) + 1), GSYNCD_PY)) == 0) {
+                        ret = 1;
+                        break;
+                }
+                /* fallthrough */
+        case 1:
+                if (strcmp (basename (buf), GSYNCD_PY) == 0)
+                        ret = 1;
+        }
+
+        if (ret == 1) {
+                if (pida[1] != -1) {
+                        fprintf (stderr, GSYNCD_PY" sibling is not unique");
+                        return -1;
+                }
+                pida[1] = pid;
+        }
+
+        return 0;
+}
+
 static int
 invoke_rsync (int argc, char **argv)
 {
-        int i = 0;
+        int i                  = 0;
+        char *p                = NULL;
+        pid_t pid              = -1;
+        pid_t ppid             = -1;
+        pid_t pida[]           = {-1, -1};
+        char *name             = NULL;
+        char buf[PATH_MAX + 1] = {0,};
+        int ret                = 0;
 
         assert (argv[argc] == NULL);
 
@@ -161,24 +228,42 @@ invoke_rsync (int argc, char **argv)
 
         for (i = 2; i < argc && argv[i][0] == '-'; i++);
 
-        if (!(i == argc ||
-              (i == argc - 2 && strcmp (argv[i], ".") == 0 && argv[i + 1][0] == '/')))
+        if (!(i == argc - 2 && strcmp (argv[i], ".") == 0 && argv[i + 1][0] == '/')) {
+                fprintf (stderr, "need an rsync invocation without protected args\n");
                 goto error;
+        }
 
-        /* XXX a proper check would involve the following:
-         * - require rsync to not protect args (ie. pass target in command line)
-         * - find out proper synchronization target by:
-         *   - looking up sshd process we origin from
-         *   - within its children, find the gsyncd process
-         *     that maintains the aux mount
-         *   - find out mount directory by checking the working directory
-         *     of the gsyncd process
-         * - demand that rsync target equals to sync target
-         *
-         * As of now, what we implement is dispatching rsync invocation to
-         * our system rsync, that handles the cardinal issue of controlling
-         * remote-requested command invocations.
-         */
+        /* look up sshd we are spawned from */
+        for (pid = getpid () ;; pid = ppid) {
+                ppid = pidinfo (pid, &name);
+                if (ppid < 0) {
+                        fprintf (stderr, "sshd ancestor not found\n");
+                        goto error;
+                }
+                if (strcmp (name, "sshd") == 0)
+                        break;
+        }
+        /* look up "ssh-sibling" gsyncd */
+        pida[0] = pid;
+        ret = prociter (find_gsyncd, pida);
+        if (ret == -1 || pida[1] == -1) {
+                fprintf (stderr, "gsyncd sibling not found\n");
+                goto error;
+        }
+        /* check if rsync target matches gsyncd target */
+        if (gf_asprintf (&p, PROC"/%d/cwd", pida[1]) == -1) {
+                fprintf (stderr, "out of memory\n");
+                goto error;
+        }
+        ret = readlink (p, buf, sizeof (buf));
+        if (ret == -1 || ret == sizeof (buf))
+                goto error;
+        if (strcmp (argv[argc - 1], "/") == 0 /* root dir cannot be a target */ ||
+            (strcmp (argv[argc - 1], p) /* match against gluster target */ &&
+             strcmp (argv[argc - 1], buf) /* match against file target */) != 0) {
+                fprintf (stderr, "rsync target does not match "GEOREP" session\n");
+                goto error;
+        }
 
         argv[0] = RSYNC;
 
@@ -191,6 +276,7 @@ invoke_rsync (int argc, char **argv)
         fprintf (stderr, "disallowed "RSYNC" invocation\n");
         return 1;
 }
+
 
 struct invocable {
         char *name;
