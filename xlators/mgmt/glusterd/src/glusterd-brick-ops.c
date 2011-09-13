@@ -945,7 +945,16 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        volinfo->defrag_status = 0;
+        /* Need to reset the defrag/rebalance status accordingly */
+        switch (volinfo->defrag_status) {
+        case GF_DEFRAG_STATUS_FAILED:
+        case GF_DEFRAG_STATUS_COMPLETE:
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
+        case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
+                volinfo->defrag_status = 0;
+        default:
+                break;
+        }
 
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
@@ -1006,9 +1015,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_PAUSE:
         {
                 if (volinfo->decommission_in_progress) {
-                        if (volinfo->defrag == (void *)1)
-                                volinfo->defrag = NULL;
-
                         if (volinfo->defrag) {
                                 LOCK (&volinfo->defrag->lock);
 
@@ -1026,9 +1032,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_ABORT:
         {
                 if (volinfo->decommission_in_progress) {
-                        if (volinfo->defrag == (void *)1)
-                                volinfo->defrag = NULL;
-
                         if (volinfo->defrag) {
                                 LOCK (&volinfo->defrag->lock);
 
@@ -1054,9 +1057,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_COMMIT_FORCE:
 
                 if (volinfo->decommission_in_progress) {
-                        if (volinfo->defrag == (void *)1)
-                                volinfo->defrag = NULL;
-
                         if (volinfo->defrag) {
                                 LOCK (&volinfo->defrag->lock);
                                 /* Fake 'rebalance-complete' so the graph change
@@ -1109,7 +1109,16 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        volinfo->defrag_status = 0;
+        /* Need to reset the defrag/rebalance status accordingly */
+        switch (volinfo->defrag_status) {
+        case GF_DEFRAG_STATUS_FAILED:
+        case GF_DEFRAG_STATUS_COMPLETE:
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
+        case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
+                volinfo->defrag_status = 0;
+        default:
+                break;
+        }
         if (!force && need_rebalance) {
                 /* perform the rebalance operations */
                 ret = glusterd_handle_defrag_start (volinfo, err_str, 4096,
