@@ -3401,14 +3401,49 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+gf_boolean_t
+check_cache_size_ok (xlator_t *this, int64_t cache_size)
+{
+        int                     ret = _gf_true;
+        uint64_t                total_mem = 0;
+        uint64_t                max_cache_size = 0;
+        volume_option_t         *opt = NULL;
+
+        GF_ASSERT (this);
+        opt = xlator_volume_option_get (this, "cache-size");
+        if (!opt) {
+                ret = _gf_false;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not get cache-size option");
+                goto out;
+        }
+
+        total_mem = get_mem_size ();
+        if (-1 == total_mem)
+                max_cache_size = opt->max;
+        else
+                max_cache_size = total_mem;
+
+        gf_log (this->name, GF_LOG_INFO, "Max cache size is %"PRIu64,
+                max_cache_size);
+        if (cache_size > max_cache_size) {
+                ret = _gf_false;
+                gf_log (this->name, GF_LOG_ERROR, "Cache size %"PRIu64
+                        " is greater than the max size of %"PRIu64,
+                        cache_size, max_cache_size);
+                goto out;
+        }
+out:
+        return ret;
+}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-        int32_t       ret           = -1;
-        qr_private_t *priv          = NULL;
-        qr_conf_t    *conf          = NULL;
-
+        int32_t       ret            = -1;
+        qr_private_t *priv           = NULL;
+        qr_conf_t    *conf           = NULL;
+        uint64_t       cache_size_new = 0;
         GF_VALIDATE_OR_GOTO ("quick-read", this, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
         GF_VALIDATE_OR_GOTO (this->name, options, out);
@@ -3423,7 +3458,14 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("cache-timeout", conf->cache_timeout, options, int32,
                           out);
 
-        GF_OPTION_RECONF ("cache-size", conf->cache_size, options, size, out);
+        GF_OPTION_RECONF ("cache-size", cache_size_new, options, size, out);
+        if (!check_cache_size_ok (this, cache_size_new)) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Not reconfiguring cache-size");
+                goto out;
+        }
+        conf->cache_size = cache_size_new;
 
         ret = 0;
 out:
@@ -3566,6 +3608,10 @@ init (xlator_t *this)
         GF_OPTION_INIT ("cache-timeout", conf->cache_timeout, int32, out);
 
         GF_OPTION_INIT ("cache-size", conf->cache_size, size, out);
+        if (!check_cache_size_ok (this, conf->cache_size)) {
+                ret = -1;
+                goto out;
+        }
 
         INIT_LIST_HEAD (&conf->priority_list);
         conf->max_pri = 1;
@@ -3648,7 +3694,7 @@ struct volume_options options[] = {
         { .key  = {"cache-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 0,
-          .max  = 6 * GF_UNIT_GB,
+          .max  = 32 * GF_UNIT_GB,
           .default_value = "128MB",
           .description = "Size of the read cache."
         },

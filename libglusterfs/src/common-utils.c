@@ -1896,3 +1896,34 @@ gf_path_strip_trailing_slashes (char *path)
 
         return;
 }
+
+uint64_t
+get_mem_size ()
+{
+        uint64_t memsize = -1;
+
+#ifdef __linux__
+        FILE *fp = NULL;
+        char    line[1028] = {0,};
+
+        fp = fopen ("/proc/meminfo", "r");
+        if (!fp) {
+                gf_log ("common-utils", GF_LOG_DEBUG,
+                        "Could not open /proc/meminfo");
+                return memsize;
+        }
+
+        while (fgets (line, sizeof (line), fp) != 0) {
+                if (strncmp (line, "MemTotal:", 9) == 0) {
+                        sscanf (line, "%*s %"SCNu64" kB", &memsize);
+                        memsize *= 1024;        //convert to bytes
+                        gf_log ("common-utils", GF_LOG_INFO,
+                                "Total Mem: %"PRIu64, memsize);
+                        break;
+                }
+        }
+#endif
+        // TODO: Methods for other platforms
+
+        return memsize;
+}
