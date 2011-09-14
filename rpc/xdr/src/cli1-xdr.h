@@ -176,6 +176,7 @@ typedef struct gf1_cli_probe_rsp gf1_cli_probe_rsp;
 struct gf1_cli_deprobe_req {
 	char *hostname;
 	int port;
+	int flags;
 };
 typedef struct gf1_cli_deprobe_req gf1_cli_deprobe_req;
 

@@ -1718,6 +1718,7 @@ gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
         dict_t              *dict     = NULL;
         char                *hostname = NULL;
         int                  port     = 0;
+        int                  flags    = 0;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -1733,9 +1734,13 @@ gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
         if (ret)
                 port = CLI_GLUSTERD_PORT;
 
+        ret = dict_get_int32 (dict, "flags", &flags);
+        if (ret)
+                flags = 0;
+
         req.hostname = hostname;
         req.port     = port;
-
+        req.flags    = flags;
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_DEPROBE, NULL,
                               this, gf_cli3_1_deprobe_cbk,

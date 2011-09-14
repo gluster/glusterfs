@@ -255,6 +255,8 @@ xdr_gf1_cli_deprobe_req (XDR *xdrs, gf1_cli_deprobe_req *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->port))
 		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->flags))
+		 return FALSE;
 	return TRUE;
 }
 
