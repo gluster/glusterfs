@@ -2321,7 +2321,7 @@ rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
         if (dict_get (svc->options, srchstr)) {
                 ret = dict_get_str (svc->options, srchstr, &valstr);
                 if (ret == 0) {
-                        ret = gf_string2boolean (srchstr, &insecure);
+                        ret = gf_string2boolean (valstr, &insecure);
                         if (ret == 0) {
                                 if (insecure == _gf_true)
                                        exportinsecure = RPCSVC_AUTH_ACCEPT;
