@@ -50,6 +50,7 @@ void trap (void);
 #include "uuid.h"
 
 
+
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 #define roof(a,b) ((((a)+(b)-1)/((b)?(b):1))*(b))
@@ -399,4 +400,5 @@ int validate_brick_name (char *brick);
 char *get_host_name (char *word, char **host);
 char *get_path_name (char *word, char **path);
 void gf_path_strip_trailing_slashes (char *path);
+uint64_t get_mem_size ();
 #endif /* _COMMON_UTILS_H */
