@@ -48,23 +48,29 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (local->call_cnt != 1)
+        if (local->call_cnt != 1) {
+                /* preserve the modes of source */
+                if (local->stbuf.ia_blocks) {
+                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
+                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                }
                 goto out;
+        }
 
         local->rebalance.target_op_fn = dht_writev2;
 
         /* Phase 2 of migration */
-        if (IA_ISREG (postbuf->ia_type) &&
-            ((st_mode_from_ia (postbuf->ia_prot, postbuf->ia_type) &
-              ~S_IFMT) == DHT_LINKFILE_MODE)) {
+        if (IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
                 if (!ret)
                         return 0;
         }
 
         /* Check if the rebalance phase1 is true */
-        if (IA_ISREG (postbuf->ia_type) && (postbuf->ia_prot.sticky == 1) &&
-            (postbuf->ia_prot.sgid == 1)) {
+        if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
+                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
+                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+
                 ret = fd_ctx_get (local->fd, this, NULL);
                 if (!ret) {
                         dht_writev2 (this, frame, 0);
@@ -76,6 +82,9 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        DHT_STRIP_PHASE1_FLAGS (postbuf);
+        DHT_STRIP_PHASE1_FLAGS (prebuf);
+
         DHT_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf);
 
         return 0;
@@ -185,34 +194,40 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (local->call_cnt != 1)
+        if (local->call_cnt != 1) {
+                if (local->stbuf.ia_blocks) {
+                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
+                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                }
                 goto out;
+        }
 
         local->rebalance.target_op_fn = dht_truncate2;
 
         /* Phase 2 of migration */
-        if ((op_ret == -1) || (IA_ISREG (postbuf->ia_type) &&
-            ((st_mode_from_ia (postbuf->ia_prot, postbuf->ia_type) &
-              ~S_IFMT) == DHT_LINKFILE_MODE))) {
+        if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
                 if (!ret)
-                        goto err;
+                        return 0;
         }
 
         /* Check if the rebalance phase1 is true */
-        if (IA_ISREG (postbuf->ia_type) && (postbuf->ia_prot.sticky == 1) &&
-            (postbuf->ia_prot.sgid == 1)) {
+        if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
+                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
+                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
                 ret = fd_ctx_get (local->fd, this, NULL);
                 if (!ret) {
                         dht_truncate2 (this, frame, 0);
-                        goto err;
+                        return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
-                        goto err;
+                        return 0;
         }
 
 out:
+        DHT_STRIP_PHASE1_FLAGS (postbuf);
+        DHT_STRIP_PHASE1_FLAGS (prebuf);
         DHT_STACK_UNWIND (truncate, frame, op_ret, op_errno,
                           prebuf, postbuf);
 err:
@@ -362,19 +377,19 @@ dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->rebalance.target_op_fn = dht_setattr2;
 
         /* Phase 2 of migration */
-        if ((op_ret == -1) || (IA_ISREG (postbuf->ia_type) &&
-            ((st_mode_from_ia (postbuf->ia_prot, postbuf->ia_type) &
-              ~S_IFMT) == DHT_LINKFILE_MODE))) {
+        if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
                 if (!ret)
-                        goto out;
+                        return 0;
         }
 
         /* At the end of the migration process, whatever 'attr' we
            have on source file will be migrated to destination file
            in one shot, hence we don't need to check for in progress
-           state here */
+           state here (ie, PHASE1) */
 out:
+        DHT_STRIP_PHASE1_FLAGS (postbuf);
+        DHT_STRIP_PHASE1_FLAGS (prebuf);
         DHT_STACK_UNWIND (setattr, frame, op_ret, op_errno,
                           prebuf, postbuf);
 
