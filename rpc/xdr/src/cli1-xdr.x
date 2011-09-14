@@ -117,6 +117,7 @@ enum gf1_cli_top_op {
  struct gf1_cli_deprobe_req {
         string  hostname<>;
 	int	port;
+        int     flags;
 }  ;
 
  struct gf1_cli_deprobe_rsp {

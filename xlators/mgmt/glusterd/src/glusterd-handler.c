@@ -693,7 +693,7 @@ int
 glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_probe_req               cli_req = {0,};
+        gf1_cli_deprobe_req               cli_req = {0,};
         uuid_t                          uuid = {0};
         int                             op_errno = 0;
         xlator_t                        *this = NULL;
@@ -705,7 +705,8 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         GF_ASSERT (priv);
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_probe_req)) {
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+            (xdrproc_t)xdr_gf1_cli_deprobe_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -725,7 +726,7 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (!uuid_is_null (uuid)) {
+        if (!uuid_is_null (uuid) && !(cli_req.flags & GF_CLI_FLAG_OP_FORCE)) {
                 ret = glusterd_all_volume_cond_check (
                                                 glusterd_friend_brick_belongs,
                                                 -1, &uuid);

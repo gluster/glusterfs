@@ -31,6 +31,7 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
+#include "cli1-xdr.h"
 #include "protocol-common.h"
 
 extern struct rpc_clnt *global_rpc;
@@ -107,10 +108,11 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t *proc  = NULL;
         call_frame_t         *frame = NULL;
         dict_t               *dict  = NULL;
+        int                  flags = 0;
         int                  sent = 0;
         int                  parse_error = 0;
 
-        if (!(wordcount == 3) ) {
+        if ((wordcount < 3) || (wordcount > 4)) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
@@ -134,6 +136,20 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
         }
 */
+        if (wordcount == 4) {
+                if (!strcmp("force", words[3]))
+                        flags |= GF_CLI_FLAG_OP_FORCE;
+                else {
+                        ret = -1;
+                        cli_usage_out (word->pattern);
+                        parse_error = 1;
+                        goto out;
+                }
+        }
+        ret = dict_set_int32 (dict, "flags", flags);
+        if (ret)
+                goto out;
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
@@ -188,7 +204,7 @@ struct cli_cmd cli_probe_cmds[] = {
           cli_cmd_peer_probe_cbk,
           "probe peer specified by <HOSTNAME>"},
 
-        { "peer detach <HOSTNAME>",
+        { "peer detach <HOSTNAME> [force]",
           cli_cmd_peer_deprobe_cbk,
           "detach peer specified by <HOSTNAME>"},
 
