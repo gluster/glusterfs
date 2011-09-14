@@ -1487,6 +1487,11 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
+        /* log the version of glusterfs running here */
+        gf_log (argv[0], GF_LOG_INFO,
+                "Started Running %s version %s",
+                argv[0], PACKAGE_VERSION);
+
         gf_proc_dump_init();
 
         ret = create_fuse_mount (ctx);
