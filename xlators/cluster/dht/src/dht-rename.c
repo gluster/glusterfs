@@ -80,6 +80,7 @@ unwind:
                 WIPE (&local->preparent);
                 WIPE (&local->postparent);
 
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                                   &local->stbuf, &local->preoldparent,
                                   &local->postoldparent,
@@ -159,6 +160,7 @@ unwind:
         WIPE (&local->preparent);
         WIPE (&local->postparent);
 
+        DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                           &local->stbuf, &local->preoldparent,
                           &local->postoldparent,
@@ -344,6 +346,7 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         WIPE (&local->postparent);
 
         if (is_last_call (this_call_cnt)) {
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                                   &local->stbuf, &local->preoldparent,
                                   &local->postoldparent, &local->preparent,
@@ -415,6 +418,7 @@ nolinks:
         WIPE (&local->preparent);
         WIPE (&local->postparent);
 
+        DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                           &local->stbuf, &local->preoldparent,
                           &local->postoldparent, &local->preparent,
@@ -573,6 +577,7 @@ unwind:
         WIPE (&local->preparent);
         WIPE (&local->postparent);
 
+        DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                           &local->stbuf, &local->preoldparent,
                           &local->postoldparent, &local->preparent,

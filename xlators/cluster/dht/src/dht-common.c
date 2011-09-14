@@ -136,6 +136,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 
         WIPE (&local->postparent);
 
+        DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+
         DHT_STACK_UNWIND (lookup, frame, ret, local->op_errno, local->inode,
                           &local->stbuf, local->xattr, &local->postparent);
 
@@ -248,6 +250,7 @@ unlock:
                         dht_layout_set (this, local->inode, layout);
                 }
 
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
@@ -413,6 +416,7 @@ out:
 
                 WIPE (&local->postparent);
 
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
@@ -464,6 +468,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 unwind:
         WIPE (&local->postparent);
 
+        DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
@@ -536,6 +541,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
 
                 WIPE (&local->postparent);
 
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret,
                                   local->op_errno, local->inode,
                                   &local->stbuf, local->xattr,
@@ -565,6 +571,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
 
                 WIPE (&local->postparent);
 
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret,
                                   local->op_errno, local->inode,
                                   &local->stbuf, local->xattr,
@@ -830,6 +837,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 unwind:
         WIPE (postparent);
 
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
 
@@ -1009,6 +1017,7 @@ out:
 
         WIPE (postparent);
 
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
 err:
@@ -2587,6 +2596,7 @@ out:
          * See dht_iatt_merge for reference.
          */
 
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent);
         return 0;
@@ -2828,6 +2838,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         WIPE (postparent);
 
 out:
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent);
 
@@ -2856,6 +2867,7 @@ dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 err:
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent);
 
@@ -2966,6 +2978,7 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode, stbuf, preparent,
                           postparent);
         return 0;

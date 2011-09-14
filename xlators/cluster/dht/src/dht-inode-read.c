@@ -165,9 +165,7 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
 
         /* Check if the rebalance phase2 is true */
-        if ((op_ret == -1) || (IA_ISREG (stbuf->ia_type) &&
-            ((st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type) &
-              ~S_IFMT) == DHT_LINKFILE_MODE))) {
+        if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 if (local->fd)
                         ret = fd_ctx_get (local->fd, this, &tmp_subvol);
                 if (ret) {
@@ -178,12 +176,13 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* value is already set in fd_ctx, that means no need
                            to check for whether its complete or not. */
                         dht_attr2 (this, frame, 0);
-                        ret = 0;
                 }
                 if (!ret)
-                        goto err;
+                        return 0;
         }
+
 out:
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (stat, frame, op_ret, op_errno, stbuf);
 err:
         return 0;
@@ -405,8 +404,7 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && (op_errno != ENOENT))
                 goto out;
 
-        if ((op_ret == -1) || ((st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type) &
-                                ~S_IFMT) == DHT_LINKFILE_MODE)) {
+        if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 /* File would be migrated to other node */
                 ret = fd_ctx_get (local->fd, this, NULL);
                 if (ret) {
@@ -422,6 +420,7 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                           iobref);
 
@@ -708,34 +707,39 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 goto out;
         }
 
-        if (local->call_cnt != 1)
+        if (local->call_cnt != 1) {
+                if (local->stbuf.ia_blocks) {
+                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
+                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                }
                 goto out;
+        }
 
         ret = fd_ctx_get (local->fd, this, NULL);
         if (ret) {
                 local->rebalance.target_op_fn = dht_fsync2;
 
                 /* Check if the rebalance phase1 is true */
-                if (IA_ISREG (postbuf->ia_type) &&
-                    (postbuf->ia_prot.sticky == 1) &&
-                    (postbuf->ia_prot.sgid == 1)) {
+                if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
+                        dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
+                        dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+
                         ret = dht_rebalance_in_progress_check (this, frame);
                 }
 
                 /* Check if the rebalance phase2 is true */
-                if (IA_ISREG (postbuf->ia_type) &&
-                    ((st_mode_from_ia (postbuf->ia_prot, postbuf->ia_type) &
-                      ~S_IFMT) == DHT_LINKFILE_MODE)) {
+                if (IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                         ret = dht_rebalance_complete_check (this, frame);
                 }
         } else {
                 dht_fsync2 (this, frame, 0);
-                ret = 0;
         }
         if (!ret)
                 return 0;
 
 out:
+        DHT_STRIP_PHASE1_FLAGS (postbuf);
+        DHT_STRIP_PHASE1_FLAGS (prebuf);
         DHT_STACK_UNWIND (fsync, frame, op_ret, op_errno,
                           prebuf, postbuf);
 
@@ -853,7 +857,7 @@ err:
 /* Symlinks are currently not migrated, so no need for any check here */
 int
 dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int op_ret, int op_errno, const char *path, struct iatt *sbuf)
+                  int op_ret, int op_errno, const char *path, struct iatt *stbuf)
 {
         dht_local_t *local = NULL;
 
@@ -867,7 +871,8 @@ dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 err:
-        DHT_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, sbuf);
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
+        DHT_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, stbuf);
 
         return 0;
 }
