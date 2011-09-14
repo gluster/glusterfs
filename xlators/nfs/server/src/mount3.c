@@ -277,9 +277,10 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
                 op_errno = EINVAL;
         }
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "error=%s", strerror (op_errno));
                 status = mnt3svc_errno_to_mnterr (op_errno);
-
+        }
         if (status != MNT3_OK)
                 goto xmit_res;
 
@@ -548,6 +549,8 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mres = frame->local;
         mntxl = (xlator_t *)cookie;
         if (op_ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "path=%s (%s)",
+                        mres->resolveloc.path, strerror (op_errno));
                 mntstat = mnt3svc_errno_to_mnterr (op_errno);
                 goto err;
         }
