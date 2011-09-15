@@ -615,7 +615,7 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_OP, req_ctx);
         if (ret)
                 goto out;
-        ret = glusterd_op_init_ctx ();
+        ret = glusterd_op_init_ctx (op_req.op);
 
 out:
         if (op_req.buf.buf_val)

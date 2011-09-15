@@ -2094,12 +2094,12 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 }
 
 static gf_boolean_t
-glusterd_need_brick_op ()
+glusterd_need_brick_op (glusterd_op_t op)
 {
         gf_boolean_t ret        = _gf_false;
-        glusterd_op_t op        = GD_OP_NONE;
 
-        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_NONE < op && op < GD_OP_MAX);
+
         switch (op) {
         case GD_OP_PROFILE_VOLUME:
                 ret = _gf_true;
@@ -2112,13 +2112,14 @@ glusterd_need_brick_op ()
 }
 
 static dict_t*
-glusterd_op_init_commit_rsp_dict ()
+glusterd_op_init_commit_rsp_dict (glusterd_op_t op)
 {
         dict_t                  *rsp_dict = NULL;
         dict_t                  *op_ctx   = NULL;
 
+        GF_ASSERT (GD_OP_NONE < op && op < GD_OP_MAX);
 
-        if (glusterd_need_brick_op ()) {
+        if (glusterd_need_brick_op (op)) {
                 op_ctx = glusterd_op_get_ctx ();
                 GF_ASSERT (op_ctx);
                 rsp_dict = dict_ref (op_ctx);
@@ -2145,7 +2146,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         dict = req_ctx->dict;
 
-        rsp_dict = glusterd_op_init_commit_rsp_dict ();
+        rsp_dict = glusterd_op_init_commit_rsp_dict (req_ctx->op);
         if (NULL == rsp_dict)
                 return -1;
         status = glusterd_op_commit_perform (req_ctx->op, dict, &op_errstr,
@@ -2600,7 +2601,6 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_pending_node_t                 *pending_node = NULL;
         char                                    *brick = NULL;
-        int                                     all_bricks_down = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2635,10 +2635,8 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 goto out;
                 break;
         case GF_CLI_STATS_INFO:
-                all_bricks_down = 1;
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         if (glusterd_is_brick_started (brickinfo)) {
-                                all_bricks_down = 0;
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
                                 if (!pending_node) {
@@ -2655,7 +2653,6 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 break;
 
         case GF_CLI_STATS_TOP:
-                all_bricks_down = 1;
                 ret = dict_get_str (dict, "brick", &brick);
                 if (!ret) {
                         ret = glusterd_volume_brickinfo_get_by_brick (brick,
@@ -2663,12 +2660,8 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                         if (ret)
                                 goto out;
 
-                        if (!glusterd_is_brick_started (brickinfo)) {
-                                ret = -1;
+                        if (!glusterd_is_brick_started (brickinfo))
                                 goto out;
-                        } else {
-                                all_bricks_down = 0;
-                        }
 
                         pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                   gf_gld_mt_pending_node_t);
@@ -2686,7 +2679,6 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 ret = 0;
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         if (glusterd_is_brick_started (brickinfo)) {
-                                all_bricks_down = 0;
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
                                 if (!pending_node) {
@@ -2713,10 +2705,6 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
 
 
 out:
-        if (all_bricks_down) {
-                ret = -1;
-                *op_errstr = gf_strdup ("Cannot reach bricks. Bricks are down");
-        }
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -2908,7 +2896,7 @@ glusterd_op_sm_t glusterd_op_state_stage_op_sent [] = {
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_lock}, //EVENT_LOCK
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_rcvd_stage_op_acc}, //EVENT_RCVD_ACC
-        {GD_OP_STATE_BRICK_OP_SENT,  glusterd_op_ac_send_brick_op}, //EVENT_ALL_ACC
+        {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_send_brick_op}, //EVENT_ALL_ACC
         {GD_OP_STATE_BRICK_OP_SENT, glusterd_op_ac_send_brick_op}, //EVENT_STAGE_ACC
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_STAGE_OP_FAILED,   glusterd_op_ac_stage_op_failed}, //EVENT_RCVD_RJT
@@ -3329,14 +3317,14 @@ glusterd_op_clear_op (glusterd_op_t op)
 }
 
 int32_t
-glusterd_op_init_ctx ()
+glusterd_op_init_ctx (glusterd_op_t op)
 {
         int     ret = 0;
         dict_t *dict = NULL;
-        glusterd_op_t op = GD_OP_NONE;
 
-        op = glusterd_op_get_op ();
-        if (_gf_false == glusterd_need_brick_op ()) {
+        GF_ASSERT (GD_OP_NONE < op && op < GD_OP_MAX);
+
+        if (_gf_false == glusterd_need_brick_op (op)) {
                 gf_log ("", GF_LOG_DEBUG, "Received op: %d, returning", op);
                 goto out;
         }
