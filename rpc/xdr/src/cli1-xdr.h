@@ -587,7 +587,7 @@ struct gf1_cli_status_volume_rsp {
 typedef struct gf1_cli_status_volume_rsp gf1_cli_status_volume_rsp;
 
 struct gf1_cli_mount_req {
-        char *label;
+	char *label;
 	struct {
 		u_int dict_len;
 		char *dict_val;
@@ -596,21 +596,21 @@ struct gf1_cli_mount_req {
 typedef struct gf1_cli_mount_req gf1_cli_mount_req;
 
 struct gf1_cli_mount_rsp {
-        int op_ret;
-        int op_errno;
+	int op_ret;
+	int op_errno;
 	char *path;
 };
 typedef struct gf1_cli_mount_rsp gf1_cli_mount_rsp;
 
 struct gf1_cli_umount_req {
-        int lazy;
-        char *path;
+	int lazy;
+	char *path;
 };
 typedef struct gf1_cli_umount_req gf1_cli_umount_req;
 
 struct gf1_cli_umount_rsp {
-        int op_ret;
-        int op_errno;
+	int op_ret;
+	int op_errno;
 };
 typedef struct gf1_cli_umount_rsp gf1_cli_umount_rsp;
 

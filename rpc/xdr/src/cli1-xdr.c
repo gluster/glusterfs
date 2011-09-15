@@ -1018,41 +1018,53 @@ xdr_gf1_cli_status_volume_rsp (XDR *xdrs, gf1_cli_status_volume_rsp *objp)
 bool_t
 xdr_gf1_cli_mount_req (XDR *xdrs, gf1_cli_mount_req *objp)
 {
-        if (!xdr_string (xdrs, &objp->label, ~0))
-                return FALSE;
-        if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
-                return FALSE;
-        return TRUE;
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_string (xdrs, &objp->label, ~0))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
 }
 
 bool_t
 xdr_gf1_cli_mount_rsp (XDR *xdrs, gf1_cli_mount_rsp *objp)
 {
-        if (!xdr_int (xdrs, &objp->op_ret))
-                 return FALSE;
-        if (!xdr_int (xdrs, &objp->op_errno))
-                 return FALSE;
-        if (!xdr_string (xdrs, &objp->path, ~0))
-                 return FALSE;
-        return TRUE;
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->path, ~0))
+		 return FALSE;
+	return TRUE;
 }
 
 bool_t
 xdr_gf1_cli_umount_req (XDR *xdrs, gf1_cli_umount_req *objp)
 {
-        if (!xdr_int (xdrs, &objp->lazy))
-                 return FALSE;
-        if (!xdr_string (xdrs, &objp->path, ~0))
-                 return FALSE;
-        return TRUE;
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->lazy))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->path, ~0))
+		 return FALSE;
+	return TRUE;
 }
 
 bool_t
 xdr_gf1_cli_umount_rsp (XDR *xdrs, gf1_cli_umount_rsp *objp)
 {
-        if (!xdr_int (xdrs, &objp->op_ret))
-                 return FALSE;
-        if (!xdr_int (xdrs, &objp->op_errno))
-                 return FALSE;
-        return TRUE;
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	return TRUE;
 }
