@@ -1869,17 +1869,17 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (volinfo->brick_count == 0) {
                 gf_log ("", GF_LOG_ERROR,
                         "volume inconsistency: brick count is 0");
-
                 goto out;
         }
-        if (volinfo->sub_count && volinfo->sub_count < volinfo->brick_count &&
-            volinfo->brick_count % volinfo->sub_count != 0) {
+
+        if ((volinfo->dist_leaf_count < volinfo->brick_count) &&
+            ((volinfo->brick_count % volinfo->dist_leaf_count) != 0)) {
                 gf_log ("", GF_LOG_ERROR,
                         "volume inconsistency: "
                         "total number of bricks (%d) is not divisible with "
                         "number of bricks per cluster (%d) in a multi-cluster "
                         "setup",
-                        volinfo->brick_count, volinfo->sub_count);
+                        volinfo->brick_count, volinfo->dist_leaf_count);
                 goto out;
         }
 
@@ -1941,7 +1941,7 @@ volgen_graph_build_clusters (volgen_graph_t *graph,
         txl = first_of (graph);
         for (trav = txl; --child_count; trav = trav->next);
         for (;; trav = trav->prev) {
-                if (i % sub_count == 0) {
+                if ((i % sub_count) == 0) {
                         xl = volgen_graph_add_nolink (graph, xl_type,
                                                       xl_namefmt, volname, j);
                         if (!xl) {
@@ -2105,62 +2105,62 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
         int                     dist_count          = 0;
         int                     ret                 = -1;
 
-        if (volinfo->sub_count > 1) {
-                switch (volinfo->type) {
-                case GF_CLUSTER_TYPE_REPLICATE:
-                        clusters = volgen_graph_build_clusters (graph, volinfo,
-                                                           replicate_args[0],
-                                                           replicate_args[1],
-                                                           volinfo->brick_count,
-                                                           volinfo->sub_count);
-                        if (clusters < 0)
-                                goto out;
-                        break;
-                case GF_CLUSTER_TYPE_STRIPE:
-                        clusters = volgen_graph_build_clusters (graph, volinfo,
-                                                           stripe_args[0],
-                                                           stripe_args[1],
-                                                           volinfo->brick_count,
-                                                           volinfo->sub_count);
-                        if (clusters < 0)
-                                goto out;
-                        break;
-                case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                        /* Replicate after the clients, then stripe */
-                        if (volinfo->replica_count == 0)
-                                return -1;
-                        clusters = volgen_graph_build_clusters (graph, volinfo,
-                                                           replicate_args[0],
-                                                           replicate_args[1],
-                                                           volinfo->brick_count,
-                                                           volinfo->replica_count);
-                        if (clusters < 0)
-                                goto out;
+        if (!volinfo->dist_leaf_count)
+                goto out;
 
-                        rclusters = volinfo->brick_count/volinfo->replica_count;
-                        GF_ASSERT (rclusters == clusters);
-                        clusters = volgen_graph_build_clusters (graph, volinfo,
-                                                           stripe_args[0],
-                                                           stripe_args[1],
-                                                           rclusters,
-                                                           volinfo->stripe_count);
-                        if (clusters < 0)
-                                goto out;
-                        break;
-                default:
-                        gf_log ("", GF_LOG_ERROR, "volume inconsistency: "
-                                "unrecognized clustering type");
+        if (volinfo->dist_leaf_count == 1)
+                goto build_distribute;
+
+        /* All other cases, it will have one or the other cluster type */
+        switch (volinfo->type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+                clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                        replicate_args[0],
+                                                        replicate_args[1],
+                                                        volinfo->brick_count,
+                                                        volinfo->replica_count);
+                if (clusters < 0)
                         goto out;
-                }
+                break;
+        case GF_CLUSTER_TYPE_STRIPE:
+                clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                        stripe_args[0],
+                                                        stripe_args[1],
+                                                        volinfo->brick_count,
+                                                        volinfo->stripe_count);
+                if (clusters < 0)
+                        goto out;
+                break;
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                /* Replicate after the clients, then stripe */
+                if (volinfo->replica_count == 0)
+                        goto out;
+                clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                        replicate_args[0],
+                                                        replicate_args[1],
+                                                        volinfo->brick_count,
+                                                        volinfo->replica_count);
+                if (clusters < 0)
+                        goto out;
+
+                rclusters = volinfo->brick_count / volinfo->replica_count;
+                GF_ASSERT (rclusters == clusters);
+                clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                        stripe_args[0],
+                                                        stripe_args[1],
+                                                        rclusters,
+                                                        volinfo->stripe_count);
+                if (clusters < 0)
+                        goto out;
+                break;
+        default:
+                gf_log ("", GF_LOG_ERROR, "volume inconsistency: "
+                        "unrecognized clustering type");
+                goto out;
         }
 
-        if (volinfo->sub_count) {
-                dist_count = volinfo->brick_count / volinfo->sub_count;
-                GF_ASSERT (dist_count == clusters);
-        } else {
-                dist_count = volinfo->brick_count;
-        }
-
+build_distribute:
+        dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
         if (dist_count > 1) {
                 ret = volgen_graph_build_dht_cluster (graph, volinfo,
                                                       dist_count);
@@ -2460,12 +2460,7 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
 
-                if (voliter->type == GF_CLUSTER_TYPE_REPLICATE)
-                        replica_count = voliter->sub_count;
-                else if (voliter->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
-                        replica_count = voliter->replica_count;
-                else
-                        continue;
+                replica_count = voliter->replica_count;
 
                 valid_config = _gf_true;
 

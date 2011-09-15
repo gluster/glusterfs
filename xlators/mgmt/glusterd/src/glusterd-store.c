@@ -599,6 +599,12 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->replica_count);
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_REPLICA_CNT,
+                                         buf);
+        if (ret)
+                goto out;
+
         snprintf (buf, sizeof (buf), "%d", volinfo->version);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_VERSION,
                                          buf);
@@ -1827,6 +1833,9 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_STRIPE_CNT,
                                      strlen (GLUSTERD_STORE_KEY_VOL_STRIPE_CNT))) {
                         volinfo->stripe_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_REPLICA_CNT,
+                                     strlen (GLUSTERD_STORE_KEY_VOL_REPLICA_CNT))) {
+                        volinfo->replica_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
                                      strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
                         volinfo->transport_type = atoi (value);
@@ -1883,12 +1892,31 @@ glusterd_store_retrieve_volume (char    *volname)
                 ret = glusterd_store_iter_get_next (iter, &key, &value,
                                                     &op_errno);
         }
+
+        /* backward compatibility */
+        {
+                /* would be true if type is 'GF_CLUSTER_TYPE_NONE' */
+                if (!volinfo->dist_leaf_count)
+                        volinfo->dist_leaf_count = ((!volinfo->sub_count) ? 1 :
+                                                    volinfo->sub_count);
+
+                /* would be true for all volumes in 3.1.x and 3.2.x,
+                   or if type is not 'STRIPE_REPLICATE' (in 3.3 pre-releases) */
+                if (!volinfo->stripe_count)
+                        volinfo->stripe_count = 1;
+
+                /* would be true for some pre-releases of 3.3, and all
+                   releases of 3.1.x and 3.2.x */
+                if (!volinfo->replica_count)
+                        volinfo->replica_count = (volinfo->dist_leaf_count /
+                                                  volinfo->stripe_count);
+
+                volinfo->dist_leaf_count = (volinfo->stripe_count *
+                                            volinfo->replica_count);
+        }
+
         if (op_errno != GD_STORE_EOF)
                 goto out;
-
-        if (volinfo->stripe_count)
-                volinfo->replica_count = (volinfo->sub_count /
-                                          volinfo->stripe_count);
 
         ret = glusterd_store_iter_destroy (iter);
 

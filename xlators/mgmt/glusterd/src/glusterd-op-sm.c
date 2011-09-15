@@ -2746,16 +2746,7 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
-                replica_count = volinfo->replica_count;
-
-        } else if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
-                replica_count = volinfo->sub_count;
-
-        } else {
-                GF_ASSERT (0);
-                goto out;
-        }
+        replica_count = volinfo->replica_count;
 
         index = 1;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
