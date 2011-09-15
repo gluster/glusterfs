@@ -318,9 +318,10 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 ctx = op_ctx;
-                dict_allocate_and_serialize (ctx,
-                             &rsp.stats_info.stats_info_val,
-                        (size_t*)&rsp.stats_info.stats_info_len);
+                if (ctx)
+                        dict_allocate_and_serialize (ctx,
+                                     &rsp.stats_info.stats_info_val,
+                                (size_t*)&rsp.stats_info.stats_info_len);
                 free_ptr = rsp.stats_info.stats_info_val;
                 cli_rsp = &rsp;
                 xdrproc = (xdrproc_t) xdr_gf1_cli_stats_volume_rsp;

@@ -248,7 +248,7 @@ glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
                            char **op_errstr);
 void glusterd_op_brick_disconnect (void *data);
 int32_t
-glusterd_op_init_ctx ();
+glusterd_op_init_ctx (glusterd_op_t op);
 int32_t
 glusterd_op_fini_ctx ();
 int32_t
