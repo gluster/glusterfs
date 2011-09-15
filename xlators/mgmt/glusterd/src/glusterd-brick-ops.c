@@ -118,35 +118,42 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (!(ret = glusterd_volinfo_find (volname, &volinfo))) {
-                if (volinfo->type == GF_CLUSTER_TYPE_NONE)
-                        goto brick_val;
-                if (!brick_count || !volinfo->sub_count)
-                        goto brick_val;
-
-                total_bricks = volinfo->brick_count + brick_count;
-		/* If the brick count is less than sub_count then, allow add-brick only for
-		   plain replicate volume since in plain stripe brick_count becoming less than
-		   the sub_count is not allowed */
-                if (volinfo->brick_count < volinfo->sub_count &&
-                    (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
-                        if (total_bricks <= volinfo->sub_count)
-                                goto brick_val;
-                }
-
-                if ((brick_count % volinfo->sub_count) != 0) {
-                        snprintf(err_str, 2048, "Incorrect number of bricks"
-                                " supplied %d for type %s with count %d",
-                                brick_count, (volinfo->type == 1)? "STRIPE":
-                                "REPLICATE", volinfo->sub_count);
-                        gf_log("glusterd", GF_LOG_ERROR, "%s", err_str);
-                        ret = -1;
-                        goto out;
-                }
-        } else {
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
                 snprintf (err_str, sizeof (err_str), "Unable to get volinfo "
                           "for volume name %s", volname);
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                goto out;
+
+        }
+
+        /* If any of this is true, some thing is wrong */
+        if (!brick_count || !volinfo->sub_count) {
+                ret = -1;
+                snprintf (err_str, sizeof (err_str), "number of brick count "
+                          "for volume name %s is wrong", volname);
+                goto out;
+        }
+
+        if (volinfo->type == GF_CLUSTER_TYPE_NONE)
+                goto brick_val;
+
+        total_bricks = volinfo->brick_count + brick_count;
+        /* If the brick count is less than dist_leaf_count then, allow
+           add-brick only for plain replicate volume since in plain stripe
+           brick_count becoming less than the dist_leaf_count is not allowed */
+        if (volinfo->brick_count < volinfo->dist_leaf_count &&
+            (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
+                if (total_bricks <= volinfo->replica_count)
+                        goto brick_val;
+        }
+
+        if ((brick_count % volinfo->dist_leaf_count) != 0) {
+                snprintf(err_str, 2048, "Incorrect number of bricks"
+                         " supplied %d with count %d",
+                         brick_count, volinfo->dist_leaf_count);
+                gf_log("glusterd", GF_LOG_ERROR, "%s", err_str);
+                ret = -1;
                 goto out;
         }
 
@@ -169,10 +176,8 @@ brick_val:
                 free_ptr = brick_list;
         }
 
-        gf_cmd_log ("Volume add-brick", "volname: %s type %s count:%d bricks:%s"
-                    ,volname, ((volinfo->type == 0)? "DEFAULT" : ((volinfo->type
-                    == 1)? "STRIPE": "REPLICATE")), brick_count, brick_list);
-
+        gf_cmd_log ("Volume add-brick", "volname: %s type %d count:%d bricks:%s"
+                    ,volname, volinfo->type, brick_count, brick_list);
 
         while ( i < brick_count) {
                 i++;
@@ -314,7 +319,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
 	/* Do not allow remove-brick if the volume is plain stripe */
 	if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE) &&
-            (volinfo->brick_count == volinfo->sub_count)) {
+            (volinfo->brick_count == volinfo->stripe_count)) {
                 snprintf (err_str, 2048, "Removing brick from a plain stripe is not allowed");
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                 ret = -1;
@@ -324,11 +329,12 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 	/* Do not allow remove-brick if the bricks given is less than the replica count
 	   or stripe count */
         if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
-            !(volinfo->brick_count <= volinfo->sub_count)) {
-                if (volinfo->sub_count && (count % volinfo->sub_count != 0)) {
+            !(volinfo->brick_count <= volinfo->dist_leaf_count)) {
+                if (volinfo->dist_leaf_count &&
+                    (count % volinfo->dist_leaf_count)) {
                         snprintf (err_str, 2048, "Remove brick incorrect"
                                   " brick count of %d for %s %d",
-                                  count, vol_type, volinfo->sub_count);
+                                  count, vol_type, volinfo->dist_leaf_count);
                         gf_log ("", GF_LOG_ERROR, "%s", err_str);
                         ret = -1;
                         goto out;
@@ -367,37 +373,38 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
                 i++;
                 if ((volinfo->type == GF_CLUSTER_TYPE_NONE) ||
-                    (volinfo->brick_count <= volinfo->sub_count))
+                    (volinfo->brick_count <= volinfo->dist_leaf_count))
                         continue;
 
                 pos = 0;
                 list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
 
-                        if ((!strcmp (tmp->hostname,brickinfo->hostname)) &&
-                            !strcmp (tmp->path, brickinfo->path)) {
-                                gf_log ("", GF_LOG_INFO, "Found brick");
-                                if (!sub_volume && volinfo->sub_count) {
-                                        sub_volume = (pos / volinfo->
-                                                      sub_count) + 1;
-                                        sub_volume_start = volinfo->sub_count *
-                                                           (sub_volume - 1);
-                                        sub_volume_end = (volinfo->sub_count *
-                                                          sub_volume) -1 ;
-                                } else {
-                                        if (pos < sub_volume_start ||
-                                            pos >sub_volume_end) {
-                                                ret = -1;
-                                                snprintf(err_str, 2048,"Bricks"
-                                                         " not from same subvol"
-                                                         " for %s", vol_type);
-                                                gf_log ("",GF_LOG_ERROR,
-                                                        "%s", err_str);
-                                                goto out;
-                                        }
-                                }
-                                break;
+                        if (strcmp (tmp->hostname,brickinfo->hostname) ||
+                            strcmp (tmp->path, brickinfo->path)) {
+                                pos++;
+                                continue;
                         }
-                        pos++;
+
+                        gf_log ("", GF_LOG_INFO, "Found brick");
+                        if (!sub_volume && (volinfo->dist_leaf_count > 1)) {
+                                sub_volume = (pos / volinfo->dist_leaf_count) + 1;
+                                sub_volume_start = (volinfo->dist_leaf_count *
+                                                    (sub_volume - 1));
+                                sub_volume_end = (volinfo->dist_leaf_count *
+                                                  sub_volume) - 1;
+                        } else {
+                                if (pos < sub_volume_start ||
+                                    pos >sub_volume_end) {
+                                        ret = -1;
+                                        snprintf(err_str, 2048,"Bricks not from"
+                                                 " same subvol for %s",
+                                                 vol_type);
+                                        gf_log ("", GF_LOG_ERROR,
+                                                "%s", err_str);
+                                        goto out;
+                                }
+                        }
+                        break;
                 }
         }
         gf_cmd_log ("Volume remove-brick","volname: %s count:%d bricks:%s",

@@ -921,7 +921,6 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         char                 *brick_list = NULL;
         char                 *free_ptr   = NULL;
         char                 *saveptr    = NULL;
-        int32_t               sub_count  = 0;
         char                 *trans_type = NULL;
         char                 *str        = NULL;
 
@@ -974,14 +973,19 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        /* replica-count 1 means, no replication, file is in one brick only */
+        volinfo->replica_count = 1;
+        /* stripe-count 1 means, no striping, file is present as a whole */
+        volinfo->stripe_count = 1;
+
         if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
                 ret = dict_get_int32 (dict, "replica-count",
-                                      &sub_count);
+                                      &volinfo->replica_count);
                 if (ret)
                         goto out;
         } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
                 ret = dict_get_int32 (dict, "stripe-count",
-                                      &sub_count);
+                                      &volinfo->stripe_count);
                 if (ret)
                         goto out;
         } else if (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type) {
@@ -993,9 +997,17 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                       &volinfo->replica_count);
                 if (ret)
                         goto out;
-
-                sub_count = volinfo->stripe_count * volinfo->replica_count;
         }
+
+        /* dist-leaf-count is the count of brick nodes for a given
+           subvolume of distribute */
+        volinfo->dist_leaf_count = (volinfo->stripe_count *
+                                    volinfo->replica_count);
+
+        /* Keep sub-count same as earlier, for the sake of backward
+           compatibility */
+        if (volinfo->dist_leaf_count > 1)
+                volinfo->sub_count = volinfo->dist_leaf_count;
 
         ret = dict_get_str (dict, "transport", &trans_type);
         if (ret) {
@@ -1024,8 +1036,6 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 volinfo->transport_type = GF_TRANSPORT_BOTH_TCP_RDMA;
                 volinfo->nfs_transport_type = GF_DEFAULT_NFS_TRANSPORT;
         }
-
-        volinfo->sub_count = sub_count;
 
         if (bricks) {
                 brick_list = gf_strdup (bricks);

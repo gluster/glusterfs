@@ -197,9 +197,11 @@ struct glusterd_volinfo_ {
         struct list_head        vol_list;
         struct list_head        bricks;
         glusterd_volume_status  status;
-        int                     sub_count;
+        int                     sub_count;  /* backward compatibility */
         int                     stripe_count;
         int                     replica_count;
+        int                     dist_leaf_count; /* Number of bricks in one
+                                                    distribute subvolume */
         int                     port;
         glusterd_store_handle_t *shandle;
         glusterd_store_handle_t *rb_shandle;

@@ -381,8 +381,9 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    status = 0;
         int32_t                    type = 0;
         int32_t                    brick_count = 0;
-        int32_t                    sub_count = 0;
+        int32_t                    dist_count = 0;
         int32_t                    stripe_count = 0;
+        int32_t                    replica_count = 0;
         int32_t                    vol_type = 0;
         char                       *brick = NULL;
         int32_t                    j = 1;
@@ -482,13 +483,18 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
-                        snprintf (key, 256, "volume%d.sub_count", i);
-                        ret = dict_get_int32 (dict, key, &sub_count);
+                        snprintf (key, 256, "volume%d.dist_count", i);
+                        ret = dict_get_int32 (dict, key, &dist_count);
                         if (ret)
                                 goto out;
 
                         snprintf (key, 256, "volume%d.stripe_count", i);
                         ret = dict_get_int32 (dict, key, &stripe_count);
+                        if (ret)
+                                goto out;
+
+                        snprintf (key, 256, "volume%d.replica_count", i);
+                        ret = dict_get_int32 (dict, key, &replica_count);
                         if (ret)
                                 goto out;
 
@@ -500,31 +506,30 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         vol_type = type;
 
                         // Distributed (stripe/replicate/raid01) setups
-                        if ((type > 0) && ( sub_count < brick_count))
+                        if ((type > 0) && ( dist_count < brick_count))
                                 vol_type = type + 3;
 
                         cli_out ("Volume Name: %s", volname);
                         cli_out ("Type: %s", cli_volume_type[vol_type]);
                         cli_out ("Status: %s", cli_volume_status[status]);
-                        if ((sub_count > 1) && (brick_count > sub_count)) {
-                                if (!stripe_count)
-                                        cli_out ("Number of Bricks: %d x %d = %d",
-                                                 brick_count / sub_count, sub_count,
-                                                 brick_count);
-                                else
-                                        cli_out ("Number of Bricks: %d x %d x %d = %d",
-                                                 brick_count / sub_count, stripe_count,
-                                                 sub_count / stripe_count, brick_count);
-                        } else {
-                                if (!stripe_count)
-                                        cli_out ("Number of Bricks: %d",
-                                                 brick_count);
-                                else
-                                        cli_out ("Number of Bricks: %d x %d = %d",
-                                                 stripe_count,
-                                                 (brick_count / stripe_count),
-                                                 brick_count);
-                        }
+
+                        if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
+                                cli_out ("Number of Bricks: %d x %d x %d = %d",
+                                         (brick_count / dist_count),
+                                         stripe_count,
+                                         replica_count,
+                                         brick_count);
+                        else if (type == GF_CLUSTER_TYPE_NONE)
+                                cli_out ("Number of Bricks: %d",
+                                         brick_count);
+                        else
+                                /* For both replicate and stripe, dist_count is
+                                   good enough */
+                                cli_out ("Number of Bricks: %d x %d = %d",
+                                         (brick_count / dist_count),
+                                         dist_count,
+                                         brick_count);
+
 
                         cli_out ("Transport-type: %s",
                                  ((transport == 0)?"tcp":
