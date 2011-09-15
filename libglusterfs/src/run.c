@@ -257,33 +257,6 @@ runner_start (runner_t *runner)
                         close (pi[i][i ? 0 : 1]);
                 close (xpi[0]);
                 ret = 0;
-#ifdef GF_LINUX_HOST_OS
-                {
-                        DIR *d = NULL;
-                        struct dirent *de = NULL;
-                        char *e = NULL;
-
-                        d = opendir ("/proc/self/fd");
-                        if (d) {
-                                while ((de = readdir (d))) {
-                                        i = strtoul (de->d_name, &e, 10);
-                                        if (*e == '\0' &&
-                                            i > 2 && i != dirfd (d) &&
-                                            i != pi[0][0] && i != pi[1][1] &&
-                                            i != pi[2][1] && i != xpi[1])
-                                                close (i);
-                                }
-                                closedir (d);
-                        } else
-                                ret = -1;
-                }
-#else
-                for (i = 3; i < 65536; i++) {
-                        if (i != pi[0][0] && i != pi[1][1] &&
-                            i != pi[2][1] && i != xpi[1])
-                                close (i);
-                }
-#endif
 
                 for (i = 0; i < 3; i++) {
                         if (ret == -1)
@@ -295,14 +268,36 @@ runner_start (runner_t *runner)
                         case -2:
                                 /* redir to pipe */
                                 ret = dup2 (pi[i][i ? 1 : 0], i);
-                                errno_priv = errno;
-                                close (pi[i][i ? 1 : 0]);
-                                errno = errno_priv;
                                 break;
                         default:
                                 /* redir to file */
                                 ret = dup2 (runner->chfd[i], i);
                         }
+                }
+
+                if (ret != -1 ) {
+#ifdef GF_LINUX_HOST_OS
+                        DIR *d = NULL;
+                        struct dirent *de = NULL;
+                        char *e = NULL;
+
+                        d = opendir ("/proc/self/fd");
+                        if (d) {
+                                while ((de = readdir (d))) {
+                                        i = strtoul (de->d_name, &e, 10);
+                                        if (*e == '\0' && i > 2 &&
+                                            i != dirfd (d) && i != xpi[1])
+                                                close (i);
+                                }
+                                closedir (d);
+                        } else
+                                ret = -1;
+#else
+                        for (i = 3; i < 65536; i++) {
+                                if (i != xpi[1])
+                                        close (i);
+                        }
+#endif
                 }
 
                 if (ret != -1) {
@@ -433,6 +428,7 @@ main ()
         char buf[80];
         char *wdbuf;;
         int ret;
+        int fd;
         long pathmax = pathconf ("/", _PC_PATH_MAX);
 
         wdbuf = malloc (pathmax);
@@ -470,6 +466,18 @@ main ()
         TBANNER ("execve error reporting");
         ret = runcmd ("bafflavvitty", NULL);
         printf ("%d %d [%s]\n", ret, errno, strerror (errno));
+
+        TBANNER ("output redirection");
+        fd = open ("/tmp/foof", O_WRONLY|O_CREAT|O_TRUNC, 0600);
+        assert (fd != -1);
+        runinit (&runner);
+        runner_add_args (&runner, "echo", "foo", NULL);
+        runner_redir (&runner, 1, fd);
+        ret = runner_run (&runner);
+        printf ("%d", ret);
+        if (ret != 0)
+                printf (" %d [%s]", errno, strerror (errno));
+        putchar ('\n');
 
         return 0;
 }
