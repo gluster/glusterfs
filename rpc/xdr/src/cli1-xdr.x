@@ -451,7 +451,7 @@ struct gf1_cli_umount_req {
         string path<>;
 };
 
-struct gf1_cli_mount_rsp {
+struct gf1_cli_umount_rsp {
        int op_ret;
        int op_errno;
 };
