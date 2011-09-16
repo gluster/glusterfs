@@ -202,6 +202,17 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 brick_req->name = brickinfo->path;
 
                 break;
+        case GD_OP_HEAL_VOLUME:
+        {
+                brick_req = GF_CALLOC (1, sizeof (*brick_req),
+                                       gf_gld_mt_mop_brick_req_t);
+                if (!brick_req)
+                        goto out;
+
+                brick_req->op = GF_BRICK_XLATOR_HEAL;
+                brick_req->name = "";
+        }
+                break;
         default:
                 goto out;
         break;
@@ -1483,6 +1494,7 @@ glusterd_op_build_payload (dict_t **req)
                 case GD_OP_LOG_LEVEL:
                 case GD_OP_STATUS_VOLUME:
                 case GD_OP_REBALANCE:
+                case GD_OP_HEAL_VOLUME:
                         {
                                 dict_t  *dict = ctx;
                                 dict_copy (dict, req_dict);
@@ -1777,19 +1789,15 @@ glusterd_op_ac_brick_op_failed (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
         glusterd_op_brick_rsp_ctx_t *ev_ctx = NULL;
-        glusterd_brickinfo_t        *brickinfo = NULL;
         gf_boolean_t                free_errstr = _gf_false;
 
         GF_ASSERT (event);
         GF_ASSERT (ctx);
         ev_ctx = ctx;
-        brickinfo = ev_ctx->brickinfo;
-        GF_ASSERT (brickinfo);
 
-        ret = glusterd_remove_pending_entry (&opinfo.pending_bricks, brickinfo);
+        ret = glusterd_remove_pending_entry (&opinfo.pending_bricks, ev_ctx->pending_node->node);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "unknown response received "
-                        "from %s:%s", brickinfo->hostname, brickinfo->path);
+                gf_log ("glusterd", GF_LOG_ERROR, "unknown response received ");
                 ret = -1;
                 free_errstr = _gf_true;
                 goto out;
@@ -1828,7 +1836,7 @@ glusterd_op_brick_disconnect (void *data)
 
         ev_ctx = data;
         GF_ASSERT (ev_ctx);
-        brickinfo = ev_ctx->brickinfo;
+        brickinfo = ev_ctx->pending_node->node;
         GF_ASSERT (brickinfo);
 
         if (brickinfo->timer) {
@@ -2260,6 +2268,10 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_rebalance (dict, op_errstr);
                         break;
 
+                case GD_OP_HEAL_VOLUME:
+                        ret = glusterd_op_stage_heal_volume (dict, op_errstr);
+                        break;
+
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -2349,6 +2361,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                case GD_OP_REBALANCE:
                        ret = glusterd_op_rebalance (dict, op_errstr, rsp_dict);
+                       break;
+
+               case GD_OP_HEAL_VOLUME:
+                       ret = glusterd_op_heal_volume (dict, op_errstr);
                        break;
 
                 default:
@@ -2467,6 +2483,7 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr)
                                 goto out;
                         } else {
                                 pending_node->node = brickinfo;
+                                pending_node->type = GD_NODE_BRICK;
                                 list_add_tail (&pending_node->list, &opinfo.pending_bricks);
                                 pending_node = NULL;
                         }
@@ -2539,6 +2556,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr)
                                 goto out;
                         } else {
                                 pending_node->node = brickinfo;
+                                pending_node->type = GD_NODE_BRICK;
                                 list_add_tail (&pending_node->list, &opinfo.pending_bricks);
                                 pending_node = NULL;
                         }
@@ -2606,6 +2624,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                                         goto out;
                                 } else {
                                         pending_node->node = brickinfo;
+                                        pending_node->type = GD_NODE_BRICK;
                                         list_add_tail (&pending_node->list,
                                                        &opinfo.pending_bricks);
                                         pending_node = NULL;
@@ -2674,6 +2693,117 @@ out:
 }
 
 static int
+_add_rxlator_to_dict (dict_t *dict, char *volname, int index, int count)
+{
+        int     ret             = -1;
+        char    key[128]        = {0,};
+        char    *xname          = NULL;
+
+        snprintf (key, sizeof (key), "heal-%d", count);
+        ret = gf_asprintf (&xname, "%s-replicate-%d", volname, index);
+        if (ret == -1)
+                goto out;
+
+        ret = dict_set_dynstr (dict, key, xname);
+out:
+        return ret;
+}
+
+static int
+glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = -1;
+        char                                    *volname = NULL;
+        glusterd_conf_t                         *priv = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+        xlator_t                                *this = NULL;
+        char                                    msg[2048] = {0,};
+        int                                     replica_count = 0;
+        int                                     index = 1;
+        int                                     rxlator_count = 0;
+        uuid_t                                  candidate = {0};
+        glusterd_pending_node_t                 *pending_node = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "volume name get failed");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist",
+                          volname);
+
+                *op_errstr = gf_strdup (msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                goto out;
+        }
+
+        if (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
+                replica_count = volinfo->replica_count;
+
+        } else if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
+                replica_count = volinfo->sub_count;
+
+        } else {
+                GF_ASSERT (0);
+                goto out;
+        }
+
+        index = 1;
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_is_null (brickinfo->uuid))
+                        (void)glusterd_resolve_brick (brickinfo);
+
+                if (uuid_compare (brickinfo->uuid, candidate) > 0)
+                        uuid_copy (candidate, brickinfo->uuid);
+
+                if (index % replica_count == 0) {
+                        if (!uuid_compare (priv->uuid, candidate)) {
+                                _add_rxlator_to_dict (dict, volname,
+                                                      (index-1)/replica_count,
+                                                      rxlator_count);
+                                rxlator_count++;
+                        }
+                        uuid_clear (candidate);
+                }
+
+                index++;
+        }
+        ret = dict_set_int32 (dict, "count", rxlator_count);
+        if (ret)
+                goto out;
+
+        if (rxlator_count) {
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        ret = -1;
+                        goto out;
+                } else {
+                        pending_node->node = priv->shd;
+                        pending_node->type = GD_NODE_SHD;
+                        list_add_tail (&pending_node->list,
+                                       &opinfo.pending_bricks);
+                        pending_node = NULL;
+                }
+        }
+
+
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning ret %d", ret);
+        return ret;
+
+}
+
+static int
 glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                             ret = 0;
@@ -2723,7 +2853,6 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
         glusterd_op_brick_rsp_ctx_t *ev_ctx = NULL;
-        glusterd_brickinfo_t        *brickinfo = NULL;
         char                        *op_errstr = NULL;
         glusterd_op_t               op = GD_OP_NONE;
         dict_t                      *op_ctx = NULL;
@@ -2736,24 +2865,22 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         req_ctx = ev_ctx->commit_ctx;
         GF_ASSERT (req_ctx);
 
-        brickinfo = ev_ctx->brickinfo;
-        GF_ASSERT (brickinfo);
+        op = req_ctx->op;
+        op_ctx = glusterd_op_get_ctx ();
 
-        ret = glusterd_remove_pending_entry (&opinfo.pending_bricks, brickinfo);
+        ret = glusterd_remove_pending_entry (&opinfo.pending_bricks,
+                                             ev_ctx->pending_node->node);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "unknown response received "
-                        "from %s:%s", brickinfo->hostname, brickinfo->path);
+                gf_log ("glusterd", GF_LOG_ERROR, "unknown response received ");
                 ret = -1;
                 goto out;
         }
 
         if (opinfo.brick_pending_count > 0)
                 opinfo.brick_pending_count--;
-        op = req_ctx->op;
-        op_ctx = glusterd_op_get_ctx ();
 
-        glusterd_handle_brick_rsp (brickinfo, op, ev_ctx->rsp_dict,
-                                   op_ctx, &op_errstr);
+        glusterd_handle_brick_rsp (ev_ctx->pending_node->node, op, ev_ctx->rsp_dict,
+                                           op_ctx, &op_errstr);
         if (opinfo.brick_pending_count > 0)
                 goto out;
 
@@ -2789,6 +2916,10 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr)
 
         case GD_OP_PROFILE_VOLUME:
                 ret = glusterd_bricks_select_profile_volume (dict, op_errstr);
+                break;
+
+        case GD_OP_HEAL_VOLUME:
+                ret = glusterd_bricks_select_heal_volume (dict, op_errstr);
                 break;
 
         default:
@@ -3344,6 +3475,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_LOG_LEVEL:
                 case GD_OP_STATUS_VOLUME:
                 case GD_OP_REBALANCE:
+                case GD_OP_HEAL_VOLUME:
                         dict_unref (ctx);
                         break;
                 case GD_OP_DELETE_VOLUME:

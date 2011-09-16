@@ -2562,6 +2562,42 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
+glusterd_shd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                         rpc_clnt_event_t event,
+                         void *data)
+{
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *conf = NULL;
+        int                     ret = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        switch (event) {
+        case RPC_CLNT_CONNECT:
+                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
+                (void) glusterd_shd_set_running (_gf_true);
+                ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
+
+                break;
+
+        case RPC_CLNT_DISCONNECT:
+                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
+                (void) glusterd_shd_set_running (_gf_false);
+                break;
+
+        default:
+                gf_log (this->name, GF_LOG_TRACE,
+                        "got some other RPC event %d", event);
+                break;
+        }
+
+        return ret;
+}
+
+int
 glusterd_friend_remove_notify (glusterd_peerinfo_t *peerinfo, rpcsvc_request_t *req)
 {
         int ret = -1;
@@ -2742,6 +2778,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_STATUS_VOLUME]  = {"STATUS_VOLUME", GLUSTER_CLI_STATUS_VOLUME, glusterd_handle_status_volume, NULL, NULL},
         [GLUSTER_CLI_MOUNT]         = { "MOUNT", GLUSTER_CLI_MOUNT, glusterd_handle_mount, NULL, NULL},
         [GLUSTER_CLI_UMOUNT]        = { "UMOUNT", GLUSTER_CLI_UMOUNT, glusterd_handle_umount, NULL, NULL},
+        [GLUSTER_CLI_HEAL_VOLUME]  = { "HEAL_VOLUME", GLUSTER_CLI_HEAL_VOLUME, glusterd_handle_cli_heal_volume, NULL, NULL}
 
 };
 

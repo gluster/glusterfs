@@ -205,6 +205,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_STATUS_VOLUME,
         GLUSTER_CLI_MOUNT,
         GLUSTER_CLI_UMOUNT,
+        GLUSTER_CLI_HEAL_VOLUME,
         GLUSTER_CLI_MAXVALUE,
 };
 
@@ -212,6 +213,7 @@ enum gf_brick_procnum {
         GF_BRICK_NULL = 0,
         GF_BRICK_TERMINATE = 1,
         GF_BRICK_XLATOR_INFO = 2,
+        GF_BRICK_XLATOR_HEAL = 3,
         GF_BRICK_MAX_VALUE
 };
 

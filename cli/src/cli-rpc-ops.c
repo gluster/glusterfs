@@ -3912,6 +3912,91 @@ gf_cli3_1_umount (call_frame_t *frame, xlator_t *this, void *data)
         return ret;
 }
 
+int
+gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+        gf1_cli_heal_vol_rsp    rsp   = {0,};
+        int                     ret   = 0;
+        cli_local_t             *local = NULL;
+        char                    *volname = NULL;
+        call_frame_t            *frame = NULL;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_heal_vol_rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        frame = myframe;
+
+        if (frame) {
+                local = frame->local;
+                frame->local = NULL;
+        }
+
+        if (local)
+                volname = local->u.heal_vol.volname;
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to heal volume");
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                cli_out ("%s", rsp.op_errstr);
+        else
+                cli_out ("Starting heal on volume %s has been %s", volname,
+                        (rsp.op_ret) ? "unsuccessful": "successful");
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        if (local)
+                cli_local_wipe (local);
+        if (rsp.volname)
+                free (rsp.volname);
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_heal_volume (call_frame_t *frame, xlator_t *this,
+                         void *data)
+{
+        gf1_cli_heal_vol_req   *req = NULL;
+        int                     ret = 0;
+        cli_local_t             *local = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        req = data;
+        local = cli_local_get ();
+
+        if (local) {
+                local->u.heal_vol.volname = req->volname;
+                frame->local = local;
+        }
+
+        ret = cli_cmd_submit (req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_HEAL_VOLUME, NULL,
+                              this, gf_cli3_1_heal_volume_cbk,
+                              (xdrproc_t) xdr_gf1_cli_heal_vol_req);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
+
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
         [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli3_1_probe},
@@ -3945,7 +4030,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_GETWD]            = {"GETWD", gf_cli3_1_getwd},
         [GLUSTER_CLI_STATUS_VOLUME]    = {"STATUS_VOLUME", gf_cli3_1_status_volume},
         [GLUSTER_CLI_MOUNT]            = {"MOUNT", gf_cli3_1_mount},
-        [GLUSTER_CLI_UMOUNT]           = {"UMOUNT", gf_cli3_1_umount}
+        [GLUSTER_CLI_UMOUNT]           = {"UMOUNT", gf_cli3_1_umount},
+        [GLUSTER_CLI_HEAL_VOLUME]      = {"HEAL_VOLUME", gf_cli3_1_heal_volume}
 };
 
 struct rpc_clnt_program cli_prog = {

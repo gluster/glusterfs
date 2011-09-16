@@ -614,6 +614,23 @@ struct gf1_cli_umount_rsp {
 };
 typedef struct gf1_cli_umount_rsp gf1_cli_umount_rsp;
 
+struct gf1_cli_heal_vol_req {
+	char *volname;
+};
+typedef struct gf1_cli_heal_vol_req gf1_cli_heal_vol_req;
+
+struct gf1_cli_heal_vol_rsp {
+	int op_ret;
+	int op_errno;
+	char *volname;
+	char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf1_cli_heal_vol_rsp gf1_cli_heal_vol_rsp;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -687,6 +704,8 @@ extern  bool_t xdr_gf1_cli_mount_req (XDR *, gf1_cli_mount_req*);
 extern  bool_t xdr_gf1_cli_mount_rsp (XDR *, gf1_cli_mount_rsp*);
 extern  bool_t xdr_gf1_cli_umount_req (XDR *, gf1_cli_umount_req*);
 extern  bool_t xdr_gf1_cli_umount_rsp (XDR *, gf1_cli_umount_rsp*);
+extern  bool_t xdr_gf1_cli_heal_vol_req (XDR *, gf1_cli_heal_vol_req*);
+extern  bool_t xdr_gf1_cli_heal_vol_rsp (XDR *, gf1_cli_heal_vol_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf_cli_defrag_type ();
@@ -759,6 +778,8 @@ extern bool_t xdr_gf1_cli_mount_req ();
 extern bool_t xdr_gf1_cli_mount_rsp ();
 extern bool_t xdr_gf1_cli_umount_req ();
 extern bool_t xdr_gf1_cli_umount_rsp ();
+extern bool_t xdr_gf1_cli_heal_vol_req ();
+extern bool_t xdr_gf1_cli_heal_vol_rsp ();
 
 #endif /* K&R C */
 

@@ -930,6 +930,10 @@ init (xlator_t *this)
         conf = GF_CALLOC (1, sizeof (glusterd_conf_t),
                           gf_gld_mt_glusterd_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
+        conf->shd = GF_CALLOC (1, sizeof (nodesrv_t),
+                               gf_gld_mt_nodesrv_t);
+        GF_VALIDATE_OR_GOTO(this->name, conf->shd, out);
+
         INIT_LIST_HEAD (&conf->peers);
         INIT_LIST_HEAD (&conf->volumes);
         pthread_mutex_init (&conf->mutex, NULL);
@@ -961,6 +965,7 @@ init (xlator_t *this)
         }
 #endif
         this->private = conf;
+        (void) glusterd_shd_set_running (_gf_false);
         /* this->ctx->top = this;*/
 
         ret = glusterd_uuid_init (first_time);

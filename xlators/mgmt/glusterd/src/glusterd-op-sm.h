@@ -152,7 +152,7 @@ typedef struct glusterd_op_brick_rsp_ctx_ {
         char *op_errstr;
         dict_t *rsp_dict;
         glusterd_req_ctx_t *commit_ctx;
-        glusterd_brickinfo_t *brickinfo;
+        glusterd_pending_node_t *pending_node;
 } glusterd_op_brick_rsp_ctx_t;
 
 typedef struct glusterd_pr_brick_rsp_conv_t {

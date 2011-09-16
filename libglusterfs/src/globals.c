@@ -348,6 +348,7 @@ char eventstring[GF_EVENT_MAXVAL][64] = {
         "Transport Cleanup",
         "Transport Connected",
         "Volfile Modified",
+        "Volume Heal Triggered",
 };
 
 /* Copy the string ptr contents if needed for yourself */

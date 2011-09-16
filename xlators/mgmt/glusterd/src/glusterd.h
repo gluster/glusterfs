@@ -79,6 +79,7 @@ typedef enum glusterd_op_ {
         GD_OP_LOG_LEVEL,
         GD_OP_STATUS_VOLUME,
         GD_OP_REBALANCE,
+        GD_OP_HEAL_VOLUME,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -95,6 +96,11 @@ struct glusterd_volgen {
         dict_t *dict;
 };
 typedef struct {
+        struct rpc_clnt         *rpc;
+        gf_boolean_t            running;
+} nodesrv_t;
+
+typedef struct {
         struct _volfile_ctx *volfile;
 	pthread_mutex_t   mutex;
 	struct list_head  peers;
@@ -104,6 +110,7 @@ typedef struct {
         uuid_t            uuid;
         char              workdir[PATH_MAX];
         rpcsvc_t          *rpc;
+        nodesrv_t         *shd;
         struct pmap_registry *pmap;
         struct list_head  volumes;
         struct list_head  xprt_list;
@@ -225,9 +232,16 @@ struct glusterd_volinfo_ {
         xlator_t                *xl;
 };
 
+typedef enum gd_node_type_ {
+        GD_NODE_NONE,
+        GD_NODE_BRICK,
+        GD_NODE_SHD
+} gd_node_type;
+
 typedef struct glusterd_pending_node_ {
-        void   *node;
         struct list_head list;
+        void   *node;
+        gd_node_type type;
 } glusterd_pending_node_t;
 
 enum glusterd_op_ret {
@@ -511,6 +525,10 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event, void *data);
 
 int
+glusterd_shd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                          rpc_clnt_event_t event, void *data);
+
+int
 glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,
                      rpc_clnt_notify_t notify_fn, void *notify_data);
 
@@ -535,8 +553,11 @@ int glusterd_handle_cli_delete_volume (rpcsvc_request_t *req);
 
 int glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                                   size_t len, int cmd, defrag_cbk_fn_t cbk);
+int glusterd_handle_cli_heal_volume (rpcsvc_request_t *req);
 
 /* op-sm functions */
+int glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_heal_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr);
 int glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_quota (dict_t *dict, char **op_errstr);

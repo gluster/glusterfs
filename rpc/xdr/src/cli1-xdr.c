@@ -1068,3 +1068,33 @@ xdr_gf1_cli_umount_rsp (XDR *xdrs, gf1_cli_umount_rsp *objp)
 		 return FALSE;
 	return TRUE;
 }
+
+bool_t
+xdr_gf1_cli_heal_vol_req (XDR *xdrs, gf1_cli_heal_vol_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_heal_vol_rsp (XDR *xdrs, gf1_cli_heal_vol_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}

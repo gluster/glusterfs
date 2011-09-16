@@ -455,3 +455,15 @@ struct gf1_cli_umount_rsp {
        int op_ret;
        int op_errno;
 };
+
+struct gf1_cli_heal_vol_req {
+       string volname<>;
+}  ;
+
+struct gf1_cli_heal_vol_rsp {
+       int     op_ret;
+       int     op_errno;
+       string  volname<>;
+       string op_errstr<>;
+       opaque  dict<>;
+}  ;

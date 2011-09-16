@@ -174,6 +174,28 @@ glusterd_shd_start ();
 int32_t
 glusterd_shd_stop ();
 
+int32_t
+glusterd_shd_set_socket_filepath (char *rundir, uuid_t uuid,
+                                  char *socketpath, int len);
+
+struct rpc_clnt*
+glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node);
+
+struct rpc_clnt*
+glusterd_shd_get_rpc (void);
+
+int32_t
+glusterd_shd_set_rpc (struct rpc_clnt *rpc);
+
+int32_t
+glusterd_shd_connect (char *socketpath);
+
+void
+glusterd_shd_set_running (gf_boolean_t status);
+
+gf_boolean_t
+glusterd_shd_is_running ();
+
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
                               char *remote_host, int len);

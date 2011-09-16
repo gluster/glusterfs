@@ -149,6 +149,10 @@ struct cli_local {
                         char    *volname;
                         int     flags;
                 } get_vol;
+
+                struct {
+                        char    *volname;
+                }heal_vol;
         } u;
 };
 
