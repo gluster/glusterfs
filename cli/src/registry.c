@@ -268,7 +268,7 @@ cli_getunamb (const char *tok, void **choices, cli_selector_t sel)
         unsigned  mn = 0;
         void    *ret = NULL;
 
-        if (!choices || !*tok)
+        if (!choices || !tok || !*tok)
                 return NULL;
 
         for (wcon = choices; *wcon; wcon++) {
