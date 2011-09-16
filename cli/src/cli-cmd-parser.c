@@ -582,10 +582,10 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        if (!strcmp (volname, "help") && !words[3] && !words[4])
+        if (!strcmp (volname, "help") && wordcount == 3 )
                 ret = dict_set_str (dict, "help", volname);
 
-        if (!strcmp (volname, "help-xml") && !words[3] && !words[4])
+        if (!strcmp (volname, "help-xml") && wordcount == 3 )
                 ret = dict_set_str (dict, "help-xml", volname);
 
         if (ret)
