@@ -320,6 +320,11 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         /* reset the count value now */
         count = 1;
 
+        if (index >= wordcount) {
+                ret = -1;
+                goto out;
+        }
+
         brick_index = index;
 
         ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
