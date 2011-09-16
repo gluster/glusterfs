@@ -881,10 +881,6 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
         /* this is actually unwind of readv */
-        if ((local != NULL) && (local->stub != NULL)) {
-                call_stub_destroy (local->stub);
-        }
-
         QR_STACK_UNWIND (readv, frame, op_ret, op_errno, NULL, -1, NULL, NULL);
         return 0;
 }
