@@ -455,6 +455,21 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 xdrproc = (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp;
                 break;
         }
+        case GD_OP_HEAL_VOLUME:
+        {
+                gf1_cli_heal_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                xdrproc = (xdrproc_t) xdr_gf1_cli_heal_vol_rsp;
+                break;
+
+        }
         case GD_OP_NONE:
         case GD_OP_MAX:
         {
@@ -1922,7 +1937,7 @@ glusterd_start_brick_disconnect_timer (glusterd_op_brick_rsp_ctx_t *ev_ctx)
 
         timeout.tv_sec  = 5;
         timeout.tv_usec = 0;
-        brickinfo = ev_ctx->brickinfo;
+        brickinfo = ev_ctx->pending_node->node;
         GF_ASSERT (brickinfo);
         this = THIS;
         GF_ASSERT (this);
@@ -2000,7 +2015,7 @@ out:
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
-        ev_ctx->brickinfo = frame->cookie;
+        ev_ctx->pending_node = frame->cookie;
         ev_ctx->rsp_dict  = dict;
         ev_ctx->commit_ctx = frame->local;
         op = glusterd_op_get_op ();
@@ -2087,9 +2102,9 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
         call_frame_t                    *dummy_frame = NULL;
         char                            *op_errstr = NULL;
         int                             pending_bricks = 0;
-        glusterd_pending_node_t         *pending_brick;
-        glusterd_brickinfo_t            *brickinfo = NULL;
+        glusterd_pending_node_t         *pending_node;
         glusterd_req_ctx_t               *req_ctx = NULL;
+        struct rpc_clnt                 *rpc = NULL;
 
         if (!this) {
                 ret = -1;
@@ -2109,25 +2124,30 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        list_for_each_entry (pending_brick, &opinfo.pending_bricks, list) {
+        list_for_each_entry (pending_node, &opinfo.pending_bricks, list) {
                 dummy_frame = create_frame (this, this->ctx->pool);
-                brickinfo = pending_brick->node;
-
                 if (!dummy_frame)
                         continue;
-                if (_gf_false == glusterd_is_brick_started (brickinfo))
-                        continue;
 
-                ret = glusterd_brick_op_build_payload (req_ctx->op, brickinfo,
-                                                (gd1_mgmt_brick_op_req **)&req,
-                                                 req_ctx->dict);
-
+                ret = glusterd_brick_op_build_payload (req_ctx->op,
+                                                       pending_node->node,
+                                                       (gd1_mgmt_brick_op_req **)&req,
+                                                       req_ctx->dict);
                 if (ret)
                         goto out;
 
                 dummy_frame->local = data;
-                dummy_frame->cookie = brickinfo;
-                ret = glusterd_submit_request (brickinfo->rpc, req, dummy_frame,
+                dummy_frame->cookie = pending_node;
+
+                rpc = glusterd_pending_node_get_rpc (pending_node);
+                if (!rpc) {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR, "Brick Op failed "
+                                "due to rpc failure.");
+                        goto out;
+                }
+
+                ret = glusterd_submit_request (rpc, req, dummy_frame,
                                                &glusterd_glusterfs_3_1_mgmt_prog,
                                                req->op, NULL,
                                                this, glusterd3_1_brick_op_cbk,
@@ -2143,7 +2163,7 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
         }
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Sent op req to %d bricks",
-                                            pending_bricks);
+                pending_bricks);
         opinfo.brick_pending_count = pending_bricks;
 
 out:

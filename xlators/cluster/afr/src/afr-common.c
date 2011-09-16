@@ -3498,7 +3498,15 @@ afr_notify (xlator_t *this, int32_t event,
                         priv->last_event[idx] = event;
                 }
                 UNLOCK (&priv->lock);
+
                 break;
+
+        case GF_EVENT_TRIGGER_HEAL:
+                gf_log (this->name, GF_LOG_INFO, "Self-heal was triggered"
+                        " manually. Start crawling");
+                call_psh = 1;
+                break;
+
         default:
                 propagate = 1;
                 break;

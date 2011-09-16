@@ -392,6 +392,62 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_heal_vol_req           cli_req = {0,};
+        char                            *dup_volname = NULL;
+        dict_t                          *dict = NULL;
+        glusterd_op_t                   cli_op = GD_OP_HEAL_VOLUME;
+
+        GF_ASSERT (req);
+
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf1_cli_heal_vol_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_INFO, "Received heal vol req"
+                "for volume %s", cli_req.volname);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        dup_volname = gf_strdup (cli_req.volname);
+        if (!dup_volname)
+                goto out;
+
+        ret = dict_set_dynstr (dict, "volname", dup_volname);
+        if (ret)
+                goto out;
+
+        ret = glusterd_op_begin (req, GD_OP_HEAL_VOLUME, dict);
+
+        gf_cmd_log ("volume heal","on volname: %s %s", cli_req.volname,
+                    ((ret == 0) ? "SUCCESS": "FAILED"));
+
+out:
+        if (ret && dict)
+                dict_unref (dict);
+        if (cli_req.volname)
+                free (cli_req.volname); //its malloced by xdr
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret)
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     NULL, "operation failed");
+
+        return ret;
+}
+
+
 /* op-sm */
 int
 glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
@@ -754,6 +810,101 @@ out:
 }
 
 int
+glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = 0;
+        char                                    *volname = NULL;
+        gf_boolean_t                            exists  = _gf_false;
+        gf_boolean_t                            enabled = _gf_false;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        char                                    msg[2048];
+        glusterd_conf_t                         *priv = NULL;
+        dict_t                                  *opt_dict = NULL;
+
+        priv = THIS->private;
+        if (!priv) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "priv is NULL");
+                ret = -1;
+                goto out;
+        }
+
+        if (!glusterd_shd_is_running ()) {
+                ret = -1;
+                snprintf (msg, sizeof (msg), "Self-heal daemon is not "
+                          "running.");
+                *op_errstr = gf_strdup (msg);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+
+        if (!exists) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
+                gf_log ("", GF_LOG_ERROR, "%s",
+                        msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+        } else {
+                ret = 0;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        if (!glusterd_is_volume_started (volinfo)) {
+                snprintf (msg, sizeof (msg), "Volume %s is not started.",
+                          volname);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        if (!glusterd_is_volume_replicate (volinfo)) {
+                snprintf (msg, sizeof (msg), "Volume %s is not of type."
+                          "replicate", volname);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        opt_dict = volinfo->dict;
+        if (!opt_dict) {
+                ret = 0;
+                goto out;
+        }
+
+        enabled = dict_get_str_boolean (opt_dict, "cluster.self-heal-daemon",
+                                        1);
+        if (!enabled) {
+                snprintf (msg, sizeof (msg), "Self-heal-daemon is "
+                          "disabled. Heal will not be triggered on volume %s",
+                          volname);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int
 glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 {
         int                   ret        = 0;
@@ -1032,5 +1183,14 @@ glusterd_op_delete_volume (dict_t *dict)
         ret = glusterd_delete_volume (volinfo);
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_op_heal_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = 0;
+        /* Necessary subtasks of heal are completed in brick op */
+
         return ret;
 }
