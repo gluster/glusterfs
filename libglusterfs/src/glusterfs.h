@@ -348,6 +348,10 @@ struct _glusterfs_ctx {
         pid_t               mtab_pid; /* pid of the process which updates the mtab */
         int                 process_mode; /*mode in which process is runninng*/
 	struct syncenv      *env;         /* The env pointer to the synctasks */
+
+        struct list_head    mempool_list; /* used to keep a global list of
+                                             mempools, used to log details of
+                                             mempool in statedump */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

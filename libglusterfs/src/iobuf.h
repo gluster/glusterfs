@@ -94,6 +94,8 @@ struct iobuf_arena {
         int                 passive_cnt;
         struct iobuf        passive;    /* head node iobuf
                                            (unused by itself) */
+        uint64_t            alloc_cnt;  /* total allocs in this pool */
+        int                 max_active; /* max active buffers at a given time */
 };
 
 
@@ -120,7 +122,6 @@ struct iobuf_pool {
           array of of arenas which can be
           purged
         */
-
 };
 
 

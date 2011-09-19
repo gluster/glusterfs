@@ -169,6 +169,8 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
                 gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].max_size);
                 gf_proc_dump_build_key (key, prefix, "max_num_allocs");
                 gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].max_num_allocs);
+                gf_proc_dump_build_key (key, prefix, "total_allocs");
+                gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].total_allocs);
         }
 
         return;
@@ -200,6 +202,25 @@ gf_proc_dump_mem_info ()
 #endif
         gf_proc_dump_xlator_mem_info(&global_xlator);
 
+}
+
+void
+gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
+{
+        struct mem_pool *pool = NULL;
+
+        gf_proc_dump_add_section ("mempool");
+
+        list_for_each_entry (pool, &ctx->mempool_list, global_list) {
+                gf_proc_dump_write ("-----", "-----");
+                gf_proc_dump_write ("pool-name", "%s", pool->name);
+                gf_proc_dump_write ("hot-count", "%d", pool->hot_count);
+                gf_proc_dump_write ("cold-count", "%d", pool->cold_count);
+                gf_proc_dump_write ("padded_sizeof", "%lu",
+                                    pool->padded_sizeof_type);
+                gf_proc_dump_write ("alloc-count", "%"PRIu64, pool->alloc_count);
+                gf_proc_dump_write ("max-alloc", "%d", pool->max_alloc);
+        }
 }
 
 void gf_proc_dump_latency_info (xlator_t *xl);
@@ -422,10 +443,12 @@ gf_proc_dump_info (int signum)
         if (ret < 0)
                 goto out;
 
-        if (GF_PROC_DUMP_IS_OPTION_ENABLED (mem))
-                gf_proc_dump_mem_info ();
-
         ctx = glusterfs_ctx_get ();
+
+        if (GF_PROC_DUMP_IS_OPTION_ENABLED (mem)) {
+                gf_proc_dump_mem_info ();
+                gf_proc_dump_mempool_info (ctx);
+        }
 
         if (ctx) {
                 if (GF_PROC_DUMP_IS_OPTION_ENABLED (iobuf))

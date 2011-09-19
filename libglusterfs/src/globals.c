@@ -111,6 +111,7 @@ glusterfs_ctx_init ()
         }
 
         INIT_LIST_HEAD (&glusterfs_ctx->graphs);
+        INIT_LIST_HEAD (&glusterfs_ctx->mempool_list);
         ret = pthread_mutex_init (&glusterfs_ctx->lock, NULL);
 
 out:

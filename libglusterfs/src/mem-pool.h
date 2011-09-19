@@ -39,6 +39,7 @@ struct mem_acct_rec {
         size_t          size;
         size_t          max_size;
         uint32_t        num_allocs;
+        uint32_t        total_allocs;
         uint32_t        max_num_allocs;
         gf_lock_t       lock;
 };
@@ -145,12 +146,16 @@ struct mem_pool {
         void             *pool;
         void             *pool_end;
         int               real_sizeof_type;
+        uint64_t          alloc_count;
+        int               max_alloc;
+        char             *name;
+        struct list_head  global_list;
 };
 
 struct mem_pool *
-mem_pool_new_fn (unsigned long sizeof_type, unsigned long count);
+mem_pool_new_fn (unsigned long sizeof_type, unsigned long count, char *name);
 
-#define mem_pool_new(type,count) mem_pool_new_fn (sizeof(type), count)
+#define mem_pool_new(type,count) mem_pool_new_fn (sizeof(type), count, #type)
 
 void mem_put (void *ptr);
 void *mem_get (struct mem_pool *pool);
