@@ -120,7 +120,6 @@ __iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
                 munmap (iobuf_arena->mem_base, iobuf_pool->arena_size);
 
         GF_FREE (iobuf_arena);
-
 out:
         return;
 }
@@ -186,9 +185,9 @@ __iobuf_arena_unprune (struct iobuf_pool *iobuf_pool, size_t page_size)
         struct iobuf_arena *iobuf_arena  = NULL;
         struct iobuf_arena *tmp          = NULL;
         int                 index        = 0;
- 
+
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
- 
+
         index = log_base2 (page_size);
         if (index > GF_VARIABLE_IOBUF_COUNT) {
                 gf_log ("iobuf", GF_LOG_DEBUG, "no arena corresponding to "
@@ -293,7 +292,7 @@ iobuf_pool_new (size_t arena_size, size_t page_size)
 
         max_size = ((1ULL << (GF_VARIABLE_IOBUF_COUNT)) - 1);
         if ((arena_size < page_size) || (max_size < arena_size)) {
-                gf_log ("", GF_LOG_WARNING,
+                gf_log (THIS->name, GF_LOG_WARNING,
                         "arena size (%zu) is less than page size(%zu)",
                         arena_size, page_size);
                 goto out;
@@ -442,6 +441,12 @@ __iobuf_get (struct iobuf_arena *iobuf_arena, size_t page_size)
 
         list_add (&iobuf->list, &iobuf_arena->active.list);
         iobuf_arena->active_cnt++;
+
+        /* no resetting requied for this element */
+        iobuf_arena->alloc_cnt++;
+
+        if (iobuf_arena->max_active < iobuf_arena->active_cnt)
+                iobuf_arena->max_active = iobuf_arena->active_cnt;
 
         if (iobuf_arena->passive_cnt == 0) {
                 index = log_base2 (page_size);
@@ -867,6 +872,12 @@ iobuf_arena_info_dump (struct iobuf_arena *iobuf_arena, const char *key_prefix)
         gf_proc_dump_write(key, "%d", iobuf_arena->active_cnt);
         gf_proc_dump_build_key(key, key_prefix, "passive_cnt");
         gf_proc_dump_write(key, "%d", iobuf_arena->passive_cnt);
+        gf_proc_dump_build_key(key, key_prefix, "alloc_cnt");
+        gf_proc_dump_write(key, "%"PRIu64, iobuf_arena->alloc_cnt);
+        gf_proc_dump_build_key(key, key_prefix, "max_active");
+        gf_proc_dump_write(key, "%"PRIu64, iobuf_arena->max_active);
+        gf_proc_dump_build_key(key, key_prefix, "page_size");
+        gf_proc_dump_write(key, "%"PRIu64, iobuf_arena->page_size);
         list_for_each_entry (trav, &iobuf_arena->active.list, list) {
                 gf_proc_dump_build_key(key, key_prefix,"active_iobuf.%d", i++);
                 gf_proc_dump_add_section(key);
@@ -880,7 +891,6 @@ out:
 void
 iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 {
-
         char               msg[1024];
         struct iobuf_arena *trav = NULL;
         int                i = 1;
@@ -897,18 +907,32 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
                 return;
         }
         gf_proc_dump_add_section("iobuf.global");
-        gf_proc_dump_write("iobuf.global.iobuf_pool","%p", iobuf_pool);
-        gf_proc_dump_write("iobuf.global.iobuf_pool.default_page_size", "%d",
+        gf_proc_dump_write("iobuf_pool","%p", iobuf_pool);
+        gf_proc_dump_write("iobuf_pool.default_page_size", "%d",
                                                 iobuf_pool->default_page_size);
-        gf_proc_dump_write("iobuf.global.iobuf_pool.arena_size", "%d",
+        gf_proc_dump_write("iobuf_pool.arena_size", "%d",
                            iobuf_pool->arena_size);
-        gf_proc_dump_write("iobuf.global.iobuf_pool.arena_cnt", "%d",
+        gf_proc_dump_write("iobuf_pool.arena_cnt", "%d",
                            iobuf_pool->arena_cnt);
 
         for (j = 0; j < GF_VARIABLE_IOBUF_COUNT; j++) {
                 list_for_each_entry (trav, &iobuf_pool->arenas[j], list) {
                         snprintf(msg, sizeof(msg),
-                                 "iobuf.global.iobuf_pool.arena.%d", i);
+                                 "arena.%d", i);
+                        gf_proc_dump_add_section(msg);
+                        iobuf_arena_info_dump(trav,msg);
+                        i++;
+                }
+                list_for_each_entry (trav, &iobuf_pool->purge[j], list) {
+                        snprintf(msg, sizeof(msg),
+                                 "purge.%d", i);
+                        gf_proc_dump_add_section(msg);
+                        iobuf_arena_info_dump(trav,msg);
+                        i++;
+                }
+                list_for_each_entry (trav, &iobuf_pool->filled[j], list) {
+                        snprintf(msg, sizeof(msg),
+                                 "filled.%d", i);
                         gf_proc_dump_add_section(msg);
                         iobuf_arena_info_dump(trav,msg);
                         i++;

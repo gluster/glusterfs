@@ -100,6 +100,7 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
         {
                 xl->mem_acct.rec[type].size += size;
                 xl->mem_acct.rec[type].num_allocs++;
+                xl->mem_acct.rec[type].total_allocs++;
                 xl->mem_acct.rec[type].max_size =
                         max (xl->mem_acct.rec[type].max_size,
                              xl->mem_acct.rec[type].size);
@@ -314,13 +315,15 @@ free:
 
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type,
-                 unsigned long count)
+                 unsigned long count, char *name)
 {
         struct mem_pool  *mem_pool = NULL;
         unsigned long     padded_sizeof_type = 0;
         void             *pool = NULL;
         int               i = 0;
+        int               ret = 0;
         struct list_head *list = NULL;
+        glusterfs_ctx_t  *ctx = NULL;
 
         if (!sizeof_type || !count) {
                 gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
@@ -332,8 +335,15 @@ mem_pool_new_fn (unsigned long sizeof_type,
         if (!mem_pool)
                 return NULL;
 
+        ret = gf_asprintf (&mem_pool->name, "%s:%s", THIS->name, name);
+        if (!mem_pool->name) {
+                GF_FREE (mem_pool);
+                return NULL;
+        }
+
         LOCK_INIT (&mem_pool->lock);
         INIT_LIST_HEAD (&mem_pool->list);
+        INIT_LIST_HEAD (&mem_pool->global_list);
 
         mem_pool->padded_sizeof_type = padded_sizeof_type;
         mem_pool->cold_count = count;
@@ -341,6 +351,7 @@ mem_pool_new_fn (unsigned long sizeof_type,
 
         pool = GF_CALLOC (count, padded_sizeof_type, gf_common_mt_long);
         if (!pool) {
+                GF_FREE (mem_pool->name);
                 GF_FREE (mem_pool);
                 return NULL;
         }
@@ -354,6 +365,14 @@ mem_pool_new_fn (unsigned long sizeof_type,
         mem_pool->pool = pool;
         mem_pool->pool_end = pool + (count * (padded_sizeof_type));
 
+        /* add this pool to the global list */
+        ctx = glusterfs_ctx_get ();
+        if (!ctx)
+                goto out;
+
+        list_add (&mem_pool->global_list, &ctx->mempool_list);
+
+out:
         return mem_pool;
 }
 
@@ -390,12 +409,16 @@ mem_get (struct mem_pool *mem_pool)
 
         LOCK (&mem_pool->lock);
         {
+                mem_pool->alloc_count++;
                 if (mem_pool->cold_count) {
                         list = mem_pool->list.next;
                         list_del (list);
 
                         mem_pool->hot_count++;
                         mem_pool->cold_count--;
+
+                        if (mem_pool->max_alloc < mem_pool->hot_count)
+                                mem_pool->max_alloc = mem_pool->hot_count;
 
                         ptr = list;
                         in_use = (ptr + GF_MEM_POOL_LIST_BOUNDARY +
@@ -543,7 +566,13 @@ mem_pool_destroy (struct mem_pool *pool)
         if (!pool)
                 return;
 
+        gf_log (THIS->name, GF_LOG_INFO, "size=%lu max=%d total=%"PRIu64,
+                pool->padded_sizeof_type, pool->max_alloc, pool->alloc_count);
+
+        list_del (&pool->global_list);
+
         LOCK_DESTROY (&pool->lock);
+        GF_FREE (pool->name);
         GF_FREE (pool->pool);
         GF_FREE (pool);
 
