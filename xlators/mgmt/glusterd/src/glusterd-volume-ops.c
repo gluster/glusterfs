@@ -175,7 +175,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
                                                      brickinfo->hostname,
                                                      brickinfo->path,
-                                                     &tmpvolinfo, &tmpbrkinfo);
+                                                     &tmpvolinfo, &tmpbrkinfo,
+                                                     GF_PATH_PARTIAL);
                 if (!ret) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"

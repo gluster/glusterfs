@@ -192,7 +192,8 @@ brick_val:
                 ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
                                                      brickinfo->hostname,
                                                      brickinfo->path,
-                                                     &tmpvolinfo, &tmpbrkinfo);
+                                                     &tmpvolinfo, &tmpbrkinfo,
+                                                     GF_PATH_PARTIAL);
                 if (!ret) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
@@ -352,7 +353,9 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 gf_log ("", GF_LOG_DEBUG, "Remove brick count %d brick: %s",
                         i, brick);
 
-                ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo, &brickinfo);
+                ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
+                                                             &brickinfo,
+                                                             GF_PATH_COMPLETE);
                 if (ret) {
                         snprintf(err_str, 2048,"Incorrect brick %s for volume"
                                 " %s", brick, cli_req.volname);
@@ -488,7 +491,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
         while (i <= count) {
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              &brickinfo);
+                                                              &brickinfo,
+                                                              GF_PATH_PARTIAL);
                 if (ret)
                         goto out;
 
@@ -531,7 +535,8 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
         if (!dup_brick)
                 goto out;
 
-        ret = glusterd_volume_brickinfo_get_by_brick (dup_brick, volinfo,  &brickinfo);
+        ret = glusterd_volume_brickinfo_get_by_brick (dup_brick, volinfo,
+                                                      &brickinfo, GF_PATH_COMPLETE);
         if (ret)
                 goto out;
 
@@ -660,7 +665,8 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 }
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              &brickinfo);
+                                                              &brickinfo,
+                                                              GF_PATH_PARTIAL);
                 if (!ret) {
                         gf_log ("", GF_LOG_ERROR, "Adding duplicate brick: %s",
                                 brick);

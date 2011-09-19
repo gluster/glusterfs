@@ -375,7 +375,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
-                                                      &src_brickinfo);
+                                                      &src_brickinfo,
+                                                      GF_PATH_COMPLETE);
         if (ret) {
                 snprintf (msg, sizeof (msg), "brick: %s does not exist in "
                           "volume: %s", src_brick, volname);
@@ -1473,7 +1474,8 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
                 goto out;
 
         ret = glusterd_volume_brickinfo_get_by_brick (old_brick, volinfo,
-                                                      &old_brickinfo);
+                                                      &old_brickinfo,
+                                                      GF_PATH_COMPLETE);
         if (ret)
                 goto out;
 
@@ -1565,7 +1567,9 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo, &src_brickinfo);
+        ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
+                                                      &src_brickinfo,
+                                                      GF_PATH_COMPLETE);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
                 goto out;
@@ -1874,7 +1878,9 @@ glusterd_do_replace_brick (void *data)
                 goto out;
         }
 
-        ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo, &src_brickinfo);
+        ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
+                                                      &src_brickinfo,
+                                                      GF_PATH_COMPLETE);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
                 goto out;
