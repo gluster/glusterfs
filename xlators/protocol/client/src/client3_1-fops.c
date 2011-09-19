@@ -735,9 +735,8 @@ out:
         frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        (local) ? local->loc.path : "--");
+                        "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
         }
         STACK_UNWIND_STRICT (flush, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
@@ -980,9 +979,8 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
-                        strerror (op_errno),
-                        (local) ? local->loc.path : "--");
+                        "remote operation failed: %s",
+                        strerror (op_errno));
         }
         STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
         if (rsp.dict.dict_val) {
@@ -1508,9 +1506,8 @@ out:
 
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        (local) ? local->loc.path : "--");
+                        "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
         }
         STACK_UNWIND_STRICT (fxattrop, frame, op_ret,
                              gf_error_to_errno (op_errno), dict);
@@ -1846,9 +1843,8 @@ out:
         if ((rsp.op_ret == -1) &&
             (EAGAIN != gf_error_to_errno (rsp.op_errno))) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        (local) ? local->loc.path : "--");
+                        "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
         }
         STACK_UNWIND_STRICT (lk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &lock);
@@ -1896,9 +1892,8 @@ client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        (local) ? local->loc.path : "--");
+                        "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
         }
         STACK_UNWIND_STRICT (readdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &entries);
@@ -1954,9 +1949,8 @@ client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        (local) ? local->loc.path : "--");
+                        "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
         }
         STACK_UNWIND_STRICT (readdirp, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &entries);
@@ -2327,9 +2321,8 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        (local) ? local->loc.path : "--");
+                        "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
         }
         STACK_UNWIND_STRICT (readv, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), vector, rspcount,
