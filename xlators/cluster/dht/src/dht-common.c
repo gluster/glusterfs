@@ -688,7 +688,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 /* This is where we need 'rename' both entries logic */
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "multiple subvolumes (%s and %s) have "
-                                        "file %s (preferrably rename the file "
+                                        "file %s (preferably rename the file "
                                         "in the backend, and do a fresh lookup)",
                                         local->cached_subvol->name,
                                         subvol->name, local->loc.path);
