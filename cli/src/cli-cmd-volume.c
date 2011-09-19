@@ -335,7 +335,13 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
         /*Check brick order if type is replicate*/
-        if (dict_get_int32 (options, "type", &type) == 0 && type == GF_CLUSTER_TYPE_REPLICATE) {
+        ret = dict_get_int32 (options, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not get brick type");
+                goto out;
+        }
+        if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
+            (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)) {
                 if ((ret = dict_get_str (options, "bricks", &brick_list)) != 0) {
                         gf_log ("cli", GF_LOG_ERROR, "Replica bricks check : "
                                                      "Could not retrieve bricks list");
