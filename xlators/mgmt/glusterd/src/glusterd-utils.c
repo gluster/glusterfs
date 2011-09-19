@@ -710,7 +710,8 @@ out:
 int32_t
 glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                glusterd_volinfo_t *volinfo,
-                               glusterd_brickinfo_t **brickinfo)
+                               glusterd_brickinfo_t **brickinfo,
+                               gf_path_match_t path_match)
 {
         glusterd_brickinfo_t    *brickiter = NULL;
         uuid_t                  peer_uuid = {0};
@@ -731,47 +732,38 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         path_len = strlen (path);
         list_for_each_entry (brickiter, &volinfo->bricks, brick_list) {
 
-                if (uuid_is_null (brickiter->uuid)) {
-                        ret = glusterd_resolve_brick (brickiter);
-                        if (ret)
-                                goto out;
-                }
+                if (uuid_is_null (brickiter->uuid) &&
+                    glusterd_resolve_brick (brickiter))
+                        goto out;
+                if (uuid_compare (peer_uuid, brickiter->uuid))
+                        continue;
                 brick_path_len = strlen (brickiter->path);
                 smaller_path = min (brick_path_len, path_len);
                 if (smaller_path != path_len)
                         is_path_smaller = _gf_false;
-                if ((!uuid_compare (peer_uuid, brickiter->uuid)) &&
-                        !strcmp (brickiter->path, path)) {
-                        gf_log ("", GF_LOG_INFO, "Found brick");
+
+                if (!strcmp (brickiter->path, path)) {
+                        gf_log (THIS->name, GF_LOG_INFO, "Found brick");
                         ret = 0;
                         if (brickinfo)
                                 *brickinfo = brickiter;
                         break;
-                } else {
-                        if ((!uuid_compare (peer_uuid, brickiter->uuid)) &&
-                            !strncmp (brickiter->path, path, smaller_path)) {
-                                if (is_path_smaller == _gf_true)  {
-                                        if (brickiter->path[smaller_path] == '/') {
-                                                ret = 0;
-                                                gf_log ("", GF_LOG_INFO,
-                                                        "given path %s lies"
-                                                        " within %s", path,
-                                                        brickiter->path);
-                                                *brickinfo = brickiter;
-                                                break;
-                                        }
-                                } else
-                                        if (path[smaller_path] == '/') {
-                                                gf_log ("", GF_LOG_INFO,
-                                                        "brick %s is a part of"
-                                                        " %s", brickiter->path,
-                                                        path);
-                                                ret = 0;
-                                                *brickinfo = brickiter;
-                                                break;
-                                        }
+                } else if (path_match == GF_PATH_PARTIAL &&
+                           !strncmp (brickiter->path, path, smaller_path)) {
+                        /* GF_PATH_PARTIAL:check during create, add-brick ops */
+                        if (is_path_smaller == _gf_true &&
+                            brickiter->path[smaller_path] == '/') {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "given path %s lies within brick %s",
+                                        path, brickiter->path);
+                        } else if (path[smaller_path] == '/') {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "brick %s is a part of %s",
+                                        brickiter->path, path);
                         }
-                        ret = -1;
+                        *brickinfo = brickiter;
+                        ret = 0;
+                        break;
                 }
         }
 
@@ -783,7 +775,8 @@ out:
 int32_t
 glusterd_volume_brickinfo_get_by_brick (char *brick,
                                         glusterd_volinfo_t *volinfo,
-                                        glusterd_brickinfo_t **brickinfo)
+                                        glusterd_brickinfo_t **brickinfo,
+                                        gf_path_match_t path_match)
 {
         int32_t                 ret = -1;
         char                    *hostname = NULL;
@@ -812,7 +805,7 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
         }
 
         ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
-                                             brickinfo);
+                                             brickinfo, path_match);
 out:
         if (tmp_host)
                 GF_FREE (tmp_host);
@@ -831,7 +824,7 @@ glusterd_is_brick_decommissioned (glusterd_volinfo_t *volinfo, char *hostname,
         int                     ret = -1;
 
         ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
-                                             &brickinfo);
+                                             &brickinfo, GF_PATH_COMPLETE);
         if (ret)
                 goto out;
         decommissioned = brickinfo->decommissioned;
@@ -2071,7 +2064,8 @@ glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
                 ret = glusterd_volume_brickinfo_get (new_brickinfo->uuid,
                                                      new_brickinfo->hostname,
                                                      new_brickinfo->path,
-                                                     old_volinfo, &old_brickinfo);
+                                                     old_volinfo, &old_brickinfo,
+                                                     GF_PATH_COMPLETE);
                 if ((0 == ret) && glusterd_is_brick_started (old_brickinfo)) {
                         new_brickinfo->port = old_brickinfo->port;
                 }
@@ -2097,7 +2091,8 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
                 ret = glusterd_volume_brickinfo_get (old_brickinfo->uuid,
                                                      old_brickinfo->hostname,
                                                      old_brickinfo->path,
-                                                     new_volinfo, &new_brickinfo);
+                                                     new_volinfo, &new_brickinfo,
+                                                     GF_PATH_COMPLETE);
                 if (ret) {
                         ret = glusterd_brick_stop (old_volinfo, old_brickinfo);
                         if (ret)
@@ -2676,8 +2671,8 @@ glusterd_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
 
                 ret = glusterd_volume_brickinfo_get (uuid, hostname, path,
-                                                     volinfo,
-                                                     brickinfo);
+                                                     volinfo, brickinfo,
+                                                     GF_PATH_COMPLETE);
                 if (!ret)
                         goto out;
         }
@@ -3780,7 +3775,8 @@ glusterd_delete_brick (glusterd_volinfo_t* volinfo,
 #ifdef DEBUG
         ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
                                              brickinfo->hostname,
-                                             brickinfo->path, volinfo, NULL);
+                                             brickinfo->path, volinfo,
+                                             NULL, GF_PATH_COMPLETE);
         GF_ASSERT (0 == ret);
 #endif
         glusterd_delete_volfile (volinfo, brickinfo);

@@ -38,6 +38,12 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 
+/* For brick search using path: partial or complete */
+typedef enum {
+        GF_PATH_COMPLETE = 0,
+        GF_PATH_PARTIAL
+} gf_path_match_t;
+
 struct glusterd_lock_ {
         uuid_t  owner;
         time_t  timestamp;
@@ -129,7 +135,8 @@ glusterd_is_cli_op_req (int32_t op);
 int32_t
 glusterd_volume_brickinfo_get_by_brick (char *brick,
                                         glusterd_volinfo_t *volinfo,
-                                        glusterd_brickinfo_t **brickinfo);
+                                        glusterd_brickinfo_t **brickinfo,
+                                        gf_path_match_t path_match);
 int32_t
 glusterd_is_local_addr (char *hostname);
 
@@ -245,7 +252,8 @@ glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo);
 int32_t
 glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                glusterd_volinfo_t *volinfo,
-                               glusterd_brickinfo_t **brickinfo);
+                               glusterd_brickinfo_t **brickinfo,
+                               gf_path_match_t path_match);
 int
 glusterd_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                        glusterd_brickinfo_t **brickinfo);

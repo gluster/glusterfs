@@ -2566,7 +2566,8 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr)
                 }
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              &brickinfo);
+                                                              &brickinfo,
+                                                              GF_PATH_COMPLETE);
                 if (ret)
                         goto out;
                 if (glusterd_is_brick_started (brickinfo)) {
@@ -2655,8 +2656,9 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
         case GF_CLI_STATS_TOP:
                 ret = dict_get_str (dict, "brick", &brick);
                 if (!ret) {
-                        ret = glusterd_volume_brickinfo_get_by_brick (brick,
-                                                        volinfo, &brickinfo); 
+                        ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
+                                                                      &brickinfo,
+                                                                      GF_PATH_COMPLETE);
                         if (ret)
                                 goto out;
 

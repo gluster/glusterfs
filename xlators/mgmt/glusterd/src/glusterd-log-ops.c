@@ -325,8 +325,8 @@ glusterd_op_stage_log_filename (dict_t *dict, char **op_errstr)
                 goto out;
 
         if (strchr (brick, ':')) {
-                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              NULL);
+                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL,
+                                                              GF_PATH_COMPLETE);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Incorrect brick %s "
                                   "for volume %s", brick, volname);
@@ -402,8 +402,8 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
                 goto out;
 
         if (strchr (brick, ':')) {
-                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              NULL);
+                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL,
+                                                              GF_PATH_COMPLETE);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Incorrect brick %s "
                                   "for volume %s", brick, volname);
