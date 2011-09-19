@@ -1218,7 +1218,7 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
                 ", gid: %d, owner: %"PRId64,
                 au.pid, au.uid, au.gid, au.lk_owner);
 
-        memcpy (au.groups, call_frame->root->groups, 16);
+        memcpy (au.groups, call_frame->root->groups, sizeof (au.groups));
 
         //rpc_transport_get_myname (clnt->conn.trans, myname, UNIX_PATH_MAX);
         //au.aup_machname = myname;
