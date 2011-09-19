@@ -210,7 +210,28 @@ class Server(object):
     FRGN_XTRA_FMT = "I"
     FRGN_FMTSTR = NTV_FMTSTR + FRGN_XTRA_FMT
 
+    def _pathguard(f):
+        """decorator method that checks
+        the path argument of the decorated
+        functions to make sure it does not
+        point out of the managed tree
+        """
+
+        fc = getattr(f, 'func_code', None)
+        if not fc:
+            # python 3
+            fc = f.__code__
+        pi = list(fc.co_varnames).index('path')
+        def ff(*a):
+            path = a[pi]
+            ps = path.split('/')
+            if path[0] == '/' or '..' in ps:
+                raise ValueError('unsafe path')
+            return f(*a)
+        return ff
+
     @staticmethod
+    @_pathguard
     def entries(path):
         """directory entries in an array"""
         # prevent symlinks being followed
@@ -219,6 +240,7 @@ class Server(object):
         return os.listdir(path)
 
     @classmethod
+    @_pathguard
     def purge(cls, path, entries=None):
         """force-delete subtrees
 
@@ -267,6 +289,7 @@ class Server(object):
             os.rmdir(path)
 
     @classmethod
+    @_pathguard
     def _create(cls, path, ctor):
         """path creation backend routine"""
         try:
@@ -279,14 +302,17 @@ class Server(object):
             raise
 
     @classmethod
+    @_pathguard
     def mkdir(cls, path):
         cls._create(path, os.mkdir)
 
     @classmethod
+    @_pathguard
     def symlink(cls, lnk, path):
         cls._create(path, lambda p: os.symlink(lnk, p))
 
     @classmethod
+    @_pathguard
     def xtime(cls, path, uuid):
         """query xtime extended attribute
 
@@ -305,11 +331,13 @@ class Server(object):
                 raise
 
     @classmethod
+    @_pathguard
     def set_xtime(cls, path, uuid, mark):
         """set @mark as xtime for @uuid on @path"""
         Xattr.lsetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), struct.pack('!II', *mark))
 
     @staticmethod
+    @_pathguard
     def setattr(path, adct):
         """set file attributes
 
