@@ -519,6 +519,29 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 GF_ASSERT (0);
         }
 
+        if (strncasecmp (rsp.hostname, peerinfo->hostname, 1024)) {
+                gf_log (THIS->name, GF_LOG_INFO, "Host: %s  with uuid: %s "
+                        "already present in cluster with alias hostname: %s",
+                        rsp.hostname, uuid_utoa (rsp.uuid), peerinfo->hostname);
+
+                ctx = ((call_frame_t *)myframe)->local;
+                ((call_frame_t *)myframe)->local = NULL;
+
+                GF_ASSERT (ctx);
+
+                rsp.op_errno = GF_PROBE_FRIEND;
+                if (ctx->req) {
+                        glusterd_xfer_cli_probe_resp (ctx->req, rsp.op_ret,
+                                                      rsp.op_errno,
+                                                      ctx->hostname, ctx->port);
+                }
+
+                glusterd_destroy_probe_ctx (ctx);
+                (void) glusterd_friend_remove (NULL, rsp.hostname);
+                ret = rsp.op_ret;
+                goto out;
+        }
+
         uuid_copy (peerinfo->uuid, rsp.uuid);
 
         ret = glusterd_friend_sm_new_event
