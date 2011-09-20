@@ -13,6 +13,8 @@ from optparse import OptionParser, SUPPRESS_HELP
 from logging import Logger
 from errno import EEXIST, ENOENT
 
+from ipaddr import IPAddress, IPNetwork
+
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
 from syncdutils import GsyncdError
@@ -159,6 +161,7 @@ def main_i():
     op.add_option('--timeout',             metavar='SEC',   type=int, default=120)
     op.add_option('--sync-jobs',           metavar='N',     type=int, default=3)
     op.add_option('--turns',               metavar='N',     type=int, default=0, help=SUPPRESS_HELP)
+    op.add_option('--allow-network',       metavar='IPS',   default='')
 
     op.add_option('-c', '--config-file',   metavar='CONF',  type=str, action='callback', callback=store_local)
     # duh. need to specify dest or value will be mapped to None :S
@@ -208,7 +211,9 @@ def main_i():
         sys.stderr.write(op.get_usage() + "\n")
         sys.exit(1)
 
-    if os.getenv('_GSYNCD_RESTRICTED_'):
+    restricted = os.getenv('_GSYNCD_RESTRICTED_')
+
+    if restricted:
         allopts = {}
         allopts.update(opts.__dict__)
         allopts.update(rconf)
@@ -287,6 +292,22 @@ def main_i():
     gcnf.update_to(gconf.__dict__)
     gconf.__dict__.update(opts.__dict__)
     gconf.configinterface = gcnf
+
+    if restricted and gconf.allow_network:
+        ssh_conn = os.getenv('SSH_CONNECTION')
+        if not ssh_conn:
+            #legacy env var
+            ssh_conn = os.getenv('SSH_CLIENT')
+        if ssh_conn:
+            allowed_networks = [ IPNetwork(a) for a in gconf.allow_network.split(',') ]
+            client_ip = IPAddress(ssh_conn.split()[0])
+            allowed = False
+            for nw in allowed_networks:
+                if client_ip in nw:
+                    allowed = True
+                    break
+            if not allowed:
+                raise GsyncdError("client IP address is not allowed")
 
     ffd = rconf.get('feedback_fd')
     if ffd:
