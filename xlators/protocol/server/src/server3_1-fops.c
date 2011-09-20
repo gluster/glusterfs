@@ -5188,7 +5188,7 @@ rpcsvc_actor_t glusterfs3_1_fop_actors[] = {
 
 
 struct rpcsvc_program glusterfs3_1_fop_prog = {
-        .progname  = "GlusterFS-3.1.0",
+        .progname  = "GlusterFS " PACKAGE_VERSION,
         .prognum   = GLUSTER3_1_FOP_PROGRAM,
         .progver   = GLUSTER3_1_FOP_VERSION,
         .numactors = GLUSTER3_1_FOP_PROCCNT,
