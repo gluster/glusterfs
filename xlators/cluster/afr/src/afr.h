@@ -146,6 +146,7 @@ typedef struct _afr_private {
         struct list_head saved_fds;   /* list of fds on which locks have succeeded */
         gf_boolean_t     optimistic_change_log;
         gf_boolean_t     eager_lock;
+	gf_boolean_t     enforce_quorum;
 
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
@@ -998,4 +999,21 @@ afr_set_low_priority (call_frame_t *frame);
 int
 afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
                       int flags, int32_t wb_flags);
+
+gf_boolean_t
+afr_have_quorum (char *logname, afr_private_t *priv);
+
+/*
+ * Having this as a macro will make debugging a bit weirder, but does reduce
+ * the probability of functions handling this check inconsistently.
+ */
+#define QUORUM_CHECK(_func,_label) do {                                  \
+	if (priv->enforce_quorum && !afr_have_quorum(this->name,priv)) { \
+		gf_log(this->name,GF_LOG_WARNING,                        \
+		       "failing "#_func" due to lack of quorum");        \
+		op_errno = EROFS;                                        \
+		goto _label;                                             \
+	}                                                                \
+} while (0);
+
 #endif /* __AFR_H__ */
