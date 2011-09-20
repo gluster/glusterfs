@@ -377,7 +377,7 @@ typedef struct _afr_local {
         loc_t newloc;
 
         fd_t *fd;
-        int32_t *fd_open_on;
+        unsigned char *fd_open_on;
 
         glusterfs_fop_t fop;
 
@@ -682,6 +682,7 @@ typedef struct _afr_local {
 
                 int last_tried;
                 int32_t *child_errno;
+                unsigned char   *pre_op;
 
                 call_frame_t *main_frame;
 
@@ -825,6 +826,10 @@ afr_up_children_count (unsigned char *child_up, unsigned int child_count);
 
 unsigned int
 afr_locked_children_count (unsigned char *children, unsigned int child_count);
+
+unsigned int
+afr_pre_op_done_children_count (unsigned char *pre_op,
+                                unsigned int child_count);
 
 gf_boolean_t
 afr_is_fresh_lookup (loc_t *loc, xlator_t *this);
