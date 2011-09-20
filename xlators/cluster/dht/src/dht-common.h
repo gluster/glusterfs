@@ -254,11 +254,11 @@ typedef struct dht_disk_layout dht_disk_layout_t;
                 ((buf)->ia_prot.sticky == 1) &&                         \
                 ((buf)->ia_prot.sgid == 1))
 
-#define DHT_STRIP_PHASE1_FLAGS(buf)  do {               \
-                if (IS_DHT_MIGRATION_PHASE1(buf)) {     \
-                        (buf)->ia_prot.sticky = 0;      \
-                        (buf)->ia_prot.sgid = 0;        \
-                }                                       \
+#define DHT_STRIP_PHASE1_FLAGS(buf)  do {                       \
+                if ((buf) && IS_DHT_MIGRATION_PHASE1(buf)) {    \
+                        (buf)->ia_prot.sticky = 0;              \
+                        (buf)->ia_prot.sgid = 0;                \
+                }                                               \
         } while (0)
 
 #define check_is_dir(i,s,x) (IA_ISDIR(s->ia_type))
