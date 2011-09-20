@@ -131,16 +131,14 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int i = 0;
         int call_count = -1;
 
         local = frame->local;
         priv = this->private;
-        int_lock = &local->internal_lock;
 
-        call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
-                                                priv->child_count);
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -150,7 +148,7 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i] && int_lock->inode_locked_nodes[i]) {
+                if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_writev_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -584,16 +582,14 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
-        int_lock = &local->internal_lock;
 
-        call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
-                                                priv->child_count);
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -603,7 +599,7 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i] && int_lock->inode_locked_nodes[i]) {
+                if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -794,16 +790,14 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
-        int_lock = &local->internal_lock;
 
-        call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
-                                                priv->child_count);
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -813,7 +807,7 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i] && int_lock->inode_locked_nodes[i]) {
+                if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_ftruncate_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -1035,16 +1029,14 @@ afr_setattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
-        int_lock = &local->internal_lock;
 
-        call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
-                                                priv->child_count);
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1054,7 +1046,7 @@ afr_setattr_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i] && int_lock->inode_locked_nodes[i]) {
+                if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_setattr_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -1245,16 +1237,14 @@ afr_fsetattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
-        int_lock = &local->internal_lock;
 
-        call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
-                                                priv->child_count);
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1264,7 +1254,7 @@ afr_fsetattr_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i] && int_lock->inode_locked_nodes[i]) {
+                if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_fsetattr_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -1439,16 +1429,14 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
-        int_lock = &local->internal_lock;
 
-        call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
-                                                priv->child_count);
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1458,7 +1446,7 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i] && int_lock->inode_locked_nodes[i]) {
+                if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_setxattr_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
@@ -1624,16 +1612,14 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        afr_internal_lock_t *int_lock = NULL;
         int call_count = -1;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
-        int_lock = &local->internal_lock;
 
-        call_count = afr_locked_children_count (int_lock->inode_locked_nodes,
-                                                priv->child_count);
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -1643,7 +1629,7 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i] && int_lock->inode_locked_nodes[i]) {
+                if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_removexattr_wind_cbk,
                                            (void *) (long) i,
                                            priv->children[i],

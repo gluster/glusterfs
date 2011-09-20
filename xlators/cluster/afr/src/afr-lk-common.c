@@ -789,7 +789,6 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int_lock->lock_op_ret = op_ret;
                         }
 
-                        local->child_up[child_index] = 0;
                         local->op_errno              = op_errno;
                         int_lock->lock_op_errno      = op_errno;
                 }
@@ -852,7 +851,6 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->op_ret   = op_ret;
                         }
 
-                        local->child_up[child_index] = 0;
                         local->op_errno = op_errno;
                 }
         }
@@ -1180,7 +1178,6 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_ret         = op_ret;
                         int_lock->lock_op_ret = op_ret;
 
-                        local->child_up[child_index] = 0;
                         int_lock->lock_op_errno      = op_errno;
                         local->op_errno              = op_errno;
                 }
@@ -1356,7 +1353,6 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 "please load features/locks xlator on server");
                         local->op_ret                = op_ret;
                         int_lock->lock_op_ret        = op_ret;
-                        local->child_up[child_index] = 0;
                         int_lock->lock_op_errno      = op_errno;
                         local->op_errno              = op_errno;
                 }

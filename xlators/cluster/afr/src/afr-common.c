@@ -762,6 +762,7 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE (local->internal_lock.lower_locked_nodes);
 
 
+        GF_FREE (local->transaction.pre_op);
         GF_FREE (local->transaction.child_errno);
         GF_FREE (local->child_errno);
         GF_FREE (local->transaction.eager_lock);
@@ -934,6 +935,13 @@ unsigned int
 afr_locked_children_count (unsigned char *children, unsigned int child_count)
 {
         return afr_set_elem_count_get (children, child_count);
+}
+
+unsigned int
+afr_pre_op_done_children_count (unsigned char *pre_op,
+                                unsigned int child_count)
+{
+        return afr_set_elem_count_get (pre_op, child_count);
 }
 
 gf_boolean_t
@@ -3680,10 +3688,16 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (local->fd) {
                 local->fd_open_on = GF_CALLOC (sizeof (*local->fd_open_on),
                                                priv->child_count,
-                                               gf_afr_mt_int32_t);
+                                               gf_afr_mt_char);
                 if (!local->fd_open_on)
                         goto out;
         }
+
+        local->transaction.pre_op = GF_CALLOC (sizeof (*local->transaction.pre_op),
+                                               priv->child_count,
+                                               gf_afr_mt_char);
+        if (!local->transaction.pre_op)
+                goto out;
 
         for (i = 0; i < priv->child_count; i++) {
                 local->pending[i] = GF_CALLOC (sizeof (*local->pending[i]),
