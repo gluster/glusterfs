@@ -17,8 +17,8 @@
 %{?_with_fusermount:%define _with_fusermount --enable-fusermount}
 
 # if you wish to compile an rpm without geo-replication support, compile like this...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without geo-replication
-%{?_without_geo-replication:%define _without_geo-replication --disable-geo-replication}
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without georeplication
+%{?_without_georeplication:%define _without_georeplication --disable-geo-replication}
 
 Summary: Cluster File System
 Name: @PACKAGE_NAME@
@@ -86,7 +86,7 @@ is in userspace and easily manageable.
 This package provides support to ib-verbs library.
 %endif
 
-%if 0%{!?_without_geo-replication:1}
+%if 0%{!?_without_georeplication:1}
 %package geo-replication
 Summary: GlusterFS Geo-replication
 Group: Applications/File
@@ -126,7 +126,7 @@ This package provides support to FUSE based clients.
 
 %build
 
-%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_geo-replication}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_georeplication}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -153,6 +153,14 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 find %{buildroot}%{_libdir} -name '*.la' | xargs rm -f
 find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 
+#update  /etc/ld.so.conf.d
+%{__mkdir_p} %{buildroot}%{_sysconfdir}/ld.so.conf.d
+%ifarch x86_64
+echo "%{_prefix}/lib64" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
+%else
+echo "%{_prefix}/lib" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
+%endif
+
 %clean
 %{__rm} -rf %{buildroot}
 
@@ -161,8 +169,6 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 /sbin/chkconfig --add glusterd
 
 
-#update  /etc/ld.so.conf.d
-echo "%{_prefix}/lib64" > /etc/ld.so.conf.d/glusterfs.conf
 /sbin/ldconfig
 
 if [ -d /etc/glusterd/vols ]; then
@@ -181,11 +187,6 @@ kill -9 `pgrep -f gsyncd.py` &> /dev/null
 killall glusterd &> /dev/null
 #add marker translator
 glusterd --xlator-option *.upgrade=on
-sleep 10
-killall glusterd  &> /dev/null
-#start glusterd normally.
-/etc/init.d/glusterd restart &> /dev/null
-
 else
 glusterd --xlator-option *.upgrade=on
 sleep 10
@@ -226,6 +227,7 @@ fi
 %{_sysconfdir}/init.d/glusterd
 %{_includedir}/glusterfs
 %exclude %{_includedir}/glusterfs/y.tab.h
+%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
 %{_libdir}/*.so
 %exclude %{_libexecdir}/glusterfs/gsyncd
 %exclude %{_libexecdir}/glusterfs/python/syncdaemon/*
@@ -237,11 +239,13 @@ fi
 %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %endif
 
+%if 0%{!?_without_georeplication:1}
 %post geo-replication
 #restart glusterd.
 /etc/init.d/glusterd restart &> /dev/null
+%endif
 
-%if 0%{!?_without_geo-replication:1}
+%if 0%{!?_without_georeplication:1}
 %files geo-replication
 %defattr(-,root,root)
 %{_libexecdir}/glusterfs/gsyncd
