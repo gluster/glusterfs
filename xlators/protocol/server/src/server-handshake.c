@@ -343,6 +343,7 @@ server_setvolume (rpcsvc_request_t *req)
         dict_t              *params        = NULL;
         char                *name          = NULL;
         char                *process_uuid  = NULL;
+        char                *clnt_version  = NULL;
         xlator_t            *xl            = NULL;
         char                *msg           = NULL;
         char                *volfile_key   = NULL;
@@ -523,13 +524,20 @@ server_setvolume (rpcsvc_request_t *req)
                         "Authentication module not initialized");
         }
 
+        ret = dict_get_str (params, "client-version", &clnt_version);
+        if (ret)
+                gf_log (this->name, GF_LOG_INFO, "client-version not set, "
+                        "may be of older version");
+
         ret = gf_authenticate (params, config_params,
                                conf->auth_modules);
 
         if (ret == AUTH_ACCEPT) {
+
                 gf_log (this->name, GF_LOG_INFO,
-                        "accepted client from %s",
-                        (peerinfo)?peerinfo->identifier:"");
+                        "accepted client from %s (version: %s)",
+                        (peerinfo) ? peerinfo->identifier : "<>",
+                        (clnt_version) ? clnt_version : "old");
                 op_ret = 0;
                 conn->bound_xl = xl;
                 ret = dict_set_str (reply, "ERROR", "Success");
@@ -538,8 +546,10 @@ server_setvolume (rpcsvc_request_t *req)
                                 "failed to set error msg");
         } else {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Cannot authenticate client from %s",
-                        (peerinfo)? peerinfo->identifier:"<>");
+                        "Cannot authenticate client from %s %s",
+                        (peerinfo) ? peerinfo->identifier : "<>",
+                        (clnt_version) ? clnt_version : "old");
+
                 op_ret = -1;
                 op_errno = EACCES;
                 ret = dict_set_str (reply, "ERROR", "Authentication failed");

@@ -995,12 +995,20 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                         "asprintf failed while setting process_uuid");
                 goto fail;
         }
+
         ret = dict_set_dynstr (options, "process-uuid", process_uuid_xl);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to set process-uuid(%s) in handshake msg",
                         process_uuid_xl);
                 goto fail;
+        }
+
+        ret = dict_set_str (options, "client-version", PACKAGE_VERSION);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set client-version(%s) in handshake msg",
+                        PACKAGE_VERSION);
         }
 
         if (this->ctx->cmd_args.volfile_server) {
