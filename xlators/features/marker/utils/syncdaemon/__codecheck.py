@@ -1,27 +1,46 @@
 import os
 import os.path
 import sys
+import tempfile
+import shutil
 
-fl = os.listdir(os.path.dirname(sys.argv[0]) or '.')
-fl.sort()
-for f in fl:
-    if f[-3:] != '.py' or f[0] == '_':
-        continue
-    m = f[:-3]
-    sys.stdout.write('importing %s ...' %  m)
-    __import__(m)
-    print(' OK.')
+ipd = tempfile.mkdtemp(prefix = 'codecheck-aux')
 
-def sys_argv_set(a):
-    sys.argv = sys.argv[:1] + a
+try:
+    # add a fake ipaddr module, we don't want to
+    # deal with the real one (just test our code)
+    f = open(os.path.join(ipd, 'ipaddr.py'), 'w')
+    f.write("""
+class IPAddress(object):
+    pass
+class IPNetwork(list):
+    pass
+""")
+    f.close()
+    sys.path.append(ipd)
 
-gsyncd = sys.modules['gsyncd']
-for a in [['--help'], ['--version'], ['--canonicalize-escape-url', '/foo']]:
-    print('>>> invoking program with args: %s' % ' '.join(a))
-    pid = os.fork()
-    if not pid:
-        sys_argv_set(a)
-        gsyncd.main()
-    _, r = os.waitpid(pid, 0)
-    if r:
-        raise RuntimeError('invocation failed')
+    fl = os.listdir(os.path.dirname(sys.argv[0]) or '.')
+    fl.sort()
+    for f in fl:
+        if f[-3:] != '.py' or f[0] == '_':
+            continue
+        m = f[:-3]
+        sys.stdout.write('importing %s ...' %  m)
+        __import__(m)
+        print(' OK.')
+
+    def sys_argv_set(a):
+        sys.argv = sys.argv[:1] + a
+
+    gsyncd = sys.modules['gsyncd']
+    for a in [['--help'], ['--version'], ['--canonicalize-escape-url', '/foo']]:
+        print('>>> invoking program with args: %s' % ' '.join(a))
+        pid = os.fork()
+        if not pid:
+            sys_argv_set(a)
+            gsyncd.main()
+        _, r = os.waitpid(pid, 0)
+        if r:
+            raise RuntimeError('invocation failed')
+finally:
+    shutil.rmtree(ipd)
