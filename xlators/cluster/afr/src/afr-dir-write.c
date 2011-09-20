@@ -47,7 +47,6 @@
 #include "afr.h"
 #include "afr-transaction.h"
 
-
 void
 afr_build_parent_loc (loc_t *parent, loc_t *child)
 {
@@ -280,6 +279,8 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(create,out);
+
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 goto out;
@@ -502,6 +503,8 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
+
+	QUORUM_CHECK(mknod,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -727,6 +730,8 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(mkdir,out);
+
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 goto out;
@@ -950,6 +955,8 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(link,out);
+
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 goto out;
@@ -1172,6 +1179,8 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(symlink,out);
+
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 goto out;
@@ -1388,6 +1397,8 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(rename,out);
+
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 goto out;
@@ -1585,6 +1596,8 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(unlink,out);
+
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 goto out;
@@ -1778,6 +1791,8 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
+
+	QUORUM_CHECK(rmdir,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {

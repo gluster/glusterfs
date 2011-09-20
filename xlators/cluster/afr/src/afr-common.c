@@ -3872,3 +3872,35 @@ afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
 out:
         return ret;
 }
+
+gf_boolean_t
+afr_have_quorum (char *logname, afr_private_t *priv)
+{
+	unsigned int	quorum = 0;
+
+	GF_VALIDATE_OR_GOTO(logname,priv,out);
+
+	quorum = priv->child_count / 2 + 1;
+	if (priv->up_count >= (priv->down_count + quorum)) {
+		return _gf_true;
+	}
+
+	/*
+	 * Special case for even numbers of nodes: if we have exactly half
+	 * and that includes the first ("senior-most") node, then that counts
+	 * as quorum even if it wouldn't otherwise.  This supports e.g. N=2
+	 * while preserving the critical property that there can only be one
+	 * such group.
+	 */
+	if ((priv->child_count % 2) == 0) {
+		quorum = priv->child_count / 2;
+		if (priv->up_count >= (priv->down_count + quorum)) {
+			if (priv->child_up[0]) {
+				return _gf_true;
+			}
+		}
+	}
+
+out:
+	return _gf_false;
+}

@@ -260,6 +260,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("strict-readdir", priv->strict_readdir, bool, out);
 
+        GF_OPTION_INIT ("enforce-quorum", priv->enforce_quorum, bool, out);
+
         priv->wait_count = 1;
 
         child_count = xlator_subvolume_count (this);
@@ -487,6 +489,10 @@ struct volume_options options[] = {
           .default_value = "off",
         },
         { .key = {"self-heal-daemon"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+        { .key = {"enforce-quorum"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },

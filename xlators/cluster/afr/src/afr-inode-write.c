@@ -449,6 +449,8 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
+	QUORUM_CHECK(writev,out);
+
         ALLOC_OR_GOTO (local, afr_local_t, out);
 
         ret = AFR_LOCAL_INIT (local, priv);
@@ -646,6 +648,8 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
+
+	QUORUM_CHECK(truncate,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -896,6 +900,8 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(ftruncate,out);
+
         ALLOC_OR_GOTO (local, afr_local_t, out);
         ret = AFR_LOCAL_INIT (local, priv);
 
@@ -1092,6 +1098,8 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
+
+	QUORUM_CHECK(setattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -1298,6 +1306,8 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(fsetattr,out);
+
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
@@ -1487,6 +1497,8 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+	QUORUM_CHECK(setxattr,out);
+
         ALLOC_OR_GOTO (local, afr_local_t, out);
 
         ret = AFR_LOCAL_INIT (local, priv);
@@ -1670,6 +1682,8 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
 
         priv = this->private;
+
+	QUORUM_CHECK(removexattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
