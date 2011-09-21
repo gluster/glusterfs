@@ -560,6 +560,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                          "-s", "localhost", "--volfile-id", volinfo->volname,
                          "--xlator-option", "*dht.use-readdirp=yes",
                          "--xlator-option", "*dht.lookup-unhashed=yes",
+                         "--xlator-option", "*dht.assert-no-child-down=yes",
                          defrag->mount, NULL);
         ret = runner_run_reuse (&runner);
         if (ret) {
