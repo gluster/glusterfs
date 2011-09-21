@@ -34,6 +34,10 @@ typedef enum {
 #define AUTH_GLUSTERFS  5
 #define RPC_CLNT_MAX_AUTH_BYTES 1024
 
+#define SFRAME_GET_PROGNUM(sframe) (sframe->rpcreq->prog->prognum)
+#define SFRAME_GET_PROGVER(sframe) (sframe->rpcreq->prog->progver)
+#define SFRAME_GET_PROCNUM(sframe) (sframe->rpcreq->procnum)
+
 struct xptr_clnt;
 struct rpc_req;
 struct rpc_clnt;
@@ -66,6 +70,7 @@ struct saved_frame {
 struct saved_frames {
 	int64_t            count;
 	struct saved_frame sf;
+	struct saved_frame lk_sf;
 };
 
 
