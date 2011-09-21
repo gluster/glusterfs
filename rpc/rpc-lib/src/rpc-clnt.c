@@ -69,6 +69,21 @@ __saved_frames_get_timedout (struct saved_frames *frames, uint32_t timeout,
 	return bailout_frame;
 }
 
+static int
+_is_lock_fop (struct saved_frame *sframe)
+{
+        int     fop     = 0;
+
+        if (SFRAME_GET_PROGNUM (sframe) == GLUSTER3_1_FOP_PROGRAM &&
+            SFRAME_GET_PROGVER (sframe) == GLUSTER3_1_FOP_VERSION)
+                fop = SFRAME_GET_PROCNUM (sframe);
+
+        return ((fop == GFS3_OP_LK) ||
+                (fop == GFS3_OP_INODELK) ||
+                (fop == GFS3_OP_FINODELK) ||
+                (fop == GFS3_OP_ENTRYLK) ||
+                (fop == GFS3_OP_FENTRYLK));
+}
 
 struct saved_frame *
 __saved_frames_put (struct saved_frames *frames, void *frame,
@@ -90,7 +105,11 @@ __saved_frames_put (struct saved_frames *frames, void *frame,
         saved_frame->rpcreq       = rpcreq;
 	gettimeofday (&saved_frame->saved_at, NULL);
 
-	list_add_tail (&saved_frame->list, &frames->sf.list);
+        if (_is_lock_fop (saved_frame))
+                list_add_tail (&saved_frame->list, &frames->lk_sf.list);
+        else
+                list_add_tail (&saved_frame->list, &frames->sf.list);
+
 	frames->count++;
 
 out:
@@ -254,6 +273,7 @@ saved_frames_new (void)
 	}
 
 	INIT_LIST_HEAD (&saved_frames->sf.list);
+	INIT_LIST_HEAD (&saved_frames->lk_sf.list);
 
 	return saved_frames;
 }
@@ -275,7 +295,15 @@ __saved_frame_copy (struct saved_frames *frames, int64_t callid,
 		if (tmp->rpcreq->xid == callid) {
 			*saved_frame = *tmp;
                         ret = 0;
-			break;
+			goto out;
+		}
+	}
+
+	list_for_each_entry (tmp, &frames->lk_sf.list, list) {
+		if (tmp->rpcreq->xid == callid) {
+			*saved_frame = *tmp;
+                        ret = 0;
+			goto out;
 		}
 	}
 
@@ -295,10 +323,20 @@ __saved_frame_get (struct saved_frames *frames, int64_t callid)
 			list_del_init (&tmp->list);
 			frames->count--;
 			saved_frame = tmp;
-			break;
+			goto out;
 		}
 	}
 
+	list_for_each_entry (tmp, &frames->lk_sf.list, list) {
+		if (tmp->rpcreq->xid == callid) {
+			list_del_init (&tmp->list);
+			frames->count--;
+			saved_frame = tmp;
+			goto out;
+		}
+	}
+
+out:
 	if (saved_frame) {
                 THIS  = saved_frame->capital_this;
         }
@@ -317,6 +355,8 @@ saved_frames_unwind (struct saved_frames *saved_frames)
         char                 timestr[256] = {0,};
 
         struct iovec          iov = {0,};
+
+        list_splice_init (&saved_frames->lk_sf.list, &saved_frames->sf.list);
 
 	list_for_each_entry_safe (trav, tmp, &saved_frames->sf.list, list) {
                 frame_sent_tm = localtime (&trav->saved_at.tv_sec);
