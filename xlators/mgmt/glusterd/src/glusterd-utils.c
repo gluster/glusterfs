@@ -2897,7 +2897,9 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         char            pidfile[PATH_MAX] = {0};
         char            path[PATH_MAX] = {0};
         FILE            *file = NULL;
+        int             fd = -1;
         int32_t         pid = -1;
+        int32_t         brick_online = -1;
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
 
@@ -2929,43 +2931,54 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "%s.status", base_key);
-        ret = dict_set_int32 (dict, key, brickinfo->signed_in);
-        if (ret)
-                goto out;
-
-        if (!brickinfo->signed_in)
-                goto out;
-
-
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
 
-        file = fopen (pidfile, "r+");
+        file = fopen (pidfile, "r");
         if (!file) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
                         pidfile);
-                ret = -1;
-                goto out;
+                /* pidfile doesn't exist means brick is down*/
+                pid = 0;
+                brick_online = 0;
+                goto cont;
+        } else {
+                ret = fscanf (file, "%d", &pid);
+                if (ret <= 0) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                                pidfile);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* check if process is crashed*/
+                fd = fileno (file);
+                if ((fd != -1) && (lockf (fd, F_TEST, 0)))
+                        brick_online = 1;
+                else {
+                        pid = 0;
+                        brick_online = 0;
+                }
         }
 
-        ret = fscanf (file, "%d", &pid);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
-                        pidfile);
-                ret = -1;
-                goto out;
-        }
-
+cont:
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", base_key);
         ret = dict_set_int32 (dict, key, pid);
         if (ret)
                 goto out;
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.status", base_key);
+        ret = dict_set_int32 (dict, key, brick_online);
+        if (ret)
+                goto out;
+
 out:
+        if (file)
+                fclose (file);
+
         if (ret)
                 gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
