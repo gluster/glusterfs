@@ -149,7 +149,7 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
         if (!xl->mem_acct.rec)
                 return;
 
-        gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type,xl->name);
+        gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
         gf_proc_dump_write ("num_types", "%d", xl->mem_acct.num_types);
 
         for (i = 0; i < xl->mem_acct.num_types; i++) {
@@ -171,6 +171,42 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
                 gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].max_num_allocs);
                 gf_proc_dump_build_key (key, prefix, "total_allocs");
                 gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].total_allocs);
+        }
+
+        return;
+}
+
+static void
+gf_proc_dump_xlator_mem_info_only_in_use (xlator_t *xl)
+{
+        int     i = 0;
+
+        if (!xl)
+                return;
+
+        if (!xl->mem_acct.rec)
+                return;
+
+        gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
+        gf_proc_dump_write ("num_types", "%d", xl->mem_acct.num_types);
+
+        for (i = 0; i < xl->mem_acct.num_types; i++) {
+                if (!xl->mem_acct.rec[i].size)
+                        continue;
+
+                gf_proc_dump_add_section ("%s.%s - usage-type %d", xl->type,
+                                          xl->name,i);
+
+                gf_proc_dump_write ("size", "%u",
+                                    xl->mem_acct.rec[i].size);
+                gf_proc_dump_write ("max_size", "%u",
+                                    xl->mem_acct.rec[i].max_size);
+                gf_proc_dump_write ("num_allocs", "%u",
+                                    xl->mem_acct.rec[i].num_allocs);
+                gf_proc_dump_write ("max_num_allocs", "%u",
+                                    xl->mem_acct.rec[i].max_num_allocs);
+                gf_proc_dump_write ("total_allocs", "%u",
+                                    xl->mem_acct.rec[i].total_allocs);
         }
 
         return;
@@ -226,79 +262,99 @@ gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
 void gf_proc_dump_latency_info (xlator_t *xl);
 
 void
-gf_proc_dump_xlator_info (xlator_t *this_xl)
+gf_proc_dump_xlator_info (xlator_t *top)
 {
-        glusterfs_ctx_t   *ctx = NULL;
-        xlator_t *fuse_xlator, *this_xlator;
+        xlator_t        *trav = NULL;
+        glusterfs_ctx_t *ctx = NULL;
+        char             itable_key[1024] = {0,};
 
-        if (!this_xl)
+        if (!top)
                 return;
 
         ctx = glusterfs_ctx_get ();
-        if (!ctx)
-                return;
 
-        if (ctx->master){
-
-                fuse_xlator = (xlator_t *) ctx->master;
-
-                if (!fuse_xlator->dumpops)
-                        return;
-
-                if (fuse_xlator->dumpops->priv &&
-                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (priv))
-                        fuse_xlator->dumpops->priv (fuse_xlator);
-
-                if (fuse_xlator->dumpops->inode &&
-                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode)) {
-
-                        if (!ctx->active)
-                                return;
-                        this_xlator = (xlator_t *) ctx->active->top;
-
-                        if (this_xlator && this_xlator->itable)
-                                inode_table_dump (this_xlator->itable,
-                                                  "xlator.mount.fuse.itable");
-                        else
-                                return;
-                }
-
-                if (fuse_xlator->dumpops->fd &&
-                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (fd))
-                        fuse_xlator->dumpops->fd (fuse_xlator);
-        }
-
-
-        while (this_xl) {
+        trav = top;
+        while (trav) {
 
                 if (ctx->measure_latency)
-                        gf_proc_dump_latency_info (this_xl);
+                        gf_proc_dump_latency_info (trav);
 
-                gf_proc_dump_xlator_mem_info(this_xl);
+                gf_proc_dump_xlator_mem_info(trav);
 
-                if (!this_xl->dumpops) {
-                        this_xl = this_xl->next;
+                if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
+                    (trav->itable)) {
+                        snprintf (itable_key, 1024, "%d.%s.itable",
+                                  ctx->graph_id, trav->name);
+
+                        inode_table_dump (trav->itable, itable_key);
+                }
+
+                if (!trav->dumpops) {
+                        trav = trav->next;
                         continue;
                 }
 
-                if (this_xl->dumpops->priv &&
+                if (trav->dumpops->priv &&
                     GF_PROC_DUMP_IS_XL_OPTION_ENABLED (priv))
-                        this_xl->dumpops->priv (this_xl);
+                        trav->dumpops->priv (trav);
 
-                if (this_xl->dumpops->inode &&
-                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode))
-                        this_xl->dumpops->inode (this_xl);
+                if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
+                    (trav->dumpops->inode))
+                        trav->dumpops->inode (trav);
 
-
-                if (this_xl->dumpops->fd &&
+                if (trav->dumpops->fd &&
                     GF_PROC_DUMP_IS_XL_OPTION_ENABLED (fd))
-                        this_xl->dumpops->fd (this_xl);
+                        trav->dumpops->fd (trav);
 
-                this_xl = this_xl->next;
+                trav = trav->next;
         }
 
         return;
 }
+
+static void
+gf_proc_dump_oldgraph_xlator_info (xlator_t *top)
+{
+        xlator_t        *trav = NULL;
+        glusterfs_ctx_t *ctx = NULL;
+        char             itable_key[1024] = {0,};
+
+        if (!top)
+                return;
+
+        ctx = glusterfs_ctx_get ();
+
+        trav = top;
+        while (trav) {
+                gf_proc_dump_xlator_mem_info_only_in_use (trav);
+
+                if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
+                    (trav->itable)) {
+                        snprintf (itable_key, 1024, "%d.%s.itable",
+                                  ctx->graph_id, trav->name);
+
+                        inode_table_dump (trav->itable, itable_key);
+                }
+
+                if (!trav->dumpops) {
+                        trav = trav->next;
+                        continue;
+                }
+
+                if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
+                    (trav->dumpops->inode))
+                        trav->dumpops->inode (trav);
+
+                if (trav->dumpops->fd &&
+                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (fd))
+                        trav->dumpops->fd (trav);
+
+                trav = trav->next;
+        }
+
+        return;
+}
+
 static int
 gf_proc_dump_parse_set_option (char *key, char *value)
 {
@@ -429,9 +485,10 @@ gf_proc_dump_options_init ()
 void
 gf_proc_dump_info (int signum)
 {
-        int               ret = -1;
-        glusterfs_ctx_t   *ctx = NULL;
-
+        int                i    = 0;
+        int                ret  = -1;
+        glusterfs_ctx_t   *ctx  = NULL;
+        glusterfs_graph_t *trav = NULL;
 
         gf_proc_dump_lock ();
         ret = gf_proc_dump_open ();
@@ -439,27 +496,45 @@ gf_proc_dump_info (int signum)
                 goto out;
 
         ret = gf_proc_dump_options_init ();
-
         if (ret < 0)
                 goto out;
 
         ctx = glusterfs_ctx_get ();
+        if (!ctx)
+                goto close;
 
         if (GF_PROC_DUMP_IS_OPTION_ENABLED (mem)) {
                 gf_proc_dump_mem_info ();
                 gf_proc_dump_mempool_info (ctx);
         }
 
-        if (ctx) {
-                if (GF_PROC_DUMP_IS_OPTION_ENABLED (iobuf))
-                        iobuf_stats_dump (ctx->iobuf_pool);
-                if (GF_PROC_DUMP_IS_OPTION_ENABLED (callpool))
-                        gf_proc_dump_pending_frames (ctx->pool);
-                if (ctx->active)
-                        gf_proc_dump_xlator_info (ctx->active->top);
+        if (GF_PROC_DUMP_IS_OPTION_ENABLED (iobuf))
+                iobuf_stats_dump (ctx->iobuf_pool);
+        if (GF_PROC_DUMP_IS_OPTION_ENABLED (callpool))
+                gf_proc_dump_pending_frames (ctx->pool);
 
+        if (ctx->master) {
+                gf_proc_dump_add_section ("fuse");
+                gf_proc_dump_xlator_info (ctx->master);
         }
 
+        if (ctx->active) {
+                gf_proc_dump_add_section ("active graph - %d", ctx->graph_id);
+                gf_proc_dump_xlator_info (ctx->active->top);
+        }
+
+        i = 0;
+        list_for_each_entry (trav, &ctx->graphs, list) {
+                if (trav == ctx->active)
+                        continue;
+
+                gf_proc_dump_add_section ("oldgraph[%d]", i);
+
+                gf_proc_dump_oldgraph_xlator_info (trav->top);
+                i++;
+        }
+
+close:
         gf_proc_dump_close ();
 out:
         gf_proc_dump_unlock ();
