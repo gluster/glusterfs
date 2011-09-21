@@ -2818,19 +2818,13 @@ get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo, gf_transport_t
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
-        switch (type) {
-        case GF_TRANSPORT_TCP:
-                snprintf (filepath, PATH_MAX, "%s/%s-fuse.vol",
-                          path, volinfo->volname);
-                break;
-        case GF_TRANSPORT_RDMA:
+        if ((volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) &&
+            (type == GF_TRANSPORT_RDMA))
                 snprintf (filepath, PATH_MAX, "%s/%s.rdma-fuse.vol",
                           path, volinfo->volname);
-                break;
-        default:
-                GF_ASSERT (0);
-                break;
-        }
+        else
+                snprintf (filepath, PATH_MAX, "%s/%s-fuse.vol",
+                          path, volinfo->volname);
 }
 
 static void
