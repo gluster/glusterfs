@@ -570,6 +570,10 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_end (&runner);
 
         volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED;
+        if ((cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA) ||
+            (cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE)) {
+                volinfo->defrag_status = GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED;
+        }
 
         if (cbk)
                 defrag->cbk_fn = cbk;
