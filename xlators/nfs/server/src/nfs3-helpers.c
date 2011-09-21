@@ -575,13 +575,14 @@ nfs3_accessbits (int32_t accbits)
         uint32_t        accresult = 0;
 
         if (accbits & POSIX_READ)
-                accresult |= (ACCESS3_READ | ACCESS3_LOOKUP);
+                accresult |= ACCESS3_READ;
 
         if (accbits & POSIX_WRITE)
                 accresult |= (ACCESS3_MODIFY | ACCESS3_EXTEND);
 
+        /* lookup on directory allowed only in case of execute permission */
         if (accbits & POSIX_EXEC)
-                accresult |= ACCESS3_EXECUTE;
+                accresult |= (ACCESS3_EXECUTE | ACCESS3_LOOKUP);
 
         return accresult;
 }
@@ -591,13 +592,14 @@ nfs3_request_to_accessbits (int32_t accbits)
 {
         uint32_t        acc_request = 0;
 
-        if (accbits & (ACCESS3_READ | ACCESS3_LOOKUP))
+        if (accbits & ACCESS3_READ)
                 acc_request |= POSIX_READ;
 
         if (accbits & (ACCESS3_MODIFY | ACCESS3_EXTEND))
                 acc_request |= POSIX_WRITE;
 
-        if (accbits & ACCESS3_EXECUTE)
+        /* For lookup on directory check for execute permission */
+        if (accbits & (ACCESS3_EXECUTE | ACCESS3_LOOKUP))
                 acc_request |= POSIX_EXEC;
 
         return acc_request;
