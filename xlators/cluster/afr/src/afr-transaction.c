@@ -377,6 +377,13 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         child_index = (long) cookie;
 
+        if (op_ret == 1) {
+        }
+
+        if (op_ret == 0) {
+                __mark_pre_op_undone_on_fd (frame, this, child_index);
+        }
+
         LOCK (&frame->lock);
         {
                 call_count = --local->call_count;
@@ -556,7 +563,6 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
                                                            this, 1, 0, xattr[i]);
                         } else {
-                                __mark_pre_op_undone_on_fd (frame, this, i);
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_post_op_cbk,
                                                    (void *) (long) i,
@@ -1127,6 +1133,8 @@ int
 afr_lock (call_frame_t *frame, xlator_t *this)
 {
         afr_pid_save (frame);
+
+        frame->root->pid = (long) frame->root;
 
         afr_set_lk_owner (frame, this);
 
