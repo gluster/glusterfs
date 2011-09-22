@@ -1281,6 +1281,12 @@ gsyncd_url_check (const char *w)
         return !!strpbrk (w, ":/");
 }
 
+static gf_boolean_t
+gsyncd_glob_check (const char *w)
+{
+        return !!strpbrk (w, "*?[");
+}
+
 int32_t
 cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 {
@@ -1293,6 +1299,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         int                i       = 0;
         unsigned           masteri = 0;
         unsigned           slavei  = 0;
+        unsigned           glob    = 0;
         unsigned           cmdi    = 0;
         char               *opwords[] = { "status", "start", "stop", "config",
                                           NULL };
@@ -1316,12 +1323,25 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 goto out;
 
         for (i = 2; i <= 3 && i < wordcount - 1; i++) {
+                if (gsyncd_glob_check (words[i]))
+                        glob = i;
                 if (gsyncd_url_check (words[i])) {
                         slavei = i;
                         break;
                 }
         }
 
+        if (glob && !slavei)
+                /* glob is allowed only for config, thus it implies there is a
+                 * slave argument; but that might have not been recognized on
+                 * the first scan as it's url characteristics has been covered
+                 * by the glob syntax.
+                 *
+                 * In this case, the slave is perforce the last glob-word -- the
+                 * upcoming one is neither glob, nor url, so it's definitely not
+                 * the slave.
+                 */
+                slavei = glob;
         if (slavei) {
                 cmdi = slavei + 1;
                 if (slavei == 3)
@@ -1346,7 +1366,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 
         if (masteri && gsyncd_url_check (words[masteri]))
                 goto out;
-        if (slavei && !gsyncd_url_check (words[slavei]))
+        if (slavei && !glob && !gsyncd_url_check (words[slavei]))
                 goto out;
 
         w = str_getunamb (words[cmdi], opwords);
@@ -1376,7 +1396,8 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         } else
                 GF_ASSERT (!"opword mismatch");
 
-        if (type != GF_GSYNC_OPTION_TYPE_CONFIG && cmdi < wordcount - 1)
+        if (type != GF_GSYNC_OPTION_TYPE_CONFIG &&
+            (cmdi < wordcount - 1 || glob))
                 goto out;
 
         /* If got so far, input is valid, assemble the message */
@@ -1397,7 +1418,8 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 case 1:
                         if (words[cmdi + 1][0] == '!') {
                                 (words[cmdi + 1])++;
-                                subop = gf_strdup ("del");
+                                if (gf_asprintf (&subop, "del%s", glob ? "-glob" : "") == -1)
+                                        subop = NULL;
                         } else
                                 subop = gf_strdup ("get");
 
@@ -1406,7 +1428,8 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                                 goto out;
                         break;
                 default:
-                        subop = gf_strdup ("set");
+                        if (gf_asprintf (&subop, "set%s", glob ? "-glob" : "") == -1)
+                                subop = NULL;
 
                         ret = dict_set_str (dict, "op_name", ((char *)words[cmdi + 1]));
                         if (ret < 0)
