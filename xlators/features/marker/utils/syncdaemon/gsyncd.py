@@ -9,6 +9,7 @@ import signal
 import select
 import optparse
 import fcntl
+import fnmatch
 from optparse import OptionParser, SUPPRESS_HELP
 from logging import Logger
 from errno import EEXIST, ENOENT
@@ -177,7 +178,7 @@ def main_i():
         op.add_option('--config-' + a,      metavar='OPT',  type=str, dest='config', action='callback',
                       callback=store_local_obj(a, lambda vx: {'opt': vx}))
     op.add_option('--config-get-all', dest='config', action='callback', callback=store_local_obj('get', lambda vx: {'opt': None}))
-    for m in ('', '-rx'):
+    for m in ('', '-rx', '-glob'):
         # call this code 'Pythonic' eh?
         # have to define a one-shot local function to be able to inject (a value depending on the)
         # iteration variable into the inner lambda
@@ -186,7 +187,7 @@ def main_i():
                           callback=store_local_obj('set', lambda vx: {'opt': vx[0], 'val': vx[1], 'rx': rx}))
             op.add_option('--config-del' + m,   metavar='OPT',  type=str, dest='config', action='callback',
                           callback=store_local_obj('del', lambda vx: {'opt': vx, 'rx': rx}))
-        conf_mod_opt_regex_variant(not not m)
+        conf_mod_opt_regex_variant(m and m[1:] or False)
 
     op.add_option('--normalize-url',           dest='url_print', action='callback', callback=store_local_curry('normal'))
     op.add_option('--canonicalize-url',        dest='url_print', action='callback', callback=store_local_curry('canon'))
@@ -226,8 +227,11 @@ def main_i():
                 raise GsyncdError('tunable %s is not set to value %s required for restricted SSH invocaton' % \
                                   (k, v))
 
-    if getattr(confdata, 'rx', None):
+    confrx = getattr(confdata, 'rx', None)
+    if confrx:
         # peers are regexen, don't try to parse them
+        if confrx == 'glob':
+            args = [ '\A' + fnmatch.translate(a) for a in args ]
         canon_peers = args
         namedict = {}
     else:

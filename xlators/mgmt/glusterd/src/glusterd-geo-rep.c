@@ -484,6 +484,7 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr)
         char   *slave     = NULL;
         char   *op_name   = NULL;
         char   *op_value  = NULL;
+        char   *t         = NULL;
         gf_boolean_t banned = _gf_true;
 
         if (dict_get_str (dict, "subop", &subop) != 0) {
@@ -517,13 +518,16 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr)
         if (strcmp (subop, "get") == 0)
                 return 0;
 
-        if (strcmp (subop, "set") != 0 && strcmp (subop, "del") != 0) {
+        t = strtail (subop, "set");
+        if (!t)
+                t = strtail (subop, "del");
+        if (!t || (t[0] && strcmp (t, "-glob") != 0)) {
                 gf_log ("", GF_LOG_WARNING, "unknown subop %s", subop);
                 *op_errstr = gf_strdup ("Invalid config request");
                 return -1;
         }
 
-        if (strcmp (subop, "set") == 0 &&
+        if (strtail (subop, "set") &&
             dict_get_str (dict, "op_value", &op_value) != 0) {
                 gf_log ("", GF_LOG_WARNING, "missing value for set");
                 *op_errstr = gf_strdup ("missing value");
@@ -1105,7 +1109,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         if (ret != 0)
                 goto out;
 
-        if (strcmp (subop, "set") == 0) {
+        if (strtail (subop, "set")) {
                 ret = dict_get_str (dict, "op_value", &op_value);
                 if (ret != 0)
                         goto out;
