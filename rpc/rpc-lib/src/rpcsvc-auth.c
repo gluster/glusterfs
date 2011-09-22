@@ -433,7 +433,8 @@ rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen)
         if ((!req) || (!arrlen))
                 return NULL;
 
-        if ((req->cred.flavour != AUTH_UNIX) ||
+        /* In case of AUTH_NULL auxgids are not used */
+        if ((req->cred.flavour != AUTH_UNIX) &&
             (req->cred.flavour != AUTH_GLUSTERFS)) {
                 gf_log ("rpc", GF_LOG_DEBUG, "auth type not unix or glusterfs");
                 return NULL;
