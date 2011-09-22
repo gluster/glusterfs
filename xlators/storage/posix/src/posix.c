@@ -2490,7 +2490,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         int32_t  list_offset    = 0;
         size_t   size           = 0;
         size_t   remaining_size = 0;
-        char     key[1024]      = {0,};
+        char     key[4096]      = {0,};
         char     host_buf[1024] = {0,};
         char *   value          = NULL;
         char *   list           = NULL;
@@ -2560,6 +2560,29 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
+        if (name) {
+                strcpy (key, name);
+
+                size = sys_lgetxattr (real_path, key, NULL, 0);
+                value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
+                if (!value) {
+                        op_ret = -1;
+                        goto out;
+                }
+                op_ret = sys_lgetxattr (real_path, key, value, op_ret);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        goto out;
+                }
+                value [op_ret] = '\0';
+                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                if (op_ret < 0) {
+                        goto out;
+                }
+
+                goto done;
+        }
+
         size = sys_llistxattr (real_path, NULL, 0);
         if (size == -1) {
                 op_errno = errno;
@@ -2613,7 +2636,10 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 }
 
                 value [op_ret] = '\0';
-                dict_set (dict, key, data_from_dynptr (value, op_ret));
+                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                if (op_ret < 0) {
+                        goto out;
+                }
 
                 remaining_size -= strlen (key) + 1;
                 list_offset += strlen (key) + 1;
@@ -2652,7 +2678,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         int32_t           list_offset    = 0;
         size_t            size           = 0;
         size_t            remaining_size = 0;
-        char              key[1024]      = {0,};
+        char              key[4096]      = {0,};
         char *            value          = NULL;
         char *            list           = NULL;
         dict_t *          dict           = NULL;
@@ -2689,6 +2715,28 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Failed to set dictionary value for %s",
                                 name);
+                goto done;
+        }
+
+        if (name) {
+                strcpy (key, name);
+
+                size = sys_fgetxattr (_fd, key, NULL, 0);
+                value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
+                if (!value) {
+                        op_ret = -1;
+                        goto out;
+                }
+                op_ret = sys_fgetxattr (_fd, key, value, op_ret);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        goto out;
+                }
+                value [op_ret] = '\0';
+                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                if (op_ret < 0) {
+                        goto out;
+                }
                 goto done;
         }
 
@@ -2743,7 +2791,10 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 value [op_ret] = '\0';
-                dict_set (dict, key, data_from_dynptr (value, op_ret));
+                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                if (op_ret) {
+                        goto out;
+                }
                 remaining_size -= strlen (key) + 1;
                 list_offset += strlen (key) + 1;
 
