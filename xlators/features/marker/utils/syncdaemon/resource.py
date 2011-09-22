@@ -20,7 +20,7 @@ from master import GMaster
 import syncdutils
 from syncdutils import GsyncdError
 
-UrlRX  = re.compile('\A(\w+)://(.*)')
+UrlRX  = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
 UserRX = re.compile("[\w!\#$%&'*+-\/=?^_`{|}~]+")
 
