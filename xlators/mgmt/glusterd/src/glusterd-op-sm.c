@@ -4965,7 +4965,7 @@ glusterd_quota_get_limit_usages (glusterd_conf_t *priv,
 
         ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
         if (ctx == NULL)
-                return -1;
+                goto out;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret < 0)
