@@ -287,7 +287,7 @@ int solaris_unlink (const char *pathname);
 #define GF_SOLARIS_XATTR_DIR ".glusterfs_xattr_inode"
 
 int solaris_xattr_resolve_path (const char *real_path, char **path);
-
+char *mkdtemp (char *__template);
 #endif /* GF_SOLARIS_HOST_OS */
 
 #ifndef HAVE_ARGP

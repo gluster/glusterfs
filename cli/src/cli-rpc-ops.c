@@ -42,6 +42,7 @@
 
 #include "glusterfs3.h"
 #include "portmap.h"
+#include "syscall.h"
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int              cli_op_ret;
@@ -1400,7 +1401,7 @@ gf_cli3_1_print_limit_list (char *volname, char *limit_list,
                 memset (&cmd_str, 0, sizeof (cmd_str));
                 snprintf (cmd_str, sizeof (cmd_str), "%s/%s", mountdir, path);
 
-                ret = getxattr (cmd_str, "trusted.limit.list", (void *) ret_str, 4096);
+                ret = sys_lgetxattr (cmd_str, "trusted.limit.list", (void *) ret_str, 4096);
                 if (ret < 0) {
                         cli_out ("%-20s %10s", path, value);
                 } else {

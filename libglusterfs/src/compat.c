@@ -528,6 +528,27 @@ solaris_rename (const char *old_path, const char *new_path)
         return rename(old_path, new_path);
 
 }
+
+
+char *
+mkdtemp (char *tempstring)
+{
+        char *new_string = NULL;
+        int   ret        = 0;
+
+        new_string = mktemp (tempstring);
+        if (!new_string)
+                goto out;
+
+        ret = mkdir (new_string, 0700);
+        if (ret < 0)
+                new_string = NULL;
+
+out:
+        return new_string;
+}
+
+
 #endif /* GF_SOLARIS_HOST_OS */
 
 #ifndef HAVE_STRNLEN
