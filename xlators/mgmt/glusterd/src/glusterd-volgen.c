@@ -2013,7 +2013,9 @@ _xl_has_decommissioned_clients (xlator_t *xl, glusterd_volinfo_t *volinfo)
         xl_child = xl->children;
         while (xl_child) {
                 cxl = xl_child->xlator;
-                decommissioned = _xl_is_client_decommissioned (cxl, volinfo);
+                /* this can go into 2 depths if the volume type
+                   is stripe-replicate */
+                decommissioned = _xl_has_decommissioned_clients (cxl, volinfo);
                 if (decommissioned)
                         break;
 
