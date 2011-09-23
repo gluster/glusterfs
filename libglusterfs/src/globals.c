@@ -336,7 +336,7 @@ out:
 }
 
 
-char eventstring[GF_EVENT_MAXVAL][64] = {
+char eventstring[GF_EVENT_MAXVAL+1][64] = {
         "Invalid event",
         "Parent Up",
         "Poll In",
@@ -345,10 +345,14 @@ char eventstring[GF_EVENT_MAXVAL][64] = {
         "Child Up",
         "Child Down",
         "Child Connecting",
+        "Child Modified",
         "Transport Cleanup",
         "Transport Connected",
         "Volfile Modified",
-        "Volume Heal Triggered",
+        "New Volfile",
+        "Translator Info",
+        "Trigger Volume Heal",
+        "Invalid event",
 };
 
 /* Copy the string ptr contents if needed for yourself */
