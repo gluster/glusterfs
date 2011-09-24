@@ -82,6 +82,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/performance/quick-read/src/Makefile
                 xlators/performance/stat-prefetch/Makefile
                 xlators/performance/stat-prefetch/src/Makefile
+                xlators/performance/md-cache/Makefile
+                xlators/performance/md-cache/src/Makefile
 		xlators/debug/Makefile
 		xlators/debug/trace/Makefile
 		xlators/debug/trace/src/Makefile
