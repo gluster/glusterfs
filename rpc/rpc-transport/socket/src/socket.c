@@ -82,7 +82,7 @@
                 priv->incoming.frag.bytes_read += bytes_read;           \
                                                                         \
                 if ((ret > 0) || (priv->incoming.frag.remaining_size != 0)) { \
-                        if (priv->incoming.frag.remaining_size != 0) {  \
+                        if (priv->incoming.frag.remaining_size != 0 && ret == 0) {  \
                                 __socket_proto_reset_pending (priv);    \
                         }                                               \
                                                                         \
