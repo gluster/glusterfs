@@ -120,7 +120,15 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable);
 
 
 fd_t *
+__fd_ref (fd_t *fd);
+
+
+fd_t *
 fd_ref (fd_t *fd);
+
+
+fd_t *
+__fd_unref (fd_t *fd);
 
 
 void

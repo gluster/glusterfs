@@ -52,20 +52,33 @@ struct qr_fd_ctx {
         int               wbflags;
         struct list_head  waiting_ops;
         gf_lock_t         lock;
+        struct list_head  inode_list;
+        struct list_head  tmp_list;
+        fd_t             *fd;
 };
 typedef struct qr_fd_ctx qr_fd_ctx_t;
 
 struct qr_local {
-        char         is_open;
-        char        *path;
-        char         just_validated;
-        fd_t        *fd;
-        int          open_flags;
-        int32_t      op_ret;
-        int32_t      op_errno;
-        call_stub_t *stub;
+        char              is_open;
+        char             *path;
+        char              just_validated;
+        fd_t             *fd;
+        int               open_flags;
+        int32_t           op_ret;
+        int32_t           op_errno;
+        uint32_t          open_count;
+        call_stub_t      *stub;
+        struct list_head  fd_list;
+        gf_lock_t         lock;
 };
 typedef struct qr_local qr_local_t;
+
+struct qr_dentry {
+        char             *name;
+        uuid_t            pargfid;
+        struct list_head  unlink_list;
+};
+typedef struct qr_dentry qr_dentry_t;
 
 struct qr_inode {
         dict_t           *xattr;
@@ -74,6 +87,8 @@ struct qr_inode {
         struct iatt       stbuf;
         struct timeval    tv;
         struct list_head  lru;
+        struct list_head  fd_list;
+        struct list_head  unlinked_dentries;
 };
 typedef struct qr_inode qr_inode_t;
 
@@ -103,6 +118,7 @@ typedef struct qr_inode_table qr_inode_table_t;
 struct qr_private {
         qr_conf_t         conf;
         qr_inode_table_t  table;
+        struct mem_pool  *dentry_pool;
 };
 typedef struct qr_private qr_private_t;
 
