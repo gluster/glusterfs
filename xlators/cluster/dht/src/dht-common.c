@@ -1039,7 +1039,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout = NULL;
         int           i = 0;
         int           call_cnt = 0;
-
+        loc_t         new_loc = {0,};
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1056,9 +1056,17 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto err;
         }
-        if (!dht_filter_loc_subvol_key (this, loc, &local->loc,
-                                        &hashed_subvol)) {
-                ret = loc_dup (loc, &local->loc);
+
+        ret = dht_filter_loc_subvol_key (this, loc, &new_loc,
+                                         &hashed_subvol);
+        if (ret) {
+                loc_wipe (&local->loc);
+                ret = loc_dup (&new_loc, &local->loc);
+
+                /* we no more need 'new_loc' entries */
+                loc_wipe (&new_loc);
+
+                /* check if loc_dup() is successful */
                 if (ret == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_DEBUG,
