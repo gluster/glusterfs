@@ -41,6 +41,7 @@ append_licence_header ()
 */
 
 #include "xdr-common.h"
+#include "compat.h"
 
 EOF
 
