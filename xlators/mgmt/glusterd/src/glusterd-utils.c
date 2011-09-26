@@ -841,7 +841,7 @@ int32_t
 glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
-        glusterd_peerctx_t *peerctx = NULL;
+        glusterd_peerctx_t      *peerctx = NULL;
 
         if (peerinfo->rpc) {
                 peerctx = peerinfo->rpc->mydata;
@@ -4327,3 +4327,86 @@ out:
         return ret;
 }
 
+/* Checks if the given peer contains all the bricks belonging to the
+ * given volume. Returns true if it does else returns false
+ */
+gf_boolean_t
+glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
+                                     uuid_t friend_uuid)
+{
+        gf_boolean_t            ret = _gf_true;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+
+        GF_ASSERT (volinfo);
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_compare (friend_uuid, brickinfo->uuid)) {
+                        ret = _gf_false;
+                        break;
+                }
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+/* Remove all volumes which completely belong to given friend
+ */
+int
+glusterd_friend_remove_cleanup_vols (uuid_t uuid)
+{
+        int                     ret = -1;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_volinfo_t      *tmp_volinfo = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry_safe (volinfo, tmp_volinfo,
+                                  &priv->volumes, vol_list) {
+                if (glusterd_friend_contains_vol_bricks (volinfo, uuid)) {
+                        gf_log (THIS->name, GF_LOG_INFO,
+                                "Deleting stale volume %s", volinfo->volname);
+                        ret = glusterd_delete_volume (volinfo);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Error deleting stale volume");
+                                goto out;
+                        }
+                }
+        }
+        ret = 0;
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+/* Check if the all peers are connected and befriended, except the peer
+ * specified (the peer being detached)
+ */
+gf_boolean_t
+glusterd_chk_peers_connected_befriended (uuid_t skip_uuid)
+{
+        gf_boolean_t            ret = _gf_true;
+        glusterd_peerinfo_t     *peerinfo = NULL;
+        glusterd_conf_t         *priv = NULL;
+
+        priv= THIS->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+
+                if (!uuid_is_null (skip_uuid) && !uuid_compare (skip_uuid,
+                                                           peerinfo->uuid))
+                        continue;
+
+                if ((GD_FRIEND_STATE_BEFRIENDED != peerinfo->state.state)
+                    || !(peerinfo->connected)) {
+                        ret = _gf_false;
+                        break;
+                }
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %s",
+                (ret?"TRUE":"FALSE"));
+        return ret;
+}

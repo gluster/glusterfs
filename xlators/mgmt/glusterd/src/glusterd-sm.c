@@ -521,6 +521,34 @@ out:
         return ret;
 }
 
+static int
+glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
+{
+        int                     ret = -1;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_volinfo_t      *tmp_volinfo = NULL;
+
+        GF_ASSERT (priv);
+
+        list_for_each_entry_safe (volinfo,tmp_volinfo,
+                                  &priv->volumes, vol_list) {
+                if (!glusterd_friend_contains_vol_bricks (volinfo,
+                                                          priv->uuid)) {
+                        gf_log (THIS->name, GF_LOG_INFO,
+                                "Deleting stale volume %s", volinfo->volname);
+                        ret = glusterd_delete_volume (volinfo);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Error deleting stale volume");
+                                goto out;
+                        }
+                }
+        }
+        ret = 0;
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 static int
 glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
@@ -556,9 +584,14 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
                 if (ret)
                         goto out;
         }
-
+        ret = glusterd_peer_detach_cleanup (priv);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "Peer detach cleanup was not successful");
+                ret = 0;
+        }
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
 }
@@ -568,10 +601,13 @@ glusterd_ac_friend_remove (glusterd_friend_sm_event_t *event, void *ctx)
 {
         int                     ret = -1;
 
-        ret = glusterd_friend_cleanup (event->peerinfo);
+        ret = glusterd_friend_remove_cleanup_vols (event->peerinfo->uuid);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING, "Volumes cleanup failed");
 
+        ret = glusterd_friend_cleanup (event->peerinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Cleanup returned: %d", ret);
+                gf_log (THIS->name, GF_LOG_ERROR, "Cleanup returned: %d", ret);
         }
 
         return 0;

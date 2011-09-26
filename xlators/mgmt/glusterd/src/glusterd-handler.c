@@ -727,6 +727,12 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         }
 
         if (!uuid_is_null (uuid) && !(cli_req.flags & GF_CLI_FLAG_OP_FORCE)) {
+                /* Check if peers are connected, except peer being detached*/
+                if (!glusterd_chk_peers_connected_befriended (uuid)) {
+                        ret = -1;
+                        op_errno = GF_DEPROBE_FRIEND_DOWN;
+                        goto out;
+                }
                 ret = glusterd_all_volume_cond_check (
                                                 glusterd_friend_brick_belongs,
                                                 -1, &uuid);
@@ -1424,7 +1430,6 @@ out:
         return ret;
 }
 
-
 int
 glusterd_handle_friend_update_delete (dict_t *dict)
 {
@@ -1925,7 +1930,6 @@ glusterd_handle_umount (rpcsvc_request_t *req)
         return ret;
 }
 
-
 int
 glusterd_friend_remove (uuid_t uuid, char *hostname)
 {
@@ -1936,6 +1940,9 @@ glusterd_friend_remove (uuid_t uuid, char *hostname)
         if (ret)
                 goto out;
 
+        ret = glusterd_friend_remove_cleanup_vols (peerinfo->uuid);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING, "Volumes cleanup failed");
         ret = glusterd_friend_cleanup (peerinfo);
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
