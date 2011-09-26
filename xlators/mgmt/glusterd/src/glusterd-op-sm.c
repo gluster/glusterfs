@@ -429,6 +429,8 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
         char                                    *volname       = NULL;
         gf_boolean_t                             exists        = _gf_false;
         char                                    msg[2048]      = {0};
+        char                                    *key = NULL;
+        char                                    *key_fixed = NULL;
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -448,8 +450,35 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        ret = dict_get_str (dict, "key", &key);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get option key");
+                goto out;
+        }
+        if (strcmp(key, "all")) {
+                exists = glusterd_check_option_exists (key, &key_fixed);
+                if (exists == -1) {
+                        ret = -1;
+                        goto out;
+                }
+                if (!exists) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Option %s does not exist", key);
+                        ret = snprintf (msg, 2048,
+                                        "Option %s does not exist", key);
+                        if (key_fixed)
+                                snprintf (msg + ret, 2048 - ret,
+                                          "\nDid you mean %s?", key_fixed);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+        }
 
 out:
+        if (key_fixed)
+                GF_FREE (key_fixed);
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -678,15 +707,28 @@ out:
 }
 
 int
-glusterd_options_reset (glusterd_volinfo_t *volinfo, int32_t is_force)
+glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
+                        int32_t is_force)
 {
         int                      ret = 0;
+        data_t                  *value = NULL;
 
         gf_log ("", GF_LOG_DEBUG, "Received volume set reset command");
 
         GF_ASSERT (volinfo->dict);
+        GF_ASSERT (key);
 
-        dict_foreach (volinfo->dict, _delete_reconfig_opt, &is_force);
+        if (!strncmp(key, "all", 3))
+                dict_foreach (volinfo->dict, _delete_reconfig_opt, &is_force);
+        else {
+                value = dict_get (volinfo->dict, key);
+                if (!value) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Could not get value");
+                        goto out;
+                }
+                _delete_reconfig_opt (volinfo->dict, key, value, &is_force);
+        }
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
@@ -718,10 +760,11 @@ out:
 static int
 glusterd_op_reset_volume (dict_t *dict)
 {
-        glusterd_volinfo_t     *volinfo    = NULL;
-        int                     ret        = -1;
-        char                   *volname    = NULL;
-        int32_t                is_force    = 0;
+        glusterd_volinfo_t      *volinfo    = NULL;
+        int                     ret         = -1;
+        char                    *volname    = NULL;
+        char                    *key        = NULL;
+        int32_t                 is_force    = 0;
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -733,13 +776,19 @@ glusterd_op_reset_volume (dict_t *dict)
         if (ret)
                 is_force = 0;
 
+        ret = dict_get_str (dict, "key", &key);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get option key");
+                goto out;
+        }
+
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
         }
 
-        ret = glusterd_options_reset (volinfo, is_force);
+        ret = glusterd_options_reset (volinfo, key, is_force);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "'volume reset' returning %d", ret);
