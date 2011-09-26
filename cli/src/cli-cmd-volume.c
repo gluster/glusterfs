@@ -1579,7 +1579,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_sync_volume_cbk,
          "sync the volume information from a peer"},
 
-         { "volume reset <VOLNAME> [force]",
+         { "volume reset <VOLNAME> [option] [force]",
          cli_cmd_volume_reset_cbk,
          "reset all the reconfigured options"},
 
