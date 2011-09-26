@@ -193,6 +193,10 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                                 cli_out ("Brick(s) with the peer %s exist in "
                                          "cluster", rsp.hostname);
                                 break;
+                        case GF_DEPROBE_FRIEND_DOWN:
+                                cli_out ("One of the peers is probably down."
+                                         " Check with 'peer status'.");
+                                break;
                         default:
                                 cli_out ("Detach unsuccessful\nDetach returned "
                                          "with unknown errno %d",

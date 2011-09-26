@@ -148,7 +148,8 @@ enum gf_deprobe_resp {
         GF_DEPROBE_SUCCESS,
         GF_DEPROBE_LOCALHOST,
         GF_DEPROBE_NOT_FRIEND,
-        GF_DEPROBE_BRICK_EXIST
+        GF_DEPROBE_BRICK_EXIST,
+        GF_DEPROBE_FRIEND_DOWN
 };
 
 enum gf_cbk_procnum {
