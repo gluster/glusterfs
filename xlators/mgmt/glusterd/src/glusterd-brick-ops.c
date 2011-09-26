@@ -127,6 +127,9 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
 
         }
 
+        if (volinfo->type == GF_CLUSTER_TYPE_NONE)
+                goto brick_val;
+
         /* If any of this is true, some thing is wrong */
         if (!brick_count || !volinfo->sub_count) {
                 ret = -1;
@@ -134,9 +137,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                           "for volume name %s is wrong", volname);
                 goto out;
         }
-
-        if (volinfo->type == GF_CLUSTER_TYPE_NONE)
-                goto brick_val;
 
         total_bricks = volinfo->brick_count + brick_count;
         /* If the brick count is less than dist_leaf_count then, allow
