@@ -96,8 +96,8 @@ struct nfs_fop_local {
          */
         int             rootparentinode;
 
-        char            path[NFS_NAME_MAX];
-        char            newpath[NFS_NAME_MAX];
+        char            path[NFS_NAME_MAX + 1];
+        char            newpath[NFS_NAME_MAX + 1];
         xlator_t        *nfsx;
         dict_t          *dictgfid;
 };
