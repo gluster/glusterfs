@@ -608,6 +608,14 @@ glusterd_rebalance_cmd_validate (int cmd, char *volname,
                           volname);
                 goto out;
         }
+        if ((*volinfo)->brick_count <= (*volinfo)->dist_leaf_count) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Volume %s is not a "
+                "distribute type or contains only 1 brick", volname);
+                snprintf (op_errstr, len, "Volume %s is not a distribute "
+                          "volume or contains only 1 brick.\n"
+                          "Not performing rebalance", volname);
+                goto out;
+        }
 
         if ((*volinfo)->status != GLUSTERD_STATUS_STARTED) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Received rebalance on stopped"
