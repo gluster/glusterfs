@@ -812,11 +812,8 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         if (NULL == pending_matrix)
                 goto out;
 
-        sources = GF_CALLOC (sizeof (*sources), priv->child_count,
-                             gf_afr_mt_int32_t);
-        if (NULL == sources)
-                goto out;
-
+        sources = local->cont.lookup.sources;
+        memset (sources, 0, sizeof (*sources) * priv->child_count);
         afr_build_pending_matrix (priv->pending_key, pending_matrix,
                                   xattr, txn_type, priv->child_count);
 
@@ -840,13 +837,8 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                                         config_read_child,
                                                         valid_children);
         ret = 0;
-        local->cont.lookup.sources = sources;
 out:
         afr_destroy_pending_matrix (pending_matrix, priv->child_count);
-        if (-1 == ret) {
-                if (sources)
-                        GF_FREE (sources);
-        }
         gf_log (this->name, GF_LOG_DEBUG, "returning read_child: %d", read_child);
         return read_child;
 }

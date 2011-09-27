@@ -29,6 +29,7 @@
 #include "afr-common.c"
 #include "defaults.c"
 
+uint64_t pump_pid = 0;
 static int
 pump_mark_start_pending (xlator_t *this)
 {
@@ -146,71 +147,6 @@ pump_set_resume_path (xlator_t *this, const char *path)
         UNLOCK (&pump_priv->resume_path_lock);
 
         return ret;
-}
-
-static void
-build_child_loc (loc_t *parent, loc_t *child, char *path, char *name)
-{
-        child->path = path;
-        child->name = name;
-
-        child->parent = inode_ref (parent->inode);
-        child->inode = inode_new (parent->inode->table);
-}
-
-static char *
-build_file_path (loc_t *loc, gf_dirent_t *entry)
-{
-        xlator_t *this = NULL;
-        char *file_path = NULL;
-        int pathlen = 0;
-        int total_size = 0;
-
-        this = THIS;
-
-        pathlen = STRLEN_0 (loc->path);
-
-        if (IS_ROOT_PATH (loc->path)) {
-                total_size = pathlen + entry->d_len;
-                file_path = GF_CALLOC (1, total_size, gf_afr_mt_char);
-                if (!file_path) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        return NULL;
-                }
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "constructing file path of size=%d"
-                        "pathlen=%d, d_len=%d",
-                        total_size, pathlen,
-                        entry->d_len);
-
-                snprintf(file_path, total_size, "%s%s", loc->path, entry->d_name);
-
-        } else {
-                total_size = pathlen + entry->d_len + 1; /* for the extra '/' in the path */
-                file_path = GF_CALLOC (1, total_size + 1, gf_afr_mt_char);
-                if (!file_path) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        return NULL;
-                }
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "constructing file path of size=%d"
-                        "pathlen=%d, d_len=%d",
-                        total_size, pathlen,
-                        entry->d_len);
-
-                snprintf(file_path, total_size, "%s/%s", loc->path, entry->d_name);
-        }
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "path=%s and d_name=%s", loc->path, entry->d_name);
-        gf_log (this->name, GF_LOG_TRACE,
-                "constructed file_path=%s of size=%d", file_path, total_size);
-
-        return file_path;
 }
 
 static int
@@ -400,7 +336,7 @@ pump_save_file_stats (xlator_t *this, const char *path)
 }
 
 static int
-gf_pump_traverse_directory (loc_t *loc)
+gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
 {
         xlator_t *this = NULL;
         afr_private_t *priv = NULL;
@@ -415,9 +351,6 @@ gf_pump_traverse_directory (loc_t *loc)
 	struct iatt iatt, parent;
 	dict_t *xattr_rsp;
 
-        int source = 0;
-
-        char *file_path = NULL;
         int ret = 0;
         gf_boolean_t is_directory_empty = _gf_true;
 
@@ -427,14 +360,14 @@ gf_pump_traverse_directory (loc_t *loc)
 
         GF_ASSERT (loc->inode);
 
-	fd = fd_create (loc->inode, PUMP_PID);
+	fd = fd_create (loc->inode, pump_pid);
         if (!fd) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to create fd for %s", loc->path);
                 goto out;
         }
 
-        ret = syncop_opendir (priv->children[source], loc, fd);
+        ret = syncop_opendir (this, loc, fd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "opendir failed on %s", loc->path);
@@ -445,7 +378,7 @@ gf_pump_traverse_directory (loc_t *loc)
                 "pump opendir on %s returned=%d",
                 loc->path, ret);
 
-        while (syncop_readdirp (priv->children[source], fd, 131072, offset, &entries)) {
+        while (syncop_readdirp (this, fd, 131072, offset, &entries)) {
 
                 if (list_empty (&entries.list)) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -457,25 +390,30 @@ gf_pump_traverse_directory (loc_t *loc)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "found readdir entry=%s", entry->d_name);
 
-                        file_path = build_file_path (loc, entry);
-                        if (!file_path) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "file path construction failed");
+                        ret = afr_build_child_loc (this, &entry_loc,
+                                                   loc, entry->d_name);
+                        if (ret)
                                 goto out;
-                        }
-
-                        build_child_loc (loc, &entry_loc, file_path, entry->d_name);
-
                         if (!IS_ENTRY_CWD (entry->d_name) &&
                                            !IS_ENTRY_PARENT (entry->d_name)) {
 
                                     is_directory_empty = _gf_false;
                                     ret = syncop_lookup (this, &entry_loc, NULL,
                                                          &iatt, &xattr_rsp, &parent);
+                                    if (ret)
+                                            continue;
 
                                     entry_loc.ino = iatt.ia_ino;
                                     entry_loc.inode->ino = iatt.ia_ino;
-                                    memcpy (entry_loc.inode->gfid, iatt.ia_gfid, 16);
+
+                                    if (uuid_is_null (iatt.ia_gfid)) {
+                                            uuid_generate (gfid);
+                                            uuid_copy (entry_loc.inode->gfid,
+                                                       gfid);
+                                    } else {
+                                            uuid_copy (entry_loc.inode->gfid,
+                                                       iatt.ia_gfid);
+                                    }
 
                                     gf_log (this->name, GF_LOG_DEBUG,
                                             "lookup %s => %"PRId64,
@@ -513,7 +451,7 @@ gf_pump_traverse_directory (loc_t *loc)
                                                     gf_log (this->name, GF_LOG_TRACE,
                                                             "entering dir=%s",
                                                             entry->d_name);
-                                                    gf_pump_traverse_directory (&entry_loc);
+                                                    gf_pump_traverse_directory (&entry_loc, gfid);
                                             }
                                     }
                             }
@@ -687,6 +625,7 @@ pump_task (void *data)
 	struct iatt iatt, parent;
 	dict_t *xattr_rsp = NULL;
         dict_t *xattr_req = NULL;
+        uuid_t gfid = {0};
 
         int ret = -1;
 
@@ -727,7 +666,7 @@ pump_task (void *data)
                 goto out;
         }
 
-        gf_pump_traverse_directory (&loc);
+        gf_pump_traverse_directory (&loc, gfid);
 
         pump_complete_migration (this);
 out:
@@ -771,8 +710,8 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
 	priv = this->private;
         pump_priv = priv->pump_private;
 
-        if (!pump_frame->root->lk_owner)
-                pump_frame->root->lk_owner = PUMP_LK_OWNER;
+	pump_frame->root->lk_owner = (uint64_t) (unsigned long)pump_frame->root;
+	pump_pid = (uint64_t) (unsigned long)pump_frame->root;
 
 	ret = synctask_new (pump_priv->env, pump_task,
                             pump_task_completion,

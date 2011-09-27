@@ -47,6 +47,8 @@ typedef int (*afr_impunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
 typedef int (*afr_post_remove_call_t) (call_frame_t *frame, xlator_t *this);
 
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
+typedef void (*afr_lookup_done_cbk_t) (call_frame_t *frame, xlator_t *this,
+                                      int32_t op_ret, int32_t op_errno);
 
 typedef struct _afr_private {
         gf_lock_t lock;               /* to guard access to child_count, etc */
@@ -170,6 +172,10 @@ typedef struct {
         int32_t *fresh_parent_dirs;
         /* array of errno's, one for each child */
         int *child_errno;
+        /*loc used for lookup*/
+        loc_t lookup_loc;
+        int32_t lookup_flags;
+        afr_lookup_done_cbk_t lookup_done;
 
         int32_t **pending_matrix;
         int32_t **delta_matrix;
@@ -1018,7 +1024,7 @@ gf_boolean_t
 afr_conflicting_iattrs (struct iatt *bufs, int32_t *success_children,
                         unsigned int child_count, const char *path,
                         const char *xlator_name);
-int
+unsigned int
 afr_gfid_missing_count (const char *xlator_name, int32_t *children,
                         struct iatt *bufs, unsigned int child_count,
                         const char *path);
@@ -1032,5 +1038,5 @@ int32_t
 afr_resultant_errno_get (int32_t *children,
                          int *child_errno, unsigned int child_count);
 int32_t*
-afr_fresh_children_create (int32_t child_count);
+afr_children_create (unsigned int child_count);
 #endif /* __AFR_H__ */

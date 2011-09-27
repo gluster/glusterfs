@@ -456,10 +456,14 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         if (sh->child_success)
                 GF_FREE (sh->child_success);
 
+        if (sh->fresh_children)
+                GF_FREE (sh->fresh_children);
         if (sh->fresh_parent_dirs)
                 GF_FREE (sh->fresh_parent_dirs);
 
         loc_wipe (&sh->parent_loc);
+        loc_wipe (&sh->lookup_loc);
+
 }
 
 
@@ -980,12 +984,12 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this,
         afr_self_heal (frame, this, inode);
 }
 
-int
+unsigned int
 afr_gfid_missing_count (const char *xlator_name, int32_t *success_children,
                         struct iatt *bufs, unsigned int child_count,
                         const char *path)
 {
-        int             gfid_miss_count   = 0;
+        unsigned int    gfid_miss_count   = 0;
         int             i              = 0;
         struct iatt     *child1        = NULL;
 
@@ -1538,6 +1542,7 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
         int32_t           *child_success = NULL;
         struct iatt       *iatts         = NULL;
         int               i              = 0;
+        int32_t           *sources         = NULL;
 
         GF_ASSERT (local);
         local->cont.lookup.xattrs = GF_CALLOC (child_count,
@@ -1565,6 +1570,11 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
 
         local->cont.lookup.child_success = child_success;
 
+        sources = GF_CALLOC (sizeof (*sources), child_count, gf_afr_mt_int32_t);
+        if (NULL == sources)
+                goto out;
+
+        local->cont.lookup.sources = sources;
         ret = 0;
 out:
         return ret;
@@ -3188,21 +3198,19 @@ afr_reset_children (int32_t *fresh_children, int32_t child_count)
 }
 
 int32_t*
-afr_fresh_children_create (int32_t child_count)
+afr_children_create (unsigned int child_count)
 {
-        int32_t           *fresh_children = NULL;
+        int32_t           *children = NULL;
         int               i               = 0;
 
-        GF_ASSERT (child_count > 0);
-
-        fresh_children = GF_CALLOC (child_count, sizeof (*fresh_children),
-                                    gf_afr_mt_int32_t);
-        if (NULL == fresh_children)
+        children = GF_CALLOC (child_count, sizeof (*children),
+                              gf_afr_mt_int32_t);
+        if (NULL == children)
                 goto out;
         for (i = 0; i < child_count; i++)
-                fresh_children[i] = -1;
+                children[i] = -1;
 out:
-        return fresh_children;
+        return children;
 }
 
 void
