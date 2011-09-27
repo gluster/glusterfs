@@ -202,7 +202,7 @@ brick_val:
                 if (!ret) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
-                                  " one of the arguments contain the other",
+                                  " one of the bricks contain the other",
                                   tmpbrkinfo->hostname, tmpbrkinfo->path, brick);
                         goto out;
                 }

@@ -756,14 +756,19 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "given path %s lies within brick %s",
                                         path, brickiter->path);
+                                *brickinfo = brickiter;
+                                ret = 0;
+                                break;
                         } else if (path[smaller_path] == '/') {
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "brick %s is a part of %s",
                                         brickiter->path, path);
+                                *brickinfo = brickiter;
+                                ret = 0;
+                                break;
+                        } else {
+                                ret = -1;
                         }
-                        *brickinfo = brickiter;
-                        ret = 0;
-                        break;
                 }
         }
 
