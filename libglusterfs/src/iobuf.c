@@ -27,11 +27,59 @@
   TODO: implement destroy margins and prefetching of arenas
 */
 
+#define IOBUF_ARENA_MAX_INDEX  (sizeof (gf_iobuf_init_config) /         \
+                                (sizeof (struct iobuf_init_config)))
+
+/* Make sure this array is sorted based on pagesize */
+struct iobuf_init_config gf_iobuf_init_config[] = {
+        /* { pagesize, num_pages }, */
+        {128, 1024},
+        {512, 512},
+        {2 * 1024, 512},
+        {8 * 1024, 128},
+        {32 * 1024, 64},
+        {128 * 1024, 32},
+        {256 * 1024, 8},
+        {1 * 1024 * 1024, 2},
+};
+
+int
+gf_iobuf_get_arena_index (size_t page_size)
+{
+        int i = -1;
+
+        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
+                if (page_size <= gf_iobuf_init_config[i].pagesize)
+                        break;
+        }
+
+        if (i >= IOBUF_ARENA_MAX_INDEX)
+                i = -1;
+
+        return i;
+}
+
+size_t
+gf_iobuf_get_pagesize (size_t page_size)
+{
+        int    i    = 0;
+        size_t size = 0;
+
+        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
+                size = gf_iobuf_init_config[i].pagesize;
+                if (page_size <= size)
+                        break;
+        }
+
+        if (i >= IOBUF_ARENA_MAX_INDEX)
+                size = -1;
+
+        return size;
+}
+
 void
 __iobuf_arena_init_iobufs (struct iobuf_arena *iobuf_arena)
 {
-        size_t              arena_size = 0;
-        size_t              page_size = 0;
         int                 iobuf_cnt = 0;
         struct iobuf       *iobuf = NULL;
         int                 offset = 0;
@@ -39,9 +87,7 @@ __iobuf_arena_init_iobufs (struct iobuf_arena *iobuf_arena)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
 
-        arena_size = iobuf_arena->arena_size;
-        page_size  = iobuf_arena->page_size;
-        iobuf_cnt  = arena_size / page_size;
+        iobuf_cnt  = iobuf_arena->page_count;
 
         iobuf_arena->iobufs = GF_CALLOC (sizeof (*iobuf), iobuf_cnt,
                                          gf_common_mt_iobuf);
@@ -60,7 +106,7 @@ __iobuf_arena_init_iobufs (struct iobuf_arena *iobuf_arena)
                 list_add (&iobuf->list, &iobuf_arena->passive.list);
                 iobuf_arena->passive_cnt++;
 
-                offset += page_size;
+                offset += iobuf_arena->page_size;
                 iobuf++;
         }
 
@@ -72,20 +118,16 @@ out:
 void
 __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
 {
-        size_t              arena_size = 0;
-        size_t              page_size = 0;
         int                 iobuf_cnt = 0;
         struct iobuf       *iobuf = NULL;
         int                 i = 0;
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
 
-        arena_size = iobuf_arena->arena_size;
-        page_size  = iobuf_arena->page_size;
-        iobuf_cnt  = arena_size / page_size;
+        iobuf_cnt  = iobuf_arena->page_count;
 
         if (!iobuf_arena->iobufs) {
-                gf_log_callingfn (THIS->name, GF_LOG_DEBUG, "iobufs not found");
+                gf_log_callingfn (THIS->name, GF_LOG_ERROR, "iobufs not found");
                 return;
         }
 
@@ -107,17 +149,13 @@ out:
 void
 __iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
 {
-        struct iobuf_pool *iobuf_pool = NULL;
-
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
-
-        iobuf_pool = iobuf_arena->iobuf_pool;
 
         __iobuf_arena_destroy_iobufs (iobuf_arena);
 
         if (iobuf_arena->mem_base
             && iobuf_arena->mem_base != MAP_FAILED)
-                munmap (iobuf_arena->mem_base, iobuf_pool->arena_size);
+                munmap (iobuf_arena->mem_base, iobuf_arena->arena_size);
 
         GF_FREE (iobuf_arena);
 out:
@@ -126,10 +164,11 @@ out:
 
 
 struct iobuf_arena *
-__iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size)
+__iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size,
+                     int32_t num_iobufs)
 {
         struct iobuf_arena *iobuf_arena = NULL;
-        size_t              arena_size = 0, rounded_size = 0;
+        size_t              rounded_size = 0;
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
@@ -143,18 +182,15 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size)
         INIT_LIST_HEAD (&iobuf_arena->passive.list);
         iobuf_arena->iobuf_pool = iobuf_pool;
 
-        arena_size = iobuf_pool->arena_size;
+        rounded_size = gf_iobuf_get_pagesize (page_size);
 
-        rounded_size = gf_roundup_power_of_two (page_size);
-        iobuf_arena->page_size = rounded_size;
+        iobuf_arena->page_size  = rounded_size;
+        iobuf_arena->page_count = num_iobufs;
 
-        if ((arena_size % rounded_size) != 0) {
-                arena_size = (arena_size / rounded_size) * rounded_size;
-        }
+        iobuf_arena->arena_size = rounded_size * num_iobufs;
 
-        iobuf_arena->arena_size = arena_size;
-
-        iobuf_arena->mem_base = mmap (NULL, arena_size, PROT_READ|PROT_WRITE,
+        iobuf_arena->mem_base = mmap (NULL, iobuf_arena->arena_size,
+                                      PROT_READ|PROT_WRITE,
                                       MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         if (iobuf_arena->mem_base == MAP_FAILED) {
                 gf_log (THIS->name, GF_LOG_WARNING, "maping failed");
@@ -163,7 +199,7 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size)
 
         __iobuf_arena_init_iobufs (iobuf_arena);
         if (!iobuf_arena->iobufs) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "init failed");
+                gf_log (THIS->name, GF_LOG_ERROR, "init failed");
                 goto err;
         }
 
@@ -188,12 +224,11 @@ __iobuf_arena_unprune (struct iobuf_pool *iobuf_pool, size_t page_size)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
-        index = log_base2 (page_size);
-        if (index > GF_VARIABLE_IOBUF_COUNT) {
-                gf_log ("iobuf", GF_LOG_DEBUG, "no arena corresponding to "
-                        "page_size (%"GF_PRI_SIZET") is present. max supported "
-                        "size (%llu)", page_size,
-                        1LL << GF_VARIABLE_IOBUF_COUNT);
+        index = gf_iobuf_get_arena_index (page_size);
+        if (index == -1) {
+                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
+                        "iobufs in arena being added is greater than max "
+                        "available", page_size);
                 return NULL;
         }
 
@@ -208,27 +243,25 @@ out:
 
 
 struct iobuf_arena *
-__iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size)
+__iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size,
+                        int32_t num_pages)
 {
         struct iobuf_arena *iobuf_arena  = NULL;
         int                 index        = 0;
-        uint32_t            rounded_size = 0;
 
-        rounded_size = gf_roundup_power_of_two (page_size);
-
-        index = log_base2 (rounded_size);
-        if (index > GF_VARIABLE_IOBUF_COUNT) {
-                gf_log ("iobuf", GF_LOG_DEBUG, "page_size %u of "
+        index = gf_iobuf_get_arena_index (page_size);
+        if (index == -1) {
+                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
                         "iobufs in arena being added is greater than max "
-                        "supported size (%llu)", rounded_size,
-                        1ULL << GF_VARIABLE_IOBUF_COUNT);
+                        "available", page_size);
                 return NULL;
         }
 
-        iobuf_arena = __iobuf_arena_unprune (iobuf_pool, rounded_size);
+        iobuf_arena = __iobuf_arena_unprune (iobuf_pool, page_size);
 
         if (!iobuf_arena)
-                iobuf_arena = __iobuf_arena_alloc (iobuf_pool, rounded_size);
+                iobuf_arena = __iobuf_arena_alloc (iobuf_pool, page_size,
+                                                   num_pages);
 
         if (!iobuf_arena) {
                 gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
@@ -242,7 +275,8 @@ __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size)
 
 
 struct iobuf_arena *
-iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size)
+iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size,
+                      int32_t num_pages)
 {
         struct iobuf_arena *iobuf_arena = NULL;
 
@@ -250,7 +284,8 @@ iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size)
 
         pthread_mutex_lock (&iobuf_pool->mutex);
         {
-                iobuf_arena = __iobuf_pool_add_arena (iobuf_pool, page_size);
+                iobuf_arena = __iobuf_pool_add_arena (iobuf_pool, page_size,
+                                                      num_pages);
         }
         pthread_mutex_unlock (&iobuf_pool->mutex);
 
@@ -268,7 +303,7 @@ iobuf_pool_destroy (struct iobuf_pool *iobuf_pool)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
-        for (i = 0; i < GF_VARIABLE_IOBUF_COUNT; i++) {
+        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
                 list_for_each_entry_safe (iobuf_arena, tmp,
                                           &iobuf_pool->arenas[i], list) {
                         list_del_init (&iobuf_arena->list);
@@ -284,19 +319,13 @@ out:
 
 
 struct iobuf_pool *
-iobuf_pool_new (size_t arena_size, size_t page_size)
+iobuf_pool_new (void)
 {
         struct iobuf_pool  *iobuf_pool = NULL;
         int                 i          = 0;
-        unsigned long long  max_size   = 0;
-
-        max_size = ((1ULL << (GF_VARIABLE_IOBUF_COUNT)) - 1);
-        if ((arena_size < page_size) || (max_size < arena_size)) {
-                gf_log (THIS->name, GF_LOG_WARNING,
-                        "arena size (%zu) is less than page size(%zu)",
-                        arena_size, page_size);
-                goto out;
-        }
+        size_t              page_size  = 0;
+        size_t              arena_size = 0;
+        int32_t             num_pages  = 0;
 
         iobuf_pool = GF_CALLOC (sizeof (*iobuf_pool), 1,
                                 gf_common_mt_iobuf_pool);
@@ -304,16 +333,25 @@ iobuf_pool_new (size_t arena_size, size_t page_size)
                 goto out;
 
         pthread_mutex_init (&iobuf_pool->mutex, NULL);
-        for (i = 0; i < GF_VARIABLE_IOBUF_COUNT; i++) {
+        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
                 INIT_LIST_HEAD (&iobuf_pool->arenas[i]);
                 INIT_LIST_HEAD (&iobuf_pool->filled[i]);
                 INIT_LIST_HEAD (&iobuf_pool->purge[i]);
         }
 
-        iobuf_pool->arena_size = arena_size;
-        iobuf_pool->default_page_size  = page_size;
+        iobuf_pool->default_page_size  = 128 * GF_UNIT_KB;
 
-        iobuf_pool_add_arena (iobuf_pool, page_size);
+        arena_size = 0;
+        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
+                page_size = gf_iobuf_init_config[i].pagesize;
+                num_pages = gf_iobuf_init_config[i].num_pages;
+
+                iobuf_pool_add_arena (iobuf_pool, page_size, num_pages);
+
+                arena_size += page_size * num_pages;
+        }
+
+        iobuf_pool->arena_size = arena_size;
 out:
 
         return iobuf_pool;
@@ -321,30 +359,24 @@ out:
 
 
 void
-__iobuf_pool_prune (struct iobuf_pool *iobuf_pool)
+__iobuf_arena_prune (struct iobuf_pool *iobuf_pool,
+                     struct iobuf_arena *iobuf_arena, int index)
 {
-        struct iobuf_arena *iobuf_arena = NULL;
-        struct iobuf_arena *tmp = NULL;
-        int                 i   = 0;
-
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
-        for (i = 0; i < GF_VARIABLE_IOBUF_COUNT; i++) {
-                if (list_empty (&iobuf_pool->arenas[i])) {
-                        continue;
-                }
+        /* code flow comes here only if the arena is in purge list and we can
+         * free the arena only if we have atleast one arena in 'arenas' list
+         * (ie, at least few iobufs free in arena), that way, there won't
+         * be spurious mmap/unmap of buffers
+         */
+        if (list_empty (&iobuf_pool->arenas[index]))
+                goto out;
 
-                list_for_each_entry_safe (iobuf_arena, tmp,
-                                          &iobuf_pool->purge[i], list) {
-                        if (iobuf_arena->active_cnt)
-                                continue;
+        /* All cases matched, destroy */
+        list_del_init (&iobuf_arena->list);
+        iobuf_pool->arena_cnt--;
 
-                        list_del_init (&iobuf_arena->list);
-                        iobuf_pool->arena_cnt--;
-
-                        __iobuf_arena_destroy (iobuf_arena);
-                }
-        }
+        __iobuf_arena_destroy (iobuf_arena);
 
 out:
         return;
@@ -354,11 +386,24 @@ out:
 void
 iobuf_pool_prune (struct iobuf_pool *iobuf_pool)
 {
+        struct iobuf_arena *iobuf_arena = NULL;
+        struct iobuf_arena *tmp         = NULL;
+        int                 i           = 0;
+
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         pthread_mutex_lock (&iobuf_pool->mutex);
         {
-                __iobuf_pool_prune (iobuf_pool);
+                for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
+                        if (list_empty (&iobuf_pool->arenas[i])) {
+                                continue;
+                        }
+
+                        list_for_each_entry_safe (iobuf_arena, tmp,
+                                                  &iobuf_pool->purge[i], list) {
+                                __iobuf_arena_prune (iobuf_pool, iobuf_arena, i);
+                        }
+                }
         }
         pthread_mutex_unlock (&iobuf_pool->mutex);
 
@@ -372,18 +417,15 @@ __iobuf_select_arena (struct iobuf_pool *iobuf_pool, size_t page_size)
 {
         struct iobuf_arena *iobuf_arena  = NULL;
         struct iobuf_arena *trav         = NULL;
-        size_t              rounded_size = 0;
         int                 index        = 0;
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
-        rounded_size = gf_roundup_power_of_two (page_size);
-
-        index = log_base2 (rounded_size);
-        if (index > GF_VARIABLE_IOBUF_COUNT) {
-                gf_log ("iobuf", GF_LOG_DEBUG, "size of iobuf requested (%"
-                        GF_PRI_SIZET") is greater than max supported size (%"
-                        "llu)", rounded_size, 1ULL << GF_VARIABLE_IOBUF_COUNT);
+        index = gf_iobuf_get_arena_index (page_size);
+        if (index == -1) {
+                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
+                        "iobufs in arena being added is greater than max "
+                        "available", page_size);
                 return NULL;
         }
 
@@ -396,8 +438,9 @@ __iobuf_select_arena (struct iobuf_pool *iobuf_pool, size_t page_size)
         }
 
         if (!iobuf_arena) {
-                /* all arenas were full */
-                iobuf_arena = __iobuf_pool_add_arena (iobuf_pool, rounded_size);
+                /* all arenas were full, find the right count to add */
+                iobuf_arena = __iobuf_pool_add_arena (iobuf_pool, page_size,
+                                                      gf_iobuf_init_config[index].num_pages);
         }
 
 out:
@@ -449,7 +492,14 @@ __iobuf_get (struct iobuf_arena *iobuf_arena, size_t page_size)
                 iobuf_arena->max_active = iobuf_arena->active_cnt;
 
         if (iobuf_arena->passive_cnt == 0) {
-                index = log_base2 (page_size);
+                index = gf_iobuf_get_arena_index (page_size);
+                if (index == -1) {
+                        gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
+                                "iobufs in arena being added is greater "
+                                "than max available", page_size);
+                        goto out;
+                }
+
                 list_del (&iobuf_arena->list);
                 list_add (&iobuf_arena->list, &iobuf_pool->filled[index]);
         }
@@ -469,7 +519,13 @@ iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size)
                 page_size = iobuf_pool->default_page_size;
         }
 
-        rounded_size = gf_roundup_power_of_two (page_size);
+        rounded_size = gf_iobuf_get_pagesize (page_size);
+        if (rounded_size == -1) {
+                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
+                        "iobufs in arena being requested is greater than max "
+                        "available", page_size);
+                return NULL;
+        }
 
         pthread_mutex_lock (&iobuf_pool->mutex);
         {
@@ -535,13 +591,11 @@ __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
 
         iobuf_pool = iobuf_arena->iobuf_pool;
 
-        index = log_base2 (iobuf_arena->page_size);
-        if (index > GF_VARIABLE_IOBUF_COUNT) {
-                gf_log ("iobuf", GF_LOG_DEBUG, "size of iobuf being returned to"
-                        " pool(%"GF_PRI_SIZET") is greater than max supported "
-                        "size(%llu) arena = %p",
-                        iobuf_arena->page_size, 1ULL << GF_VARIABLE_IOBUF_COUNT,
-                        iobuf_arena);
+        index = gf_iobuf_get_arena_index (iobuf_arena->page_size);
+        if (index == -1) {
+                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
+                        "iobufs in arena being added is greater than max "
+                        "available", iobuf_arena->page_size);
                 return;
         }
 
@@ -559,6 +613,7 @@ __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
         if (iobuf_arena->active_cnt == 0) {
                 list_del (&iobuf_arena->list);
                 list_add_tail (&iobuf_arena->list, &iobuf_pool->purge[index]);
+                __iobuf_arena_prune (iobuf_pool, iobuf_arena, index);
         }
 out:
         return;
@@ -590,8 +645,6 @@ iobuf_put (struct iobuf *iobuf)
                 __iobuf_put (iobuf, iobuf_arena);
         }
         pthread_mutex_unlock (&iobuf_pool->mutex);
-
-        iobuf_pool_prune (iobuf_pool);
 
 out:
         return;
