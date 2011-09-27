@@ -987,7 +987,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         ctx->page_size  = 128 * GF_UNIT_KB;
 
-        ctx->iobuf_pool = iobuf_pool_new (8 * GF_UNIT_MB, ctx->page_size);
+        ctx->iobuf_pool = iobuf_pool_new ();
         if (!ctx->iobuf_pool) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs iobuf pool creation failed");

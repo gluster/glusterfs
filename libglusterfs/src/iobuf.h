@@ -52,6 +52,10 @@ struct iobuf_arena;
 /* expandable and contractable pool of memory, internally broken into arenas */
 struct iobuf_pool;
 
+struct iobuf_init_config {
+        size_t   pagesize;
+        int32_t  num_pages;
+};
 
 struct iobuf {
         union {
@@ -83,6 +87,7 @@ struct iobuf_arena {
         size_t              arena_size; /* this is equal to
                                            (iobuf_pool->arena_size / page_size)
                                            * page_size */
+        size_t              page_count;
 
         struct iobuf_pool  *iobuf_pool;
 
@@ -126,7 +131,7 @@ struct iobuf_pool {
 };
 
 
-struct iobuf_pool *iobuf_pool_new (size_t arena_size, size_t page_size);
+struct iobuf_pool *iobuf_pool_new (void);
 void iobuf_pool_destroy (struct iobuf_pool *iobuf_pool);
 struct iobuf *iobuf_get (struct iobuf_pool *iobuf_pool);
 void iobuf_unref (struct iobuf *iobuf);
