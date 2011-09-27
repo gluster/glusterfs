@@ -4058,7 +4058,16 @@ init (xlator_t *this)
 
                 _private->janitor_sleep_duration = janitor_sleep;
         }
-
+        /* performing open dir on brick dir locks the brick dir
+         * and prevents it from being unmounted
+         */
+        _private->mount_lock = opendir (dir_data->data);
+        if (!_private->mount_lock) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not lock brick directory");
+                goto out;
+        }
 #ifndef GF_DARWIN_HOST_OS
         {
                 struct rlimit lim;
@@ -4104,6 +4113,9 @@ fini (xlator_t *this)
         if (!priv)
                 return;
         this->private = NULL;
+        /*unlock brick dir*/
+        if (priv->mount_lock)
+                closedir (priv->mount_lock);
         GF_FREE (priv);
         return;
 }
