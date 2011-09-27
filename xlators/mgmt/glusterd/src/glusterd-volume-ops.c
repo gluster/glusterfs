@@ -736,7 +736,6 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         }
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
-
         if (ret)
                 goto out;
 
@@ -806,39 +805,54 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         }
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
-
         if (ret)
                 goto out;
 
-        if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
-                if (_gf_false == glusterd_is_volume_started (volinfo)) {
-                        snprintf (msg, sizeof(msg), "Volume %s "
-                                  "is not in the started state", volname);
-                        gf_log ("", GF_LOG_ERROR, "Volume %s "
-                                "has not been started", volname);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
-                ret = glusterd_check_gsync_running (volinfo, &is_run);
-                if (ret && (is_run == _gf_false))
-                        gf_log ("", GF_LOG_WARNING, "Unable to get the status"
-                                 " of active "GEOREP" session");
-                if (is_run) {
-                        gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
-                                "for the volume %s ", volname);
-                        snprintf (msg, sizeof(msg), GEOREP" sessions are active "
-                                  "for the volume '%s'.\nUse 'volume "GEOREP" "
-                                  "status' command for more info. Use 'force'"
-                                  "option to ignore and stop stop the volume",
-                                   volname);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
+        /* If 'force' flag is given, no check is required */
+        if (flags & GF_CLI_FLAG_OP_FORCE)
+                goto out;
 
+        if (_gf_false == glusterd_is_volume_started (volinfo)) {
+                snprintf (msg, sizeof(msg), "Volume %s "
+                          "is not in the started state", volname);
+                gf_log ("", GF_LOG_ERROR, "Volume %s "
+                        "has not been started", volname);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
         }
-
+        ret = glusterd_check_gsync_running (volinfo, &is_run);
+        if (ret && (is_run == _gf_false))
+                gf_log ("", GF_LOG_WARNING, "Unable to get the status"
+                        " of active "GEOREP" session");
+        if (is_run) {
+                gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
+                        "for the volume %s ", volname);
+                snprintf (msg, sizeof(msg), GEOREP" sessions are active "
+                          "for the volume '%s'.\nUse 'volume "GEOREP" "
+                          "status' command for more info. Use 'force'"
+                          "option to ignore and stop stop the volume",
+                          volname);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+        if (glusterd_is_defrag_on (volinfo)) {
+                snprintf (msg, sizeof(msg), "rebalance session is "
+                          "in progress for the volume '%s'", volname);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+        if (volinfo->rb_status != GF_RB_STATUS_NONE) {
+                snprintf (msg, sizeof(msg), "replace-brick session is "
+                          "in progress for the volume '%s'", volname);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
 
 out:
 
