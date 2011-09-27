@@ -56,6 +56,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         struct dirent          *entry                  = NULL;
         struct stat             stbuf                  = {0,};
         char                    full_path[PATH_MAX]    = {0,};
+        char                    linkinfo[PATH_MAX]     = {0,};
         char                    force_string[64]       = {0,};
 
         if (!volinfo->defrag)
@@ -78,6 +79,16 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (!entry)
                         break;
 
+                /* We have to honor 'stop' (or 'pause'|'commit') as early
+                   as possible */
+                if (volinfo->defrag_status !=
+                    GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED) {
+                        /* It can be one of 'stopped|paused|commit' etc */
+                        closedir (fd);
+                        ret = 1;
+                        goto out;
+                }
+
                 if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
                         continue;
 
@@ -92,7 +103,18 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 defrag->num_files_lookedup += 1;
 
+                /* TODO: bring in feature to support hardlink rebalance */
                 if (stbuf.st_nlink > 1)
+                        continue;
+
+                /* if distribute is present, it will honor this key.
+                   -1 is returned if distribute is not present or file doesn't
+                   have a link-file. If file has link-file, the path of
+                   link-file will be the value, and also that guarantees
+                   that file has to be mostly migrated */
+                ret = sys_lgetxattr (full_path, GF_XATTR_LINKINFO_KEY,
+                                     &linkinfo, PATH_MAX);
+                if (ret <= 0)
                         continue;
 
                 ret = sys_lsetxattr (full_path, "distribute.migrate-data",
@@ -106,14 +128,6 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         defrag->total_data += stbuf.st_size;
                 }
                 UNLOCK (&defrag->lock);
-
-                if (volinfo->defrag_status !=
-                    GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED) {
-                        /* It can be one of 'stopped|paused|commit' etc */
-                        closedir (fd);
-                        ret = 1;
-                        goto out;
-                }
         }
         closedir (fd);
 
@@ -123,6 +137,16 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         while ((entry = readdir (fd))) {
                 if (!entry)
                         break;
+
+                /* We have to honor 'stop' (or 'pause'|'commit') as early
+                   as possible */
+                if (volinfo->defrag_status !=
+                    GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED) {
+                        /* It can be one of 'stopped|paused|commit' etc */
+                        closedir (fd);
+                        ret = 1;
+                        goto out;
+                }
 
                 if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
                         continue;
@@ -169,6 +193,16 @@ gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
                 if (!entry)
                         break;
 
+                /* We have to honor 'stop' (or 'pause'|'commit') as early
+                   as possible */
+                if (volinfo->defrag_status !=
+                    GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) {
+                        /* It can be one of 'stopped|paused|commit' etc */
+                        closedir (fd);
+                        ret = 1;
+                        goto out;
+                }
+
                 if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
                         continue;
 
@@ -180,6 +214,7 @@ gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
 
                 if (S_ISDIR (stbuf.st_mode)) {
                         /* Fix the layout of the directory */
+                        /* TODO: isn't error code not important ? */
                         sys_lsetxattr (full_path, "trusted.distribute.fix.layout",
                                        "yes", 3, 0);
 
@@ -190,14 +225,6 @@ gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
                                                                 full_path);
                         if (ret)
                                 break;
-                }
-
-                if (volinfo->defrag_status !=
-                    GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) {
-                        /* It can be one of 'stopped|paused|commit' etc */
-                        closedir (fd);
-                        ret = 1;
-                        goto out;
                 }
         }
         closedir (fd);
