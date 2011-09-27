@@ -544,6 +544,9 @@ loc_wipe (loc_t *loc)
                 inode_unref (loc->parent);
                 loc->parent = NULL;
         }
+        uuid_clear (loc->gfid);
+        uuid_clear (loc->pargfid);
+        loc->ino = 0;
 }
 
 
