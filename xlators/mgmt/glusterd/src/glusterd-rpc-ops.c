@@ -524,6 +524,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         int32_t                         op_ret = -1;
         int32_t                         op_errno = -1;
         glusterd_probe_ctx_t            *ctx = NULL;
+        gf_boolean_t                    move_sm_now = _gf_true;
 
         conf  = THIS->private;
         GF_ASSERT (conf);
@@ -535,6 +536,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                move_sm_now  = _gf_false;
                 goto inject;
         }
 
@@ -578,16 +580,13 @@ inject:
         if (ret)
                 goto respond;
 
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
         op_ret = 0;
 
 
 respond:
         ret = glusterd_xfer_cli_deprobe_resp (ctx->req, op_ret, op_errno,
                                               ctx->hostname);
-        if (!ret) {
+        if (move_sm_now) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
         }
