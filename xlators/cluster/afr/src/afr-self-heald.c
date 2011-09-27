@@ -24,7 +24,10 @@
 #include "afr.h"
 #include "syncop.h"
 #include "afr-self-heald.h"
+#include "afr-self-heal-common.h"
 
+static int
+_crawl_directory (loc_t *loc, pid_t pid, uuid_t gfid);
 static int
 get_pathinfo_host (char *pathinfo, char *hostname, size_t size)
 {
@@ -81,20 +84,99 @@ out:
         return ret;
 }
 
+static void
+_generate_gfid_on_empty (uuid_t gfid)
+{
+        if (uuid_is_null (gfid))
+                uuid_generate (gfid);
+}
+
+static void
+_empty_gfid_on_set (uuid_t gfid, int lookup_status, struct iatt *iatt)
+{
+        if (lookup_status || !uuid_compare (gfid, iatt->ia_gfid))
+                uuid_clear (gfid);
+}
+
+static void
+_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
+{
+        afr_update_loc_gfids (loc, iatt, parent);
+        uuid_copy (loc->inode->gfid, iatt->ia_gfid);
+}
+
 static int
-_crawl_directory (loc_t *loc, pid_t pid)
+_perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
+                    uuid_t gfid, off_t *offset, pid_t pid)
+{
+        gf_dirent_t      *entry = NULL;
+        gf_dirent_t      *tmp = NULL;
+        struct iatt      iatt = {0};
+        struct iatt      parent = {0};;
+        int              ret = 0;
+        loc_t            entry_loc = {0};
+        afr_private_t    *priv = NULL;
+        dict_t           *xattr_req = NULL;
+
+        priv = this->private;
+
+        xattr_req = dict_new ();
+        if (!xattr_req) {
+                ret = -1;
+                goto out;
+        }
+
+        list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+                *offset = entry->d_off;
+                if (IS_ENTRY_CWD (entry->d_name) ||
+                    IS_ENTRY_PARENT (entry->d_name))
+                        continue;
+
+                ret = dict_reset (xattr_req);
+                if (ret)
+                        goto out;
+
+                loc_wipe (&entry_loc);
+                ret = afr_build_child_loc (this, &entry_loc,
+                                           parentloc, entry->d_name);
+                if (ret)
+                        goto out;
+
+                _generate_gfid_on_empty (gfid);
+                ret = afr_set_dict_gfid (xattr_req, gfid);
+                if (ret)
+                        goto out;
+                gf_log (this->name, GF_LOG_DEBUG, "lookup %s", entry_loc.path);
+
+                ret = syncop_lookup (this, &entry_loc, xattr_req,
+                                     &iatt, NULL, &parent);
+                _empty_gfid_on_set (gfid, ret, &iatt);
+                //Don't fail the crawl if lookup fails as it
+                //could be because of split-brain
+                if (ret || (!IA_ISDIR (iatt.ia_type)))
+                        continue;
+                _fill_loc_info (&entry_loc, &iatt, &parent);
+                ret = _crawl_directory (&entry_loc, pid, gfid);
+        }
+        ret = 0;
+out:
+        if (xattr_req)
+                dict_unref (xattr_req);
+        if (entry_loc.path)
+                loc_wipe (&entry_loc);
+        return ret;
+}
+
+static int
+_crawl_directory (loc_t *loc, pid_t pid, uuid_t gfid)
 {
         xlator_t        *this = NULL;
         afr_private_t   *priv = NULL;
         fd_t            *fd   = NULL;
         off_t           offset   = 0;
-        loc_t           entry_loc = {0};
-        gf_dirent_t     *entry = NULL;
-        gf_dirent_t     *tmp = NULL;
         gf_dirent_t     entries;
         struct iatt     iatt = {0};
         struct iatt     parent = {0};;
-        char            *file_path = NULL;
         int             ret = 0;
         gf_boolean_t    free_entries = _gf_false;
 
@@ -138,42 +220,14 @@ _crawl_directory (loc_t *loc, pid_t pid)
                 if (list_empty (&entries.list))
                         goto out;
 
-                list_for_each_entry_safe (entry, tmp, &entries.list, list) {
-                        offset = entry->d_off;
-                        if (IS_ENTRY_CWD (entry->d_name) ||
-                            IS_ENTRY_PARENT (entry->d_name))
-                                continue;
-
-                        file_path = afr_build_file_path (loc, entry);
-                        if (!file_path) {
-                                ret = -1;
-                                goto out;
-                        }
-
-                        loc_wipe (&entry_loc);
-                        afr_build_child_loc (loc, &entry_loc,
-                                             file_path, entry->d_name);
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "found readdir entry=%s", entry->d_name);
-
-                        ret = syncop_lookup (this, &entry_loc, NULL,
-                                             &iatt, NULL, &parent);
-
-                        //Don't fail the crawl if lookup fails as it
-                        //could be because of split-brain
-                        if (ret || (!IA_ISDIR (iatt.ia_type)))
-                                continue;
-                        ret = _crawl_directory (&entry_loc, pid);
-                }
-
+                ret = _perform_self_heal (this, loc, &entries, gfid, &offset, pid);
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
         }
+        if (fd)
+                fd_unref (fd);
         ret = 0;
 out:
-        if (entry_loc.path)
-                loc_wipe (&entry_loc);
         if (free_entries)
                 gf_dirent_free (&entries);
         return ret;
@@ -331,6 +385,7 @@ afr_crawl_directory (xlator_t *this, pid_t pid)
         loc_t            loc = {0};
         gf_boolean_t     crawl = _gf_false;
         int             ret = 0;
+        uuid_t          gfid = {0};
 
         priv = this->private;
         shd = &priv->shd;
@@ -357,7 +412,7 @@ afr_crawl_directory (xlator_t *this, pid_t pid)
 
         afr_build_root_loc (priv->root_inode, &loc);
         while (crawl) {
-                ret = _crawl_directory (&loc, pid);
+                ret = _crawl_directory (&loc, pid, gfid);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "Crawl failed");
                 else
@@ -469,44 +524,4 @@ afr_set_root_gfid (dict_t *dict)
         ret = afr_set_dict_gfid (dict, gfid);
 
         return ret;
-}
-
-char *
-afr_build_file_path (loc_t *loc, gf_dirent_t *entry)
-{
-        xlator_t        *this = NULL;
-        char            *file_path = NULL;
-        int             pathlen = 0;
-        size_t          total_size = 0;
-        char            *fmt = NULL;
-
-        this = THIS;
-
-        pathlen = STRLEN_0 (loc->path);
-
-        if (IS_ROOT_PATH (loc->path)) {
-                total_size = pathlen + entry->d_len;
-                fmt = "%s%s";
-        } else {
-                total_size = pathlen + entry->d_len + 1; /* for the extra '/' in the path */
-                fmt = "%s/%s";
-        }
-
-        file_path = GF_CALLOC (1, total_size + 1, gf_afr_mt_char);
-        if (!file_path)
-                goto out;
-
-        snprintf(file_path, total_size, fmt, loc->path, entry->d_name);
-out:
-        return file_path;
-}
-
-void
-afr_build_child_loc (loc_t *parent, loc_t *child, char *path, char *name)
-{
-        child->path = path;
-        child->name = name;
-
-        child->parent = inode_ref (parent->inode);
-        child->inode = inode_new (parent->inode->table);
 }

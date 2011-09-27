@@ -459,8 +459,9 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
 }
 
 
-int
-afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
+void
+afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -473,6 +474,12 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
+        if (op_ret < 0) {
+                sh->op_failed = 1;
+                afr_sh_set_error (sh, op_errno);
+                afr_sh_metadata_finish (frame, this);
+                goto out;
+        }
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
                                       sh->success_children,
@@ -483,7 +490,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
                         local->loc.path);
 
                 afr_sh_metadata_finish (frame, this);
-                return 0;
+                goto out;
         }
 
         if ((nsources == -1)
@@ -510,7 +517,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
                 local->govinda_gOvinda = 1;
 
                 afr_sh_metadata_finish (frame, this);
-                return 0;
+                goto out;
         }
 
         source = afr_sh_select_source (sh->sources, priv->child_count);
@@ -520,7 +527,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
                         "No active sources found.");
 
                 afr_sh_metadata_finish (frame, this);
-                return 0;
+                goto out;
         }
 
         sh->source = source;
@@ -547,32 +554,8 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
         }
 
         afr_sh_metadata_sync_prepare (frame, this);
-
-        return 0;
-}
-
-
-int
-afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno,
-                            inode_t *inode, struct iatt *buf, dict_t *xattr,
-                            struct iatt *postparent)
-{
-        afr_local_t     *local = NULL;
-        int              call_count = 0;
-
-        local = frame->local;
-
-        afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
-                                           op_errno, inode, buf, xattr,
-                                           postparent, &local->loc);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                afr_sh_metadata_fix (frame, this);
-
-        return 0;
+out:
+        return;
 }
 
 int
@@ -597,7 +580,9 @@ afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
                         "inodelks done for %s. Proceeding to FOP",
                         local->loc.path);
                 afr_sh_common_lookup (frame, this, &local->loc,
-                                      afr_sh_metadata_lookup_cbk, _gf_false);
+                                      afr_sh_metadata_fix, NULL,
+                                      AFR_LOOKUP_FAIL_CONFLICTS |
+                                      AFR_LOOKUP_FAIL_MISSING_GFIDS);
         }
 
         return 0;
