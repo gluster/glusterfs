@@ -897,6 +897,12 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
 
         case RPC_TRANSPORT_MSG_RECEIVED:
         {
+                pthread_mutex_lock (&conn->lock);
+                {
+                        gettimeofday (&conn->last_received, NULL);
+                }
+                pthread_mutex_unlock (&conn->lock);
+
                 pollin = data;
                 if (pollin->is_reply)
                         ret = rpc_clnt_handle_reply (clnt, pollin);
