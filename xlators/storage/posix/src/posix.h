@@ -114,6 +114,8 @@ struct posix_private {
         pthread_t       janitor;
         gf_boolean_t    janitor_present;
         char *          trash_path;
+/* lock for brick dir */
+        DIR     *mount_lock;
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
