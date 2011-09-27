@@ -49,6 +49,15 @@
 #include "afr-self-heal.h"
 #include "afr-self-heal-common.h"
 
+#define AFR_INIT_SH_FRAME_VALS(_frame, _local, _sh, _sh_frame, _sh_local, _sh_sh)\
+        do {\
+                _local = _frame->local;\
+                _sh = &_local->self_heal;\
+                _sh_frame = _sh->sh_frame;\
+                _sh_local = _sh_frame->local;\
+                _sh_sh    = &_sh_local->self_heal;\
+        } while (0);
+
 int
 afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 {
@@ -297,51 +306,6 @@ next_active_sink (call_frame_t *frame, xlator_t *this,
 
         return next_active_sink;
 }
-
-
-int
-build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
-{
-        int   ret = -1;
-
-        if (!child) {
-                goto out;
-        }
-
-        if (strcmp (parent->path, "/") == 0)
-                ret = gf_asprintf ((char **)&child->path, "/%s", name);
-        else
-                ret = gf_asprintf ((char **)&child->path, "%s/%s", parent->path,
-                                   name);
-
-        if (-1 == ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "asprintf failed while setting child path");
-        }
-
-        if (!child->path) {
-                goto out;
-        }
-
-        child->name = strrchr (child->path, '/');
-        if (child->name)
-                child->name++;
-
-        child->parent = inode_ref (parent->inode);
-        child->inode = inode_new (parent->inode->table);
-
-        if (!child->inode) {
-                goto out;
-        }
-
-        ret = 0;
-out:
-        if (ret == -1)
-                loc_wipe (child);
-
-        return ret;
-}
-
 
 int
 afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this);
@@ -757,7 +721,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         expunge_sh->active_source = active_src;
         expunge_sh->entrybuf = entry->d_stat;
 
-        ret = build_child_loc (this, &expunge_local->loc, &local->loc, name);
+        ret = afr_build_child_loc (this, &expunge_local->loc, &local->loc, name);
         if (ret != 0) {
                 op_errno = EINVAL;
                 goto out;
@@ -923,6 +887,27 @@ afr_sh_entry_impunge_entry_done (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+void
+afr_sh_entry_call_impunge_done (call_frame_t *impunge_frame, xlator_t *this,
+                                int32_t op_ret, int32_t op_errno)
+{
+        afr_local_t     *impunge_local = NULL;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_self_heal_t *impunge_sh = NULL;
+        call_frame_t    *frame = NULL;
+        int32_t          impunge_ret_child = 0;
+        afr_private_t   *priv = NULL;
+
+        priv = this->private;
+        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
+                                frame, local, sh);
+
+        impunge_ret_child = impunge_sh->impunge_ret_child;
+        AFR_STACK_DESTROY (impunge_frame);
+        sh->impunge_done (frame, this, impunge_ret_child, op_ret,
+                          op_errno);
+}
 
 int
 afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
@@ -933,19 +918,12 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         int              call_count = 0;
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
         afr_self_heal_t *impunge_sh = NULL;
-        call_frame_t    *frame = NULL;
         int              child_index = 0;
-        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
-        frame = impunge_sh->sh_frame;
-        local = frame->local;
-        sh    = &local->self_heal;
         child_index = (long) cookie;
 
         if (op_ret == 0) {
@@ -967,12 +945,9 @@ afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
         }
         UNLOCK (&impunge_frame->lock);
 
-        if (call_count == 0) {
-                impunge_ret_child = impunge_sh->impunge_ret_child;
-                AFR_STACK_DESTROY (impunge_frame);
-                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
-                                  op_errno);
-        }
+        if (call_count == 0)
+                afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                op_ret, op_errno);
 
         return 0;
 }
@@ -1053,7 +1028,6 @@ afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *setattr_frame,
         return 0;
 }
 
-
 int
 afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                                   xlator_t *this,
@@ -1066,27 +1040,20 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         afr_private_t   *priv             = NULL;
         afr_local_t     *impunge_local    = NULL;
         afr_self_heal_t *impunge_sh       = NULL;
-        call_frame_t    *frame            = NULL;
         int              active_src       = 0;
         int              child_index      = 0;
         int32_t         *pending_array    = NULL;
         dict_t          *xattr            = NULL;
         int              ret              = 0;
         int              idx              = 0;
-        afr_local_t     *local            = NULL;
-        afr_self_heal_t *sh               = NULL;
         call_frame_t    *setattr_frame    = NULL;
         int32_t          valid            = 0;
         loc_t           *parent_loc       = NULL;
         struct iatt      parentbuf        = {0,};
-        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
-        frame = impunge_sh->sh_frame;
-        local = frame->local;
-        sh    = &local->self_heal;
         active_src = impunge_sh->active_source;
 
         child_index = (long) cookie;
@@ -1172,12 +1139,9 @@ out:
                 }
                 UNLOCK (&impunge_frame->lock);
 
-                if (call_count == 0) {
-                        impunge_ret_child = impunge_sh->impunge_ret_child;
-                        AFR_STACK_DESTROY (impunge_frame);
-                        sh->impunge_done (frame, this, impunge_ret_child, -1,
-                                          op_errno);
-                }
+                if (call_count == 0)
+                        afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                        -1, op_errno);
         }
 
         return 0;
@@ -1205,6 +1169,7 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
         if (!dict)
                 gf_log (this->name, GF_LOG_ERROR, "Out of memory");
 
+        GF_ASSERT (!uuid_is_null (stbuf->ia_gfid));
         ret = afr_set_dict_gfid (dict, stbuf->ia_gfid);
         if (ret)
                 gf_log (this->name, GF_LOG_INFO, "%s: gfid set failed",
@@ -1247,6 +1212,7 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
                 return 0;
         }
 
+        GF_ASSERT (!uuid_is_null (stbuf->ia_gfid));
         ret = afr_set_dict_gfid (dict, stbuf->ia_gfid);
         if (ret)
                 gf_log (this->name, GF_LOG_INFO, "%s: gfid set failed",
@@ -1281,32 +1247,22 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
         dict_t          *dict          = NULL;
         struct iatt     *buf           = NULL;
         int              ret           = 0;
-        call_frame_t    *frame         = NULL;
-        afr_local_t     *local         = NULL;
-        afr_self_heal_t *sh            = NULL;
         afr_self_heal_t *impunge_sh    = NULL;
-        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh    = &impunge_local->self_heal;
-        frame         = impunge_sh->sh_frame;
-        local         = frame->local;
-        sh            = &local->self_heal;
 
         buf = &impunge_local->cont.symlink.buf;
 
         dict = dict_new ();
         if (!dict) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
-                impunge_ret_child = impunge_sh->impunge_ret_child;
-                AFR_STACK_DESTROY (impunge_frame);
-                sh->impunge_done (impunge_frame, this, impunge_ret_child, -1,
-                                  ENOMEM);
+                afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                -1, ENOMEM);
                 goto out;
         }
 
+        GF_ASSERT (!uuid_is_null (buf->ia_gfid));
         ret = afr_set_dict_gfid (dict, buf->ia_gfid);
         if (ret)
                 gf_log (this->name, GF_LOG_INFO,
@@ -1342,18 +1298,11 @@ afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
         afr_local_t     *impunge_local = NULL;
         afr_self_heal_t *impunge_sh = NULL;
         int              child_index = -1;
-        call_frame_t    *frame = NULL;
         int              call_count = -1;
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        int32_t          impunge_ret_child = 0;
 
         priv          = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh    = &impunge_local->self_heal;
-        frame         = impunge_sh->sh_frame;
-        local         = frame->local;
-        sh            = &local->self_heal;
 
         child_index = (long) cookie;
 
@@ -1377,12 +1326,9 @@ out:
         }
         UNLOCK (&impunge_frame->lock);
 
-        if (call_count == 0) {
-                impunge_ret_child = impunge_sh->impunge_ret_child;
-                AFR_STACK_DESTROY (impunge_frame);
-                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
-                                  op_errno);
-        }
+        if (call_count == 0)
+                afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                op_ret, op_errno);
 
         return 0;
 }
@@ -1423,19 +1369,12 @@ afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cooki
         afr_local_t     *impunge_local = NULL;
         afr_self_heal_t *impunge_sh = NULL;
         int              child_index = -1;
-        call_frame_t    *frame = NULL;
         int              call_count = -1;
         int              active_src = -1;
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        int32_t          impunge_ret_child = 0;
 
         priv          = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh    = &impunge_local->self_heal;
-        frame         = impunge_sh->sh_frame;
-        local         = frame->local;
-        sh            = &local->self_heal;
         active_src    = impunge_sh->active_source;
 
         child_index = (long) cookie;
@@ -1480,12 +1419,9 @@ out:
         }
         UNLOCK (&impunge_frame->lock);
 
-        if (call_count == 0) {
-                impunge_ret_child = impunge_sh->impunge_ret_child;
-                AFR_STACK_DESTROY (impunge_frame);
-                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
-                                  op_errno);
-        }
+        if (call_count == 0)
+                afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                op_ret, op_errno);
 
         return 0;
 }
@@ -1525,19 +1461,12 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
         afr_local_t     *impunge_local = NULL;
         afr_self_heal_t *impunge_sh = NULL;
         int              child_index = -1;
-        call_frame_t    *frame = NULL;
         int              call_count = -1;
         int              active_src = -1;
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        int32_t          impunge_ret_child = 0;
 
         priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
-        frame = impunge_sh->sh_frame;
-        local         = frame->local;
-        sh            = &local->self_heal;
         active_src = impunge_sh->active_source;
 
         child_index = (long) cookie;
@@ -1563,12 +1492,9 @@ out:
         }
         UNLOCK (&impunge_frame->lock);
 
-        if (call_count == 0) {
-                impunge_ret_child = impunge_sh->impunge_ret_child;
-                AFR_STACK_DESTROY (impunge_frame);
-                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
-                                  op_errno);
-        }
+        if (call_count == 0)
+                afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                op_ret, op_errno);
 
         return 0;
 }
@@ -1648,174 +1574,161 @@ afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
         return ret;
 }
 
-int
-afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
-                                          void *cookie, xlator_t *this,
-                                          int32_t op_ret, int32_t op_errno,
-                                          inode_t *inode, struct iatt *buf,
-                                          dict_t *xattr,struct iatt *postparent)
+gf_boolean_t
+afr_sh_need_recreate (afr_self_heal_t *impunge_sh, int *sources,
+                      unsigned int child, unsigned int child_count)
 {
-        afr_private_t   *priv = NULL;
-        afr_local_t     *impunge_local = NULL;
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *impunge_sh = NULL;
-        afr_self_heal_t *sh = NULL;
-        int              active_src = 0;
-        int              child_index = 0;
-        call_frame_t    *frame = NULL;
-        int              call_count = 0;
-        int              ret = 0;
-        int32_t          impunge_ret_child = 0;
+        int32_t         *success_children = NULL;
+        gf_boolean_t    recreate = _gf_false;
 
-        priv = this->private;
-        impunge_local = impunge_frame->local;
-        impunge_sh = &impunge_local->self_heal;
-        frame = impunge_sh->sh_frame;
-        local = frame->local;
-        sh    = &local->self_heal;
+        GF_ASSERT (impunge_sh->impunging_entry_mode);
+        GF_ASSERT (impunge_sh->child_errno);
+        GF_ASSERT (sources);
 
-        child_index = (long) cookie;
-
-        active_src = impunge_sh->active_source;
-
-        if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "looking up %s on %s (for %s) failed (%s)",
-                        impunge_local->loc.path,
-                        priv->children[active_src]->name,
-                        priv->children[child_index]->name,
-                        strerror (op_errno));
+        success_children = impunge_sh->success_children;
+        if (sources[child] || (child == impunge_sh->active_source)) {
+                GF_ASSERT (afr_is_child_present (success_children,
+                                                 child_count, child));
                 goto out;
         }
 
-        ret = afr_sh_entry_impunge_create (impunge_frame, this, child_index, buf,
-                                           postparent);
-        if (ret)
+        if (IA_ISLNK (impunge_sh->impunging_entry_mode)) {
+                recreate = _gf_true;
                 goto out;
+        }
 
-        return 0;
-
+        if (impunge_sh->child_errno[child] == ENOENT)
+                recreate = _gf_true;
 out:
-        LOCK (&impunge_frame->lock);
-        {
-                call_count = --impunge_local->call_count;
-        }
-        UNLOCK (&impunge_frame->lock);
-
-        if (call_count == 0) {
-                impunge_ret_child = impunge_sh->impunge_ret_child;
-                AFR_STACK_DESTROY (impunge_frame);
-                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
-                                  op_errno);
-        }
-
-        return 0;
+        return recreate;
 }
 
+unsigned int
+afr_sh_recreate_count (afr_self_heal_t *impunge_sh, int *sources,
+                       unsigned int child_count)
+{
+        int             count = 0;
+        int             i = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (afr_sh_need_recreate (impunge_sh, sources, i, child_count))
+                        count++;
+        }
+
+        return count;
+}
 
 int
-afr_sh_entry_impunge_recreate (call_frame_t *impunge_frame, xlator_t *this,
-                               int child_index)
+afr_sh_entry_call_impunge_recreate (call_frame_t *impunge_frame,
+                                    xlator_t *this)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
         afr_self_heal_t *impunge_sh = NULL;
-        int              active_src = 0;
-
-
-        priv = this->private;
-        impunge_local = impunge_frame->local;
-        impunge_sh = &impunge_local->self_heal;
-
-        active_src = impunge_sh->active_source;
-
-        STACK_WIND_COOKIE (impunge_frame,
-                           afr_sh_entry_impunge_recreate_lookup_cbk,
-                           (void *) (long) child_index,
-                           priv->children[active_src],
-                           priv->children[active_src]->fops->lookup,
-                           &impunge_local->loc, 0);
-
-        return 0;
-}
-
-
-int
-afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
-                                xlator_t *this,
-                                int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct iatt *buf, dict_t *x,
-                                struct iatt *postparent)
-{
-        afr_private_t   *priv = NULL;
-        afr_local_t     *impunge_local = NULL;
-        afr_self_heal_t *impunge_sh = NULL;
-        int              call_count = 0;
-        int              child_index = 0;
         call_frame_t    *frame = NULL;
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        int32_t          impunge_ret_child = 0;
+        struct iatt     *buf = NULL;
+        struct iatt     *postparent = NULL;
+        unsigned int     recreate_count = 0;
+        int              i = 0;
+        int              active_src = 0;
 
-        priv = this->private;
-        impunge_local = impunge_frame->local;
-        impunge_sh = &impunge_local->self_heal;
-        frame = impunge_sh->sh_frame;
-        local         = frame->local;
-        sh            = &local->self_heal;
-        child_index = (long) cookie;
+        priv          = this->private;
+        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
+                                frame, local, sh);
+        active_src    = impunge_sh->active_source;
+        buf           = &impunge_sh->buf[active_src];
+        postparent    = &impunge_sh->parentbufs[active_src];
 
-        if ((op_ret == -1 && op_errno == ENOENT)
-            || (IA_ISLNK (impunge_sh->impunging_entry_mode))) {
-
-                /*
-                 * A symlink's target might have changed, so
-                 * always go down the recreate path for them.
-                 */
-
-                /* decrease call_count in recreate-callback */
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "missing entry %s on %s",
-                        impunge_local->loc.path,
-                        priv->children[child_index]->name);
-
-                afr_sh_entry_impunge_recreate (impunge_frame, this,
-                                               child_index);
-                return 0;
+        recreate_count = afr_sh_recreate_count (impunge_sh, sh->sources,
+                                                priv->child_count);
+        GF_ASSERT (recreate_count);
+        impunge_local->call_count = recreate_count;
+        for (i = 0; i < priv->child_count; i++) {
+                if (afr_sh_need_recreate (impunge_sh, sh->sources, i,
+                                          priv->child_count)) {
+                        (void)afr_sh_entry_impunge_create (impunge_frame, this,
+                                                           i, buf,
+                                                           postparent);
+                        recreate_count--;
+                }
         }
-
-        if (op_ret == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "%s exists under %s",
-                        impunge_local->loc.path,
-                        priv->children[child_index]->name);
-
-                impunge_sh->parentbuf = *postparent;
-        } else {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "looking up %s under %s failed (%s)",
-                        impunge_local->loc.path,
-                        priv->children[child_index]->name,
-                        strerror (op_errno));
-        }
-
-        LOCK (&impunge_frame->lock);
-        {
-                call_count = --impunge_local->call_count;
-        }
-        UNLOCK (&impunge_frame->lock);
-
-        if (call_count == 0) {
-                impunge_ret_child = impunge_sh->impunge_ret_child;
-                AFR_STACK_DESTROY (impunge_frame);
-                sh->impunge_done (frame, this, impunge_ret_child, op_ret,
-                                  op_errno);
-        }
-
+        GF_ASSERT (!recreate_count);
         return 0;
 }
 
+void
+afr_sh_entry_common_lookup_done (call_frame_t *impunge_frame, xlator_t *this,
+                                 int32_t op_ret, int32_t op_errno)
+{
+        afr_private_t   *priv = NULL;
+        afr_local_t     *impunge_local = NULL;
+        afr_self_heal_t *impunge_sh = NULL;
+        call_frame_t    *frame = NULL;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        unsigned int     recreate_count = 0;
+        unsigned int     gfid_miss_count = 0;
+        unsigned int     children_up_count = 0;
+        uuid_t           gfid = {0};
+        int              active_src = 0;
+
+        priv          = this->private;
+        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
+                                frame, local, sh);
+        active_src    = impunge_sh->active_source;
+
+        if (op_ret < 0)
+                goto done;
+        if (impunge_sh->child_errno[active_src]) {
+                op_ret = -1;
+                op_errno = impunge_sh->child_errno[active_src];
+                goto done;
+        }
+
+        gfid_miss_count = afr_gfid_missing_count (this->name,
+                                                  impunge_sh->success_children,
+                                                  impunge_sh->buf, priv->child_count,
+                                                  impunge_local->loc.path);
+        children_up_count = afr_up_children_count (impunge_local->child_up,
+                                                   priv->child_count);
+        if ((gfid_miss_count == children_up_count) &&
+            (children_up_count < priv->child_count)) {
+                op_ret = -1;
+                op_errno = ENODATA;
+                gf_log (this->name, GF_LOG_ERROR, "Not all children are up, "
+                        "gfid should not be assigned in this state for %s",
+                        impunge_local->loc.path);
+                goto done;
+        }
+
+        if (gfid_miss_count) {
+                afr_update_gfid_from_iatts (gfid, impunge_sh->buf,
+                                            impunge_sh->success_children,
+                                            priv->child_count);
+                if (uuid_is_null (gfid))
+                        uuid_generate (gfid);
+                afr_sh_common_lookup (impunge_frame, this, &impunge_local->loc,
+                                      afr_sh_entry_common_lookup_done, gfid,
+                                      AFR_LOOKUP_FAIL_CONFLICTS |
+                                      AFR_LOOKUP_FAIL_MISSING_GFIDS);
+        } else {
+                recreate_count = afr_sh_recreate_count (impunge_sh, sh->sources,
+                                                        priv->child_count);
+                if (!recreate_count) {
+                        op_ret = 0;
+                        op_errno = 0;
+                        goto done;
+                }
+                afr_sh_entry_call_impunge_recreate (impunge_frame, this);
+        }
+        return;
+done:
+        afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                        op_ret, op_errno);
+        return;
+}
 
 int
 afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
@@ -1827,12 +1740,10 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         int              ret = -1;
         call_frame_t    *impunge_frame = NULL;
         afr_local_t     *impunge_local = NULL;
-        afr_self_heal_t *impunge_sh = NULL;
         int              active_src = 0;
-        int              i = 0;
-        int              call_count = 0;
         int              op_errno = 0;
         int              op_ret = -1;
+        mode_t           entry_mode = 0;
 
         priv = this->private;
         local = frame->local;
@@ -1857,70 +1768,34 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
                 "inspecting existance of %s under %s",
                 entry->d_name, local->loc.path);
 
-        impunge_frame = copy_frame (frame);
-        if (!impunge_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
-                op_errno = ENOMEM;
+        entry_mode = st_mode_from_ia (entry->d_stat.ia_prot,
+                                      entry->d_stat.ia_type);
+        ret = afr_impunge_frame_create (frame, this, active_src, active_src,
+                                        entry_mode, &impunge_frame);
+        if (ret) {
+                op_errno = -ret;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (impunge_local, afr_local_t, out);
-
-        impunge_frame->local = impunge_local;
-        impunge_sh = &impunge_local->self_heal;
-        impunge_sh->sh_frame = frame;
-        impunge_sh->active_source = active_src;
-        impunge_sh->impunge_ret_child = active_src;
-
-        impunge_sh->impunging_entry_mode =
-                st_mode_from_ia (entry->d_stat.ia_prot, entry->d_stat.ia_type);
-
-        ret = build_child_loc (this, &impunge_local->loc, &local->loc, entry->d_name);
+        impunge_local = impunge_frame->local;
+        ret = afr_build_child_loc (this, &impunge_local->loc, &local->loc,
+                                   entry->d_name);
         if (ret != 0) {
                 op_errno = ENOMEM;
                 goto out;
         }
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (i == active_src)
-                        continue;
-                if (local->child_up[i] == 0)
-                        continue;
-                if (sh->sources[i] == 1)
-                        continue;
-                call_count++;
-        }
+        afr_sh_common_lookup (impunge_frame, this, &impunge_local->loc,
+                              afr_sh_entry_common_lookup_done, NULL,
+                              AFR_LOOKUP_FAIL_CONFLICTS);
 
-        impunge_local->call_count = call_count;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (i == active_src)
-                        continue;
-                if (local->child_up[i] == 0)
-                        continue;
-                if (sh->sources[i] == 1)
-                        continue;
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "looking up %s on %s", impunge_local->loc.path,
-                        priv->children[i]->name);
-
-                STACK_WIND_COOKIE (impunge_frame,
-                                   afr_sh_entry_impunge_entry_cbk,
-                                   (void *) (long) i,
-                                   priv->children[i],
-                                   priv->children[i]->fops->lookup,
-                                   &impunge_local->loc, 0);
-
-                if (!--call_count)
-                        break;
-        }
-
-        ret = 0;
+        op_ret = 0;
 out:
-        if (ret == -1)
+        if (ret) {
+                if (impunge_frame)
+                        AFR_STACK_DESTROY (impunge_frame);
                 sh->impunge_done (frame, this, active_src, op_ret, op_errno);
+        }
 
         return 0;
 }
@@ -2217,8 +2092,9 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
 }
 
 
-int
-afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
+void
+afr_sh_entry_fix (call_frame_t *frame, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -2230,6 +2106,13 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
         priv = this->private;
+
+        if (op_ret < 0) {
+                sh->op_failed = 1;
+                afr_sh_set_error (sh, op_errno);
+                afr_sh_entry_finish (frame, this);
+                goto out;
+        }
 
         if (sh->forced_merge) {
                 sh->source = -1;
@@ -2246,7 +2129,7 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
                         local->loc.path);
 
                 afr_sh_entry_finish (frame, this);
-                return 0;
+                return;
         }
 
         source = afr_sh_select_source (sh->sources, priv->child_count);
@@ -2262,33 +2145,8 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 
 heal:
         afr_sh_entry_sync_prepare (frame, this);
-
-        return 0;
-}
-
-
-
-int
-afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
-                         xlator_t *this, int32_t op_ret, int32_t op_errno,
-                         inode_t *inode, struct iatt *buf, dict_t *xattr,
-                         struct iatt *postparent)
-{
-        int             call_count  = 0;
-        afr_local_t     *local = NULL;
-
-        local = frame->local;
-        afr_sh_common_lookup_resp_handler (frame, cookie, this, op_ret,
-                                           op_errno, inode, buf, xattr,
-                                           postparent, &local->loc);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0) {
-                afr_sh_entry_fix (frame, this);
-        }
-
-        return 0;
+out:
+        return;
 }
 
 int
@@ -2312,7 +2170,9 @@ afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
                 gf_log (this->name, GF_LOG_DEBUG, "Non Blocking entrylks done "
                         "for %s. Proceeding to FOP", local->loc.path);
                 afr_sh_common_lookup (frame, this, &local->loc,
-                                      afr_sh_entry_lookup_cbk, _gf_false);
+                                      afr_sh_entry_fix, NULL,
+                                      AFR_LOOKUP_FAIL_CONFLICTS |
+                                      AFR_LOOKUP_FAIL_MISSING_GFIDS);
         }
 
         return 0;

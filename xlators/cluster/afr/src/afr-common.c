@@ -723,6 +723,7 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE (sh->fresh_parent_dirs);
 
         loc_wipe (&sh->parent_loc);
+        loc_wipe (&sh->lookup_loc);
 
         if (sh->checksum)
                 GF_FREE (sh->checksum);
@@ -1235,12 +1236,12 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
         afr_self_heal (frame, this, inode);
 }
 
-int
+unsigned int
 afr_gfid_missing_count (const char *xlator_name, int32_t *success_children,
                         struct iatt *bufs, unsigned int child_count,
                         const char *path)
 {
-        int             gfid_miss_count   = 0;
+        unsigned int    gfid_miss_count   = 0;
         int             i              = 0;
         struct iatt     *child1        = NULL;
 

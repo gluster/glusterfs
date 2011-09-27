@@ -332,7 +332,7 @@ pump_save_file_stats (xlator_t *this, const char *path)
 }
 
 static int
-gf_pump_traverse_directory (loc_t *loc)
+gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
 {
         xlator_t *this = NULL;
         fd_t     *fd   = NULL;
@@ -346,7 +346,6 @@ gf_pump_traverse_directory (loc_t *loc)
 	struct iatt iatt, parent;
 	dict_t *xattr_rsp;
 
-        char *file_path = NULL;
         int ret = 0;
         gf_boolean_t is_directory_empty = _gf_true;
 
@@ -385,15 +384,10 @@ gf_pump_traverse_directory (loc_t *loc)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "found readdir entry=%s", entry->d_name);
 
-                        file_path = afr_build_file_path (loc, entry);
-                        if (!file_path) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "file path construction failed");
+                        ret = afr_build_child_loc (this, &entry_loc, loc,
+                                                   entry->d_name);
+                        if (ret)
                                 goto out;
-                        }
-
-                        afr_build_child_loc (loc, &entry_loc, file_path,
-                                             entry->d_name);
 
                         if (!IS_ENTRY_CWD (entry->d_name) &&
                                            !IS_ENTRY_PARENT (entry->d_name)) {
@@ -401,8 +395,17 @@ gf_pump_traverse_directory (loc_t *loc)
                                     is_directory_empty = _gf_false;
                                     ret = syncop_lookup (this, &entry_loc, NULL,
                                                          &iatt, &xattr_rsp, &parent);
+                                    if (ret)
+                                            continue;
 
-                                    memcpy (entry_loc.inode->gfid, iatt.ia_gfid, 16);
+                                    if (uuid_is_null (iatt.ia_gfid)) {
+                                            uuid_generate (gfid);
+                                            uuid_copy (entry_loc.inode->gfid,
+                                                       gfid);
+                                    } else {
+                                            uuid_copy (entry_loc.inode->gfid,
+                                                       iatt.ia_gfid);
+                                    }
 
                                     gf_log (this->name, GF_LOG_DEBUG,
                                             "lookup %s => %"PRId64,
@@ -440,7 +443,7 @@ gf_pump_traverse_directory (loc_t *loc)
                                                     gf_log (this->name, GF_LOG_TRACE,
                                                             "entering dir=%s",
                                                             entry->d_name);
-                                                    gf_pump_traverse_directory (&entry_loc);
+                                                    gf_pump_traverse_directory (&entry_loc, gfid);
                                             }
                                     }
                             }
@@ -622,6 +625,7 @@ pump_task (void *data)
 	struct iatt iatt, parent;
 	dict_t *xattr_rsp = NULL;
         dict_t *xattr_req = NULL;
+        uuid_t gfid = {0};
 
         int ret = -1;
 
@@ -662,7 +666,7 @@ pump_task (void *data)
                 goto out;
         }
 
-        gf_pump_traverse_directory (&loc);
+        gf_pump_traverse_directory (&loc, gfid);
 
         pump_complete_migration (this);
 out:

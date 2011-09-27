@@ -37,8 +37,4 @@ void afr_build_root_loc (inode_t *inode, loc_t *loc);
 
 int afr_set_root_gfid (dict_t *dict);
 
-char * afr_build_file_path (loc_t *loc, gf_dirent_t *entry);
-
-void
-afr_build_child_loc (loc_t *parent, loc_t *child, char *path, char *name);
 #endif /* __AFR_SELF_HEALD_H__ */

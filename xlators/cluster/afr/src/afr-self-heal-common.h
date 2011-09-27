@@ -29,11 +29,11 @@ typedef enum {
         AFR_SELF_HEAL_INVALID = -1,
 } afr_self_heal_type;
 
-typedef int
-(*afr_lookup_cbk_t) (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, inode_t *inode,
-                     struct iatt *buf, dict_t *xattr,
-                     struct iatt *postparent);
+typedef enum {
+        AFR_LOOKUP_FAIL_CONFLICTS = 1,
+        AFR_LOOKUP_FAIL_MISSING_GFIDS = 2,
+} afr_lookup_flags_t;
+
 int
 afr_sh_select_source (int sources[], int child_count);
 
@@ -93,7 +93,8 @@ afr_sh_common_lookup_resp_handler (call_frame_t *frame, void *cookie,
 
 int
 afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                      afr_lookup_cbk_t lookup_cbk, gf_boolean_t set_gfid);
+                      afr_lookup_done_cbk_t lookup_cbk, uuid_t uuid,
+                      int32_t flags);
 int
 afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
                              int active_src, struct iatt *buf);
@@ -122,4 +123,10 @@ typedef int
 (*afr_fxattrop_cbk_t) (call_frame_t *frame, void *cookie,
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
                        dict_t *xattr);
+int
+afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name);
+int
+afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
+                          int active_source, int ret_child, mode_t entry_mode,
+                          call_frame_t **impunge_frame);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */
