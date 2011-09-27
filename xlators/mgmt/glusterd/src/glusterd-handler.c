@@ -3877,6 +3877,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 break;
         }
 
+        glusterd_friend_sm ();
         return ret;
 }
 
