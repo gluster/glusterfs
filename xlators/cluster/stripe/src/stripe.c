@@ -204,6 +204,9 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
                 }
                 trav = trav->next;
         }
+        if (dict)
+                dict_unref (dict);
+        return 0;
 
 out:
         if (rframe)
