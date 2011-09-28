@@ -6,9 +6,11 @@ import fcntl
 import shutil
 import logging
 from threading import Lock, Thread as baseThread
-from errno import EACCES, EAGAIN, EPIPE, ENOTCONN
+from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, EINTR
 from signal import SIGTERM, SIGKILL
 from time import sleep
+import select as oselect
+from os import waitpid as owaitpid
 try:
     from cPickle import PickleError
 except ImportError:
@@ -247,3 +249,21 @@ def boolify(s):
         logging.warn("Unknown string (%s) in string to boolean conversion defaulting to False\n" % (s))
 
     return rv
+
+def eintr_wrap(func, exc, *a):
+    """
+    wrapper around syscalls resilient to interrupt caused
+    by signals
+    """
+    while True:
+        try:
+            return func(*a)
+        except exc, ex:
+            if not ex[0] == EINTR:
+                raise GsyncdError(ex[1])
+
+def select(*a):
+    return eintr_wrap(oselect.select, oselect.error, *a)
+
+def waitpid (*a):
+    return eintr_wrap(owaitpid, OSError, *a)

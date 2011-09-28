@@ -80,7 +80,8 @@ enum gf1_cli_gsync_set {
         GF_GSYNC_OPTION_TYPE_START,
         GF_GSYNC_OPTION_TYPE_STOP,
         GF_GSYNC_OPTION_TYPE_CONFIG,
-        GF_GSYNC_OPTION_TYPE_STATUS
+        GF_GSYNC_OPTION_TYPE_STATUS,
+        GF_GSYNC_OPTION_TYPE_ROTATE
 };
 
 enum gf1_cli_stats_op {

@@ -10,6 +10,7 @@ class GConf(object):
     pid_file_owned = False
     log_exit = False
     permanent_handles = []
+    log_metadata = {}
 
     @classmethod
     def setup_ssh_ctl(cls, ctld):

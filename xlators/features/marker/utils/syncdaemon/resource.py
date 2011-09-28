@@ -5,7 +5,6 @@ import stat
 import time
 import errno
 import struct
-import select
 import socket
 import logging
 import tempfile
@@ -18,7 +17,7 @@ import repce
 from repce import RepceServer, RepceClient
 from master import GMaster
 import syncdutils
-from syncdutils import GsyncdError
+from syncdutils import GsyncdError, select
 
 UrlRX  = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -113,11 +112,11 @@ class Popen(subprocess.Popen):
 
     @classmethod
     def init_errhandler(cls):
-        """start the thread which hanldes children's error output"""
+        """start the thread which handles children's error output"""
         cls.errstore = {}
         def tailer():
             while True:
-                for po in select.select([po.stderr for po in cls.errstore], [], []):
+                for po in select([po.stderr for po in cls.errstore], [], []):
                     po.lock.acquire()
                     try:
                         la = cls.errstore.get(po)
@@ -419,7 +418,7 @@ class SlaveLocal(object):
                     logging.info("connection inactive for %d seconds, stopping" % int(gconf.timeout))
                     break
         else:
-            select.select((), (), ())
+            select((), (), ())
 
 class SlaveRemote(object):
     """mix-in class to implement an interface to a remote slave"""
@@ -826,7 +825,7 @@ class SSH(AbstractUrl, SlaveRemote):
             i, o = ret
             inf = os.fdopen(i)
             repce.send(o, None, '__repce_version__')
-            select.select((inf,), (), ())
+            select((inf,), (), ())
             repce.recv(inf)
             # hack hack hack: store a global reference to the file
             # to save it from getting GC'd which implies closing it
