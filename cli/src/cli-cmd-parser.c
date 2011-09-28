@@ -1323,7 +1323,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         unsigned           glob    = 0;
         unsigned           cmdi    = 0;
         char               *opwords[] = { "status", "start", "stop", "config",
-                                          NULL };
+                                          "log-rotate", NULL };
         char               *w = NULL;
 
         GF_ASSERT (words);
@@ -1338,6 +1338,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
          * volume geo-replication [$m [$s]] status
          * volume geo-replication [$m] $s config [[!]$opt [$val]]
          * volume geo-replication $m $s start|stop
+         * volume geo-replication $m [$s] log-rotate
          */
 
         if (wordcount < 3)
@@ -1413,6 +1414,11 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 type = GF_GSYNC_OPTION_TYPE_STOP;
 
                 if (!masteri || !slavei)
+                        goto out;
+        } else if (strcmp(w, "log-rotate") == 0) {
+                type = GF_GSYNC_OPTION_TYPE_ROTATE;
+
+                if (slavei && !masteri)
                         goto out;
         } else
                 GF_ASSERT (!"opword mismatch");

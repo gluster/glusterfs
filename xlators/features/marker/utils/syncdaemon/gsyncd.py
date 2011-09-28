@@ -6,7 +6,6 @@ import sys
 import time
 import logging
 import signal
-import select
 import optparse
 import fcntl
 import fnmatch
@@ -18,7 +17,7 @@ from ipaddr import IPAddress, IPNetwork
 
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
-from syncdutils import GsyncdError
+from syncdutils import GsyncdError, select
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -59,7 +58,6 @@ class GLogger(Logger):
         logging.getLogger().handlers = []
         logging.basicConfig(**lprm)
 
-
 def startup(**kw):
     """set up logging, pidfile grabbing, daemonization"""
     if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
@@ -87,7 +85,7 @@ def startup(**kw):
         # so we can start up with
         # no messing from the dirty
         # ol' bustard
-        select.select((x,), (), ())
+        select((x,), (), ())
         os.close(x)
 
     lkw = {}
@@ -100,7 +98,11 @@ def startup(**kw):
             lkw['stream'] = sys.stdout
         else:
             lkw['filename'] = kw['log_file']
+
     GLogger.setup(label=kw.get('label'), **lkw)
+
+    lkw.update({'saved_label': kw.get('label')})
+    gconf.log_metadata = lkw
     gconf.log_exit = True
 
 def main():
