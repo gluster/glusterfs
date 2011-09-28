@@ -125,15 +125,15 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = frame->root->state;
         finh = state->finh;
 
-        if (!op_ret && state->loc.ino == 1) {
+        if (!op_ret && __is_root_gfid (state->loc.inode->gfid)) {
                 buf->ia_ino = 1;
         }
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => %"PRId64" (%"PRId64")",
+                        "%"PRIu64": %s() %s => %"PRId64,
                         frame->root->unique, gf_fop_list[frame->root->op],
-                        state->loc.path, buf->ia_ino, state->loc.ino);
+                        state->loc.path, buf->ia_ino);
 
                 buf->ia_blksize = this->ctx->page_size;
                 gf_fuse_stat2attr (buf, &feo.attr);
@@ -1328,15 +1328,16 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s -> %s => 0 (buf->ia_ino=%"PRId64" , loc->ino=%"PRId64")",
+                        "%"PRIu64": %s -> %s => 0 (buf->ia_ino=%"PRId64")",
                         frame->root->unique, state->loc.path, state->loc2.path,
-                        buf->ia_ino, state->loc.ino);
+                        buf->ia_ino);
 
                 {
                         /* ugly ugly - to stay blind to situation where
                            rename happens on a new inode
                         */
-                        buf->ia_ino = state->loc.ino;
+                        /* TODO: can i remove below line */
+                        //buf->ia_ino = state->loc.ino;
                         buf->ia_type = state->loc.inode->ia_type;
                 }
                 buf->ia_blksize = this->ctx->page_size;
@@ -1363,16 +1364,25 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 void
 fuse_rename_resume (fuse_state_t *state)
 {
+        char loc_uuid[64]  = {0,};
+        char loc2_uuid[64] = {0,};
+
         if (!state->loc.inode) {
                 send_fuse_err (state->this, state->finh, ENOENT);
                 free_fuse_state (state);
                 return;
         }
 
+        uuid_utoa_r (state->loc.inode->gfid, loc_uuid);
+        if (state->loc2.inode)
+                uuid_utoa_r (state->loc2.inode->gfid, loc2_uuid);
+        else
+                strcpy (loc2_uuid, "0");
+
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": RENAME `%s (%"PRId64")' -> `%s (%"PRId64")'",
-                state->finh->unique, state->loc.path, state->loc.ino,
-                state->loc2.path, state->loc2.ino);
+                "%"PRIu64": RENAME `%s (%s)' -> `%s (%s)'",
+                state->finh->unique, state->loc.path, loc_uuid,
+                state->loc2.path, loc2_uuid);
 
         FUSE_FOP (state, fuse_rename_cbk, GF_FOP_RENAME,
                   rename, &state->loc, &state->loc2);
@@ -1438,9 +1448,9 @@ fuse_link_resume (fuse_state_t *state)
         state->loc.inode = inode_ref (state->loc2.inode);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": LINK() %s (%"PRId64") -> %s (%"PRId64")",
-                state->finh->unique, state->loc2.path, state->loc2.ino,
-                state->loc.path, state->loc.ino);
+                "%"PRIu64": LINK() %s -> %s",
+                state->finh->unique, state->loc2.path,
+                state->loc.path);
 
         FUSE_FOP (state, fuse_newentry_cbk, GF_FOP_LINK,
                   link, &state->loc2, &state->loc);
@@ -3041,7 +3051,6 @@ fuse_first_lookup (xlator_t *this)
 
         loc.path = "/";
         loc.name = "";
-        loc.ino = 1;
         loc.inode = fuse_ino_to_inode (1, this);
         loc.parent = NULL;
 

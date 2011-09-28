@@ -171,8 +171,6 @@ mq_loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
         GF_VALIDATE_OR_GOTO ("marker", oldloc, out);
         GF_VALIDATE_OR_GOTO ("marker", name, out);
 
-        newloc->ino = ino;
-
         newloc->inode = inode_new (oldloc->inode->table);
 
         if (!newloc->inode) {
