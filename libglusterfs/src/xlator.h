@@ -90,9 +90,6 @@ struct _loc {
          */
         uuid_t      gfid;
         uuid_t      pargfid;
-
-        /* ideally, should not be used */
-        ino_t       ino;
 };
 
 

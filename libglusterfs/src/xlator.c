@@ -546,7 +546,6 @@ loc_wipe (loc_t *loc)
         }
         uuid_clear (loc->gfid);
         uuid_clear (loc->pargfid);
-        loc->ino = 0;
 }
 
 
@@ -557,8 +556,6 @@ loc_copy (loc_t *dst, loc_t *src)
 
         GF_VALIDATE_OR_GOTO ("xlator", dst, err);
         GF_VALIDATE_OR_GOTO ("xlator", src, err);
-
-        dst->ino = src->ino;
 
         uuid_copy (dst->gfid, src->gfid);
         uuid_copy (dst->pargfid, src->pargfid);

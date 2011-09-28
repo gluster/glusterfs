@@ -649,9 +649,8 @@ pump_task (void *data)
                              &iatt, &xattr_rsp, &parent);
 
         gf_log (this->name, GF_LOG_TRACE,
-                "lookup: ino=%"PRId64", path=%s",
-                loc.ino,
-                loc.path);
+                "lookup: path=%s gfid=%s",
+                loc.path, uuid_utoa (loc.inode->gfid));
 
         ret = pump_check_and_update_status (this);
         if (ret < 0) {
