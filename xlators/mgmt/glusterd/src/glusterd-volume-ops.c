@@ -1299,12 +1299,7 @@ glusterd_op_stop_volume (dict_t *dict)
         if (ret)
                 goto out;
 
-        if (glusterd_are_all_volumes_stopped ()) {
-                ret = glusterd_nodesvcs_stop (volinfo);
-        } else {
-                ret = glusterd_nodesvcs_handle_graph_change (volinfo);
-        }
-
+        ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 out:
         return ret;
 }

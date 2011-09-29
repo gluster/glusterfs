@@ -2461,6 +2461,9 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
 
+                if (!glusterd_is_volume_replicate (voliter))
+                        continue;
+
                 replica_count = voliter->replica_count;
 
                 valid_config = _gf_true;
@@ -2965,7 +2968,7 @@ glusterd_create_shd_volfile ()
                 goto out;
 
         glusterd_get_nodesvc_volfile ("glustershd", conf->workdir,
-                                            filepath, sizeof (filepath));
+                                      filepath, sizeof (filepath));
         ret = glusterd_create_global_volfile (build_shd_graph, filepath,
                                               mod_dict);
 out:
