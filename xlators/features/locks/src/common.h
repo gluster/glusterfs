@@ -20,6 +20,7 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#define SET_FLOCK_PID(flock, lock) ((flock)->l_pid = lock->client_pid)
 posix_lock_t *
 new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, fd_t *fd);

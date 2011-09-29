@@ -1504,7 +1504,8 @@ out:
 
 void
 pl_dump_lock (char *str, int size, struct gf_flock *flock,
-              uint64_t owner, void *trans)
+              uint64_t owner, void *trans, time_t *granted_time,
+              time_t *blkd_time, gf_boolean_t active)
 {
         char *type_str = NULL;
 
@@ -1523,13 +1524,22 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                 break;
         }
 
-        snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p",
-                  type_str, (unsigned long long) flock->l_start,
-                  (unsigned long long) flock->l_len,
-                  (unsigned long long) flock->l_pid,
-                  (unsigned long long) owner,
-                  trans);
-
+        if (active)
+                snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p, "
+                          "blocked at %s, granted at  %s",
+                          type_str, (unsigned long long) flock->l_start,
+                          (unsigned long long) flock->l_len,
+                          (unsigned long long) flock->l_pid,
+                          (unsigned long long) owner,
+                          trans, ctime (blkd_time), ctime (granted_time));
+        else
+                snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p, "
+                          "blocked at  %s",
+                          type_str, (unsigned long long) flock->l_start,
+                          (unsigned long long) flock->l_len,
+                          (unsigned long long) flock->l_pid,
+                          (unsigned long long) owner,
+                          trans, ctime (blkd_time));
 
 }
 
@@ -1556,12 +1566,15 @@ __dump_entrylks (pl_inode_t *pl_inode)
 
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
-                                               "entrylk[%d](ACTIVE)",count );
-                        snprintf (tmp, 256," %s on %s owner=%llu, transport=%p",
+                                               "entrylk[%d](ACTIVE)", count );
+                        snprintf (tmp, 256," %s on %s pid = %llu, owner=%llu, transport=%p,"
+                                  " blocked at %s, granted at %s",
                                   lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                   "ENTRYLK_WRLCK", lock->basename,
-                                  (unsigned long long) lock->owner,
-                                  lock->trans);
+                                  (unsigned long long) lock->client_pid,
+                                  (unsigned long long) lock->owner, lock->trans,
+                                  ctime (&lock->blkd_time.tv_sec),
+                                  ctime (&lock->granted_time.tv_sec));
 
                         gf_proc_dump_write(key, tmp);
 
@@ -1572,12 +1585,14 @@ __dump_entrylks (pl_inode_t *pl_inode)
 
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
-                                               "entrylk[%d](BLOCKED)",count );
-                        snprintf (tmp, 256," %s on %s owner=%llu, transport=%p,"
-                                  " state = Blocked",
+                                               "entrylk[%d](BLOCKED)", count );
+                        snprintf (tmp, 256," %s on %s pid = %llu, owner=%llu, transport=%p,"
+                                  " blocked at %s",
                                   lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                   "ENTRYLK_WRLCK", lock->basename,
-                                  (unsigned long long) lock->owner, lock->trans);
+                                  (unsigned long long) lock->client_pid,
+                                  (unsigned long long) lock->owner, lock->trans,
+                                  ctime (&lock->blkd_time.tv_sec));
 
                         gf_proc_dump_write(key, tmp);
 
@@ -1624,8 +1639,12 @@ __dump_inodelks (pl_inode_t *pl_inode)
                                                "xlator.feature.locks.lock-dump.domain.inodelk",
                                                "inodelk[%d](ACTIVE)",count );
 
+                        SET_FLOCK_PID (&lock->user_flock, lock);
                         pl_dump_lock (tmp, 256, &lock->user_flock,
-                                      lock->owner, lock->transport);
+                                      lock->owner, lock->transport,
+                                      &lock->granted_time.tv_sec,
+                                      &lock->blkd_time.tv_sec,
+                                      _gf_true);
                         gf_proc_dump_write(key, tmp);
 
                         count++;
@@ -1636,8 +1655,11 @@ __dump_inodelks (pl_inode_t *pl_inode)
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.inodelk",
                                                "inodelk[%d](BLOCKED)",count );
+                        SET_FLOCK_PID (&lock->user_flock, lock);
                         pl_dump_lock (tmp, 256, &lock->user_flock,
-                                      lock->owner, lock->transport);
+                                      lock->owner, lock->transport,
+                                      0, &lock->blkd_time.tv_sec,
+                                      _gf_false);
                         gf_proc_dump_write(key, tmp);
 
                         count++;
@@ -1669,13 +1691,16 @@ __dump_posixlks (pl_inode_t *pl_inode)
 
       list_for_each_entry (lock, &pl_inode->ext_list, list) {
 
+              SET_FLOCK_PID (&lock->user_flock, lock);
               gf_proc_dump_build_key(key,
                                      "xlator.feature.locks.lock-dump.domain.posixlk",
                                      "posixlk[%d](%s)",
                                      count,
                                      lock->blocked ? "BLOCKED" : "ACTIVE");
               pl_dump_lock (tmp, 256, &lock->user_flock,
-                            lock->owner, lock->transport);
+                            lock->owner, lock->transport,
+                            &lock->granted_time.tv_sec, &lock->blkd_time.tv_sec,
+                            (lock->blocked)? _gf_false: _gf_true);
               gf_proc_dump_write(key, tmp);
 
               count++;
