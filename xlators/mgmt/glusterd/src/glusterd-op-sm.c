@@ -135,27 +135,6 @@ glusterd_is_volume_started (glusterd_volinfo_t  *volinfo)
         return (volinfo->status == GLUSTERD_STATUS_STARTED);
 }
 
-gf_boolean_t
-glusterd_are_all_volumes_stopped ()
-{
-        glusterd_conf_t                         *priv = NULL;
-        xlator_t                                *this = NULL;
-        glusterd_volinfo_t                      *voliter = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (voliter->status == GLUSTERD_STATUS_STARTED)
-                        return _gf_false;
-        }
-
-        return _gf_true;
-
-}
-
 static int
 glusterd_op_sm_inject_all_acc ()
 {

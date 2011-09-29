@@ -2798,20 +2798,72 @@ glusterd_nodesvcs_stop (glusterd_volinfo_t *volinfo)
                                             glusterd_shd_stop);
 }
 
+gf_boolean_t
+glusterd_are_all_volumes_stopped ()
+{
+        glusterd_conf_t                         *priv = NULL;
+        xlator_t                                *this = NULL;
+        glusterd_volinfo_t                      *voliter = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status == GLUSTERD_STATUS_STARTED)
+                        return _gf_false;
+        }
+
+        return _gf_true;
+
+}
+
+gf_boolean_t
+glusterd_all_replicate_volumes_stopped ()
+{
+        glusterd_conf_t                         *priv = NULL;
+        xlator_t                                *this = NULL;
+        glusterd_volinfo_t                      *voliter = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (!glusterd_is_volume_replicate (voliter))
+                        continue;
+                if (voliter->status == GLUSTERD_STATUS_STARTED)
+                        return _gf_false;
+        }
+
+        return _gf_true;
+}
+
 int
 glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo)
 {
-        return glusterd_nodesvcs_batch_op (volinfo,
-                                      glusterd_check_generate_start_nfs,
-                                      glusterd_check_generate_start_shd);
+        int (*shd_op) () = NULL;
+        int (*nfs_op) () = NULL;
+
+        shd_op = glusterd_check_generate_start_shd;
+        nfs_op = glusterd_check_generate_start_nfs;
+        if (glusterd_are_all_volumes_stopped ()) {
+                shd_op = glusterd_shd_stop;
+                nfs_op = glusterd_nfs_server_stop;
+        } else if (glusterd_all_replicate_volumes_stopped()) {
+                shd_op = glusterd_shd_stop;
+        }
+        return glusterd_nodesvcs_batch_op (volinfo, nfs_op, shd_op);
 }
 
 int
 glusterd_nodesvcs_handle_reconfigure (glusterd_volinfo_t *volinfo)
 {
         return glusterd_nodesvcs_batch_op (volinfo,
-                                            glusterd_check_generate_start_nfs,
-                                            glusterd_reconfigure_shd);
+                                           glusterd_check_generate_start_nfs,
+                                           glusterd_reconfigure_shd);
 }
 
 int
