@@ -1558,7 +1558,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                 count = 0;
 
                 gf_proc_dump_build_key(key,
-                                       "xlator.feature.locks.lock-dump.domain",
+                                       "lock-dump.domain",
                                        "domain");
                 gf_proc_dump_write(key, "%s", dom->domain);
 
@@ -1629,14 +1629,14 @@ __dump_inodelks (pl_inode_t *pl_inode)
                 count = 0;
 
                 gf_proc_dump_build_key(key,
-                                       "xlator.feature.locks.lock-dump.domain",
+                                       "lock-dump.domain",
                                        "domain");
                 gf_proc_dump_write(key, "%s", dom->domain);
 
                 list_for_each_entry (lock, &dom->inodelk_list, list) {
 
                         gf_proc_dump_build_key(key,
-                                               "xlator.feature.locks.lock-dump.domain.inodelk",
+                                               "inodelk",
                                                "inodelk[%d](ACTIVE)",count );
 
                         SET_FLOCK_PID (&lock->user_flock, lock);
@@ -1653,7 +1653,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
                 list_for_each_entry (lock, &dom->blocked_inodelks, blocked_locks) {
 
                         gf_proc_dump_build_key(key,
-                                               "xlator.feature.locks.lock-dump.domain.inodelk",
+                                               "inodelk",
                                                "inodelk[%d](BLOCKED)",count );
                         SET_FLOCK_PID (&lock->user_flock, lock);
                         pl_dump_lock (tmp, 256, &lock->user_flock,
@@ -1693,7 +1693,7 @@ __dump_posixlks (pl_inode_t *pl_inode)
 
               SET_FLOCK_PID (&lock->user_flock, lock);
               gf_proc_dump_build_key(key,
-                                     "xlator.feature.locks.lock-dump.domain.posixlk",
+                                     "posixlk",
                                      "posixlk[%d](%s)",
                                      count,
                                      lock->blocked ? "BLOCKED" : "ACTIVE");
@@ -1728,7 +1728,6 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
         int             ret = -1;
         uint64_t        tmp_pl_inode = 0;
         pl_inode_t      *pl_inode = NULL;
-        char            key[GF_DUMP_MAX_BUF_LEN];
 
         int count      = 0;
 
@@ -1746,59 +1745,30 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
                 goto out;
         }
 
-        gf_proc_dump_build_key(key,
-                               "xlator.feature.locks.inode",
-                               "%ld.mandatory",inode->ino);
-        gf_proc_dump_write(key, "%d", pl_inode->mandatory);
+        gf_proc_dump_add_section("xlator.features.locks.%s.inode", this->name);
 
+        gf_proc_dump_write("mandatory", "%d", pl_inode->mandatory);
 
-                count = get_entrylk_count (this, inode);
-                gf_proc_dump_build_key(key,
-                                       "xlator.feature.locks.entrylk-count",
-                                       "%ld.entrylk-count", inode->ino);
-                gf_proc_dump_write(key, "%d", count);
-
+        count = get_entrylk_count (this, inode);
+        if (count) {
+                gf_proc_dump_write("entrylk-count", "%d", count);
                 dump_entrylks(pl_inode);
+        }
 
-                count = get_inodelk_count (this, inode);
-                gf_proc_dump_build_key(key,
-                                       "xlator.feature.locks.inodelk-count",
-                                       "%ld.inodelk-count", inode->ino);
-                gf_proc_dump_write(key, "%d", count);
-
+        count = get_inodelk_count (this, inode);
+        if (count) {
+                gf_proc_dump_write("inodlk-count", "%d", count);
                 dump_inodelks(pl_inode);
+        }
 
-                count = get_posixlk_count (this, inode);
-                gf_proc_dump_build_key(key,
-                                       "xlator.feature.locks.posixlk-count",
-                                       "%ld.posixlk-count", inode->ino);
-                gf_proc_dump_write(key, "%d", count);
-
+        count = get_posixlk_count (this, inode);
+        if (count) {
+                gf_proc_dump_write("posixlk-count", "%d", count);
                 dump_posixlks(pl_inode);
-
+        }
 
 out:
         return ret;
-}
-
-
-
-/*
- * pl_dump_inode - inode dump function for posix locks
- *
- */
-int
-pl_dump_inode (xlator_t *this)
-{
-
-        GF_ASSERT (this);
-
-        if (this->itable) {
-                inode_table_dump(this->itable,
-                                 "xlator.features.locks.inode_table");
-        }
-
-        return 0;
 }
 
 int32_t

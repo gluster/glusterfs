@@ -41,7 +41,6 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
 
         char prefix[GF_DUMP_MAX_BUF_LEN];
         va_list ap;
-        char key[GF_DUMP_MAX_BUF_LEN];
         call_frame_t my_frame;
         int  ret = -1;
 
@@ -66,32 +65,23 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
         memcpy(&my_frame, call_frame, sizeof(my_frame));
         UNLOCK(&call_frame->lock);
 
-        gf_proc_dump_build_key(key, prefix,"ref_count");
-        gf_proc_dump_write(key, "%d", my_frame.ref_count);
-        gf_proc_dump_build_key(key, prefix,"translator");
-        gf_proc_dump_write(key, "%s", my_frame.this->name);
-        gf_proc_dump_build_key(key, prefix,"complete");
-        gf_proc_dump_write(key, "%d", my_frame.complete);
-        if (my_frame.parent) {
-                gf_proc_dump_build_key(key, prefix,"parent");
-                gf_proc_dump_write(key, "%s", my_frame.parent->this->name);
-        }
-        if (my_frame.wind_from) {
-                gf_proc_dump_build_key(key, prefix, "wind_from");
-                gf_proc_dump_write(key, "%s", my_frame.wind_from);
-        }
-        if (my_frame.wind_to) {
-                gf_proc_dump_build_key(key, prefix, "wind_to");
-                gf_proc_dump_write(key, "%s", my_frame.wind_to);
-        }
-        if (my_frame.unwind_from) {
-                gf_proc_dump_build_key(key, prefix, "unwind_from");
-                gf_proc_dump_write(key, "%s", my_frame.unwind_from);
-        }
-        if (my_frame.unwind_to) {
-                gf_proc_dump_build_key(key, prefix, "unwind_to");
-                gf_proc_dump_write(key, "%s", my_frame.unwind_to);
-        }
+        gf_proc_dump_write("ref_count", "%d", my_frame.ref_count);
+        gf_proc_dump_write("translator", "%s", my_frame.this->name);
+        gf_proc_dump_write("complete", "%d", my_frame.complete);
+        if (my_frame.parent)
+                gf_proc_dump_write("parent", "%s", my_frame.parent->this->name);
+
+        if (my_frame.wind_from)
+                gf_proc_dump_write("wind_from", "%s", my_frame.wind_from);
+
+        if (my_frame.wind_to)
+                gf_proc_dump_write("wind_to", "%s", my_frame.wind_to);
+
+        if (my_frame.unwind_from)
+                gf_proc_dump_write("unwind_from", "%s", my_frame.unwind_from);
+
+        if (my_frame.unwind_to)
+                gf_proc_dump_write("unwind_to", "%s", my_frame.unwind_to);
 }
 
 
@@ -102,7 +92,6 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         va_list ap;
         call_frame_t *trav;
         int32_t cnt, i;
-        char key[GF_DUMP_MAX_BUF_LEN];
 
         if (!call_stack)
                 return;
@@ -116,25 +105,18 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         vsnprintf(prefix, GF_DUMP_MAX_BUF_LEN, key_buf, ap);
         va_end(ap);
 
-        gf_proc_dump_build_key(key, prefix,"uid");
-        gf_proc_dump_write(key, "%d", call_stack->uid);
-        gf_proc_dump_build_key(key, prefix,"gid");
-        gf_proc_dump_write(key, "%d", call_stack->gid);
-        gf_proc_dump_build_key(key, prefix,"pid");
-        gf_proc_dump_write(key, "%d", call_stack->pid);
-        gf_proc_dump_build_key(key, prefix,"unique");
-        gf_proc_dump_write(key, "%Ld", call_stack->unique);
+        gf_proc_dump_write("uid", "%d", call_stack->uid);
+        gf_proc_dump_write("gid", "%d", call_stack->gid);
+        gf_proc_dump_write("pid", "%d", call_stack->pid);
+        gf_proc_dump_write("unique", "%Ld", call_stack->unique);
 
-        gf_proc_dump_build_key(key, prefix,"op");
         if (call_stack->type == GF_OP_TYPE_FOP)
-                gf_proc_dump_write(key, "%s", gf_fop_list[call_stack->op]);
+                gf_proc_dump_write("op", "%s", gf_fop_list[call_stack->op]);
         else if (call_stack->type == GF_OP_TYPE_MGMT)
-                gf_proc_dump_write(key, "%s", gf_mgmt_list[call_stack->op]);
+                gf_proc_dump_write("op", "%s", gf_mgmt_list[call_stack->op]);
 
-        gf_proc_dump_build_key(key, prefix,"type");
-        gf_proc_dump_write(key, "%d", call_stack->type);
-        gf_proc_dump_build_key(key, prefix,"cnt");
-        gf_proc_dump_write(key, "%d", cnt);
+        gf_proc_dump_write("type", "%d", call_stack->type);
+        gf_proc_dump_write("cnt", "%d", cnt);
 
         trav = &call_stack->frames;
 
@@ -167,8 +149,8 @@ gf_proc_dump_pending_frames (call_pool_t *call_pool)
 
 
         gf_proc_dump_add_section("global.callpool");
-        gf_proc_dump_write("global.callpool","%p", call_pool);
-        gf_proc_dump_write("global.callpool.cnt","%d", call_pool->cnt);
+        gf_proc_dump_write("callpool_address","%p", call_pool);
+        gf_proc_dump_write("callpool.cnt","%d", call_pool->cnt);
 
 
         list_for_each_entry (trav, &call_pool->all_frames, all_frames) {

@@ -2236,25 +2236,19 @@ client_priv_dump (xlator_t *this)
         gf_proc_dump_add_section(key_prefix);
 
         list_for_each_entry(tmp, &conf->saved_fds, sfd_pos) {
-                gf_proc_dump_build_key(key, key_prefix,
-                                       "fd.%d.remote_fd", ++i);
+                sprintf (key, "fd.%d.remote_fd", ++i);
                 gf_proc_dump_write(key, "%d", tmp->remote_fd);
         }
 
-        gf_proc_dump_build_key(key, key_prefix, "connecting");
-        gf_proc_dump_write(key, "%d", conf->connecting);
-        gf_proc_dump_build_key(key, key_prefix, "last_sent");
-        gf_proc_dump_write(key, "%s", ctime(&conf->last_sent.tv_sec));
-        gf_proc_dump_build_key(key, key_prefix, "last_received");
-        gf_proc_dump_write(key, "%s", ctime(&conf->last_received.tv_sec));
+        gf_proc_dump_write("connecting", "%d", conf->connecting);
+        gf_proc_dump_write("last_sent", "%s", ctime(&conf->last_sent.tv_sec));
+        gf_proc_dump_write("last_received", "%s", ctime(&conf->last_received.tv_sec));
 
         if (conf->rpc) {
-                gf_proc_dump_build_key(key, key_prefix, "total_bytes_read");
-                gf_proc_dump_write(key, "%"PRIu64,
+                gf_proc_dump_write("total_bytes_read", "%"PRIu64,
                                    conf->rpc->conn.trans->total_bytes_read);
 
-                gf_proc_dump_build_key(key, key_prefix, "total_bytes_written");
-                gf_proc_dump_write(key, "%"PRIu64,
+                gf_proc_dump_write("total_bytes_written", "%"PRIu64,
                                    conf->rpc->conn.trans->total_bytes_write);
         }
         pthread_mutex_unlock(&conf->lock);
@@ -2266,26 +2260,13 @@ client_priv_dump (xlator_t *this)
 int32_t
 client_inodectx_dump (xlator_t *this, inode_t *inode)
 {
-        ino_t    par = 0;
-        uint64_t gen = 0;
-        int      ret = -1;
-        char     key[GF_DUMP_MAX_BUF_LEN];
-
         if (!inode)
                 return -1;
 
         if (!this)
                 return -1;
 
-        ret = inode_ctx_get2 (inode, this, &par, &gen);
-
-        if (ret != 0)
-                return ret;
-
-        gf_proc_dump_build_key(key, "xlator.protocol.client",
-                               "%s.inode.%ld.par",
-                               this->name,inode->ino);
-        gf_proc_dump_write(key, "%ld, %ld", par, gen);
+        /*TODO*/
 
         return 0;
 }

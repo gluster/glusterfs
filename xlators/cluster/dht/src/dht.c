@@ -106,56 +106,42 @@ dht_priv_dump (xlator_t *this)
         gf_proc_dump_add_section("xlator.cluster.dht.%s.priv", this->name);
         gf_proc_dump_build_key(key_prefix,"xlator.cluster.dht","%s.priv",
                                this->name);
-        gf_proc_dump_build_key(key, key_prefix, "subvolume_cnt");
-        gf_proc_dump_write(key,"%d", conf->subvolume_cnt);
+        gf_proc_dump_write("subvol_cnt","%d", conf->subvolume_cnt);
         for (i = 0; i < conf->subvolume_cnt; i++) {
-                gf_proc_dump_build_key(key, key_prefix, "subvolumes[%d]", i);
+                sprintf (key, "subvolumes[%d]", i);
                 gf_proc_dump_write(key, "%s.%s", conf->subvolumes[i]->type,
                                    conf->subvolumes[i]->name);
                 if (conf->file_layouts && conf->file_layouts[i]){
-                        gf_proc_dump_build_key(key, key_prefix,
-                                               "file_layouts[%d]",i);
+                        sprintf (key, "file_layouts[%d]", i);
                         dht_layout_dump(conf->file_layouts[i], key);
                 }
                 if (conf->dir_layouts && conf->dir_layouts[i]) {
-                        gf_proc_dump_build_key(key, key_prefix,
-                                               "dir_layouts[%d]",i);
+                        sprintf (key, "dir_layouts[%d]", i);
                         dht_layout_dump(conf->dir_layouts[i], key);
                 }
                 if (conf->subvolume_status) {
-                        gf_proc_dump_build_key(key, key_prefix,
-                                               "subvolume_status[%d]", i);
+
+                        sprintf (key, "subvolume_status[%d]", i);
                         gf_proc_dump_write(key, "%d",
                                            (int)conf->subvolume_status[i]);
                 }
 
         }
 
-        gf_proc_dump_build_key(key, key_prefix, "search_unhashed");
-        gf_proc_dump_write(key, "%d", conf->search_unhashed);
-        gf_proc_dump_build_key(key, key_prefix, "gen");
-        gf_proc_dump_write(key, "%d", conf->gen);
-        gf_proc_dump_build_key(key, key_prefix, "min_free_disk");
-        gf_proc_dump_write(key, "%lu", conf->min_free_disk);
-        gf_proc_dump_build_key(key, key_prefix, "disk_unit");
-        gf_proc_dump_write(key, "%c", conf->disk_unit);
-        gf_proc_dump_build_key(key, key_prefix, "refresh_interval");
-        gf_proc_dump_write(key, "%d", conf->refresh_interval);
-        gf_proc_dump_build_key(key, key_prefix, "unhashed_sticky_bit");
-        gf_proc_dump_write(key, "%d", conf->unhashed_sticky_bit);
+        gf_proc_dump_write("search_unhashed", "%d", conf->search_unhashed);
+        gf_proc_dump_write("gen", "%d", conf->gen);
+        gf_proc_dump_write("min_free_disk", "%lu", conf->min_free_disk);
+        gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
+        gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
+        gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
         if (conf ->du_stats) {
-                gf_proc_dump_build_key(key, key_prefix,
-                                       "du_stats.avail_percent");
-                gf_proc_dump_write(key, "%lf", conf->du_stats->avail_percent);
-                gf_proc_dump_build_key(key, key_prefix,
-                                       "du_stats.avail_space");
-                gf_proc_dump_write(key, "%lu", conf->du_stats->avail_space);
-                gf_proc_dump_build_key(key, key_prefix,
-                                       "du_stats.log");
-                gf_proc_dump_write(key, "%lu", conf->du_stats->log);
+                gf_proc_dump_write("du_stats.avail_percent", "%lf",
+                                   conf->du_stats->avail_percent);
+                gf_proc_dump_write("du_stats.avail_space", "%lu",
+                                   conf->du_stats->avail_space);
+                gf_proc_dump_write("du_stats.log", "%lu", conf->du_stats->log);
         }
-        gf_proc_dump_build_key(key, key_prefix, "last_stat_fetch");
-        gf_proc_dump_write(key, "%s", ctime(&conf->last_stat_fetch.tv_sec));
+        gf_proc_dump_write("last_stat_fetch", "%s", ctime(&conf->last_stat_fetch.tv_sec));
 
         UNLOCK(&conf->subvolume_lock);
 
@@ -167,7 +153,6 @@ int32_t
 dht_inodectx_dump (xlator_t *this, inode_t *inode)
 {
         int             ret = -1;
-        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
         dht_layout_t    *layout = NULL;
         uint64_t        tmp_layout = 0;
 
@@ -184,9 +169,8 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode)
         if (!layout)
                 return -1;
 
-        gf_proc_dump_build_key(key_prefix, "xlator.cluster.dht",
-                               "%s.inode.%ld", this->name, inode->ino);
-        dht_layout_dump(layout, key_prefix);
+        gf_proc_dump_add_section("xlator.cluster.dht.%s.inode", this->name);
+        dht_layout_dump(layout, "layout");
 
 out:
         return ret;

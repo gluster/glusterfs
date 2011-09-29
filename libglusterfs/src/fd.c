@@ -726,16 +726,9 @@ fd_dump (fd_t *fd, char *prefix)
                 return;
 
         memset(key, 0, sizeof(key));
-        gf_proc_dump_build_key(key, prefix, "pid");
-        gf_proc_dump_write(key, "%d", fd->pid);
-        gf_proc_dump_build_key(key, prefix, "refcount");
-        gf_proc_dump_write(key, "%d", fd->refcount);
-        gf_proc_dump_build_key(key, prefix, "flags");
-        gf_proc_dump_write(key, "%d", fd->flags);
-        if (fd->inode) {
-                gf_proc_dump_build_key(key, prefix, "inode");
-                gf_proc_dump_write(key, "%ld", fd->inode->ino);
-        }
+        gf_proc_dump_write("pid", "%d", fd->pid);
+        gf_proc_dump_write("refcount", "%d", fd->refcount);
+        gf_proc_dump_write("flags", "%d", fd->flags);
 }
 
 

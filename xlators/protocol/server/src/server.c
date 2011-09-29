@@ -189,24 +189,20 @@ server_fd (xlator_t *this)
         list_for_each_entry (trav, &conf->conns, list) {
                 if (trav->id) {
                         gf_proc_dump_build_key(key,
-                                               "xlator.protocol.server.conn",
-                                               "%d.id", i);
+                                               "conn","%d.id", i);
                         gf_proc_dump_write(key, "%s", trav->id);
                 }
 
-                gf_proc_dump_build_key(key,"xlator.protocol.server.conn",
-                                       "%d.ref",i)
+                gf_proc_dump_build_key(key,"conn","%d.ref",i)
                         gf_proc_dump_write(key, "%d", trav->ref);
                 if (trav->bound_xl) {
                         gf_proc_dump_build_key(key,
-                                               "xlator.protocol.server.conn",
-                                               "%d.bound_xl", i);
+                                               "conn","%d.bound_xl", i);
                         gf_proc_dump_write(key, "%s", trav->bound_xl->name);
                 }
 
                 gf_proc_dump_build_key(key,
-                                       "xlator.protocol.server.conn",
-                                       "%d.id", i);
+                                       "conn","%d.id", i);
                 fdtable_dump(trav->fdtable,key);
                 i++;
         }
@@ -277,8 +273,7 @@ server_inode (xlator_t *this)
         list_for_each_entry (trav, &conf->conns, list) {
                 if (trav->bound_xl && trav->bound_xl->itable) {
                         gf_proc_dump_build_key(key,
-                                               "xlator.protocol.server.conn",
-                                               "%d.bound_xl.%s",
+                                               "conn","%d.bound_xl.%s",
                                                i, trav->bound_xl->name);
                         inode_table_dump(trav->bound_xl->itable,key);
                         i++;

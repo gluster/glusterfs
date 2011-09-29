@@ -3275,28 +3275,28 @@ fuse_priv_dump (xlator_t  *this)
 
         gf_proc_dump_add_section("xlator.mount.fuse.priv");
 
-        gf_proc_dump_write("xlator.mount.fuse.priv.fd", "%d", private->fd);
-        gf_proc_dump_write("xlator.mount.fuse.priv.proto_minor", "%u",
+        gf_proc_dump_write("fd", "%d", private->fd);
+        gf_proc_dump_write("proto_minor", "%u",
                             private->proto_minor);
-        gf_proc_dump_write("xlator.mount.fuse.priv.volfile", "%s",
+        gf_proc_dump_write("volfile", "%s",
                             private->volfile?private->volfile:"None");
-        gf_proc_dump_write("xlator.mount.fuse.volfile_size", "%d",
+        gf_proc_dump_write("volfile_size", "%d",
                             private->volfile_size);
-        gf_proc_dump_write("xlator.mount.fuse.mount_point", "%s",
+        gf_proc_dump_write("mount_point", "%s",
                             private->mount_point);
-        gf_proc_dump_write("xlator.mount.fuse.iobuf", "%u",
+        gf_proc_dump_write("iobuf", "%u",
                             private->iobuf);
-        gf_proc_dump_write("xlator.mount.fuse.fuse_thread_started", "%d",
+        gf_proc_dump_write("fuse_thread_started", "%d",
                             (int)private->fuse_thread_started);
-        gf_proc_dump_write("xlator.mount.fuse.direct_io_mode", "%d",
+        gf_proc_dump_write("direct_io_mode", "%d",
                             private->direct_io_mode);
-        gf_proc_dump_write("xlator.mount.fuse.entry_timeout", "%lf",
+        gf_proc_dump_write("entry_timeout", "%lf",
                             private->entry_timeout);
-        gf_proc_dump_write("xlator.mount.fuse.attribute_timeout", "%lf",
+        gf_proc_dump_write("attribute_timeout", "%lf",
                             private->attribute_timeout);
-        gf_proc_dump_write("xlator.mount.fuse.init_recvd", "%d",
+        gf_proc_dump_write("init_recvd", "%d",
                             (int)private->init_recvd);
-        gf_proc_dump_write("xlator.mount.fuse.strict_volfile_check", "%d",
+        gf_proc_dump_write("strict_volfile_check", "%d",
                             (int)private->strict_volfile_check);
 
         return 0;

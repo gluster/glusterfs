@@ -2678,7 +2678,6 @@ int
 wb_priv_dump (xlator_t *this)
 {
         wb_conf_t      *conf                            = NULL;
-        char            key[GF_DUMP_MAX_BUF_LEN]        = {0, };
         char            key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         int             ret                             = -1;
 
@@ -2692,18 +2691,13 @@ wb_priv_dump (xlator_t *this)
 
         gf_proc_dump_add_section (key_prefix);
 
-        gf_proc_dump_build_key (key, key_prefix, "aggregate_size");
-        gf_proc_dump_write (key, "%d", conf->aggregate_size);
-        gf_proc_dump_build_key (key, key_prefix, "window_size");
-        gf_proc_dump_write (key, "%d", conf->window_size);
-        gf_proc_dump_build_key (key, key_prefix, "disable_till");
-        gf_proc_dump_write (key, "%d", conf->disable_till);
-        gf_proc_dump_build_key (key, key_prefix, "enable_O_SYNC");
-        gf_proc_dump_write (key, "%d", conf->enable_O_SYNC);
-        gf_proc_dump_build_key (key, key_prefix, "flush_behind");
-        gf_proc_dump_write (key, "%d", conf->flush_behind);
-        gf_proc_dump_build_key (key, key_prefix, "enable_trickling_writes");
-        gf_proc_dump_write (key, "%d", conf->enable_trickling_writes);
+        gf_proc_dump_write ("aggregate_size", "%d", conf->aggregate_size);
+        gf_proc_dump_write ("window_size", "%d", conf->window_size);
+        gf_proc_dump_write ("disable_till", "%d", conf->disable_till);
+        gf_proc_dump_write ("enable_O_SYNC", "%d", conf->enable_O_SYNC);
+        gf_proc_dump_write ("flush_behind", "%d", conf->flush_behind);
+        gf_proc_dump_write ("enable_trickling_writes", "%d",
+                            conf->enable_trickling_writes);
 
         ret = 0;
 out:
@@ -2726,46 +2720,34 @@ __wb_dump_requests (struct list_head *head, char *prefix, char passive)
 
                 gf_proc_dump_add_section(key_prefix);
 
-                gf_proc_dump_build_key (key, key_prefix, "request-ptr");
-                gf_proc_dump_write (key, "%p", request);
+                gf_proc_dump_write ("request-ptr", "%p", request);
 
-                gf_proc_dump_build_key (key, key_prefix, "refcount");
-                gf_proc_dump_write (key, "%d", request->refcount);
+                gf_proc_dump_write ("refcount", "%d", request->refcount);
 
                 if (request->fop == GF_FOP_WRITE) {
                         flag = request->flags.write_request.stack_wound;
-                        gf_proc_dump_build_key (key, key_prefix, "stack_wound");
-                        gf_proc_dump_write (key, "%d", flag);
+                        gf_proc_dump_write ("stack_wound", "%d", flag);
 
-                        gf_proc_dump_build_key (key, key_prefix, "size");
-                        gf_proc_dump_write (key, "%"GF_PRI_SIZET,
+                        gf_proc_dump_write ("size", "%"GF_PRI_SIZET,
                                             request->write_size);
 
-                        gf_proc_dump_build_key (key, key_prefix, "offset");
-                        gf_proc_dump_write (key, "%"PRId64,
+                        gf_proc_dump_write ("offset", "%"PRId64,
                                             request->stub->args.writev.off);
 
                         flag = request->flags.write_request.write_behind;
-                        gf_proc_dump_build_key (key, key_prefix,
-                                                "write_behind");
-                        gf_proc_dump_write (key, "%d", flag);
+                        gf_proc_dump_write ("write_behind", "%d", flag);
 
                         flag = request->flags.write_request.got_reply;
-                        gf_proc_dump_build_key (key, key_prefix, "got_reply");
-                        gf_proc_dump_write (key, "%d", flag);
+                        gf_proc_dump_write ("got_reply", "%d", flag);
 
                         flag = request->flags.write_request.virgin;
-                        gf_proc_dump_build_key (key, key_prefix, "virgin");
-                        gf_proc_dump_write (key, "%d", flag);
+                        gf_proc_dump_write ("virgin", "%d", flag);
 
                         flag = request->flags.write_request.flush_all;
-                        gf_proc_dump_build_key (key, key_prefix, "flush_all");
-                        gf_proc_dump_write (key, "%d", flag);
+                        gf_proc_dump_write ("flush_all", "%d", flag);
                 } else {
                         flag = request->flags.other_requests.marked_for_resume;
-                        gf_proc_dump_build_key (key, key_prefix,
-                                                "marked_for_resume");
-                        gf_proc_dump_write (key, "%d", flag);
+                        gf_proc_dump_write ("marked_for_resume", "%d", flag);
                 }
         }
 }
@@ -2778,7 +2760,6 @@ wb_file_dump (xlator_t *this, fd_t *fd)
         uint64_t   tmp_file                        = 0;
         int32_t    ret                             = -1;
         char      *path                            = NULL;
-        char       key[GF_DUMP_MAX_BUF_LEN]        = {0, };
         char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
 
         if ((fd == NULL) || (this == NULL)) {
@@ -2805,41 +2786,30 @@ wb_file_dump (xlator_t *this, fd_t *fd)
 
         __inode_path (fd->inode, NULL, &path);
         if (path != NULL) {
-                gf_proc_dump_build_key (key, key_prefix, "path");
-                gf_proc_dump_write (key, "%s", path);
+                gf_proc_dump_write ("path", "%s", path);
                 GF_FREE (path);
         }
 
-        gf_proc_dump_build_key (key, key_prefix, "fd");
-        gf_proc_dump_write (key, "%p", fd);
+        gf_proc_dump_write ("fd", "%p", fd);
 
-        gf_proc_dump_build_key (key, key_prefix, "disabled");
-        gf_proc_dump_write (key, "%d", file->disabled);
+        gf_proc_dump_write ("disabled", "%d", file->disabled);
 
-        gf_proc_dump_build_key (key, key_prefix, "disable_till");
-        gf_proc_dump_write (key, "%lu", file->disable_till);
+        gf_proc_dump_write ("disable_till", "%lu", file->disable_till);
 
-        gf_proc_dump_build_key (key, key_prefix, "window_conf");
-        gf_proc_dump_write (key, "%"GF_PRI_SIZET, file->window_conf);
+        gf_proc_dump_write ("window_conf", "%"GF_PRI_SIZET, file->window_conf);
 
-        gf_proc_dump_build_key (key, key_prefix, "window_current");
-        gf_proc_dump_write (key, "%"GF_PRI_SIZET, file->window_current);
+        gf_proc_dump_write ("window_current", "%"GF_PRI_SIZET, file->window_current);
 
-        gf_proc_dump_build_key (key, key_prefix, "flags");
-        gf_proc_dump_write (key, "%s", (file->flags & O_APPEND) ? "O_APPEND"
+        gf_proc_dump_write ("flags", "%s", (file->flags & O_APPEND) ? "O_APPEND"
                             : "!O_APPEND");
 
-        gf_proc_dump_build_key (key, key_prefix, "aggregate_current");
-        gf_proc_dump_write (key, "%"GF_PRI_SIZET, file->aggregate_current);
+        gf_proc_dump_write ("aggregate_current", "%"GF_PRI_SIZET, file->aggregate_current);
 
-        gf_proc_dump_build_key (key, key_prefix, "refcount");
-        gf_proc_dump_write (key, "%d", file->refcount);
+        gf_proc_dump_write ("refcount", "%d", file->refcount);
 
-        gf_proc_dump_build_key (key, key_prefix, "op_ret");
-        gf_proc_dump_write (key, "%d", file->op_ret);
+        gf_proc_dump_write ("op_ret", "%d", file->op_ret);
 
-        gf_proc_dump_build_key (key, key_prefix, "op_errno");
-        gf_proc_dump_write (key, "%d", file->op_errno);
+        gf_proc_dump_write ("op_errno", "%d", file->op_errno);
 
         LOCK (&file->lock);
         {
