@@ -3743,6 +3743,7 @@ nfs3_rename_resume_src (void *carg)
          */
         nfs_loc_copy (&cs->oploc, &cs->resolvedloc);
         nfs_loc_wipe (&cs->resolvedloc);
+        GF_FREE (cs->resolventry);
 
         ret = nfs3_fh_resolve_and_resume (cs, &cs->fh, cs->pathname,
                                           nfs3_rename_resume_dst);
