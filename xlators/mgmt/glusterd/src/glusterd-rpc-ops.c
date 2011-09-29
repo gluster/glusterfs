@@ -1533,6 +1533,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = glusterd_volume_status_use_rsp_dict (dict);
                         if (ret)
                                 goto out;
+                break;
 
                 case GD_OP_REBALANCE:
                         ret = glusterd_volume_rebalance_use_rsp_dict (dict);
