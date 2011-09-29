@@ -104,8 +104,11 @@ sh_loop_driver_done (call_frame_t *sh_frame, xlator_t *this,
         local        = sh_frame->local;
         sh           = &local->self_heal;
         sh_priv      = sh->private;
-        total_blocks = sh_priv->total_blocks;
-        diff_blocks  = sh_priv->diff_blocks;
+
+        if (sh_priv) {
+                total_blocks = sh_priv->total_blocks;
+                diff_blocks  = sh_priv->diff_blocks;
+        }
 
         sh_private_cleanup (sh_frame, this);
         if (sh->op_failed) {
@@ -202,7 +205,8 @@ sh_loop_lock_failure (call_frame_t *loop_frame, xlator_t *this)
 
         gf_log (this->name, GF_LOG_ERROR, "failed lock for range %"PRIu64
                 " %"PRIu64, loop_sh->offset, loop_sh->block_size);
-        sh_loop_finish (loop_sh->old_loop_frame, this);
+        if (loop_sh->old_loop_frame != loop_sh->sh_frame)
+                sh_loop_finish (loop_sh->old_loop_frame, this);
         loop_sh->old_loop_frame = NULL;
         sh_loop_return (sh_frame, this, loop_frame, -1, ENOTCONN);
         return 0;
@@ -250,8 +254,6 @@ sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
                 goto out;
         new_loop_sh->offset = offset;
         new_loop_sh->block_size = sh->block_size;
-        new_loop_sh->old_loop_frame = old_loop_frame;
-        new_loop_sh->sh_frame = sh_frame;
         new_loop_sh->inode      = inode_ref (sh->inode);
         new_loop_sh->sh_data_algo_start = sh->sh_data_algo_start;
         new_loop_sh->source = sh->source;
@@ -259,6 +261,8 @@ sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
         new_loop_sh->healing_fd = fd_ref (sh->healing_fd);
         new_loop_sh->file_has_holes = sh->file_has_holes;
         new_loop_sh->loop_completion_cbk = sh_destroy_frame;
+        new_loop_sh->old_loop_frame = old_loop_frame;
+        new_loop_sh->sh_frame = sh_frame;
         afr_sh_data_lock (new_loop_frame, this, offset, new_loop_sh->block_size,
                           sh_loop_lock_success, sh_loop_lock_failure);
         return 0;
@@ -267,7 +271,7 @@ out:
         if (new_loop_frame) {
                 new_loop_frame->local = new_loop_local;
         }
-        if (old_loop_frame)
+        if (old_loop_frame != sh_frame)
                 sh_loop_finish (old_loop_frame, this);
         sh_loop_return (sh_frame, this, new_loop_frame, -1, ENOMEM);
         return 0;
@@ -365,6 +369,7 @@ sh_loop_return (call_frame_t *sh_frame, xlator_t *this, call_frame_t *loop_frame
         sh       = &sh_local->self_heal;
 
         if (loop_frame) {
+                GF_ASSERT (loop_frame != sh_frame);
                 loop_local = loop_frame->local;
                 if (loop_local)
                         loop_sh    = &loop_local->self_heal;
@@ -698,8 +703,11 @@ afr_sh_start_loops (call_frame_t *sh_frame, xlator_t *this,
 
         sh_priv = GF_CALLOC (1, sizeof (*sh_priv),
                              gf_afr_mt_afr_private_t);
-        if (!sh_priv)
+        if (!sh_priv) {
+                sh->op_failed = 1;
+                sh_loop_driver_done (sh_frame, this, NULL);
                 goto out;
+        }
 
         LOCK_INIT (&sh_priv->lock);
 

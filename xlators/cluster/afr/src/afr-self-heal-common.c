@@ -1974,7 +1974,6 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         shc->do_metadata_self_heal = sh->do_metadata_self_heal;
         shc->do_entry_self_heal = sh->do_entry_self_heal;
         shc->forced_merge = sh->forced_merge;
-        shc->data_lock_held = sh->data_lock_held;
         shc->background = sh->background;
         shc->type = sh->type;
 
