@@ -3334,41 +3334,28 @@ afr_priv_dump (xlator_t *this)
         GF_ASSERT (priv);
         snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
         gf_proc_dump_add_section(key_prefix);
-        gf_proc_dump_build_key(key, key_prefix, "child_count");
-        gf_proc_dump_write(key, "%u", priv->child_count);
-        gf_proc_dump_build_key(key, key_prefix, "read_child_rr");
-        gf_proc_dump_write(key, "%u", priv->read_child_rr);
+        gf_proc_dump_write("child_count", "%u", priv->child_count);
+        gf_proc_dump_write("read_child_rr", "%u", priv->read_child_rr);
         for (i = 0; i < priv->child_count; i++) {
-                gf_proc_dump_build_key(key, key_prefix, "child_up[%d]", i);
+                sprintf (key, "child_up[%d]", i);
                 gf_proc_dump_write(key, "%d", priv->child_up[i]);
-                gf_proc_dump_build_key(key, key_prefix,
-                                       "pending_key[%d]", i);
+                sprintf (key, "pending_key[%d]", i);
                 gf_proc_dump_write(key, "%s", priv->pending_key[i]);
         }
-        gf_proc_dump_build_key(key, key_prefix, "data_self_heal");
-        gf_proc_dump_write(key, "%s", priv->data_self_heal);
-        gf_proc_dump_build_key(key, key_prefix, "metadata_self_heal");
-        gf_proc_dump_write(key, "%d", priv->metadata_self_heal);
-        gf_proc_dump_build_key(key, key_prefix, "entry_self_heal");
-        gf_proc_dump_write(key, "%d", priv->entry_self_heal);
-        gf_proc_dump_build_key(key, key_prefix, "data_change_log");
-        gf_proc_dump_write(key, "%d", priv->data_change_log);
-        gf_proc_dump_build_key(key, key_prefix, "metadata_change_log");
-        gf_proc_dump_write(key, "%d", priv->metadata_change_log);
-        gf_proc_dump_build_key(key, key_prefix, "entry_change_log");
-        gf_proc_dump_write(key, "%d", priv->entry_change_log);
-        gf_proc_dump_build_key(key, key_prefix, "read_child");
-        gf_proc_dump_write(key, "%d", priv->read_child);
-        gf_proc_dump_build_key(key, key_prefix, "favorite_child");
-        gf_proc_dump_write(key, "%d", priv->favorite_child);
-        gf_proc_dump_build_key(key, key_prefix, "data_lock_server_count");
-        gf_proc_dump_write(key, "%u", priv->data_lock_server_count);
-        gf_proc_dump_build_key(key, key_prefix, "metadata_lock_server_count");
-        gf_proc_dump_write(key, "%u", priv->metadata_lock_server_count);
-        gf_proc_dump_build_key(key, key_prefix, "entry_lock_server_count");
-        gf_proc_dump_write(key, "%u", priv->entry_lock_server_count);
-        gf_proc_dump_build_key(key, key_prefix, "wait_count");
-        gf_proc_dump_write(key, "%u", priv->wait_count);
+        gf_proc_dump_write("data_self_heal", "%s", priv->data_self_heal);
+        gf_proc_dump_write("metadata_self_heal", "%d", priv->metadata_self_heal);
+        gf_proc_dump_write("entry_self_heal", "%d", priv->entry_self_heal);
+        gf_proc_dump_write("data_change_log", "%d", priv->data_change_log);
+        gf_proc_dump_write("metadata_change_log", "%d", priv->metadata_change_log);
+        gf_proc_dump_write("entry-change_log", "%d", priv->entry_change_log);
+        gf_proc_dump_write("read_child", "%d", priv->read_child);
+        gf_proc_dump_write("favorite_child", "%d", priv->favorite_child);
+        gf_proc_dump_write("data_lock_server_count", "%u", priv->data_lock_server_count);
+        gf_proc_dump_write("metadata_lock_server_count", "%u",
+                           priv->metadata_lock_server_count);
+        gf_proc_dump_write("entry_lock_server_count", "%u",
+                           priv->entry_lock_server_count);
+        gf_proc_dump_write("wait_count", "%u", priv->wait_count);
 
         return 0;
 }

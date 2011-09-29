@@ -3204,7 +3204,6 @@ qr_inodectx_dump (xlator_t *this, inode_t *inode)
         qr_inode_t *qr_inode = NULL;
         uint64_t    value    = 0;
         int32_t     ret      = -1;
-        char        key[GF_DUMP_MAX_BUF_LEN]        = {0, };
         char        key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         char        buf[256]                        = {0, };
         struct tm  *tm                              = NULL;
@@ -3222,23 +3221,14 @@ qr_inodectx_dump (xlator_t *this, inode_t *inode)
                                 "inodectx");
         gf_proc_dump_add_section (key_prefix);
 
-        gf_proc_dump_build_key (key, key_prefix, "inode.gfid");
-        uuid_unparse (inode->gfid, buf);
-        gf_proc_dump_write (key, "%s", buf);
-
-        gf_proc_dump_build_key (key, key_prefix, "inode.ino");
-        gf_proc_dump_write (key, "%ld", inode->ino);
-
-        gf_proc_dump_build_key (key, key_prefix, "entire-file-cached");
-        gf_proc_dump_write (key, "%s", qr_inode->xattr ? "yes" : "no");
+        gf_proc_dump_write ("entire-file-cached", "%s", qr_inode->xattr ? "yes" : "no");
 
         tm = localtime (&qr_inode->tv.tv_sec);
         strftime (buf, 256, "%Y-%m-%d %H:%M:%S", tm);
         snprintf (buf + strlen (buf), 256 - strlen (buf),
                   ".%"GF_PRI_SUSECONDS, qr_inode->tv.tv_usec);
 
-        gf_proc_dump_build_key (key, key_prefix, "last-cache-validation-time");
-        gf_proc_dump_write (key, "%s", buf);
+        gf_proc_dump_write ("last-cache-validation-time", "%s", buf);
 
         ret = 0;
 out:
@@ -3251,7 +3241,6 @@ qr_fdctx_dump (xlator_t *this, fd_t *fd)
         qr_fd_ctx_t *fdctx = NULL;
         uint64_t     value = 0;
         int32_t      ret   = 0, i = 0;
-        char         uuidbuf[256]                    = {0, };
         char         key[GF_DUMP_MAX_BUF_LEN]        = {0, };
         char         key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         call_stub_t *stub                            = NULL;
@@ -3270,45 +3259,31 @@ qr_fdctx_dump (xlator_t *this, fd_t *fd)
                                 "fdctx");
         gf_proc_dump_add_section (key_prefix);
 
-        gf_proc_dump_build_key (key, key_prefix, "fd");
-        gf_proc_dump_write (key, "%p", fd);
+        gf_proc_dump_write ("fd", "%p", fd);
 
-        gf_proc_dump_build_key (key, key_prefix, "path");
-        gf_proc_dump_write (key, "%s", fdctx->path);
-
-        gf_proc_dump_build_key (key, key_prefix, "fd.inode.gfid");
-        uuid_unparse (fd->inode->gfid, uuidbuf);
-        gf_proc_dump_write (key, "%s", uuidbuf);
-
-        gf_proc_dump_build_key (key, key_prefix, "fd.inode.ino");
-        gf_proc_dump_write (key, "%ld", fd->inode->ino);
+        gf_proc_dump_write ("path", "%s", fdctx->path);
 
         LOCK (&fdctx->lock);
         {
-                gf_proc_dump_build_key (key, key_prefix, "opened");
-                gf_proc_dump_write (key, "%s", fdctx->opened ? "yes" : "no");
+                gf_proc_dump_write ("opened", "%s", fdctx->opened ? "yes" : "no");
 
-                gf_proc_dump_build_key (key, key_prefix, "open-in-progress");
-                gf_proc_dump_write (key, "%s", fdctx->open_in_transit ?
+                gf_proc_dump_write ("open-in-progress", "%s", fdctx->open_in_transit ?
                                     "yes" : "no");
 
-                gf_proc_dump_build_key (key, key_prefix,
-                                        "caching-disabled (for this fd)");
-                gf_proc_dump_write (key, "%s", fdctx->disabled ? "yes" : "no");
+                gf_proc_dump_write ("caching disabled (for this fd)", "%s",
+                                    fdctx->disabled ? "yes" : "no");
 
-                gf_proc_dump_build_key (key, key_prefix, "flags");
-                gf_proc_dump_write (key, "%d", fdctx->flags);
+                gf_proc_dump_write ("flags", "%d", fdctx->flags);
 
-                gf_proc_dump_build_key (key, key_prefix, "wbflags");
-                gf_proc_dump_write (key, "%d", fdctx->wbflags);
+                gf_proc_dump_write ("wbflags", "%d", fdctx->wbflags);
 
                 list_for_each_entry (stub, &fdctx->waiting_ops, list) {
-                        gf_proc_dump_build_key (key, key_prefix,
+                        gf_proc_dump_build_key (key, "",
                                                 "waiting-ops[%d].frame", i);
                         gf_proc_dump_write (key, "%"PRId64,
                                             stub->frame->root->unique);
 
-                        gf_proc_dump_build_key (key, key_prefix,
+                        gf_proc_dump_build_key (key, "",
                                                 "waiting-ops[%d].fop", i);
                         gf_proc_dump_write (key, "%s", gf_fop_list[stub->fop]);
 
@@ -3332,7 +3307,6 @@ qr_priv_dump (xlator_t *this)
         uint32_t          i          = 0;
         qr_inode_t       *curr       = NULL;
         uint64_t          total_size = 0;
-        char              key[GF_DUMP_MAX_BUF_LEN];
         char              key_prefix[GF_DUMP_MAX_BUF_LEN];
 
         if (!this) {
@@ -3355,10 +3329,8 @@ qr_priv_dump (xlator_t *this)
 
         gf_proc_dump_add_section (key_prefix);
 
-        gf_proc_dump_build_key (key, key_prefix, "max_file_size");
-        gf_proc_dump_write (key, "%d", conf->max_file_size);
-        gf_proc_dump_build_key (key, key_prefix, "cache_timeout");
-        gf_proc_dump_write (key, "%d", conf->cache_timeout);
+        gf_proc_dump_write ("max_file_size", "%d", conf->max_file_size);
+        gf_proc_dump_write ("cache_timeout", "%d", conf->cache_timeout);
 
         if (!table) {
                 gf_log (this->name, GF_LOG_WARNING, "table is NULL");
@@ -3372,10 +3344,8 @@ qr_priv_dump (xlator_t *this)
                 }
         }
 
-        gf_proc_dump_build_key (key, key_prefix, "total_files_cached");
-        gf_proc_dump_write (key, "%d", file_count);
-        gf_proc_dump_build_key (key, key_prefix, "total_cache_used");
-        gf_proc_dump_write (key, "%d", total_size);
+        gf_proc_dump_write ("total_files_cached", "%d", file_count);
+        gf_proc_dump_write ("total_cache_used", "%d", total_size);
 
 out:
         return 0;

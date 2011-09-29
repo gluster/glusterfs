@@ -1738,8 +1738,7 @@ ioc_page_waitq_dump (ioc_page_t *page, char *prefix)
 
         while (trav) {
                 frame = trav->data;
-                gf_proc_dump_build_key (key, prefix,
-                                        "waitq.frame[%d]", i++);
+                sprintf (key, "waitq.frame[%d]", i++);
                 gf_proc_dump_write (key, "%"PRId64, frame->root->unique);
 
                 trav = trav->next;
@@ -1758,9 +1757,8 @@ __ioc_inode_waitq_dump (ioc_inode_t *ioc_inode, char *prefix)
 
         while (trav) {
                 page = trav->data;
-                gf_proc_dump_build_key (key, prefix,
-                                        "cache-validation-waitq.page[%d].offset",
-                                        i++);
+
+                sprintf (key, "cache-validation-waitq.page[%d].offset", i++);
                 gf_proc_dump_write (key, "%"PRId64, page->offset);
 
                 trav = trav->next;
@@ -1770,18 +1768,13 @@ __ioc_inode_waitq_dump (ioc_inode_t *ioc_inode, char *prefix)
 void
 __ioc_page_dump (ioc_page_t *page, char *prefix)
 {
-        char key[GF_DUMP_MAX_BUF_LEN] = {0, };
 
         ioc_page_lock (page);
         {
-                gf_proc_dump_build_key (key, prefix, "offset");
-                gf_proc_dump_write (key, "%"PRId64, page->offset);
-                gf_proc_dump_build_key (key, prefix, "size");
-                gf_proc_dump_write (key, "%"PRId64, page->size);
-                gf_proc_dump_build_key (key, prefix, "dirty");
-                gf_proc_dump_write (key, "%s", page->dirty ? "yes" : "no");
-                gf_proc_dump_build_key (key, prefix, "ready");
-                gf_proc_dump_write (key, "%s", page->ready ? "yes" : "no");
+                gf_proc_dump_write ("offset", "%"PRId64, page->offset);
+                gf_proc_dump_write ("size", "%"PRId64, page->size);
+                gf_proc_dump_write ("dirty", "%s", page->dirty ? "yes" : "no");
+                gf_proc_dump_write ("ready", "%s", page->ready ? "yes" : "no");
                 ioc_page_waitq_dump (page, prefix);
         }
         ioc_page_unlock (page);
@@ -1809,8 +1802,7 @@ __ioc_cache_dump (ioc_inode_t *ioc_inode, char *prefix)
         snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
                   ".%"GF_PRI_SUSECONDS, ioc_inode->cache.tv.tv_usec);
 
-        gf_proc_dump_build_key (key, prefix, "last-cache-validation-time");
-        gf_proc_dump_write (key, "%s", timestr);
+        gf_proc_dump_write ("last-cache-validation-time", "%s", timestr);
 
         for (offset = 0; offset < ioc_inode->ia_size;
              offset += table->page_size) {
@@ -1819,9 +1811,7 @@ __ioc_cache_dump (ioc_inode_t *ioc_inode, char *prefix)
                         continue;
                 }
 
-                gf_proc_dump_build_key (key, prefix,
-                                        "inode.cache.page[%d]", i++);
-
+                sprintf (key, "inode.cache.page[%d]", i++);
                 __ioc_page_dump (page, key);
         }
 out:
@@ -1832,22 +1822,14 @@ out:
 void
 ioc_inode_dump (ioc_inode_t *ioc_inode, char *prefix)
 {
-        char key[GF_DUMP_MAX_BUF_LEN] = {0, };
-        char uuidbuf[256]             = {0, };
 
-        if ((ioc_inode == NULL) || (prefix == NULL)) {
+       if ((ioc_inode == NULL) || (prefix == NULL)) {
                 goto out;
         }
 
         ioc_inode_lock (ioc_inode);
         {
-                gf_proc_dump_build_key (key, prefix, "\ninode.gfid");
-                uuid_unparse (ioc_inode->inode->gfid, uuidbuf);
-                gf_proc_dump_write (key, "%s", uuidbuf);
-                gf_proc_dump_build_key (key, prefix, "inode.ino");
-                gf_proc_dump_write (key, "%ld", ioc_inode->inode->ino);
-                gf_proc_dump_build_key (key, prefix, "inode.weight");
-                gf_proc_dump_write (key, "%d", ioc_inode->weight);
+                gf_proc_dump_write ("inode.weight", "%d", ioc_inode->weight);
                 __ioc_cache_dump (ioc_inode, prefix);
                 __ioc_inode_waitq_dump (ioc_inode, prefix);
         }
@@ -1862,7 +1844,6 @@ ioc_priv_dump (xlator_t *this)
         ioc_table_t *priv                            = NULL;
         ioc_inode_t *ioc_inode                       = NULL;
         char         key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
-        char         key[GF_DUMP_MAX_BUF_LEN]        = {0, };
 
         if (!this || !this->private)
                 goto out;
@@ -1874,20 +1855,13 @@ ioc_priv_dump (xlator_t *this)
 
         ioc_table_lock (priv);
         {
-                gf_proc_dump_build_key (key, key_prefix, "page_size");
-                gf_proc_dump_write (key, "%ld", priv->page_size);
-                gf_proc_dump_build_key (key, key_prefix, "cache_size");
-                gf_proc_dump_write (key, "%ld", priv->cache_size);
-                gf_proc_dump_build_key (key, key_prefix, "cache_used");
-                gf_proc_dump_write (key, "%ld", priv->cache_used);
-                gf_proc_dump_build_key (key, key_prefix, "inode_count");
-                gf_proc_dump_write (key, "%u", priv->inode_count);
-                gf_proc_dump_build_key (key, key_prefix, "cache_timeout");
-                gf_proc_dump_write (key, "%u", priv->cache_timeout);
-                gf_proc_dump_build_key (key, key_prefix, "min-file-size");
-                gf_proc_dump_write (key, "%u", priv->min_file_size);
-                gf_proc_dump_build_key (key, key_prefix, "max-file-size");
-                gf_proc_dump_write (key, "%u", priv->max_file_size);
+                gf_proc_dump_write ("page_size", "%ld", priv->page_size);
+                gf_proc_dump_write ("cache_size", "%ld", priv->cache_size);
+                gf_proc_dump_write ("cache_used", "%ld", priv->cache_used);
+                gf_proc_dump_write ("inode_count", "%u", priv->inode_count);
+                gf_proc_dump_write ("cache_timeout", "%u", priv->cache_timeout);
+                gf_proc_dump_write ("min-file-size", "%u", priv->min_file_size);
+                gf_proc_dump_write ("max-file-size", "%u", priv->max_file_size);
 
                 list_for_each_entry (ioc_inode, &priv->inodes, inode_list) {
                         ioc_inode_dump (ioc_inode, key_prefix);

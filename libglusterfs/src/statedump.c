@@ -139,8 +139,6 @@ gf_proc_dump_write (char *key, char *value,...)
 static void
 gf_proc_dump_xlator_mem_info (xlator_t *xl)
 {
-        char    key[GF_DUMP_MAX_BUF_LEN];
-        char    prefix[GF_DUMP_MAX_BUF_LEN];
         int     i = 0;
         struct mem_acct rec = {0,};
 
@@ -158,20 +156,17 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
                               sizeof (struct mem_acct))))
                         continue;
 
-                gf_proc_dump_add_section ("%s.%s - usage-type %d", xl->type,
-                                          xl->name,i);
-                gf_proc_dump_build_key (prefix, "memusage", "%s.%s.type.%d",
-                                        xl->type, xl->name, i);
-                gf_proc_dump_build_key (key, prefix, "size");
-                gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].size);
-                gf_proc_dump_build_key (key, prefix, "num_allocs");
-                gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].num_allocs);
-                gf_proc_dump_build_key (key, prefix, "max_size");
-                gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].max_size);
-                gf_proc_dump_build_key (key, prefix, "max_num_allocs");
-                gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].max_num_allocs);
-                gf_proc_dump_build_key (key, prefix, "total_allocs");
-                gf_proc_dump_write (key, "%u", xl->mem_acct.rec[i].total_allocs);
+                gf_proc_dump_add_section ("%s.%s - usage-type %d memusage",
+                                          xl->type, xl->name, i);
+                gf_proc_dump_write ("size", "%u", xl->mem_acct.rec[i].size);
+                gf_proc_dump_write ("num_allocs", "%u",
+                                    xl->mem_acct.rec[i].num_allocs);
+                gf_proc_dump_write ("max_size", "%u",
+                                    xl->mem_acct.rec[i].max_size);
+                gf_proc_dump_write ("max_num_allocs", "%u",
+                                    xl->mem_acct.rec[i].max_num_allocs);
+                gf_proc_dump_write ("total_allocs", "%u",
+                                    xl->mem_acct.rec[i].total_allocs);
         }
 
         return;

@@ -1495,7 +1495,6 @@ inode_ctx_del (inode_t *inode, xlator_t *key, uint64_t *value)
 void
 inode_dump (inode_t *inode, char *prefix)
 {
-        char               key[GF_DUMP_MAX_BUF_LEN];
         int                ret       = -1;
         xlator_t          *xl        = NULL;
         int                i         = 0;
@@ -1518,16 +1517,10 @@ inode_dump (inode_t *inode, char *prefix)
         }
 
         {
-                gf_proc_dump_build_key(key, prefix, "gfid");
-                gf_proc_dump_write(key, "%s", uuid_utoa (inode->gfid));
-                gf_proc_dump_build_key(key, prefix, "nlookup");
-                gf_proc_dump_write(key, "%ld", inode->nlookup);
-                gf_proc_dump_build_key(key, prefix, "ref");
-                gf_proc_dump_write(key, "%u", inode->ref);
-                gf_proc_dump_build_key(key, prefix, "ino");
-                gf_proc_dump_write(key, "%ld", inode->ino);
-                gf_proc_dump_build_key(key, prefix, "ia_type");
-                gf_proc_dump_write(key, "%d", inode->ia_type);
+                gf_proc_dump_write("gfid", "%s", uuid_utoa (inode->gfid));
+                gf_proc_dump_write("nlookup", "%ld", inode->nlookup);
+                gf_proc_dump_write("ref", "%u", inode->ref);
+                gf_proc_dump_write("ia_type", "%d", inode->ia_type);
                 if (inode->_ctx) {
                         inode_ctx = GF_CALLOC (inode->table->xl->graph->xl_count,
                                                sizeof (*inode_ctx),

@@ -794,7 +794,7 @@ unwind:
 
 
 void
-ra_page_dump (struct ra_page *page, char *key_prefix)
+ra_page_dump (struct ra_page *page)
 {
         int           i                        = 0;
         call_frame_t *frame                    = NULL;
@@ -805,22 +805,17 @@ ra_page_dump (struct ra_page *page, char *key_prefix)
                 goto out;
         }
 
-        gf_proc_dump_build_key (key, key_prefix, "offset");
-        gf_proc_dump_write (key, "%"PRId64, page->offset);
+        gf_proc_dump_write ("offset", "%"PRId64, page->offset);
 
-        gf_proc_dump_build_key (key, key_prefix, "size");
-        gf_proc_dump_write (key, "%"PRId64, page->size);
+        gf_proc_dump_write ("size", "%"PRId64, page->size);
 
-        gf_proc_dump_build_key (key, key_prefix, "dirty");
-        gf_proc_dump_write (key, "%s", page->dirty ? "yes" : "no");
+        gf_proc_dump_write ("dirty", "%s", page->dirty ? "yes" : "no");
 
-        gf_proc_dump_build_key (key, key_prefix, "ready");
-        gf_proc_dump_write (key, "%s", page->ready ? "yes" : "no");
+        gf_proc_dump_write ("ready", "%s", page->ready ? "yes" : "no");
 
         for (trav = page->waitq; trav; trav = trav->next) {
 		frame = trav->data;
-                gf_proc_dump_build_key (key, key_prefix, "waiting-frame[%d]",
-                                        i++);
+                sprintf (key, "waiting-frame[%d]", i++);
                 gf_proc_dump_write (key, "%"PRId64, frame->root->unique);
 	}
 
@@ -855,36 +850,31 @@ ra_fdctx_dump (xlator_t *this, fd_t *fd)
 
         ret = __inode_path (fd->inode, NULL, &path);
         if (path != NULL) {
-                gf_proc_dump_build_key (key, key_prefix, "path");
-                gf_proc_dump_write (key, "%s", path);
+                gf_proc_dump_write ("path", "%s", path);
                 GF_FREE (path);
         }
 
-        gf_proc_dump_build_key (key, key_prefix, "fd");
-        gf_proc_dump_write (key, "%p", fd);
+        gf_proc_dump_write ("fd", "%p", fd);
 
-        gf_proc_dump_build_key (key, key_prefix, "disabled");
-        gf_proc_dump_write (key, "%s", file->disabled ? "yes" : "no");
+        gf_proc_dump_write ("disabled", "%s", file->disabled ? "yes" : "no");
 
         if (file->disabled) {
                 ret = 0;
                 goto out;
         }
 
-        gf_proc_dump_build_key (key, key_prefix, "page-size");
-        gf_proc_dump_write (key, "%"PRId64, file->page_size);
+        gf_proc_dump_write ("page-size", "%"PRId64, file->page_size);
 
-        gf_proc_dump_build_key (key, key_prefix, "page-count");
-        gf_proc_dump_write (key, "%u", file->page_count);
+        gf_proc_dump_write ("page-count", "%u", file->page_count);
 
-        gf_proc_dump_build_key (key, key_prefix,
-                                "next-expected-offset-for-sequential-reads");
-        gf_proc_dump_write (key, "%"PRId64, file->offset);
+        gf_proc_dump_write ("next-expected-offset-for-sequential-reads",
+                            "%"PRId64, file->offset);
 
         for (page = file->pages.next; page != &file->pages;
              page = page->next) {
-                gf_proc_dump_build_key (key, key_prefix, "page[%d]", i++);
-		ra_page_dump (page, key_prefix);
+                sprintf (key, "page[%d]", i);
+                gf_proc_dump_write (key, "%p", page[i++]);
+		ra_page_dump (page);
         }
 
         ret = 0;
@@ -974,7 +964,6 @@ ra_priv_dump (xlator_t *this)
 {
         ra_conf_t       *conf                           = NULL;
         int             ret                             = -1;
-        char            key[GF_DUMP_MAX_BUF_LEN]        = {0, };
         char            key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
 
         if (!this) {
@@ -999,12 +988,9 @@ ra_priv_dump (xlator_t *this)
                                 "priv");
 
         gf_proc_dump_add_section (key_prefix);
-        gf_proc_dump_build_key (key, key_prefix, "page_size");
-        gf_proc_dump_write (key, "%d", conf->page_size);
-        gf_proc_dump_build_key (key, key_prefix, "page_count");
-        gf_proc_dump_write (key, "%d", conf->page_count);
-        gf_proc_dump_build_key (key, key_prefix, "force_atime_update");
-        gf_proc_dump_write (key, "%d", conf->force_atime_update);
+        gf_proc_dump_write ("page_size", "%d", conf->page_size);
+        gf_proc_dump_write ("page_count", "%d", conf->page_count);
+        gf_proc_dump_write ("force_atime_update", "%d", conf->force_atime_update);
 
         pthread_mutex_unlock (&conf->conf_lock);
 

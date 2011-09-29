@@ -4479,7 +4479,6 @@ err:
 int32_t
 stripe_priv_dump (xlator_t *this)
 {
-        char                    key_prefix[GF_DUMP_MAX_BUF_LEN];
         char                    key[GF_DUMP_MAX_BUF_LEN];
         int                     i = 0;
         stripe_private_t       *priv = NULL;
@@ -4497,39 +4496,26 @@ stripe_priv_dump (xlator_t *this)
                 goto out;
 
         gf_proc_dump_add_section("xlator.cluster.stripe.%s.priv", this->name);
-        gf_proc_dump_build_key(key_prefix,"xlator.cluster.stripe","%s.priv",
-                               this->name);
-        gf_proc_dump_build_key(key, key_prefix, "child_count");
-        gf_proc_dump_write(key,"%d", priv->child_count);
+        gf_proc_dump_write("child_count","%d", priv->child_count);
 
         for (i = 0; i < priv->child_count; i++) {
-                gf_proc_dump_build_key (key, key_prefix, "subvolumes[%d]", i);
+                sprintf (key, "subvolumes[%d]", i);
                 gf_proc_dump_write (key, "%s.%s", priv->xl_array[i]->type,
                                     priv->xl_array[i]->name);
         }
 
         options = priv->pattern;
         while (options != NULL) {
-                gf_proc_dump_build_key (key, key_prefix, "path_pattern");
-                gf_proc_dump_write (key, "%s", priv->pattern->path_pattern);
-
-                gf_proc_dump_build_key (key, key_prefix, "options_block_size");
-                gf_proc_dump_write (key, "%ul", options->block_size);
+                gf_proc_dump_write ("path_pattern", "%s", priv->pattern->path_pattern);
+                gf_proc_dump_write ("options_block_size", "%ul", options->block_size);
 
                 options = options->next;
         }
 
-        gf_proc_dump_build_key (key, key_prefix, "block_size");
-        gf_proc_dump_write (key, "%ul", priv->block_size);
-
-        gf_proc_dump_build_key (key, key_prefix, "nodes_down");
-        gf_proc_dump_write (key, "%d", priv->nodes_down);
-
-        gf_proc_dump_build_key (key, key_prefix, "first_child_down");
-        gf_proc_dump_write (key, "%d", priv->first_child_down);
-
-        gf_proc_dump_build_key (key, key_prefix, "xatter_supported");
-        gf_proc_dump_write (key, "%d", priv->xattr_supported);
+        gf_proc_dump_write ("block_size", "%ul", priv->block_size);
+        gf_proc_dump_write ("nodes-down", "%d", priv->nodes_down);
+        gf_proc_dump_write ("first-child_down", "%d", priv->first_child_down);
+        gf_proc_dump_write ("xattr_supported", "%d", priv->xattr_supported);
 
         UNLOCK (&priv->lock);
 
