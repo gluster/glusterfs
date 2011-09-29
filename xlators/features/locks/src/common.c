@@ -533,6 +533,11 @@ posix_lock_to_flock (posix_lock_t *lock, struct gf_flock *flock)
 static void
 __insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
+        if (lock->blocked)
+                gettimeofday (&lock->blkd_time, NULL);
+        else
+                gettimeofday (&lock->granted_time, NULL);
+
         list_add_tail (&lock->list, &pl_inode->ext_list);
 
         return;

@@ -349,6 +349,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
                 }
 
+                gettimeofday (&lock->blkd_time, NULL);
                 list_add_tail (&lock->blocked_locks, &dom->blocked_entrylks);
 
                 gf_log (this->name, GF_LOG_TRACE,
@@ -370,6 +371,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
                 lock->frame     = frame;
                 lock->this      = this;
 
+                gettimeofday (&lock->blkd_time, NULL);
                 list_add_tail (&lock->blocked_locks, &dom->blocked_entrylks);
 
                 gf_log (this->name, GF_LOG_TRACE,
@@ -384,6 +386,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
         switch (type) {
 
         case ENTRYLK_WRLCK:
+                gettimeofday (&lock->granted_time, NULL);
                 list_add_tail (&lock->domain_list, &dom->entrylk_list);
                 break;
 

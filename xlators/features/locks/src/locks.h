@@ -48,6 +48,9 @@ struct __posix_lock {
         fd_t              *fd;
         call_frame_t      *frame;
 
+        struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
+        struct timeval     granted_time; /*time at which lock was queued into active list*/
+
         /* These two together serve to uniquely identify each process
            across nodes */
 
@@ -72,6 +75,9 @@ struct __pl_inode_lock {
         fd_t              *fd;
 
         call_frame_t      *frame;
+
+        struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
+        struct timeval     granted_time; /*time at which lock was queued into active list*/
 
         /* These two together serve to uniquely identify each process
            across nodes */
@@ -110,6 +116,9 @@ struct __entry_lock {
 
         const char       *basename;
         entrylk_type      type;
+
+        struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
+        struct timeval     granted_time; /*time at which lock was queued into active list*/
 
         void      *trans;
         pid_t             client_pid;    /* pid of client process */

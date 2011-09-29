@@ -208,6 +208,7 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                 if (can_block == 0)
                         goto out;
 
+                gettimeofday (&lock->blkd_time, NULL);
                 list_add_tail (&lock->blocked_locks, &dom->blocked_inodelks);
 
                 gf_log (this->name, GF_LOG_TRACE,
@@ -227,6 +228,7 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                 if (can_block == 0)
                         goto out;
 
+                gettimeofday (&lock->blkd_time, NULL);
                 list_add_tail (&lock->blocked_locks, &dom->blocked_inodelks);
 
                 gf_log (this->name, GF_LOG_TRACE,
@@ -242,6 +244,7 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 
                 goto out;
         }
+        gettimeofday (&lock->granted_time, NULL);
         list_add (&lock->list, &dom->inodelk_list);
 
         ret = 0;
