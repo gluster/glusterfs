@@ -375,6 +375,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         struct iatt     new_stbuf      = {0,};
         struct iatt     stbuf          = {0,};
         struct iatt     empty_iatt     = {0,};
+        ia_prot_t       src_ia_prot    = {0,};
         fd_t           *src_fd         = NULL;
         fd_t           *dst_fd         = NULL;
         dict_t         *dict           = NULL;
@@ -402,6 +403,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         loc->path, from->name);
                 goto out;
         }
+
+        /* preserve source mode, so set the same to the destination */
+        src_ia_prot = stbuf.ia_prot;
 
         /* Check if file can be migrated */
         ret = __is_file_migratable (this, loc, rsp_dict, &stbuf);
@@ -490,9 +494,13 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         /* source would have both sticky bit and sgid bit set, reset it to 0,
-           and set the source permission on destination  */
-        new_stbuf.ia_prot.sticky = 0;
-        new_stbuf.ia_prot.sgid = 0;
+           and set the source permission on destination, if it was not set
+           prior to setting rebalance-modes in source  */
+        if (!src_ia_prot.sticky)
+                new_stbuf.ia_prot.sticky = 0;
+
+        if (!src_ia_prot.sgid)
+                new_stbuf.ia_prot.sgid = 0;
 
         /* TODO: if the source actually had sticky bit, or sgid bit set,
            we are not handling it */
