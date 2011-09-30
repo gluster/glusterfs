@@ -229,20 +229,31 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
         int32_t        up_children_count = 0;
         int            ret               = -1;
         int            call_count        = -1;
+        int32_t        child_index       = 0;
 
         priv  = this->private;
         local = frame->local;
+        child_index = (long) cookie;
 
         up_children_count = afr_up_children_count (local->child_up,
                                                    priv->child_count);
 
         LOCK (&frame->lock);
         {
-                if (op_ret >= 0)
+                if (op_ret >= 0) {
                         local->op_ret = op_ret;
+                        ret = afr_child_fd_ctx_set (this, fd, child_index,
+                                                    0, 0);
+                        if (ret) {
+                                local->op_ret = -1;
+                                local->op_errno = -ret;
+                                goto unlock;
+                        }
+                }
 
                 local->op_errno = op_errno;
         }
+unlock:
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
@@ -251,15 +262,6 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
                 if (local->op_ret != 0)
                         goto out;
 
-                ret = afr_fd_ctx_set (this, local->fd);
-                if (ret) {
-                        local->op_ret = -1;
-                        local->op_errno = -1;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to set fd ctx for fd %p",
-                                local->fd);
-                        goto out;
-                }
                 if (!afr_is_opendir_done (this, local->fd->inode) &&
                     up_children_count > 1) {
 
@@ -332,10 +334,11 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 
         for (i = 0; i < child_count; i++) {
                 if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_opendir_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->opendir,
-                                    loc, fd);
+                        STACK_WIND_COOKIE (frame, afr_opendir_cbk,
+                                           (void*) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->opendir,
+                                           loc, fd);
 
                         if (!--call_count)
                                 break;

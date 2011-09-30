@@ -1027,4 +1027,7 @@ afr_data_self_heal_enabled (char *data_self_heal);
 
 void
 afr_set_low_priority (call_frame_t *frame);
+int
+afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
+                      int flags, int32_t wb_flags);
 #endif /* __AFR_H__ */
