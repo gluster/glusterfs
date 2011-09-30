@@ -1524,15 +1524,26 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                 break;
         }
 
-        if (active)
-                snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p, "
-                          "blocked at %s, granted at  %s",
-                          type_str, (unsigned long long) flock->l_start,
-                          (unsigned long long) flock->l_len,
-                          (unsigned long long) flock->l_pid,
-                          (unsigned long long) owner,
-                          trans, ctime (blkd_time), ctime (granted_time));
-        else
+        if (active) {
+                if (blkd_time && *blkd_time == 0) {
+                        snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p, "
+                                  "granted at  %s",
+                                  type_str, (unsigned long long) flock->l_start,
+                                  (unsigned long long) flock->l_len,
+                                  (unsigned long long) flock->l_pid,
+                                  (unsigned long long) owner,
+                                  trans, ctime (granted_time));
+                } else {
+                        snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p, "
+                                  "blocked at %s, granted at  %s",
+                                  type_str, (unsigned long long) flock->l_start,
+                                  (unsigned long long) flock->l_len,
+                                  (unsigned long long) flock->l_pid,
+                                  (unsigned long long) owner,
+                                  trans, ctime (blkd_time), ctime (granted_time));
+                }
+        }
+        else {
                 snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p, "
                           "blocked at  %s",
                           type_str, (unsigned long long) flock->l_start,
@@ -1540,6 +1551,7 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                           (unsigned long long) flock->l_pid,
                           (unsigned long long) owner,
                           trans, ctime (blkd_time));
+        }
 
 }
 
@@ -1567,14 +1579,24 @@ __dump_entrylks (pl_inode_t *pl_inode)
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
                                                "entrylk[%d](ACTIVE)", count );
-                        snprintf (tmp, 256," %s on %s pid = %llu, owner=%llu, transport=%p,"
-                                  " blocked at %s, granted at %s",
-                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
-                                  "ENTRYLK_WRLCK", lock->basename,
-                                  (unsigned long long) lock->client_pid,
-                                  (unsigned long long) lock->owner, lock->trans,
-                                  ctime (&lock->blkd_time.tv_sec),
-                                  ctime (&lock->granted_time.tv_sec));
+                        if (lock->blkd_time.tv_sec == 0 && lock->blkd_time.tv_usec == 0) {
+                                snprintf (tmp, 256," %s on %s pid = %llu, owner=%llu, transport=%p,"
+                                          " granted at %s",
+                                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
+                                          "ENTRYLK_WRLCK", lock->basename,
+                                          (unsigned long long) lock->client_pid,
+                                          (unsigned long long) lock->owner, lock->trans,
+                                          ctime (&lock->granted_time.tv_sec));
+                        } else {
+                                snprintf (tmp, 256," %s on %s pid = %llu, owner=%llu, transport=%p,"
+                                          " blocked at %s, granted at %s",
+                                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
+                                          "ENTRYLK_WRLCK", lock->basename,
+                                          (unsigned long long) lock->client_pid,
+                                          (unsigned long long) lock->owner, lock->trans,
+                                          ctime (&lock->blkd_time.tv_sec),
+                                          ctime (&lock->granted_time.tv_sec));
+                        }
 
                         gf_proc_dump_write(key, tmp);
 
