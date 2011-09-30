@@ -237,6 +237,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"features.grace-timeout",               "protocol/server",           "grace-timeout", NULL, DOC, 0},
         {"features.read-only",                   "features/read-only",        "!read-only", "off", DOC, 0},
         {"features.worm",                        "features/worm",             "!worm", "off", DOC, 0},
+	{"storage.linux-aio",                    "storage/posix",             NULL, NULL, DOC, 0},
         {NULL,                                                                }
 };
 

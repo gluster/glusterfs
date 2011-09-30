@@ -1058,5 +1058,29 @@ int
 posix_fd_ctx_get_off (fd_t *fd, xlator_t *this, struct posix_fd **pfd,
                       off_t offset)
 {
-        return posix_fd_ctx_get (fd, this, pfd);
+        int   ret;
+        int   flags;
+
+        LOCK (&fd->inode->lock);
+        {
+                ret = __posix_fd_ctx_get (fd, this, pfd);
+                if (ret)
+                        goto unlock;
+
+                if ((offset & 0xfff) && (*pfd)->odirect) {
+                        flags = fcntl ((*pfd)->fd, F_GETFL);
+                        ret = fcntl ((*pfd)->fd, F_SETFL, (flags & (~O_DIRECT)));
+                        (*pfd)->odirect = 0;
+                }
+
+                if (((offset & 0xfff) == 0) && (!(*pfd)->odirect)) {
+                        flags = fcntl ((*pfd)->fd, F_GETFL);
+                        ret = fcntl ((*pfd)->fd, F_SETFL, (flags | O_DIRECT));
+                        (*pfd)->odirect = 1;
+                }
+        }
+unlock:
+        UNLOCK (&fd->inode->lock);
+
+        return ret;
 }
