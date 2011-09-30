@@ -184,8 +184,8 @@ if [ $? -eq 0 ];
 then
 kill -9 `pgrep -f gsyncd.py` &> /dev/null
 
-killall glusterd &> /dev/null
-#add marker translator
+killall glusterd glusterfsd &> /dev/null
+# add marker translator
 glusterd --xlator-option *.upgrade=on
 else
 glusterd --xlator-option *.upgrade=on
