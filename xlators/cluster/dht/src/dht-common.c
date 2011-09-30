@@ -1276,6 +1276,38 @@ err:
         return 0;
 }
 
+static int
+dht_ufo_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int op_ret, int op_errno)
+{
+        dht_local_t  *local = NULL;
+        int           this_call_cnt = 0;
+        call_frame_t *prev = NULL;
+
+        local = frame->local;
+        prev = cookie;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret == -1) {
+                        local->op_ret = -1;
+                        local->op_errno = op_errno;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "subvolume %s returned -1 (%s)",
+                                prev->this->name, strerror (op_errno));
+                        goto unlock;
+                }
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                DHT_STACK_UNWIND (setxattr, frame, local->op_ret, local->op_errno);
+        }
+
+        return 0;
+}
 
 
 int
@@ -1790,6 +1822,27 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+        local->call_cnt = layout->cnt;
+
+        /*  This key is sent by Unified File and Object storage
+         *  to test xattr support in backend.
+         */
+        tmp = dict_get (xattr, "user.ufo-test");
+        if (tmp) {
+                if (IA_ISREG (loc->inode->ia_type)) {
+                        op_errno = ENOTSUP;
+                        goto err;
+                }
+                local->op_ret = 0;
+                for (i = 0; i < layout->cnt; i++) {
+                        STACK_WIND (frame, dht_ufo_xattr_cbk,
+                                    layout->list[i].xlator,
+                                    layout->list[i].xlator->fops->setxattr,
+                                    loc, xattr, flags);
+                }
+                return 0;
+        }
+
         tmp = dict_get (xattr, "distribute.migrate-data");
         if (tmp) {
                 if (!IA_ISREG (loc->inode->ia_type)) {
@@ -1877,8 +1930,6 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOTSUP;
                 goto err;
         }
-
-        local->call_cnt = layout->cnt;
 
         for (i = 0; i < layout->cnt; i++) {
                 STACK_WIND (frame, dht_err_cbk,
