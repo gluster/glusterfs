@@ -880,7 +880,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        if ((cmd != GF_DEFRAG_CMD_STATUS) ||
+        if ((cmd != GF_DEFRAG_CMD_STATUS) &&
             (cmd != GF_DEFRAG_CMD_STOP)) {
                 ret = dict_get_ptr (dict, "node-uuid", &node_uuid);
                 if (ret) {
