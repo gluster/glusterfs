@@ -1208,6 +1208,8 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", local, out);
 
+        local->contri = NULL;
+
         loc_wipe (&local->loc);
 
         ret = mq_loc_copy (&local->loc, &local->parent_loc);
@@ -1241,6 +1243,7 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                         "contribution node list is empty which "
                         "is an error");
+                ret = -1;
                 goto out;
         }
 
@@ -1970,7 +1973,17 @@ mq_inspect_directory_xattr (xlator_t *this,
                         gf_log (this->name, GF_LOG_WARNING,
                                 "mq_inode_ctx_new failed");
                         ret = -1;
-                        goto out;
+                        goto err;
+                }
+        }
+
+        if (strcmp (loc->path, "/") != 0) {
+                contribution = mq_add_new_contribution_node (this, ctx, loc);
+                if (contribution == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot add a new contribution node");
+                        ret = -1;
+                        goto err;
                 }
         }
 
@@ -1984,13 +1997,6 @@ mq_inspect_directory_xattr (xlator_t *this,
 
         if (strcmp (loc->path, "/") != 0) {
                 not_root = _gf_true;
-
-                contribution = mq_add_new_contribution_node (this, ctx, loc);
-                if (contribution == NULL) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "cannot add a new contributio node");
-                        goto out;
-                }
 
                 GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
                 if (ret < 0)
@@ -2032,8 +2038,8 @@ mq_inspect_directory_xattr (xlator_t *this,
 out:
         if (ret)
                 mq_set_inode_xattr (this, loc);
-
-        return 0;
+err:
+        return ret;
 }
 
 int32_t
