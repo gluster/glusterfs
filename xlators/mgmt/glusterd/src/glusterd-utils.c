@@ -57,6 +57,7 @@
 #include <sys/socket.h>
 #include <rpc/pmap_clnt.h>
 #include <unistd.h>
+#include <fnmatch.h>
 #ifdef GF_SOLARIS_HOST_OS
 #include <sys/sockio.h>
 #endif
@@ -716,10 +717,6 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         glusterd_brickinfo_t    *brickiter = NULL;
         uuid_t                  peer_uuid = {0};
         int32_t                 ret = -1;
-        int32_t                 brick_path_len = 0;
-        int32_t                 path_len = 0;
-        int32_t                 smaller_path = 0;
-        gf_boolean_t            is_path_smaller = _gf_true;
 
         if (uuid) {
                 uuid_copy (peer_uuid, uuid);
@@ -729,7 +726,6 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         goto out;
         }
         ret = -1;
-        path_len = strlen (path);
         list_for_each_entry (brickiter, &volinfo->bricks, brick_list) {
 
                 if (uuid_is_null (brickiter->uuid) &&
@@ -737,10 +733,6 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         goto out;
                 if (uuid_compare (peer_uuid, brickiter->uuid))
                         continue;
-                brick_path_len = strlen (brickiter->path);
-                smaller_path = min (brick_path_len, path_len);
-                if (smaller_path != path_len)
-                        is_path_smaller = _gf_false;
 
                 if (!strcmp (brickiter->path, path)) {
                         gf_log (THIS->name, GF_LOG_INFO, "Found brick");
@@ -748,27 +740,18 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         if (brickinfo)
                                 *brickinfo = brickiter;
                         break;
-                } else if (path_match == GF_PATH_PARTIAL &&
-                           !strncmp (brickiter->path, path, smaller_path)) {
-                        /* GF_PATH_PARTIAL:check during create, add-brick ops */
-                        if (is_path_smaller == _gf_true &&
-                            brickiter->path[smaller_path] == '/') {
-                                gf_log (THIS->name, GF_LOG_ERROR,
-                                        "given path %s lies within brick %s",
-                                        path, brickiter->path);
-                                *brickinfo = brickiter;
-                                ret = 0;
-                                break;
-                        } else if (path[smaller_path] == '/') {
-                                gf_log (THIS->name, GF_LOG_ERROR,
-                                        "brick %s is a part of %s",
-                                        brickiter->path, path);
-                                *brickinfo = brickiter;
-                                ret = 0;
-                                break;
-                        } else {
-                                ret = -1;
-                        }
+                }
+                if (path_match != GF_PATH_PARTIAL)
+                        continue;
+
+                if (!fnmatch (path, brickiter->path, FNM_LEADING_DIR) ||
+                    !fnmatch (brickiter->path, path, FNM_LEADING_DIR)) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "paths %s and %s are recursive",
+                                path, brickiter->path);
+                        *brickinfo = brickiter;
+                        ret = 0;
+                        break;
                 }
         }
 
