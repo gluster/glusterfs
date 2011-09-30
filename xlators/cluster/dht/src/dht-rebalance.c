@@ -118,7 +118,7 @@ out:
 }
 
 static inline int
-__dht_rebalance_create_dst_file (xlator_t *to, loc_t *loc, struct iatt *stbuf,
+__dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struct iatt *stbuf,
                                  dict_t *dict, fd_t **dst_fd)
 {
         xlator_t *this = NULL;
@@ -135,7 +135,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, loc_t *loc, struct iatt *stbuf,
                 goto out;
         }
 
-        ret = dict_set_str (dict, DHT_LINKFILE_KEY, to->name);
+        ret = dict_set_str (dict, DHT_LINKFILE_KEY, from->name);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to set gfid in dict for create", loc->path);
@@ -218,7 +218,9 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         "lesser disk space (%s)", from->name,
                         to->name, loc->path);
 
-                ret = -1;
+                /* this is not a 'failure', but we don't want to
+                   consider this as 'success' too :-/ */
+                ret = 1;
                 goto out;
         }
 
@@ -357,6 +359,14 @@ out:
         return ret;
 }
 
+
+/*
+  return values:
+
+   -1 : failure
+    0 : successfully migrated data
+    1 : not a failure, but we can't migrate data as of now
+*/
 int
 dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                   int flag)
@@ -399,15 +409,17 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
 
         /* create the destination, with required modes/xattr */
-        ret = __dht_rebalance_create_dst_file (to, loc, &stbuf, dict, &dst_fd);
+        ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
+                                               dict, &dst_fd);
         if (ret)
                 goto out;
 
         /* Should happen on all files when 'force' option is not given */
         if (flag != DHT_MIGRATE_EVEN_IF_LINK_EXISTS) {
                 ret = __dht_check_free_space (to, from, loc, &stbuf);
-                if (ret)
+                if (ret) {
                         goto out;
+                }
         }
 
         /* Open the source, and also update mode/xattr */
@@ -435,6 +447,15 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "%s: failed to migrate data",
                         loc->path);
+                /* reset the destination back to 0 */
+                ret = syncop_ftruncate (to, dst_fd, 0);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: failed to reset the target size back to 0",
+                                loc->path);
+                }
+
+                ret = -1;
                 goto out;
         }
 
@@ -591,6 +612,7 @@ rebalance_task_completion (int op_ret, call_frame_t *sync_frame, void *data)
         dht_layout_t *layout     = 0;
         xlator_t     *this       = NULL;
         dht_local_t  *local      = NULL;
+        int32_t       op_errno   = EINVAL;
 
         this = THIS;
         local = sync_frame->local;
@@ -611,9 +633,24 @@ rebalance_task_completion (int op_ret, call_frame_t *sync_frame, void *data)
                                 "%s: failed to set inode ctx", local->loc.path);
         }
 
-        /* if success, errno is not checked,
-           if ret is -1, then let errno be 'ENOTSUP' */
-        DHT_STACK_UNWIND (setxattr, sync_frame, op_ret, ENOTSUP);
+        if (op_ret == -1) {
+                /* Failure of migration process, mostly due to write process.
+                   as we can't preserve the exact errno, lets say there was
+                   no space to migrate-data
+                */
+                op_errno = ENOSPC;
+        }
+
+        if (op_ret == 1) {
+                /* migration didn't happen, but is not a failure, let the user
+                   understand that he doesn't have permission to migrate the
+                   file.
+                */
+                op_ret = -1;
+                op_errno = EPERM;
+        }
+
+        DHT_STACK_UNWIND (setxattr, sync_frame, op_ret, op_errno);
         return 0;
 }
 

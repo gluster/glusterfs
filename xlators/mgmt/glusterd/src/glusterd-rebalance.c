@@ -119,8 +119,28 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 ret = sys_lsetxattr (full_path, "distribute.migrate-data",
                                      force_string, strlen (force_string), 0);
-                if (ret < 0)
+
+                /* if errno is not ENOSPC or ENOTCONN, we can still continue
+                   with rebalance process */
+                if ((ret == -1) && ((errno != ENOSPC) ||
+                                    (errno != ENOTCONN)))
                         continue;
+
+                if ((ret == -1) && (errno == ENOTCONN)) {
+                        /* Most probably mount point went missing (mostly due
+                           to a brick down), say rebalance failure to user,
+                           let him restart it if everything is fine */
+                        volinfo->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                        break;
+                }
+
+                if ((ret == -1) && (errno == ENOSPC)) {
+                        /* rebalance process itself failed, may be
+                           remote brick went down, or write failed due to
+                           disk full etc etc.. */
+                        volinfo->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                        break;
+                }
 
                 LOCK (&defrag->lock);
                 {
