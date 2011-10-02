@@ -197,6 +197,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                                 full_path, strerror (errno));
                         close (dst_fd);
                         close (src_fd);
+                        unlink (tmp_filename);
                         continue;
                 }
 
@@ -221,6 +222,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                                 full_path, strerror (errno));
                         close (dst_fd);
                         close (src_fd);
+                        unlink (tmp_filename);
                         continue;
                 }
 
@@ -231,6 +233,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                                 tmp_filename, strerror (errno));
                         close (dst_fd);
                         close (src_fd);
+                        unlink (tmp_filename);
                         continue;
                 }
 
@@ -242,6 +245,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                                 full_path);
                         close (dst_fd);
                         close (src_fd);
+                        unlink (tmp_filename);
                         continue;
                 }
 
@@ -251,6 +255,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                                 full_path);
                         close (dst_fd);
                         close (src_fd);
+                        unlink (tmp_filename);
                         continue;
                 }
 
