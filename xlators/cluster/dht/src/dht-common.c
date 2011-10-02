@@ -1829,7 +1829,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         tmp = dict_get (xattr, "decommission-brick");
         if (tmp) {
                 /* This operation should happen only on '/' */
-                if (__is_root_gfid (loc->inode->gfid) != 0) {
+                if (!__is_root_gfid (loc->inode->gfid)) {
                         op_errno = ENOTSUP;
                         goto err;
                 }

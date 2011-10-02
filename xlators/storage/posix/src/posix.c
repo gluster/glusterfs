@@ -3924,7 +3924,7 @@ init (xlator_t *this)
            other than that of root '/' */
         ret = sys_lgetxattr (dir_data->data, "trusted.gfid", gfid, 16);
         if (ret == 16) {
-                if (__is_root_gfid (gfid) != 0) {
+                if (!__is_root_gfid (gfid)) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: gfid (%s) is not that of glusterfs '/' ",
                                 dir_data->data, uuid_utoa (gfid));

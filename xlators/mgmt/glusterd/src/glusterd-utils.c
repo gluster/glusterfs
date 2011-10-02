@@ -3644,7 +3644,7 @@ check_xattr:
            other than that of root '/' */
         ret = sys_lgetxattr (path, "trusted.gfid", gfid, 16);
         if (ret == 16) {
-                if (__is_root_gfid (gfid) != 0) {
+                if (!__is_root_gfid (gfid)) {
                         gf_log (THIS->name, GF_LOG_WARNING,
                                 "%s: gfid (%s) is not that of glusterfs '/' ",
                                 path, uuid_utoa (gfid));

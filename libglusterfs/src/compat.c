@@ -121,7 +121,7 @@ make_export_path (const char *real_path, char **path)
         ret = solaris_getxattr ("/", GFID_XATTR_KEY, gfid, 16);
         /* Return value of getxattr */
         if (ret == 16) {
-                if (!__is_root_gfid (gfid)){
+                if (__is_root_gfid (gfid)){
                         strcat (export_path, "/");
                         ret = 0;
                         goto done;
@@ -135,7 +135,7 @@ make_export_path (const char *real_path, char **path)
                 strcat (export_path, dup);
                 ret = solaris_getxattr (export_path, GFID_XATTR_KEY, gfid, 16);
                 if (ret == 16) {
-                        if (!__is_root_gfid (gfid)) {
+                        if (__is_root_gfid (gfid)) {
                                 ret = 0;
                                 goto done;
                         }
