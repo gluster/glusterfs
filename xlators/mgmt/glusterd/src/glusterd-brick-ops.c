@@ -842,6 +842,9 @@ glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
                                    gf_defrag_status_t status)
 {
         int                   ret = 0;
+
+#if 0  /* TODO: enable this behavior once cluster-wide awareness comes for
+          defrag cbk function */
         glusterd_brickinfo_t *brickinfo = NULL;
         glusterd_brickinfo_t *tmp = NULL;
 
@@ -903,8 +906,10 @@ glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
                                 "Unable to start nfs process (%d)", ret);
         }
 
+#endif
+
         volinfo->decommission_in_progress = 0;
-        return 0;
+        return ret;
 }
 
 
@@ -995,6 +1000,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         int                 need_rebalance = 0;
         int                 force          = 0;
         gf1_op_commands     cmd            = 0;
+        glusterd_brickinfo_t *brickinfo    = NULL;
+        glusterd_brickinfo_t *tmp          = NULL;
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1037,7 +1044,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         }
                 }
 
-                /* rebalance '_cbk()' will take care of volume file updates */
+                /* no need to update anything */
                 ret = 0;
                 goto out;
         }
@@ -1054,9 +1061,14 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         }
                 }
 
-                /* rebalance '_cbk()' will take care of volume file updates */
+                /* Fall back to the old volume file */
+                list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+                        if (!brickinfo->decommissioned)
+                                continue;
+                        brickinfo->decommissioned = 0;
+                }
                 ret = 0;
-                goto out;
+                break;
         }
 
         case GF_OP_CMD_START:
@@ -1078,12 +1090,12 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
 
                                 UNLOCK (&volinfo->defrag->lock);
                         }
-                        ret = 0;
                         /* Graph change happens in rebalance _cbk function,
                            no need to do anything here */
-                        goto out;
+                        /* TODO: '_cbk' function is not doing anything for now */
                 }
 
+                ret = 0;
                 force = 1;
                 break;
         }
