@@ -653,18 +653,19 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
         return inode;
 }
 
-int
+/* return 1 if gfid is of root, 0 if not */
+gf_boolean_t
 __is_root_gfid (uuid_t gfid)
 {
         uuid_t  root;
-        int     ret;
 
         memset (root, 0, 16);
         root[15] = 1;
 
-        ret = uuid_compare (gfid, root);
+        if (uuid_compare (gfid, root) == 0)
+                return _gf_true;
 
-        return ret;
+        return _gf_false;
 }
 
 
@@ -680,7 +681,7 @@ __inode_find (inode_table_t *table, uuid_t gfid)
                 goto out;
         }
 
-        if (__is_root_gfid (gfid) == 0)
+        if (__is_root_gfid (gfid))
                 return table->root;
 
         hash = hash_gfid (gfid, 65536);
