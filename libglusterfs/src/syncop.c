@@ -325,10 +325,12 @@ syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
 
         if (iatt)
                 *iatt = args.iatt1;
-        if (xattr_rsp)
-                *xattr_rsp = args.xattr;
         if (parent)
                 *parent = args.iatt2;
+        if (xattr_rsp)
+                *xattr_rsp = args.xattr;
+        else if (args.xattr)
+                dict_unref (args.xattr);
 
         errno = args.op_errno;
         return args.op_ret;
@@ -400,6 +402,7 @@ syncop_readdirp (xlator_t *subvol,
 
         if (entries)
                 list_splice_init (&args.entries.list, &entries->list);
+        /* TODO: need to free all the 'args.entries' in 'else' case */
 
         errno = args.op_errno;
         return args.op_ret;
@@ -509,7 +512,7 @@ syncop_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
         if (op_ret >= 0)
-                args->xattr    = dict_ref (dict);
+                args->xattr = dict_ref (dict);
 
         __wake (args);
 
@@ -526,6 +529,8 @@ syncop_listxattr (xlator_t *subvol, loc_t *loc, dict_t **dict)
 
         if (dict)
                 *dict = args.xattr;
+        else if (args.xattr)
+                dict_unref (args.xattr);
 
         errno = args.op_errno;
         return args.op_ret;
@@ -541,6 +546,8 @@ syncop_getxattr (xlator_t *subvol, loc_t *loc, dict_t **dict, const char *key)
 
         if (dict)
                 *dict = args.xattr;
+        else if (args.xattr)
+                dict_unref (args.xattr);
 
         errno = args.op_errno;
         return args.op_ret;
@@ -556,6 +563,8 @@ syncop_fgetxattr (xlator_t *subvol, fd_t *fd, dict_t **dict, const char *key)
 
         if (dict)
                 *dict = args.xattr;
+        else if (args.xattr)
+                dict_unref (args.xattr);
 
         errno = args.op_errno;
         return args.op_ret;
@@ -732,6 +741,8 @@ syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
 
         if (vector)
                 *vector = args.vector;
+        else if (args.vector)
+                GF_FREE (args.vector);
 
         if (count)
                 *count = args.count;
@@ -739,6 +750,8 @@ syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
         /* Do we need a 'ref' here? */
         if (iobref)
                 *iobref = args.iobref;
+        else if (args.iobref)
+                iobref_unref (args.iobref);
 
         errno = args.op_errno;
         return args.op_ret;
@@ -1047,6 +1060,8 @@ syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size)
 
         if (buffer)
                 *buffer = args.buffer;
+        else if (args.buffer)
+                GF_FREE (args.buffer);
 
         errno = args.op_errno;
         return args.op_ret;
