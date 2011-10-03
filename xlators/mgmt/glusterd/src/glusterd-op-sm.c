@@ -1921,8 +1921,10 @@ out:
         if (commit_ack_inject) {
                 if (ret)
                         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
-                else
+                else if (!opinfo.pending_count)
                         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
+
+                /*else do nothing*/
         }
 
         return ret;
