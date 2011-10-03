@@ -2130,10 +2130,10 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this,
 
         afr_reset_children (sh->fresh_children, priv->child_count);
         afr_get_fresh_children (sh->success_children, sh->sources,
-                                sh->fresh_children, priv->child_count);
-        afr_inode_set_read_ctx (this, sh->inode, sh->source,
-                                sh->fresh_children);
-
+                                        sh->fresh_children, priv->child_count);
+        if (sh->source >= 0)
+                afr_inode_set_read_ctx (this, sh->inode, sh->source,
+                                        sh->fresh_children);
 
 heal:
         afr_sh_entry_sync_prepare (frame, this);
