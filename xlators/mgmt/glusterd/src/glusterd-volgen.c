@@ -24,6 +24,7 @@
 #endif
 
 #include <fnmatch.h>
+#include <sys/wait.h>
 
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
@@ -42,6 +43,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "run.h"
 
 
 /* dispatch table for VOLUME SET
@@ -1055,6 +1057,59 @@ out:
         return ret;
 }
 
+static void
+volgen_apply_filters (char *orig_volfile)
+{
+	DIR           *filterdir = NULL;
+	struct dirent  entry = {0,};
+	struct dirent *next = NULL;
+	char          *filterpath = NULL;
+	struct stat    statbuf = {0,};
+
+	filterdir = opendir(FILTERDIR);
+	if (!filterdir) {
+		return;
+	}
+
+	while ((readdir_r(filterdir,&entry,&next) == 0) && next) {
+		if (!strncmp(entry.d_name,".",sizeof(entry.d_name))) {
+			continue;
+		}
+		if (!strncmp(entry.d_name,"..",sizeof(entry.d_name))) {
+			continue;
+		}
+		/*
+		 * d_type isn't guaranteed to be present/valid on all systems,
+		 * so do an explicit stat instead.
+		 */
+		if (gf_asprintf(&filterpath,"%s/%.*s",FILTERDIR,
+				sizeof(entry.d_name), entry.d_name) == (-1)) {
+			continue;
+		}
+		/* Deliberately use stat instead of lstat to allow symlinks. */
+		if (stat(filterpath,&statbuf) == (-1)) {
+			goto free_fp;
+		}
+		if (!S_ISREG(statbuf.st_mode)) {
+			goto free_fp;
+		}
+		/*
+		 * We could check the mode in statbuf directly, or just skip
+		 * this entirely and check for EPERM after exec fails, but this
+		 * is cleaner.
+		 */
+		if (access(filterpath,X_OK) != 0) {
+			goto free_fp;
+		}
+		if (runcmd(filterpath,orig_volfile,NULL)) {
+			gf_log("",GF_LOG_ERROR,"failed to run filter %.*s",
+			       (int)sizeof(entry.d_name), entry.d_name);
+		}
+free_fp:
+		GF_FREE(filterpath);
+	}
+}
+
 static int
 volgen_write_volfile (volgen_graph_t *graph, char *filename)
 {
@@ -1072,7 +1127,7 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
                 goto error;
 
         if (glusterfs_graph_print_file (f, &graph->graph) == -1)
-                goto error;
+	goto error;
 
         if (fclose (f) == -1)
                 goto error;
@@ -1082,6 +1137,8 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
                 goto error;
 
         GF_FREE (ftmp);
+
+	volgen_apply_filters(filename);
 
         return 0;
 

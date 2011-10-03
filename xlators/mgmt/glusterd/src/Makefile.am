@@ -1,5 +1,6 @@
 xlator_LTLIBRARIES = glusterd.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mgmt
+glusterd_la_CPPFLAGS = "-DFILTERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/filter\""
 glusterd_la_LDFLAGS = -module -avoidversion $(LIBXML2_LIBS)
 glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c glusterd-op-sm.c \
 	glusterd-utils.c glusterd-rpc-ops.c glusterd-store.c glusterd-handshake.c \
