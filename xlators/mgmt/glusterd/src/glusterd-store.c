@@ -1895,21 +1895,34 @@ glusterd_store_retrieve_volume (char    *volname)
 
         /* backward compatibility */
         {
-                /* would be true if type is 'GF_CLUSTER_TYPE_NONE' */
-                if (!volinfo->dist_leaf_count)
-                        volinfo->dist_leaf_count = ((!volinfo->sub_count) ? 1 :
-                                                    volinfo->sub_count);
 
-                /* would be true for all volumes in 3.1.x and 3.2.x,
-                   or if type is not 'STRIPE_REPLICATE' (in 3.3 pre-releases) */
-                if (!volinfo->stripe_count)
-                        volinfo->stripe_count = 1;
+                switch (volinfo->type) {
 
-                /* would be true for some pre-releases of 3.3, and all
-                   releases of 3.1.x and 3.2.x */
-                if (!volinfo->replica_count)
-                        volinfo->replica_count = (volinfo->dist_leaf_count /
-                                                  volinfo->stripe_count);
+                        case GF_CLUSTER_TYPE_NONE:
+                                volinfo->stripe_count  = 1;
+                                volinfo->replica_count = 1;
+                        break;
+
+                        case GF_CLUSTER_TYPE_STRIPE:
+                                volinfo->stripe_count  = volinfo->sub_count;
+                                volinfo->replica_count = 1;
+                        break;
+
+                        case GF_CLUSTER_TYPE_REPLICATE:
+                                volinfo->stripe_count  = 1;
+                                volinfo->replica_count = volinfo->sub_count;
+                        break;
+
+                        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                                /* Introduced in 3.3 */
+                                GF_ASSERT (volinfo->stripe_count > 0);
+                                GF_ASSERT (volinfo->replica_count > 0);
+                        break;
+
+                        default:
+                                GF_ASSERT (0);
+                        break;
+                }
 
                 volinfo->dist_leaf_count = (volinfo->stripe_count *
                                             volinfo->replica_count);
