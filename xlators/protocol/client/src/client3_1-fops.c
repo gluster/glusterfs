@@ -121,7 +121,7 @@ out:
 
         iobuf_unref (iobuf);
 
-        return 0;
+        return ret;
 }
 
 /* CBK */
@@ -3578,7 +3578,6 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         ret = client_submit_vec_request (this, &req, frame, conf->fops, GFS3_OP_WRITE,
                                          client3_1_writev_cbk, args->vector,
                                          args->count, args->iobref,
-                                         
                                          (xdrproc_t)xdr_gfs3_write_req);
         if (ret)
                 goto unwind;

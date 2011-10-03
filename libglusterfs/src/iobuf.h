@@ -27,6 +27,7 @@
 #include <sys/uio.h>
 
 #define GF_VARIABLE_IOBUF_COUNT 32
+#define GF_IOBREF_IOBUF_COUNT 16
 
 /* Lets try to define the new anonymous mapping
  * flag, in case the system is still using the
@@ -141,7 +142,7 @@ void iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 struct iobref {
         gf_lock_t          lock;
         int                ref;
-        struct iobuf      *iobrefs[8];
+        struct iobuf      *iobrefs[GF_IOBREF_IOBUF_COUNT];
 };
 
 struct iobref *iobref_new ();
