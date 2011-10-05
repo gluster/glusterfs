@@ -2338,6 +2338,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fuse_state_t *state = NULL;
         char         *dict_value = NULL;
         int32_t       ret = -1;
+        char *newkey = NULL;
 
         priv = this->private;
 
@@ -2405,13 +2406,20 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
+        ret = fuse_flip_xattr_ns (priv, name, &newkey);
+        if (ret) {
+                send_fuse_err (this, finh, ENOMEM);
+                free_fuse_state (state);
+                return;
+        }
+
         dict_value = memdup (value, fsi->size);
-        dict_set (state->dict, (char *)name,
+        dict_set (state->dict, newkey,
                   data_from_dynptr ((void *)dict_value, fsi->size));
         dict_ref (state->dict);
 
         state->flags = fsi->flags;
-        state->name = gf_strdup (name);
+        state->name = newkey;
 
         uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
@@ -2557,6 +2565,8 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
         struct fuse_private *priv = NULL;
+        int rv = 0;
+        char *newkey = NULL;
 
         priv = this->private;
 
@@ -2611,13 +2621,21 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
+        rv = fuse_flip_xattr_ns (priv, name, &newkey);
+        if (rv) {
+                send_fuse_err (this, finh, ENOMEM);
+                free_fuse_state (state);
+                goto out;
+        }
+
         state->size = fgxi->size;
-        state->name = gf_strdup (name);
+        state->name = newkey;
 
         uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_getxattr_resume);
+ out:
         return;
 }
 
@@ -2681,7 +2699,11 @@ fuse_removexattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         char *name = msg;
 
         fuse_state_t *state = NULL;
+        fuse_private_t *priv = NULL;
         int32_t       ret = -1;
+        char *newkey = NULL;
+
+        priv = this->private;
 
         GET_STATE (this, finh, state);
         ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
@@ -2696,7 +2718,14 @@ fuse_removexattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        state->name = gf_strdup (name);
+        ret = fuse_flip_xattr_ns (priv, name, &newkey);
+        if (ret) {
+                send_fuse_err (this, finh, ENOMEM);
+                free_fuse_state (state);
+                return;
+        }
+
+        state->name = newkey;
         uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 

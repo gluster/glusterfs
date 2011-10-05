@@ -292,4 +292,7 @@ inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
 int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);
 int fuse_gfid_set (fuse_state_t *state);
+int fuse_flip_xattr_ns (struct fuse_private *priv, char *okey, char **nkey);
+int fuse_flip_user_to_trusted (char *okey, char **nkey);
+int fuse_xattr_alloc_default (char *okey, char **nkey);
 #endif /* _GF_FUSE_BRIDGE_H_ */
