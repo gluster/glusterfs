@@ -256,7 +256,7 @@ call_from_special_client (call_frame_t *frame, xlator_t *this, const char *name)
 
         priv = (marker_conf_t *)this->private;
 
-        if (frame->root->pid != -1 || name == NULL ||
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD || name == NULL ||
             strcmp (name, MARKER_XATTR_PREFIX "." VOLUME_MARK) != 0) {
                 ret = _gf_false;
                 goto out;
@@ -1765,7 +1765,7 @@ call_from_sp_client_to_reset_tmfile (call_frame_t *frame,
         if (data == NULL)
                 return -1;
 
-        if (frame->root->pid != -1) {
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
                 op_ret = -1;
                 op_errno = EPERM;
 

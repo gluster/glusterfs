@@ -78,7 +78,23 @@ enum _gf_boolean
 	_gf_true = 1
 };
 
+/*
+ * we could have initialized these as +ve values and treated
+ * them as negative while comparing etc.. (which would have
+ * saved us with the pain of assigning values), but since we
+ * only have a couple of clients that use this feature, it's
+ * okay.
+ */
+enum _gf_client_pid
+{
+        GF_CLIENT_PID_MAX    =  0,
+        GF_CLIENT_PID_GSYNCD = -1,
+        GF_CLIENT_PID_HADOOP = -2,
+        GF_CLIENT_PID_MIN    = -3
+};
+
 typedef enum _gf_boolean gf_boolean_t;
+typedef enum _gf_client_pid gf_client_pid_t;
 typedef int (*gf_cmp) (void *, void *);
 
 void gf_global_variable_init(void);
@@ -401,4 +417,5 @@ char *get_host_name (char *word, char **host);
 char *get_path_name (char *word, char **path);
 void gf_path_strip_trailing_slashes (char *path);
 uint64_t get_mem_size ();
+int gf_client_pid_check (gf_client_pid_t npid);
 #endif /* _COMMON_UTILS_H */

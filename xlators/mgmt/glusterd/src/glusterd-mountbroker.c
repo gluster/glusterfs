@@ -268,7 +268,7 @@ const char *georep_mnt_desc_template =
         "SUP("
                 "xlator-option=\\*-dht.assert-no-child-down=true "
                 "volfile-server=localhost "
-                "client-pid=-1 "
+                "client-pid=%d "
                 "volfile-id=%s "
                 "user-map-root=%s "
         ")"
@@ -280,6 +280,7 @@ const char *georep_mnt_desc_template =
 const char *hadoop_mnt_desc_template =
         "SUP("
                 "volfile-server=%s "
+                "client-pid=%d "
                 "volfile-id=%s "
                 "user-map-root=%s "
         ")"
@@ -296,7 +297,7 @@ make_georep_mountspec (gf_mount_spec_t *mspec, const char *volname,
         int ret               = 0;
 
         ret = gf_asprintf (&georep_mnt_desc, georep_mnt_desc_template,
-                           volname, user);
+                           GF_CLIENT_PID_GSYNCD, volname, user);
         if (ret == -1)
                 return ret;
 
@@ -311,7 +312,7 @@ make_ghadoop_mountspec (gf_mount_spec_t *mspec, const char *volname,
         int   ret             = 0;
 
         ret = gf_asprintf (&hadoop_mnt_desc, hadoop_mnt_desc_template,
-                           server, volname, user);
+                           server, GF_CLIENT_PID_HADOOP, volname, user);
         if (ret == -1)
                 return ret;
 
