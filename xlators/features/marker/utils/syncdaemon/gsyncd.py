@@ -148,7 +148,7 @@ def main_i():
     op.add_option('--gluster-log-file',    metavar='LOGF',  default=os.devnull, type=str, action='callback', callback=store_abs)
     op.add_option('--gluster-log-level',   metavar='LVL')
     op.add_option('--gluster-params',      metavar='PRMS',  default='')
-    op.add_option('--gluster-cli-options', metavar='OPTS',  default='--log-file=/dev/stderr')
+    op.add_option('--gluster-cli-options', metavar='OPTS',  default='--log-file=-')
     op.add_option('--mountbroker',         metavar='LABEL')
     op.add_option('-p', '--pid-file',      metavar='PIDF',  type=str, action='callback', callback=store_abs)
     op.add_option('-l', '--log-file',      metavar='LOGF',  type=str, action='callback', callback=store_abs)
