@@ -136,6 +136,12 @@ gf_log_init (const char *file)
                 return -1;
         }
 
+        if (strcmp (file, "-") == 0) {
+                gf_log_logfile = stderr;
+
+                return 0;
+        }
+
         filename = gf_strdup (file);
         if (!filename) {
                 fprintf (stderr, "ERROR: updating log-filename failed: %s\n",
