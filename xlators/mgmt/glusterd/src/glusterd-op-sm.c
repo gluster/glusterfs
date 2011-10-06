@@ -2692,6 +2692,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                                 goto out;
                         } else {
                                 pending_node->node = brickinfo;
+                                pending_node->type = GD_NODE_BRICK;
                                 list_add_tail (&pending_node->list,
                                                &opinfo.pending_bricks);
                                 pending_node = NULL;
@@ -2708,6 +2709,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                                         goto out;
                                 } else {
                                         pending_node->node = brickinfo;
+                                        pending_node->type = GD_NODE_BRICK;
                                         list_add_tail (&pending_node->list,
                                                        &opinfo.pending_bricks);
                                         pending_node = NULL;
