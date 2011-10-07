@@ -34,7 +34,7 @@ function run_tests()
 {
     cd $M;
 
-    (sleep 1; dbench -x -s -t 60 10 >/dev/null) &
+    (sleep 1; dbench -s -t 60 10 >/dev/null) &
 
     (sleep 1; /opt/qa/tools/posix_compliance.sh) &
 
