@@ -4230,6 +4230,7 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->postparent.ia_ino = local->loc.parent->ino;
         }
 
+        FRAME_SU_UNDO (frame, dht_local_t);
         DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent);
 

@@ -611,6 +611,7 @@ dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         local->selfheal.dir_cbk = dir_cbk;
         local->selfheal.layout = dht_layout_ref (frame->this, layout);
 
+        FRAME_SU_DO (frame, dht_local_t);
         ret = dht_selfheal_dir_mkdir (frame, loc, layout, 1);
 
         return ret;
