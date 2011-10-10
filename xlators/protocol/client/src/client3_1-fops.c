@@ -119,7 +119,7 @@ out:
 
         iobuf_unref (iobuf);
 
-        return 0;
+        return ret;
 }
 
 /* CBK */

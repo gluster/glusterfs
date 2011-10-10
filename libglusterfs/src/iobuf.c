@@ -578,7 +578,7 @@ iobref_destroy (struct iobref *iobref)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
 
-        for (i = 0; i < 8; i++) {
+        for (i = 0; i < GF_IOBREF_IOBUF_COUNT; i++) {
                 iobuf = iobref->iobrefs[i];
 
                 iobref->iobrefs[i] = NULL;
@@ -623,7 +623,7 @@ __iobref_add (struct iobref *iobref, struct iobuf *iobuf)
         GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
-        for (i = 0; i < 8; i++) {
+        for (i = 0; i < GF_IOBREF_IOBUF_COUNT; i++) {
                 if (iobref->iobrefs[i] == NULL) {
                         iobref->iobrefs[i] = iobuf_ref (iobuf);
                         ret = 0;
@@ -667,7 +667,7 @@ iobref_merge (struct iobref *to, struct iobref *from)
 
         LOCK (&from->lock);
         {
-                for (i = 0; i < 8; i++) {
+                for (i = 0; i < GF_IOBREF_IOBUF_COUNT; i++) {
                         iobuf = from->iobrefs[i];
 
                         if (!iobuf)
@@ -719,7 +719,7 @@ iobref_size (struct iobref *iobref)
 
         LOCK (&iobref->lock);
         {
-                for (i = 0; i < 8; i++) {
+                for (i = 0; i < GF_IOBREF_IOBUF_COUNT; i++) {
                         if (iobref->iobrefs[i])
                                 size += iobuf_size (iobref->iobrefs[i]);
                 }

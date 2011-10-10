@@ -37,6 +37,8 @@
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
+#define GF_IOBREF_IOBUF_COUNT 16
+
 /* one allocatable unit for the consumers of the IOBUF API */
 /* each unit hosts @page_size bytes of memory */
 struct iobuf;
@@ -120,7 +122,7 @@ void iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 struct iobref {
         gf_lock_t          lock;
         int                ref;
-        struct iobuf      *iobrefs[8];
+        struct iobuf      *iobrefs[GF_IOBREF_IOBUF_COUNT];
 };
 
 struct iobref *iobref_new ();
