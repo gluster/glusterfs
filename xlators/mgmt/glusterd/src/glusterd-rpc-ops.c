@@ -1946,30 +1946,6 @@ out:
 }
 
 int32_t
-glusterd_start_brick_disconnect_timer (glusterd_op_brick_rsp_ctx_t *ev_ctx)
-{
-        struct timeval       timeout = {0, };
-        int32_t              ret = -1;
-        xlator_t             *this = NULL;
-        glusterd_brickinfo_t *brickinfo = NULL;
-
-        timeout.tv_sec  = 5;
-        timeout.tv_usec = 0;
-        brickinfo = ev_ctx->pending_node->node;
-        GF_ASSERT (brickinfo);
-        this = THIS;
-        GF_ASSERT (this);
-
-        brickinfo->timer = gf_timer_call_after (this->ctx, timeout,
-                                                glusterd_op_brick_disconnect,
-                                                (void *) ev_ctx);
-
-        ret = 0;
-
-        return ret;
-}
-
-int32_t
 glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
@@ -1979,7 +1955,6 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         call_frame_t                  *frame = NULL;
         glusterd_op_brick_rsp_ctx_t   *ev_ctx = NULL;
-        int32_t                       op = -1;
         dict_t                        *dict = NULL;
 
         GF_ASSERT (req);
@@ -2036,16 +2011,10 @@ out:
         ev_ctx->pending_node = frame->cookie;
         ev_ctx->rsp_dict  = dict;
         ev_ctx->commit_ctx = frame->local;
-        op = glusterd_op_get_op ();
-        if ((op == GD_OP_STOP_VOLUME) ||
-           (op == GD_OP_REMOVE_BRICK)) {
-                ret = glusterd_start_brick_disconnect_timer (ev_ctx);
-        } else {
-                ret = glusterd_op_sm_inject_event (event_type, ev_ctx);
-                if (!ret) {
-                        glusterd_friend_sm ();
-                        glusterd_op_sm ();
-                }
+        ret = glusterd_op_sm_inject_event (event_type, ev_ctx);
+        if (!ret) {
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
         }
 
         if (ret && dict)
