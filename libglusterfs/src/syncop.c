@@ -97,10 +97,15 @@ synctask_wake (struct synctask *task)
 
 
 void
-synctask_wrap (struct synctask *task)
+synctask_wrap (struct synctask *old_task)
 {
         int              ret;
+        struct synctask *task = NULL;
 
+        /* Do not trust the pointer received. It may be
+           wrong and can lead to crashes. */
+
+        task = synctask_get ();
         ret = task->syncfn (task->opaque);
         task->synccbk (ret, task->opaque);
 
