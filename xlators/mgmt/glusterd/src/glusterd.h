@@ -142,7 +142,6 @@ struct glusterd_brickinfo {
         glusterd_store_handle_t *shandle;
         gf_brick_status_t status;
         struct rpc_clnt *rpc;
-        gf_timer_t *timer;
         int decommissioned;
 };
 

@@ -1857,29 +1857,6 @@ out:
         return ret;
 }
 
-void
-glusterd_op_brick_disconnect (void *data)
-{
-        glusterd_brickinfo_t *brickinfo = NULL;
-        glusterd_op_brick_rsp_ctx_t *ev_ctx = NULL;
-
-        ev_ctx = data;
-        GF_ASSERT (ev_ctx);
-        brickinfo = ev_ctx->pending_node->node;
-        GF_ASSERT (brickinfo);
-
-        if (brickinfo->timer) {
-                gf_timer_call_cancel (THIS->ctx, brickinfo->timer);
-                brickinfo->timer = NULL;
-                gf_log ("", GF_LOG_DEBUG,
-                        "Cancelled timer thread");
-        }
-
-        glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_ACC, ev_ctx);
-        glusterd_op_sm ();
-}
-
-
 static int
 glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
