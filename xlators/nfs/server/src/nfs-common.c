@@ -178,8 +178,10 @@ nfs_loc_copy (loc_t *dst, loc_t *src)
 
 	dst->path = gf_strdup (src->path);
 
-	if (!dst->path)
+	if (!dst->path) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "strdup failed");
 		goto out;
+        }
 
 	dst->name = strrchr (dst->path, '/');
 	if (dst->name)
@@ -224,8 +226,10 @@ nfs_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
         loc->name = strrchr (loc->path, '/');
         if (loc->name)
                 loc->name++;
-        else
+        else {
+                gf_log (GF_NFS, GF_LOG_ERROR, "No / in path %s", loc->path);
                 goto loc_wipe;
+        }
 
         ret = 0;
 loc_wipe:
@@ -255,12 +259,18 @@ nfs_inode_loc_fill (inode_t *inode, loc_t *loc)
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "path resolution failed %s",
+                                resolvedpath);
                 goto err;
+        }
 
         ret = nfs_loc_fill (loc, inode, parent, resolvedpath);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "loc fill resolution failed %s",
+                                resolvedpath);
                 goto err;
+        }
 
 err:
         if (parent)
@@ -318,8 +328,11 @@ nfs_parent_inode_loc_fill (inode_t *parent, inode_t *entryinode, char *entry,
                 return ret;
 
         ret = inode_path (parent, entry, &path);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "path resolution failed %s",
+                                path);
                 goto err;
+        }
 
         ret = nfs_loc_fill (loc, entryinode, parent, path);
         GF_FREE (path);
@@ -381,13 +394,18 @@ nfs_entry_loc_fill (inode_table_t *itable, uuid_t pargfid, char *entry,
 
         ret = inode_path (parent, entry, &resolvedpath);
         if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "path resolution failed %s",
+                                resolvedpath);
                 ret = -3;
                 goto err;
         }
 
         ret = nfs_loc_fill (loc, entryinode, parent, resolvedpath);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "loc_fill failed %s",
+                                resolvedpath);
                 ret = -3;
+        }
 
 err:
         if (parent)
