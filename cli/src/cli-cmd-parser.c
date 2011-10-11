@@ -726,6 +726,11 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         int     ret = -1;
         int     brick_count = 0, brick_index = 0;
         char    *bricks = NULL;
+        char    *opwords_cl[] = { "replica", "stripe", NULL };
+        gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
+        int     count = 1;
+        char    *w = NULL;
+        int     index;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -751,8 +756,58 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 ret = -1;
                 goto out;
         }
+        if (wordcount < 6) {
+                /* seems no options are given, go directly to the parse_brick */
+                brick_index = 3;
+                type = GF_CLUSTER_TYPE_NONE;
+                goto parse_bricks;
+        }
 
-        brick_index = 3;
+        w = str_getunamb (words[3], opwords_cl);
+        if (!w) {
+                type = GF_CLUSTER_TYPE_NONE;
+                index = 3;
+        } else if ((strcmp (w, "replica")) == 0) {
+                type = GF_CLUSTER_TYPE_REPLICATE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+                count = strtol (words[4], NULL, 0);
+                if (!count || (count < 2)) {
+                        cli_out ("replica count should be greater than 1");
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_int32 (dict, "replica-count", count);
+                if (ret)
+                        goto out;
+                index = 5;
+        } else if ((strcmp (w, "stripe")) == 0) {
+                type = GF_CLUSTER_TYPE_STRIPE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+                count = strtol (words[4], NULL, 0);
+                if (!count || (count < 2)) {
+                        cli_out ("stripe count should be greater than 1");
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_int32 (dict, "stripe-count", count);
+                if (ret)
+                        goto out;
+                index = 5;
+        } else {
+                GF_ASSERT (!"opword mismatch");
+                ret = -1;
+                goto out;
+        }
+
+        brick_index = index;
+
+parse_bricks:
         ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
                                     &brick_count);
         if (ret)
@@ -794,20 +849,21 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         int32_t j = 0;
         char    *tmp_brick = NULL;
         char    *tmp_brick1 = NULL;
+        char    *type_opword[] = { "replica", NULL };
         char    *opwords[] = { "start", "commit", "pause", "abort", "status",
                                "force", NULL };
         char    *w = NULL;
         int32_t  command = GF_OP_CMD_NONE;
+        long     count = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
 
-        dict = dict_new ();
-
-        if (!dict)
+        if (wordcount < 4)
                 goto out;
 
-        if (wordcount < 3)
+        dict = dict_new ();
+        if (!dict)
                 goto out;
 
         volname = (char *)words[2];
@@ -817,6 +873,29 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         ret = dict_set_str (dict, "volname", volname);
         if (ret)
                 goto out;
+
+        brick_index = 3;
+        w = str_getunamb (words[3], type_opword);
+        if (w && !strcmp ("replica", w)) {
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+                count = strtol (words[4], NULL, 0);
+                if (count < 1) {
+                        cli_out ("replica count should be greater than 0 in "
+                                 "case of remove-brick");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_int32 (dict, "replica-count", count);
+                if (ret)
+                        goto out;
+                brick_index = 5;
+        } else if (w) {
+                GF_ASSERT (!"opword mismatch");
+        }
 
         w = str_getunamb (words[wordcount - 1], opwords);
         if (!w) {
@@ -860,8 +939,6 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                 gf_log ("cli", GF_LOG_INFO, "failed to set 'command' %d",
                         command);
 
-
-        brick_index = 3;
 
         tmp_index = brick_index;
         tmp_brick = GF_MALLOC(2048 * sizeof(*tmp_brick), gf_common_mt_char);
