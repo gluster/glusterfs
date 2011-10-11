@@ -1668,6 +1668,8 @@ nfs3_dir_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Dir open failed path %s err %s"
+                                , cs->resolvedloc.path, strerror (op_errno));
                 cs->resolve_ret = -1;
                 cs->resolve_errno = op_errno;
                 nfs3_call_resume (cs);
@@ -1948,7 +1950,7 @@ nfs3_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd failed: "
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Opening uncached fd failed: "
                         "%s", strerror(op_errno));
                 cs->resolve_ret = -1;
                 cs->resolve_errno = op_errno;
@@ -2419,8 +2421,10 @@ nfs3_fh_resolve_inode_done (nfs3_call_state_t *cs, inode_t *inode)
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "FH inode resolved");
         ret = nfs_inode_loc_fill (inode, &cs->resolvedloc);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "inode loc fill failed");
                 goto err;
+        }
 
         nfs3_call_resume (cs);
 
@@ -2493,7 +2497,8 @@ nfs3_fh_resolve_entry_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Lookup failed: %s: %s",
+                gf_log (GF_NFS3, (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_ERROR),
+                        "Lookup failed: %s: %s",
                         cs->resolvedloc.path, strerror (op_errno));
                 goto err;
         } else
@@ -2563,7 +2568,8 @@ nfs3_fh_resolve_parent_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Lookup failed: %s: %s",
+                gf_log (GF_NFS3, (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_ERROR),
+                        "Lookup failed: %s: %s",
                         cs->resolvedloc.path, strerror (op_errno));
                 nfs3_call_resume (cs);
                 goto err;
@@ -2643,7 +2649,7 @@ nfs3_fh_resolve_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Dir open failed: %s: %s",
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Dir open failed: %s: %s",
                         cs->resolvedloc.path, strerror (op_errno));
                 nfs3_call_resume (cs);
                 goto err;
@@ -2684,7 +2690,8 @@ nfs3_fh_resolve_dir_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Lookup failed: %s: %s",
+                gf_log (GF_NFS3, (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_ERROR),
+                        "Lookup failed: %s: %s",
                         cs->resolvedloc.path, strerror (op_errno));
                 nfs3_call_resume (cs);
                 goto err;
@@ -3081,7 +3088,7 @@ nfs3_fh_resolve_root_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Root lookup failed: %s",
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Root lookup failed: %s",
                         strerror (op_errno));
                 goto err;
         } else

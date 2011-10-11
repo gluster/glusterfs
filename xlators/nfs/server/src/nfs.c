@@ -132,8 +132,10 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                 if (rpcsvc_register_portmap_enabled(nfs->rpcsvc)) {
                         ret = rpcsvc_program_register_portmap (prog,
                                                                prog->progport);
-                        if (ret == -1)
+                        if (ret == -1) {
+                                gf_log (GF_NFS, GF_LOG_ERROR, "Program registration failed");
                                 goto err;
+                        }
                 }
         }
 
