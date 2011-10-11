@@ -555,7 +555,7 @@ ios_dump_file_stats (struct ios_stat_head *list_head, xlator_t *this, FILE* logf
         LOCK (&list_head->lock);
         {
                 list_for_each_entry (entry, &list_head->iosstats->list, list) {
-                        ios_log (this, logfp, "%.0f\t\t%s",
+                        ios_log (this, logfp, "%-12.0f %s",
                                 entry->value, entry->iosstat->filename);
                 }
         }
@@ -583,9 +583,8 @@ ios_dump_throughput_stats (struct ios_stat_head *list_head, xlator_t *this,
                         snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, time.tv_usec);
 
-                        ios_log (this, logfp, "%.2f\t\t%s \t\t- %s",
-                                entry->value,
-                                entry->iosstat->filename, timestr);
+                        ios_log (this, logfp, "%s \t %-10.2f  \t  %s",
+                                 timestr, entry->value, entry->iosstat->filename);
                 }
         }
         UNLOCK (&list_head->lock);
@@ -596,49 +595,101 @@ int
 io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                                struct timeval *now, int interval, FILE* logfp)
 {
-        int    i = 0;
+        int                   i = 0;
+        int                   per_line = 0;
+        int                   index = 0;
         struct ios_stat_head *list_head = NULL;
         struct ios_conf      *conf = NULL;
         struct tm            *tm = NULL;
         char                  timestr[256] = {0, };
+        char                  str_header[128] = {0};
+        char                  str_read[128] = {0};
+        char                  str_write[128] = {0};
 
         conf = this->private;
 
         if (interval == -1)
-                ios_log (this, logfp, "=== Cumulative stats ===");
+                ios_log (this, logfp, "\n=== Cumulative stats ===");
         else
-                ios_log (this, logfp, "=== Interval %d stats ===",
+                ios_log (this, logfp, "\n=== Interval %d stats ===",
                          interval);
-        ios_log (this, logfp, "      Duration : %"PRId64"secs",
+        ios_log (this, logfp, "      Duration : %"PRId64" secs",
                  (uint64_t) (now->tv_sec - stats->started_at.tv_sec));
         ios_log (this, logfp, "     BytesRead : %"PRId64,
                  stats->data_read);
-        ios_log (this, logfp, "  BytesWritten : %"PRId64,
+        ios_log (this, logfp, "  BytesWritten : %"PRId64"\n",
                  stats->data_written);
 
+        snprintf (str_header, sizeof (str_header), "%-12s %c", "Block Size", ':');
+        snprintf (str_read, sizeof (str_read), "%-12s %c", "Read Count", ':');
+        snprintf (str_write, sizeof (str_write), "%-12s %c", "Write Count", ':');
+        index = 14;
         for (i = 0; i < 32; i++) {
+                if ((stats->block_count_read[i] == 0) &&
+                    (stats->block_count_write[i] == 0))
+                        continue;
+                per_line++;
+
+                snprintf (str_header+index, sizeof (str_header)-index,
+                          "%16dB+", (1<<i));
                 if (stats->block_count_read[i])
-                        ios_log (this, logfp, " Read %06db+ : %"PRId64,
-                                 (1 << i), stats->block_count_read[i]);
+                        snprintf (str_read+index, sizeof (str_read)-index,
+                                  "%18"PRId64, stats->block_count_read[i]);
+                else    snprintf (str_read+index, sizeof (str_read)-index,
+                                  "%18s", "0");
+                if (stats->block_count_write[i])
+                        snprintf (str_write+index, sizeof (str_write)-index,
+                                  "%18"PRId64, stats->block_count_write[i]);
+                else    snprintf (str_write+index, sizeof (str_write)-index,
+                                  "%18s", "0");
+
+                index += 18;
+                if (per_line == 3) {
+                        ios_log (this, logfp, "%s", str_header);
+                        ios_log (this, logfp, "%s", str_read);
+                        ios_log (this, logfp, "%s\n", str_write);
+
+                        memset (str_header, 0, sizeof (str_header));
+                        memset (str_read, 0, sizeof (str_read));
+                        memset (str_write, 0, sizeof (str_write));
+
+                        snprintf (str_header, sizeof (str_header), "%-12s %c",
+                                  "Block Size", ':');
+                        snprintf (str_read, sizeof (str_read), "%-12s %c",
+                                  "Read Count", ':');
+                        snprintf (str_write, sizeof (str_write), "%-12s %c",
+                                  "Write Count", ':');
+
+                        index = 14;
+                        per_line = 0;
+                }
         }
 
-        for (i = 0; i < 32; i++) {
-                if (stats->block_count_write[i])
-                        ios_log (this, logfp, "Write %06db+ : %"PRId64,
-                                 (1 << i), stats->block_count_write[i]);
+        if (per_line != 0) {
+                ios_log (this, logfp, "%s", str_header);
+                ios_log (this, logfp, "%s", str_read);
+                ios_log (this, logfp, "%s\n", str_write);
         }
+
+        ios_log (this, logfp, "%-13s %10s %14s %14s %14s", "Fop",
+                 "Call Count", "Avg-Latency", "Min-Latency",
+                 "Max-Latency");
+        ios_log (this, logfp, "%-13s %10s %14s %14s %14s", "---", "----------",
+                 "-----------", "-----------", "-----------");
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
                 if (stats->fop_hits[i] && !stats->latency[i].avg)
-                        ios_log (this, logfp, "%14s : %"PRId64,
-                                 gf_fop_list[i], stats->fop_hits[i]);
+                        ios_log (this, logfp, "%-13s %10"PRId64" %11s "
+                                 "us %11s us %11s us", gf_fop_list[i],
+                                 stats->fop_hits[i], "0", "0", "0");
                 else if (stats->fop_hits[i] && stats->latency[i].avg)
-                        ios_log (this, logfp, "%14s : %"PRId64 ", latency"
-                                 "(avg: %f, min: %f, max: %f)",
-                                 gf_fop_list[i], stats->fop_hits[i],
-                                 stats->latency[i].avg, stats->latency[i].min,
-                                 stats->latency[i].max);
+                        ios_log (this, logfp, "%-13s %10"PRId64" %11.2lf us "
+                                 "%11.2lf us %11.2lf us", gf_fop_list[i],
+                                 stats->fop_hits[i], stats->latency[i].avg,
+                                 stats->latency[i].min, stats->latency[i].max);
         }
+        ios_log (this, logfp, "------ ----- ----- ----- ----- ----- ----- ----- "
+                 " ----- ----- ----- -----\n");
 
         if (interval == -1) {
                 LOCK (&conf->lock);
@@ -654,39 +705,41 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                                  conf->cumulative.max_nr_opens, timestr);
                 }
                 UNLOCK (&conf->lock);
-                ios_log (this, logfp, "==========Open file stats========");
-                ios_log (this, logfp, "open call count:\t\t\tfile name");
+                ios_log (this, logfp, "\n==========Open File Stats========");
+                ios_log (this, logfp, "\nCOUNT:  \t  FILE NAME");
                 list_head = &conf->list[IOS_STATS_TYPE_OPEN];
                 ios_dump_file_stats (list_head, this, logfp);
 
 
-                ios_log (this, logfp, "==========Read file stats========");
-                ios_log (this, logfp, "read call count:\t\t\tfilename");
+                ios_log (this, logfp, "\n==========Read File Stats========");
+                ios_log (this, logfp, "\nCOUNT:  \t  FILE NAME");
                 list_head = &conf->list[IOS_STATS_TYPE_READ];
                 ios_dump_file_stats (list_head, this, logfp);
 
-                ios_log (this, logfp, "==========Write file stats========");
-                ios_log (this, logfp, "write call count:\t\t\tfilename");
+                ios_log (this, logfp, "\n==========Write File Stats========");
+                ios_log (this, logfp, "\nCOUNT:  \t  FILE NAME");
                 list_head = &conf->list[IOS_STATS_TYPE_WRITE];
                 ios_dump_file_stats (list_head, this, logfp);
 
-                ios_log (this, logfp, "==========Directory open stats========");
-                ios_log (this, logfp, "Opendir count:\t\t\tdirectory name");
+                ios_log (this, logfp, "\n==========Directory open stats========");
+                ios_log (this, logfp, "\nCOUNT:  \t  DIRECTORY NAME");
                 list_head = &conf->list[IOS_STATS_TYPE_OPENDIR];
                 ios_dump_file_stats (list_head, this, logfp);
 
-                ios_log (this, logfp, "==========Directory readdirp stats========");
-                ios_log (this, logfp, "readdirp count:\t\t\tdirectory name");
+                ios_log (this, logfp, "\n========Directory readdirp Stats=======");
+                ios_log (this, logfp, "\nCOUNT:  \t  DIRECTORY NAME");
                 list_head = &conf->list[IOS_STATS_TYPE_READDIRP];
                 ios_dump_file_stats (list_head, this, logfp);
 
-                ios_log (this, logfp, "==========Read throughput file stats========");
-                ios_log (this, logfp, "read throughput(MBps):\t\t\tfilename");
+                ios_log (this, logfp, "\n========Read Throughput File Stats=====");
+                ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
+                         "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_READ];
 		ios_dump_throughput_stats(list_head, this, logfp, IOS_STATS_THRU_READ);
 
-                ios_log (this, logfp, "==========Write throughput file stats========");
-                ios_log (this, logfp, "write througput (MBps):\t\t\tfilename");
+                ios_log (this, logfp, "\n======Write Throughput File Stats======");
+                ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
+                         "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_WRITE];
 		ios_dump_throughput_stats (list_head, this, logfp, IOS_STATS_THRU_WRITE);
         }
