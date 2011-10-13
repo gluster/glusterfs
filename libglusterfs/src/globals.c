@@ -114,6 +114,9 @@ glusterfs_ctx_init ()
         INIT_LIST_HEAD (&glusterfs_ctx->mempool_list);
         ret = pthread_mutex_init (&glusterfs_ctx->lock, NULL);
 
+        glusterfs_ctx->daemon_pipe[0] = -1;
+        glusterfs_ctx->daemon_pipe[1] = -1;
+
 out:
         return ret;
 }
