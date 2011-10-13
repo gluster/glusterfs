@@ -54,6 +54,7 @@ int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
 int glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp);
 int glusterfs_graph_unknown_options (glusterfs_graph_t *graph);
+int emancipate(glusterfs_ctx_t *ctx, int ret);
 
 int
 mgmt_cbk_spec (void *data)
@@ -1536,7 +1537,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (-1 == rsp.op_ret) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
                         "failed to get the 'volume file' from server");
-                ret = -1;
+                ret = rsp.op_errno;
                 goto out;
         }
 
@@ -1597,6 +1598,8 @@ out:
         if (rsp.spec)
                 free (rsp.spec);
 
+        emancipate (ctx, ret);
+
         if (ret && ctx && !ctx->active) {
                 /* Do it only for the first time */
                 /* Failed to get the volume file, something wrong,
@@ -1640,6 +1643,8 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         cmd_args_t      *cmd_args = NULL;
         glusterfs_ctx_t *ctx = NULL;
         int              ret = 0;
+        int need_term = 0;
+        int emval = 0;
 
         this = mydata;
         ctx = this->ctx;
@@ -1654,28 +1659,39 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         gf_log ("glusterfsd-mgmt", GF_LOG_INFO,
                                 "%d connect attempts left",
                                 cmd_args->max_connect_attempts);
-                        if (0 >= cmd_args->max_connect_attempts)
-                                cleanup_and_exit (1);
+                        if (0 >= cmd_args->max_connect_attempts) {
+                                need_term = 1;
+                                emval = ENOTCONN;
+                        }
                 }
                 break;
         case RPC_CLNT_CONNECT:
                 rpc_clnt_set_connected (&((struct rpc_clnt*)ctx->mgmt)->conn);
 
                 ret = glusterfs_volfile_fetch (ctx);
-                if (ret && ctx && (ctx->active == NULL)) {
-                        /* Do it only for the first time */
-                        /* Exit the process.. there is some wrong options */
-                        gf_log ("mgmt", GF_LOG_ERROR,
-                                "failed to fetch volume file (key:%s)",
-                                ctx->cmd_args.volfile_id);
-                        cleanup_and_exit (0);
+                if (ret) {
+                        emval = ret;
+                        if (!ctx->active) {
+                                need_term = 1;
+                                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                                        "failed to fetch volume file (key:%s)",
+                                        ctx->cmd_args.volfile_id);
+                                break;
+
+                        }
                 }
 
                 if (is_mgmt_rpc_reconnect)
                         glusterfs_mgmt_pmap_signin (ctx);
+
                 break;
         default:
                 break;
+        }
+
+        if (need_term) {
+                emancipate (ctx, emval);
+                cleanup_and_exit (1);
         }
 
         return 0;
