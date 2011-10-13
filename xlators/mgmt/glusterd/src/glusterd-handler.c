@@ -1000,8 +1000,9 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                                                      &tmpvolinfo, &tmpbrkinfo);
                 if (!ret) {
                         ret = -1;
-                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
-                                  " in the arguments mean the same",
+                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s and "
+                                  "Brick: %s have overlapping export directories"
+                                  " from the same peer",
                                   tmpbrkinfo->hostname, tmpbrkinfo->path,
                                   brick);
                         goto out;
@@ -1422,8 +1423,9 @@ brick_val:
                                                      &tmpvolinfo, &tmpbrkinfo);
                 if (!ret) {
                         ret = -1;
-                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
-                                  " in the arguments mean the same",
+                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s and "
+                                  "Brick: %s have overlapping export directories"
+                                  " from the same peer",
                                   tmpbrkinfo->hostname, tmpbrkinfo->path,
                                   brick);
                         goto out;
