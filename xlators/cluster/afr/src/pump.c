@@ -1085,14 +1085,6 @@ pump_execute_commit (call_frame_t *frame, xlator_t *this)
         pump_priv = priv->pump_private;
         local     = frame->local;
 
-
-        LOCK (&pump_priv->resume_path_lock);
-        {
-                pump_priv->number_files_pumped = 0;
-                pump_priv->current_file[0] = '\0';
-        }
-        UNLOCK (&pump_priv->resume_path_lock);
-
         local->op_ret = 0;
         if (pump_priv->pump_finished) {
                 pump_change_state (this, PUMP_STATE_COMMIT);
