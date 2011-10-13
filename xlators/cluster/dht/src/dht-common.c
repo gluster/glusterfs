@@ -1845,7 +1845,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
         tmp = dict_get (xattr, "distribute.migrate-data");
         if (tmp) {
-                if (!IA_ISREG (loc->inode->ia_type)) {
+                if (IA_ISDIR (loc->inode->ia_type)) {
                         op_errno = ENOTSUP;
                         goto err;
                 }

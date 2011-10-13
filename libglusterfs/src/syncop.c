@@ -985,3 +985,101 @@ syncop_stat (xlator_t *subvol, loc_t *loc, struct iatt *stbuf)
         return args.op_ret;
 
 }
+
+int32_t
+syncop_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    struct iatt *buf, struct iatt *preparent,
+                    struct iatt *postparent)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_symlink (xlator_t *subvol, loc_t *loc, char *newpath, dict_t *dict)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_symlink_cbk, subvol->fops->symlink,
+                newpath, loc, dict);
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}
+
+int
+syncop_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, const char *path,
+                     struct iatt *stbuf)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        if ((op_ret != -1) && path)
+                args->buffer = gf_strdup (path);
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_readlink_cbk, subvol->fops->readlink,
+                loc, size);
+
+        if (buffer)
+                *buffer = args.buffer;
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
+syncop_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct iatt *buf, struct iatt *preparent,
+                  struct iatt *postparent)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
+              dict_t *dict)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_mknod_cbk, subvol->fops->mknod,
+                loc, mode, rdev, dict);
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}

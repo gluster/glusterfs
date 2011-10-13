@@ -98,7 +98,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (ret == -1)
                         continue;
 
-                if (!S_ISREG (stbuf.st_mode))
+                if (S_ISDIR (stbuf.st_mode))
                         continue;
 
                 defrag->num_files_lookedup += 1;
