@@ -210,11 +210,15 @@ afr_inode_get_ctx (xlator_t *this, inode_t *inode, afr_inode_params_t *params)
                                 fresh_children[i] = ctx->fresh_children[i];
                         break;
                 case AFR_INODE_GET_OPENDIR_DONE:
-                        params->u.value = ctx->masks &
-                                          AFR_ICTX_OPENDIR_DONE_MASK;
+                        params->u.value = _gf_false;
+                        if (ctx->masks & AFR_ICTX_OPENDIR_DONE_MASK)
+                                params->u.value = _gf_true;
                         break;
                 case AFR_INODE_GET_SPLIT_BRAIN:
-                        params->u.value = ctx->masks & AFR_ICTX_SPLIT_BRAIN_MASK;
+                        params->u.value = _gf_false;
+                        if (ctx->masks & AFR_ICTX_SPLIT_BRAIN_MASK)
+                                params->u.value = _gf_true;
+                        ;
                         break;
                 default:
                         GF_ASSERT (0);
@@ -225,7 +229,7 @@ unlock:
         UNLOCK (&inode->lock);
 }
 
-uint64_t
+gf_boolean_t
 afr_is_split_brain (xlator_t *this, inode_t *inode)
 {
         afr_inode_params_t params = {0};

@@ -852,7 +852,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this);
 int
 afr_frame_return (call_frame_t *frame);
 
-uint64_t
+gf_boolean_t
 afr_is_split_brain (xlator_t *this, inode_t *inode);
 
 void
