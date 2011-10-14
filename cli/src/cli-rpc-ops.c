@@ -3238,7 +3238,7 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_int32 (dict, key, (int32_t*)&top_op);
         if (ret)
                 goto out;
-        while (i <= brick_count) {
+        while (i < brick_count) {
                 i++;
                 snprintf (brick, sizeof (brick), "%d-brick", i);
                 ret = dict_get_str (dict, brick, &bricks);
