@@ -90,7 +90,7 @@ This package provides support to ib-verbs library.
 %package geo-replication
 Summary: GlusterFS Geo-replication
 Group: Applications/File
-Requires: glusterfs-core >= %{version}-%{release} , python-ctypes , rsync >= 3.0.7
+Requires: glusterfs-core >= %{version}-%{release} , python-ctypes , rsync >= 3.0.0
 
 %description geo-replication
 GlusterFS is a clustered file-system capable of scaling to several
