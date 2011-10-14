@@ -607,7 +607,11 @@ gf_cmd_log_init (const char *filename)
                         " error\n");
                 return -1;
         }
-
+        /* close and reopen cmdlogfile for log rotate*/
+        if (cmdlogfile) {
+                fclose (cmdlogfile);
+                cmdlogfile = NULL;
+        }
         cmdlogfile = fopen (cmd_log_filename, "a");
         if (!cmdlogfile){
                 gf_log ("glusterd", GF_LOG_CRITICAL,
