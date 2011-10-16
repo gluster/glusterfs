@@ -136,6 +136,7 @@ void *
 gf_timer_proc (void *ctx)
 {
         gf_timer_registry_t *reg = NULL;
+	const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
 
         if (ctx == NULL)
         {
@@ -178,7 +179,7 @@ gf_timer_proc (void *ctx)
                         else
                                 break;
                 }
-                usleep (1000000);
+                nanosleep (&sleepts, NULL);
         }
 
         pthread_mutex_lock (&reg->lock);
