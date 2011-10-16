@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
+#include <signal.h>
 #ifndef __NetBSD__
 #include <mntent.h>
 #endif /* __NetBSD__ */
