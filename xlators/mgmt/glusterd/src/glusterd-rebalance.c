@@ -69,6 +69,14 @@ migrate_xattrs_of_file (int src, int dst)
 
         while (size > size_processed) {
                 key = &list[size_processed];
+
+                /* SELinux setting happens from backend filesystem itself,
+                   don't try to copy it */
+                if (strcmp (key, "security.selinux") == 0) {
+                        size_processed += strlen (key) + 1;
+                        continue;
+                }
+
                 len = fgetxattr (src, key, value, 4096);
                 if (len < 0) {
                         gf_log (THIS->name, GF_LOG_ERROR,
