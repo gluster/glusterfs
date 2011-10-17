@@ -36,6 +36,18 @@
 #define UNIX_PATH_MAX 108
 #endif
 
+#define UNIT_KB 1024ULL
+#define UNIT_MB UNIT_KB*1024ULL
+#define UNIT_GB UNIT_MB*1024ULL
+#define UNIT_TB UNIT_GB*1024ULL
+#define UNIT_PB UNIT_TB*1024ULL
+
+#define UNIT_KB_STRING    "KB"
+#define UNIT_MB_STRING    "MB"
+#define UNIT_GB_STRING    "GB"
+#define UNIT_TB_STRING    "TB"
+#define UNIT_PB_STRING    "PB"
+
 struct rdd_file {
         char path[UNIX_PATH_MAX];
         struct stat st;
@@ -53,6 +65,7 @@ struct rdd_config {
         pthread_mutex_t lock;
         struct rdd_file in_file;
         struct rdd_file out_file;
+        ssize_t file_size;
 };
 static struct rdd_config rdd_config;
 
@@ -91,6 +104,21 @@ rdd_parse_opts (int key, char *arg,
                 }
 
                 strncpy (rdd_config.in_file.path, arg, len);
+                rdd_config.in_file.path[len] = '\0';
+        }
+        break;
+
+        case 'f':
+        {
+                char *tmp = NULL;
+                unsigned long long fs = 0;
+                if (string2bytesize (arg, &fs) == -1) {
+                        fprintf (stderr, "invalid argument for file size "
+                                 "(%s)\n", arg);
+                        return -1;
+                }
+
+                rdd_config.file_size = fs;
         }
         break;
 
@@ -189,6 +217,81 @@ rdd_parse_opts (int key, char *arg,
         return 0;
 }
 
+int
+string2bytesize (const char *str, unsigned long long *n)
+{
+        unsigned long long value = 0ULL;
+        char *tail = NULL;
+        int old_errno = 0;
+        const char *s = NULL;
+
+        if (str == NULL || n == NULL)
+        {
+                errno = EINVAL;
+                return -1;
+        }
+
+        for (s = str; *s != '\0'; s++)
+        {
+                if (isspace (*s))
+                {
+                        continue;
+                }
+                if (*s == '-')
+                {
+                        return -1;
+                }
+                break;
+        }
+
+        old_errno = errno;
+        errno = 0;
+        value = strtoull (str, &tail, 10);
+
+        if (errno == ERANGE || errno == EINVAL)
+        {
+                return -1;
+        }
+
+        if (errno == 0)
+        {
+                errno = old_errno;
+        }
+
+        if (tail[0] != '\0')
+        {
+                if (strcasecmp (tail, UNIT_KB_STRING) == 0)
+                {
+                        value *= UNIT_KB;
+                }
+                else if (strcasecmp (tail, UNIT_MB_STRING) == 0)
+                {
+                        value *= UNIT_MB;
+                }
+                else if (strcasecmp (tail, UNIT_GB_STRING) == 0)
+                {
+                        value *= UNIT_GB;
+                }
+                else if (strcasecmp (tail, UNIT_TB_STRING) == 0)
+                {
+                        value *= UNIT_TB;
+                }
+                else if (strcasecmp (tail, UNIT_PB_STRING) == 0)
+                {
+                        value *= UNIT_PB;
+                }
+
+                else
+                {
+                        return -1;
+                }
+        }
+
+        *n = value;
+
+        return 0;
+}
+
 static struct argp_option rdd_options[] = {
         {"if", 'i', "INPUT_FILE", 0, "input-file"},
         {"of", 'o', "OUTPUT_FILE", 0, "output-file"},
@@ -201,6 +304,9 @@ static struct argp_option rdd_options[] = {
          "Number of read-write sequences (defaults to 1000000)"},
         {"max-ops", 'm', "MAXOPS", 0,
          "maximum number of read-writes to be performed in a sequence (defaults to 1)"},
+        {"file-size", 'f', "FILESIZE", 0,
+         "the size of the file which will be created and upon it I/O will be done"
+         " (defaults to 100MB"},
         {0, 0, 0, 0, 0}
 };
 
@@ -216,12 +322,16 @@ static struct argp argp = {
 static void
 rdd_default_config (void)
 {
+        char *tmp_path = "rdd.in";
+
         rdd_config.thread_count = 2;
         rdd_config.iters = 1000000;
         rdd_config.max_bs = 4096;
         rdd_config.min_bs = 1024;
         rdd_config.in_file.fd = rdd_config.out_file.fd = -1;
         rdd_config.max_ops_per_seq = 1;
+        strncpy (rdd_config.in_file.path, tmp_path, strlen (tmp_path));
+        rdd_config.file_size = 104857600;
 
         return;
 }
@@ -234,13 +344,17 @@ rdd_valid_config (void)
         int fd = -1;
 
         fd = open (rdd_config.in_file.path, O_RDONLY);
-        if (fd == -1) {
+        if (fd == -1 && (errno != ENOENT)) {
+                fprintf (stderr, "open: (%s)", strerror (errno));
                 ret = 0;
                 goto out;
         }
         close (fd);
 
         if (rdd_config.min_bs > rdd_config.max_bs) {
+                fprintf (stderr, "minimum blocksize %ld is greater than the "
+                         "maximum blocksize %ld", rdd_config.min_bs,
+                         rdd_config.max_bs);
                 ret = 0;
                 goto out;
         }
@@ -356,10 +470,68 @@ cleanup (void)
 }
 
 static int
+check_and_create (void)
+{
+        int ret = -1;
+        char buf[4096] = {0,};
+        struct stat stbuf = {0,};
+        int  fd[2] = {-1,};
+        size_t  total_size = -1;
+
+        total_size = rdd_config.file_size;
+
+        ret = stat (rdd_config.in_file.path, &stbuf);
+        if (ret == -1 && (errno != ENOENT))
+                goto out;
+
+        fd[1] = open (rdd_config.in_file.path, O_CREAT | O_WRONLY | O_TRUNC);
+        if (fd[1] == -1)
+                goto out;
+
+        fd[0] = open ("/dev/urandom", O_RDONLY);
+        if (fd[0] == -1)
+                goto out;
+
+        while (total_size > 0) {
+                if (total_size >= 4096) {
+                        ret = read (fd[0], buf, 4096);
+                        if (ret == -1)
+                                goto out;
+                        ret = write (fd[1], buf, 4096);
+                        if (ret == -1)
+                                goto out;
+                        total_size = total_size - 4096;
+                } else {
+                        ret = read (fd[0], buf, total_size);
+                        if (ret == -1)
+                                goto out;
+                        ret = write (fd[1], buf, total_size);
+                        if (ret == -1)
+                                goto out;
+                        total_size = total_size - total_size;
+                }
+
+        }
+
+        ret = 0;
+
+out:
+        if (fd[0] > 0)
+                close (fd[0]);
+        if (fd[1] > 0)
+                close (fd[1]);
+        return ret;
+}
+
+static int
 rdd_spawn_threads (void)
 {
         int i = 0, ret = -1, fd = -1;
         char buf[4096];
+
+        ret = check_and_create ();
+        if (ret == -1)
+                goto out;
 
         fd = open (rdd_config.in_file.path, O_RDONLY);
         if (fd < 0) {
@@ -378,7 +550,7 @@ rdd_spawn_threads (void)
         }
         rdd_config.in_file.fd = fd;
 
-        fd = open (rdd_config.out_file.path, O_WRONLY | O_CREAT,
+        fd = open (rdd_config.out_file.path, O_WRONLY | O_CREAT | O_TRUNC,
                    S_IRWXU | S_IROTH);
         if (fd < 0) {
                 close (rdd_config.in_file.fd);
