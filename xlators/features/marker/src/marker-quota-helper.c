@@ -136,8 +136,8 @@ mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
         inode_contribution_t    *contri = NULL;
         inode_contribution_t    *temp   = NULL;
 
-        GF_VALIDATE_OR_GOTO ("marker", inode, out);
-        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        if (!inode || !ctx)
+                goto out;
 
         list_for_each_entry (temp, &ctx->contribution_head, contri_list) {
                 if (uuid_compare (temp->gfid, inode->gfid) == 0) {
