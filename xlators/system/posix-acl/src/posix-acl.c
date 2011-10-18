@@ -171,7 +171,6 @@ static int
 acl_permits (call_frame_t *frame, inode_t *inode, int want)
 {
         int                     verdict = 0;
-        int                     ret = 0;
         struct posix_acl       *acl = NULL;
         struct posix_ace       *ace = NULL;
         struct posix_acl_ctx   *ctx = NULL;
@@ -190,8 +189,7 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
         if (frame_is_super_user (frame))
                 goto green;
 
-        ret = posix_acl_get (inode, frame->this, &acl, NULL);
-
+        posix_acl_get (inode, frame->this, &acl, NULL);
         if (!acl) {
                 acl = posix_acl_ref (frame->this, conf->minimal_acl);
         }
@@ -723,7 +721,9 @@ acl_set:
         posix_acl_ctx_update (inode, this, buf);
 
         ret = posix_acl_set (inode, this, acl_access, acl_default);
-
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set ACL in context");
 unwind:
         my_xattr = frame->local;
         frame->local = NULL;
@@ -769,7 +769,14 @@ green:
         }
 
         ret = dict_set_int8 (my_xattr, POSIX_ACL_ACCESS_XATTR, 0);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "failed to set key %s",
+                        POSIX_ACL_ACCESS_XATTR);
+
         ret = dict_set_int8 (my_xattr, POSIX_ACL_DEFAULT_XATTR, 0);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "failed to set key %s",
+                        POSIX_ACL_DEFAULT_XATTR);
 
         frame->local = my_xattr;
         STACK_WIND (frame, posix_acl_lookup_cbk,
@@ -1644,7 +1651,6 @@ posix_acl_setxattr_update (xlator_t *this, inode_t *inode, dict_t *xattr)
         struct posix_acl     *old_default = NULL;
         struct posix_acl_ctx *ctx = NULL;
         int                   ret = 0;
-        mode_t                mode = 0;
 
         ctx = posix_acl_ctx_get (inode, this);
         if (!ctx)
@@ -1663,7 +1669,7 @@ posix_acl_setxattr_update (xlator_t *this, inode_t *inode, dict_t *xattr)
         ret = posix_acl_set (inode, this, acl_access, acl_default);
 
         if (acl_access && acl_access != old_access) {
-                mode = posix_acl_access_set_mode (acl_access, ctx);
+                posix_acl_access_set_mode (acl_access, ctx);
         }
 
         if (acl_access)
@@ -1675,7 +1681,7 @@ posix_acl_setxattr_update (xlator_t *this, inode_t *inode, dict_t *xattr)
         if (old_default)
                 posix_acl_unref (this, old_default);
 
-        return 0;
+        return ret;
 }
 
 

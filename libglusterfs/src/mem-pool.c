@@ -336,6 +336,9 @@ mem_pool_new_fn (unsigned long sizeof_type,
                 return NULL;
 
         ret = gf_asprintf (&mem_pool->name, "%s:%s", THIS->name, name);
+        if (ret < 0)
+                return NULL;
+
         if (!mem_pool->name) {
                 GF_FREE (mem_pool);
                 return NULL;

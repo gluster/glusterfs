@@ -236,6 +236,9 @@ marker_getxattr_stampfile_cbk (call_frame_t *frame, xlator_t *this,
 
         ret = dict_set_bin (dict, (char *)name, vol_mark,
                             sizeof (struct volume_mark));
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "failed to set key %s",
+                        name);
 
         STACK_UNWIND_STRICT (getxattr, frame, 0, 0, dict);
 
@@ -390,8 +393,9 @@ marker_start_setxattr (call_frame_t *frame, xlator_t *this)
 
         ret = dict_set_static_bin (dict, priv->marker_xattr,
                                    (void *)local->timebuf, 8);
-
-        gf_log (this->name, GF_LOG_DEBUG, "path = %s", local->loc.path);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set marker xattr (%s)", local->loc.path);
 
         STACK_WIND (frame, marker_specific_setxattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr, &local->loc, dict, 0);

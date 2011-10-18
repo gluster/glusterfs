@@ -3023,6 +3023,8 @@ fuse_first_lookup (xlator_t *this)
         memset (gfid, 0, 16);
         gfid[15] = 1;
         ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
+        if (ret)
+                gf_log (xl->name, GF_LOG_ERROR, "failed to set 'gfid-req'");
 
         STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
                     &loc, dict);

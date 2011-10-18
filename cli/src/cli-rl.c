@@ -89,9 +89,14 @@ cli_rl_process_line (char *line)
         state->rl_processing = 1;
         {
                 ret = cli_cmd_process_line (state, line);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to process line");
+
                 add_history (line);
         }
         state->rl_processing = 0;
+
 }
 
 

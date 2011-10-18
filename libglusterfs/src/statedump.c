@@ -88,13 +88,12 @@ gf_proc_dump_close (void)
 }
 
 
-void
+int
 gf_proc_dump_add_section (char *key, ...)
 {
 
         char buf[GF_DUMP_MAX_BUF_LEN];
         va_list ap;
-        int     ret;
 
         GF_ASSERT(key);
 
@@ -106,18 +105,17 @@ gf_proc_dump_add_section (char *key, ...)
         va_end (ap);
         snprintf (buf + strlen(buf),
                   GF_DUMP_MAX_BUF_LEN - strlen (buf),  "]\n");
-        ret = write (gf_dump_fd, buf, strlen (buf));
+        return write (gf_dump_fd, buf, strlen (buf));
 }
 
 
-void
+int
 gf_proc_dump_write (char *key, char *value,...)
 {
 
         char         buf[GF_DUMP_MAX_BUF_LEN];
         int          offset = 0;
         va_list      ap;
-        int          ret;
 
         GF_ASSERT (key);
 
@@ -133,7 +131,7 @@ gf_proc_dump_write (char *key, char *value,...)
 
         offset = strlen (buf);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "\n");
-        ret = write (gf_dump_fd, buf, strlen (buf));
+        return write (gf_dump_fd, buf, strlen (buf));
 }
 
 static void
@@ -421,7 +419,12 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                           "matched key : %s\n", key);
                 ret = write (gf_dump_fd, buf, strlen (buf));
 
-                return -1;
+                /* warning suppression */
+                if (ret >= 0) {
+                        ret = -1;
+                        goto out;
+                }
+
         }
 
         opt_value = (strncasecmp (value, "yes", 3) ?
@@ -429,7 +432,9 @@ gf_proc_dump_parse_set_option (char *key, char *value)
 
         GF_PROC_DUMP_SET_OPTION (*opt_key, opt_value);
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 static int

@@ -881,9 +881,13 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 local->xattr = NULL;
         }
 
-        if (!uuid_is_null (local->gfid))
+        if (!uuid_is_null (local->gfid)) {
                 ret = dict_set_static_bin (local->xattr_req, "gfid-req",
                                            local->gfid, 16);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: failed to set gfid", local->loc.path);
+        }
 
         for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_lookup_dir_cbk,
@@ -3206,6 +3210,9 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 op_ret, op_errno, NULL);
                 }
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: failed to merge layouts", local->loc.path);
 
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
@@ -3259,6 +3266,12 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         else
                 ret = dht_layout_merge (this, layout, prev->this,
                                         op_ret, op_errno, NULL);
+
+        /* TODO: we may have to return from the function
+           if layout merge fails. For now, lets just log an error */
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to merge layouts", local->loc.path);
 
         if (op_ret == -1) {
                 local->op_errno = op_errno;

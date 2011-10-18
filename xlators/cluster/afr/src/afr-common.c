@@ -2235,7 +2235,6 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         int ret        = -1;
         int op_ret   = -1;
         int op_errno = 0;
-        int call_count = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2250,8 +2249,6 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 op_errno = -ret;
                 goto out;
         }
-
-        call_count = afr_up_children_count (local->child_up, priv->child_count);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {

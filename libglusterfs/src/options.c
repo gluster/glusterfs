@@ -647,6 +647,10 @@ xl_opt_validate (dict_t *dict, char *key, data_t *value, void *data)
                 return;
 
         ret = xlator_option_validate (xl, key, value->data, opt, &errstr);
+        if (ret)
+                gf_log (xl->name, GF_LOG_WARNING, "validate of %s returned %d",
+                        key, ret);
+
         if (errstr)
                 /* possible small leak of previously set stub->errstr */
                 stub->errstr = errstr;
