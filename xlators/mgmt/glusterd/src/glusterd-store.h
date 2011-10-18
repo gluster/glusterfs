@@ -41,6 +41,7 @@
 typedef enum glusterd_store_ver_ac_{
         GLUSTERD_VOLINFO_VER_AC_NONE = 0,
         GLUSTERD_VOLINFO_VER_AC_INCREMENT = 1,
+        GLUSTERD_VOLINFO_VER_AC_DECREMENT = 2,
 } glusterd_volinfo_ver_ac_t;
 
 

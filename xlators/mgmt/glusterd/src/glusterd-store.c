@@ -280,6 +280,12 @@ glusterd_store_volinfo_brick_fname_write (int vol_fd,
         glusterd_store_brickinfofname_set (brickinfo, brickfname,
                                         sizeof (brickfname));
         ret = glusterd_store_save_value (vol_fd, key, brickfname);
+        if (ret)
+                goto out;
+
+        ret = fsync (vol_fd);
+
+out:
         return ret;
 }
 
@@ -330,7 +336,10 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
         snprintf (value, sizeof(value), "%d", brickinfo->decommissioned);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED,
                                          value);
+        if (ret)
+                goto out;
 
+        ret = fsync (fd);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -353,7 +362,6 @@ glusterd_store_perform_brick_store (glusterd_brickinfo_t *brickinfo)
         if (ret)
                 goto out;
 
-        ret = glusterd_store_rename_tmppath (brickinfo->shandle);
 out:
         if (ret && (fd > 0))
                 glusterd_store_unlink_tmppath (brickinfo->shandle);
@@ -647,6 +655,7 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                 if (ret)
                         goto out;
         }
+        ret = fsync (fd);
 
 out:
         if (ret)
@@ -703,6 +712,7 @@ glusterd_store_volinfo_write (int fd, glusterd_volinfo_t *volinfo)
 
         dict_foreach (volinfo->gsync_slaves, _storeslaves, shandle);
         shandle->fd = 0;
+        ret = fsync (fd);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -852,6 +862,7 @@ glusterd_store_rbstate_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
+        ret = fsync (fd);
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -875,6 +886,8 @@ glusterd_store_perform_rbstate_store (glusterd_volinfo_t *volinfo)
                 goto out;
 
         ret = glusterd_store_rename_tmppath (volinfo->rb_shandle);
+        if (ret)
+                goto out;
 
 out:
         if (ret && (fd > 0))
@@ -902,6 +915,13 @@ glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
         snprintf (buf, sizeof (buf), "%d", volinfo->defrag_cmd);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG,
                                          buf);
+        if (ret)
+                goto out;
+
+        ret = fsync (fd);
+        if (ret)
+                goto out;
+
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -925,6 +945,8 @@ glusterd_store_perform_node_state_store (glusterd_volinfo_t *volinfo)
                 goto out;
 
         ret = glusterd_store_rename_tmppath (volinfo->node_state_shandle);
+        if (ret)
+                goto out;
 
 out:
         if (ret && (fd > 0))
@@ -956,7 +978,6 @@ glusterd_store_perform_volume_store (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = glusterd_store_rename_tmppath (volinfo->shandle);
 out:
         if (ret && (fd > 0))
                 glusterd_store_unlink_tmppath (volinfo->shandle);
@@ -978,7 +999,86 @@ glusterd_perform_volinfo_version_action (glusterd_volinfo_t *volinfo,
         case GLUSTERD_VOLINFO_VER_AC_INCREMENT:
                 volinfo->version++;
         break;
+        case GLUSTERD_VOLINFO_VER_AC_DECREMENT:
+                volinfo->version--;
+        break;
         }
+}
+
+void
+glusterd_store_bricks_cleanup_tmp (glusterd_volinfo_t *volinfo)
+{
+        glusterd_brickinfo_t    *brickinfo           = NULL;
+
+        GF_ASSERT (volinfo);
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                glusterd_store_unlink_tmppath (brickinfo->shandle);
+        }
+}
+
+void
+glusterd_store_volume_cleanup_tmp (glusterd_volinfo_t *volinfo)
+{
+        GF_ASSERT (volinfo);
+
+        glusterd_store_bricks_cleanup_tmp (volinfo);
+
+        glusterd_store_unlink_tmppath (volinfo->shandle);
+
+        glusterd_store_unlink_tmppath (volinfo->rb_shandle);
+
+        glusterd_store_unlink_tmppath (volinfo->node_state_shandle);
+}
+
+int32_t
+glusterd_store_brickinfos_atomic_update (glusterd_volinfo_t *volinfo)
+{
+        int                      ret            = -1;
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+
+        GF_ASSERT (volinfo);
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_store_rename_tmppath (brickinfo->shandle);
+                if (ret)
+                        goto out;
+        }
+out:
+        return ret;
+}
+
+int32_t
+glusterd_store_volinfo_atomic_update (glusterd_volinfo_t *volinfo)
+{
+        int ret = -1;
+        GF_ASSERT (volinfo);
+
+        ret = glusterd_store_rename_tmppath (volinfo->shandle);
+        if (ret)
+                goto out;
+
+out:
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't rename "
+                        "temporary file(s): Reason %s", strerror (errno));
+        return ret;
+}
+
+int32_t
+glusterd_store_volume_atomic_update (glusterd_volinfo_t *volinfo)
+{
+        int ret = -1;
+        GF_ASSERT (volinfo);
+
+        ret = glusterd_store_brickinfos_atomic_update (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_volinfo_atomic_update (volinfo);
+
+out:
+        return ret;
 }
 
 int32_t
@@ -1009,6 +1109,13 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
         if (ret)
                 goto out;
 
+        ret = glusterd_store_volume_atomic_update (volinfo);
+        if (ret) {
+                glusterd_perform_volinfo_version_action (volinfo,
+                                                         GLUSTERD_VOLINFO_VER_AC_DECREMENT);
+                goto out;
+        }
+
         ret = glusterd_store_perform_rbstate_store (volinfo);
         if (ret)
                 goto out;
@@ -1021,7 +1128,11 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
         ret = glusterd_volume_compute_cksum (volinfo);
         if (ret)
                 goto out;
+
 out:
+        if (ret)
+                glusterd_store_volume_cleanup_tmp (volinfo);
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -2427,6 +2538,10 @@ glusterd_store_peer_write (int fd, glusterd_peerinfo_t *peerinfo)
 
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_PEER_HOSTNAME "1",
                                          peerinfo->hostname);
+        if (ret)
+                goto out;
+
+        ret = fsync (fd);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
