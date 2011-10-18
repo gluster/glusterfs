@@ -2054,6 +2054,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 local->self_heal.need_entry_self_heal);
 
         sh_frame        = copy_frame (frame);
+        sh_frame->root->pid = SELF_HEAL_PID;
         sh_local        = afr_local_copy (local, this);
         sh_frame->local = sh_local;
         sh              = &sh_local->self_heal;

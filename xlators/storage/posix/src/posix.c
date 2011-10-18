@@ -497,6 +497,8 @@ posix_gfid_heal (xlator_t *this, const char *path, dict_t *xattr_req)
         ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
         if (ret != 16) {
                 if (is_fresh_file (&stat)) {
+                        gf_log (this->name, GF_LOG_DEBUG, "This is a fresh file"
+                                " Continue");
                         ret = -1;
                         errno = ENOENT;
                         goto out;
@@ -578,6 +580,18 @@ out:
 }
 
 
+static inline gf_boolean_t
+posix_is_heal_needed (call_frame_t *frame)
+{
+        return frame->root->pid != SELF_HEAL_PID;
+}
+
+static inline gf_boolean_t
+posix_is_gfid_req_present (dict_t *xattr_req)
+{
+        void         *uuid_req         = NULL;
+        return !dict_get_ptr (xattr_req, "gfid-req", &uuid_req);
+}
 
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
@@ -600,10 +614,17 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        posix_gfid_heal (this, real_path, xattr_req);
+        if (posix_is_heal_needed (frame))
+                posix_gfid_heal (this, real_path, xattr_req);
+        else
+                posix_gfid_set (this, real_path, xattr_req);
 
         op_ret   = posix_lstat_with_gfid (this, real_path, &buf);
         op_errno = errno;
+        //Afr does lookups without gfid-req, prevent ENODATA in that case
+        if ((op_errno == ENODATA) &&
+            !posix_is_gfid_req_present (xattr_req))
+                op_ret = 0;
 
         if (op_ret == -1) {
                 if (op_errno != ENOENT) {
