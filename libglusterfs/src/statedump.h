@@ -71,9 +71,9 @@ void gf_proc_dump_cleanup(void);
 
 void gf_proc_dump_info(int signum);
 
-void gf_proc_dump_add_section(char *key,...);
+int gf_proc_dump_add_section(char *key,...);
 
-void gf_proc_dump_write(char *key, char *value,...);
+int gf_proc_dump_write(char *key, char *value,...);
 
 void inode_table_dump(inode_table_t *itable, char *prefix);
 

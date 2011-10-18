@@ -1443,7 +1443,10 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
                 exp->exptype = MNT3_EXPTYPE_VOLUME;
                 ret = snprintf (exp->expname, alloclen, "/%s", xl->name);
         }
-
+        if (ret < 0) {
+                gf_log (xl->name, GF_LOG_WARNING,
+                        "failed to get the export name");
+        }
         /* Just copy without discrimination, we'll determine whether to
          * actually use it when a mount request comes in and a file handle
          * needs to be built.

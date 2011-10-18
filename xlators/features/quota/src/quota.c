@@ -812,6 +812,11 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         ret = inode_ctx_get (local->loc.inode, this, &ctx_int);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to get the context", local->loc.path);
+                goto out;
+        }
 
         ctx = (quota_inode_ctx_t *)(unsigned long) ctx_int;
 

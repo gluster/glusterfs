@@ -199,7 +199,7 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
         ret = dict_set_static_bin (dict, "gfid-req", local->stbuf.ia_gfid, 16);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING,
-                        "failed to set gfid-req");
+                        "%s: failed to set gfid-req", local->loc.path);
 
         while (trav) {
                 if (IA_ISREG (local->stbuf.ia_type)) {
@@ -2139,7 +2139,6 @@ stripe_first_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent)
 {
-        int32_t           callcnt = 0;
         stripe_local_t   *local = NULL;
         stripe_private_t *priv = NULL;
         call_frame_t     *prev = NULL;
@@ -2164,7 +2163,7 @@ stripe_first_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         trav = this->children;
         loc = &local->loc;
 
-        callcnt = --local->call_count;
+        --local->call_count;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "%s returned error %s",
@@ -2210,7 +2209,7 @@ stripe_first_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->stbuf.ia_size        = local->stbuf_size;
                 local->stbuf.ia_blocks      = local->stbuf_blocks;
         }
-        
+
         /* Send a setxattr request to nodes where the
            files are created */
         sprintf (size_key, "trusted.%s.stripe-size", this->name);
@@ -2274,7 +2273,6 @@ stripe_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         stripe_private_t *priv = NULL;
         stripe_local_t   *local = NULL;
-        xlator_list_t    *trav = NULL;
         int32_t           op_errno = EINVAL;
         int               ret            = 0;
         int               need_unref     = 0;
@@ -2329,7 +2327,6 @@ stripe_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         sprintf (count_key, "trusted.%s.stripe-count", this->name);
         sprintf (index_key, "trusted.%s.stripe-index", this->name);
 
-        trav = this->children;
         if (priv->xattr_supported) {
                 dict = dict_new ();
                 if (!dict) {

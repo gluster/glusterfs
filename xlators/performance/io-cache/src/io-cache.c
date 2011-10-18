@@ -649,6 +649,10 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             || ((table->max_file_size > 0)
                                 && (table->max_file_size < ioc_inode->ia_size))) {
                                 ret = fd_ctx_set (fd, this, 1);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "%s: failed to set fd ctx",
+                                                local->file_loc.path);
                         }
                 }
                 ioc_inode_unlock (ioc_inode);
@@ -657,16 +661,26 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                (uint64_t)(long)ioc_inode);
 
                 /* If O_DIRECT open, we disable caching on it */
-                if (local->flags & O_DIRECT)
+                if (local->flags & O_DIRECT) {
                         /*
                          * O_DIRECT is only for one fd, not the inode
                          * as a whole */
                         ret = fd_ctx_set (fd, this, 1);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "%s: failed to set fd ctx",
+                                        local->file_loc.path);
+                }
 
                 /* if weight == 0, we disable caching on it */
-                if (!weight)
+                if (!weight) {
                         /* we allow a pattern-matched cache disable this way */
                         ret = fd_ctx_set (fd, this, 1);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "%s: failed to set fd ctx",
+                                        local->file_loc.path);
+                }
 
         }
 

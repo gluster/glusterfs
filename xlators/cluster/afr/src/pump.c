@@ -171,17 +171,18 @@ pump_save_path (xlator_t *this, const char *path)
 
         dict = dict_new ();
         dict_ret = dict_set_str (dict, PUMP_PATH, (char *)path);
+        if (dict_ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to set the key %s", path, PUMP_PATH);
 
         ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
 
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "setxattr failed - could not save path=%s", path);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "setxattr succeeded - saved path=%s", path);
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Saving path for status info");
         }
 
         dict_unref (dict);
@@ -248,12 +249,8 @@ pump_get_resume_path (xlator_t *this)
 static int
 pump_update_resume_state (xlator_t *this, const char *path)
 {
-        afr_private_t *priv = NULL;
-
         pump_state_t state;
         const char *resume_path = NULL;
-
-        priv = this->private;
 
         state = pump_get_state ();
 
@@ -546,6 +543,10 @@ pump_complete_migration (xlator_t *this)
                 pump_priv->pump_finished = _gf_true;
 
                 dict_ret = dict_set_str (dict, PUMP_SOURCE_COMPLETE, "jargon");
+                if (dict_ret)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: failed to set the key %s",
+                                loc.path, PUMP_SOURCE_COMPLETE);
 
                 ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
                 if (ret < 0) {
@@ -553,6 +554,10 @@ pump_complete_migration (xlator_t *this)
                                 "setxattr failed - while  notifying source complete");
                 }
                 dict_ret = dict_set_str (dict, PUMP_SINK_COMPLETE, "jargon");
+                if (dict_ret)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: failed to set the key %s",
+                                loc.path, PUMP_SINK_COMPLETE);
 
                 ret = syncop_setxattr (PUMP_SINK_CHILD (this), &loc, dict, 0);
                 if (ret < 0) {

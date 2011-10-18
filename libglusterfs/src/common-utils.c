@@ -357,6 +357,9 @@ gf_print_trace (int32_t signum)
 
         /* Pending frames, (if any), list them in order */
         ret = write (fd, "pending frames:\n", 16);
+        if (ret < 0)
+                goto out;
+
         {
                 glusterfs_ctx_t *ctx = glusterfs_ctx_get ();
                 struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
@@ -372,16 +375,25 @@ gf_print_trace (int32_t signum)
                                          gf_mgmt_list[tmp->root->op]);
 
                         ret = write (fd, msg, strlen (msg));
+                        if (ret < 0)
+                                goto out;
+
                         trav = trav->next;
                 }
                 ret = write (fd, "\n", 1);
+                if (ret < 0)
+                        goto out;
         }
 
         sprintf (msg, "patchset: %s\n", GLUSTERFS_REPOSITORY_REVISION);
         ret = write (fd, msg, strlen (msg));
+        if (ret < 0)
+                goto out;
 
         sprintf (msg, "signal received: %d\n", signum);
         ret = write (fd, msg, strlen (msg));
+        if (ret < 0)
+                goto out;
 
         {
                 /* Dump the timestamp of the crash too, so the previous logs
@@ -390,7 +402,11 @@ gf_print_trace (int32_t signum)
                 tm    = localtime (&utime);
                 strftime (timestr, 256, "%Y-%m-%d %H:%M:%S\n", tm);
                 ret = write (fd, "time of crash: ", 15);
+                if (ret < 0)
+                        goto out;
                 ret = write (fd, timestr, strlen (timestr));
+                if (ret < 0)
+                        goto out;
         }
 
         gf_dump_config_flags (fd);
@@ -404,9 +420,12 @@ gf_print_trace (int32_t signum)
                 backtrace_symbols_fd (&array[1], size-1, fd);
                 sprintf (msg, "---------\n");
                 ret = write (fd, msg, strlen (msg));
+                if (ret < 0)
+                        goto out;
         }
 #endif /* HAVE_BACKTRACE */
 
+out:
         /* Send a signal to terminate the process */
         signal (signum, SIG_DFL);
         raise (signum);

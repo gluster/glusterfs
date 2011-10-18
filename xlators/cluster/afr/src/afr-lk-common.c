@@ -587,7 +587,6 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
         struct gf_flock flock = {0,};
-        struct gf_flock full_flock = {0,};
         int call_count = 0;
         int i = 0;
         int piggyback = 0;
@@ -602,12 +601,9 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         flock.l_len   = int_lock->lk_flock.l_len;
         flock.l_type  = F_UNLCK;
 
-
         gf_log (this->name, GF_LOG_DEBUG, "attempting data unlock range %"PRIu64
                 " %"PRIu64" by %"PRIu64, flock.l_start, flock.l_len,
                 frame->root->lk_owner);
-
-        full_flock.l_type = F_UNLCK;
 
         call_count = afr_locked_nodes_count (int_lock->inode_locked_nodes,
                                              priv->child_count);
@@ -2120,7 +2116,12 @@ afr_lock_recovery_preopen (call_frame_t *frame, xlator_t *this)
         GF_ASSERT (local && local->fd);
 
         ret = fd_ctx_get (local->fd, this, &tmp);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to get the context of fd",
+                        uuid_utoa (local->fd->inode->gfid));
         fdctx = (afr_fd_ctx_t *) (long) tmp;
+        /* TODO: instead we should return from the function */
         GF_ASSERT (fdctx);
 
         child_index = local->lock_recovery_child;

@@ -29,7 +29,6 @@ os_daemon_return (int nochdir, int noclose)
 	int     ret  = -1;
         FILE    *ptr = NULL;
 
-
 	ret = fork();
 	if (ret)
 		return ret;
@@ -46,8 +45,16 @@ os_daemon_return (int nochdir, int noclose)
 
         if (!noclose) {
                 ptr = freopen (DEVNULLPATH, "r", stdin);
+                if (!ptr)
+                        goto out;
+
                 ptr = freopen (DEVNULLPATH, "w", stdout);
+                if (!ptr)
+                        goto out;
+
                 ptr = freopen (DEVNULLPATH, "w", stderr);
+                if (!ptr)
+                        goto out;
 	}
 
         ret = 0;
