@@ -2843,41 +2843,18 @@ glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
         return (volinfo->defrag != NULL);
 }
 
-int
-glusterd_is_replace_running (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *brickinfo)
+gf_boolean_t
+glusterd_is_rb_ongoing (glusterd_volinfo_t *volinfo)
 {
-        int ret = 0;
-        char *src_hostname = NULL;
-        char *brick_hostname = NULL;
+        GF_ASSERT (volinfo);
+        gf_boolean_t    ongoing = _gf_false;
 
-        if (volinfo->src_brick) {
-                src_hostname = gf_strdup (volinfo->src_brick->hostname);
-                if (!src_hostname) {
-                        ret = -1;
-                        goto out;
-                }
-        } else {
-                gf_log ("glusterd", GF_LOG_DEBUG,
-                        "replace brick is not running");
-                goto out;
+        if (glusterd_is_rb_started (volinfo)
+            || glusterd_is_rb_paused (volinfo)) {
+                ongoing = _gf_true;
         }
 
-        brick_hostname = gf_strdup (brickinfo->hostname);
-        if (!brick_hostname) {
-                ret = -1;
-                goto out;
-        }
-        if (!glusterd_is_local_addr (src_hostname) && !glusterd_is_local_addr (brick_hostname)) {
-                if (glusterd_is_rb_started (volinfo) || glusterd_is_rb_paused (volinfo))
-                        ret = -1;
-        }
-
-out:
-        if (src_hostname)
-                GF_FREE (src_hostname);
-        if (brick_hostname)
-                GF_FREE (brick_hostname);
-        return ret;
+        return ongoing;
 }
 
 int

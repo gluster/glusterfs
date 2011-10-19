@@ -532,6 +532,18 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+
+                if (glusterd_is_rb_ongoing (volinfo)) {
+                        snprintf (msg, sizeof (msg), "Replace brick is in "
+                                  "progress on volume %s. Please try after "
+                                  "replace-brick operation is committed "
+                                  "or aborted.", volname);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
                 ret = glusterd_check_gsync_running (volinfo, &is_run);
                 if (ret && (is_run == _gf_false))
                         gf_log ("", GF_LOG_WARNING, "Unable to get the status"
@@ -648,6 +660,17 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (glusterd_is_rb_ongoing (volinfo)) {
+                snprintf (msg, sizeof (msg), "Replace brick is in "
+                          "progress on volume %s. Please try after "
+                          "replace-brick operation is committed "
+                          "or aborted.", volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
         if (glusterd_is_defrag_on(volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
                           "progress. Please retry after completion", volname);
@@ -674,17 +697,6 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 free_ptr = brick_list;
         }
 
-        /* Check whether any of the bricks given is the destination brick of the
-           replace brick running */
-
-        str_ret = glusterd_check_brick_rb_part (all_bricks, count, volinfo);
-        if (str_ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "%s", str_ret);
-                *op_errstr = gf_strdup (str_ret);
-                ret = -1;
-                goto out;
-        }
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
@@ -744,64 +756,6 @@ out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
-}
-
-char *
-glusterd_check_brick_rb_part (char *bricks, int count, glusterd_volinfo_t *volinfo)
-{
-        char                                    *saveptr = NULL;
-        char                                    *brick = NULL;
-        char                                    *brick_list = NULL;
-        int                                     ret = 0;
-        glusterd_brickinfo_t                    *brickinfo = NULL;
-        uint32_t                                i = 0;
-        char                                    *str = NULL;
-        char                                    msg[2048] = {0,};
-
-        brick_list = gf_strdup (bricks);
-        if (!brick_list) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        if (count)
-                brick = strtok_r (brick_list+1, " \n", &saveptr);
-
-
-        while ( i < count) {
-                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
-                if (ret) {
-                        snprintf (msg, sizeof(msg), "Unable to"
-                                  " get brickinfo");
-                        gf_log ("", GF_LOG_ERROR, "%s", msg);
-                        ret = -1;
-                        goto out;
-                }
-
-                if (glusterd_is_replace_running (volinfo, brickinfo)) {
-                        snprintf (msg, sizeof(msg), "Volume %s: replace brick is running"
-                          " and the brick %s:%s you are trying to add is the destination brick"
-                          " for replace brick", volinfo->volname, brickinfo->hostname, brickinfo->path);
-                        ret = -1;
-                        goto out;
-                }
-
-                glusterd_brickinfo_delete (brickinfo);
-                brickinfo = NULL;
-                brick = strtok_r (NULL, " \n", &saveptr);
-                i++;
-        }
-
-out:
-        if (brick_list)
-                GF_FREE(brick_list);
-        if (brickinfo)
-                glusterd_brickinfo_delete (brickinfo);
-        if (ret)
-                str = gf_strdup (msg);
-        return str;
 }
 
 static int
@@ -1613,22 +1567,18 @@ glusterd_op_stage_remove_brick (dict_t *dict)
                 goto out;
         }
 
+        if (glusterd_is_rb_ongoing (volinfo)) {
+                ret = gf_asprintf (&errstr, "Replace brick is in progress on "
+                                   "volume %s. Please try after replace-brick "
+                                   "operation is committed or aborted.",
+                                   volname);
+                ret = -1;
+                goto out;
+        }
+
         if (glusterd_is_defrag_on(volinfo)) {
-                ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
                 errstr = gf_strdup("Rebalance is in progress. Please retry"
                                     " after completion");
-                if (!errstr) {
-                        ret = -1;
-                        goto out;
-                }
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", errstr);
-                ret = dict_set_dynstr (ctx, "errstr", errstr);
-                if (ret) {
-                        GF_FREE (errstr);
-                        gf_log ("", GF_LOG_DEBUG,
-                                "failed to set errstr ctx");
-                        goto out;
-                }
 
                 ret = -1;
                 goto out;
@@ -1641,34 +1591,34 @@ glusterd_op_stage_remove_brick (dict_t *dict)
         }
 
         if (volinfo->brick_count == brick_count) {
-                ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
-                if (!ctx) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Operation Context is not present");
-                        ret = -1;
-                        goto out;
-                }
                 errstr = gf_strdup ("Deleting all the bricks of the "
                                     "volume is not allowed");
-                if (!errstr) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_set_dynstr (ctx, "errstr", errstr);
-                if (ret) {
-                        GF_FREE (errstr);
-                        gf_log ("", GF_LOG_DEBUG,
-                                "failed to set pump status in ctx");
-                        goto out;
-                }
 
                 ret = -1;
                 goto out;
         }
 
 out:
+        if (!errstr)
+                goto ret;
+
+        gf_log (THIS->name, GF_LOG_ERROR, "%s", errstr);
+        ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
+        if (!ctx) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Operation Context is not present");
+                ret = -1;
+                goto ret;
+        }
+        if (dict_set_dynstr (ctx, "errstr", errstr)) {
+                GF_FREE (errstr);
+                gf_log ("", GF_LOG_DEBUG,
+                        "failed to set errstr ctx");
+                ret = -1;
+                goto ret;
+        }
+
+ret:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;

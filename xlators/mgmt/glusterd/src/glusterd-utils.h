@@ -225,8 +225,8 @@ glusterd_is_rb_paused (glusterd_volinfo_t *volinfo);
 int
 glusterd_set_rb_status (glusterd_volinfo_t *volinfo, gf_rb_status_t status);
 
-int
-glusterd_is_replace_running (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *brickinfo);
+gf_boolean_t
+glusterd_is_rb_ongoing (glusterd_volinfo_t *volinfo);
 
 int
 glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
