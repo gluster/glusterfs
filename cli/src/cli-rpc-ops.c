@@ -2942,11 +2942,11 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 cli_out ("Cumulative Stats:");
         else
                 cli_out ("Interval %d Stats:", interval);
-        snprintf (output, sizeof (output), "%14s", "Block Size: ");
+        snprintf (output, sizeof (output), "%14s", "Block Size:");
         snprintf (read_blocks, sizeof (read_blocks), "%14s",
-                  "No. of Reads: ");
+                  "No. of Reads:");
         snprintf (write_blocks, sizeof (write_blocks), "%14s",
-                  "No. of Writes: ");
+                  "No. of Writes:");
         index = 14;
         for (i = 0; i < 32; i++) {
                 if ((rb_counts[i] == 0) && (wb_counts[i] == 0))
@@ -2977,12 +2977,12 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                         memset (output, 0, sizeof (output));
                         memset (read_blocks, 0, sizeof (read_blocks));
                         memset (write_blocks, 0, sizeof (write_blocks));
-                        snprintf (output, sizeof (output), "%12s", "Block Size: ");
-                        snprintf (read_blocks, sizeof (read_blocks), "%12s",
-                                  "Read: ");
-                        snprintf (write_blocks, sizeof (write_blocks), "%12s",
-                                  "Write: ");
-                        index = 12;
+                        snprintf (output, sizeof (output), "%14s", "Block Size:");
+                        snprintf (read_blocks, sizeof (read_blocks), "%14s",
+                                  "No. of Reads:");
+                        snprintf (write_blocks, sizeof (write_blocks), "%14s",
+                                  "No. of Writes:");
+                        index = 14;
                 }
         }
 
@@ -3015,9 +3015,9 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 }
         }
         cli_out ("");
-        cli_out ("%12s : %"PRId64, "Duration", sec);
-        cli_out ("%12s : %"PRId64, "BytesRead", r_count);
-        cli_out ("%12s : %"PRId64, "BytesWritten", w_count);
+        cli_out ("%12s : %"PRId64" seconds", "Duration", sec);
+        cli_out ("%12s : %"PRId64" bytes", "Data Read", r_count);
+        cli_out ("%12s : %"PRId64" bytes", "Data Written", w_count);
         cli_out ("");
 }
 
