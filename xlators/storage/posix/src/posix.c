@@ -278,6 +278,21 @@ posix_fill_gfid_fd (xlator_t *this, int fd, struct iatt *iatt)
         return ret;
 }
 
+void
+posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf)
+{
+        uint64_t temp_ino = 0;
+        int j = 0;
+        int i = 0;
+
+        /* consider least significant 8 bytes of value out of gfid */
+        for (i = 15; i > (15 - 8); i--) {
+                temp_ino += buf->ia_gfid[i] << j;
+                j += 8;
+        }
+
+        buf->ia_ino = temp_ino;
+}
 
 int
 posix_lstat_with_gfid (xlator_t *this, const char *path, struct iatt *stbuf_p)
@@ -298,6 +313,8 @@ posix_lstat_with_gfid (xlator_t *this, const char *path, struct iatt *stbuf_p)
         ret = posix_fill_gfid_path (this, path, &stbuf);
         if (ret)
                 gf_log_callingfn (this->name, GF_LOG_DEBUG, "failed to get gfid");
+
+        posix_fill_ino_from_gfid (this, &stbuf);
 
         if (stbuf_p)
                 *stbuf_p = stbuf;
@@ -325,6 +342,8 @@ posix_fstat_with_gfid (xlator_t *this, int fd, struct iatt *stbuf_p)
         ret = posix_fill_gfid_fd (this, fd, &stbuf);
         if (ret)
                 gf_log_callingfn (this->name, GF_LOG_DEBUG, "failed to get gfid");
+
+        posix_fill_ino_from_gfid (this, &stbuf);
 
         if (stbuf_p)
                 *stbuf_p = stbuf;
@@ -4436,6 +4455,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                         strcpy (entry_path + real_path_len + 1,
                                 tmp_entry->d_name);
                         posix_lstat_with_gfid (this, entry_path, &stbuf);
+                        tmp_entry->d_ino = stbuf.ia_ino;
                         tmp_entry->d_stat = stbuf;
                 }
         }
