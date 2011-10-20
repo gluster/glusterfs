@@ -49,10 +49,19 @@ os_daemon (int nochdir, int noclose)
 	if (!nochdir)
 		ret = chdir("/");
 
+        ret = -1;
         if (!noclose) {
                 ptr = freopen ("/dev/null", "r", stdin);
+                if (!ptr)
+                        goto out;
+
                 ptr = freopen ("/dev/null", "w", stdout);
+                if (!ptr)
+                        goto out;
+
                 ptr = freopen ("/dev/null", "w", stderr);
+                if (!ptr)
+                        goto out;
 	}
 
         ret = 0;
