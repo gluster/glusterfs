@@ -1079,14 +1079,20 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                 ret = -1;
                 goto out;
         }
+
+        /* Pending data xattrs shouldn't be set for special files
+         */
         idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
         pending_array[idx] = hton32 (1);
         if (IA_ISDIR (stbuf->ia_type))
                 idx = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
-        else
+        else if (IA_ISREG (stbuf->ia_type))
                 idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
+        else
+                goto cont;
         pending_array[idx] = hton32 (1);
 
+cont:
         ret = dict_set_dynptr (xattr, priv->pending_key[child_index],
                                pending_array,
                                3 * sizeof (*pending_array));
@@ -1096,7 +1102,6 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         } else {
                 pending_array = NULL;
         }
-
         valid         = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
         parentbuf     = impunge_sh->parentbuf;
         setattr_frame = copy_frame (impunge_frame);
