@@ -3818,8 +3818,6 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         case RPC_CLNT_DISCONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
-                if (brickinfo->timer && brickinfo->timer->callbk)
-                        brickinfo->timer->callbk (brickinfo->timer->data);
                 break;
 
         default:
