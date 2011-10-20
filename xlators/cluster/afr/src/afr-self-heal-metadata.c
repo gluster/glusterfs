@@ -72,14 +72,6 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
                 sh->op_failed = 1;
                 sh->completion_cbk (frame, this);
         } else {
-                if (IA_ISREG (sh->type)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "proceeding to data check on %s",
-                                local->loc.path);
-                        afr_self_heal_data (frame, this);
-                        return 0;
-                }
-
                 if (IA_ISDIR (sh->type)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "proceeding to entry check on %s",
@@ -87,7 +79,10 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
                         afr_self_heal_entry (frame, this);
                         return 0;
                 }
-                sh->completion_cbk (frame, this);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "proceeding to data check on %s",
+                        local->loc.path);
+                afr_self_heal_data (frame, this);
         }
 
         return 0;
