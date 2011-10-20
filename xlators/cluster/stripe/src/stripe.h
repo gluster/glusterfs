@@ -171,6 +171,7 @@ struct stripe_local {
         loc_t                loc2;
 
         mode_t               mode;
+        dev_t                rdev;
         /* For File I/O fops */
         dict_t              *dict;
 
