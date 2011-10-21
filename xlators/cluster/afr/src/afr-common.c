@@ -149,6 +149,54 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req, const char *path)
         }
 }
 
+void
+afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
+                              dict_t *xattr_req, loc_t *loc, void **gfid_req)
+{
+        int     ret = 0;
+
+        GF_ASSERT (gfid_req);
+        *gfid_req = NULL;
+        local->xattr_req = dict_new ();
+        if (xattr_req)
+                dict_copy (xattr_req, local->xattr_req);
+
+        afr_xattr_req_prepare (this, local->xattr_req, loc->path);
+        ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: Unable to set dict value for %s",
+                        loc->path, GLUSTERFS_INODELK_COUNT);
+        }
+        ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: Unable to set dict value for %s",
+                        loc->path, GLUSTERFS_ENTRYLK_COUNT);
+        }
+
+        ret = dict_get_ptr (local->xattr_req, "gfid-req", gfid_req);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s: failed to get the gfid from dict", loc->path);
+                *gfid_req = NULL;
+        } else {
+                if (loc->parent != NULL)
+                        dict_del (local->xattr_req, "gfid-req");
+        }
+}
+
+void
+afr_lookup_save_gfid (uuid_t dst, void* new, inode_t *inode)
+{
+        if (inode && !uuid_is_null (inode->gfid)) {
+                uuid_copy (dst, inode->gfid);
+        } else {
+                GF_ASSERT (new && !uuid_is_null (new));
+                uuid_copy (dst, new);
+        }
+}
+
 int
 afr_errno_count (int32_t *children, int *child_errno,
                  unsigned int child_count, int32_t op_errno)
@@ -1179,7 +1227,6 @@ out:
                           local->cont.lookup.inode, &local->cont.lookup.buf,
                           local->cont.lookup.xattr,
                           &local->cont.lookup.postparent);
-
         return 0;
 }
 
@@ -1368,12 +1415,12 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 
  unwind:
          if (unwind) {
-                 AFR_STACK_UNWIND (lookup, frame, local->op_ret,
-                                   local->op_errno, local->cont.lookup.inode,
-                                   &local->cont.lookup.buf,
-                                   local->cont.lookup.xattr,
-                                   &local->cont.lookup.postparent);
-        }
+                AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
+                                  local->cont.lookup.inode,
+                                  &local->cont.lookup.buf,
+                                  local->cont.lookup.xattr,
+                                  &local->cont.lookup.postparent);
+         }
 }
 
 /*
@@ -1641,7 +1688,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         local->call_count = afr_up_children_count (priv->child_count,
                                                    local->child_up);
         call_count = local->call_count;
-
         if (local->call_count == 0) {
                 ret      = -1;
                 op_errno = ENOTCONN;
@@ -1651,35 +1697,12 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         /* By default assume ENOTCONN. On success it will be set to 0. */
         local->op_errno = ENOTCONN;
 
-        if (xattr_req == NULL)
-                local->xattr_req = dict_new ();
-        else
-                local->xattr_req = dict_ref (xattr_req);
-
-        afr_xattr_req_prepare (this, local->xattr_req, loc->path);
-        ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: Unable to set dict value for %s",
-                        loc->path, GLUSTERFS_INODELK_COUNT);
-        }
-        ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: Unable to set dict value for %s",
-                        loc->path, GLUSTERFS_ENTRYLK_COUNT);
-        }
-
-        ret = dict_get_ptr (xattr_req, "gfid-req", &gfid_req);
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get the gfid from dict");
-        } else {
-                uuid_copy (local->cont.lookup.gfid_req, gfid_req);
-        }
-        if (local->loc.parent != NULL)
-                dict_del (xattr_req, "gfid-req");
-
+        afr_lookup_xattr_req_prepare (local, this, xattr_req, loc, &gfid_req);
+        local->call_count = afr_up_children_count (priv->child_count,
+                                                   local->child_up);
+        afr_lookup_save_gfid (local->cont.lookup.gfid_req, gfid_req,
+                              loc->inode);
+        local->fop = GF_FOP_LOOKUP;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND_COOKIE (frame, afr_lookup_cbk,
