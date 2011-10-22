@@ -400,6 +400,7 @@ pl_update_refkeeper (xlator_t *this, inode_t *inode)
         pl_inode_t *pl_inode  = NULL;
         int         is_empty  = 0;
         int         need_unref = 0;
+        int         need_ref = 0;
 
         pl_inode = pl_inode_get (this, inode);
 
@@ -413,13 +414,17 @@ pl_update_refkeeper (xlator_t *this, inode_t *inode)
                 }
 
                 if (!is_empty && !pl_inode->refkeeper) {
-                        pl_inode->refkeeper = inode_ref (inode);
+                        need_ref = 1;
+                        pl_inode->refkeeper = inode;
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
         if (need_unref)
                 inode_unref (inode);
+
+        if (need_ref)
+                inode_ref (inode);
 }
 
 
