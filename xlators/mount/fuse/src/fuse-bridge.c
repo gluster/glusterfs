@@ -220,6 +220,9 @@ fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_unref (state->loc.inode);
                 state->loc.inode = inode_new (itable);
                 state->is_revalidate = 2;
+                if (uuid_is_null (state->gfid))
+                        uuid_generate (state->gfid);
+                fuse_gfid_set (state);
 
                 STACK_WIND (frame, fuse_lookup_cbk,
                             prev->this, prev->this->fops->lookup,
