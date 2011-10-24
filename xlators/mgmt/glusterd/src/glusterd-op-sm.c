@@ -2364,6 +2364,11 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 ret = gsync_verify_config_options (dict, op_errstr);
 
                 goto out;
+
+        case GF_GSYNC_OPTION_TYPE_ROTATE:
+                /* checks same as status mode */
+                ret = glusterd_verify_gsync_status_opts(dict, op_errstr);
+                goto out;
         }
 
         ret = glusterd_op_gsync_args_get (dict, op_errstr, &volname, &slave);
@@ -4372,8 +4377,358 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
  out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
+}
 
+int
+glusterd_send_sigstop (pid_t pid)
+{
+        int ret = 0;
+        ret = kill (pid, SIGSTOP);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, GEOREP"failed to send SIGSTOP signal");
+        return ret;
+}
 
+int
+glusterd_send_sigcont (pid_t pid)
+{
+        int ret = 0;
+        ret = kill (pid, SIGCONT);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, GEOREP"failed to send SIGCONT signal");
+        return ret;
+}
+
+/*
+ * Log rotations flow is something like this:
+ * - Send SIGSTOP to process group (this will stop monitor/worker process
+ *   and also the slave if it's local)
+ * - Rotate log file for monitor/worker
+ * - Rotate log file for slave if it's local
+ * - Send SIGCONT to the process group. Monitor wakes up, kills the worker
+ *   (this is done in the SIGCONT handler), which results in the termination
+ *   of the slave (local/remote). After returning from signal handler,
+ *   monitor detects absence of worker and starts it again, which in-turn
+ *   starts the slave.
+ */
+int
+glusterd_send_log_rotate_signal (pid_t pid, char *logfile1, char *logfile2)
+{
+        int         ret         = 0;
+        struct stat stbuf       = {0,};
+        char rlogfile[PATH_MAX] = {0,};
+        time_t      rottime     = 0;
+
+        ret = glusterd_send_sigstop (-pid);
+        rottime = time (NULL);
+
+        snprintf (rlogfile, sizeof (rlogfile), "%s.%"PRIu64, logfile1,
+                  (uint64_t) rottime);
+        ret = rename (logfile1, rlogfile);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "rename failed for geo-rep log file");
+
+        snprintf (rlogfile, sizeof (rlogfile), "%s.%"PRIu64, logfile2,
+                  (uint64_t) rottime);
+        ret = stat (logfile2, &stbuf);
+        if (ret) {
+                if (errno != ENOENT)
+                        gf_log("", GF_LOG_ERROR, "stat failed for slave log"
+                               " file: %s", logfile2);
+                else {
+                        gf_log ("", GF_LOG_DEBUG, "Slave is not local, skipping rotation");
+                        ret = 0;
+                }
+                goto out;
+        }
+
+        ret = rename (logfile2, rlogfile);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "rename failed for geo-rep slave log file");
+
+ out:
+        ret = glusterd_send_sigcont (-pid);
+        return ret;
+}
+
+int
+glusterd_gsync_get_session_owner (char *master, char *slave, char *session_owner,
+                                  char *gl_workdir)
+{
+        char cmd[PATH_MAX] = {0,};
+
+        snprintf (cmd, PATH_MAX,
+                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" :%s %s --config-get session-owner",
+                  gl_workdir, master, slave);
+
+        return glusterd_query_extutil (session_owner, cmd);
+}
+
+int
+glusterd_gsync_get_slave_log_file (char *master, char *slave, char *log_file)
+{
+        int              ret        = -1;
+        char uuid_str[64]           = {0,};
+        char cmd[PATH_MAX]          = {0,};
+        glusterd_conf_t *priv       = NULL;
+        char            *gl_workdir = NULL;
+
+        GF_ASSERT(THIS);
+        GF_ASSERT(THIS->private);
+
+        priv = THIS->private;
+
+        GF_VALIDATE_OR_GOTO("gsyncd", master, out);
+        GF_VALIDATE_OR_GOTO("gsyncd", slave, out);
+
+        gl_workdir = priv->workdir;
+
+        /* get the session owner for the master-slave session */
+        ret = glusterd_gsync_get_session_owner (master, slave, uuid_str,
+                                                gl_workdir);
+
+        if (ret)
+                goto out;
+
+        /* get the log file for the slave */
+        snprintf (cmd, PATH_MAX,
+                  GSYNCD_PREFIX"/gsyncd -c %s/"GSYNC_CONF" --session-owner=%s %s --config-get log-file",
+                  gl_workdir, uuid_str, slave);
+        ret = glusterd_query_extutil (log_file, cmd);
+
+ out:
+        return ret;
+}
+
+static int
+glusterd_gsyncd_getlogfile (char *master, char *slave, char *log_file)
+{
+        int                ret             = -1;
+        glusterd_conf_t    *priv  = NULL;
+
+        GF_ASSERT (THIS);
+        GF_ASSERT (THIS->private);
+
+        priv = THIS->private;
+
+        GF_VALIDATE_OR_GOTO ("gsync", master, out);
+        GF_VALIDATE_OR_GOTO ("gsync", slave, out);
+
+        ret = glusterd_gsync_get_param_file (log_file, "log", master,
+                                             slave, priv->workdir);
+
+        if (ret == -1) {
+                ret = -2;
+                gf_log ("", GF_LOG_WARNING, "failed to gsyncd logfile");
+        }
+
+ out:
+        return ret;
+}
+
+int
+glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
+{
+        int ret                = -1;
+        int pfd                = 0;
+        char pidfile[PATH_MAX] = {0,};
+        char buff[1024]        = {0,};
+
+        pfd = gsyncd_getpidfile (master, slave, pidfile);
+
+        if (pfd == -2) {
+                gf_log ("", GF_LOG_ERROR, GEOREP" log-rotate validation "
+                        " failed for %s & %s", master, slave);
+                goto out;
+        }
+
+        if (gsync_status_byfd (pfd) == -1) {
+                gf_log ("", GF_LOG_ERROR, "gsyncd b/w %s & %s is not"
+                        " running", master, slave);
+                goto out;
+        }
+
+        ret = read (pfd, buff, 1024);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, GEOREP" cannot read pid from pid-file");
+                goto out;
+        }
+
+        close(pfd);
+
+        *pid = strtol (buff, NULL, 10);
+        ret = 0;
+
+ out:
+        return ret;
+}
+
+int
+glusterd_do_gsync_log_rotate (char *master, char *slave, uuid_t *uuid, char **op_errstr)
+{
+        int              ret     = 0;
+        glusterd_conf_t *priv    = NULL;
+        pid_t            pid     = 0;
+        char log_file1[PATH_MAX] = {0,};
+        char log_file2[PATH_MAX] = {0,};
+
+        GF_ASSERT (THIS);
+        GF_ASSERT (THIS->private);
+
+        priv = THIS->private;
+
+        ret = glusterd_get_pid_from_file (master, slave, &pid);
+        if (ret)
+                goto out;
+
+        /* log file */
+        ret = glusterd_gsyncd_getlogfile (master, slave, log_file1);
+        if (ret)
+                goto out;
+
+        /* slave log file */
+        ret = glusterd_gsync_get_slave_log_file (master, slave, log_file2);
+        if (ret)
+                goto out;
+
+        ret = glusterd_send_log_rotate_signal (pid, log_file1, log_file2);
+
+ out:
+        if (ret && op_errstr)
+                *op_errstr = gf_strdup("Error rotating log file");
+        return ret;
+}
+
+int
+glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave,
+                                        char **op_errstr)
+{
+        uuid_t           uuid = {0, };
+        glusterd_conf_t *priv = NULL;
+        int              ret  = 0;
+        char errmsg[1024] = {0,};
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (slave);
+        GF_ASSERT (THIS);
+        GF_ASSERT (THIS->private);
+
+        priv = THIS->private;
+
+        ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
+        if ((ret == 0) && (uuid_compare (priv->uuid, uuid) != 0))
+                goto out;
+
+        if (ret) {
+                snprintf(errmsg, sizeof(errmsg), "geo-replication session b/w %s %s not active",
+                         volinfo->volname, slave);
+                gf_log ("", GF_LOG_WARNING, errmsg);
+                if (op_errstr)
+                        *op_errstr = gf_strdup(errmsg);
+                goto out;
+        }
+
+        ret = glusterd_do_gsync_log_rotate (volinfo->volname, slave, &uuid, op_errstr);
+
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+static void
+_iterate_log_rotate_mst_slv (dict_t *this, char *key, data_t *value, void *data)
+{
+        glusterd_gsync_status_temp_t  *param = NULL;
+        char                          *slave = NULL;
+
+        param = (glusterd_gsync_status_temp_t *) data;
+
+        GF_ASSERT (param);
+        GF_ASSERT (param->volinfo);
+
+        slave = strchr (value->data, ':');
+        if (slave)
+                slave++;
+        else {
+                gf_log ("", GF_LOG_ERROR, "geo-replication log-rotate: slave (%s) "
+                        "not comfirming to format", slave);
+                return;
+        }
+
+        (void) glusterd_do_gsync_log_rotation_mst_slv (param->volinfo, slave, NULL);
+}
+
+int
+glusterd_do_gsync_log_rotation_mst (glusterd_volinfo_t *volinfo)
+{
+        glusterd_gsync_status_temp_t  param = {0, };
+
+        GF_ASSERT (volinfo);
+
+        param.volinfo = volinfo;
+        dict_foreach (volinfo->gsync_slaves, _iterate_log_rotate_mst_slv, &param);
+        return 0;
+}
+
+static int
+glusterd_rotate_gsync_all ()
+{
+        int32_t             ret     = 0;
+        glusterd_conf_t    *priv    = NULL;
+        glusterd_volinfo_t *volinfo = NULL;
+
+        GF_ASSERT (THIS);
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                ret = glusterd_do_gsync_log_rotation_mst (volinfo);
+                if (ret)
+                        goto out;
+        }
+
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+static int
+glusterd_rotate_gsync_logs (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
+{
+        char               *slave   = NULL;
+        char               *volname = NULL;
+        char errmsg[1024]           = {0,};
+        gf_boolean_t        exists  = _gf_false;
+        glusterd_volinfo_t *volinfo = NULL;
+        int                 ret     = 0;
+
+        ret = dict_get_str (dict, "master", &volname);
+        if (ret < 0) {
+                ret = glusterd_rotate_gsync_all ();
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if ((ret) || (!exists)) {
+                snprintf (errmsg, sizeof(errmsg), "Volume %s does not"
+                          " exist", volname);
+                gf_log ("", GF_LOG_WARNING, errmsg);
+                *op_errstr = gf_strdup (errmsg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "slave", &slave);
+        if (ret < 0) {
+                ret = glusterd_do_gsync_log_rotation_mst (volinfo);
+                goto out;
+        }
+
+        ret = glusterd_do_gsync_log_rotation_mst_slv (volinfo, slave, op_errstr);
+
+ out:
+        return ret;
 }
 
 
@@ -4412,7 +4767,11 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 ret = glusterd_get_gsync_status (dict, op_errstr, resp_dict);
                 goto out;
+        }
 
+        if (type == GF_GSYNC_OPTION_TYPE_ROTATE) {
+                ret = glusterd_rotate_gsync_logs (dict, op_errstr, resp_dict);
+                goto out;
         }
 
         ret = dict_get_str (dict, "slave", &slave);

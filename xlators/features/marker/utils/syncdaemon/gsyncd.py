@@ -6,7 +6,6 @@ import sys
 import time
 import logging
 import signal
-import select
 import optparse
 import fcntl
 from optparse import OptionParser, SUPPRESS_HELP
@@ -15,6 +14,7 @@ from errno import EEXIST, ENOENT
 
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
+from syncdutils import select
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -78,7 +78,7 @@ def startup(**kw):
         # so we can start up with
         # no messing from the dirty
         # ol' bustard
-        select.select((x,), (), ())
+        select((x,), (), ())
         os.close(x)
 
     lkw = {}
@@ -92,6 +92,9 @@ def startup(**kw):
         else:
             lkw['filename'] = kw['log_file']
     GLogger.setup(label=kw.get('label'), **lkw)
+
+    lkw.update({'saved_label': kw.get('label')})
+    gconf.log_metadata = lkw
 
 def main():
     signal.signal(signal.SIGTERM, lambda *a: finalize(*a, **{'exval': 1}))

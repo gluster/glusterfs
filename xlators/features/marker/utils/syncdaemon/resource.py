@@ -6,7 +6,6 @@ import stat
 import time
 import errno
 import struct
-import select
 import socket
 import logging
 import tempfile
@@ -17,6 +16,7 @@ import repce
 from repce import RepceServer, RepceClient
 from master import GMaster
 import syncdutils
+from syncdutils import select
 
 UrlRX  = re.compile('\A(\w+)://(.*)')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -206,7 +206,7 @@ class SlaveLocal(object):
                     logging.info("connection inactive for %d seconds, stopping" % int(gconf.timeout))
                     break
         else:
-            select.select((), (), ())
+            select((), (), ())
 
 class SlaveRemote(object):
 
@@ -455,7 +455,7 @@ class SSH(AbstractUrl, SlaveRemote):
             i, o = ret
             inf = os.fdopen(i)
             repce.send(o, None, '__repce_version__')
-            select.select((inf,), (), ())
+            select((inf,), (), ())
             repce.recv(inf)
             # hack hack hack: store a global reference to the file
             # to save it from getting GC'd which implies closing it

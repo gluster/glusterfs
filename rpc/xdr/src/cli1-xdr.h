@@ -92,6 +92,7 @@ enum gf1_cli_gsync_set {
 	GF_GSYNC_OPTION_TYPE_STOP = 2,
 	GF_GSYNC_OPTION_TYPE_CONFIG = 3,
         GF_GSYNC_OPTION_TYPE_STATUS = 4,
+        GF_GSYNC_OPTION_TYPE_ROTATE = 5,
 
 };
 typedef enum gf1_cli_gsync_set gf1_cli_gsync_set;

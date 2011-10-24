@@ -1761,6 +1761,9 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
         case GF_GSYNC_OPTION_TYPE_STATUS:
                 strncpy (operation, "status", sizeof (operation));
                 break;
+        case GF_GSYNC_OPTION_TYPE_ROTATE:
+                strncpy (operation, "rotate", sizeof(operation));
+                break;
         }
 
         gf_cmd_log ("volume "GEOREP, " %s command on %s,%s", operation, master,

@@ -1,11 +1,10 @@
 import os
 import sys
 import time
+import signal
 import logging
-import select
-from signal import SIGKILL
 from gconf import gconf
-from syncdutils import update_file
+from syncdutils import update_file, select, waitpid
 
 class Monitor(object):
 
@@ -21,6 +20,19 @@ class Monitor(object):
             update_file(gconf.state_file, lambda f: f.write(state + '\n'))
 
     def monitor(self):
+        def sigcont_handler(*a):
+            """
+            Re-init logging and send group kill signal
+            """
+            md = gconf.log_metadata
+            logging.shutdown()
+            lcls = logging.getLoggerClass()
+            lcls.setup(label=md.get('saved_label'), **md)
+            pid = os.getpid()
+            os.kill(-pid, signal.SIGUSR1)
+        signal.signal(signal.SIGUSR1, lambda *a: ())
+        signal.signal(signal.SIGCONT, sigcont_handler)
+
         argv = sys.argv[:]
         for o in ('-N', '--no-daemon', '--monitor'):
             while o in argv:
@@ -31,11 +43,16 @@ class Monitor(object):
         self.set_state('starting...')
         ret = 0
         def nwait(p, o=0):
-            p2, r = os.waitpid(p, o)
+            p2, r = waitpid(p, o)
             if not p2:
                 return
-            if os.WIFEXITED(r):
-                return os.WEXITSTATUS(r)
+            return r
+        def exit_signalled(s):
+            """ child teminated due to receipt of SIGUSR1 """
+            return (os.WIFSIGNALED(s) and (os.WTERMSIG(s) == signal.SIGUSR1))
+        def exit_status(s):
+            if os.WIFEXITED(s):
+                return os.WEXITSTATUS(s)
             return 1
         conn_timeout = 60
         while ret in (0, 1):
@@ -48,7 +65,7 @@ class Monitor(object):
                 os.execv(sys.executable, argv + ['--feedback-fd', str(pw)])
             os.close(pw)
             t0 = time.time()
-            so = select.select((pr,), (), (), conn_timeout)[0]
+            so = select((pr,), (), (), conn_timeout)[0]
             os.close(pr)
             if so:
                 ret = nwait(cpid, os.WNOHANG)
@@ -65,13 +82,17 @@ class Monitor(object):
             else:
                 logging.debug("worker not confirmed in %d sec, aborting it" % \
                               conn_timeout)
-                os.kill(cpid, SIGKILL)
+                os.kill(cpid, signal.SIGKILL)
                 ret = nwait(cpid)
             if ret == None:
                 self.set_state('OK')
                 ret = nwait(cpid)
-            elif ret in (0, 1):
-                self.set_state('faulty')
+            if exit_signalled(ret):
+                ret = 0
+            else:
+                ret = exit_status(ret)
+                if ret in (0,1):
+                    self.set_state('faulty')
             time.sleep(10)
         self.set_state('inconsistent')
         return ret

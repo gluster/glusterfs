@@ -1,6 +1,5 @@
 import os
 import sys
-import select
 import time
 import logging
 from threading import Condition
@@ -20,7 +19,7 @@ except ImportError:
     # py 3
     import pickle
 
-from syncdutils import Thread
+from syncdutils import Thread, select
 
 pickle_proto = -1
 repce_version = 1.0
@@ -114,7 +113,7 @@ class RepceClient(object):
 
     def listen(self):
         while True:
-            select.select((self.inf,), (), ())
+            select((self.inf,), (), ())
             rid, exc, res = recv(self.inf)
             rjob = self.jtab.pop(rid)
             if rjob.cbk:
