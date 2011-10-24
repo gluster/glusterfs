@@ -66,9 +66,6 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                local->cont.writev.prebuf.ia_ino  = local->cont.writev.ino;
-                local->cont.writev.postbuf.ia_ino = local->cont.writev.ino;
-
                 AFR_STACK_UNWIND (writev, main_frame,
                                   local->op_ret, local->op_errno,
                                   &local->cont.writev.prebuf,
@@ -321,9 +318,6 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                local->cont.truncate.prebuf.ia_ino  = local->cont.truncate.ino;
-                local->cont.truncate.postbuf.ia_ino = local->cont.truncate.ino;
-
                 AFR_STACK_UNWIND (truncate, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.truncate.prebuf,
@@ -532,9 +526,6 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                local->cont.ftruncate.prebuf.ia_ino  = local->cont.ftruncate.ino;
-                local->cont.ftruncate.postbuf.ia_ino = local->cont.ftruncate.ino;
-
                 AFR_STACK_UNWIND (ftruncate, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.ftruncate.prebuf,
@@ -781,9 +772,6 @@ afr_setattr_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                local->cont.setattr.preop_buf.ia_ino  = local->cont.setattr.ino;
-                local->cont.setattr.postop_buf.ia_ino = local->cont.setattr.ino;
-
                 AFR_STACK_UNWIND (setattr, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.setattr.preop_buf,
@@ -991,11 +979,6 @@ afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                local->cont.fsetattr.preop_buf.ia_ino  =
-                        local->cont.fsetattr.ino;
-                local->cont.fsetattr.postop_buf.ia_ino =
-                        local->cont.fsetattr.ino;
-
                 AFR_STACK_UNWIND (fsetattr, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.fsetattr.preop_buf,

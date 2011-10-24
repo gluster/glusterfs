@@ -2113,9 +2113,6 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                local->cont.fsync.prebuf.ia_ino  = local->cont.fsync.ino;
-                local->cont.fsync.postbuf.ia_ino = local->cont.fsync.ino;
-
                 AFR_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
                                   &local->cont.fsync.prebuf,
                                   &local->cont.fsync.postbuf);
