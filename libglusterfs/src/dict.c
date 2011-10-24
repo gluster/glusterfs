@@ -1247,6 +1247,28 @@ fail:
         return new;
 }
 
+static void
+_remove (dict_t *dict,
+         char *key,
+         data_t *value,
+         void *unused)
+{
+        dict_del ((dict_t *)dict, key);
+}
+
+int
+dict_reset (dict_t *dict)
+{
+        int32_t         ret = -1;
+        if (!dict) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
+                goto out;
+        }
+        dict_foreach (dict, _remove, NULL);
+        ret = 0;
+out:
+        return ret;
+}
 /*
  * !!!!!!! CLEANED UP CODE !!!!!!!
  */

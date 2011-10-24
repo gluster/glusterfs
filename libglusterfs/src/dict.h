@@ -73,6 +73,7 @@ void data_destroy (data_t *data);
 int32_t dict_set (dict_t *this, char *key, data_t *value);
 data_t *dict_get (dict_t *this, char *key);
 void dict_del (dict_t *this, char *key);
+int dict_reset (dict_t *dict);
 
 int32_t dict_serialized_length (dict_t *dict);
 int32_t dict_serialize (dict_t *dict, char *buf);
