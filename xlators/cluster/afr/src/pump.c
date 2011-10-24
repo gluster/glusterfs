@@ -325,20 +325,26 @@ pump_save_file_stats (xlator_t *this, const char *path)
 static int
 gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
 {
-        xlator_t *this = NULL;
-        fd_t     *fd   = NULL;
+        xlator_t        *this              = NULL;
+        fd_t            *fd                = NULL;
+        off_t           offset             = 0;
+        loc_t           entry_loc          = {0};
+        gf_dirent_t     *entry             = NULL;
+        gf_dirent_t     *tmp               = NULL;
+        gf_dirent_t     entries;
+	struct iatt     iatt               = {0};
+        struct iatt     parent             = {0};
+	dict_t          *xattr_rsp         = NULL;
+        int             ret                = 0;
+        gf_boolean_t    is_directory_empty = _gf_true;
+        dict_t          *xattr_req         = NULL;
+        gf_boolean_t    free_entries       = _gf_false;
 
-        off_t       offset   = 0;
-        loc_t       entry_loc;
-        gf_dirent_t *entry = NULL;
-        gf_dirent_t *tmp = NULL;
-        gf_dirent_t entries;
-
-	struct iatt iatt, parent;
-	dict_t *xattr_rsp;
-
-        int ret = 0;
-        gf_boolean_t is_directory_empty = _gf_true;
+        xattr_req = dict_new ();
+        if (!xattr_req) {
+                ret = -1;
+                goto out;
+        }
 
         INIT_LIST_HEAD (&entries.list);
         this = THIS;
@@ -364,6 +370,7 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
                 loc->path, ret);
 
         while (syncop_readdirp (this, fd, 131072, offset, &entries)) {
+                free_entries = _gf_true;
 
                 if (list_empty (&entries.list)) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -375,43 +382,40 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "found readdir entry=%s", entry->d_name);
 
-                        ret = afr_build_child_loc (this, &entry_loc, loc,
-                                                   entry->d_name);
+                        loc_wipe (&entry_loc);
+                        ret = afr_build_child_loc (this, &entry_loc,
+                                                   loc, entry->d_name);
                         if (ret)
                                 goto out;
 
                         if (!IS_ENTRY_CWD (entry->d_name) &&
-                                           !IS_ENTRY_PARENT (entry->d_name)) {
+                            !IS_ENTRY_PARENT (entry->d_name)) {
 
                                     is_directory_empty = _gf_false;
-                                    ret = syncop_lookup (this, &entry_loc, NULL,
-                                                         &iatt, &xattr_rsp, &parent);
-                                    if (ret)
-                                            continue;
-
-                                    if (uuid_is_null (iatt.ia_gfid)) {
-                                            uuid_generate (gfid);
-                                            uuid_copy (entry_loc.inode->gfid,
-                                                       gfid);
-                                    } else {
-                                            uuid_copy (entry_loc.inode->gfid,
-                                                       iatt.ia_gfid);
-                                    }
-
                                     gf_log (this->name, GF_LOG_DEBUG,
                                             "lookup %s => %"PRId64,
                                             entry_loc.path,
                                             iatt.ia_ino);
 
-                                    ret = syncop_lookup (this, &entry_loc, NULL,
+                                    afr_generate_gfid_on_empty (gfid);
+                                    ret = dict_reset (xattr_req);
+                                    if (ret)
+                                            goto out;
+                                    ret = afr_set_dict_gfid (xattr_req, gfid);
+                                    if (ret)
+                                            goto out;
+                                    ret = syncop_lookup (this, &entry_loc, xattr_req,
                                                          &iatt, &xattr_rsp, &parent);
 
-
-                                    gf_log (this->name, GF_LOG_DEBUG,
-                                            "second lookup ret=%d: %s => %"PRId64,
-                                            ret,
-                                            entry_loc.path,
-                                            iatt.ia_ino);
+                                    afr_empty_gfid_on_set (gfid, ret, &iatt);
+                                    if (ret) {
+                                            gf_log (this->name, GF_LOG_ERROR,
+                                                    "%s: lookup failed",
+                                                    entry_loc.path);
+                                            continue;
+                                    }
+                                    afr_fill_loc_info (&entry_loc, &iatt,
+                                                       &parent);
 
                                     pump_update_resume_state (this, entry_loc.path);
 
@@ -425,10 +429,6 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
                                             goto out;
                                     }
 
-                                    gf_log (this->name, GF_LOG_TRACE,
-                                            "type of file=%d, IFDIR=%d",
-                                            iatt.ia_type, IA_IFDIR);
-
                                     if (IA_ISDIR (iatt.ia_type)) {
                                             if (is_pump_traversal_allowed (this, entry_loc.path)) {
                                                     gf_log (this->name, GF_LOG_TRACE,
@@ -439,10 +439,10 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
                                     }
                             }
                         offset = entry->d_off;
-                        loc_wipe (&entry_loc);
                 }
 
                 gf_dirent_free (&entries);
+                free_entries = _gf_false;
                 gf_log (this->name, GF_LOG_TRACE,
                         "offset incremented to %d",
                         (int32_t ) offset);
@@ -456,6 +456,12 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
         }
 
 out:
+        if (xattr_req)
+                dict_unref (xattr_req);
+        if (entry_loc.path)
+                loc_wipe (&entry_loc);
+        if (free_entries)
+                gf_dirent_free (&entries);
         return 0;
 
 }

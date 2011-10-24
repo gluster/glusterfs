@@ -84,22 +84,22 @@ out:
         return ret;
 }
 
-static void
-_generate_gfid_on_empty (uuid_t gfid)
+inline void
+afr_generate_gfid_on_empty (uuid_t gfid)
 {
         if (uuid_is_null (gfid))
                 uuid_generate (gfid);
 }
 
-static void
-_empty_gfid_on_set (uuid_t gfid, int lookup_status, struct iatt *iatt)
+inline void
+afr_empty_gfid_on_set (uuid_t gfid, int lookup_status, struct iatt *iatt)
 {
         if (lookup_status || !uuid_compare (gfid, iatt->ia_gfid))
                 uuid_clear (gfid);
 }
 
-static void
-_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
+inline void
+afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
 {
         afr_update_loc_gfids (loc, iatt, parent);
         uuid_copy (loc->inode->gfid, iatt->ia_gfid);
@@ -139,7 +139,7 @@ _perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                 if (ret)
                         goto out;
 
-                _generate_gfid_on_empty (gfid);
+                afr_generate_gfid_on_empty (gfid);
                 ret = afr_set_dict_gfid (xattr_req, gfid);
                 if (ret)
                         goto out;
@@ -147,12 +147,12 @@ _perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
 
                 ret = syncop_lookup (this, &entry_loc, xattr_req,
                                      &iatt, NULL, &parent);
-                _empty_gfid_on_set (gfid, ret, &iatt);
+                afr_empty_gfid_on_set (gfid, ret, &iatt);
                 //Don't fail the crawl if lookup fails as it
                 //could be because of split-brain
                 if (ret || (!IA_ISDIR (iatt.ia_type)))
                         continue;
-                _fill_loc_info (&entry_loc, &iatt, &parent);
+                afr_fill_loc_info (&entry_loc, &iatt, &parent);
                 ret = _crawl_directory (&entry_loc, pid, gfid);
         }
         ret = 0;
