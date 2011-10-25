@@ -270,8 +270,6 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
         loc_copy (&local->loc, loc);
 
-        local->cont.stat.ino = loc->inode->ino;
-
         STACK_WIND_COOKIE (frame, afr_stat_cbk, (void *) (long) call_child,
                            children[call_child],
                            children[call_child]->fops->stat,
@@ -393,7 +391,6 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->cont.fstat.ino = fd->inode->ino;
         local->fd = fd_ref (fd);
 
         op_ret = afr_open_fd_fix (frame, this, _gf_false);
@@ -518,7 +515,6 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
         loc_copy (&local->loc, loc);
 
         local->cont.readlink.size       = size;
-        local->cont.readlink.ino        = loc->inode->ino;
 
         STACK_WIND_COOKIE (frame, afr_readlink_cbk,
                            (void *) (long) call_child,
@@ -1035,7 +1031,6 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
         local->fd                    = fd_ref (fd);
 
-        local->cont.readv.ino        = fd->inode->ino;
         local->cont.readv.size       = size;
         local->cont.readv.offset     = offset;
 

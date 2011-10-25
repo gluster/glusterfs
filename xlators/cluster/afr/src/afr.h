@@ -426,9 +426,6 @@ typedef struct _afr_local {
                         inode_t *inode;
                         struct iatt buf;
                         struct iatt postparent;
-                        ino_t ino;
-                        uint64_t gen;
-                        ino_t parent_ino;
                         dict_t **xattrs;
                         dict_t *xattr;
                         struct iatt *postparents;
@@ -459,18 +456,15 @@ typedef struct _afr_local {
 
                 struct {
                         int last_index;
-                        ino_t ino;
                 } stat;
 
                 struct {
                         int last_index;
-                        ino_t ino;
                 } fstat;
 
                 struct {
                         size_t size;
                         int last_index;
-                        ino_t ino;
                 } readlink;
 
                 struct {
@@ -480,7 +474,6 @@ typedef struct _afr_local {
                 } getxattr;
 
                 struct {
-                        ino_t ino;
                         size_t size;
                         off_t offset;
                         int last_index;
@@ -508,7 +501,6 @@ typedef struct _afr_local {
                 /* inode write */
 
                 struct {
-                        ino_t ino;
                         struct iatt prebuf;
                         struct iatt postbuf;
 
@@ -521,27 +513,23 @@ typedef struct _afr_local {
                 } writev;
 
                 struct {
-                        ino_t ino;
                         struct iatt prebuf;
                         struct iatt postbuf;
                 } fsync;
 
                 struct {
-                        ino_t ino;
                         off_t offset;
                         struct iatt prebuf;
                         struct iatt postbuf;
                 } truncate;
 
                 struct {
-                        ino_t ino;
                         off_t offset;
                         struct iatt prebuf;
                         struct iatt postbuf;
                 } ftruncate;
 
                 struct {
-                        ino_t ino;
                         struct iatt in_buf;
                         int32_t valid;
                         struct iatt preop_buf;
@@ -549,7 +537,6 @@ typedef struct _afr_local {
                 } setattr;
 
                 struct {
-                        ino_t ino;
                         struct iatt in_buf;
                         int32_t valid;
                         struct iatt preop_buf;
@@ -568,9 +555,6 @@ typedef struct _afr_local {
                 /* dir write */
 
                 struct {
-                        ino_t ino;
-                        uint64_t gen;
-                        ino_t parent_ino;
                         fd_t *fd;
                         dict_t *params;
                         int32_t flags;
@@ -583,9 +567,6 @@ typedef struct _afr_local {
                 } create;
 
                 struct {
-                        ino_t ino;
-                        uint64_t gen;
-                        ino_t parent_ino;
                         dev_t dev;
                         mode_t mode;
                         dict_t *params;
@@ -597,9 +578,6 @@ typedef struct _afr_local {
                 } mknod;
 
                 struct {
-                        ino_t ino;
-                        uint64_t gen;
-                        ino_t parent_ino;
                         int32_t mode;
                         dict_t *params;
                         inode_t *inode;
@@ -610,7 +588,6 @@ typedef struct _afr_local {
                 } mkdir;
 
                 struct {
-                        ino_t parent_ino;
                         int32_t op_ret;
                         int32_t op_errno;
                         struct iatt preparent;
@@ -619,7 +596,6 @@ typedef struct _afr_local {
 
                 struct {
                         int   flags;
-                        ino_t parent_ino;
                         int32_t op_ret;
                         int32_t op_errno;
                         struct iatt preparent;
@@ -627,9 +603,6 @@ typedef struct _afr_local {
                 } rmdir;
 
                 struct {
-                        ino_t oldparent_ino;
-                        ino_t newparent_ino;
-                        ino_t ino;
                         struct iatt buf;
                         struct iatt read_child_buf;
                         struct iatt preoldparent;
@@ -639,9 +612,6 @@ typedef struct _afr_local {
                 } rename;
 
                 struct {
-                        ino_t ino;
-                        uint64_t gen;
-                        ino_t parent_ino;
                         inode_t *inode;
                         struct iatt buf;
                         struct iatt read_child_buf;
@@ -650,9 +620,6 @@ typedef struct _afr_local {
                 } link;
 
                 struct {
-                        ino_t ino;
-                        uint64_t gen;
-                        ino_t parent_ino;
                         inode_t *inode;
                         dict_t *params;
                         struct iatt buf;

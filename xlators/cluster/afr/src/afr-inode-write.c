@@ -462,7 +462,6 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->cont.writev.vector     = iov_dup (vector, count);
         local->cont.writev.count      = count;
         local->cont.writev.offset     = offset;
-        local->cont.writev.ino        = fd->inode->ino;
         local->cont.writev.iobref     = iobref_ref (iobref);
 
         local->fd                = fd_ref (fd);
@@ -666,7 +665,6 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         local->op_ret = -1;
 
         local->cont.truncate.offset  = offset;
-        local->cont.truncate.ino     = loc->inode->ino;
 
         local->transaction.fop    = afr_truncate_wind;
         local->transaction.done   = afr_truncate_done;
@@ -909,7 +907,6 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
         frame->local = local;
 
         local->cont.ftruncate.offset  = offset;
-        local->cont.ftruncate.ino     = fd->inode->ino;
 
         local->fd = fd_ref (fd);
         local->fop_call_continue = afr_do_ftruncate;
@@ -1112,8 +1109,6 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
         transaction_frame->local = local;
 
         local->op_ret = -1;
-
-        local->cont.setattr.ino     = loc->inode->ino;
 
         local->cont.setattr.in_buf = *buf;
         local->cont.setattr.valid  = valid;
@@ -1320,7 +1315,6 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         local->op_ret = -1;
 
-        local->cont.fsetattr.ino     = fd->inode->ino;
         local->cont.fsetattr.in_buf = *buf;
         local->cont.fsetattr.valid  = valid;
 

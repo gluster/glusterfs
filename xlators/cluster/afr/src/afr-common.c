@@ -1981,9 +1981,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 UNLOCK (&priv->read_child_lock);
         }
 
-        if (loc->parent)
-                local->cont.lookup.parent_ino = loc->parent->ino;
-
         local->child_up = memdup (priv->child_up,
                                   sizeof (*local->child_up) * priv->child_count);
         if (NULL == local->child_up) {
@@ -2485,7 +2482,6 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         frame->local = local;
 
         local->fd             = fd_ref (fd);
-        local->cont.fsync.ino = fd->inode->ino;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {

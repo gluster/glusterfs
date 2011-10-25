@@ -311,9 +311,6 @@ afr_create (call_frame_t *frame, xlator_t *this,
         if (params)
                 local->cont.create.params = dict_ref (params);
 
-        if (loc->parent)
-                local->cont.create.parent_ino = loc->parent->ino;
-
         local->transaction.fop    = afr_create_wind;
         local->transaction.done   = afr_create_done;
         local->transaction.unwind = afr_create_unwind;
@@ -535,9 +532,6 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
         local->cont.mknod.dev   = dev;
         if (params)
                 local->cont.mknod.params = dict_ref (params);
-
-        if (loc->parent)
-                local->cont.mknod.parent_ino = loc->parent->ino;
 
         local->transaction.fop    = afr_mknod_wind;
         local->transaction.done   = afr_mknod_done;
@@ -762,9 +756,6 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
         if (params)
                 local->cont.mkdir.params = dict_ref (params);
 
-        if (loc->parent)
-                local->cont.mkdir.parent_ino = loc->parent->ino;
-
         local->transaction.fop    = afr_mkdir_wind;
         local->transaction.done   = afr_mkdir_done;
         local->transaction.unwind = afr_mkdir_unwind;
@@ -984,11 +975,6 @@ afr_link (call_frame_t *frame, xlator_t *this,
                         % (priv->child_count);
         }
         UNLOCK (&priv->read_child_lock);
-
-        local->cont.link.ino = oldloc->inode->ino;
-
-        if (oldloc->parent)
-                local->cont.link.parent_ino = newloc->parent->ino;
 
         local->transaction.fop    = afr_link_wind;
         local->transaction.done   = afr_link_done;
@@ -1215,9 +1201,6 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
         if (params)
                 local->cont.symlink.params = dict_ref (params);
 
-        if (loc->parent)
-                local->cont.symlink.parent_ino = loc->parent->ino;
-
         local->transaction.fop    = afr_symlink_wind;
         local->transaction.done   = afr_symlink_done;
         local->transaction.unwind = afr_symlink_unwind;
@@ -1426,13 +1409,6 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
         local->read_child_index = afr_inode_get_read_ctx (this, oldloc->inode, NULL);
 
-        local->cont.rename.ino = oldloc->inode->ino;
-
-        if (oldloc->parent)
-                local->cont.rename.oldparent_ino = oldloc->parent->ino;
-        if (newloc->parent)
-                local->cont.rename.newparent_ino = newloc->parent->ino;
-
         local->transaction.fop    = afr_rename_wind;
         local->transaction.done   = afr_rename_done;
         local->transaction.unwind = afr_rename_unwind;
@@ -1626,9 +1602,6 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
         transaction_frame->local = local;
 
         loc_copy (&local->loc, loc);
-
-        if (loc->parent)
-                local->cont.unlink.parent_ino = loc->parent->ino;
 
         local->transaction.fop    = afr_unlink_wind;
         local->transaction.done   = afr_unlink_done;
@@ -1824,9 +1797,6 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
         local->cont.rmdir.flags = flags;
         loc_copy (&local->loc, loc);
-
-        if (loc->parent)
-                local->cont.rmdir.parent_ino = loc->parent->ino;
 
         local->transaction.fop    = afr_rmdir_wind;
         local->transaction.done   = afr_rmdir_done;
