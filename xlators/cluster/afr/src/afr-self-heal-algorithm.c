@@ -104,7 +104,6 @@ sh_loop_driver_done (call_frame_t *sh_frame, xlator_t *this,
         local        = sh_frame->local;
         sh           = &local->self_heal;
         sh_priv      = sh->private;
-
         if (sh_priv) {
                 total_blocks = sh_priv->total_blocks;
                 diff_blocks  = sh_priv->diff_blocks;
@@ -132,10 +131,7 @@ sh_loop_driver_done (call_frame_t *sh_frame, xlator_t *this,
                                 ((diff_blocks * 1.0)/total_blocks) * 100);
                 }
 
-                if (sh_frame == last_loop_frame)
-                        sh->old_loop_frame = NULL;
-                else
-                        sh->old_loop_frame = last_loop_frame;
+                sh->old_loop_frame = last_loop_frame;
                 local->self_heal.algo_completion_cbk (sh_frame, this);
         }
 
@@ -156,17 +152,10 @@ sh_loop_finish (call_frame_t *loop_frame, xlator_t *this)
                 loop_sh = &loop_local->self_heal;
         }
 
-        if (loop_sh && loop_sh->loop_completion_cbk) {
-                if (loop_sh->data_lock_held) {
-                        afr_sh_data_unlock (loop_frame, this,
-                                            loop_sh->loop_completion_cbk);
-                } else {
-                        loop_sh->loop_completion_cbk (loop_frame, this);
-                }
+        if (loop_sh && loop_sh->data_lock_held) {
+                afr_sh_data_unlock (loop_frame, this,
+                                    sh_destroy_frame);
         } else {
-                //default loop_completion_cbk destroys the loop_frame
-                if (loop_sh && !loop_sh->loop_completion_cbk)
-                        GF_ASSERT (!loop_sh->data_lock_held);
                 sh_destroy_frame (loop_frame, this);
         }
 out:
@@ -205,16 +194,15 @@ sh_loop_lock_failure (call_frame_t *loop_frame, xlator_t *this)
 
         gf_log (this->name, GF_LOG_ERROR, "failed lock for range %"PRIu64
                 " %"PRIu64, loop_sh->offset, loop_sh->block_size);
-        if (loop_sh->old_loop_frame != loop_sh->sh_frame)
-                sh_loop_finish (loop_sh->old_loop_frame, this);
+        sh_loop_finish (loop_sh->old_loop_frame, this);
         loop_sh->old_loop_frame = NULL;
         sh_loop_return (sh_frame, this, loop_frame, -1, ENOTCONN);
         return 0;
 }
 
 static int
-sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
-               call_frame_t *old_loop_frame)
+sh_loop_frame_create (call_frame_t *sh_frame, xlator_t *this,
+                      call_frame_t *old_loop_frame, call_frame_t **loop_frame)
 {
         call_frame_t                *new_loop_frame = NULL;
         afr_local_t                 *local          = NULL;
@@ -224,7 +212,9 @@ sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
         afr_private_t               *priv           = NULL;
 
         GF_ASSERT (sh_frame);
+        GF_ASSERT (loop_frame);
 
+        *loop_frame = NULL;
         local   = sh_frame->local;
         sh      = &local->self_heal;
         priv    = this->private;
@@ -232,7 +222,8 @@ sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
         new_loop_frame = copy_frame (sh_frame);
         if (!new_loop_frame)
                 goto out;
-        //We want the frame to have same lk_oner as sh_frame
+        //We want the frame to have same lk_owner as sh_frame
+        //so that locks translator allows conflicting locks
         new_loop_local = afr_local_copy (local, this);
         if (!new_loop_local)
                 goto out;
@@ -252,26 +243,51 @@ sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
                                            gf_afr_mt_uint8_t);
         if (!new_loop_sh->checksum)
                 goto out;
-        new_loop_sh->offset = offset;
-        new_loop_sh->block_size = sh->block_size;
         new_loop_sh->inode      = inode_ref (sh->inode);
         new_loop_sh->sh_data_algo_start = sh->sh_data_algo_start;
         new_loop_sh->source = sh->source;
         new_loop_sh->active_sinks = sh->active_sinks;
         new_loop_sh->healing_fd = fd_ref (sh->healing_fd);
         new_loop_sh->file_has_holes = sh->file_has_holes;
-        new_loop_sh->loop_completion_cbk = sh_destroy_frame;
         new_loop_sh->old_loop_frame = old_loop_frame;
         new_loop_sh->sh_frame = sh_frame;
+        *loop_frame = new_loop_frame;
+        return 0;
+out:
+        sh_destroy_frame (new_loop_frame, this);
+        return -ENOMEM;
+}
+
+static int
+sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
+               call_frame_t *old_loop_frame)
+{
+        call_frame_t                *new_loop_frame = NULL;
+        afr_local_t                 *local          = NULL;
+        afr_self_heal_t             *sh             = NULL;
+        afr_local_t                 *new_loop_local = NULL;
+        afr_self_heal_t             *new_loop_sh    = NULL;
+        int                         ret             = 0;
+
+        GF_ASSERT (sh_frame);
+
+        local   = sh_frame->local;
+        sh      = &local->self_heal;
+
+        ret = sh_loop_frame_create (sh_frame, this, old_loop_frame,
+                                    &new_loop_frame);
+        if (ret)
+                goto out;
+        new_loop_local = new_loop_frame->local;
+        new_loop_sh = &new_loop_local->self_heal;
+        new_loop_sh->offset = offset;
+        new_loop_sh->block_size = sh->block_size;
         afr_sh_data_lock (new_loop_frame, this, offset, new_loop_sh->block_size,
                           sh_loop_lock_success, sh_loop_lock_failure);
         return 0;
 out:
         sh->op_failed = 1;
-        if (new_loop_frame) {
-                new_loop_frame->local = new_loop_local;
-        }
-        if (old_loop_frame != sh_frame)
+        if (old_loop_frame)
                 sh_loop_finish (old_loop_frame, this);
         sh_loop_return (sh_frame, this, new_loop_frame, -1, ENOMEM);
         return 0;
@@ -281,7 +297,6 @@ static int
 sh_loop_driver (call_frame_t *sh_frame, xlator_t *this,
                 gf_boolean_t is_first_call, call_frame_t *old_loop_frame)
 {
-        afr_private_t *             priv           = NULL;
         afr_local_t *               local          = NULL;
         afr_self_heal_t *           sh             = NULL;
         afr_sh_algo_private_t       *sh_priv        = NULL;
@@ -289,6 +304,7 @@ sh_loop_driver (call_frame_t *sh_frame, xlator_t *this,
         blksize_t                   block_size     = 0;
         int                         loop           = 0;
         off_t                       offset         = 0;
+        afr_private_t               *priv          = NULL;
 
         priv    = this->private;
         local   = sh_frame->local;
@@ -297,7 +313,7 @@ sh_loop_driver (call_frame_t *sh_frame, xlator_t *this,
 
         LOCK (&sh_priv->lock);
         {
-                if (_gf_false == is_first_call)
+                if (!is_first_call)
                         sh_priv->loops_running--;
                 offset = sh_priv->offset;
                 block_size = sh->block_size;
@@ -309,7 +325,7 @@ sh_loop_driver (call_frame_t *sh_frame, xlator_t *this,
                         sh_priv->offset += block_size;
                         sh_priv->loops_running++;
 
-                        if (_gf_false == is_first_call)
+                        if (!is_first_call)
                                 break;
                 }
                 if (0 == sh_priv->loops_running) {
@@ -369,7 +385,6 @@ sh_loop_return (call_frame_t *sh_frame, xlator_t *this, call_frame_t *loop_frame
         sh       = &sh_local->self_heal;
 
         if (loop_frame) {
-                GF_ASSERT (loop_frame != sh_frame);
                 loop_local = loop_frame->local;
                 if (loop_local)
                         loop_sh    = &loop_local->self_heal;
@@ -684,41 +699,73 @@ sh_full_read_write_to_sinks (call_frame_t *loop_frame, xlator_t *this)
         return 0;
 }
 
-static int
-sh_do_nothing (call_frame_t *frame, xlator_t *this)
+afr_sh_algo_private_t*
+afr_sh_priv_init ()
 {
-        return 0;
+        afr_sh_algo_private_t   *sh_priv = NULL;
+
+        sh_priv = GF_CALLOC (1, sizeof (*sh_priv),
+                             gf_afr_mt_afr_private_t);
+        if (!sh_priv)
+                goto out;
+
+        LOCK_INIT (&sh_priv->lock);
+out:
+        return sh_priv;
+}
+
+void
+afr_sh_transfer_lock (call_frame_t *dst, call_frame_t *src,
+                      unsigned int child_count)
+{
+        afr_local_t             *dst_local   = NULL;
+        afr_self_heal_t         *dst_sh      = NULL;
+        afr_local_t             *src_local   = NULL;
+        afr_self_heal_t         *src_sh      = NULL;
+
+        dst_local = dst->local;
+        dst_sh = &dst_local->self_heal;
+        src_local = src->local;
+        src_sh = &src_local->self_heal;
+        GF_ASSERT (src_sh->data_lock_held);
+        GF_ASSERT (!dst_sh->data_lock_held);
+        afr_lk_transfer_datalock (dst, src, child_count);
+        src_sh->data_lock_held = _gf_false;
+        dst_sh->data_lock_held = _gf_true;
 }
 
 int
 afr_sh_start_loops (call_frame_t *sh_frame, xlator_t *this,
                     afr_sh_algo_fn sh_data_algo_start)
 {
-        afr_local_t             *sh_local   = NULL;
+        call_frame_t            *first_loop_frame = NULL;
+        afr_local_t             *local   = NULL;
         afr_self_heal_t         *sh      = NULL;
-        afr_sh_algo_private_t   *sh_priv = NULL;
+        int                     ret      = 0;
+        afr_private_t           *priv    = NULL;
 
-        sh_local = sh_frame->local;
-        sh    = &sh_local->self_heal;
+        local = sh_frame->local;
+        sh    = &local->self_heal;
+        priv  = this->private;
 
-        sh_priv = GF_CALLOC (1, sizeof (*sh_priv),
-                             gf_afr_mt_afr_private_t);
-        if (!sh_priv) {
-                sh->op_failed = 1;
-                sh_loop_driver_done (sh_frame, this, NULL);
+        sh->sh_data_algo_start = sh_data_algo_start;
+        local->call_count = 0;
+        ret = sh_loop_frame_create (sh_frame, this, NULL, &first_loop_frame);
+        if (ret)
+                goto out;
+        afr_sh_transfer_lock (first_loop_frame, sh_frame, priv->child_count);
+        sh->private = afr_sh_priv_init ();
+        if (!sh->private) {
+                ret = -1;
                 goto out;
         }
-
-        LOCK_INIT (&sh_priv->lock);
-
-        sh->private = sh_priv;
-        sh->sh_data_algo_start = sh_data_algo_start;
-
-        sh_local->call_count = 0;
-
-        sh->loop_completion_cbk = sh_do_nothing;
-        sh_loop_driver (sh_frame, this, _gf_true, sh_frame);
+        sh_loop_driver (sh_frame, this, _gf_true, first_loop_frame);
+        ret = 0;
 out:
+        if (ret) {
+                sh->op_failed = 1;
+                sh_loop_driver_done (sh_frame, this, NULL);
+        }
         return 0;
 }
 
