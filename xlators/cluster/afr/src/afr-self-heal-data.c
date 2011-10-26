@@ -370,13 +370,7 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
                         afr_sh_data_finish (frame, this);
                         goto out;
                 }
-                if (NULL == sh->old_loop_frame) {
-                        GF_ASSERT (sh->data_lock_held);
-                        afr_sh_data_fxattrop (frame, this,
-                                              afr_post_sh_data_fxattrop_cbk);
-                        goto out;
-                }
-
+                GF_ASSERT (sh->old_loop_frame);
                 afr_sh_data_lock (frame, this, 0, 0,
                                   afr_post_sh_big_lock_success,
                                   afr_post_sh_big_lock_failure);

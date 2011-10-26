@@ -256,7 +256,6 @@ typedef struct {
         int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*sh_data_algo_start) (call_frame_t *frame, xlator_t *this);
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
-        afr_lock_cbk_t loop_completion_cbk;
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
         void (*gfid_sh_success_cbk) (call_frame_t *sh_frame, xlator_t *this);
 
@@ -780,6 +779,9 @@ afr_blocking_lock (call_frame_t *frame, xlator_t *this);
 int
 afr_internal_lock_finish (call_frame_t *frame, xlator_t *this);
 
+void
+afr_lk_transfer_datalock (call_frame_t *dst, call_frame_t *src,
+                          unsigned int child_count);
 
 int pump_start (call_frame_t *frame, xlator_t *this);
 

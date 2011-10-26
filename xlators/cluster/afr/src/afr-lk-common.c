@@ -2233,3 +2233,28 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
 out:
         return ret;
 }
+
+void
+afr_lk_transfer_datalock (call_frame_t *dst, call_frame_t *src,
+                          unsigned int child_count)
+{
+        afr_local_t *dst_local = NULL;
+        afr_local_t *src_local = NULL;
+        afr_internal_lock_t *dst_lock = NULL;
+        afr_internal_lock_t *src_lock = NULL;
+
+        dst_local = dst->local;
+        dst_lock  = &dst_local->internal_lock;
+        src_local = src->local;
+        src_lock  = &src_local->internal_lock;
+        if (src_lock->inode_locked_nodes) {
+                memcpy (dst_lock->inode_locked_nodes,
+                        src_lock->inode_locked_nodes,
+                        sizeof (*dst_lock->inode_locked_nodes) * child_count);
+                memset (src_lock->inode_locked_nodes, 0,
+                        sizeof (*src_lock->inode_locked_nodes) * child_count);
+        }
+
+        dst_lock->inodelk_lock_count = src_lock->inodelk_lock_count;
+        src_lock->inodelk_lock_count = 0;
+}
