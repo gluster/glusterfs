@@ -255,7 +255,7 @@ nfs_inode_loc_fill (inode_t *inode, loc_t *loc)
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
-        if (ret < 0)
+        if (ret <= 0)
                 goto err;
 
         ret = nfs_loc_fill (loc, inode, parent, resolvedpath);
@@ -318,7 +318,7 @@ nfs_parent_inode_loc_fill (inode_t *parent, inode_t *entryinode, char *entry,
                 return ret;
 
         ret = inode_path (parent, entry, &path);
-        if (ret < 0)
+        if (ret <= 0)
                 goto err;
 
         ret = nfs_loc_fill (loc, entryinode, parent, path);
@@ -380,7 +380,7 @@ nfs_entry_loc_fill (inode_table_t *itable, uuid_t pargfid, char *entry,
         }
 
         ret = inode_path (parent, entry, &resolvedpath);
-        if (ret < 0) {
+        if (ret <= 0) {
                 ret = -3;
                 goto err;
         }

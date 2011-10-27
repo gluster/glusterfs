@@ -597,7 +597,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
         conf = this->private;
 
         ret = inode_path (inode, NULL, &path);
-        if (ret < 0) {
+        if (ret <= 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "couldn't build path from inode %s",
                         uuid_utoa (inode->gfid));
@@ -677,7 +677,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         conf  = this->private;
 
         ret = inode_path (inode, NULL, &path);
-        if (ret < 0) {
+        if (ret <= 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "couldn't build path from inode %s",
                         uuid_utoa (inode->gfid));

@@ -392,7 +392,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
 
                         list_del_init (&l->blocked_locks);
 
-                        if (inode_path (inode, NULL, &path) < 0) {
+                        if (inode_path (inode, NULL, &path) <= 0) {
                                 gf_log (this->name, GF_LOG_TRACE,
                                         "inode_path failed");
                                 goto unlock;
@@ -420,7 +420,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                         __destroy_inode_lock (l);
 
 
-                        if (inode_path (inode, NULL, &path) < 0) {
+                        if (inode_path (inode, NULL, &path) <= 0) {
                                 gf_log (this->name, GF_LOG_TRACE,
                                         "inode_path failed");
                                 goto unlock;

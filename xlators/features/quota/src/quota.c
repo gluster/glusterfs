@@ -96,7 +96,7 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
-        if (ret < 0) {
+        if (ret <= 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "cannot construct path for inode (ino:%"PRId64", "
                         "gfid:%s)", inode->ino,
@@ -479,7 +479,7 @@ quota_get_limit_value (inode_t *inode, xlator_t *this, int64_t *n)
         *n = 0;
 
         ret = inode_path (inode, NULL, &path);
-        if (ret < 0) {
+        if (ret <= 0) {
                 ret = -1;
                 goto out;
         }

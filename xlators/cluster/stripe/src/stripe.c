@@ -4166,12 +4166,13 @@ unlock:
                 loc.ino = inode->ino = local_entry->d_ino;
                 loc.inode = inode;
                 loc.parent = local->fd->inode;
+                uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
                 ret = inode_path (local->fd->inode, local_entry->d_name, &path);
-                if (ret != -1) {
+                if (ret > 0) {
                         loc.path = path;
                 } else  if (inode) {
                         ret = inode_path (inode, NULL, &path);
-                        if (ret != -1) {
+                        if (ret > 0) {
                                 loc.path = path;
                         } else {
                                 goto out;
@@ -4249,8 +4250,10 @@ stripe_readdirp (call_frame_t *frame, xlator_t *this,
         local->op_ret = -1;
         INIT_LIST_HEAD(&local->entries);
 
-        if (!trav)
+        if (!trav) {
+                gf_log (this->name, GF_LOG_ERROR, "this->children is NULL");
                 goto err;
+        }
 
         STACK_WIND (frame, stripe_readdirp_cbk, trav->xlator,
                     trav->xlator->fops->readdirp, fd, size, off);

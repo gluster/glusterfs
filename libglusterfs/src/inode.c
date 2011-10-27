@@ -1039,7 +1039,7 @@ inode_path (inode_t *inode, const char *name, char **bufp)
 
                 if ((inode->ino != 1) &&
                     (i == 0)) {
-                        gf_log (table->name, GF_LOG_WARNING,
+                        gf_log_callingfn (table->name, GF_LOG_WARNING,
                                 "no dentry for non-root inode %"PRId64": %s",
                                 inode->ino, uuid_utoa (inode->gfid));
                         ret = -ENOENT;
