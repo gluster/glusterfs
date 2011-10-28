@@ -58,6 +58,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         char            *free_ptr = NULL;
         glusterd_conf_t *conf = NULL;
 
+        GF_ASSERT (op_ctx);
         GF_ASSERT (THIS);
 
         conf = THIS->private;
@@ -331,7 +332,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         }
         case GD_OP_PROFILE_VOLUME:
         {
-                gf1_cli_stats_volume_rsp rsp = {0,};
+                gf1_cli_stats_volume_rsp rsp   = {0,};
+                int32_t                  count = 0;
                 rsp.op_ret = op_ret;
                 rsp.op_errno = op_errno;
                 if (op_errstr)
@@ -339,6 +341,12 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 else
                         rsp.op_errstr = "";
                 ctx = op_ctx;
+                if (dict_get_int32 (ctx, "count", &count)) {
+                        ret = dict_set_int32 (ctx, "count", 0);
+                        if (ret)
+                                gf_log (THIS->name, GF_LOG_WARNING, "Failed "
+                                        "to set brick count.");
+                }
                 dict_allocate_and_serialize (ctx,
                              &rsp.stats_info.stats_info_val,
                         (size_t*)&rsp.stats_info.stats_info_len);

@@ -3109,6 +3109,12 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret)
                 goto out;
+
+        if (!brick_count) {
+                cli_out ("All bricks of volume %s are down.", volname);
+                goto out;
+        }
+
         while (i <= brick_count) {
                 snprintf (key, sizeof (key), "%d-cumulative", i);
                 ret = dict_get_int32 (dict, key, &interval);
@@ -3241,6 +3247,12 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret)
                 goto out;
+
+        if (!brick_count) {
+                cli_out ("All bricks of volume %s are down.");
+                goto out;
+        }
+
         snprintf (key, sizeof (key), "%d-top-op", 1);
         ret = dict_get_int32 (dict, key, (int32_t*)&top_op);
         if (ret)
