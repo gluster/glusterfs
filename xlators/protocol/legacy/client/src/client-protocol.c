@@ -479,7 +479,7 @@ client_start_ping (void *data)
                 }
 
                 if (frame_count < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_TRACE,
                                 "saved_frames->count is %"PRId64,
                                 conn->saved_frames->count);
                         conn->saved_frames->count = 0;
