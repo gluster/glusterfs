@@ -48,7 +48,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev = cookie;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "failed to get disk info from %s", prev->this->name);
                 goto out;
         }
@@ -64,7 +64,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (prev->this == conf->subvolumes[i]) {
                                 conf->du_stats[i].avail_percent = percent;
                                 conf->du_stats[i].avail_space   = bytes;
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_TRACE,
                                         "on subvolume '%s': avail_percent is: "
                                         "%.2f and avail_space is: %"PRIu64"",
                                         prev->this->name,

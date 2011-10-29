@@ -380,7 +380,7 @@ delete_granted_locks_owner (fd_t *fd, uint64_t owner)
         this = THIS;
         fdctx = this_fd_get_ctx (fd, this);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "fdctx not valid");
                 ret = -1;
                 goto out;
@@ -404,7 +404,7 @@ delete_granted_locks_owner (fd_t *fd, uint64_t owner)
         }
 
         /* FIXME: Need to actually print the locks instead of count */
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_TRACE,
                 "Number of locks cleared=%d", count);
 
 out:
@@ -438,7 +438,7 @@ delete_granted_locks_fd (clnt_fd_ctx_t *fdctx)
         }
 
         /* FIXME: Need to actually print the locks instead of count */
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_TRACE,
                 "Number of locks cleared=%d", count);
 
         return  ret;
@@ -654,7 +654,7 @@ cleanup:
         STACK_DESTROY (frame->root);
 
         fd_count = decrement_reopen_fd_count (this, conf);
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_TRACE,
                 "Need to attempt lock recovery on %lld open fds",
                 (unsigned long long) fd_count);
 	return 0;
