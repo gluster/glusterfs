@@ -322,9 +322,6 @@ afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this, int32_t op_ret,
         UNLOCK (&local->fd->lock);
 
         if (call_count == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "fd not open on any subvolume %p (%s)",
-                        local->fd, local->loc.path);
                 abandon = 1;
                 goto out;
         }
@@ -619,10 +616,6 @@ afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         UNLOCK (&local->fd->lock);
 
         if (call_count == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "fd not open on any subvolume %p (%s)",
-                        fd, local->loc.path);
-                no_open = 1;
                 goto out;
         }
 
