@@ -154,6 +154,9 @@ glusterd_get_nodesvc_volfile (char *server, char *workdir,
                                     char *volfile, size_t len);
 
 gf_boolean_t
+glusterd_is_service_running (char *pidfile, int *pid);
+
+gf_boolean_t
 glusterd_is_nodesvc_running ();
 
 gf_boolean_t

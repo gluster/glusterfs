@@ -236,7 +236,7 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                              dict_t **options);
 
 int
-cli_print_brick_status (char *brick, int port, int online, int pid);
+cli_print_brick_status (char *brick, int port, int online, char *pid);
 
 void
 cli_print_line (int len);
