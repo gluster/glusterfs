@@ -843,6 +843,26 @@ out:
         return read_child;
 }
 
+int
+afr_sh_data_special_file_fix (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t   *priv = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_local_t     *local = NULL;
+        int             i = 0;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++)
+                if (1 == local->child_up[i])
+                        sh->success[i] = 1;
+
+        afr_sh_data_erase_pending (frame, this);
+
+        return 0;
+}
 
 int
 afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
@@ -877,7 +897,13 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                afr_sh_data_fix (frame, this);
+                /* Previous versions of glusterfs might have set
+                 * the pending data xattrs which need to be erased
+                 */
+                if (IA_ISREG (buf->ia_type))
+                        afr_sh_data_fix (frame, this);
+                else
+                        afr_sh_data_special_file_fix (frame, this);
         }
 
         return 0;
