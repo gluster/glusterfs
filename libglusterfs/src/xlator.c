@@ -193,6 +193,8 @@ xlator_dynload (xlator_t *xl)
 
         GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
+        INIT_LIST_HEAD (&xl->volume_options);
+
         ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
         if (-1 == ret) {
                 gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
@@ -255,8 +257,6 @@ xlator_dynload (xlator_t *xl)
                         "dlsym(reconfigure) on %s -- neglecting",
                         dlerror());
         }
-
-        INIT_LIST_HEAD (&xl->volume_options);
 
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                          gf_common_mt_volume_opt_list_t);
