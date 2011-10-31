@@ -1376,7 +1376,7 @@ cli_cmd_volume_status_cbk (struct cli_state *state,
 
 
 int
-cli_print_brick_status (char *brick, int port, int online, int pid)
+cli_print_brick_status (char *brick, int port, int online, char *pid)
 {
         int  fieldlen = CLI_VOL_STATUS_BRICK_LEN;
         char buf[80] = {0,};
@@ -1400,7 +1400,7 @@ cli_print_brick_status (char *brick, int port, int online, int pid)
                         printf ("%s", p);
                         while (num_tabs-- != 0)
                                 printf ("\t");
-                        cli_out ("%d\t%c\t%d", port, online?'Y':'N', pid);
+                        cli_out ("%d\t%c\t%s", port, online?'Y':'N', pid);
                         bricklen = 0;
                 }
         }

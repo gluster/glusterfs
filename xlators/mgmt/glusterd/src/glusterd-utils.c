@@ -2308,12 +2308,13 @@ out:
         return ret;
 }
 
+/* Valid only in if service is 'local' to glusterd.
+ * pid can be -1, if reading pidfile failed */
 gf_boolean_t
-glusterd_is_service_running (char *pidfile)
+glusterd_is_service_running (char *pidfile, int *pid)
 {
         FILE            *file = NULL;
         gf_boolean_t    running = _gf_false;
-        gf_boolean_t    locked = _gf_false;
         int             ret = 0;
         int             fno = 0;
 
@@ -2322,20 +2323,20 @@ glusterd_is_service_running (char *pidfile)
                 goto out;
 
         fno = fileno (file);
-        ret = lockf (fno, F_TLOCK, 0);
-        if (!ret) {
-                locked = _gf_true;
+        ret = lockf (fno, F_TEST, 0);
+        if (ret == -1)
+                running = _gf_true;
+        if (!pid)
                 goto out;
+
+        ret = fscanf (file, "%d", pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s, %s",
+                        pidfile, strerror (errno));
+                *pid = -1;
         }
 
-        running = _gf_true;
 out:
-        if (locked) {
-                GF_ASSERT (file);
-                if (lockf (fno, F_ULOCK, 0) < 0)
-                        gf_log ("", GF_LOG_WARNING, "Cannot unlock pidfile: %s"
-                                " reason: %s", pidfile, strerror(errno));
-        }
         if (file)
                 fclose (file);
         return running;
@@ -2586,7 +2587,7 @@ glusterd_is_nodesvc_running (char *server)
 
         glusterd_get_nodesvc_pidfile (server, priv->workdir,
                                             pidfile, sizeof (pidfile));
-        return glusterd_is_service_running (pidfile);
+        return glusterd_is_service_running (pidfile, NULL);
 }
 
 int32_t
@@ -3094,8 +3095,6 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         char            base_key[8192] = {0};
         char            pidfile[PATH_MAX] = {0};
         char            path[PATH_MAX] = {0};
-        FILE            *file = NULL;
-        int             fd = -1;
         int32_t         pid = -1;
         int32_t         brick_online = -1;
         xlator_t        *this = NULL;
@@ -3128,39 +3127,12 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
 
-        file = fopen (pidfile, "r");
-        if (!file) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
-                        pidfile);
-                /* pidfile doesn't exist means brick is down*/
-                pid = 0;
-                brick_online = 0;
-                goto cont;
-        } else {
-                ret = fscanf (file, "%d", &pid);
-                if (ret <= 0) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
-                                pidfile);
-                        ret = -1;
-                        goto out;
-                }
+        brick_online = glusterd_is_service_running (pidfile, &pid);
 
-                /* check if process is crashed*/
-                fd = fileno (file);
-                if ((fd != -1) && (lockf (fd, F_TEST, 0)))
-                        brick_online = 1;
-                else {
-                        pid = 0;
-                        brick_online = 0;
-                }
-        }
-
-cont:
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", base_key);
         ret = dict_set_int32 (dict, key, pid);
@@ -3174,9 +3146,6 @@ cont:
                 goto out;
 
 out:
-        if (file)
-                fclose (file);
-
         if (ret)
                 gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 

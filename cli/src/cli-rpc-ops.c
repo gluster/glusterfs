@@ -3807,7 +3807,8 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
         int                             port = 0;
         int                             online = 0;
         char                            key[1024] = {0,};
-        int                             pid = 0;
+        int                             pid = -1;
+        char                            *pid_str = NULL;
         char                            brick[8192] = {0,};
         char                            *volname = NULL;
 
@@ -3875,11 +3876,22 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.pid", i);
                 ret = dict_get_int32 (dict, key, &pid);
+                if (ret)
+                        goto out;
+                if (pid == -1)
+                        ret = gf_asprintf (&pid_str, "%s", "N/A");
+                else
+                        ret = gf_asprintf (&pid_str, "%d", pid);
+
+                if (ret == -1)
+                        goto out;
 
                 snprintf (brick, sizeof (brick) -1, "%s:%s", hostname, path);
 
                 cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
-                cli_print_brick_status (brick, port, online, pid);
+                cli_print_brick_status (brick, port, online, pid_str);
+                if (pid_str)
+                        GF_FREE (pid_str);
         }
 
         ret = rsp.op_ret;
