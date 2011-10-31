@@ -28,6 +28,15 @@
 #endif
 #define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
 
+/* Widths of various columns in top read/write-perf output
+ * Total width of top read/write-perf should be 80 chars
+ * including one space between column
+ */
+#define VOL_TOP_PERF_FILENAME_DEF_WIDTH 47
+#define VOL_TOP_PERF_FILENAME_ALT_WIDTH 44
+#define VOL_TOP_PERF_SPEED_WIDTH        4
+#define VOL_TOP_PERF_TIME_WIDTH         26
+
 #include "cli.h"
 #include "compat-errno.h"
 #include "cli-cmd.h"
@@ -3305,7 +3314,14 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 cli_out ("No entries in list");
                                 continue;
                         }
-                        cli_out ("MBps\t\tfilename\t\t time\n========================");
+                        cli_out ("%*s %-*s %-*s",
+                                 VOL_TOP_PERF_SPEED_WIDTH, "MBps",
+                                 VOL_TOP_PERF_FILENAME_DEF_WIDTH, "Filename",
+                                 VOL_TOP_PERF_TIME_WIDTH, "Time");
+                        cli_out ("%*s %-*s %-*s",
+                                 VOL_TOP_PERF_SPEED_WIDTH, "====",
+                                 VOL_TOP_PERF_FILENAME_DEF_WIDTH, "========",
+                                 VOL_TOP_PERF_TIME_WIDTH, "====");
                         break;
                 default:
                         goto out;
@@ -3336,8 +3352,23 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
                                 snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
                                   ".%"GF_PRI_SUSECONDS, time_usec);
-
-                                cli_out ("%"PRIu64"\t\t%s\t\t%s", value, filename, timestr);
+                                if (strlen (filename) < VOL_TOP_PERF_FILENAME_DEF_WIDTH)
+                                        cli_out ("%*"PRIu64" %-*s %-*s",
+                                                 VOL_TOP_PERF_SPEED_WIDTH,
+                                                 value,
+                                                 VOL_TOP_PERF_FILENAME_DEF_WIDTH,
+                                                 filename,
+                                                 VOL_TOP_PERF_TIME_WIDTH,
+                                                 timestr);
+                                else
+                                        cli_out ("%*"PRIu64" ...%-*s %-*s",
+                                                 VOL_TOP_PERF_SPEED_WIDTH,
+                                                 value,
+                                                 VOL_TOP_PERF_FILENAME_ALT_WIDTH ,
+                                                 filename + strlen (filename) -
+                                                 VOL_TOP_PERF_FILENAME_ALT_WIDTH,
+                                                 VOL_TOP_PERF_TIME_WIDTH,
+                                                 timestr);
                         } else {
                                 cli_out ("%"PRIu64"\t\t%s", value, filename);
                         }
