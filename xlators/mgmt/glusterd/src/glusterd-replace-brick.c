@@ -243,6 +243,12 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
         gf_boolean_t                            is_run         = _gf_false;
         dict_t                                  *ctx           = NULL;
+        glusterd_conf_t                         *priv          = NULL;
+        char                                    voldir[PATH_MAX] = {0};
+        char                                    pidfile[PATH_MAX] = {0};
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
 
         ret = dict_get_str (dict, "src-brick", &src_brick);
 
@@ -415,6 +421,20 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                         src_brickinfo->port);
                         }
                 }
+
+                GLUSTERD_GET_VOLUME_DIR (voldir, volinfo, priv);
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile, voldir,
+                                            src_brickinfo->hostname,
+                                            src_brickinfo->path);
+                if (!glusterd_is_service_running (pidfile, NULL)) {
+                        snprintf(msg, sizeof(msg), "Source brick %s:%s "
+                                 "is not online.", src_brickinfo->hostname,
+                                 src_brickinfo->path);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
 
         }
 
