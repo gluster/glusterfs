@@ -744,6 +744,17 @@ glusterd_rebalance_cmd_validate (int cmd, char *volname,
                           "be started to perform rebalance", volname);
                 goto out;
         }
+
+        if ((*volinfo)->brick_count <= (((*volinfo)->sub_count) ?
+                                        (*volinfo)->sub_count : 1)) {
+                /* distribute translator is not involved, no use of
+                   rebalancing */
+                snprintf (op_errstr, len, "nothing to rebalance on volume %s",
+                          volname);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", op_errstr);
+                goto out;
+        }
+
         ret = 0;
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
