@@ -322,6 +322,15 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 }
         }
 
+        if (cmd_args->read_only) {
+                ret = dict_set_static_ptr (master->options, "read-only", "on");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key read-only");
+                        goto err;
+                }
+        }
+
         switch (cmd_args->fuse_direct_io_mode) {
         case GF_OPTION_DISABLE: /* disable */
                 ret = dict_set_static_ptr (master->options, ZR_DIRECT_IO_OPT,
