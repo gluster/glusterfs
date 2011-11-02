@@ -2129,6 +2129,10 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
 
         if (fnmatch ("*io*stat*dump", key, 0) == 0) {
 
+                if (!strncmp (filename, "", 1)) {
+                        gf_log (this->name, GF_LOG_ERROR, "No filename given");
+                        return;
+                }
                 logfp = fopen (filename, "w+");
                 GF_ASSERT (logfp);
                 if (!logfp) {
