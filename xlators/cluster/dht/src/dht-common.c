@@ -4486,6 +4486,8 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 if (build_ret != 0)
                         goto err;
 
+                uuid_copy (lookup_local->loc.gfid, trav->d_stat.ia_gfid);
+
                 gf_log (this->name, GF_LOG_TRACE,
                         "looking up %s on %s",
                         lookup_local->loc.path, src->name);
