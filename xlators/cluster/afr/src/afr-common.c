@@ -187,10 +187,16 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
 }
 
 void
-afr_lookup_save_gfid (uuid_t dst, void* new, inode_t *inode)
+afr_lookup_save_gfid (uuid_t dst, void* new, const loc_t *loc)
 {
+        inode_t         *inode = NULL;
+
+        GF_ASSERT (loc);
+        inode = loc->inode;
         if (inode && !uuid_is_null (inode->gfid)) {
                 uuid_copy (dst, inode->gfid);
+        } else if (!uuid_is_null (loc->gfid)) {
+                uuid_copy (dst, loc->gfid);
         } else {
                 GF_ASSERT (new && !uuid_is_null (new));
                 uuid_copy (dst, new);
@@ -1700,8 +1706,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         afr_lookup_xattr_req_prepare (local, this, xattr_req, loc, &gfid_req);
         local->call_count = afr_up_children_count (priv->child_count,
                                                    local->child_up);
-        afr_lookup_save_gfid (local->cont.lookup.gfid_req, gfid_req,
-                              loc->inode);
+        afr_lookup_save_gfid (local->cont.lookup.gfid_req, gfid_req, loc);
         local->fop = GF_FOP_LOOKUP;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
