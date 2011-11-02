@@ -1534,6 +1534,7 @@ gf_system (const char *command)
         char  *arg    = NULL;
         char  *tmp    = NULL;
         char  *argv[100] = { NULL, };
+        sigset_t set;
 
         dupcmd = gf_strdup (command);
         if (!dupcmd)
@@ -1557,7 +1558,20 @@ gf_system (const char *command)
                 for (idx = 3; idx < 65536; idx++) {
                         close (idx);
                 }
-                /* Step 2: execv (); */
+
+                /* Step 2: Start with an empty signal mask */
+                ret = sigemptyset (&set);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Failed to empty signal set");
+                        goto step3;
+                }
+
+                ret = sigprocmask (SIG_SETMASK, &set, NULL);
+                if (ret)
+                        gf_log ("", GF_LOG_ERROR, "Failed to set signal mask");
+
+        step3:
+                /* Step 3: execv (); */
                 ret = execvp (argv[0], argv);
 
                 /* Code will not come here at all */
