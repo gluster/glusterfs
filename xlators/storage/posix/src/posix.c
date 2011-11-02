@@ -311,10 +311,13 @@ posix_lstat_with_gfid (xlator_t *this, const char *path, struct iatt *stbuf_p)
         iatt_from_stat (&stbuf, &lstatbuf);
 
         ret = posix_fill_gfid_path (this, path, &stbuf);
-        if (ret)
-                gf_log_callingfn (this->name, GF_LOG_DEBUG, "failed to get gfid");
-
-        posix_fill_ino_from_gfid (this, &stbuf);
+        if (ret) {
+                gf_log_callingfn (this->name, GF_LOG_DEBUG,
+                                  "failed to get gfid");
+                stbuf.ia_ino = -1;
+        } else {
+                posix_fill_ino_from_gfid (this, &stbuf);
+        }
 
         if (stbuf_p)
                 *stbuf_p = stbuf;
@@ -340,10 +343,13 @@ posix_fstat_with_gfid (xlator_t *this, int fd, struct iatt *stbuf_p)
         iatt_from_stat (&stbuf, &fstatbuf);
 
         ret = posix_fill_gfid_fd (this, fd, &stbuf);
-        if (ret)
-                gf_log_callingfn (this->name, GF_LOG_DEBUG, "failed to get gfid");
-
-        posix_fill_ino_from_gfid (this, &stbuf);
+        if (ret) {
+                gf_log_callingfn (this->name, GF_LOG_DEBUG,
+                                  "failed to get gfid");
+                stbuf.ia_ino = -1;
+        } else {
+                posix_fill_ino_from_gfid (this, &stbuf);
+        }
 
         if (stbuf_p)
                 *stbuf_p = stbuf;
