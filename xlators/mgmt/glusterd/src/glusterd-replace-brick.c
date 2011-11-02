@@ -39,18 +39,19 @@ int
 glusterd_handle_replace_brick (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_replace_brick_req          cli_req = {0,};
+        gf_cli_req                      cli_req = {{0,}};
         dict_t                          *dict = NULL;
         char                            *src_brick = NULL;
         char                            *dst_brick = NULL;
         int32_t                         op = 0;
         char                            operation[256];
         glusterd_op_t                   cli_op = GD_OP_REPLACE_BRICK;
+        char                            *volname = NULL;
 
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_replace_brick_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -58,21 +59,25 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
 
         gf_log ("glusterd", GF_LOG_INFO, "Received replace brick req");
 
-        if (cli_req.bricks.bricks_len) {
+        if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
                 dict  = dict_new ();
 
-                ret = dict_unserialize (cli_req.bricks.bricks_val,
-                                        cli_req.bricks.bricks_len,
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
                         gf_log ("glusterd", GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         goto out;
-                } else {
-                        dict->extra_stdfree = cli_req.bricks.bricks_val;
                 }
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "could not get volname");
+                goto out;
         }
 
         ret = dict_get_int32 (dict, "operation", &op);
@@ -120,18 +125,18 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
 
         gf_log ("glusterd", GF_LOG_INFO, "Received replace brick %s request", operation);
         gf_cmd_log ("Volume replace-brick","volname: %s src_brick:%s"
-                    " dst_brick:%s op:%s",cli_req.volname, src_brick, dst_brick
+                    " dst_brick:%s op:%s", volname, src_brick, dst_brick
                     ,operation);
 
         ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict);
-        gf_cmd_log ("Volume replace-brick","on volname: %s %s", cli_req.volname,
+        gf_cmd_log ("Volume replace-brick","on volname: %s %s", volname,
                    (ret) ? "FAILED" : "SUCCESS");
 
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.volname)
-                free (cli_req.volname);//malloced by xdr
+        if (cli_req.dict.dict_val)
+                free (cli_req.dict.dict_val);//malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();

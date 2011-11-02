@@ -103,6 +103,17 @@ enum gf1_cli_top_op {
         GF_CLI_TOP_WRITE_PERF
 };
 
+ struct gf_cli_req {
+        opaque  dict<>;
+}  ;
+
+ struct gf_cli_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  op_errstr<>;
+        opaque  dict<>;
+}  ;
+
  struct gf1_cli_probe_req {
         string  hostname<>;
 	int	port;
@@ -138,219 +149,15 @@ struct gf1_cli_peer_list_rsp {
         opaque  friends<>;
 } ;
 
-struct gf1_cli_get_vol_req {
-        int     flags;
-        opaque  dict<>;
-}  ;
-
-struct gf1_cli_get_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        opaque  volumes<>;
-} ;
-
- struct gf1_cli_create_vol_req {
-        string  volname<>;
-        gf1_cluster_type type;
-        int     count;
-        opaque  bricks<>;
-}  ;
-
- struct gf1_cli_create_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-	 string  op_errstr<>;
-}  ;
-
- struct gf1_cli_delete_vol_req {
-        string volname<>;
-}  ;
-
- struct gf1_cli_delete_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        string  op_errstr<>;
-}  ;
-
- struct gf1_cli_start_vol_req {
-        string volname<>;
-        int flags;
-}  ;
-
-
- struct gf1_cli_start_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        string  op_errstr<>;
-}  ;
-
- struct gf1_cli_stop_vol_req {
-        string volname<>;
-        int flags;
-}  ;
-
-
- struct gf1_cli_stop_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        string  op_errstr<>;
-}  ;
-
-
- struct gf1_cli_rename_vol_req {
-        string old_volname<>;
-        string new_volname<>;
-}  ;
-
- struct gf1_cli_rename_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-}  ;
-
- struct gf1_cli_defrag_vol_req {
-        int    cmd;
-        string volname<>;
-}  ;
-
- struct gf1_cli_defrag_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        unsigned hyper   files;
-        unsigned hyper   size;
-        unsigned hyper   lookedup_files;
-}  ;
-
-
- struct gf2_cli_defrag_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  op_errstr<>;
-        string  volname<>;
-        unsigned hyper   files;
-        unsigned hyper   size;
-        unsigned hyper   lookedup_files;
-}  ;
-
- struct gf1_cli_add_brick_req {
-        string volname<>;
-        int    count;
-        opaque bricks<>;
-}  ;
-
- struct gf1_cli_add_brick_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-	 string  op_errstr<>;
-}  ;
-
- struct gf1_cli_remove_brick_req {
-        string volname<>;
-        int    count;
-        opaque bricks<>;
-}  ;
-
-
- struct gf1_cli_remove_brick_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        string  op_errstr<>;
-}  ;
-
- struct gf1_cli_replace_brick_req {
-        string volname<>;
-        gf1_cli_replace_op op;
-        opaque bricks<>;
-}  ;
-
- struct gf1_cli_replace_brick_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  op_errstr<>;
-        string  volname<>;
-        string  status<>;
-}  ;
-
-struct gf1_cli_reset_vol_req {
-        string volname<>;
-        opaque dict<>;
-} ;
-
-
- struct gf1_cli_reset_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-	string  op_errstr<>;
-}  ;
-
-
-
-struct gf1_cli_set_vol_req {
-        string volname<>;
-        opaque dict<>;
-} ;
-
-
- struct gf1_cli_set_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        string  op_errstr<>;
-        opaque  dict<>;
-}  ;
-
-struct gf1_cli_log_filename_req {
-        string volname<>;
-        string brick<>;
-        string path<>;
-};
-
-struct gf1_cli_log_filename_rsp {
-	int op_ret;
-	int op_errno;
-        string errstr<>;
-};
-
 struct gf1_cli_log_locate_req {
 	string volname<>;
         string brick<>;
-};
-
-struct gf1_cli_sync_volume_req {
-        int    flags;
-        string volname<>;
-        string hostname<>;
 };
 
 struct gf1_cli_log_locate_rsp {
 	int op_ret;
 	int op_errno;
         string path<>;
-};
-
-struct gf1_cli_log_rotate_req {
-	string volname<>;
-        string brick<>;
-};
-
-struct gf1_cli_log_rotate_rsp {
-        int op_ret;
-        int op_errno;
-        string errstr<>;
-};
-
-struct gf1_cli_sync_volume_rsp {
-	int op_ret;
-	int op_errno;
-        string op_errstr<>;
 };
 
 struct gf1_cli_fsm_log_req {
@@ -364,45 +171,6 @@ struct gf1_cli_fsm_log_rsp {
         opaque fsm_log<>;
 };
 
-struct gf1_cli_gsync_set_req {
-        opaque dict<>;
-};
-
-struct gf1_cli_gsync_set_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  op_errstr<>;
-        int     type;
-        opaque  dict<>;
-};
-
-struct gf1_cli_stats_volume_req {
-        string           volname<>;
-        gf1_cli_stats_op op;
-        opaque           dict_req<>;
-};
-
-struct gf1_cli_stats_volume_rsp {
-	int    op_ret;
-	int    op_errno;
-        string op_errstr<>;
-        opaque stats_info<>;
-};
-
-struct gf1_cli_quota_req {
-        string volname<>;
-        opaque dict<>;
-} ;
-
-struct gf1_cli_quota_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        string  op_errstr<>;
-        string  limit_list<>;
-        gf_quota_type type;
-};
-
 struct gf1_cli_getwd_req {
         int     unused;
 } ;
@@ -411,30 +179,6 @@ struct gf1_cli_getwd_rsp {
         int     op_ret;
         int     op_errno;
         string  wd<>;
-};
-
-struct gf1_cli_log_level_req {
-       string volname<>;
-       string xlator<>;
-       string loglevel<>;
-};
-
-struct gf1_cli_log_level_rsp {
-       int op_ret;
-       int op_errno;
-       string op_errstr<>;
-};
-
-struct gf1_cli_status_volume_req {
-        string  volname<>;
-        opaque  dict<>;
-};
-
-struct gf1_cli_status_volume_rsp {
-       int op_ret;
-       int op_errno;
-       string op_errstr<>;
-       opaque dict<>;
 };
 
 struct gf1_cli_mount_req {
@@ -456,29 +200,4 @@ struct gf1_cli_umount_req {
 struct gf1_cli_umount_rsp {
        int op_ret;
        int op_errno;
-};
-
-struct gf1_cli_heal_vol_req {
-       string volname<>;
-}  ;
-
-struct gf1_cli_heal_vol_rsp {
-       int     op_ret;
-       int     op_errno;
-       string  volname<>;
-       string op_errstr<>;
-       opaque  dict<>;
-};
-struct gf1_cli_statedump_vol_req {
-        string  volname<>;
-        string  options<>;
-        int     option_cnt;
-};
-
-struct gf1_cli_statedump_vol_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  volname<>;
-        string  op_errstr<>;
-        opaque  dict<>;
 };

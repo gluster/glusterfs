@@ -88,9 +88,9 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!local)
                 goto out;
 
-        local->u.get_vol.flags = ctx.flags;
+        local->get_vol.flags = ctx.flags;
         if (ctx.volname)
-                local->u.get_vol.volname = gf_strdup (ctx.volname);
+                local->get_vol.volname = gf_strdup (ctx.volname);
 
         frame->local = local;
 
@@ -116,9 +116,9 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
-        gf1_cli_sync_volume_req req = {0,};
         int                     sent = 0;
         int                     parse_error = 0;
+        dict_t                  *dict = NULL;
 
         if ((wordcount < 3) || (wordcount > 4)) {
                 cli_usage_out (word->pattern);
@@ -126,14 +126,32 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
         if ((wordcount == 3) || !strcmp(words[3], "all")) {
-                req.flags = GF_CLI_SYNC_ALL;
-                req.volname = "";
+                ret = dict_set_int32 (dict, "flags", (int32_t)
+                                      GF_CLI_SYNC_ALL);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR, "failed to set"
+                                "flag");
+                        goto out;
+                }
         } else {
-                req.volname = (char *)words[3];
+                ret = dict_set_str (dict, "volname", (char *) words[3]);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR, "failed to set "
+                                "volume");
+                        goto out;
+                }
         }
 
-        req.hostname = (char *)words[2];
+        ret = dict_set_str (dict, "hostname", (char *) words[2]);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to set hostname");
+                goto out;
+        }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SYNC_VOLUME];
 
@@ -142,7 +160,7 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, &req);
+                ret = proc->fn (frame, THIS, dict);
         }
 
 out:
@@ -152,6 +170,8 @@ out:
                         cli_out ("Volume sync failed");
         }
 
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -439,9 +459,10 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
-        gf1_cli_start_vol_req    req = {0,};
         int                     sent = 0;
         int                     parse_error = 0;
+        dict_t                  *dict = NULL;
+        int                     flags = 0;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -453,13 +474,23 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                goto out;
         }
 
-        req.volname = (char *)words[2];
-        if (!req.volname)
+        dict = dict_new ();
+        if (!dict) {
                 goto out;
+        }
+
+        if (!words[2])
+                goto out;
+
+        ret = dict_set_str (dict, "volname", (char *)words[2]);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "dict set failed");
+                goto out;
+        }
 
         if (wordcount == 4) {
                 if (!strcmp("force", words[3])) {
-                        req.flags |= GF_CLI_FLAG_OP_FORCE;
+                        flags |= GF_CLI_FLAG_OP_FORCE;
                 } else {
                         ret = -1;
                         cli_usage_out (word->pattern);
@@ -467,14 +498,28 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
                 }
         }
+        ret = dict_set_int32 (dict, "flags", flags);
+        if (ret) {
+                 gf_log (THIS->name, GF_LOG_ERROR,
+                         "dict set failed");
+                 goto out;
+        }
+
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to serialize dict");
+                goto out;
+        }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_START_VOLUME];
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, &req);
+                ret = proc->fn (frame, THIS, dict);
         }
 
 out:
+        if (dict)
+                dict_unref (dict);
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
@@ -534,10 +579,11 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         int                     flags   = 0;
-        gf1_cli_stop_vol_req    req = {0,};
         gf_answer_t             answer = GF_ANSWER_NO;
         int                     sent = 0;
         int                     parse_error = 0;
+        dict_t                  *dict = NULL;
+        char                    *volname = NULL;
 
         const char *question = "Stopping volume will make its data inaccessible. "
                                "Do you want to continue?";
@@ -552,9 +598,14 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
-        req.volname = (char *)words[2];
-        if (!req.volname)
+        volname = (char*) words[2];
+
+        dict = dict_new ();
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "dict set failed");
                 goto out;
+        }
 
         if (wordcount == 4) {
                 if (!strcmp("force", words[3])) {
@@ -566,6 +617,12 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
                 }
         }
+        ret = dict_set_int32 (dict, "flags", flags);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "dict set failed");
+                goto out;
+        }
 
         answer = cli_cmd_get_confirmation (state, question);
 
@@ -574,20 +631,20 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
-        req.flags = flags;
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STOP_VOLUME];
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, &req);
+                ret = proc->fn (frame, THIS, dict);
         }
 
 out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Volume stop on '%s' failed", req.volname);
+                        cli_out ("Volume stop on '%s' failed", volname);
         }
-
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -1476,9 +1533,9 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
-        gf1_cli_heal_vol_req    req = {0,};
         int                     sent = 0;
         int                     parse_error = 0;
+        dict_t                  *dict = NULL;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -1490,14 +1547,20 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
                goto out;
         }
 
-        req.volname = (char *)words[2];
-        if (!req.volname)
+        dict = dict_new ();
+        if (!dict)
                 goto out;
+
+        ret = dict_set_str (dict, "volname", (char *) words[2]);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to set volname");
+                goto out;
+        }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, &req);
+                ret = proc->fn (frame, THIS, dict);
         }
 
 out:
@@ -1506,6 +1569,9 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume heal failed");
         }
+
+        if (dict)
+                dict_unref (dict);
 
         return ret;
 }

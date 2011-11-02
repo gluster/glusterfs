@@ -58,6 +58,9 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         char            *free_ptr = NULL;
         glusterd_conf_t *conf = NULL;
         xdrproc_t       xdrproc = NULL;
+        char            *errstr = NULL;
+        int32_t         status = 0;
+        int32_t         is_ctx_dict = 0;
 
         GF_ASSERT (THIS);
 
@@ -65,241 +68,106 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
 
         GF_ASSERT (conf);
 
+        ctx = op_ctx;
+
         switch (op) {
-        case GD_OP_CREATE_VOLUME:
-        {
-                gf1_cli_create_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t)xdr_gf1_cli_create_vol_rsp;
-                break;
-        }
-
-        case GD_OP_START_VOLUME:
-        {
-                gf1_cli_start_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_start_vol_rsp;
-                break;
-        }
-
-        case GD_OP_STOP_VOLUME:
-        {
-                gf1_cli_stop_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_stop_vol_rsp;
-                break;
-        }
-
-        case GD_OP_DELETE_VOLUME:
-        {
-                gf1_cli_delete_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_delete_vol_rsp;
-                break;
-        }
-
-        case GD_OP_DEFRAG_VOLUME:
-        {
-                gf1_cli_defrag_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                //rsp.volname = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_defrag_vol_rsp;
-                break;
-        }
-
-        case GD_OP_ADD_BRICK:
-        {
-                gf1_cli_add_brick_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_add_brick_rsp;
-                break;
-        }
-
         case GD_OP_REMOVE_BRICK:
         {
-                gf1_cli_remove_brick_rsp rsp = {0,};
-                ctx = op_ctx;
-                if (ctx &&
-                    dict_get_str (ctx, "errstr", &rsp.op_errstr))
-                        rsp.op_errstr = "";
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_remove_brick_rsp;
-                break;
+                if (ctx)
+                        ret = dict_get_str (ctx, "errstr", &errstr);
+                is_ctx_dict = 1;
+                goto done;
         }
-
-        case GD_OP_REPLACE_BRICK:
-        {
-                gf1_cli_replace_brick_rsp rsp = {0,};
-                ctx = op_ctx;
-                if (ctx &&
-                    dict_get_str (ctx, "status-reply", &rsp.status))
-                        rsp.status = "";
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                rsp.volname = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_replace_brick_rsp;
-                break;
-        }
-
-        case GD_OP_SET_VOLUME:
-        {
-                gf1_cli_set_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                ctx = op_ctx;
-
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                if (ctx) {
-                        ret = dict_allocate_and_serialize (ctx,
-                                                           &rsp.dict.dict_val,
-                                                           (size_t*)&rsp.dict.dict_len);
-                        if (ret == 0)
-                                free_ptr = rsp.dict.dict_val;
-                }
-
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_set_vol_rsp;
-                break;
-        }
-
         case GD_OP_RESET_VOLUME:
         {
-                gf_log ("", GF_LOG_DEBUG, "Return value to CLI");
-                gf1_cli_reset_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = 1;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "Error while resetting options";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_reset_vol_rsp;
-                break;
+                if (op_ret && !op_errstr)
+                        errstr = "Error while resetting options";
+                goto done;
         }
-
-        case GD_OP_LOG_FILENAME:
+        case GD_OP_REBALANCE:
         {
-                gf1_cli_log_filename_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.errstr = op_errstr;
-                else
-                        rsp.errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_log_filename_rsp;
-                break;
-        }
-        case GD_OP_LOG_ROTATE:
-        {
-                gf1_cli_log_rotate_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.errstr = op_errstr;
-                else
-                        rsp.errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_log_rotate_rsp;
-                break;
-        }
-        case GD_OP_SYNC_VOLUME:
-        {
-                gf1_cli_sync_volume_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_sync_volume_rsp;
-                break;
+                if (ctx) {
+                        ret = dict_get_int32 (ctx, "status", &status);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_TRACE,
+                                        "failed to get status");
+                        }
+                        is_ctx_dict = 1;
+                }
+                goto done;
         }
         case GD_OP_GSYNC_SET:
         {
-                int     type = 0;
-                char    *str = NULL;
-                gf1_cli_gsync_set_rsp rsp = {0,};
-
-                ctx = op_ctx;
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.op_errstr = "";
-                if (ctx) {
-                        ret = dict_get_str (ctx, "errstr", &str);
-                        if (ret == 0)
-                                rsp.op_errstr = str;
-                        ret = dict_get_int32 (ctx, "type", &type);
-                        if (ret == 0)
-                                rsp.type = type;
+               if (ctx) {
+                        ret = dict_get_str (ctx, "errstr", &errstr);
                         ret = dict_set_str (ctx, "glusterd_workdir", conf->workdir);
                         /* swallow error here, that will be re-triggered in cli */
 
-                        ret = dict_allocate_and_serialize (ctx,
-                                                           &rsp.dict.dict_val,
-                                                           (size_t*)&rsp.dict.dict_len);
+                        is_ctx_dict = 1;
+                        goto done;
+               }
 
-                        if (ret == 0)
-                                free_ptr = rsp.dict.dict_val;
-
+        }
+        case GD_OP_QUOTA:
+        {
+                if (ctx && !op_errstr) {
+                        ret = dict_get_str (ctx, "errstr", &errstr);
                 }
-                if (op_errstr)
+                is_ctx_dict = 1;
+                goto done;
+        }
+        case GD_OP_REPLACE_BRICK:
+        case GD_OP_STATUS_VOLUME:
+        case GD_OP_SET_VOLUME:
+        case GD_OP_PROFILE_VOLUME:
+        {
+                is_ctx_dict = 1;
+        }
+        case GD_OP_CREATE_VOLUME:
+        case GD_OP_START_VOLUME:
+        case GD_OP_STOP_VOLUME:
+        case GD_OP_DELETE_VOLUME:
+        case GD_OP_DEFRAG_VOLUME:
+        case GD_OP_ADD_BRICK:
+        case GD_OP_LOG_FILENAME:
+        case GD_OP_LOG_ROTATE:
+        case GD_OP_SYNC_VOLUME:
+        case GD_OP_LOG_LEVEL:
+        case GD_OP_HEAL_VOLUME:
+        case GD_OP_STATEDUMP_VOLUME:
+
+done:
+        {
+                gf_cli_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = errno;
+                if (errstr)
+                        rsp.op_errstr = errstr;
+                else if (op_errstr)
                         rsp.op_errstr = op_errstr;
+
+                if (!rsp.op_errstr)
+                        rsp.op_errstr = "";
+
+                if (ctx && is_ctx_dict) {
+                        ret = dict_allocate_and_serialize (ctx, &rsp.dict.dict_val,
+                                                          (size_t*)&rsp.dict.dict_len);
+                        if (ret < 0 ) {
+                                gf_log (THIS->name, GF_LOG_ERROR, "failed to "
+                                        "serialize buffer");
+                                break;
+                        }
+                        free_ptr = rsp.dict.dict_val;
+                }
+                /* needed by 'rebalance status' */
+                if (status)
+                        rsp.op_errno = status;
+
                 cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_gsync_set_rsp;
+                xdrproc = (xdrproc_t) xdr_gf_cli_rsp;
                 break;
         }
+
         case GD_OP_RENAME_VOLUME:
         case GD_OP_START_BRICK:
         case GD_OP_STOP_BRICK:
@@ -308,182 +176,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
                 break;
         }
-        case GD_OP_PROFILE_VOLUME:
-        {
-                gf1_cli_stats_volume_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                ctx = op_ctx;
-                if (ctx)
-                        dict_allocate_and_serialize (ctx,
-                                     &rsp.stats_info.stats_info_val,
-                                (size_t*)&rsp.stats_info.stats_info_len);
-                free_ptr = rsp.stats_info.stats_info_val;
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_stats_volume_rsp;
-                break;
-        }
 
-        case GD_OP_QUOTA:
-        {
-                int32_t               type;
-                char                 *str    = NULL;
-                char                 *errstr = NULL;
-                gf1_cli_quota_rsp     rsp    = {0,};
-
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-
-                ctx = op_ctx;
-
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else {
-                        ret = dict_get_str (ctx, "errstr", &errstr);
-                        if (ret == 0)
-                                rsp.op_errstr = errstr;
-                        else
-                                rsp.op_errstr = "";
-                }
-
-                rsp.limit_list = "";
-
-                if (op_ret == 0 && ctx) {
-                        ret = dict_get_str (ctx, "volname", &str);
-                        if (ret == 0)
-                                rsp.volname = str;
-
-                        ret = dict_get_int32 (ctx, "type", &type);
-                        if (ret == 0)
-                                rsp.type = type;
-                        else
-                                rsp.type = 0;
-
-                        if (type == GF_QUOTA_OPTION_TYPE_LIST) {
-                                 ret = dict_get_str (ctx,"limit_list", &str);
-
-                                 if (ret == 0)
-                                         rsp.limit_list = str;
-                        }
-                }
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_quota_rsp;
-                break;
-        }
-
-        case GD_OP_LOG_LEVEL:
-        {
-                gf1_cli_log_level_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_log_level_rsp;
-                break;
-        }
-
-
-        case GD_OP_STATUS_VOLUME:
-        {
-                gf1_cli_status_volume_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                ctx = op_ctx;
-                dict_allocate_and_serialize (ctx,
-                             &rsp.dict.dict_val,
-                             (size_t*)&rsp.dict.dict_len);
-                free_ptr = rsp.dict.dict_val;
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_status_volume_rsp;
-                break;
-        }
-        case GD_OP_REBALANCE:
-        {
-                gf2_cli_defrag_vol_rsp rsp = {0,};
-                int32_t                status = 0;
-
-                ctx = op_ctx;
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-
-                if (ctx) {
-                        ret = dict_get_uint64 (ctx, "files", &rsp.files);
-                        if (ret) {
-                                gf_log (THIS->name, GF_LOG_DEBUG,
-                                        "failed to get the file count");
-                        }
-                        ret = dict_get_uint64 (ctx, "size", &rsp.size);
-                        if (ret) {
-                                gf_log (THIS->name, GF_LOG_DEBUG,
-                                        "failed to get the size of migration");
-                        }
-                        ret = dict_get_uint64 (ctx, "lookups", &rsp.lookedup_files);
-                        if (ret) {
-                                gf_log (THIS->name, GF_LOG_DEBUG,
-                                        "failed to get lookuped file count");
-                        }
-
-                        ret = dict_get_int32 (ctx, "status", &status);
-                        if (ret) {
-                                gf_log (THIS->name, GF_LOG_TRACE,
-                                        "failed to get status");
-                        }
-                }
-                /* needed by 'rebalance status' */
-                if (status)
-                        rsp.op_errno = status;
-
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp;
-                break;
-        }
-        case GD_OP_HEAL_VOLUME:
-        {
-                gf1_cli_heal_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_heal_vol_rsp;
-                break;
-
-        }
-        case GD_OP_STATEDUMP_VOLUME:
-        {
-                gf1_cli_statedump_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf1_cli_statedump_vol_rsp;
-                break;
-        }
         case GD_OP_NONE:
         case GD_OP_MAX:
         {

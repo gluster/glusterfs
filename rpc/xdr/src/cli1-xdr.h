@@ -135,7 +135,7 @@ enum gf1_cli_gsync_set {
 	GF_GSYNC_OPTION_TYPE_STOP = 2,
 	GF_GSYNC_OPTION_TYPE_CONFIG = 3,
 	GF_GSYNC_OPTION_TYPE_STATUS = 4,
-        GF_GSYNC_OPTION_TYPE_ROTATE = 5,
+	GF_GSYNC_OPTION_TYPE_ROTATE = 5,
 };
 typedef enum gf1_cli_gsync_set gf1_cli_gsync_set;
 
@@ -159,6 +159,25 @@ enum gf1_cli_top_op {
 	GF_CLI_TOP_WRITE_PERF = 0 + 7,
 };
 typedef enum gf1_cli_top_op gf1_cli_top_op;
+
+struct gf_cli_req {
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_cli_req gf_cli_req;
+
+struct gf_cli_rsp {
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_cli_rsp gf_cli_rsp;
 
 struct gf1_cli_probe_req {
 	char *hostname;
@@ -207,244 +226,11 @@ struct gf1_cli_peer_list_rsp {
 };
 typedef struct gf1_cli_peer_list_rsp gf1_cli_peer_list_rsp;
 
-struct gf1_cli_get_vol_req {
-	int flags;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_get_vol_req gf1_cli_get_vol_req;
-
-struct gf1_cli_get_vol_rsp {
-	int op_ret;
-	int op_errno;
-	struct {
-		u_int volumes_len;
-		char *volumes_val;
-	} volumes;
-};
-typedef struct gf1_cli_get_vol_rsp gf1_cli_get_vol_rsp;
-
-struct gf1_cli_create_vol_req {
-	char *volname;
-	gf1_cluster_type type;
-	int count;
-	struct {
-		u_int bricks_len;
-		char *bricks_val;
-	} bricks;
-};
-typedef struct gf1_cli_create_vol_req gf1_cli_create_vol_req;
-
-struct gf1_cli_create_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-};
-typedef struct gf1_cli_create_vol_rsp gf1_cli_create_vol_rsp;
-
-struct gf1_cli_delete_vol_req {
-	char *volname;
-};
-typedef struct gf1_cli_delete_vol_req gf1_cli_delete_vol_req;
-
-struct gf1_cli_delete_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-};
-typedef struct gf1_cli_delete_vol_rsp gf1_cli_delete_vol_rsp;
-
-struct gf1_cli_start_vol_req {
-	char *volname;
-	int flags;
-};
-typedef struct gf1_cli_start_vol_req gf1_cli_start_vol_req;
-
-struct gf1_cli_start_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-};
-typedef struct gf1_cli_start_vol_rsp gf1_cli_start_vol_rsp;
-
-struct gf1_cli_stop_vol_req {
-	char *volname;
-	int flags;
-};
-typedef struct gf1_cli_stop_vol_req gf1_cli_stop_vol_req;
-
-struct gf1_cli_stop_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-};
-typedef struct gf1_cli_stop_vol_rsp gf1_cli_stop_vol_rsp;
-
-struct gf1_cli_rename_vol_req {
-	char *old_volname;
-	char *new_volname;
-};
-typedef struct gf1_cli_rename_vol_req gf1_cli_rename_vol_req;
-
-struct gf1_cli_rename_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-};
-typedef struct gf1_cli_rename_vol_rsp gf1_cli_rename_vol_rsp;
-
-struct gf1_cli_defrag_vol_req {
-	int cmd;
-	char *volname;
-};
-typedef struct gf1_cli_defrag_vol_req gf1_cli_defrag_vol_req;
-
-struct gf1_cli_defrag_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	u_quad_t files;
-	u_quad_t size;
-	u_quad_t lookedup_files;
-};
-typedef struct gf1_cli_defrag_vol_rsp gf1_cli_defrag_vol_rsp;
-
-struct gf2_cli_defrag_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *op_errstr;
-	char *volname;
-	u_quad_t files;
-	u_quad_t size;
-	u_quad_t lookedup_files;
-};
-typedef struct gf2_cli_defrag_vol_rsp gf2_cli_defrag_vol_rsp;
-
-struct gf1_cli_add_brick_req {
-	char *volname;
-	int count;
-	struct {
-		u_int bricks_len;
-		char *bricks_val;
-	} bricks;
-};
-typedef struct gf1_cli_add_brick_req gf1_cli_add_brick_req;
-
-struct gf1_cli_add_brick_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-};
-typedef struct gf1_cli_add_brick_rsp gf1_cli_add_brick_rsp;
-
-struct gf1_cli_remove_brick_req {
-	char *volname;
-	int count;
-	struct {
-		u_int bricks_len;
-		char *bricks_val;
-	} bricks;
-};
-typedef struct gf1_cli_remove_brick_req gf1_cli_remove_brick_req;
-
-struct gf1_cli_remove_brick_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-};
-typedef struct gf1_cli_remove_brick_rsp gf1_cli_remove_brick_rsp;
-
-struct gf1_cli_replace_brick_req {
-	char *volname;
-	gf1_cli_replace_op op;
-	struct {
-		u_int bricks_len;
-		char *bricks_val;
-	} bricks;
-};
-typedef struct gf1_cli_replace_brick_req gf1_cli_replace_brick_req;
-
-struct gf1_cli_replace_brick_rsp {
-	int op_ret;
-	int op_errno;
-	char *op_errstr;
-	char *volname;
-	char *status;
-};
-typedef struct gf1_cli_replace_brick_rsp gf1_cli_replace_brick_rsp;
-
-struct gf1_cli_reset_vol_req {
-	char *volname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_reset_vol_req gf1_cli_reset_vol_req;
-
-struct gf1_cli_reset_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-};
-typedef struct gf1_cli_reset_vol_rsp gf1_cli_reset_vol_rsp;
-
-struct gf1_cli_set_vol_req {
-	char *volname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_set_vol_req gf1_cli_set_vol_req;
-
-struct gf1_cli_set_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_set_vol_rsp gf1_cli_set_vol_rsp;
-
-struct gf1_cli_log_filename_req {
-	char *volname;
-	char *brick;
-	char *path;
-};
-typedef struct gf1_cli_log_filename_req gf1_cli_log_filename_req;
-
-struct gf1_cli_log_filename_rsp {
-	int op_ret;
-	int op_errno;
-	char *errstr;
-};
-typedef struct gf1_cli_log_filename_rsp gf1_cli_log_filename_rsp;
-
 struct gf1_cli_log_locate_req {
 	char *volname;
 	char *brick;
 };
 typedef struct gf1_cli_log_locate_req gf1_cli_log_locate_req;
-
-struct gf1_cli_sync_volume_req {
-	int flags;
-	char *volname;
-	char *hostname;
-};
-typedef struct gf1_cli_sync_volume_req gf1_cli_sync_volume_req;
 
 struct gf1_cli_log_locate_rsp {
 	int op_ret;
@@ -452,26 +238,6 @@ struct gf1_cli_log_locate_rsp {
 	char *path;
 };
 typedef struct gf1_cli_log_locate_rsp gf1_cli_log_locate_rsp;
-
-struct gf1_cli_log_rotate_req {
-	char *volname;
-	char *brick;
-};
-typedef struct gf1_cli_log_rotate_req gf1_cli_log_rotate_req;
-
-struct gf1_cli_log_rotate_rsp {
-	int op_ret;
-	int op_errno;
-	char *errstr;
-};
-typedef struct gf1_cli_log_rotate_rsp gf1_cli_log_rotate_rsp;
-
-struct gf1_cli_sync_volume_rsp {
-	int op_ret;
-	int op_errno;
-	char *op_errstr;
-};
-typedef struct gf1_cli_sync_volume_rsp gf1_cli_sync_volume_rsp;
 
 struct gf1_cli_fsm_log_req {
 	char *name;
@@ -489,66 +255,6 @@ struct gf1_cli_fsm_log_rsp {
 };
 typedef struct gf1_cli_fsm_log_rsp gf1_cli_fsm_log_rsp;
 
-struct gf1_cli_gsync_set_req {
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_gsync_set_req gf1_cli_gsync_set_req;
-
-struct gf1_cli_gsync_set_rsp {
-	int op_ret;
-	int op_errno;
-	char *op_errstr;
-	int type;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_gsync_set_rsp gf1_cli_gsync_set_rsp;
-
-struct gf1_cli_stats_volume_req {
-	char *volname;
-	gf1_cli_stats_op op;
-	struct {
-		u_int dict_req_len;
-		char *dict_req_val;
-	} dict_req;
-};
-typedef struct gf1_cli_stats_volume_req gf1_cli_stats_volume_req;
-
-struct gf1_cli_stats_volume_rsp {
-	int op_ret;
-	int op_errno;
-	char *op_errstr;
-	struct {
-		u_int stats_info_len;
-		char *stats_info_val;
-	} stats_info;
-};
-typedef struct gf1_cli_stats_volume_rsp gf1_cli_stats_volume_rsp;
-
-struct gf1_cli_quota_req {
-	char *volname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_quota_req gf1_cli_quota_req;
-
-struct gf1_cli_quota_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-	char *limit_list;
-	gf_quota_type type;
-};
-typedef struct gf1_cli_quota_rsp gf1_cli_quota_rsp;
-
 struct gf1_cli_getwd_req {
 	int unused;
 };
@@ -560,40 +266,6 @@ struct gf1_cli_getwd_rsp {
 	char *wd;
 };
 typedef struct gf1_cli_getwd_rsp gf1_cli_getwd_rsp;
-
-struct gf1_cli_log_level_req {
-	char *volname;
-	char *xlator;
-	char *loglevel;
-};
-typedef struct gf1_cli_log_level_req gf1_cli_log_level_req;
-
-struct gf1_cli_log_level_rsp {
-	int op_ret;
-	int op_errno;
-	char *op_errstr;
-};
-typedef struct gf1_cli_log_level_rsp gf1_cli_log_level_rsp;
-
-struct gf1_cli_status_volume_req {
-	char *volname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_status_volume_req gf1_cli_status_volume_req;
-
-struct gf1_cli_status_volume_rsp {
-	int op_ret;
-	int op_errno;
-	char *op_errstr;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_status_volume_rsp gf1_cli_status_volume_rsp;
 
 struct gf1_cli_mount_req {
 	char *label;
@@ -623,42 +295,6 @@ struct gf1_cli_umount_rsp {
 };
 typedef struct gf1_cli_umount_rsp gf1_cli_umount_rsp;
 
-struct gf1_cli_heal_vol_req {
-	char *volname;
-};
-typedef struct gf1_cli_heal_vol_req gf1_cli_heal_vol_req;
-
-struct gf1_cli_heal_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_heal_vol_rsp gf1_cli_heal_vol_rsp;
-
-struct gf1_cli_statedump_vol_req {
-	char *volname;
-	char *options;
-	int option_cnt;
-};
-typedef struct gf1_cli_statedump_vol_req gf1_cli_statedump_vol_req;
-
-struct gf1_cli_statedump_vol_rsp {
-	int op_ret;
-	int op_errno;
-	char *volname;
-	char *op_errstr;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf1_cli_statedump_vol_rsp gf1_cli_statedump_vol_rsp;
-
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -675,67 +311,24 @@ extern  bool_t xdr_gf1_cli_op_flags (XDR *, gf1_cli_op_flags*);
 extern  bool_t xdr_gf1_cli_gsync_set (XDR *, gf1_cli_gsync_set*);
 extern  bool_t xdr_gf1_cli_stats_op (XDR *, gf1_cli_stats_op*);
 extern  bool_t xdr_gf1_cli_top_op (XDR *, gf1_cli_top_op*);
+extern  bool_t xdr_gf_cli_req (XDR *, gf_cli_req*);
+extern  bool_t xdr_gf_cli_rsp (XDR *, gf_cli_rsp*);
 extern  bool_t xdr_gf1_cli_probe_req (XDR *, gf1_cli_probe_req*);
 extern  bool_t xdr_gf1_cli_probe_rsp (XDR *, gf1_cli_probe_rsp*);
 extern  bool_t xdr_gf1_cli_deprobe_req (XDR *, gf1_cli_deprobe_req*);
 extern  bool_t xdr_gf1_cli_deprobe_rsp (XDR *, gf1_cli_deprobe_rsp*);
 extern  bool_t xdr_gf1_cli_peer_list_req (XDR *, gf1_cli_peer_list_req*);
 extern  bool_t xdr_gf1_cli_peer_list_rsp (XDR *, gf1_cli_peer_list_rsp*);
-extern  bool_t xdr_gf1_cli_get_vol_req (XDR *, gf1_cli_get_vol_req*);
-extern  bool_t xdr_gf1_cli_get_vol_rsp (XDR *, gf1_cli_get_vol_rsp*);
-extern  bool_t xdr_gf1_cli_create_vol_req (XDR *, gf1_cli_create_vol_req*);
-extern  bool_t xdr_gf1_cli_create_vol_rsp (XDR *, gf1_cli_create_vol_rsp*);
-extern  bool_t xdr_gf1_cli_delete_vol_req (XDR *, gf1_cli_delete_vol_req*);
-extern  bool_t xdr_gf1_cli_delete_vol_rsp (XDR *, gf1_cli_delete_vol_rsp*);
-extern  bool_t xdr_gf1_cli_start_vol_req (XDR *, gf1_cli_start_vol_req*);
-extern  bool_t xdr_gf1_cli_start_vol_rsp (XDR *, gf1_cli_start_vol_rsp*);
-extern  bool_t xdr_gf1_cli_stop_vol_req (XDR *, gf1_cli_stop_vol_req*);
-extern  bool_t xdr_gf1_cli_stop_vol_rsp (XDR *, gf1_cli_stop_vol_rsp*);
-extern  bool_t xdr_gf1_cli_rename_vol_req (XDR *, gf1_cli_rename_vol_req*);
-extern  bool_t xdr_gf1_cli_rename_vol_rsp (XDR *, gf1_cli_rename_vol_rsp*);
-extern  bool_t xdr_gf1_cli_defrag_vol_req (XDR *, gf1_cli_defrag_vol_req*);
-extern  bool_t xdr_gf1_cli_defrag_vol_rsp (XDR *, gf1_cli_defrag_vol_rsp*);
-extern  bool_t xdr_gf2_cli_defrag_vol_rsp (XDR *, gf2_cli_defrag_vol_rsp*);
-extern  bool_t xdr_gf1_cli_add_brick_req (XDR *, gf1_cli_add_brick_req*);
-extern  bool_t xdr_gf1_cli_add_brick_rsp (XDR *, gf1_cli_add_brick_rsp*);
-extern  bool_t xdr_gf1_cli_remove_brick_req (XDR *, gf1_cli_remove_brick_req*);
-extern  bool_t xdr_gf1_cli_remove_brick_rsp (XDR *, gf1_cli_remove_brick_rsp*);
-extern  bool_t xdr_gf1_cli_replace_brick_req (XDR *, gf1_cli_replace_brick_req*);
-extern  bool_t xdr_gf1_cli_replace_brick_rsp (XDR *, gf1_cli_replace_brick_rsp*);
-extern  bool_t xdr_gf1_cli_reset_vol_req (XDR *, gf1_cli_reset_vol_req*);
-extern  bool_t xdr_gf1_cli_reset_vol_rsp (XDR *, gf1_cli_reset_vol_rsp*);
-extern  bool_t xdr_gf1_cli_set_vol_req (XDR *, gf1_cli_set_vol_req*);
-extern  bool_t xdr_gf1_cli_set_vol_rsp (XDR *, gf1_cli_set_vol_rsp*);
-extern  bool_t xdr_gf1_cli_log_filename_req (XDR *, gf1_cli_log_filename_req*);
-extern  bool_t xdr_gf1_cli_log_filename_rsp (XDR *, gf1_cli_log_filename_rsp*);
 extern  bool_t xdr_gf1_cli_log_locate_req (XDR *, gf1_cli_log_locate_req*);
-extern  bool_t xdr_gf1_cli_sync_volume_req (XDR *, gf1_cli_sync_volume_req*);
 extern  bool_t xdr_gf1_cli_log_locate_rsp (XDR *, gf1_cli_log_locate_rsp*);
-extern  bool_t xdr_gf1_cli_log_rotate_req (XDR *, gf1_cli_log_rotate_req*);
-extern  bool_t xdr_gf1_cli_log_rotate_rsp (XDR *, gf1_cli_log_rotate_rsp*);
-extern  bool_t xdr_gf1_cli_sync_volume_rsp (XDR *, gf1_cli_sync_volume_rsp*);
 extern  bool_t xdr_gf1_cli_fsm_log_req (XDR *, gf1_cli_fsm_log_req*);
 extern  bool_t xdr_gf1_cli_fsm_log_rsp (XDR *, gf1_cli_fsm_log_rsp*);
-extern  bool_t xdr_gf1_cli_gsync_set_req (XDR *, gf1_cli_gsync_set_req*);
-extern  bool_t xdr_gf1_cli_gsync_set_rsp (XDR *, gf1_cli_gsync_set_rsp*);
-extern  bool_t xdr_gf1_cli_stats_volume_req (XDR *, gf1_cli_stats_volume_req*);
-extern  bool_t xdr_gf1_cli_stats_volume_rsp (XDR *, gf1_cli_stats_volume_rsp*);
-extern  bool_t xdr_gf1_cli_quota_req (XDR *, gf1_cli_quota_req*);
-extern  bool_t xdr_gf1_cli_quota_rsp (XDR *, gf1_cli_quota_rsp*);
 extern  bool_t xdr_gf1_cli_getwd_req (XDR *, gf1_cli_getwd_req*);
 extern  bool_t xdr_gf1_cli_getwd_rsp (XDR *, gf1_cli_getwd_rsp*);
-extern  bool_t xdr_gf1_cli_log_level_req (XDR *, gf1_cli_log_level_req*);
-extern  bool_t xdr_gf1_cli_log_level_rsp (XDR *, gf1_cli_log_level_rsp*);
-extern  bool_t xdr_gf1_cli_status_volume_req (XDR *, gf1_cli_status_volume_req*);
-extern  bool_t xdr_gf1_cli_status_volume_rsp (XDR *, gf1_cli_status_volume_rsp*);
 extern  bool_t xdr_gf1_cli_mount_req (XDR *, gf1_cli_mount_req*);
 extern  bool_t xdr_gf1_cli_mount_rsp (XDR *, gf1_cli_mount_rsp*);
 extern  bool_t xdr_gf1_cli_umount_req (XDR *, gf1_cli_umount_req*);
 extern  bool_t xdr_gf1_cli_umount_rsp (XDR *, gf1_cli_umount_rsp*);
-extern  bool_t xdr_gf1_cli_heal_vol_req (XDR *, gf1_cli_heal_vol_req*);
-extern  bool_t xdr_gf1_cli_heal_vol_rsp (XDR *, gf1_cli_heal_vol_rsp*);
-extern  bool_t xdr_gf1_cli_statedump_vol_req (XDR *, gf1_cli_statedump_vol_req*);
-extern  bool_t xdr_gf1_cli_statedump_vol_rsp (XDR *, gf1_cli_statedump_vol_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf_cli_defrag_type ();
@@ -751,67 +344,24 @@ extern bool_t xdr_gf1_cli_op_flags ();
 extern bool_t xdr_gf1_cli_gsync_set ();
 extern bool_t xdr_gf1_cli_stats_op ();
 extern bool_t xdr_gf1_cli_top_op ();
+extern bool_t xdr_gf_cli_req ();
+extern bool_t xdr_gf_cli_rsp ();
 extern bool_t xdr_gf1_cli_probe_req ();
 extern bool_t xdr_gf1_cli_probe_rsp ();
 extern bool_t xdr_gf1_cli_deprobe_req ();
 extern bool_t xdr_gf1_cli_deprobe_rsp ();
 extern bool_t xdr_gf1_cli_peer_list_req ();
 extern bool_t xdr_gf1_cli_peer_list_rsp ();
-extern bool_t xdr_gf1_cli_get_vol_req ();
-extern bool_t xdr_gf1_cli_get_vol_rsp ();
-extern bool_t xdr_gf1_cli_create_vol_req ();
-extern bool_t xdr_gf1_cli_create_vol_rsp ();
-extern bool_t xdr_gf1_cli_delete_vol_req ();
-extern bool_t xdr_gf1_cli_delete_vol_rsp ();
-extern bool_t xdr_gf1_cli_start_vol_req ();
-extern bool_t xdr_gf1_cli_start_vol_rsp ();
-extern bool_t xdr_gf1_cli_stop_vol_req ();
-extern bool_t xdr_gf1_cli_stop_vol_rsp ();
-extern bool_t xdr_gf1_cli_rename_vol_req ();
-extern bool_t xdr_gf1_cli_rename_vol_rsp ();
-extern bool_t xdr_gf1_cli_defrag_vol_req ();
-extern bool_t xdr_gf1_cli_defrag_vol_rsp ();
-extern bool_t xdr_gf2_cli_defrag_vol_rsp ();
-extern bool_t xdr_gf1_cli_add_brick_req ();
-extern bool_t xdr_gf1_cli_add_brick_rsp ();
-extern bool_t xdr_gf1_cli_remove_brick_req ();
-extern bool_t xdr_gf1_cli_remove_brick_rsp ();
-extern bool_t xdr_gf1_cli_replace_brick_req ();
-extern bool_t xdr_gf1_cli_replace_brick_rsp ();
-extern bool_t xdr_gf1_cli_reset_vol_req ();
-extern bool_t xdr_gf1_cli_reset_vol_rsp ();
-extern bool_t xdr_gf1_cli_set_vol_req ();
-extern bool_t xdr_gf1_cli_set_vol_rsp ();
-extern bool_t xdr_gf1_cli_log_filename_req ();
-extern bool_t xdr_gf1_cli_log_filename_rsp ();
 extern bool_t xdr_gf1_cli_log_locate_req ();
-extern bool_t xdr_gf1_cli_sync_volume_req ();
 extern bool_t xdr_gf1_cli_log_locate_rsp ();
-extern bool_t xdr_gf1_cli_log_rotate_req ();
-extern bool_t xdr_gf1_cli_log_rotate_rsp ();
-extern bool_t xdr_gf1_cli_sync_volume_rsp ();
 extern bool_t xdr_gf1_cli_fsm_log_req ();
 extern bool_t xdr_gf1_cli_fsm_log_rsp ();
-extern bool_t xdr_gf1_cli_gsync_set_req ();
-extern bool_t xdr_gf1_cli_gsync_set_rsp ();
-extern bool_t xdr_gf1_cli_stats_volume_req ();
-extern bool_t xdr_gf1_cli_stats_volume_rsp ();
-extern bool_t xdr_gf1_cli_quota_req ();
-extern bool_t xdr_gf1_cli_quota_rsp ();
 extern bool_t xdr_gf1_cli_getwd_req ();
 extern bool_t xdr_gf1_cli_getwd_rsp ();
-extern bool_t xdr_gf1_cli_log_level_req ();
-extern bool_t xdr_gf1_cli_log_level_rsp ();
-extern bool_t xdr_gf1_cli_status_volume_req ();
-extern bool_t xdr_gf1_cli_status_volume_rsp ();
 extern bool_t xdr_gf1_cli_mount_req ();
 extern bool_t xdr_gf1_cli_mount_rsp ();
 extern bool_t xdr_gf1_cli_umount_req ();
 extern bool_t xdr_gf1_cli_umount_rsp ();
-extern bool_t xdr_gf1_cli_heal_vol_req ();
-extern bool_t xdr_gf1_cli_heal_vol_rsp ();
-extern bool_t xdr_gf1_cli_statedump_vol_req ();
-extern bool_t xdr_gf1_cli_statedump_vol_rsp ();
 
 #endif /* K&R C */
 
