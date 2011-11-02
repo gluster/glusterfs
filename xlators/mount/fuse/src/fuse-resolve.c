@@ -224,6 +224,8 @@ fuse_resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct fuse_resolve_comp *components = NULL;
         inode_t                *link_inode = NULL;
         int                     i          = 0;
+        inode_t                *old_graph_inode = NULL;
+        xlator_t               *old_graph_xl = NULL;
 
         state = frame->root->state;
         resolve = state->resolve_now;
@@ -261,6 +263,16 @@ fuse_resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve->deep_loc.inode  = inode_new (state->itable);
         resolve->deep_loc.name   = components[i].basename;
 
+        old_graph_xl    = state->old_xl;
+        old_graph_inode = inode_from_path (old_graph_xl->itable,
+                                           resolve->deep_loc.path);
+        if (old_graph_inode && !uuid_is_null (old_graph_inode->gfid)) {
+                uuid_copy (resolve->deep_loc.gfid, old_graph_inode->gfid);
+        } else {
+                gf_log (THIS->name, GF_LOG_WARNING, "%s: no gfid found",
+                        resolve->deep_loc.path);
+        }
+
         FUSE_FOP_COOKIE (state, state->itable->xl, fuse_resolve_deep_cbk,
                          (void *)(long)i,
                          GF_FOP_LOOKUP, lookup, &resolve->deep_loc, NULL);
@@ -279,6 +291,8 @@ fuse_resolve_path_deep (fuse_state_t *state)
         struct fuse_resolve_comp *components = NULL;
         inode_t                *inode      = NULL;
         long                    i          = 0;
+        inode_t                *old_graph_inode = NULL;
+        xlator_t               *old_graph_xl = NULL;
 
         resolve = state->resolve_now;
 
@@ -303,6 +317,16 @@ fuse_resolve_path_deep (fuse_state_t *state)
         resolve->deep_loc.parent = inode_ref (components[i-1].inode);
         resolve->deep_loc.inode  = inode_new (state->itable);
         resolve->deep_loc.name   = components[i].basename;
+
+        old_graph_xl    = state->old_xl;
+        old_graph_inode = inode_from_path (old_graph_xl->itable,
+                                           resolve->deep_loc.path);
+        if (old_graph_inode && !uuid_is_null (old_graph_inode->gfid)) {
+                uuid_copy (resolve->deep_loc.gfid, old_graph_inode->gfid);
+        } else {
+                gf_log (THIS->name, GF_LOG_WARNING, "%s: no gfid found",
+                        resolve->deep_loc.path);
+        }
 
         FUSE_FOP_COOKIE (state, state->itable->xl, fuse_resolve_deep_cbk,
                          (void *)(long)i,
@@ -731,7 +755,7 @@ fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn)
 
         /* now we have to resolve the inode to 'itable' */
         state->itable = active_xl->itable;
-
+        state->old_xl = inode_xl;
         fuse_resolve_all (state);
 
         return 0;

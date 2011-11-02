@@ -273,6 +273,7 @@ typedef struct {
         struct iovec   vector;
 
         uuid_t         gfid;
+        xlator_t       *old_xl;
 } fuse_state_t;
 
 typedef void (*fuse_resume_fn_t) (fuse_state_t *state);
