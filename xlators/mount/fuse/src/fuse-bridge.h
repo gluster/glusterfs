@@ -108,6 +108,7 @@ struct fuse_private {
         gf_boolean_t         client_pid_set;
         unsigned             uid_map_root;
         gf_boolean_t         acl;
+        gf_boolean_t         read_only;
 };
 typedef struct fuse_private fuse_private_t;
 

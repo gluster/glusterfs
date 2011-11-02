@@ -3560,6 +3560,7 @@ init (xlator_t *this_xl)
         int                fsname_allocated = 0;
         glusterfs_ctx_t   *ctx = NULL;
         gf_boolean_t       sync_mtab = _gf_false;
+        char              *mnt_args = NULL;
 
         if (this_xl == NULL)
                 return -1;
@@ -3680,6 +3681,12 @@ init (xlator_t *this_xl)
         if (priv->uid_map_root)
                 priv->acl = 1;
 
+        priv->read_only = 0;
+        ret = dict_get_str (options, "read-only", &value_string);
+        if (ret == 0) {
+                ret = gf_string2boolean (value_string, &priv->read_only);
+                GF_ASSERT (ret == 0);
+        }
 
         priv->fuse_dump_fd = -1;
         ret = dict_get_str (options, "dump-fuse", &value_string);
@@ -3729,19 +3736,14 @@ init (xlator_t *this_xl)
         if (!fsname)
                 fsname = "glusterfs";
 
+        gf_asprintf (&mnt_args, "%s%sallow_other,max_read=131072",
+                     priv->read_only ? "ro," : "",
+                     priv->acl ? "" : "default_permissions,");
+        if (!mnt_args)
+                goto cleanup_exit;
 
-        if (priv->acl) {
-                priv->fd = gf_fuse_mount (priv->mount_point, fsname,
-                                          "allow_other,"
-                                          "max_read=131072",
-                                          sync_mtab ? &ctx->mtab_pid : NULL);
-        } else {
-                priv->fd = gf_fuse_mount (priv->mount_point, fsname,
-                                          "allow_other,default_permissions,"
-                                          "max_read=131072",
-                                          sync_mtab ? &ctx->mtab_pid : NULL);
-        }
-
+        priv->fd = gf_fuse_mount (priv->mount_point, fsname, mnt_args,
+                                  sync_mtab ? &ctx->mtab_pid : NULL);
         if (priv->fd == -1)
                 goto cleanup_exit;
 
@@ -3775,6 +3777,8 @@ cleanup_exit:
                 close (priv->fuse_dump_fd);
                 GF_FREE (priv);
         }
+        if (mnt_args)
+                GF_FREE (mnt_args);
         return -1;
 }
 
@@ -3842,6 +3846,9 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT
         },
         { .key  = {"sync-mtab"},
+          .type = GF_OPTION_TYPE_BOOL
+        },
+        { .key = {"read-only"},
           .type = GF_OPTION_TYPE_BOOL
         },
         { .key = {NULL} },
