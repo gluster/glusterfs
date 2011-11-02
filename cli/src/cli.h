@@ -116,44 +116,12 @@ struct cli_state {
 };
 
 struct cli_local {
-        union {
-                struct {
-                        dict_t  *dict;
-                } create_vol;
+        struct {
+                char    *volname;
+                int     flags;
+        } get_vol;
 
-                struct {
-                        char    *volname;
-                        int     flags;
-                } start_vol;
-
-                struct {
-                        char    *volname;
-                        int     flags;
-                } stop_vol;
-
-                struct {
-                        char    *volname;
-                } delete_vol;
-
-                struct {
-                        char    *volname;
-                        int      cmd;
-                } defrag_vol;
-
-                struct {
-                        char    *volname;
-                        dict_t  *dict;
-                } replace_brick;
-
-                struct {
-                        char    *volname;
-                        int     flags;
-                } get_vol;
-
-                struct {
-                        char    *volname;
-                }heal_vol;
-        } u;
+        dict_t          *dict;
 };
 
 typedef struct cli_local cli_local_t;

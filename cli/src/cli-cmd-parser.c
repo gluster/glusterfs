@@ -1857,7 +1857,7 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
-        ret = dict_set_int32 (dict, "option-cnt", option_cnt);
+        ret = dict_set_int32 (dict, "option_cnt", option_cnt);
         if (ret)
                 goto out;
 

@@ -38,7 +38,7 @@ int
 glusterd_handle_quota (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_quota_req               cli_req = {0,};
+        gf_cli_req                      cli_req = {{0,}};
         dict_t                         *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_QUOTA;
         char                            operation[256] = {0, };
@@ -48,7 +48,7 @@ glusterd_handle_quota (rpcsvc_request_t *req)
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_quota_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -116,8 +116,6 @@ out:
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
         }
-        if (cli_req.volname)
-                free (cli_req.volname); //malloced by xdr
 
         return ret;
 }

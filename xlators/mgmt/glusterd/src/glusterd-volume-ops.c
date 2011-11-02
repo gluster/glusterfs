@@ -39,7 +39,7 @@ int
 glusterd_handle_create_volume (rpcsvc_request_t *req)
 {
         int32_t                 ret         = -1;
-        gf1_cli_create_vol_req  cli_req     = {0,};
+        gf_cli_req              cli_req     = {{0,}};
         dict_t                 *dict        = NULL;
         glusterd_brickinfo_t   *brickinfo   = NULL;
         char                   *brick       = NULL;
@@ -51,13 +51,14 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         char                   *brick_list  = NULL;
         void                   *cli_rsp     = NULL;
         char                    err_str[2048] = {0,};
-        gf1_cli_create_vol_rsp  rsp         = {0,};
+        gf_cli_rsp              rsp         = {0,};
         xlator_t               *this        = NULL;
         char                   *free_ptr    = NULL;
         char                   *trans_type  = NULL;
         uuid_t                  volume_id   = {0,};
         glusterd_brickinfo_t    *tmpbrkinfo = NULL;
         glusterd_volinfo_t      tmpvolinfo = {{0},};
+        int32_t                 type       = 0;
 
         GF_ASSERT (req);
 
@@ -68,7 +69,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 
         ret = -1;
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_create_vol_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 snprintf (err_str, sizeof (err_str), "Garbage args received");
@@ -77,12 +78,12 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 
         gf_log ("glusterd", GF_LOG_INFO, "Received create volume req");
 
-        if (cli_req.bricks.bricks_len) {
+        if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
                 dict  = dict_new ();
 
-                ret = dict_unserialize (cli_req.bricks.bricks_val,
-                                        cli_req.bricks.bricks_len,
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
                         gf_log ("glusterd", GF_LOG_ERROR,
@@ -92,7 +93,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                                   "the buffer");
                         goto out;
                 } else {
-                        dict->extra_stdfree = cli_req.bricks.bricks_val;
+                        dict->extra_stdfree = cli_req.dict.dict_val;
                 }
         }
 
@@ -119,6 +120,14 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                           "brick count");
                 goto out;
         }
+
+        ret = dict_get_int32 (dict, "type", &type);
+        /*if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get type");
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "type");
+                goto out;
+        }*/
 
         ret = dict_get_str (dict, "transport", &trans_type);
         if (ret) {
@@ -152,9 +161,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         }
 
         gf_cmd_log ("Volume create", "on volname: %s type:%s count:%d bricks:%s",
-                    cli_req.volname, ((cli_req.type == 0)? "DEFAULT":
-                    ((cli_req.type == 1)? "STRIPE":"REPLICATE")), cli_req.count,
-                    bricks);
+                    volname, ((type == 0)? "DEFAULT":
+                    ((type == 1)? "STRIPE":"REPLICATE")), brick_count, bricks);
 
 
         while ( i < brick_count) {
@@ -198,13 +206,12 @@ out:
                         dict_unref (dict);
                 rsp.op_ret = -1;
                 rsp.op_errno = 0;
-                rsp.volname = "";
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str), "Operation failed");
                 rsp.op_errstr = err_str;
                 cli_rsp = &rsp;
                 glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                      (xdrproc_t)xdr_gf1_cli_create_vol_rsp);
+                                      (xdrproc_t)xdr_gf_cli_rsp);
 
                 ret = 0; //Client response sent, prevent second response
         }
@@ -215,8 +222,6 @@ out:
         glusterd_volume_brickinfos_delete (&tmpvolinfo);
         if (brickinfo)
                 glusterd_brickinfo_delete (brickinfo);
-        if (cli_req.volname)
-                free (cli_req.volname); // its a malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -228,7 +233,7 @@ int
 glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_start_vol_req           cli_req = {0,};
+        gf_cli_req                      cli_req = {{0,}};
         char                            *dup_volname = NULL;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_START_VOLUME;
@@ -236,41 +241,45 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_start_vol_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &dup_volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "dict get failed");
+                goto out;
+        }
+
         gf_log ("glusterd", GF_LOG_INFO, "Received start vol req"
-                "for volume %s", cli_req.volname);
-
-        dict = dict_new ();
-
-        if (!dict)
-                goto out;
-
-        dup_volname = gf_strdup (cli_req.volname);
-        if (!dup_volname)
-                goto out;
-
-        ret = dict_set_dynstr (dict, "volname", dup_volname);
-        if (ret)
-                goto out;
-
-        ret = dict_set_int32 (dict, "flags", cli_req.flags);
-        if (ret)
-                goto out;
+                "for volume %s", dup_volname);
         ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
 
-        gf_cmd_log ("volume start","on volname: %s %s", cli_req.volname,
+        gf_cmd_log ("volume start","on volname: %s %s", dup_volname,
                     ((ret == 0) ? "SUCCESS": "FAILED"));
 
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.volname)
-                free (cli_req.volname); //its malloced by xdr
+        if (cli_req.dict.dict_val)
+                free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -287,7 +296,7 @@ int
 glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_stop_vol_req           cli_req = {0,};
+        gf_cli_req                      cli_req = {{0,}};
         char                            *dup_volname = NULL;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_STOP_VOLUME;
@@ -295,39 +304,43 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_stop_vol_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &dup_volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
 
         gf_log ("glusterd", GF_LOG_INFO, "Received stop vol req"
-                "for volume %s", cli_req.volname);
-
-        dict = dict_new ();
-
-        if (!dict)
-                goto out;
-
-        dup_volname = gf_strdup (cli_req.volname);
-        if (!dup_volname)
-                goto out;
-
-        ret = dict_set_dynstr (dict, "volname", dup_volname);
-        if (ret)
-                goto out;
-
-        ret = dict_set_int32 (dict, "flags", cli_req.flags);
-        if (ret)
-                goto out;
+                "for volume %s", dup_volname);
 
         ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict);
-        gf_cmd_log ("Volume stop","on volname: %s %s", cli_req.volname,
+        gf_cmd_log ("Volume stop","on volname: %s %s", dup_volname,
                     ((ret)?"FAILED":"SUCCESS"));
 
 out:
-        if (cli_req.volname)
-                free (cli_req.volname); //its malloced by xdr
+        if (cli_req.dict.dict_val)
+                free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -346,37 +359,65 @@ int
 glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 {
         int32_t                           ret = -1;
-        gf1_cli_delete_vol_req            cli_req = {0,};
+        gf_cli_req                        cli_req = {{0,}};
         glusterd_op_delete_volume_ctx_t   *ctx = NULL;
         glusterd_op_t                     cli_op = GD_OP_DELETE_VOLUME;
+        char                              *volname = NULL;
+        dict_t                            *dict = NULL;
 
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_delete_vol_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        gf_cmd_log ("Volume delete","on volname: %s attempted", cli_req.volname);
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to get volname");
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_cmd_log ("Volume delete","on volname: %s attempted", volname);
 
         gf_log ("glusterd", GF_LOG_INFO, "Received delete vol req"
-                "for volume %s", cli_req.volname);
+                "for volume %s", volname);
 
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_delete_volume_ctx_t);
         if (!ctx)
                 goto out;
 
-        strncpy (ctx->volume_name, cli_req.volname, GD_VOLUME_NAME_MAX);
+        strncpy (ctx->volume_name, volname, GD_VOLUME_NAME_MAX);
 
         ret = glusterd_op_begin (req, GD_OP_DELETE_VOLUME, ctx);
-        gf_cmd_log ("Volume delete", "on volname: %s %s", cli_req.volname,
+        gf_cmd_log ("Volume delete", "on volname: %s %s", volname,
                    ((ret) ? "FAILED" : "SUCCESS"));
 
 out:
-        if (cli_req.volname)
-                free (cli_req.volname); //its malloced by xdr
+        if (cli_req.dict.dict_val)
+                free (cli_req.dict.dict_val); //its malloced by xdr
+        if (dict)
+                dict_unref (dict);
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -396,46 +437,53 @@ int
 glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_heal_vol_req           cli_req = {0,};
-        char                            *dup_volname = NULL;
+        gf_cli_req                      cli_req = {{0,}};
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_HEAL_VOLUME;
+        char                            *volname = NULL;
 
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_heal_vol_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+                goto out;
+        }
         gf_log ("glusterd", GF_LOG_INFO, "Received heal vol req"
-                "for volume %s", cli_req.volname);
-
-        dict = dict_new ();
-
-        if (!dict)
-                goto out;
-
-        dup_volname = gf_strdup (cli_req.volname);
-        if (!dup_volname)
-                goto out;
-
-        ret = dict_set_dynstr (dict, "volname", dup_volname);
-        if (ret)
-                goto out;
+                "for volume %s", volname);
 
         ret = glusterd_op_begin (req, GD_OP_HEAL_VOLUME, dict);
 
-        gf_cmd_log ("volume heal","on volname: %s %s", cli_req.volname,
+        gf_cmd_log ("volume heal","on volname: %s %s", volname,
                     ((ret == 0) ? "SUCCESS": "FAILED"));
 
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.volname)
-                free (cli_req.volname); //its malloced by xdr
+        if (cli_req.dict.dict_val)
+                free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -451,56 +499,66 @@ int
 glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_statedump_vol_req       cli_req = {0,};
-        char                            *dup_volname = NULL;
-        char                            *dup_options = NULL;
+        gf_cli_req                      cli_req = {{0,}};
+        char                            *volname = NULL;
+        char                            *options = NULL;
         dict_t                          *dict = NULL;
+        int32_t                         option_cnt = 0;
 
         GF_ASSERT (req);
 
         ret = -1;
         if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf1_cli_statedump_vol_req)) {
+                             (xdrproc_t)xdr_gf_cli_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "options", &options);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get options");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "option_cnt", &option_cnt);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get option cnt");
+                goto out;
+        }
+
+
         gf_log ("glusterd", GF_LOG_INFO, "Recieved statedump request for "
-                "volume %s with options %s", cli_req.volname, cli_req.options);
-        dict = dict_new ();
-
-        if (!dict)
-                goto out;
-
-        dup_volname = gf_strdup (cli_req.volname);
-        if (!dup_volname)
-                goto out;
-        ret = dict_set_dynstr (dict, "volname", dup_volname);
-        if (ret)
-                goto out;
-
-        dup_options = gf_strdup(cli_req.options);
-        if (!dup_volname)
-                goto out;
-        ret = dict_set_dynstr (dict, "options", dup_options);
-        if (ret)
-                goto out;
-
-        ret = dict_set_int32 (dict, "option_cnt", cli_req.option_cnt);
-        if (ret)
-                goto out;
+                "volume %s with options %s", volname, options);
 
         ret = glusterd_op_begin (req, GD_OP_STATEDUMP_VOLUME, dict);
 
-        gf_cmd_log ("statedump", "on volume %s %s", cli_req.volname,
+        gf_cmd_log ("statedump", "on volume %s %s", volname,
                     ((0 == ret) ? "SUCCEEDED" : "FAILED"));
 
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.volname)
-                free (cli_req.volname);
-        if (cli_req.options)
-                free (cli_req.options);
+        if (cli_req.dict.dict_val)
+                free (cli_req.dict.dict_val);
         glusterd_friend_sm ();
         glusterd_op_sm();
 
