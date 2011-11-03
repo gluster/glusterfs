@@ -1233,6 +1233,40 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->mode = fmi->mode;
         state->rdev = fmi->rdev;
 
+        priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >=12
+        if (priv->proto_minor >= 12)
+                state->mode &= ~fmi->umask;
+        if (priv->proto_minor >= 12 && priv->acl) {
+                state->dict = dict_new ();
+                if (!state->dict) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "MKNOD Failed to allocate a param dictionary");
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+                ret = dict_set_int16 (state->dict, "umask", fmi->umask);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "MKNOD Failed adding umask to request");
+                        dict_destroy (state->dict);
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+                ret = dict_set_int16 (state->dict, "mode", fmi->mode);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "MKNOD Failed adding mode to request");
+                        dict_destroy (state->dict);
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+        }
+#endif
+
         uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
@@ -1273,6 +1307,7 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_mkdir_in *fmi = msg;
         char *name = (char *)(fmi + 1);
+        fuse_private_t *priv = NULL;
 
         fuse_state_t *state;
         int32_t ret = -1;
@@ -1292,6 +1327,40 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->mode = fmi->mode;
+
+        priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >=12
+        if (priv->proto_minor >= 12)
+                state->mode &= ~fmi->umask;
+        if (priv->proto_minor >= 12 && priv->acl) {
+                state->dict = dict_new ();
+                if (!state->dict) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "MKDIR Failed to allocate a param dictionary");
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+                ret = dict_set_int16 (state->dict, "umask", fmi->umask);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "MKDIR Failed adding umask to request");
+                        dict_destroy (state->dict);
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+                ret = dict_set_int16 (state->dict, "mode", fmi->mode);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "MKDIR Failed adding mode to request");
+                        dict_destroy (state->dict);
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+        }
+#endif
 
         uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
@@ -1797,6 +1866,40 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->mode = fci->mode;
         state->flags = fci->flags;
+
+        priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >=12
+        if (priv->proto_minor >= 12)
+                state->mode &= ~fci->umask;
+        if (priv->proto_minor >= 12 && priv->acl) {
+                state->dict = dict_new ();
+                if (!state->dict) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "CREATE Failed to allocate a param dictionary");
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+                ret = dict_set_int16 (state->dict, "umask", fci->umask);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "CREATE Failed adding umask to request");
+                        dict_destroy (state->dict);
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+                ret = dict_set_int16 (state->dict, "mode", fci->mode);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "CREATE Failed adding mode to request");
+                        dict_destroy (state->dict);
+                        send_fuse_err (this, finh, ENOMEM);
+                        free_fuse_state (state);
+                        return;
+                }
+        }
+#endif
 
         uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
@@ -3131,6 +3234,13 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fino.max_readahead = 1 << 17;
         fino.max_write = 1 << 17;
         fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
+#if FUSE_KERNEL_MINOR_VERSION >= 12
+        if (fini->minor >= 12) {
+            /* let fuse leave the umask processing to us, so that it does not
+             * break extended POSIX ACL defaults on server */
+            fino.flags |= FUSE_DONT_MASK;
+        }
+#endif
 #if FUSE_KERNEL_MINOR_VERSION >= 9
         if (fini->minor >= 6 /* fuse_init_in has flags */ &&
             fini->flags & FUSE_BIG_WRITES) {
