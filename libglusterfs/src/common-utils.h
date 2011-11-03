@@ -72,6 +72,8 @@ void trap (void);
 #define GEOREP "geo-replication"
 #define GHADOOP "glusterfs-hadoop"
 
+#define WIPE(statp) do { typeof(*statp) z = {0,}; if (statp) *statp = z; } while (0)
+
 enum _gf_boolean
 {
 	_gf_false = 0,
