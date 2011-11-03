@@ -3556,6 +3556,9 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         mlocal->replies[index].stbuf  = *stbuf;
                         mlocal->replies[index].count  = count;
                         mlocal->replies[index].vector = iov_dup (vector, count);
+                        if (local->stbuf_size < stbuf->ia_size)
+                                local->stbuf_size = stbuf->ia_size;
+                        local->stbuf_blocks += stbuf->ia_blocks;
 
                         if (!mlocal->iobref)
                                 mlocal->iobref = iobref_new ();
@@ -3613,11 +3616,15 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  * cause any bugs at higher levels */
                 memcpy (&tmp_stbuf, &mlocal->replies[0].stbuf,
                         sizeof (struct iatt));
+                tmp_stbuf.ia_size = local->stbuf_size;
+                tmp_stbuf.ia_blocks = local->stbuf_blocks;
 
         done:
                 /* */
                 GF_FREE (mlocal->replies);
                 tmp_iobref = mlocal->iobref;
+                /* work around for nfs truncated read. Bug 3774 */
+                WIPE (&tmp_stbuf);
                 STRIPE_STACK_UNWIND (readv, mframe, op_ret, op_errno, final_vec,
                                      final_count, &tmp_stbuf, tmp_iobref);
 
