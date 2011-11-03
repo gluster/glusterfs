@@ -37,6 +37,43 @@
 #include <signal.h>
 
 int
+glusterd_get_replace_op_str (gf1_cli_replace_op op, char *op_str)
+{
+        int     ret = -1;
+
+        if (!op_str)
+                goto out;
+
+        switch (op) {
+                case GF_REPLACE_OP_START:
+                        strcpy (op_str, "start");
+                        break;
+                case GF_REPLACE_OP_COMMIT:
+                        strcpy (op_str, "commit");
+                        break;
+                case GF_REPLACE_OP_PAUSE:
+                        strcpy (op_str, "pause");
+                        break;
+                case GF_REPLACE_OP_ABORT:
+                        strcpy (op_str, "abort");
+                        break;
+                case GF_REPLACE_OP_STATUS:
+                        strcpy (op_str, "status");
+                        break;
+                case GF_REPLACE_OP_COMMIT_FORCE:
+                        strcpy (op_str, "commit-force");
+                        break;
+                default:
+                        strcpy (op_str, "unknown");
+                        break;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 glusterd_handle_replace_brick (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
@@ -104,30 +141,13 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("", GF_LOG_DEBUG,
-                "dst brick=%s", dst_brick);
-
-        switch (op) {
-                case GF_REPLACE_OP_START: strcpy (operation, "start");
-                        break;
-                case GF_REPLACE_OP_COMMIT: strcpy (operation, "commit");
-                        break;
-                case GF_REPLACE_OP_PAUSE:  strcpy (operation, "pause");
-                        break;
-                case GF_REPLACE_OP_ABORT:  strcpy (operation, "abort");
-                        break;
-                case GF_REPLACE_OP_STATUS: strcpy (operation, "status");
-                        break;
-                case GF_REPLACE_OP_COMMIT_FORCE: strcpy (operation, "commit-force");
-                        break;
-                default:strcpy (operation, "unknown");
-                        break;
-        }
-
-        gf_log ("glusterd", GF_LOG_INFO, "Received replace brick %s request", operation);
+        (void) glusterd_get_replace_op_str (op, operation);
+        gf_log ("", GF_LOG_DEBUG, "dst brick=%s", dst_brick);
+        gf_log ("glusterd", GF_LOG_INFO, "Received replace brick %s request",
+                operation);
         gf_cmd_log ("Volume replace-brick","volname: %s src_brick:%s"
-                    " dst_brick:%s op:%s", volname, src_brick, dst_brick
-                    ,operation);
+                    " dst_brick:%s op:%s", volname, src_brick, dst_brick,
+                    operation);
 
         ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict);
         gf_cmd_log ("Volume replace-brick","on volname: %s %s", volname,
@@ -629,42 +649,24 @@ static int
 rb_send_xattr_command (glusterd_volinfo_t *volinfo,
                        glusterd_brickinfo_t *src_brickinfo,
                        glusterd_brickinfo_t *dst_brickinfo,
-                       const char *xattr_key,
-                       const char *value)
+                       const char *xattr_key, const char *value)
 {
         glusterd_conf_t  *priv                        = NULL;
+        xlator_t         *this                        = NULL;
         char              mount_point_path[PATH_MAX]  = {0,};
-        struct stat       buf;
         int               ret                         = -1;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
         snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
+                  priv->workdir, volinfo->volname, RB_CLIENT_MOUNTPOINT);
 
-        ret = stat (mount_point_path, &buf);
-         if (ret) {
-                 gf_log ("", GF_LOG_DEBUG,
-                         "stat failed. Could not send"
-                         " %s command", xattr_key);
-                 goto out;
-         }
-
-        ret = sys_lsetxattr (mount_point_path, xattr_key,
-                         value,
-                         strlen (value) + 1,
-                         0);
-
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "setxattr failed");
-                goto out;
-        }
-
-        ret = 0;
-
-out:
+        ret = sys_lsetxattr (mount_point_path, xattr_key, value,
+                             strlen (value) + 1, 0);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG, "setxattr on key: "
+                        "%s failed", xattr_key);
         return ret;
 }
 
@@ -944,23 +946,9 @@ rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
         glusterd_conf_t  *priv                        = NULL;
         runner_t          runner                      = {0,};
         char              filename[PATH_MAX]          = {0,};
-        struct stat       buf;
-        char              mount_point_path[PATH_MAX]  = {0,};
         int               ret                         = -1;
 
         priv = THIS->private;
-
-        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
-
-        ret = stat (mount_point_path, &buf);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "stat failed. Cannot destroy maintenance "
-                        "client");
-                goto out;
-        }
 
         runinit (&runner);
         runner_add_args (&runner, "/bin/umount", "-f", NULL);
@@ -1055,115 +1043,6 @@ out:
 }
 
 static int
-rb_do_operation_start (glusterd_volinfo_t *volinfo,
-                       glusterd_brickinfo_t *src_brickinfo,
-                       glusterd_brickinfo_t *dst_brickinfo)
-{
-        char start_value[8192] = {0,};
-        int ret = -1;
-
-
-        gf_log ("", GF_LOG_DEBUG,
-                "replace-brick sending start xattr");
-
-        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not spawn maintenance "
-                        "client");
-                goto out;
-        }
-
-	gf_log ("", GF_LOG_DEBUG,
-		"mounted the replace brick client");
-
-        snprintf (start_value, 8192, "%s:%s:%d",
-                  dst_brickinfo->hostname,
-                  dst_brickinfo->path,
-                  dst_brickinfo->port);
-
-
-        ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_CMD_START,
-                                     start_value);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to send command to pump");
-        }
-
-        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to destroy maintenance "
-                        "client");
-                goto out;
-        }
-
-        gf_log ("", GF_LOG_DEBUG,
-		"unmounted the replace brick client");
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-rb_do_operation_pause (glusterd_volinfo_t *volinfo,
-                       glusterd_brickinfo_t *src_brickinfo,
-                       glusterd_brickinfo_t *dst_brickinfo)
-{
-        int ret = -1;
-
-        gf_log ("", GF_LOG_INFO,
-                "replace-brick send pause xattr");
-
-        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not spawn maintenance "
-                        "client");
-                goto out;
-        }
-
-	gf_log ("", GF_LOG_DEBUG,
-		"mounted the replace brick client");
-
-        ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_CMD_PAUSE,
-                                     "jargon");
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to send command to pump");
-
-        }
-
-        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to destroy maintenance "
-                        "client");
-                goto out;
-        }
-
-
-	gf_log ("", GF_LOG_DEBUG,
-		"unmounted the replace brick client");
-
-        ret = 0;
-
-out:
-	if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
-	        ret = rb_src_brick_restart (volinfo, src_brickinfo,
-				                    0);
-		 if (ret) {
-			gf_log ("", GF_LOG_DEBUG,
-                       "Could not restart src-brick");
-		}
-        }
-        return ret;
-}
-
-static int
 rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
                            glusterd_brickinfo_t *dst_brickinfo)
 {
@@ -1180,108 +1059,6 @@ rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
 }
 
 static int
-rb_do_operation_commit (glusterd_volinfo_t *volinfo,
-                       glusterd_brickinfo_t *src_brickinfo,
-                       glusterd_brickinfo_t *dst_brickinfo)
-{
-        int ret     = -1;
-        int cmd_ret = -1;
-
-        gf_log ("", GF_LOG_DEBUG,
-                "replace-brick sending commit xattr");
-
-        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not spawn maintenance "
-                        "client");
-                goto out;
-        }
-
-	gf_log ("", GF_LOG_DEBUG,
-		"mounted the replace brick client");
-
-        cmd_ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_CMD_COMMIT,
-                                     "jargon");
-        if (cmd_ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to send command to pump");
-	}
-
-        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to destroy maintenance "
-                        "client");
-                goto out;
-        }
-
-	gf_log ("", GF_LOG_DEBUG,
-		"unmounted the replace brick client");
-
-        ret = 0;
-
-out:
-        return cmd_ret || ret;
-}
-
-static int
-rb_do_operation_abort (glusterd_volinfo_t *volinfo,
-                       glusterd_brickinfo_t *src_brickinfo,
-                       glusterd_brickinfo_t *dst_brickinfo)
-{
-        int ret = -1;
-
-        gf_log ("", GF_LOG_DEBUG,
-                "replace-brick sending abort xattr");
-
-        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not spawn maintenance "
-                        "client");
-                goto out;
-        }
-
-	gf_log ("", GF_LOG_DEBUG,
-		"mounted the replace brick client");
-
-        ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_CMD_ABORT,
-                                     "jargon");
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to send command to pump");
-	}
-
-        ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Failed to destroy maintenance "
-                        "client");
-                goto out;
-        }
-
-	gf_log ("", GF_LOG_DEBUG,
-		"unmounted the replace brick client");
-
-        ret = 0;
-
-out:
-	if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
-	        ret = rb_src_brick_restart (volinfo, src_brickinfo,
-					    0);
-		 if (ret) {
-			gf_log ("", GF_LOG_DEBUG,
-                       "Could not restart src-brick");
-		}
-        }
-        return ret;
-}
-
-
-static int
 rb_get_xattr_command (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *src_brickinfo,
                       glusterd_brickinfo_t *dst_brickinfo,
@@ -1289,111 +1066,154 @@ rb_get_xattr_command (glusterd_volinfo_t *volinfo,
                       char *value)
 {
         glusterd_conf_t  *priv                        = NULL;
+        xlator_t         *this                        = NULL;
         char              mount_point_path[PATH_MAX]  = {0,};
-        struct stat       buf;
         int               ret                         = -1;
 
+        this = THIS;
         priv = THIS->private;
 
         snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
                   priv->workdir, volinfo->volname,
                   RB_CLIENT_MOUNTPOINT);
 
-       ret = stat (mount_point_path, &buf);
-         if (ret) {
-                 gf_log ("", GF_LOG_DEBUG,
-                         "stat failed. Could not send"
-                         " %s command", xattr_key);
-                 goto out;
-         }
-
         ret = sys_lgetxattr (mount_point_path, xattr_key, value, 8192);
 
         if (ret < 0) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "getxattr failed");
+                gf_log (this->name, GF_LOG_DEBUG, "getxattr on key: %s "
+                        "failed", xattr_key);
                 goto out;
         }
 
         ret = 0;
-
 out:
         return ret;
 }
 
 static int
-rb_do_operation_status (glusterd_volinfo_t *volinfo,
-                        glusterd_brickinfo_t *src_brickinfo,
-                        glusterd_brickinfo_t *dst_brickinfo)
+rb_send_cmd (glusterd_volinfo_t *volinfo,
+             glusterd_brickinfo_t *src,
+             glusterd_brickinfo_t *dst,
+             gf1_cli_replace_op op)
 {
-        char            status[8192] = {0,};
-        char            *status_reply = NULL;
-        dict_t          *ctx          = NULL;
-        int             ret = 0;
-        gf_boolean_t    origin = _gf_false;
+        char         start_value[8192] = {0,};
+        char         status[8192]      = {0,};
+        char        *status_reply      = NULL;
+        dict_t      *ctx               = NULL;
+        int          ret               = 0;
 
-        ctx = glusterd_op_get_ctx ();
-        if (!ctx) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Operation Context is not present");
-                goto out;
-        }
+        GF_ASSERT (volinfo);
+        GF_ASSERT (src);
+        GF_ASSERT (dst);
+        GF_ASSERT ((op > GF_REPLACE_OP_NONE)
+                   && (op <= GF_REPLACE_OP_COMMIT_FORCE));
 
-        origin = _gf_true;
-
-        if (origin) {
-                ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not spawn maintenance "
-                                "client");
-                        goto out;
+        switch (op) {
+                case GF_REPLACE_OP_START:
+                {
+                        snprintf (start_value, sizeof (start_value),
+                                  "%s:%s:%d", dst->hostname, dst->path,
+                                  dst->port);
+                        ret = rb_send_xattr_command (volinfo, src, dst,
+                                                     RB_PUMP_CMD_START,
+                                                     start_value);
                 }
-
-		gf_log ("", GF_LOG_DEBUG,
-			"mounted the replace brick client");
-
-                ret = rb_get_xattr_command (volinfo, src_brickinfo,
-                                            dst_brickinfo, RB_PUMP_CMD_STATUS,
-                                            status);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to get status from pump");
-                        goto umount;
+                break;
+                case GF_REPLACE_OP_PAUSE:
+                {
+                        ret = rb_send_xattr_command (volinfo, src, dst,
+                                                     RB_PUMP_CMD_PAUSE,
+                                                     RB_PUMP_DEF_ARG);
                 }
+                break;
+                case GF_REPLACE_OP_ABORT:
+                {
+                        ret = rb_send_xattr_command (volinfo, src, dst,
+                                                     RB_PUMP_CMD_ABORT,
+                                                     RB_PUMP_DEF_ARG);
+                }
+                break;
+                case GF_REPLACE_OP_COMMIT:
+                {
+                        ret = rb_send_xattr_command (volinfo, src, dst,
+                                                     RB_PUMP_CMD_COMMIT,
+                                                     RB_PUMP_DEF_ARG);
+                }
+                break;
+                case GF_REPLACE_OP_STATUS:
+                {
+                        ret = rb_get_xattr_command (volinfo, src, dst,
+                                                    RB_PUMP_CMD_STATUS,
+                                                    status);
+                        if (ret)
+                                goto out;
 
-                gf_log ("", GF_LOG_DEBUG,
-                        "pump status is %s", status);
+                        ctx = glusterd_op_get_ctx ();
+                        GF_ASSERT (ctx);
+                        if (!ctx) {
+                                ret = -1;
+                                gf_log (THIS->name, GF_LOG_CRITICAL,
+                                        "ctx is not present.");
+                                goto out;
+                        }
 
-                status_reply = gf_strdup (status);
-                if (!status_reply) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        status_reply = gf_strdup (status);
+                        ret = dict_set_dynstr (ctx, "status-reply",
+                                               status_reply);
+                        if (ret) {
+                                GF_FREE (status_reply);
+                                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't "
+                                        "set rb status response in context.");
+                                goto out;
+                        }
+                }
+                break;
+                default:
+                {
+                        GF_ASSERT (0);
                         ret = -1;
-                        goto umount;
+                        gf_log (THIS->name, GF_LOG_CRITICAL, "Invalid replace"
+                                " brick subcommand.");
                 }
-
-                ret = dict_set_dynstr (ctx, "status-reply",
-                                       status_reply);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "failed to set pump status in ctx");
-
-                }
-
-	umount:
-                ret = rb_destroy_maintenance_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to destroy maintenance "
-                                "client");
-			goto out;
-		}
+                break;
         }
-
-	gf_log ("", GF_LOG_DEBUG,
-		"unmounted the replace brick client");
 out:
         return ret;
+}
+
+static int
+rb_do_operation (glusterd_volinfo_t *volinfo,
+                 glusterd_brickinfo_t *src_brickinfo,
+                 glusterd_brickinfo_t *dst_brickinfo,
+                 gf1_cli_replace_op op)
+{
+
+        int             ret             = -1;
+        char            op_str[256]     = {0, };
+        xlator_t        *this           = NULL;
+
+        this = THIS;
+
+        ret = rb_spawn_maintenance_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Could not spawn "
+                        "maintenance client");
+                goto umount;
+        }
+
+        ret = rb_send_cmd (volinfo, src_brickinfo, dst_brickinfo, op);
+        if (ret) {
+                (void) glusterd_get_replace_op_str (op, op_str);
+                gf_log (this->name, GF_LOG_DEBUG, "Sending replace-brick "
+                        "sub-command %s failed.", op_str);
+        }
+
+umount:
+        if (rb_destroy_maintenance_client (volinfo, src_brickinfo))
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to destroy "
+                        "maintenance client");
+
+         return ret;
 }
 
 /* Set src-brick's port number to be used in the maintenance mount
@@ -1696,7 +1516,9 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         {
                 ctx = glusterd_op_get_ctx ();
                 if (ctx) {
-                        ret = rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
+                        ret = rb_do_operation (volinfo, src_brickinfo,
+                                               dst_brickinfo,
+                                               GF_REPLACE_OP_COMMIT);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
                                         "Commit operation failed");
@@ -1766,8 +1588,9 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                         "Received pause - doing nothing");
                 ctx = glusterd_op_get_ctx ();
                 if (ctx) {
-                        ret = rb_do_operation_pause (volinfo, src_brickinfo,
-                                                     dst_brickinfo);
+                        ret = rb_do_operation (volinfo, src_brickinfo,
+                                               dst_brickinfo,
+                                               GF_REPLACE_OP_PAUSE);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
                                         "Pause operation failed");
@@ -1784,7 +1607,9 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
                 ctx = glusterd_op_get_ctx ();
                 if (ctx) {
-                        ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
+                        ret = rb_do_operation (volinfo, src_brickinfo,
+                                               dst_brickinfo,
+                                               GF_REPLACE_OP_ABORT);
                         if (ret) {
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "Abort operation failed");
@@ -1797,6 +1622,16 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 			gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to disable pump");
 		}
 
+                if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                        ret = rb_src_brick_restart (volinfo, src_brickinfo,
+                                                    0);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Couldn't restart src brick "
+                                        "with pump xlator disabled.");
+                                goto out;
+                        }
+                }
 
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
                         gf_log (THIS->name, GF_LOG_INFO,
@@ -1830,8 +1665,9 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 goto out;
                         }
 
-                        ret = rb_do_operation_status (volinfo, src_brickinfo,
-                                                      dst_brickinfo);
+                        ret = rb_do_operation (volinfo, src_brickinfo,
+                                               dst_brickinfo,
+                                               GF_REPLACE_OP_STATUS);
                         if (ret)
                                 goto out;
                 }
@@ -1965,11 +1801,10 @@ glusterd_do_replace_brick (void *data)
                         goto out;
                 }
 
-                ret = rb_do_operation_start (volinfo, src_brickinfo, dst_brickinfo);
-                if (ret) {
-                        glusterd_set_rb_status (volinfo, GF_RB_STATUS_NONE);
+                ret = rb_do_operation (volinfo, src_brickinfo, dst_brickinfo,
+                                       GF_REPLACE_OP_START);
+                if (ret)
                         goto out;
-                }
                 break;
         case GF_REPLACE_OP_PAUSE:
         case GF_REPLACE_OP_ABORT:
