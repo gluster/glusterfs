@@ -338,6 +338,7 @@ entry_copy (gf_dirent_t *source)
         sink->d_off = source->d_off;
         sink->d_ino = source->d_ino;
         sink->d_type = source->d_type;
+        uuid_copy (sink->d_stat.ia_gfid, source->d_stat.ia_gfid);
 
         return sink;
 }
