@@ -2576,6 +2576,13 @@ __nfs_rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
         if (!conn)
                 return -1;
 
+        /* If the transmission buffer list is empty, do not return -1 */
+        if (list_empty (&conn->txbufs)) {
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "transmission buffer list for "
+                        "the connection %p is empty. Returning 0", conn);
+                written = 0;
+        }
+
         /* Attempt transmission of each of the pending buffers */
         list_for_each_entry_safe (txbuf, tmp, &conn->txbufs, txlist) {
 tx_remaining:
