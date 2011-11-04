@@ -177,6 +177,11 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
+        if (sh->entries_skipped) {
+                need_unwind = 1;
+                sh->op_failed = _gf_true;
+                goto out;
+        }
         afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix, sh->success,
                                  priv->child_count, AFR_ENTRY_TRANSACTION);
 
@@ -224,6 +229,7 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
         }
         GF_FREE (erase_xattr);
 
+out:
         if (need_unwind)
                 afr_sh_entry_finish (frame, this);
 
@@ -723,7 +729,8 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         expunge_sh->active_source = active_src;
         expunge_sh->entrybuf = entry->d_stat;
 
-        ret = afr_build_child_loc (this, &expunge_local->loc, &local->loc, name);
+        ret = afr_build_child_loc (this, &expunge_local->loc, &local->loc,
+                                   name, entry->d_stat.ia_gfid);
         if (ret != 0) {
                 op_errno = EINVAL;
                 goto out;
@@ -1727,8 +1734,13 @@ afr_sh_entry_common_lookup_done (call_frame_t *impunge_frame, xlator_t *this,
                 afr_update_gfid_from_iatts (gfid, impunge_sh->buf,
                                             impunge_sh->child_success,
                                             priv->child_count);
-                if (uuid_is_null (gfid))
-                        uuid_generate (gfid);
+                if (uuid_is_null (gfid)) {
+                        sh->entries_skipped = _gf_true;
+                        gf_log (this->name, GF_LOG_INFO, "%s: Skipping entry "
+                                "self-heal because of gfid absence",
+                                impunge_local->loc.path);
+                        goto done;
+                }
                 afr_sh_common_lookup (impunge_frame, this, &impunge_local->loc,
                                       afr_sh_entry_common_lookup_done, gfid,
                                       AFR_LOOKUP_FAIL_CONFLICTS |
@@ -1799,7 +1811,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 
         impunge_local = impunge_frame->local;
         ret = afr_build_child_loc (this, &impunge_local->loc, &local->loc,
-                                   entry->d_name);
+                                   entry->d_name, entry->d_stat.ia_gfid);
         if (ret != 0) {
                 op_errno = ENOMEM;
                 goto out;

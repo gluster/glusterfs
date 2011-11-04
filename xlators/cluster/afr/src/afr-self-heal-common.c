@@ -1223,10 +1223,12 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         afr_private_t   *priv = NULL;
         ia_type_t       ia_type = IA_INVAL;
         int32_t         nsources = 0;
+        loc_t           *loc = NULL;
 
         local = frame->local;
         sh = &local->self_heal;
         priv = this->private;
+        loc = &local->loc;
 
         if (op_ret < 0) {
                 if (op_errno == EIO)
@@ -1260,6 +1262,8 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
 
         if (sh->gfid_sh_success_cbk)
                 sh->gfid_sh_success_cbk (frame, this);
+        if (uuid_is_null (loc->inode->gfid))
+                uuid_copy (loc->gfid, sh->buf[sh->source].ia_gfid);
         sh_missing_entries_create (frame, this);
         return;
 out:
@@ -1824,6 +1828,7 @@ afr_sh_post_nb_entrylk_conflicting_sh_cbk (call_frame_t *frame, xlator_t *this)
         if (int_lock->lock_op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "Non blocking entrylks failed.");
+                sh->op_failed = -1;
                 afr_sh_missing_entries_done (frame, this);
         } else {
 
@@ -2073,9 +2078,9 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         int32_t          op_errno = 0;
         int              ret = 0;
         afr_self_heal_t *orig_sh = NULL;
-
-        call_frame_t *sh_frame = NULL;
-        afr_local_t  *sh_local = NULL;
+        call_frame_t    *sh_frame = NULL;
+        afr_local_t     *sh_local = NULL;
+        loc_t           *loc   = NULL;
 
         local = frame->local;
         orig_sh = &local->self_heal;
@@ -2177,6 +2182,13 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 GF_ASSERT (!uuid_is_null (sh->sh_gfid_req));
                 afr_self_heal_gfids (sh_frame, this);
         } else {
+                loc = &sh_local->loc;
+                if (uuid_is_null (loc->inode->gfid) && uuid_is_null (loc->gfid)) {
+                        if (!uuid_is_null (inode->gfid))
+                                GF_ASSERT (!uuid_compare (inode->gfid,
+                                           sh->sh_gfid_req));
+                        uuid_copy (loc->gfid, sh->sh_gfid_req);
+                }
                 gf_log (this->name, GF_LOG_TRACE,
                         "proceeding to metadata check on %s",
                         local->loc.path);
@@ -2244,7 +2256,7 @@ afr_self_heal_type_for_transaction (afr_transaction_type type)
 }
 
 int
-afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
+afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name, uuid_t gfid)
 {
         int   ret = -1;
 
@@ -2278,6 +2290,7 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
                 ret = -1;
                 goto out;
         }
+        uuid_copy (child->gfid, gfid);
 
         ret = 0;
 out:

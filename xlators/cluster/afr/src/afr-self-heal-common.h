@@ -105,7 +105,8 @@ typedef int
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
                        dict_t *xattr);
 int
-afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name);
+afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name,
+                     uuid_t gfid);
 int
 afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
                           int active_source, int ret_child, mode_t entry_mode,
