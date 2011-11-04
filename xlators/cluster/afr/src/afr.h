@@ -227,6 +227,7 @@ typedef struct {
 
         mode_t impunging_entry_mode;
         const char *linkname;
+        gf_boolean_t entries_skipped;
 
         int   op_failed;
 

@@ -323,7 +323,7 @@ pump_save_file_stats (xlator_t *this, const char *path)
 }
 
 static int
-gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
+gf_pump_traverse_directory (loc_t *loc)
 {
         xlator_t        *this              = NULL;
         fd_t            *fd                = NULL;
@@ -337,14 +337,7 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
 	dict_t          *xattr_rsp         = NULL;
         int             ret                = 0;
         gf_boolean_t    is_directory_empty = _gf_true;
-        dict_t          *xattr_req         = NULL;
         gf_boolean_t    free_entries       = _gf_false;
-
-        xattr_req = dict_new ();
-        if (!xattr_req) {
-                ret = -1;
-                goto out;
-        }
 
         INIT_LIST_HEAD (&entries.list);
         this = THIS;
@@ -382,9 +375,17 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "found readdir entry=%s", entry->d_name);
 
+                        offset = entry->d_off;
+                        if (uuid_is_null (entry->d_stat.ia_gfid)) {
+                                gf_log (this->name, GF_LOG_WARNING, "%s/%s: No "
+                                        "gfid present skipping",
+                                        loc->path, entry->d_name);
+                                continue;
+                        }
                         loc_wipe (&entry_loc);
-                        ret = afr_build_child_loc (this, &entry_loc,
-                                                   loc, entry->d_name);
+                        ret = afr_build_child_loc (this, &entry_loc, loc,
+                                                   entry->d_name,
+                                                   entry->d_stat.ia_gfid);
                         if (ret)
                                 goto out;
 
@@ -397,17 +398,9 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
                                             entry_loc.path,
                                             iatt.ia_ino);
 
-                                    afr_generate_gfid_on_empty (gfid);
-                                    ret = dict_reset (xattr_req);
-                                    if (ret)
-                                            goto out;
-                                    ret = afr_set_dict_gfid (xattr_req, gfid);
-                                    if (ret)
-                                            goto out;
-                                    ret = syncop_lookup (this, &entry_loc, xattr_req,
+                                    ret = syncop_lookup (this, &entry_loc, NULL,
                                                          &iatt, &xattr_rsp, &parent);
 
-                                    afr_empty_gfid_on_set (gfid, ret, &iatt);
                                     if (ret) {
                                             gf_log (this->name, GF_LOG_ERROR,
                                                     "%s: lookup failed",
@@ -434,11 +427,10 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
                                                     gf_log (this->name, GF_LOG_TRACE,
                                                             "entering dir=%s",
                                                             entry->d_name);
-                                                    gf_pump_traverse_directory (&entry_loc, gfid);
+                                                    gf_pump_traverse_directory (&entry_loc);
                                             }
                                     }
                             }
-                        offset = entry->d_off;
                 }
 
                 gf_dirent_free (&entries);
@@ -456,8 +448,6 @@ gf_pump_traverse_directory (loc_t *loc, uuid_t gfid)
         }
 
 out:
-        if (xattr_req)
-                dict_unref (xattr_req);
         if (entry_loc.path)
                 loc_wipe (&entry_loc);
         if (free_entries)
@@ -626,7 +616,6 @@ pump_task (void *data)
 	struct iatt iatt, parent;
 	dict_t *xattr_rsp = NULL;
         dict_t *xattr_req = NULL;
-        uuid_t gfid = {0};
 
         int ret = -1;
 
@@ -666,7 +655,7 @@ pump_task (void *data)
                 goto out;
         }
 
-        gf_pump_traverse_directory (&loc, gfid);
+        gf_pump_traverse_directory (&loc);
 
         pump_complete_migration (this);
 out:

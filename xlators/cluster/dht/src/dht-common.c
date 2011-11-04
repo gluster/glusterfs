@@ -260,6 +260,7 @@ unlock:
 
 selfheal:
         FRAME_SU_DO (frame, dht_local_t);
+        uuid_copy (local->loc.gfid, local->gfid);
         ret = dht_selfheal_directory (frame, dht_lookup_selfheal_cbk,
                                       &local->loc, layout);
 out:
@@ -3296,6 +3297,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 
         local->call_cnt = conf->subvolume_cnt - 1;
 
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, stbuf->ia_gfid);
         if (local->call_cnt == 0) {
                 dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
                                         &local->loc, layout);
