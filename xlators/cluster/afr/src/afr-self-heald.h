@@ -38,12 +38,6 @@ void afr_build_root_loc (inode_t *inode, loc_t *loc);
 int afr_set_root_gfid (dict_t *dict);
 
 inline void
-afr_generate_gfid_on_empty (uuid_t gfid);
-
-inline void
-afr_empty_gfid_on_set (uuid_t gfid, int lookup_status, struct iatt *iatt);
-
-inline void
 afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent);
 
 #endif /* __AFR_SELF_HEALD_H__ */

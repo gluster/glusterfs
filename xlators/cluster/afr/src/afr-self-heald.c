@@ -27,7 +27,7 @@
 #include "afr-self-heal-common.h"
 
 static int
-_crawl_directory (loc_t *loc, pid_t pid, uuid_t gfid);
+_crawl_directory (loc_t *loc, pid_t pid);
 static int
 get_pathinfo_host (char *pathinfo, char *hostname, size_t size)
 {
@@ -85,20 +85,6 @@ out:
 }
 
 inline void
-afr_generate_gfid_on_empty (uuid_t gfid)
-{
-        if (uuid_is_null (gfid))
-                uuid_generate (gfid);
-}
-
-inline void
-afr_empty_gfid_on_set (uuid_t gfid, int lookup_status, struct iatt *iatt)
-{
-        if (lookup_status || !uuid_compare (gfid, iatt->ia_gfid))
-                uuid_clear (gfid);
-}
-
-inline void
 afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
 {
         afr_update_loc_gfids (loc, iatt, parent);
@@ -107,7 +93,7 @@ afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
 
 static int
 _perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
-                    uuid_t gfid, off_t *offset, pid_t pid)
+                    off_t *offset, pid_t pid)
 {
         gf_dirent_t      *entry = NULL;
         gf_dirent_t      *tmp = NULL;
@@ -115,57 +101,45 @@ _perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
         struct iatt      parent = {0};;
         int              ret = 0;
         loc_t            entry_loc = {0};
-        dict_t           *xattr_req = NULL;
-
-        xattr_req = dict_new ();
-        if (!xattr_req) {
-                ret = -1;
-                goto out;
-        }
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
                 *offset = entry->d_off;
                 if (IS_ENTRY_CWD (entry->d_name) ||
                     IS_ENTRY_PARENT (entry->d_name))
                         continue;
-
-                ret = dict_reset (xattr_req);
-                if (ret)
-                        goto out;
+                if (uuid_is_null (entry->d_stat.ia_gfid)) {
+                        gf_log (this->name, GF_LOG_WARNING, "%s/%s: No "
+                                "gfid present skipping",
+                                parentloc->path, entry->d_name);
+                        continue;
+                }
 
                 loc_wipe (&entry_loc);
-                ret = afr_build_child_loc (this, &entry_loc,
-                                           parentloc, entry->d_name);
+                ret = afr_build_child_loc (this, &entry_loc, parentloc,
+                                           entry->d_name, entry->d_stat.ia_gfid);
                 if (ret)
                         goto out;
 
-                afr_generate_gfid_on_empty (gfid);
-                ret = afr_set_dict_gfid (xattr_req, gfid);
-                if (ret)
-                        goto out;
                 gf_log (this->name, GF_LOG_DEBUG, "lookup %s", entry_loc.path);
 
-                ret = syncop_lookup (this, &entry_loc, xattr_req,
+                ret = syncop_lookup (this, &entry_loc, NULL,
                                      &iatt, NULL, &parent);
-                afr_empty_gfid_on_set (gfid, ret, &iatt);
                 //Don't fail the crawl if lookup fails as it
                 //could be because of split-brain
                 if (ret || (!IA_ISDIR (iatt.ia_type)))
                         continue;
                 afr_fill_loc_info (&entry_loc, &iatt, &parent);
-                ret = _crawl_directory (&entry_loc, pid, gfid);
+                ret = _crawl_directory (&entry_loc, pid);
         }
         ret = 0;
 out:
-        if (xattr_req)
-                dict_unref (xattr_req);
         if (entry_loc.path)
                 loc_wipe (&entry_loc);
         return ret;
 }
 
 static int
-_crawl_directory (loc_t *loc, pid_t pid, uuid_t gfid)
+_crawl_directory (loc_t *loc, pid_t pid)
 {
         xlator_t        *this = NULL;
         afr_private_t   *priv = NULL;
@@ -217,7 +191,7 @@ _crawl_directory (loc_t *loc, pid_t pid, uuid_t gfid)
                 if (list_empty (&entries.list))
                         goto out;
 
-                ret = _perform_self_heal (this, loc, &entries, gfid, &offset, pid);
+                ret = _perform_self_heal (this, loc, &entries, &offset, pid);
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
         }
@@ -382,7 +356,6 @@ afr_crawl_directory (xlator_t *this, pid_t pid)
         loc_t            loc = {0};
         gf_boolean_t     crawl = _gf_false;
         int             ret = 0;
-        uuid_t          gfid = {0};
 
         priv = this->private;
         shd = &priv->shd;
@@ -409,7 +382,7 @@ afr_crawl_directory (xlator_t *this, pid_t pid)
 
         afr_build_root_loc (priv->root_inode, &loc);
         while (crawl) {
-                ret = _crawl_directory (&loc, pid, gfid);
+                ret = _crawl_directory (&loc, pid);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "Crawl failed");
                 else
