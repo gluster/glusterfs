@@ -616,6 +616,7 @@ afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         UNLOCK (&local->fd->lock);
 
         if (call_count == 0) {
+                no_open = 1;
                 goto out;
         }
 
