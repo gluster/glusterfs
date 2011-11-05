@@ -19,6 +19,7 @@
 
 #include "quota.h"
 #include "common-utils.h"
+#include "defaults.h"
 
 int32_t
 quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
@@ -2683,6 +2684,102 @@ err:
 
 
 int32_t
+quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct statvfs *buf)
+{
+	inode_t            *root_inode = NULL;
+        quota_priv_t       *priv       = NULL;
+        uint64_t            value      = 0;
+        quota_inode_ctx_t  *ctx        = NULL;
+        limits_t           *limit_node = NULL;
+	int64_t             usage      = -1;
+	int64_t             avail      = -1;
+
+	root_inode = cookie;
+	/*
+	 * We should never get here unless quota_statfs (below) sent us a
+	 * cookie, and it would only do so if the value was non-NULL.  This
+	 * check is therefore just routine defensive coding.
+	 */
+	if (!root_inode) {
+		gf_log(this->name,GF_LOG_WARNING,
+		       "null inode, cannot adjust for quota");
+		goto unwind;
+	}
+	if (!root_inode->table || (root_inode != root_inode->table->root)) {
+		gf_log(this->name,GF_LOG_WARNING,
+		       "non-root inode, cannot adjust for quota");
+		goto unwind;
+	}
+
+        inode_ctx_get (root_inode, this, &value);
+	if (!value) {
+		goto unwind;
+	}
+        ctx = (quota_inode_ctx_t *)(unsigned long)value;
+	usage = (ctx->size) / buf->f_bsize;
+        priv = this->private;
+
+        list_for_each_entry (limit_node, &priv->limit_head, limit_list) {
+		/* Notice that this only works for volume-level quota. */
+                if (strcmp (limit_node->path, "/") == 0) {
+			buf->f_blocks = limit_node->value / buf->f_bsize;
+			avail = buf->f_blocks - usage;
+			if (buf->f_bfree > avail) {
+				buf->f_bfree = avail;
+			}
+			/*
+			 * We have to assume that the total assigned quota
+			 * won't cause us to dip into the reserved space,
+			 * because dealing with the overcommitted cases is
+			 * just too hairy (especially when different bricks
+			 * might be using different reserved percentages and
+			 * such).
+			 */
+			buf->f_bavail = buf->f_bfree;
+			break;
+                }
+        }
+
+unwind:
+	if (root_inode) {
+		inode_unref(root_inode);
+	}
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf);
+        return 0;
+}
+
+
+int32_t
+quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+	inode_t *root_inode = NULL;
+
+	if (loc->inode) {
+		root_inode = loc->inode->table->root;
+		inode_ref(root_inode);
+		STACK_WIND_COOKIE (frame, quota_statfs_cbk, root_inode,
+				   FIRST_CHILD(this),
+				   FIRST_CHILD(this)->fops->statfs, loc);
+	}
+	else {
+		/*
+		 * We have to make sure that we never get to quota_statfs_cbk
+		 * with a cookie that points to something other than an inode,
+		 * which is exactly what would happen with STACK_UNWIND using
+		 * that as a callback.  Therefore, use default_statfs_cbk in
+		 * this case instead.
+		 */
+		gf_log(this->name,GF_LOG_WARNING,
+		       "missing inode, cannot adjust for quota");
+		STACK_WIND (frame, default_statfs_cbk, FIRST_CHILD(this),
+			    FIRST_CHILD(this)->fops->statfs, loc);
+	}
+        return 0;
+}
+
+
+int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
@@ -2865,6 +2962,7 @@ fini (xlator_t *this)
 
 
 struct xlator_fops fops = {
+	.statfs    = quota_statfs,
         .lookup    = quota_lookup,
         .writev    = quota_writev,
         .create    = quota_create,
