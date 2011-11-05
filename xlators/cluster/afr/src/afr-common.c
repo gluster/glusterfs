@@ -143,14 +143,12 @@ afr_lookup_save_gfid (uuid_t dst, void* new, const loc_t *loc)
         inode_t  *inode = NULL;
 
         inode = loc->inode;
-        if (inode && !uuid_is_null (inode->gfid)) {
+        if (inode && !uuid_is_null (inode->gfid))
                 uuid_copy (dst, inode->gfid);
-        } else if (!uuid_is_null (loc->gfid)){
+        else if (!uuid_is_null (loc->gfid))
                 uuid_copy (dst, loc->gfid);
-        } else {
-                GF_ASSERT (new && !uuid_is_null (new));
+        else if (new && !uuid_is_null (new))
                 uuid_copy (dst, new);
-        }
 }
 
 int
@@ -1700,6 +1698,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local = NULL;
         int                 ret = -1;
         gf_boolean_t        sh_launched = _gf_false;
+        gf_boolean_t        fail_conflict = _gf_false;
         int                 gfid_miss_count = 0;
         int                 enotconn_count = 0;
         int                 up_children_count = 0;
@@ -1723,7 +1722,18 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
                 goto unwind;
         }
 
-        ret = afr_lookup_done_success_action (frame, this, _gf_false);
+        if ((gfid_miss_count == local->success_count) &&
+            uuid_is_null (local->cont.lookup.gfid_req)) {
+                local->op_ret = -1;
+                local->op_errno = ENODATA;
+                gf_log (this->name, GF_LOG_ERROR, "%s: No gfid present",
+                        local->loc.path);
+                goto unwind;
+        }
+
+        if (gfid_miss_count && uuid_is_null (local->cont.lookup.gfid_req))
+                fail_conflict = _gf_true;
+        ret = afr_lookup_done_success_action (frame, this, fail_conflict);
         if (ret)
                 goto unwind;
         uuid_copy (local->self_heal.sh_gfid_req, local->cont.lookup.gfid_req);
