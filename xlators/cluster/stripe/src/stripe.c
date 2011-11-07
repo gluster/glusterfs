@@ -3622,6 +3622,8 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* */
                 GF_FREE (mlocal->replies);
                 tmp_iobref = mlocal->iobref;
+                /* work around for nfs truncated read. Bug 3774 */
+                WIPE (&tmp_stbuf);
                 STRIPE_STACK_UNWIND (readv, mframe, op_ret, op_errno, final_vec,
                                      final_count, &tmp_stbuf, tmp_iobref);
 
