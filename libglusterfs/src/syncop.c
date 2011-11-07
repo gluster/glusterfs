@@ -346,6 +346,7 @@ entry_copy (gf_dirent_t *source)
         sink->d_off = source->d_off;
         sink->d_ino = source->d_ino;
         sink->d_type = source->d_type;
+        sink->d_stat = source->d_stat;
 
         return sink;
 }
