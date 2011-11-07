@@ -250,12 +250,17 @@ posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf)
         int i = 0;
 
         /* consider least significant 8 bytes of value out of gfid */
+        if (uuid_is_null (buf->ia_gfid)) {
+                buf->ia_ino = -1;
+                goto out;
+        }
         for (i = 15; i > (15 - 8); i--) {
                 temp_ino += buf->ia_gfid[i] << j;
                 j += 8;
         }
-
         buf->ia_ino = temp_ino;
+out:
+        return;
 }
 
 int
