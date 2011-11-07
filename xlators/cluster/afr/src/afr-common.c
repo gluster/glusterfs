@@ -138,10 +138,15 @@ out:
 }
 
 void
-afr_lookup_save_gfid (uuid_t dst, void* new, inode_t *inode)
+afr_lookup_save_gfid (uuid_t dst, void* new, const loc_t *loc)
 {
+        inode_t  *inode = NULL;
+
+        inode = loc->inode;
         if (inode && !uuid_is_null (inode->gfid)) {
                 uuid_copy (dst, inode->gfid);
+        } else if (!uuid_is_null (loc->gfid)){
+                uuid_copy (dst, loc->gfid);
         } else {
                 GF_ASSERT (new && !uuid_is_null (new));
                 uuid_copy (dst, new);
@@ -2016,7 +2021,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
         afr_lookup_save_gfid (local->cont.lookup.gfid_req, gfid_req,
-                              loc->inode);
+                              loc);
         local->fop = GF_FOP_LOOKUP;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
