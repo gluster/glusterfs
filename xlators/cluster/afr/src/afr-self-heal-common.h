@@ -34,6 +34,11 @@ typedef enum {
         AFR_LOOKUP_FAIL_MISSING_GFIDS = 2,
 } afr_lookup_flags_t;
 
+typedef enum {
+        AFR_SPLIT_BRAIN = 1,
+        AFR_ALL_FOOLS =2
+} afr_source_flags_t;
+
 int
 afr_sh_select_source (int sources[], int child_count);
 
@@ -59,7 +64,8 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
 int
 afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
                   int32_t child_count, afr_self_heal_type type,
-                  int32_t *valid_children, const char *xlator_name);
+                  int32_t *valid_children, const char *xlator_name,
+                  afr_source_flags_t *flags);
 
 int
 afr_sh_delta_to_xattr (afr_private_t *priv,
@@ -79,7 +85,8 @@ afr_self_heal_type_for_transaction (afr_transaction_type type);
 int
 afr_build_sources (xlator_t *xlator, dict_t **xattr, struct iatt *bufs,
                    int32_t **pending_matrix, int32_t *sources,
-                   int32_t *success_children, afr_transaction_type type);
+                   int32_t *success_children, afr_transaction_type type,
+                   afr_source_flags_t *flags);
 void
 afr_sh_common_reset (afr_self_heal_t *sh, unsigned int child_count);
 int

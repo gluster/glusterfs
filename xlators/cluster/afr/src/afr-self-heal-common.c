@@ -585,7 +585,8 @@ afr_find_child_character_type (int32_t *pending_row, int32_t child,
 int
 afr_build_sources (xlator_t *this, dict_t **xattr, struct iatt *bufs,
                    int32_t **pending_matrix, int32_t *sources,
-                   int32_t *success_children, afr_transaction_type type)
+                   int32_t *success_children, afr_transaction_type type,
+                   afr_source_flags_t *flags)
 {
         afr_private_t           *priv = NULL;
         afr_self_heal_type      sh_type    = AFR_SELF_HEAL_INVALID;
@@ -607,9 +608,22 @@ afr_build_sources (xlator_t *this, dict_t **xattr, struct iatt *bufs,
 
         nsources = afr_mark_sources (sources, pending_matrix, bufs,
                                      priv->child_count, sh_type,
-                                     success_children, this->name);
+                                     success_children, this->name, flags);
 out:
         return nsources;
+}
+
+void
+afr_mark_valid_children_sources (int32_t *sources, int32_t *valid_children,
+                                 unsigned int child_count)
+{
+        int i = 0;
+        memset (sources, 0, sizeof (*sources) * child_count);
+        for (i = 0; i < child_count; i++) {
+                if (valid_children[i] == -1)
+                        break;
+                sources[valid_children[i]] = 1;
+        }
 }
 
 /**
@@ -632,14 +646,15 @@ out:
  * a split-brain. If one wise node refers to the other but the other doesn't
  * refer back, the referrer is a source.
  *
- * All fools are sinks, unless there are no 'wise' nodes. In that case,
- * one of the fools is made a source.
+ * All fools are sinks, unless there are no 'wise' nodes. if 'allfools' is NULL,
+ * biggest fool(s) is/are marked as source.
  */
 
 int
 afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
                   int32_t child_count, afr_self_heal_type type,
-                  int32_t *valid_children, const char *xlator_name)
+                  int32_t *valid_children, const char *xlator_name,
+                  afr_source_flags_t *flags)
 {
         /* stores the 'characters' (innocent, fool, wise) of the nodes */
 
@@ -688,6 +703,8 @@ afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
                         /* split-brain */
                         gf_log (this->name, GF_LOG_INFO,
                                 "split-brain possible, no source detected");
+                        if (flags)
+                                *flags |= AFR_SPLIT_BRAIN;
                         nsources = -1;
 
                 } else {
@@ -696,6 +713,11 @@ afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
                                                                   child_count);
                 }
         } else {
+                if (flags) {
+                        *flags |= AFR_ALL_FOOLS;
+                        nsources = -1;
+                        goto out;
+                }
                 nsources = afr_mark_biggest_of_fools_as_source (sources,
                                                                 pending_matrix,
                                                                 characters,
@@ -703,12 +725,9 @@ afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
         }
 
 out:
-        if (nsources == 0) {
-                for (i = 0; i < child_count; i++) {
-                        if (valid_children[i] != -1)
-                                sources[valid_children[i]] = 1;
-                }
-        }
+        if (nsources == 0)
+                afr_mark_valid_children_sources (sources, valid_children,
+                                                 child_count);
         if (characters)
                 GF_FREE (characters);
 
@@ -1242,7 +1261,7 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
                                       sh->child_success,
-                                      afr_transaction_type_get (ia_type));
+                                      afr_transaction_type_get (ia_type), NULL);
         if (nsources < 0) {
                 gf_log (this->name, GF_LOG_INFO, "No sources for dir of %s,"
                         " in missing entry self-heal, continuing with the rest"
@@ -1667,12 +1686,13 @@ static void
 afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
                            int32_t op_ret, int32_t op_errno)
 {
-        afr_self_heal_t *sh  = NULL;
-        afr_private_t   *priv = NULL;
-        afr_local_t     *local = NULL;
-        int             enoent_count = 0;
-        int             nsources = 0;
-        int             source  = -1;
+        afr_self_heal_t    *sh  = NULL;
+        afr_private_t      *priv = NULL;
+        afr_local_t        *local = NULL;
+        int                enoent_count = 0;
+        int                nsources = 0;
+        int                source  = -1;
+        afr_source_flags_t flags = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -1702,12 +1722,20 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
                                       sh->child_success,
-                                      AFR_ENTRY_TRANSACTION);
-        if (nsources < 0) {
+                                      AFR_ENTRY_TRANSACTION, &flags);
+        if ((nsources < 0) && !flags) {
                 gf_log (this->name, GF_LOG_ERROR, "No sources for dir of %s,"
                         " in missing entry self-heal, aborting self-heal",
                         local->loc.path);
                 goto out;
+        }
+
+        //if allfools/split-brain give the behavior of missing entry creation
+        if (flags) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: All subvols pending so "
+                        "do missing entry creation", local->loc.path);
+                afr_mark_valid_children_sources (sh->sources, sh->child_success,
+                                                 priv->child_count);
         }
 
         source = afr_sh_select_source (sh->sources, priv->child_count);

@@ -602,7 +602,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
         nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
                                      priv->child_count, AFR_SELF_HEAL_DATA,
-                                     sh->child_success, this->name);
+                                     sh->child_success, this->name, NULL);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -823,7 +823,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
 
         nsources = afr_mark_sources (sources, pending_matrix, bufs,
                                      priv->child_count, sh_type,
-                                     valid_children, this->name);
+                                     valid_children, this->name, NULL);
         if (nsources < 0) {
                 ret = -1;
                 goto out;
