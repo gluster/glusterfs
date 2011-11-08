@@ -1236,6 +1236,17 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
                 local->inode    = inode_ref (loc->inode);
 
+                if (IA_ISDIR (local->inode->ia_type)) {
+                        local->call_cnt = call_cnt = conf->subvolume_cnt;
+                        for (i = 0; i < call_cnt; i++) {
+                                STACK_WIND (frame, dht_revalidate_cbk,
+                                            conf->subvolumes[i],
+                                            conf->subvolumes[i]->fops->lookup,
+                                            loc, local->xattr_req);
+                        }
+                        return 0;
+                }
+
                 local->call_cnt = layout->cnt;
                 call_cnt = local->call_cnt;
 
