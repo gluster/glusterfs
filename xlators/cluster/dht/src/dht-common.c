@@ -1256,15 +1256,13 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 ret = dict_set_uint32 (local->xattr_req,
                                        "trusted.glusterfs.dht", 4 * 4);
 
-		for (i = 0; i < layout->cnt; i++) {
+		for (i = 0; i < call_cnt; i++) {
 			subvol = layout->list[i].xlator;
 			
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
 				    &local->loc, local->xattr_req);
 
-			if (!--call_cnt)
-				break;
 		}
         } else {
         do_fresh_lookup:
@@ -1417,6 +1415,7 @@ dht_stat (call_frame_t *frame, xlator_t *this,
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
         int           i = 0;
+        int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1432,6 +1431,8 @@ dht_stat (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+        local->inode = inode_ref (loc->inode);
+
         local->layout = layout = dht_layout_get (this, loc->inode);
         if (!layout) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1440,10 +1441,9 @@ dht_stat (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->inode = inode_ref (loc->inode);
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 subvol = layout->list[i].xlator;
 
                 STACK_WIND (frame, dht_attr_cbk,
@@ -1470,6 +1470,7 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
         int           i = 0;
+        int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1491,9 +1492,9 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
         }
 
         local->inode    = inode_ref (fd->inode);
-        local->call_cnt = layout->cnt;;
+        local->call_cnt = call_cnt = layout->cnt;;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 subvol = layout->list[i].xlator;
                 STACK_WIND (frame, dht_attr_cbk,
                             subvol, subvol->fops->fstat,
@@ -2361,6 +2362,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout   = NULL;
         int           i        = 0;
         int           op_errno = EINVAL;
+        int           call_cnt = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -2391,9 +2393,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_err_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->setxattr,
@@ -2453,6 +2455,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
         int           op_errno = -1;
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
+        int           call_cnt = 0;
 
         int i;
 
@@ -2484,9 +2487,9 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_removexattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->removexattr,
@@ -5025,6 +5028,7 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         dht_local_t  *local  = NULL;
         int           op_errno = -1;
         int           i = -1;
+        int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -5057,9 +5061,9 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         local->inode = inode_ref (loc->inode);
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_setattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->setattr,
@@ -5084,6 +5088,7 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
         dht_local_t  *local  = NULL;
         int           op_errno = -1;
         int           i = -1;
+        int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -5113,9 +5118,9 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
         }
 
         local->inode = inode_ref (fd->inode);
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_setattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->fsetattr,
