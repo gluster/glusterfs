@@ -3415,8 +3415,9 @@ rdma_handle_failed_send_completion (rdma_peer_t *peer, struct ibv_wc *wc)
 void
 rdma_handle_successful_send_completion (rdma_peer_t *peer, struct ibv_wc *wc)
 {
-        rdma_post_t            *post     = NULL;
-        int                     reads    = 0, ret = 0;
+        rdma_post_t   *post   = NULL;
+        int            reads  = 0, ret = 0;
+        rdma_header_t *header = NULL;
 
         if (wc->opcode != IBV_WC_RDMA_READ) {
                 goto out;
@@ -3433,6 +3434,13 @@ rdma_handle_successful_send_completion (rdma_peer_t *peer, struct ibv_wc *wc)
         if (reads != 0) {
                 /* if it is not the last rdma read, we've got nothing to do */
                 goto out;
+        }
+
+        header = (rdma_header_t *)post->buf;
+
+        if (header->rm_type == RDMA_NOMSG) {
+                post->ctx.count = 1;
+                post->ctx.vector[0].iov_len += post->ctx.vector[1].iov_len;
         }
 
         ret = rdma_pollin_notify (peer, post);
