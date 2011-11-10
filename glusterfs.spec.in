@@ -1,63 +1,67 @@
 # if you make changes, the it is advised to increment this number, and provide
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
-%define release 1%{?dist}
-%define _libexecdir %{_prefix}/local/libexec/
+%global release 1%{?dist}
+%global _sharedstatedir %{_prefix}/var/lib
+
 
 # if you wish to compile an rpm without rdma support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
-%{?_without_rdma:%define _without_rdma --disable-ibverbs}
+%{?_without_rdma:%global _without_rdma --disable-ibverbs}
+
+# No RDMA Support on x390(x)
+%ifarch s390 s390x
+%global _without_rdma --disable-ibverbs
+%endif
 
 # if you wish to compile an rpm without epoll...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
-%{?_without_epoll:%define _without_epoll --disable-epoll}
+%{?_without_epoll:%global _without_epoll --disable-epoll}
 
 # if you wish to compile an rpm with fusermount...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with fusermount
-%{?_with_fusermount:%define _with_fusermount --enable-fusermount}
+%{?_with_fusermount:%global _with_fusermount --enable-fusermount}
+
+%global version @PACKAGE_VERSION@
+%if "%{version}" >= "3.2"
+%global _can_georeplicate 1
 
 # if you wish to compile an rpm without geo-replication support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without georeplication
-%{?_without_georeplication:%define _without_georeplication --disable-geo-replication}
+%{?_without_georeplication:%global _without_georeplication --disable-geo-replication}
+%endif
 
 Summary: Cluster File System
 Name: @PACKAGE_NAME@
-Version: @PACKAGE_VERSION@
+Version: %{version}
 Release: %{release}
 License: GPLv3+
 Group: System Environment/Base
 Vendor: Gluster Inc
 Packager: @PACKAGE_BUGREPORT@
 URL: http://www.gluster.org/docs/index.php/GlusterFS
-Source0: ftp://ftp.gluster.com/pub/gluster/glusterfs/@PACKAGE_VERSION@/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+Source0: @PACKAGE_TARNAME@
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
 Requires(postun): /sbin/service
 
-BuildRequires: bison flex
-BuildRequires: gcc make
+BuildRequires: bison flex 
+BuildRequires: gcc make automake libtool
+BuildRequires: ncurses-devel readline-devel
+BuildRequires: python-ctypes
 %if 0%{?suse_version}
 BuildRequires: python-devel
 %endif
-%define _prefix /opt/%{name}/%{version}
+
+Obsoletes:        %{name}-libs <= 2.0.0
+Obsoletes:        %{name}-common < %{version}-%{release}
+Obsoletes:        %{name}-core < %{version}-%{release}
+Provides:         %{name}-libs = %{version}-%{release}
+Provides:         %{name}-common = %{version}-%{release}
+Provides:         %{name}-core = %{version}-%{release}
 
 %description
-GlusterFS is a clustered file-system capable of scaling to several
-peta-bytes. It aggregates various storage bricks over Infiniband RDMA
-or TCP/IP interconnect into one large parallel network file
-system. GlusterFS is one of the most sophisticated file system in
-terms of features and extensibility.  It borrows a powerful concept
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS
-is in userspace and easily manageable.
-
-%package core
-Summary: GlusterFS common files for both the client and the server
-Group: System Environment/Libraries
-Obsoletes: glusterfs-libs <= 2.0.0 glusterfs-common < 3.1.0 glusterfs-server < 3.1.0
-Provides: glusterfs-libs = %{version}-%{release}
-
-%description core
 GlusterFS is a clustered file-system capable of scaling to several
 peta-bytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
@@ -72,10 +76,11 @@ GlusterFS server and client framework.
 
 %if 0%{!?_without_rdma:1}
 %package rdma
-Summary: GlusterFS rdma
+Summary: GlusterFS rdma support for ib-verbs
 Group: Applications/File
-Requires: glusterfs-core >= %{version}-%{release}
 BuildRequires: libibverbs-devel
+
+Requires: %{name} = %{version}-%{release}
 
 %description rdma
 GlusterFS is a clustered file-system capable of scaling to several
@@ -89,11 +94,12 @@ is in userspace and easily manageable.
 This package provides support to ib-verbs library.
 %endif
 
+%if 0%{?_can_georeplicate}
 %if 0%{!?_without_georeplication:1}
 %package geo-replication
 Summary: GlusterFS Geo-replication
 Group: Applications/File
-Requires: glusterfs-core >= %{version}-%{release} , python-ctypes , rsync >= 3.0.0
+Requires: %{name} = %{version}-%{release} , python-ctypes , rsync >= 3.0.0
 
 %description geo-replication
 GlusterFS is a clustered file-system capable of scaling to several
@@ -106,12 +112,17 @@ is in userspace and easily manageable.
 
 This package provides support to geo-replication.
 %endif
+%endif
 
 %package fuse
-Summary: GlusterFS Fuse
+Summary: GlusterFS Fuse client
 Group: Applications/File
+BuildRequires: fuse-devel
+
 Requires: glusterfs-core >= %{version}-%{release}
-Obsoletes: glusterfs-client < 3.1.0
+
+Obsoletes:        %{name}-client < %{version}-%{release}
+Provides:         %{name}-client = %{version}-%{release}
 
 %description fuse
 GlusterFS is a clustered file-system capable of scaling to several
@@ -124,117 +135,117 @@ is in userspace and easily manageable.
 
 This package provides support to FUSE based clients.
 
+%package server
+Summary:          Clustered file-system server
+Group:            System Environment/Daemons
+Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-fuse = %{version}-%{release}
+
+%description server
+GlusterFS is a clustered file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the glusterfs server daemon.
+
+%package devel
+Summary:        Development Libraries
+Group:          Development/Libraries
+Requires:       %{name} = %{version}-%{release}
+
+%description devel
+GlusterFS is a clustered file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the development libraries.
+
 %prep
 %setup -q -n %{name}-%{version}
 
 %build
-
+./autogen.sh
 %configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_georeplication}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+
 %{__make} %{?_smp_mflags}
 
 
 %install
 %{__rm} -rf %{buildroot}
 %{__make} install DESTDIR=%{buildroot}
-%{__mkdir_p} %{buildroot}/usr/sbin
-%{__mkdir_p} %{buildroot}/usr/local/libexec/glusterfs
-%{__ln_s} ../..%{_sbindir}/glusterd %{buildroot}/usr/sbin/glusterd
-%{__ln_s} ../..%{_sbindir}/glusterfsd %{buildroot}/usr/sbin/glusterfsd
-%{__ln_s} ../..%{_sbindir}/gluster %{buildroot}/usr/sbin/gluster
-%{__ln_s} ../..%{_sbindir}/glusterfs %{buildroot}/usr/sbin/glusterfs
-%{__ln_s} %{_libexecdir}/glusterfs/gsyncd %{buildroot}/usr/local/libexec/glusterfs/gsyncd
+# Install include directory
 %{__mkdir_p} %{buildroot}%{_includedir}/glusterfs
-%{__mkdir_p} %{buildroot}/var/log/glusterfs
 %{__install} -p -m 0644 libglusterfs/src/*.h \
     %{buildroot}%{_includedir}/glusterfs/
+%{__install} -p -m 0644 contrib/uuid/*.h \
+    %{buildroot}%{_includedir}/glusterfs/
+# Following needed by hekafs multi-tenant translator
+%{__mkdir_p} %{buildroot}%{_includedir}/glusterfs/rpc
+%{__install} -p -m 0644 rpc/rpc-lib/src/*.h \
+    %{buildroot}%{_includedir}/glusterfs/rpc/
+%{__install} -p -m 0644 rpc/xdr/src/*.h \
+    %{buildroot}%{_includedir}/glusterfs/rpc/
+%{__mkdir_p} %{buildroot}%{_includedir}/glusterfs/server
+%{__install} -p -m 0644 xlators/protocol/server/src/*.h \
+    %{buildroot}%{_includedir}/glusterfs/server/
+
 
 # Remove unwanted files from all the shared libraries
-find %{buildroot}%{_libdir} -name '*.la' | xargs rm -f
-find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
+find %{buildroot}%{_libdir} -name '*.a' -delete
+find %{buildroot}%{_libdir} -name '*.la' -delete
 
-#update  /etc/ld.so.conf.d
-%{__mkdir_p} %{buildroot}%{_sysconfdir}/ld.so.conf.d
-%ifarch x86_64
-echo "%{_prefix}/lib64" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
-%else
-echo "%{_prefix}/lib" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
-%endif
+# Remove installed docs, we include them ourselves as %%doc
+%{__rm} -rf %{buildroot}%{_datadir}/doc/glusterfs/
+
+# Rename the samples, so we can include them as %%config
+for file in %{buildroot}%{_sysconfdir}/glusterfs/*.sample; do
+  %{__mv} ${file} `dirname ${file}`/`basename ${file} .sample`
+done
+
+# Create working directory
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd
+
+# Update configuration file to /var/lib working directory
+sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sharedstatedir}/glusterd|g' \
+    %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
+
+# Clean up the examples we want to include as %%doc
+%{__cp} -a doc/examples examples
+%{__rm} -f examples/Makefile*
 
 %clean
 %{__rm} -rf %{buildroot}
 
-%post core
-/sbin/ldconfig
-/sbin/chkconfig --add glusterd
-
-
+%post
 /sbin/ldconfig
 
-if [ -d /etc/glusterd/vols ]; then
-#for each dir under vols, backup non-fuse .vol files  as .Vol.old
-for file in `find /etc/glusterd/vols -type f ! -name *-fuse.vol `;
-do
-grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old
-done
-fi
+%postun
+/sbin/ldconfig
 
-pidof -c -o %PPID -x glusterd &> /dev/null
-if [ $? -eq 0 ];
-then
-kill -9 `pgrep -f gsyncd.py` &> /dev/null
-
-killall glusterd glusterfsd &> /dev/null
-# add marker translator
-glusterd --xlator-option *.upgrade=on
-else
-glusterd --xlator-option *.upgrade=on
-sleep 10
-killall glusterd &> /dev/null
-fi
-
-%postun core
-/sbin/ldconfig -n %{_libdir}
-
-%preun core
-if [ $1 -eq 0 ]; then
-    /sbin/chkconfig --del glusterd
-fi
-
-%files core
+%files
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
-%doc %{_datadir}/doc/glusterfs
-%if 0%{?_with_fusermount:1}
-%{_bindir}/fusermount-glusterfs
-%endif
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
-%{_sbindir}/gluster
-%{_sbindir}/glusterd
-/usr/sbin
-%{_mandir}/man8/*glusterfs.8*
-%{_mandir}/man8/*glusterfsd.8*
-%{_mandir}/man8/*gluster.8*
-%{_mandir}/man8/*glusterd.8*
-%dir /var/log/glusterfs
+%{_mandir}/man8/*gluster*.8*
+%dir %{_localstatedir}/log/glusterfs
 %if 0%{!?_without_rdma:1}
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %endif
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
-%config %{_sysconfdir}/glusterfs
-%{_sysconfdir}/init.d/glusterd
-%{_includedir}/glusterfs
-%exclude %{_includedir}/glusterfs/y.tab.h
-%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
-%{_libdir}/*.so
-%exclude %{_libexecdir}/glusterfs/gsyncd
-%exclude %{_libexecdir}/glusterfs/python/syncdaemon/*
-%exclude /usr/local/libexec/glusterfs/gsyncd
 
 %if 0%{!?_without_rdma:1}
 %files rdma
@@ -242,10 +253,11 @@ fi
 %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %endif
 
+%if 0%{?_can_georeplicate}
 %if 0%{!?_without_georeplication:1}
 %post geo-replication
 #restart glusterd.
-/etc/init.d/glusterd restart &> /dev/null
+%{_sysconfdir}/init.d/glusterd restart &> /dev/null
 %endif
 
 %if 0%{!?_without_georeplication:1}
@@ -253,23 +265,296 @@ fi
 %defattr(-,root,root)
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
-/usr/local/libexec/glusterfs/gsyncd
 %endif
-
+%endif
 
 %files fuse
 %defattr(-,root,root)
 %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
+%{_mandir}/man8/mount.glusterfs.8*
 /sbin/mount.glusterfs
+%if 0%{?_with_fusermount:1}
+%{_bindir}/fusermount-glusterfs
+%endif
+
+%post server
+/sbin/chkconfig --add glusterd
+
+# Move legacy sysconf files to the correct sysconfdir
+if [ -d /etc/glusterd ]; then
+    cp -a /etc/glusterd /var/lib/
+    mv /etc/glusterd /etc/glusterd.rpmsave
+fi
+
+if [ -d /var/lib/glusterd/vols ]; then
+    #for each dir under vols, backup non-fuse .vol files  as .Vol.old
+    for file in `find /var/lib/glusterd/vols -type f ! -name *-fuse.vol `; do
+        grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old 
+    done 
+fi
+
+pidof -c -o %PPID -x glusterd &> /dev/null
+if [ $? -eq 0 ]; then
+    kill -9 `pgrep -f gsyncd.py` &> /dev/null
+
+    killall glusterd &> /dev/null
+    #add marker translator
+    glusterd --xlator-option *.upgrade=on
+else
+    glusterd --xlator-option *.upgrade=on
+    sleep 10
+    killall glusterd &> /dev/null
+fi
+
+%preun server
+if [ $1 -eq 0 ]; then
+    /sbin/service glusterd stop &>/dev/null || :
+    /sbin/chkconfig --del glusterd
+fi
+if [ $1 -ge 1 ]; then
+    /sbin/service glusterd condrestart &>/dev/null || :
+fi
+
+# Legacy server
+if [ $1 -eq 0 ]; then
+    /sbin/service glusterfsd stop &>/dev/null || :
+    /sbin/chkconfig --del glusterfsd
+fi
+if [ $1 -ge 1 ]; then
+    /sbin/service glusterfsd condrestart &>/dev/null || :
+fi
+
+%files server
+%defattr(-,root,root,-)
+%doc examples/ doc/glusterfs*.vol.sample
+%config(noreplace) %{_sysconfdir}/glusterfs
+%{_sharedstatedir}/glusterd
+%{_sysconfdir}/init.d/glusterd
+%{_sbindir}/gluster
+%{_sbindir}/glusterd
+
+%files devel
+%defattr(-,root,root,-)
+%{_includedir}/glusterfs
+%exclude %{_includedir}/glusterfs/y.tab.h
+%{_libdir}/*.so
 
 %changelog
-* Wed Jul 01 2009 Harshavardhana <harsha@gluster.com> - 2.1
-- Removed mod_glusterfs.so and added new --without epoll build
-  option.
+* Wed Nov 9 2011 Joe Julian <me@joejulian.name> - git master
+- Merge fedora specfile into gluster's spec.in.
+- Add conditionals to allow the same spec file to be used for both 3.1 and 3.2
+- http://bugs.gluster.com/show_bug.cgi?id=2970
 
-* Thu Apr 16 2009 Harshavardhana <harsha@gluster.com> - 2.0
-- Galore of updates including new packages added common,
-  client,server splitting the original package. rpmbuild
-  fully restructured to adhere to Fedora rpm standards.
-  Older changelog removed as there were warnings when
-  tried with 'rpmlint'.
+* Wed Oct  5 2011 Joe Julian <me@joejulian.name> - 3.2.4-1
+- Update to 3.2.4
+- Removed the $local_fs requirement from the init scripts as in RHEL/CentOS that's provided
+- by netfs, which needs to be started after glusterd.
+
+* Sun Sep 25 2011 Joe Julian <me@joejulian.name> - 3.2.3-2
+- Merged in upstream changes
+- Fixed version reporting 3.2git
+- Added nfs init script (disabled by default)
+
+* Fri Sep  1 2011 Joe Julian <me@joejulian.name> - 3.2.3-1
+- Update to 3.2.3
+
+* Tue Jul 19 2011 Joe Julian <me@joejulian.name> - 3.2.2-3
+- Add readline and libtermcap dependencies
+
+* Tue Jul 19 2011 Joe Julian <me@joejulian.name> - 3.2.2-2
+- Critical patch to prevent glusterd from walking outside of its own volume during rebalance
+
+* Thu Jul 14 2011 Joe Julian <me@joejulian.name> - 3.2.2-1
+- Update to 3.2.2
+
+* Wed Jul 13 2011 Joe Julian <me@joejulian.name> - 3.2.1-2
+- fix hardcoded path to gsyncd in source to match the actual file location
+
+* Mon Jun 21 2011 Joe Julian <me@joejulian.name> - 3.2.1
+- Update to 3.2.1
+
+* Mon Jun 20 2011 Joe Julian <me@joejulian.name> - 3.1.5
+- Update to 3.1.5
+
+* Mon May 31 2011 Joe Julian <me@joejulian.name> - 3.1.5-qa1.4
+- Current git
+
+* Sun May 29 2011 Joe Julian <me@joejulian.name> - 3.1.5-qa1.2
+- set _sharedstatedir to /var/lib for FHS compliance in RHEL5/CentOS5
+- mv /etc/glusterd, if it exists, to the new state dir for upgrading from gluster packaging
+
+* Sat May 28 2011 Joe Julian <me@joejulian.name> - 3.1.5-qa1.1
+- Update to 3.1.5-qa1
+- Add patch to remove optimization disabling
+- Add patch to remove forced 64 bit compile
+- Obsolete glusterfs-core to allow for upgrading from gluster packaging
+
+* Sun Mar 19 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.3-1
+- Update to 3.1.3
+- Merge in more upstream SPEC changes
+- Remove patches from GlusterFS bugzilla #2309 and #2311
+- Remove inode-gen.patch
+
+* Sun Feb 06 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.2-3
+- Add back in legacy SPEC elements to support older branches
+
+* Tue Feb 03 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.2-2
+- Add patches from CloudFS project
+
+* Tue Jan 25 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.2-1
+- Update to 3.1.2
+
+* Wed Jan 5 2011 Dan Horák <dan[at]danny.cz> - 3.1.1-3
+- no InfiniBand on s390(x)
+
+* Sat Jan 1 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.1-2
+- Update to support readline
+- Update to not parallel build
+
+* Mon Dec 27 2010 Silas Sewell <silas@sewell.ch> - 3.1.1-1
+- Update to 3.1.1
+- Change package names to mirror upstream
+
+* Mon Dec 20 2010 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.0.7-1
+- Update to 3.0.7
+
+* Wed Jul 28 2010 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.0.5-1
+- Update to 3.0.x
+
+* Sat Apr 10 2010 Jonathan Steffan <jsteffan@fedoraproject.org> - 2.0.9-2
+- Move python version requires into a proper BuildRequires otherwise
+  the spec always turned off python bindings as python is not part
+  of buildsys-build and the chroot will never have python unless we
+  require it
+- Temporarily set -D_FORTIFY_SOURCE=1 until upstream fixes code
+  GlusterFS Bugzilla #197 (#555728)
+- Move glusterfs-volgen to devel subpackage (#555724)
+- Update description (#554947)
+
+* Sat Jan 2 2010 Jonathan Steffan <jsteffan@fedoraproject.org> - 2.0.9-1
+- Update to 2.0.9
+
+* Sat Nov 8 2009 Jonathan Steffan <jsteffan@fedoraproject.org> - 2.0.8-1
+- Update to 2.0.8
+- Remove install of glusterfs-volgen, it's properly added to
+  automake upstream now
+
+* Sat Oct 31 2009 Jonathan Steffan <jsteffan@fedoraproject.org> - 2.0.7-1
+- Update to 2.0.7
+- Install glusterfs-volgen, until it's properly added to automake
+  by upstream
+- Add macro to be able to ship more docs
+
+* Thu Sep 17 2009 Peter Lemenkov <lemenkov@gmail.com> 2.0.6-2
+- Rebuilt with new fuse
+
+* Sat Sep 12 2009 Matthias Saou <http://freshrpms.net/> 2.0.6-1
+- Update to 2.0.6.
+- No longer default to disable the client on RHEL5 (#522192).
+- Update spec file URLs.
+
+* Mon Jul 27 2009 Matthias Saou <http://freshrpms.net/> 2.0.4-1
+- Update to 2.0.4.
+
+* Thu Jun 11 2009 Matthias Saou <http://freshrpms.net/> 2.0.1-2
+- Remove libglusterfs/src/y.tab.c to fix koji F11/devel builds.
+
+* Sat May 16 2009 Matthias Saou <http://freshrpms.net/> 2.0.1-1
+- Update to 2.0.1.
+
+* Thu May  7 2009 Matthias Saou <http://freshrpms.net/> 2.0.0-1
+- Update to 2.0.0 final.
+
+* Wed Apr 29 2009 Matthias Saou <http://freshrpms.net/> 2.0.0-0.3.rc8
+- Move glusterfsd to common, since the client has a symlink to it.
+
+* Fri Apr 24 2009 Matthias Saou <http://freshrpms.net/> 2.0.0-0.2.rc8
+- Update to 2.0.0rc8.
+
+* Sun Apr 12 2009 Matthias Saou <http://freshrpms.net/> 2.0.0-0.2.rc7
+- Update glusterfsd init script to the new style init.
+- Update files to match the new default vol file names.
+- Include logrotate for glusterfsd, use a pid file by default.
+- Include logrotate for glusterfs, using killall for lack of anything better.
+
+* Sat Apr 11 2009 Matthias Saou <http://freshrpms.net/> 2.0.0-0.1.rc7
+- Update to 2.0.0rc7.
+- Rename "libs" to "common" and move the binary, man page and log dir there.
+
+* Tue Feb 24 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org>
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_11_Mass_Rebuild
+
+* Mon Feb 16 2009 Matthias Saou <http://freshrpms.net/> 2.0.0-0.1.rc1
+- Update to 2.0.0rc1.
+- Include new libglusterfsclient.h.
+
+* Mon Feb 16 2009 Matthias Saou <http://freshrpms.net/> 1.3.12-1
+- Update to 1.3.12.
+- Remove no longer needed ocreat patch.
+
+* Thu Jul 17 2008 Matthias Saou <http://freshrpms.net/> 1.3.10-1
+- Update to 1.3.10.
+- Remove mount patch, it's been included upstream now.
+
+* Fri May 16 2008 Matthias Saou <http://freshrpms.net/> 1.3.9-1
+- Update to 1.3.9.
+
+* Fri May  9 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-1
+- Update to 1.3.8 final.
+
+* Tue Apr 23 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.10
+- Include short patch to include fixes from latest TLA 751.
+
+* Mon Apr 22 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.9
+- Update to 1.3.8pre6.
+- Include glusterfs binary in both the client and server packages, now that
+  glusterfsd is a symlink to it instead of a separate binary.
+* Sun Feb  3 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.8
+- Add python version check and disable bindings for version < 2.4.
+
+* Sun Feb  3 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.7
+- Add --without client rpmbuild option, make it the default for RHEL (no fuse).
+  (I hope "rhel" is the proper default macro name, couldn't find it...)
+
+* Wed Jan 30 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.6
+- Add --without ibverbs rpmbuild option to the package.
+
+* Mon Jan 14 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.5
+- Update to current TLA again, patch-636 which fixes the known segfaults.
+
+* Thu Jan 10 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.4
+- Downgrade to glusterfs--mainline--2.5--patch-628 which is more stable.
+
+* Tue Jan  8 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.3
+- Update to current TLA snapshot.
+- Include umount.glusterfs wrapper script (really needed? dunno).
+- Include patch to mount wrapper to avoid multiple identical mounts.
+
+* Sun Dec 30 2007 Matthias Saou <http://freshrpms.net/> 1.3.8-0.1
+- Update to current TLA snapshot, which includes "volume-name=" fstab option.
+
+* Mon Dec  3 2007 Matthias Saou <http://freshrpms.net/> 1.3.7-6
+- Re-add the /var/log/glusterfs directory in the client sub-package (required).
+- Include custom patch to support vol= in fstab for -n glusterfs client option.
+
+* Mon Nov 26 2007 Matthias Saou <http://freshrpms.net/> 1.3.7-4
+- Re-enable libibverbs.
+- Check and update License field to GPLv3+.
+- Add glusterfs-common obsoletes, to provide upgrade path from old packages.
+- Include patch to add mode to O_CREATE opens.
+
+* Thu Nov 22 2007 Matthias Saou <http://freshrpms.net/> 1.3.7-3
+- Remove Makefile* files from examples.
+- Include RHEL/Fedora type init script, since the included ones don't do.
+
+* Wed Nov 21 2007 Matthias Saou <http://freshrpms.net/> 1.3.7-1
+- Major spec file cleanup.
+- Add misssing %%clean section.
+- Fix ldconfig calls (weren't set for the proper sub-package).
+
+* Sat Aug 4 2007 Matt Paine <matt@mattsoftware.com> - 1.3.pre7
+- Added support to build rpm without ibverbs support (use --without ibverbs
+  switch)
+
+* Sun Jul 15 2007 Matt Paine <matt@mattsoftware.com> - 1.3.pre6
+- Initial spec file
