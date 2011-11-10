@@ -91,7 +91,7 @@ if test x$GCC = xyes ; then
   else
     CFLAGS="$CFLAGS -ggdb3"
   fi
-  CFLAGS="$CFLAGS -m64 -Wall -W \
+  CFLAGS="$CFLAGS -Wall -W \
  -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes \
  -Waggregate-return \
  -Wpointer-arith -Wbad-function-cast -Wnested-externs"
