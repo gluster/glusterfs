@@ -480,6 +480,7 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         dht_local_t  *local  = NULL;
         int           op_errno = -1;
         int           i = -1;
+        int           call_cnt = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -523,9 +524,9 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 return 0;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_setattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->setattr,
@@ -551,6 +552,7 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
         dht_local_t  *local  = NULL;
         int           op_errno = -1;
         int           i = -1;
+        int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -593,9 +595,9 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
                 return 0;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_setattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->fsetattr,
