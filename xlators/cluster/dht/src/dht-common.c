@@ -1137,15 +1137,13 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 ret = dict_set_uint32 (local->xattr_req,
                                        GLUSTERFS_OPEN_FD_COUNT, 4);
 
-		for (i = 0; i < layout->cnt; i++) {
+		for (i = 0; i < call_cnt; i++) {
 			subvol = layout->list[i].xlator;
 
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
 				    &local->loc, local->xattr_req);
 
-			if (!--call_cnt)
-				break;
 		}
         } else {
         do_fresh_lookup:
@@ -1806,6 +1804,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         uint32_t      dir_spread = 0;
         char          value[4096] = {0,};
         int           forced_rebalance = 0;
+        int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1837,7 +1836,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
         /*  This key is sent by Unified File and Object storage
          *  to test xattr support in backend.
@@ -1849,7 +1848,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
                 local->op_ret = 0;
-                for (i = 0; i < layout->cnt; i++) {
+                for (i = 0; i < call_cnt; i++) {
                         STACK_WIND (frame, dht_ufo_xattr_cbk,
                                     layout->list[i].xlator,
                                     layout->list[i].xlator->fops->setxattr,
@@ -1946,7 +1945,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_err_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->setxattr,
@@ -2006,6 +2005,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
         int           op_errno = -1;
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
+        int           call_cnt = 0;
 
         int i;
 
@@ -2037,10 +2037,10 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
         local->key = gf_strdup (key);
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_removexattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->removexattr,

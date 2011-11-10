@@ -271,6 +271,7 @@ dht_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
         int           i = 0;
+        int           call_cnt = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -304,9 +305,9 @@ dht_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 return 0;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 subvol = layout->list[i].xlator;
 
                 STACK_WIND (frame, dht_attr_cbk,
@@ -332,6 +333,7 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
         int           i = 0;
+        int           call_cnt = 0;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -363,9 +365,9 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 return 0;
         }
 
-        local->call_cnt = layout->cnt;
+        local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < layout->cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 subvol = layout->list[i].xlator;
                 STACK_WIND (frame, dht_attr_cbk,
                             subvol, subvol->fops->fstat,
