@@ -2182,6 +2182,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
                         } else {
                                 local->self_heal.background = _gf_false;
+                                sh->background = _gf_false;
                         }
                 }
                 UNLOCK (&priv->lock);
