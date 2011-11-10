@@ -678,6 +678,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         */
 
         dict_unref (orig_local->cont.lookup.xattr);
+        orig_local->cont.lookup.xattr = NULL;
         if (orig_local->cont.lookup.xattrs)
                 orig_local->cont.lookup.xattr = dict_ref (orig_local->cont.lookup.xattrs[sh->source]);
 

@@ -787,7 +787,9 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
         read_child = afr_read_child (this, local->cont.lookup.inode);
         gf_log (this->name, GF_LOG_DEBUG, "Building lookup response from %d",
                 read_child);
-        *xattr = dict_ref (local->cont.lookup.xattrs[read_child]);
+        //honor the xattr set by data-self-heal
+        if (!*xattr)
+                *xattr = dict_ref (local->cont.lookup.xattrs[read_child]);
         *buf = local->cont.lookup.bufs[read_child];
         *postparent = local->cont.lookup.postparents[read_child];
 
