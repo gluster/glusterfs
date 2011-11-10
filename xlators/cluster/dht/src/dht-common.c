@@ -1236,6 +1236,12 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
                 local->inode    = inode_ref (loc->inode);
 
+                /* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
+                 *       revalidates directly go to the cached-subvolume.
+                 */
+                ret = dict_set_uint32 (local->xattr_req,
+                                       "trusted.glusterfs.dht", 4 * 4);
+
                 if (IA_ISDIR (local->inode->ia_type)) {
                         local->call_cnt = call_cnt = conf->subvolume_cnt;
                         for (i = 0; i < call_cnt; i++) {
@@ -1249,12 +1255,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
                 local->call_cnt = layout->cnt;
                 call_cnt = local->call_cnt;
-
-                /* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
-                 *       revalidates directly go to the cached-subvolume.
-                 */
-                ret = dict_set_uint32 (local->xattr_req,
-                                       "trusted.glusterfs.dht", 4 * 4);
 
 		for (i = 0; i < call_cnt; i++) {
 			subvol = layout->list[i].xlator;
