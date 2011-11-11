@@ -1109,10 +1109,10 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 newloc.parent = inode_ref (local->loc.parent);
                 newloc.ino = oplocal->loc.inode->ino;
 
-                STACK_WIND (frame, marker_rename_release_oldp_lock,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->removexattr, &newloc,
-                            contri_key);
+                STACK_WIND_COOKIE (frame, marker_rename_release_oldp_lock,
+                                   frame->cookie, FIRST_CHILD(this),
+                                   FIRST_CHILD(this)->fops->removexattr,
+                                   &newloc, contri_key);
 
                 loc_wipe (&newloc);
         } else {
@@ -1249,10 +1249,10 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                  */
                 MARKER_SET_UID_GID (frame, local, frame->root);
 
-                STACK_WIND (frame, marker_do_rename,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->getxattr, &local->loc,
-                            contri_key);
+                STACK_WIND_COOKIE (frame, marker_do_rename,
+                                   frame->cookie, FIRST_CHILD(this),
+                                   FIRST_CHILD(this)->fops->getxattr,
+                                   &local->loc, contri_key);
         } else {
                 marker_do_rename (frame, NULL, this, 0, 0, NULL);
         }
@@ -1299,9 +1299,10 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
          */
         MARKER_SET_UID_GID (frame, local, frame->root);
 
-        STACK_WIND (frame, marker_get_newpath_contribution, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getxattr, &oplocal->loc,
-                    contri_key);
+        STACK_WIND_COOKIE (frame, marker_get_newpath_contribution,
+                           frame->cookie, FIRST_CHILD(this),
+                           FIRST_CHILD(this)->fops->getxattr,
+                           &oplocal->loc, contri_key);
         return 0;
 
 quota_err:
