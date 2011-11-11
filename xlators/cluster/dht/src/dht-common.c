@@ -4271,8 +4271,9 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = op_errno;
                         local->op_ret   = -1;
 
-                        if (op_errno != ENOENT)
+                        if (op_errno != ENOENT && op_errno != EACCES) {
                                 local->need_selfheal = 1;
+                        }
 
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "rmdir on %s for %s failed (%s)",
@@ -4280,7 +4281,8 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 strerror (op_errno));
                         goto unlock;
                 }
-
+                /* Track if rmdir succeeded on atleast one subvol */
+                local->fop_succeeded = 1;
                 dht_iatt_merge (this, &local->preparent, preparent, prev->this);
                 dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
@@ -4291,7 +4293,7 @@ unlock:
 
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
-                if (local->need_selfheal) {
+                if (local->need_selfheal && local->fop_succeeded) {
                         local->layout =
                                 dht_layout_get (this, local->loc.inode);
 
@@ -4637,6 +4639,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 
         local->call_cnt = conf->subvolume_cnt;
         local->op_ret   = 0;
+        local->fop_succeeded = 0;
 
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {

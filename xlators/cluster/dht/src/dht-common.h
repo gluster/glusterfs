@@ -96,6 +96,7 @@ struct dht_local {
         char                     need_selfheal;
         int                      file_count;
         int                      dir_count;
+        int                      fop_succeeded;
         call_frame_t            *main_frame;
         struct {
                 fop_mknod_cbk_t  linkfile_cbk;
