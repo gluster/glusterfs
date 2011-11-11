@@ -117,6 +117,7 @@ struct dht_local {
         int                      file_count;
         int                      dir_count;
         call_frame_t            *main_frame;
+        int                      fop_succeeded;
         struct {
                 fop_mknod_cbk_t  linkfile_cbk;
                 struct iatt      stbuf;
