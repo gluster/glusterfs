@@ -742,13 +742,13 @@ glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
         xlator_t *this = THIS;
         GF_ASSERT (this);
         switch (req->procnum) {
-        case GF_BRICK_TERMINATE:
+        case GLUSTERD_BRICK_TERMINATE:
                 ret = glusterfs_handle_terminate (req);
                 break;
-        case GF_BRICK_XLATOR_INFO:
+        case GLUSTERD_BRICK_XLATOR_INFO:
                 ret = glusterfs_handle_translator_info_get (req);
                 break;
-        case GF_BRICK_XLATOR_HEAL:
+        case GLUSTERD_BRICK_XLATOR_HEAL:
                 ret = glusterfs_handle_translator_heal (req);
                 break;
         default:
@@ -803,18 +803,18 @@ rpc_clnt_prog_t clnt_handshake_prog = {
 };
 
 rpcsvc_actor_t glusterfs_actors[] = {
-        [GF_BRICK_NULL]        = { "NULL",    GF_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, NULL},
-        [GF_BRICK_TERMINATE] = { "TERMINATE", GF_BRICK_TERMINATE, glusterfs_handle_rpc_msg, NULL, NULL},
-        [GF_BRICK_XLATOR_INFO] = { "TRANSLATOR INFO", GF_BRICK_XLATOR_INFO, glusterfs_handle_rpc_msg, NULL, NULL},
-        [GF_BRICK_XLATOR_HEAL] = { "TRANSLATOR HEAL", GF_BRICK_XLATOR_HEAL, glusterfs_handle_rpc_msg, NULL, NULL}
+        [GLUSTERD_BRICK_NULL]        = { "NULL",    GLUSTERD_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, NULL},
+        [GLUSTERD_BRICK_TERMINATE] = { "TERMINATE", GLUSTERD_BRICK_TERMINATE, glusterfs_handle_rpc_msg, NULL, NULL},
+        [GLUSTERD_BRICK_XLATOR_INFO] = { "TRANSLATOR INFO", GLUSTERD_BRICK_XLATOR_INFO, glusterfs_handle_rpc_msg, NULL, NULL},
+        [GLUSTERD_BRICK_XLATOR_HEAL] = { "TRANSLATOR HEAL", GLUSTERD_BRICK_XLATOR_HEAL, glusterfs_handle_rpc_msg, NULL, NULL}
 };
 
 struct rpcsvc_program glusterfs_mop_prog = {
-        .progname  = "GlusterFS Mops",
-        .prognum   = GLUSTERFS_PROGRAM,
-        .progver   = GLUSTERFS_VERSION,
-        .numactors = GLUSTERFS_PROCCNT,
+        .progname  = "Gluster Brick operations",
+        .prognum   = GD_BRICK_PROGRAM,
+        .progver   = GD_BRICK_VERSION,
         .actors    = glusterfs_actors,
+        .numactors = GLUSTERD_BRICK_MAXVALUE,
 };
 
 int

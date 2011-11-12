@@ -51,13 +51,13 @@
 #include "glusterd-mountbroker.h"
 
 static uuid_t glusterd_uuid;
-extern struct rpcsvc_program glusterd1_mop_prog;
-extern struct rpcsvc_program gd_svc_mgmt_prog;
-extern struct rpcsvc_program gd_svc_cli_prog;
 extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpcsvc_program gluster_pmap_prog;
 extern glusterd_op_info_t opinfo;
-extern struct rpc_clnt_program glusterd_glusterfs_3_1_mgmt_prog;
+extern struct rpcsvc_program gd_svc_mgmt_prog;
+extern struct rpcsvc_program gd_svc_peer_prog;
+extern struct rpcsvc_program gd_svc_cli_prog;
+extern struct rpc_clnt_program gd_brick_prog;
 
 rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progname  = "Gluster Callback",
@@ -892,27 +892,27 @@ init (xlator_t *this)
                 goto out;
         }
 
-        ret = glusterd_program_register (this, rpc, &glusterd1_mop_prog);
+        ret = glusterd_program_register (this, rpc, &gd_svc_peer_prog);
         if (ret) {
                 goto out;
         }
 
         ret = glusterd_program_register (this, rpc, &gd_svc_cli_prog);
         if (ret) {
-                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
                 goto out;
         }
 
         ret = glusterd_program_register (this, rpc, &gd_svc_mgmt_prog);
         if (ret) {
-                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
                 rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
                 goto out;
         }
 
         ret = glusterd_program_register (this, rpc, &gluster_pmap_prog);
         if (ret) {
-                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
                 rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
                 rpcsvc_program_unregister (rpc, &gd_svc_mgmt_prog);
                 goto out;
@@ -920,7 +920,7 @@ init (xlator_t *this)
 
         ret = glusterd_program_register (this, rpc, &gluster_handshake_prog);
         if (ret) {
-                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
                 rpcsvc_program_unregister (rpc, &gluster_pmap_prog);
                 rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
                 rpcsvc_program_unregister (rpc, &gd_svc_mgmt_prog);
@@ -938,7 +938,7 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->volumes);
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
-        conf->gfs_mgmt = &glusterd_glusterfs_3_1_mgmt_prog;
+        conf->gfs_mgmt = &gd_brick_prog;
         strncpy (conf->workdir, dirname, PATH_MAX);
 
         INIT_LIST_HEAD (&conf->xprt_list);

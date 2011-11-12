@@ -1152,50 +1152,6 @@ cli_cmd_volume_set_transport_cbk (struct cli_state *state,
 }
 
 int
-cli_cmd_log_filename_cbk (struct cli_state *state, struct cli_cmd_word *word,
-                          const char **words, int wordcount)
-{
-        int                     ret = -1;
-        rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
-        dict_t                  *options = NULL;
-        int                     sent = 0;
-        int                     parse_error = 0;
-
-        if (!((wordcount == 5) || (wordcount == 6))) {
-                cli_usage_out (word->pattern);
-                parse_error = 1;
-                goto out;
-        }
-
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LOG_FILENAME];
-
-        frame = create_frame (THIS, THIS->ctx->pool);
-        if (!frame)
-                goto out;
-
-        ret = cli_cmd_log_filename_parse (words, wordcount, &options);
-        if (ret)
-                goto out;
-
-        if (proc->fn) {
-                ret = proc->fn (frame, THIS, options);
-        }
-
-out:
-        if (options)
-                dict_destroy (options);
-
-        if (ret) {
-                cli_cmd_sent_status_get (&sent);
-                if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Volume log filename failed");
-        }
-
-        return ret;
-}
-
-int
 cli_cmd_volume_top_cbk (struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
 {
@@ -1239,49 +1195,6 @@ out:
 
 }
 
-int
-cli_cmd_log_locate_cbk (struct cli_state *state, struct cli_cmd_word *word,
-                        const char **words, int wordcount)
-{
-        int                     ret = -1;
-        rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
-        dict_t                  *options = NULL;
-        int                     sent = 0;
-        int                     parse_error = 0;
-
-        if (!((wordcount == 4) || (wordcount == 5))) {
-                cli_usage_out (word->pattern);
-                parse_error = 1;
-                goto out;
-        }
-
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LOG_LOCATE];
-
-        frame = create_frame (THIS, THIS->ctx->pool);
-        if (!frame)
-                goto out;
-
-        ret = cli_cmd_log_locate_parse (words, wordcount, &options);
-        if (ret)
-                goto out;
-
-        if (proc->fn) {
-                ret = proc->fn (frame, THIS, options);
-        }
-
-out:
-        if (options)
-                dict_destroy (options);
-
-        if (ret) {
-                cli_cmd_sent_status_get (&sent);
-                if ((sent == 0) && (parse_error == 0))
-                        cli_out ("getting log file location information failed");
-        }
-
-        return ret;
-}
 
 int
 cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
@@ -1426,37 +1339,6 @@ out:
         if (ret && parse_err == 0)
                 cli_out (GEOREP" command failed");
 
-        return ret;
-}
-
-int
-cli_cmd_log_level_cbk (struct cli_state *state, struct cli_cmd_word *word,
-                       const char **words, int wordcount)
-{
-        int                   ret         = -1;
-        rpc_clnt_procedure_t *proc        = NULL;
-        call_frame_t         *frame       = NULL;
-        dict_t               *dict        = NULL;
-
-        if (wordcount != 6) {
-          cli_usage_out (word->pattern);
-          goto out;
-        }
-
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LOG_LEVEL];
-
-        frame = create_frame (THIS, THIS->ctx->pool);
-        if (!frame)
-          goto out;
-
-        ret = cli_cmd_log_level_parse (words, wordcount, &dict);
-        if (ret)
-          goto out;
-
-        if (proc->fn)
-          ret = proc->fn (frame, THIS, dict);
-
- out:
         return ret;
 }
 
@@ -1695,14 +1577,6 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_help_cbk,
           "display help for the volume command"},
 
-        { "volume log filename <VOLNAME> [BRICK] <PATH>",
-          cli_cmd_log_filename_cbk,
-         "set the log file for corresponding volume/brick"},
-
-        { "volume log locate <VOLNAME> [BRICK]",
-          cli_cmd_log_locate_cbk,
-         "locate the log file for corresponding volume/brick"},
-
         { "volume log rotate <VOLNAME> [BRICK]",
           cli_cmd_log_rotate_cbk,
          "rotate the log file for corresponding volume/brick"},
@@ -1735,10 +1609,6 @@ struct cli_cmd volume_cmds[] = {
            " [brick <brick>] [list-cnt <count>]",
            cli_cmd_volume_top_cbk,
            "volume top operations"},
-
-        {"volume log level <VOLNAME> <XLATOR[*]> <LOGLEVEL>",
-         cli_cmd_log_level_cbk,
-         "log level for translator"},
 
         { "volume status <VOLNAME>",
           cli_cmd_volume_status_cbk,

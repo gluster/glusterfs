@@ -75,46 +75,6 @@ enum gf_handshake_procnum {
         GF_HNDSK_MAXVALUE,
 };
 
-enum gf_mgmt_procnum_ {
-        GD_MGMT_NULL,    /* 0 */
-        GD_MGMT_PROBE_QUERY,
-        GD_MGMT_FRIEND_ADD,
-        GD_MGMT_CLUSTER_LOCK,
-        GD_MGMT_CLUSTER_UNLOCK,
-        GD_MGMT_STAGE_OP,
-        GD_MGMT_COMMIT_OP,
-        GD_MGMT_FRIEND_REMOVE,
-        GD_MGMT_FRIEND_UPDATE,
-        GD_MGMT_CLI_PROBE,
-        GD_MGMT_CLI_DEPROBE,
-        GD_MGMT_CLI_LIST_FRIENDS,
-        GD_MGMT_CLI_CREATE_VOLUME,
-        GD_MGMT_CLI_GET_VOLUME,
-        GD_MGMT_CLI_DELETE_VOLUME,
-        GD_MGMT_CLI_START_VOLUME,
-        GD_MGMT_CLI_STOP_VOLUME,
-        GD_MGMT_CLI_RENAME_VOLUME,
-        GD_MGMT_CLI_DEFRAG_VOLUME,
-        GD_MGMT_CLI_SET_VOLUME,
-        GD_MGMT_CLI_ADD_BRICK,
-        GD_MGMT_CLI_REMOVE_BRICK,
-        GD_MGMT_CLI_REPLACE_BRICK,
-        GD_MGMT_CLI_LOG_FILENAME,
-        GD_MGMT_CLI_LOG_LOCATE,
-        GD_MGMT_CLI_LOG_ROTATE,
-        GD_MGMT_CLI_SYNC_VOLUME,
-        GD_MGMT_CLI_RESET_VOLUME,
-        GD_MGMT_CLI_FSM_LOG,
-        GD_MGMT_CLI_GSYNC_SET,
-        GD_MGMT_CLI_PROFILE_VOLUME,
-        GD_MGMT_BRICK_OP,
-        GD_MGMT_CLI_LOG_LEVEL,
-        GD_MGMT_CLI_STATUS_VOLUME,
-        GD_MGMT_MAXVALUE,
-};
-
-typedef enum gf_mgmt_procnum_ gf_mgmt_procnum;
-
 enum gf_pmap_procnum {
         GF_PMAP_NULL = 0,
         GF_PMAP_PORTBYBRICK,
@@ -159,19 +119,6 @@ enum gf_cbk_procnum {
         GF_CBK_MAXVALUE,
 };
 
-enum glusterd_mgmt_procnum {
-        GLUSTERD_MGMT_NULL,    /* 0 */
-        GLUSTERD_MGMT_PROBE_QUERY,
-        GLUSTERD_MGMT_FRIEND_ADD,
-        GLUSTERD_MGMT_CLUSTER_LOCK,
-        GLUSTERD_MGMT_CLUSTER_UNLOCK,
-        GLUSTERD_MGMT_STAGE_OP,
-        GLUSTERD_MGMT_COMMIT_OP,
-        GLUSTERD_MGMT_FRIEND_REMOVE,
-        GLUSTERD_MGMT_FRIEND_UPDATE,
-        GLUSTERD_MGMT_MAXVALUE,
-};
-
 enum gluster_cli_procnum {
         GLUSTER_CLI_NULL,    /* 0 */
         GLUSTER_CLI_PROBE,
@@ -189,8 +136,6 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_ADD_BRICK,
         GLUSTER_CLI_REMOVE_BRICK,
         GLUSTER_CLI_REPLACE_BRICK,
-        GLUSTER_CLI_LOG_FILENAME,
-        GLUSTER_CLI_LOG_LOCATE,
         GLUSTER_CLI_LOG_ROTATE,
         GLUSTER_CLI_GETSPEC,
         GLUSTER_CLI_PMAP_PORTBYBRICK,
@@ -202,7 +147,6 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_QUOTA,
         GLUSTER_CLI_TOP_VOLUME,
         GLUSTER_CLI_GETWD,
-        GLUSTER_CLI_LOG_LEVEL,
         GLUSTER_CLI_STATUS_VOLUME,
         GLUSTER_CLI_MOUNT,
         GLUSTER_CLI_UMOUNT,
@@ -211,30 +155,32 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_MAXVALUE,
 };
 
-enum gf_brick_procnum {
-        GF_BRICK_NULL = 0,
-        GF_BRICK_TERMINATE = 1,
-        GF_BRICK_XLATOR_INFO = 2,
-        GF_BRICK_XLATOR_HEAL = 3,
-        GF_BRICK_MAX_VALUE
+enum glusterd_mgmt_procnum {
+        GLUSTERD_MGMT_NULL,    /* 0 */
+        GLUSTERD_MGMT_CLUSTER_LOCK,
+        GLUSTERD_MGMT_CLUSTER_UNLOCK,
+        GLUSTERD_MGMT_STAGE_OP,
+        GLUSTERD_MGMT_COMMIT_OP,
+        GLUSTERD_MGMT_MAXVALUE,
 };
 
+enum glusterd_friend_procnum {
+        GLUSTERD_FRIEND_NULL,    /* 0 */
+        GLUSTERD_PROBE_QUERY,
+        GLUSTERD_FRIEND_ADD,
+        GLUSTERD_FRIEND_REMOVE,
+        GLUSTERD_FRIEND_UPDATE,
+        GLUSTERD_FRIEND_MAXVALUE,
+};
 
-#define GLUSTER3_1_FOP_PROGRAM   1298437 /* Completely random */
-#define GLUSTER3_1_FOP_VERSION   310 /* 3.1.0 */
-#define GLUSTER3_1_FOP_PROCCNT   GFS3_OP_MAXVALUE
-
-#define GLUSTERD1_MGMT_PROGRAM   1298433 /* Completely random */
-#define GLUSTERD1_MGMT_VERSION   1   /* 0.0.1 */
-#define GLUSTERD1_MGMT_PROCCNT   GD_MGMT_MAXVALUE
-
-#define GD_MGMT_PROGRAM          1238433 /* Completely random */
-#define GD_MGMT_VERSION          1   /* 0.0.1 */
-#define GD_MGMT_PROCCNT          GLUSTERD_MGMT_MAXVALUE
-
-#define GLUSTER_CLI_PROGRAM      1238463 /* Completely random */
-#define GLUSTER_CLI_VERSION      1   /* 0.0.1 */
-#define GLUSTER_CLI_PROCCNT      GLUSTER_CLI_MAXVALUE
+enum glusterd_brick_procnum {
+        GLUSTERD_BRICK_NULL,    /* 0 */
+        GLUSTERD_BRICK_TERMINATE,
+        GLUSTERD_BRICK_XLATOR_INFO,
+        GLUSTERD_BRICK_XLATOR_HEAL,
+        GLUSTERD_BRICK_OP,
+        GLUSTERD_BRICK_MAXVALUE,
+};
 
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION    1   /* 0.0.1 */
@@ -245,10 +191,21 @@ enum gf_brick_procnum {
 #define GLUSTER_CBK_PROGRAM      52743234 /* Completely random */
 #define GLUSTER_CBK_VERSION      1   /* 0.0.1 */
 
-#define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
-#define GLUSTER_HNDSK_VERSION    1   /* 0.0.1 */
+#define GLUSTER3_1_FOP_PROGRAM   1298437 /* Completely random */
+#define GLUSTER3_1_FOP_VERSION   310 /* 3.1.0 */
+#define GLUSTER3_1_FOP_PROCCNT   GFS3_OP_MAXVALUE
 
-#define GLUSTERFS_PROGRAM       4867634 /*Completely random*/
-#define GLUSTERFS_VERSION       1
-#define GLUSTERFS_PROCCNT       GF_BRICK_MAX_VALUE
+/* Second version */
+#define GD_MGMT_PROGRAM          1238433 /* Completely random */
+#define GD_MGMT_VERSION          2   /* 0.0.2 */
+
+#define GD_FRIEND_PROGRAM        1238437 /* Completely random */
+#define GD_FRIEND_VERSION        2  /* 0.0.2 */
+
+#define GLUSTER_CLI_PROGRAM      1238463 /* Completely random */
+#define GLUSTER_CLI_VERSION      2   /* 0.0.1 */
+
+#define GD_BRICK_PROGRAM         4867634 /*Completely random*/
+#define GD_BRICK_VERSION         2
+
 #endif /* !_PROTOCOL_COMMON_H */

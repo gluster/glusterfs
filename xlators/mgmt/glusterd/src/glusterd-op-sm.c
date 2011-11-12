@@ -165,7 +165,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                         gf_log ("", GF_LOG_ERROR, "Out of Memory");
                         goto out;
                 }
-                brick_req->op = GF_BRICK_TERMINATE;
+                brick_req->op = GLUSTERD_BRICK_TERMINATE;
                 brick_req->name = "";
         break;
         case GD_OP_PROFILE_VOLUME:
@@ -177,7 +177,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                         goto out;
                 }
 
-                brick_req->op = GF_BRICK_XLATOR_INFO;
+                brick_req->op = GLUSTERD_BRICK_XLATOR_INFO;
                 brick_req->name = brickinfo->path;
 
                 break;
@@ -188,7 +188,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 if (!brick_req)
                         goto out;
 
-                brick_req->op = GF_BRICK_XLATOR_HEAL;
+                brick_req->op = GLUSTERD_BRICK_XLATOR_HEAL;
                 brick_req->name = "";
         }
                 break;
@@ -2839,7 +2839,7 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                         goto out;
         }
 
-        proc = &priv->gfs_mgmt->proctable[GD_MGMT_BRICK_OP];
+        proc = &priv->gfs_mgmt->proctable[GLUSTERD_BRICK_OP];
         if (proc->fn) {
                 ret = proc->fn (NULL, this, req_ctx);
                 if (ret)

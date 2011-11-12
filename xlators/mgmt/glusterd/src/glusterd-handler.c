@@ -2764,10 +2764,6 @@ glusterd_null (rpcsvc_request_t *req)
 
 rpcsvc_actor_t gd_svc_mgmt_actors[] = {
         [GLUSTERD_MGMT_NULL]           = { "NULL", GLUSTERD_MGMT_NULL, glusterd_null, NULL, NULL},
-        [GLUSTERD_MGMT_PROBE_QUERY]    = { "PROBE_QUERY", GLUSTERD_MGMT_PROBE_QUERY, glusterd_handle_probe_query, NULL, NULL},
-        [GLUSTERD_MGMT_FRIEND_ADD]     = { "FRIEND_ADD", GLUSTERD_MGMT_FRIEND_ADD, glusterd_handle_incoming_friend_req, NULL, NULL},
-        [GLUSTERD_MGMT_FRIEND_REMOVE]  = { "FRIEND_REMOVE", GLUSTERD_MGMT_FRIEND_REMOVE, glusterd_handle_incoming_unfriend_req, NULL, NULL},
-        [GLUSTERD_MGMT_FRIEND_UPDATE]  = { "FRIEND_UPDATE", GLUSTERD_MGMT_FRIEND_UPDATE, glusterd_handle_friend_update, NULL, NULL},
         [GLUSTERD_MGMT_CLUSTER_LOCK]   = { "CLUSTER_LOCK", GLUSTERD_MGMT_CLUSTER_LOCK, glusterd_handle_cluster_lock, NULL, NULL},
         [GLUSTERD_MGMT_CLUSTER_UNLOCK] = { "CLUSTER_UNLOCK", GLUSTERD_MGMT_CLUSTER_UNLOCK, glusterd_handle_cluster_unlock, NULL, NULL},
         [GLUSTERD_MGMT_STAGE_OP]       = { "STAGE_OP", GLUSTERD_MGMT_STAGE_OP, glusterd_handle_stage_op, NULL, NULL},
@@ -2778,9 +2774,27 @@ struct rpcsvc_program gd_svc_mgmt_prog = {
         .progname  = "GlusterD svc mgmt",
         .prognum   = GD_MGMT_PROGRAM,
         .progver   = GD_MGMT_VERSION,
-        .numactors = GD_MGMT_PROCCNT,
+        .numactors = GLUSTERD_MGMT_MAXVALUE,
         .actors    = gd_svc_mgmt_actors,
 };
+
+rpcsvc_actor_t gd_svc_peer_actors[] = {
+        [GLUSTERD_FRIEND_NULL]    = { "NULL", GLUSTERD_MGMT_NULL, glusterd_null, NULL, NULL},
+        [GLUSTERD_PROBE_QUERY]    = { "PROBE_QUERY", GLUSTERD_PROBE_QUERY, glusterd_handle_probe_query, NULL, NULL},
+        [GLUSTERD_FRIEND_ADD]     = { "FRIEND_ADD", GLUSTERD_FRIEND_ADD, glusterd_handle_incoming_friend_req, NULL, NULL},
+        [GLUSTERD_FRIEND_REMOVE]  = { "FRIEND_REMOVE", GLUSTERD_FRIEND_REMOVE, glusterd_handle_incoming_unfriend_req, NULL, NULL},
+        [GLUSTERD_FRIEND_UPDATE]  = { "FRIEND_UPDATE", GLUSTERD_FRIEND_UPDATE, glusterd_handle_friend_update, NULL, NULL},
+};
+
+struct rpcsvc_program gd_svc_peer_prog = {
+        .progname  = "GlusterD svc peer",
+        .prognum   = GD_FRIEND_PROGRAM,
+        .progver   = GD_FRIEND_VERSION,
+        .numactors = GLUSTERD_FRIEND_MAXVALUE,
+        .actors    = gd_svc_peer_actors,
+};
+
+
 
 rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_PROBE]         = { "CLI_PROBE", GLUSTER_CLI_PROBE, glusterd_handle_cli_probe, NULL, NULL},
@@ -2795,8 +2809,6 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_ADD_BRICK]     = { "ADD_BRICK", GLUSTER_CLI_ADD_BRICK, glusterd_handle_add_brick, NULL, NULL},
         [GLUSTER_CLI_REPLACE_BRICK] = { "REPLACE_BRICK", GLUSTER_CLI_REPLACE_BRICK, glusterd_handle_replace_brick, NULL, NULL},
         [GLUSTER_CLI_REMOVE_BRICK]  = { "REMOVE_BRICK", GLUSTER_CLI_REMOVE_BRICK, glusterd_handle_remove_brick, NULL, NULL},
-        [GLUSTER_CLI_LOG_FILENAME]  = { "LOG FILENAME", GLUSTER_CLI_LOG_FILENAME, glusterd_handle_log_filename, NULL, NULL},
-        [GLUSTER_CLI_LOG_LOCATE]    = { "LOG LOCATE", GLUSTER_CLI_LOG_LOCATE, glusterd_handle_log_locate, NULL, NULL},
         [GLUSTER_CLI_LOG_ROTATE]    = { "LOG FILENAME", GLUSTER_CLI_LOG_ROTATE, glusterd_handle_log_rotate, NULL, NULL},
         [GLUSTER_CLI_SET_VOLUME]    = { "SET_VOLUME", GLUSTER_CLI_SET_VOLUME, glusterd_handle_set_volume, NULL, NULL},
         [GLUSTER_CLI_SYNC_VOLUME]   = { "SYNC_VOLUME", GLUSTER_CLI_SYNC_VOLUME, glusterd_handle_sync_volume, NULL, NULL},
@@ -2805,7 +2817,6 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_GSYNC_SET]     = { "GSYNC_SET", GLUSTER_CLI_GSYNC_SET, glusterd_handle_gsync_set, NULL, NULL},
         [GLUSTER_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GLUSTER_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL},
         [GLUSTER_CLI_QUOTA]         = { "QUOTA", GLUSTER_CLI_QUOTA, glusterd_handle_quota, NULL, NULL},
-        [GLUSTER_CLI_LOG_LEVEL]     = {"LOG_LEVEL", GLUSTER_CLI_LOG_LEVEL, glusterd_handle_log_level, NULL, NULL},
         [GLUSTER_CLI_GETWD]         = { "GETWD", GLUSTER_CLI_GETWD, glusterd_handle_getwd, NULL, NULL},
         [GLUSTER_CLI_STATUS_VOLUME]  = {"STATUS_VOLUME", GLUSTER_CLI_STATUS_VOLUME, glusterd_handle_status_volume, NULL, NULL},
         [GLUSTER_CLI_MOUNT]         = { "MOUNT", GLUSTER_CLI_MOUNT, glusterd_handle_mount, NULL, NULL},
@@ -2818,51 +2829,6 @@ struct rpcsvc_program gd_svc_cli_prog = {
         .progname  = "GlusterD svc cli",
         .prognum   = GLUSTER_CLI_PROGRAM,
         .progver   = GLUSTER_CLI_VERSION,
-        .numactors = GLUSTER_CLI_PROCCNT,
+        .numactors = GLUSTER_CLI_MAXVALUE,
         .actors    = gd_svc_cli_actors,
-};
-
-/* Keeping below programs for backword compatibility */
-
-rpcsvc_actor_t glusterd1_mgmt_actors[] = {
-        [GD_MGMT_NULL]        = { "NULL",       GD_MGMT_NULL, glusterd_null, NULL, NULL},
-        [GD_MGMT_PROBE_QUERY] = { "PROBE_QUERY", GD_MGMT_PROBE_QUERY, glusterd_handle_probe_query, NULL, NULL},
-        [GD_MGMT_FRIEND_ADD] = { "FRIEND_ADD", GD_MGMT_FRIEND_ADD, glusterd_handle_incoming_friend_req, NULL, NULL},
-        [GD_MGMT_FRIEND_REMOVE] = { "FRIEND_REMOVE", GD_MGMT_FRIEND_REMOVE, glusterd_handle_incoming_unfriend_req, NULL, NULL},
-        [GD_MGMT_FRIEND_UPDATE] = { "FRIEND_UPDATE", GD_MGMT_FRIEND_UPDATE, glusterd_handle_friend_update, NULL, NULL},
-        [GD_MGMT_CLUSTER_LOCK] = { "CLUSTER_LOCK", GD_MGMT_CLUSTER_LOCK, glusterd_handle_cluster_lock, NULL, NULL},
-        [GD_MGMT_CLUSTER_UNLOCK] = { "CLUSTER_UNLOCK", GD_MGMT_CLUSTER_UNLOCK, glusterd_handle_cluster_unlock, NULL, NULL},
-        [GD_MGMT_STAGE_OP] = { "STAGE_OP", GD_MGMT_STAGE_OP, glusterd_handle_stage_op, NULL, NULL},
-        [GD_MGMT_COMMIT_OP] = { "COMMIT_OP", GD_MGMT_COMMIT_OP, glusterd_handle_commit_op, NULL, NULL},
-        [GD_MGMT_CLI_PROBE] = { "CLI_PROBE", GD_MGMT_CLI_PROBE, glusterd_handle_cli_probe, NULL, NULL},
-        [GD_MGMT_CLI_CREATE_VOLUME] = { "CLI_CREATE_VOLUME", GD_MGMT_CLI_CREATE_VOLUME, glusterd_handle_create_volume, NULL,NULL},
-        [GD_MGMT_CLI_DEFRAG_VOLUME] = { "CLI_DEFRAG_VOLUME", GD_MGMT_CLI_DEFRAG_VOLUME, glusterd_handle_defrag_volume, NULL,NULL},
-        [GD_MGMT_CLI_DEPROBE] = { "FRIEND_REMOVE", GD_MGMT_CLI_DEPROBE, glusterd_handle_cli_deprobe, NULL, NULL},
-        [GD_MGMT_CLI_LIST_FRIENDS] = { "LIST_FRIENDS", GD_MGMT_CLI_LIST_FRIENDS, glusterd_handle_cli_list_friends, NULL, NULL},
-        [GD_MGMT_CLI_START_VOLUME] = { "START_VOLUME", GD_MGMT_CLI_START_VOLUME, glusterd_handle_cli_start_volume, NULL, NULL},
-        [GD_MGMT_CLI_STOP_VOLUME] = { "STOP_VOLUME", GD_MGMT_CLI_STOP_VOLUME, glusterd_handle_cli_stop_volume, NULL, NULL},
-        [GD_MGMT_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GD_MGMT_CLI_DELETE_VOLUME, glusterd_handle_cli_delete_volume, NULL, NULL},
-        [GD_MGMT_CLI_GET_VOLUME] = { "GET_VOLUME", GD_MGMT_CLI_GET_VOLUME, glusterd_handle_cli_get_volume, NULL, NULL},
-        [GD_MGMT_CLI_ADD_BRICK] = { "ADD_BRICK", GD_MGMT_CLI_ADD_BRICK, glusterd_handle_add_brick, NULL, NULL},
-        [GD_MGMT_CLI_REPLACE_BRICK] = { "REPLACE_BRICK", GD_MGMT_CLI_REPLACE_BRICK, glusterd_handle_replace_brick, NULL, NULL},
-        [GD_MGMT_CLI_REMOVE_BRICK] = { "REMOVE_BRICK", GD_MGMT_CLI_REMOVE_BRICK, glusterd_handle_remove_brick, NULL, NULL},
-        [GD_MGMT_CLI_LOG_FILENAME] = { "LOG FILENAME", GD_MGMT_CLI_LOG_FILENAME, glusterd_handle_log_filename, NULL, NULL},
-        [GD_MGMT_CLI_LOG_LOCATE] = { "LOG LOCATE", GD_MGMT_CLI_LOG_LOCATE, glusterd_handle_log_locate, NULL, NULL},
-        [GD_MGMT_CLI_LOG_ROTATE] = { "LOG FILENAME", GD_MGMT_CLI_LOG_ROTATE, glusterd_handle_log_rotate, NULL, NULL},
-        [GD_MGMT_CLI_SET_VOLUME] = { "SET_VOLUME", GD_MGMT_CLI_SET_VOLUME, glusterd_handle_set_volume, NULL, NULL},
-        [GD_MGMT_CLI_SYNC_VOLUME] = { "SYNC_VOLUME", GD_MGMT_CLI_SYNC_VOLUME, glusterd_handle_sync_volume, NULL, NULL},
-        [GD_MGMT_CLI_RESET_VOLUME] = { "RESET_VOLUME", GD_MGMT_CLI_RESET_VOLUME, glusterd_handle_reset_volume, NULL, NULL},
-        [GD_MGMT_CLI_FSM_LOG] = { "FSM_LOG", GD_MGMT_CLI_FSM_LOG, glusterd_handle_fsm_log, NULL, NULL},
-        [GD_MGMT_CLI_GSYNC_SET] = {"GSYNC_SET", GD_MGMT_CLI_GSYNC_SET, glusterd_handle_gsync_set, NULL, NULL},
-        [GD_MGMT_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GD_MGMT_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL},
-        [GD_MGMT_CLI_LOG_LEVEL] = {"LOG_LEVEL", GD_MGMT_CLI_LOG_LEVEL, glusterd_handle_log_level, NULL, NULL},
-        [GD_MGMT_CLI_STATUS_VOLUME] = {"STATUS_VOLUME", GD_MGMT_CLI_STATUS_VOLUME, glusterd_handle_status_volume, NULL, NULL}
-};
-
-struct rpcsvc_program glusterd1_mop_prog = {
-        .progname  = "GlusterD0.0.1",
-        .prognum   = GLUSTERD1_MGMT_PROGRAM,
-        .progver   = GLUSTERD1_MGMT_VERSION,
-        .numactors = GLUSTERD1_MGMT_PROCCNT,
-        .actors    = glusterd1_mgmt_actors,
 };
