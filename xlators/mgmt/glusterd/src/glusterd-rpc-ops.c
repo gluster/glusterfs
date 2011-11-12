@@ -1541,19 +1541,11 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         glusterd_get_uuid (&req.uuid);
         req.op = glusterd_op_get_op ();
 
-        if (GD_OP_DELETE_VOLUME == req.op) {
-                ret = dict_get_str (dict, "volname", &req.buf.buf_val);
-                if (ret)
-                        goto out;
-                req.buf.buf_len = strlen (req.buf.buf_val);
-                is_alloc = _gf_false;
-        } else {
-                ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
-                                                   (size_t *)&req.buf.buf_len);
+        ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
+                                           (size_t *)&req.buf.buf_len);
+        if (ret)
+                goto out;
 
-                if (ret)
-                        goto out;
-        }
 
         dummy_frame = create_frame (this, this->ctx->pool);
         if (!dummy_frame)
@@ -1603,19 +1595,10 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         glusterd_get_uuid (&req.uuid);
         req.op = glusterd_op_get_op ();
 
-        if (GD_OP_DELETE_VOLUME == req.op) {
-                ret = dict_get_str (dict, "volname", &req.buf.buf_val);
-                if (ret)
-                        goto out;
-                req.buf.buf_len = strlen (req.buf.buf_val);
-                is_alloc = _gf_false;
-        } else {
-                ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
-                                                   (size_t *)&req.buf.buf_len);
-
-                if (ret)
-                        goto out;
-        }
+        ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
+                                           (size_t *)&req.buf.buf_len);
+        if (ret)
+                goto out;
 
         dummy_frame = create_frame (this, this->ctx->pool);
         if (!dummy_frame)
