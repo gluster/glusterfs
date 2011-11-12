@@ -118,12 +118,6 @@ struct glusterd_op_info_ {
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
 
-struct glusterd_op_delete_volume_ctx_ {
-        char                    volume_name[GD_VOLUME_NAME_MAX];
-};
-
-typedef struct glusterd_op_delete_volume_ctx_ glusterd_op_delete_volume_ctx_t;
-
 struct glusterd_op_log_filename_ctx_ {
         char                    volume_name[GD_VOLUME_NAME_MAX];
         char                    brick[GD_VOLUME_NAME_MAX];

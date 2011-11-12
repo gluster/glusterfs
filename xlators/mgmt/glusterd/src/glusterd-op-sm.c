@@ -1497,15 +1497,6 @@ glusterd_op_build_payload (dict_t **req)
                         break;
 
                 case GD_OP_DELETE_VOLUME:
-                        {
-                                glusterd_op_delete_volume_ctx_t *ctx1 = ctx;
-                                ret = dict_set_str (req_dict, "volname",
-                                                    ctx1->volume_name);
-                                if (ret)
-                                        goto out;
-                        }
-                        break;
-
                 case GD_OP_START_VOLUME:
                 case GD_OP_STOP_VOLUME:
                 case GD_OP_ADD_BRICK:
@@ -3469,6 +3460,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
         if (ctx) {
                 switch (op) {
                 case GD_OP_CREATE_VOLUME:
+                case GD_OP_DELETE_VOLUME:
                 case GD_OP_STOP_VOLUME:
                 case GD_OP_ADD_BRICK:
                 case GD_OP_REMOVE_BRICK:
@@ -3488,9 +3480,6 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_HEAL_VOLUME:
                 case GD_OP_STATEDUMP_VOLUME:
                         dict_unref (ctx);
-                        break;
-                case GD_OP_DELETE_VOLUME:
-                        GF_FREE (ctx);
                         break;
                 default:
                         GF_ASSERT (0);

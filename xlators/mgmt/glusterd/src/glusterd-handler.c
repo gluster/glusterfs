@@ -504,12 +504,10 @@ glusterd_req_ctx_create (rpcsvc_request_t *rpc_req,
                          gf_gld_mem_types_t mem_type,
                          glusterd_req_ctx_t **req_ctx_out)
 {
-        int                             ret = -1;
-        glusterd_req_ctx_t              *req_ctx = NULL;
-        char                            str[50] = {0,};
-        dict_t                          *dict = NULL;
-        char                            volname[GLUSTERD_MAX_VOLUME_NAME] = {0};
-        char                            *dup_volname = NULL;
+        int                 ret     = -1;
+        char                str[50] = {0,};
+        glusterd_req_ctx_t *req_ctx = NULL;
+        dict_t             *dict    = NULL;
 
         uuid_unparse (uuid, str);
         gf_log ("glusterd", GF_LOG_INFO,
@@ -518,40 +516,23 @@ glusterd_req_ctx_create (rpcsvc_request_t *rpc_req,
         dict = dict_new ();
         if (!dict)
                 goto out;
-        req_ctx = GF_CALLOC (1, sizeof (*req_ctx), mem_type);
 
+        req_ctx = GF_CALLOC (1, sizeof (*req_ctx), mem_type);
         if (!req_ctx) {
                 goto out;
         }
 
         uuid_copy (req_ctx->uuid, uuid);
         req_ctx->op = op;
-        if (GD_OP_DELETE_VOLUME == op) {
-                strncpy (volname, buf_val, buf_len);
-                dup_volname = gf_strdup (volname);
-                if (dup_volname) {
-                        ret = dict_set_dynstr (dict, "volname", dup_volname);
-                        if (ret) {
-                                gf_log ("", GF_LOG_WARNING,
-                                                "failed to set volume name from payload");
-                                goto out;
-                        }
-                } else {
-                        ret = -1;
-                        goto out;
-                }
-        } else {
-                ret = dict_unserialize (buf_val, buf_len, &dict);
-
-                if (ret) {
-                        gf_log ("", GF_LOG_WARNING,
-                                        "failed to unserialize the dictionary");
-                        goto out;
-                }
+        ret = dict_unserialize (buf_val, buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING,
+                        "failed to unserialize the dictionary");
+                goto out;
         }
 
         req_ctx->dict = dict;
-        req_ctx->req   = rpc_req;
+        req_ctx->req = rpc_req;
         *req_ctx_out = req_ctx;
         ret = 0;
 out:

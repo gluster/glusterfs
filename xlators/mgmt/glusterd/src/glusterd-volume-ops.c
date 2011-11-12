@@ -358,12 +358,11 @@ out:
 int
 glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 {
-        int32_t                           ret = -1;
-        gf_cli_req                        cli_req = {{0,}};
-        glusterd_op_delete_volume_ctx_t   *ctx = NULL;
-        glusterd_op_t                     cli_op = GD_OP_DELETE_VOLUME;
-        char                              *volname = NULL;
-        dict_t                            *dict = NULL;
+        int32_t        ret         = -1;
+        gf_cli_req     cli_req     = {{0,},};
+        glusterd_op_t  cli_op      = GD_OP_DELETE_VOLUME;
+        dict_t        *dict        = NULL;
+        char          *volname     = NULL;
 
         GF_ASSERT (req);
 
@@ -402,14 +401,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_INFO, "Received delete vol req"
                 "for volume %s", volname);
 
-
-        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_delete_volume_ctx_t);
-        if (!ctx)
-                goto out;
-
-        strncpy (ctx->volume_name, volname, GD_VOLUME_NAME_MAX);
-
-        ret = glusterd_op_begin (req, GD_OP_DELETE_VOLUME, ctx);
+        ret = glusterd_op_begin (req, GD_OP_DELETE_VOLUME, dict);
         gf_cmd_log ("Volume delete", "on volname: %s %s", volname,
                    ((ret) ? "FAILED" : "SUCCESS"));
 
@@ -423,9 +415,6 @@ out:
         glusterd_op_sm ();
 
         if (ret) {
-                if (ctx)
-                        GF_FREE (ctx);
-
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
         }
