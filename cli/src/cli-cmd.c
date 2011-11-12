@@ -297,8 +297,6 @@ cli_cmd_await_response (unsigned time)
 
         cmd_done = 0;
 
-        cli_cmd_unlock ();
-
         if (ret)
                 return ret;
 
@@ -381,8 +379,9 @@ cli_cmd_submit (void *req, call_frame_t *frame,
         if (!ret) {
                 cmd_sent = 1;
                 ret = cli_cmd_await_response (timeout);
-        } else
-                cli_cmd_unlock ();
+        }
+
+        cli_cmd_unlock ();
 
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
