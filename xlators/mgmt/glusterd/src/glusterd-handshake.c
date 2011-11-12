@@ -36,8 +36,8 @@
 #include "protocol-common.h"
 #include "rpcsvc.h"
 
-extern struct rpc_clnt_program glusterd3_1_mgmt_prog;
-extern struct rpc_clnt_program gd_clnt_mgmt_prog;
+extern struct rpc_clnt_program gd_peer_prog;
+extern struct rpc_clnt_program gd_mgmt_prog;
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *data);
 
@@ -279,16 +279,14 @@ glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
 
         while (trav) {
                 /* Select 'programs' */
-                if ((gd_clnt_mgmt_prog.prognum == trav->prognum) &&
-                    (gd_clnt_mgmt_prog.progver == trav->progver)) {
-                        peerinfo->mgmt = &gd_clnt_mgmt_prog;
+                if ((gd_mgmt_prog.prognum == trav->prognum) &&
+                    (gd_mgmt_prog.progver == trav->progver)) {
+                        peerinfo->mgmt = &gd_mgmt_prog;
                         ret = 0;
-                        /* Break here, as this gets higher priority */
-                        break;
                 }
-                if ((glusterd3_1_mgmt_prog.prognum == trav->prognum) &&
-                    (glusterd3_1_mgmt_prog.progver == trav->progver)) {
-                        peerinfo->mgmt = &glusterd3_1_mgmt_prog;
+                if ((gd_peer_prog.prognum == trav->prognum) &&
+                    (gd_peer_prog.progver == trav->progver)) {
+                        peerinfo->peer = &gd_peer_prog;
                         ret = 0;
                 }
                 if (ret) {
@@ -300,11 +298,17 @@ glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
                 trav = trav->next;
         }
 
-        if (!ret && peerinfo->mgmt) {
+        if (peerinfo->mgmt) {
                 gf_log ("", GF_LOG_INFO,
                         "Using Program %s, Num (%d), Version (%d)",
                         peerinfo->mgmt->progname, peerinfo->mgmt->prognum,
                         peerinfo->mgmt->progver);
+        }
+        if (peerinfo->peer) {
+                gf_log ("", GF_LOG_INFO,
+                        "Using Program %s, Num (%d), Version (%d)",
+                        peerinfo->peer->progname, peerinfo->peer->prognum,
+                        peerinfo->peer->progver);
         }
 
 out:
