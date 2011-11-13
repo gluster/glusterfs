@@ -77,9 +77,9 @@ typedef struct rpc_transport rpc_transport_t;
 #include "rpcsvc-common.h"
 
 struct peer_info {
-	struct sockaddr_storage sockaddr;
-	socklen_t sockaddr_len;
-	char identifier[UNIX_PATH_MAX];
+        struct sockaddr_storage sockaddr;
+        socklen_t sockaddr_len;
+        char identifier[UNIX_PATH_MAX];
 };
 typedef struct peer_info peer_info_t;
 
@@ -182,32 +182,32 @@ typedef int (*rpc_transport_notify_t) (rpc_transport_t *, void *mydata,
 
 
 struct rpc_transport {
-	struct rpc_transport_ops  *ops;
+        struct rpc_transport_ops  *ops;
         rpc_transport_t           *listener; /* listener transport to which
                                               * request for creation of this
                                               * transport came from. valid only
                                               * on server process.
                                               */
 
-	void                      *private;
+        void                      *private;
         void                      *xl_private;
         void                      *xl;       /* Used for THIS */
-	void                      *mydata;
-	pthread_mutex_t            lock;
-	int32_t                    refcount;
+        void                      *mydata;
+        pthread_mutex_t            lock;
+        int32_t                    refcount;
 
         glusterfs_ctx_t           *ctx;
         dict_t                    *options;
         char                      *name;
-	void                      *dnscache;
-	data_t                    *buf;
- 	int32_t                  (*init)   (rpc_transport_t *this);
-	void                     (*fini)   (rpc_transport_t *this);
+        void                      *dnscache;
+        data_t                    *buf;
+        int32_t                  (*init)   (rpc_transport_t *this);
+        void                     (*fini)   (rpc_transport_t *this);
         int                      (*reconfigure) (rpc_transport_t *this, dict_t *options);
         rpc_transport_notify_t     notify;
         void                      *notify_data;
-	peer_info_t                peerinfo;
-	peer_info_t                myinfo;
+        peer_info_t                peerinfo;
+        peer_info_t                myinfo;
 
         uint64_t                   total_bytes_read;
         uint64_t                   total_bytes_write;
@@ -224,9 +224,9 @@ struct rpc_transport_ops {
                                    rpc_transport_req_t *req);
         int32_t (*submit_reply)   (rpc_transport_t *this,
                                    rpc_transport_reply_t *reply);
-	int32_t (*connect)        (rpc_transport_t *this, int port);
-	int32_t (*listen)         (rpc_transport_t *this);
-	int32_t (*disconnect)     (rpc_transport_t *this);
+        int32_t (*connect)        (rpc_transport_t *this, int port);
+        int32_t (*listen)         (rpc_transport_t *this);
+        int32_t (*disconnect)     (rpc_transport_t *this);
         int32_t (*get_peername)   (rpc_transport_t *this, char *hostname,
                                    int hostlen);
         int32_t (*get_peeraddr)   (rpc_transport_t *this, char *peeraddr,
