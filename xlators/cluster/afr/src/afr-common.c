@@ -1057,7 +1057,8 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
         }
         gf_log (this->name, GF_LOG_DEBUG, "Building lookup response from %d",
                 read_child);
-        *xattr = dict_ref (local->cont.lookup.xattrs[read_child]);
+        if (!*xattr)
+                *xattr = dict_ref (local->cont.lookup.xattrs[read_child]);
         *buf = local->cont.lookup.bufs[read_child];
         *postparent = local->cont.lookup.postparents[read_child];
 
@@ -1920,6 +1921,7 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
         int               ret            = -ENOMEM;
         struct iatt       *iatts         = NULL;
         int32_t           *success_children = NULL;
+        int32_t           *sources       = NULL;
 
         GF_ASSERT (local);
         local->cont.lookup.xattrs = GF_CALLOC (child_count,
@@ -1946,6 +1948,11 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
         local->fresh_children = afr_children_create (child_count);
         if (NULL == local->fresh_children)
                 goto out;
+
+        sources = GF_CALLOC (sizeof (*sources), child_count, gf_afr_mt_int32_t);
+        if (NULL == sources)
+                goto out;
+        local->cont.lookup.sources = sources;
 
         ret = 0;
 out:
