@@ -861,7 +861,15 @@ stripe_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
         local->op_ret = -1;
         frame->local = local;
-        local->call_count = priv->child_count;
+        if (IA_ISDIR (loc->inode->ia_type) || IA_ISREG (loc->inode->ia_type)) {
+                local->call_count = priv->child_count;
+        } else {
+                local->call_count = 1;
+                STACK_WIND (frame, stripe_setattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->setattr,
+                            loc, stbuf, valid);
+                return 0;
+        }
 
         while (trav) {
                 STACK_WIND (frame, stripe_setattr_cbk,
