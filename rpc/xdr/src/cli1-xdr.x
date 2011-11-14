@@ -149,17 +149,6 @@ struct gf1_cli_peer_list_rsp {
         opaque  friends<>;
 } ;
 
-struct gf1_cli_log_locate_req {
-	string volname<>;
-        string brick<>;
-};
-
-struct gf1_cli_log_locate_rsp {
-	int op_ret;
-	int op_errno;
-        string path<>;
-};
-
 struct gf1_cli_fsm_log_req {
         string name<>;
 };
