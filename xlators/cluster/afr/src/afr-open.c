@@ -380,7 +380,8 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
         call_frame_t      *open_frame = NULL;
         afr_local_t      *open_local = NULL;
         int               ret    = -1;
-        GF_UNUSED int32_t op_errno = 0;
+        ia_type_t         ia_type = IA_INVAL;
+        int32_t           op_errno = 0;
 
         GF_ASSERT (fd_ctx);
         GF_ASSERT (need_open_count > 0);
@@ -397,10 +398,8 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                 ALLOC_OR_GOTO (open_local, afr_local_t, out);
                 open_frame->local = open_local;
                 ret = AFR_LOCAL_INIT (open_local, priv);
-                if (ret < 0) {
-                        op_errno = -ret;
+                if (ret < 0)
                         goto out;
-                }
                 loc_copy (&open_local->loc, &local->loc);
                 open_local->fd = fd_ref (local->fd);
         } else {
@@ -414,10 +413,24 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
         gf_log (this->name, GF_LOG_DEBUG, "need open count: %d",
                 need_open_count);
 
+        ia_type = open_local->fd->inode->ia_type;
+        GF_ASSERT (ia_type != IA_INVAL);
         for (i = 0; i < priv->child_count; i++) {
-                if (need_open[i]) {
+                if (!need_open[i])
+                        continue;
+                if (IA_IFDIR == ia_type) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "opening fd for %s on subvolume %s",
+                                "opening fd for dir %s on subvolume %s",
+                                local->loc.path, priv->children[i]->name);
+
+                        STACK_WIND_COOKIE (frame, afr_openfd_fix_open_cbk,
+                                           (void*) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->opendir,
+                                           &open_local->loc, open_local->fd);
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "opening fd for file %s on subvolume %s",
                                 local->loc.path, priv->children[i]->name);
 
                         STACK_WIND_COOKIE (open_frame, afr_openfd_fix_open_cbk,
@@ -426,10 +439,12 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                                            priv->children[i]->fops->open,
                                            &open_local->loc, fd_ctx->flags,
                                            open_local->fd, fd_ctx->wbflags);
-
                 }
+
         }
 out:
+        if (op_errno)
+                ret = -op_errno;
         if (ret && open_frame)
                 AFR_STACK_DESTROY (open_frame);
         return ret;
