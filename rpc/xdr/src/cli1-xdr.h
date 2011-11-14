@@ -226,19 +226,6 @@ struct gf1_cli_peer_list_rsp {
 };
 typedef struct gf1_cli_peer_list_rsp gf1_cli_peer_list_rsp;
 
-struct gf1_cli_log_locate_req {
-	char *volname;
-	char *brick;
-};
-typedef struct gf1_cli_log_locate_req gf1_cli_log_locate_req;
-
-struct gf1_cli_log_locate_rsp {
-	int op_ret;
-	int op_errno;
-	char *path;
-};
-typedef struct gf1_cli_log_locate_rsp gf1_cli_log_locate_rsp;
-
 struct gf1_cli_fsm_log_req {
 	char *name;
 };
@@ -319,8 +306,6 @@ extern  bool_t xdr_gf1_cli_deprobe_req (XDR *, gf1_cli_deprobe_req*);
 extern  bool_t xdr_gf1_cli_deprobe_rsp (XDR *, gf1_cli_deprobe_rsp*);
 extern  bool_t xdr_gf1_cli_peer_list_req (XDR *, gf1_cli_peer_list_req*);
 extern  bool_t xdr_gf1_cli_peer_list_rsp (XDR *, gf1_cli_peer_list_rsp*);
-extern  bool_t xdr_gf1_cli_log_locate_req (XDR *, gf1_cli_log_locate_req*);
-extern  bool_t xdr_gf1_cli_log_locate_rsp (XDR *, gf1_cli_log_locate_rsp*);
 extern  bool_t xdr_gf1_cli_fsm_log_req (XDR *, gf1_cli_fsm_log_req*);
 extern  bool_t xdr_gf1_cli_fsm_log_rsp (XDR *, gf1_cli_fsm_log_rsp*);
 extern  bool_t xdr_gf1_cli_getwd_req (XDR *, gf1_cli_getwd_req*);
@@ -352,8 +337,6 @@ extern bool_t xdr_gf1_cli_deprobe_req ();
 extern bool_t xdr_gf1_cli_deprobe_rsp ();
 extern bool_t xdr_gf1_cli_peer_list_req ();
 extern bool_t xdr_gf1_cli_peer_list_rsp ();
-extern bool_t xdr_gf1_cli_log_locate_req ();
-extern bool_t xdr_gf1_cli_log_locate_rsp ();
 extern bool_t xdr_gf1_cli_fsm_log_req ();
 extern bool_t xdr_gf1_cli_fsm_log_rsp ();
 extern bool_t xdr_gf1_cli_getwd_req ();

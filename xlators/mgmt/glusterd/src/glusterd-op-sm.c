@@ -1504,13 +1504,11 @@ glusterd_op_build_payload (dict_t **req)
                 case GD_OP_SET_VOLUME:
                 case GD_OP_RESET_VOLUME:
                 case GD_OP_REMOVE_BRICK:
-                case GD_OP_LOG_FILENAME:
                 case GD_OP_LOG_ROTATE:
                 case GD_OP_SYNC_VOLUME:
                 case GD_OP_QUOTA:
                 case GD_OP_GSYNC_SET:
                 case GD_OP_PROFILE_VOLUME:
-                case GD_OP_LOG_LEVEL:
                 case GD_OP_STATUS_VOLUME:
                 case GD_OP_REBALANCE:
                 case GD_OP_HEAL_VOLUME:
@@ -2231,10 +2229,6 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_remove_brick (dict, op_errstr);
                         break;
 
-                case GD_OP_LOG_FILENAME:
-                        ret = glusterd_op_stage_log_filename (dict, op_errstr);
-                        break;
-
                 case GD_OP_LOG_ROTATE:
                         ret = glusterd_op_stage_log_rotate (dict, op_errstr);
                         break;
@@ -2253,10 +2247,6 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                 case GD_OP_QUOTA:
                         ret = glusterd_op_stage_quota (dict, op_errstr);
-                        break;
-
-                case GD_OP_LOG_LEVEL:
-                        ret = glusterd_op_stage_log_level (dict, op_errstr);
                         break;
 
                 case GD_OP_STATUS_VOLUME:
@@ -2330,10 +2320,6 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_remove_brick (dict, op_errstr);
                         break;
 
-                case GD_OP_LOG_FILENAME:
-                        ret = glusterd_op_log_filename (dict);
-                        break;
-
                 case GD_OP_LOG_ROTATE:
                         ret = glusterd_op_log_rotate (dict);
                         break;
@@ -2353,10 +2339,6 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                 case GD_OP_QUOTA:
                         ret = glusterd_op_quota (dict, op_errstr);
-                        break;
-
-                case GD_OP_LOG_LEVEL:
-                        ret = glusterd_op_log_level (dict);
                         break;
 
                 case GD_OP_STATUS_VOLUME:
@@ -3465,7 +3447,6 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_ADD_BRICK:
                 case GD_OP_REMOVE_BRICK:
                 case GD_OP_REPLACE_BRICK:
-                case GD_OP_LOG_FILENAME:
                 case GD_OP_LOG_ROTATE:
                 case GD_OP_SYNC_VOLUME:
                 case GD_OP_SET_VOLUME:
@@ -3474,7 +3455,6 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_GSYNC_SET:
                 case GD_OP_QUOTA:
                 case GD_OP_PROFILE_VOLUME:
-                case GD_OP_LOG_LEVEL:
                 case GD_OP_STATUS_VOLUME:
                 case GD_OP_REBALANCE:
                 case GD_OP_HEAL_VOLUME:

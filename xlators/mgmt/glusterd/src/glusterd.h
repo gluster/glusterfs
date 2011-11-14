@@ -70,13 +70,10 @@ typedef enum glusterd_op_ {
         GD_OP_SET_VOLUME,
         GD_OP_RESET_VOLUME,
         GD_OP_SYNC_VOLUME,
-        GD_OP_LOG_FILENAME,
-        GD_OP_LOG_LOCATE,
         GD_OP_LOG_ROTATE,
         GD_OP_GSYNC_SET,
         GD_OP_PROFILE_VOLUME,
         GD_OP_QUOTA,
-        GD_OP_LOG_LEVEL,
         GD_OP_STATUS_VOLUME,
         GD_OP_REBALANCE,
         GD_OP_HEAL_VOLUME,
@@ -441,10 +438,6 @@ int
 glusterd_handle_remove_brick (rpcsvc_request_t *req);
 
 int
-glusterd_handle_log_filename (rpcsvc_request_t *req);
-int
-glusterd_handle_log_locate (rpcsvc_request_t *req);
-int
 glusterd_handle_log_rotate (rpcsvc_request_t *req);
 
 int
@@ -534,9 +527,6 @@ int
 glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,
                      rpc_clnt_notify_t notify_fn, void *notify_data);
 
-int
-glusterd_handle_log_level (rpcsvc_request_t *req);
-
 
 /* handler functions */
 int32_t glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx);
@@ -559,11 +549,7 @@ int glusterd_op_stage_quota (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                      dict_t *rsp_dict);
 int glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict);
-int glusterd_op_log_level (dict_t *dict);
-int glusterd_op_log_filename (dict_t *dict);
 int glusterd_op_log_rotate (dict_t *dict);
-int glusterd_op_stage_log_level (dict_t *dict, char **op_errstr);
-int glusterd_op_stage_log_filename (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr);

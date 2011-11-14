@@ -126,10 +126,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_DELETE_VOLUME:
         case GD_OP_DEFRAG_VOLUME:
         case GD_OP_ADD_BRICK:
-        case GD_OP_LOG_FILENAME:
         case GD_OP_LOG_ROTATE:
         case GD_OP_SYNC_VOLUME:
-        case GD_OP_LOG_LEVEL:
         case GD_OP_HEAL_VOLUME:
         case GD_OP_STATEDUMP_VOLUME:
 
@@ -168,7 +166,6 @@ done:
         case GD_OP_RENAME_VOLUME:
         case GD_OP_START_BRICK:
         case GD_OP_STOP_BRICK:
-        case GD_OP_LOG_LOCATE:
         {
                 gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
                 break;

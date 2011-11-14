@@ -332,34 +332,6 @@ xdr_gf1_cli_peer_list_rsp (XDR *xdrs, gf1_cli_peer_list_rsp *objp)
 }
 
 bool_t
-xdr_gf1_cli_log_locate_req (XDR *xdrs, gf1_cli_log_locate_req *objp)
-{
-	register int32_t *buf;
-        buf = NULL;
-
-	 if (!xdr_string (xdrs, &objp->volname, ~0))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->brick, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
-xdr_gf1_cli_log_locate_rsp (XDR *xdrs, gf1_cli_log_locate_rsp *objp)
-{
-	register int32_t *buf;
-        buf = NULL;
-
-	 if (!xdr_int (xdrs, &objp->op_ret))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_errno))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->path, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
 xdr_gf1_cli_fsm_log_req (XDR *xdrs, gf1_cli_fsm_log_req *objp)
 {
 	register int32_t *buf;
