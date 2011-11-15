@@ -3203,7 +3203,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         int           this_call_cnt = 0;
         int           ret = -1;
-        int           subvol_filled = 0;
+        gf_boolean_t subvol_filled = _gf_false;
         call_frame_t *prev = NULL;
         dht_layout_t *layout = NULL;
 
