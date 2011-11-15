@@ -230,7 +230,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err != -1 || !layout->list[i].stop) {
                         /* err != -1 would mean xattr present on the directory
-                         * or the directory is itself non existant.
+                         * or the directory is non existent.
                          * !layout->list[i].stop would mean layout absent
                          */
 

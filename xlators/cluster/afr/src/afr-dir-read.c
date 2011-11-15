@@ -272,7 +272,7 @@ unlock:
                          * to regular entry self-heal because the readdir
                          * call is sent only to the first subvolume, and
                          * thus files that exist only there will never be healed
-                         * otherwise (assuming changelog shows no anamolies).
+                         * otherwise (assuming changelog shows no anomalies).
                          */
 
                         gf_log (this->name, GF_LOG_TRACE,
@@ -603,7 +603,7 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (list_empty (&entries->list)) {
                                 /* All the entries we got were duplicate. We
                                    shouldn't send an empty list now, because
-                                   that'll make the application stop reading. So
+                                   that will make the application stop reading. So
                                    try to get more entries */
 
                                 gf_log (this->name, GF_LOG_TRACE,

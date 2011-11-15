@@ -3317,7 +3317,7 @@ rdma_recv_completion_proc (void *data)
 
                                 /*
                                  * keep a refcount on transport so that it
-                                 * doesnot get freed because of some error
+                                 * does not get freed because of some error
                                  * indicated by wc.status till we are done
                                  * with usage of peer and thereby that of trans.
                                  */

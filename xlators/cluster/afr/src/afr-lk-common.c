@@ -1183,7 +1183,7 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (call_count == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "Last locking reply received");
-                /* all locks successfull. Proceed to call FOP */
+                /* all locks successful. Proceed to call FOP */
                 if (int_lock->entrylk_lock_count ==
                                 int_lock->lk_expected_count) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -1191,7 +1191,7 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int_lock->lock_op_ret = 0;
                         int_lock->lock_cbk (frame, this);
                 }
-                /* Not all locks were successfull. Unlock and try locking
+                /* Not all locks were successful. Unlock and try locking
                    again, this time with serially blocking locks */
                 else {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -1376,7 +1376,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (call_count == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "Last inode locking reply received");
-                /* all locks successfull. Proceed to call FOP */
+                /* all locks successful. Proceed to call FOP */
                 if (int_lock->inodelk_lock_count ==
                                 int_lock->lk_expected_count) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -1384,7 +1384,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int_lock->lock_op_ret = 0;
                         int_lock->lock_cbk (frame, this);
                 }
-                /* Not all locks were successfull. Unlock and try locking
+                /* Not all locks were successful. Unlock and try locking
                    again, this time with serially blocking locks */
                 else {
                         gf_log (this->name, GF_LOG_TRACE,

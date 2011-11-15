@@ -391,7 +391,7 @@ mnt3svc_volume_mount (rpcsvc_request_t *req, struct mount3_state *ms,
         rootgfid[15] = 1;
         exportinode = inode_find (exp->vol->itable, rootgfid);
         if (!exportinode) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Faild to get root inode");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get root inode");
                 ret = -ENOENT;
                 goto err;
         }

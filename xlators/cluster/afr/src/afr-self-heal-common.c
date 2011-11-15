@@ -316,7 +316,7 @@ afr_sh_wise_nodes_exist (afr_node_character *characters, int child_count)
  * It is 1 if no other wise node accuses it.
  * Only wise nodes with wisdom 1 are sources.
  *
- * If no nodes with wisdom 1 exist, a split-brain has occured.
+ * If no nodes with wisdom 1 exist, a split-brain has occurred.
  */
 
 static void

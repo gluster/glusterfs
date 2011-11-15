@@ -312,7 +312,7 @@ wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
         INIT_LIST_HEAD (&file->passive_requests);
 
         /*
-          fd_ref() not required, file should never decide the existance of
+          fd_ref() not required, file should never decide the existence of
           an fd
         */
         file->fd= fd;
@@ -1371,7 +1371,7 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
                 LOCK (&file->lock);
                 {
-                        /* If O_DIRECT then, we disable chaching */
+                        /* If O_DIRECT then, we disable caching */
                         if (((flags & O_DIRECT) == O_DIRECT)
                             || ((flags & O_ACCMODE) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
@@ -1449,7 +1449,7 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 LOCK (&file->lock);
                 {
-                        /* If O_DIRECT then, we disable chaching */
+                        /* If O_DIRECT then, we disable caching */
                         if (frame->local) {
                                 if (((flags & O_DIRECT) == O_DIRECT)
                                     || ((flags & O_ACCMODE) == O_RDONLY)
@@ -2025,7 +2025,7 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file)
         {
                 /*
                  * make sure requests are marked for unwinding and adjacent
-                 * continguous write buffers (each of size less than that of
+                 * contiguous write buffers (each of size less than that of
                  * an iobuf) are packed properly so that iobufs are filled to
                  * their maximum capacity, before calling __wb_mark_winds.
                  */

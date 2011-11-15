@@ -1355,7 +1355,7 @@ out:
         return ret;
 }
 
-/* Set src-brick's port number to be used in the maintainance mount
+/* Set src-brick's port number to be used in the maintenance mount
  * after all commit acks are received.
  */
 static int
@@ -1840,7 +1840,7 @@ glusterd_do_replace_brick (void *data)
 		gf_timer_call_cancel (THIS->ctx, priv->timer);
 		priv->timer = NULL;
                 gf_log ("", GF_LOG_DEBUG,
-                        "Cancelled timer thread");
+                        "Cancelling timer thread");
 	}
 
         gf_log ("", GF_LOG_DEBUG,

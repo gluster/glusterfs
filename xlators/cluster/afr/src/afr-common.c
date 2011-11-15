@@ -3447,7 +3447,7 @@ afr_notify (xlator_t *this, int32_t event,
         /* parent xlators dont need to know about every child_up, child_down
          * because of afr ha. If all subvolumes go down, child_down has
          * to be triggered. In that state when 1 subvolume comes up child_up
-         * needs to be triggered. dht optimises revalidate lookup by sending
+         * needs to be triggered. dht optimizes revalidate lookup by sending
          * it only to one of its subvolumes. When child up/down happens
          * for afr's subvolumes dht should be notified by child_modified. The
          * subsequent revalidate lookup happens on all the dht's subvolumes

@@ -286,7 +286,7 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
                  * without doing anything.
                  * This has the potential of masking out any bugs in a user of
                  * fd that ends up calling gf_fd_put twice for the same fd or
-                 * for an unallocated fd, but thats a price we have to pay for
+                 * for an unallocated fd, but it is a price we have to pay for
                  * ensuring sanity of our fd-table.
                  */
                 if (fde->next_free != GF_FDENTRY_ALLOCATED)
@@ -385,7 +385,7 @@ fd_destroy (fd_t *fd)
         xlator_t    *old_THIS = NULL;
 
         if (fd == NULL){
-                gf_log_callingfn ("xlator", GF_LOG_ERROR, "invalid arugument");
+                gf_log_callingfn ("xlator", GF_LOG_ERROR, "invalid argument");
                 goto out;
         }
 

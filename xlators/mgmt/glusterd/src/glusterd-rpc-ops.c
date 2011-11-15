@@ -366,7 +366,7 @@ out:
 
         GF_ASSERT (ctx);
 
-        if (ctx->req)//reverse probe doesnt have req
+        if (ctx->req)//reverse probe doesn't have req
                 ret = glusterd_xfer_cli_probe_resp (ctx->req, op_ret, op_errno,
                                                     ctx->hostname, ctx->port);
         if (!ret) {

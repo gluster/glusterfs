@@ -318,7 +318,7 @@ __socket_server_bind (rpc_transport_t *this)
                         strerror (errno));
         }
 
-        //reuse-address doesnt work for unix type sockets
+        /* reuse-address doesn't work for unix type sockets */
         if (AF_UNIX == SA (&this->myinfo.sockaddr)->sa_family) {
                 memcpy (&unix_addr, SA (&this->myinfo.sockaddr),
                         this->myinfo.sockaddr_len);
@@ -2160,7 +2160,7 @@ socket_listen (rpc_transport_t *this)
 
         if (sock != -1)  {
                 gf_log_callingfn (this->name, GF_LOG_DEBUG,
-                                  "alreading listening");
+                                  "already listening");
                 return ret;
         }
 

@@ -95,7 +95,7 @@ af_unix_client_bind (rpc_transport_t *this,
                 char *path = data_to_str (path_data);
                 if (!path || strlen (path) > UNIX_PATH_MAX) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "transport.rdma.bind-path not specfied "
+                                "transport.rdma.bind-path not specified "
                                 "for unix socket, letting connect to assign "
                                 "default value");
                         goto err;

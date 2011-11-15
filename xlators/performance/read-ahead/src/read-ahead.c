@@ -21,7 +21,7 @@
   TODO:
   - handle O_DIRECT
   - maintain offset, flush on lseek
-  - ensure efficient memory managment in case of random seek
+  - ensure efficient memory management in case of random seek
 */
 
 #ifndef _CONFIG_H

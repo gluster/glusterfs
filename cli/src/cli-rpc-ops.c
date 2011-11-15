@@ -2601,7 +2601,7 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         }
 
         gf_log (this->name, GF_LOG_DEBUG,
-                "Recevied command replace-brick %s with "
+                "Received command replace-brick %s with "
                 "%s with operation=%d", src_brick,
                 dst_brick, op);
 

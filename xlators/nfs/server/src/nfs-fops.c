@@ -1122,7 +1122,7 @@ nfs_fop_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfl_to_prog_data (nfl, progcbk, frame);
         /* The preattr arg needs to be NULL instead of @buf because it is
          * possible that the new parent is not root whereas the source dir
-         * could've been. That is handled in the next macro.
+         * could have been. That is handled in the next macro.
          */
         nfs_fop_restore_root_ino (nfl, op_ret, NULL, NULL, preoldparent,
                                   postoldparent);

@@ -3241,7 +3241,7 @@ glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
 
         event->ctx = ctx;
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Enqueuing event: '%s'",
+        gf_log ("glusterd", GF_LOG_DEBUG, "Enqueue event: '%s'",
                 glusterd_op_sm_event_name_get (event->event));
         list_add_tail (&event->list, &gd_op_sm_queue);
 

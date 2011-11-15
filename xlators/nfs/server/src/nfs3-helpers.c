@@ -694,7 +694,7 @@ nfs3_fill_entry3 (gf_dirent_t *entry, struct nfs3_fh *dfh)
         /* If the entry is . or .., we need to replace the physical ino and gen
          * with 1 and 0 respectively if the directory is root. This funging is
          * needed because there is no parent directory of the root. In that
-         * sense the behavious we provide is similar to the output of the
+         * sense the behavior we provide is similar to the output of the
          * command: "stat /.."
          */
         entry->d_ino = nfs3_iatt_gfid_to_ino (&entry->d_stat);
@@ -763,7 +763,7 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh, uint64_t devid)
         /* If the entry is . or .., we need to replace the physical ino and gen
          * with 1 and 0 respectively if the directory is root. This funging is
          * needed because there is no parent directory of the root. In that
-         * sense the behavious we provide is similar to the output of the
+         * sense the behavior we provide is similar to the output of the
          * command: "stat /.."
          */
         entry->d_ino = nfs3_iatt_gfid_to_ino (&entry->d_stat);
