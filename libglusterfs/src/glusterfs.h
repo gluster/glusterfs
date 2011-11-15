@@ -113,6 +113,9 @@
 #define RB_PUMP_CMD_ABORT       "glusterfs.pump.abort"
 #define RB_PUMP_CMD_STATUS      "glusterfs.pump.status"
 
+#define POSIX_ACL_DEFAULT_XATTR "system.posix_acl_default"
+#define POSIX_ACL_ACCESS_XATTR "system.posix_acl_access"
+
 #define GLUSTERFS_RDMA_INLINE_THRESHOLD       (2048)
 #define GLUSTERFS_RDMA_MAX_HEADER_SIZE        (228) /* (sizeof (rdma_header_t)                 \
                                                        + RDMA_MAX_SEGMENTS \

@@ -25,11 +25,9 @@
 
 #include "common-utils.h"
 #include "posix-acl.h"
+#include "glusterfs.h"
 
-#define POSIX_ACL_ACCESS_XATTR "system.posix_acl_access"
-#define POSIX_ACL_DEFAULT_XATTR "system.posix_acl_default"
-
-#define POSIX_ACL_VERSION 2 
+#define POSIX_ACL_VERSION 2
 
 struct posix_acl_xattr_entry {
         uint16_t            tag;
