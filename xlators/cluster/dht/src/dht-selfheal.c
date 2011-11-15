@@ -27,7 +27,6 @@
 #include "xlator.h"
 #include "dht-common.h"
 
-
 #define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,cnt,path)    do {       \
                 layout->list[i].start = srt;                            \
                 layout->list[i].stop  = srt + chunk - 1;                \
@@ -37,7 +36,6 @@
                         layout->list[i].start, layout->list[i].stop,    \
                         layout->list[i].xlator->name, path);            \
         } while (0)
-
 
 static inline uint32_t
 dht_find_overlap (int idx, int cnk_idx, uint32_t start, uint32_t stop,
@@ -387,6 +385,46 @@ out:
         return 0;
 }
 
+void
+dht_selfheal_dir_mkdir_setacl (dict_t *xattr, dict_t *dict)
+{
+        data_t          *acl_default = NULL;
+        data_t          *acl_access = NULL;
+        xlator_t        *this = NULL;
+        int     ret = -1;
+
+        GF_ASSERT (xattr);
+        GF_ASSERT (dict);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        acl_default = dict_get (xattr, POSIX_ACL_DEFAULT_XATTR);
+
+        if (!acl_default) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "ACL_DEFAULT xattr not present");
+                goto cont;
+        }
+        ret = dict_set (dict, POSIX_ACL_DEFAULT_XATTR, acl_default);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Could not set ACL_DEFAULT xattr");
+cont:
+        acl_access = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
+        if (!acl_access) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "ACL_ACCESS xattr not present");
+                goto out;
+        }
+        ret = dict_set (dict, POSIX_ACL_ACCESS_XATTR, acl_access);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Could not set ACL_ACCESS xattr");
+
+out:
+        return;
+}
 
 int
 dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
@@ -426,6 +464,9 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                 /* Send the dictionary from higher layers directly */
                 dict = dict_ref (local->params);
         }
+        /* Set acls */
+        if (local->xattr && dict)
+                dht_selfheal_dir_mkdir_setacl (local->xattr, dict);
 
         if (!dict)
                 gf_log (this->name, GF_LOG_WARNING,
