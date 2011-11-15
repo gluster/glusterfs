@@ -109,6 +109,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
         {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0    },
+	{"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
 
         {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0    },

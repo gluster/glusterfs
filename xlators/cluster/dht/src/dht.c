@@ -131,6 +131,7 @@ dht_priv_dump (xlator_t *this)
         gf_proc_dump_write("search_unhashed", "%d", conf->search_unhashed);
         gf_proc_dump_write("gen", "%d", conf->gen);
         gf_proc_dump_write("min_free_disk", "%lu", conf->min_free_disk);
+	gf_proc_dump_write("min_free_inodes", "%lu", conf->min_free_inodes);
         gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
         gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
         gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
@@ -139,6 +140,8 @@ dht_priv_dump (xlator_t *this)
                                    conf->du_stats->avail_percent);
                 gf_proc_dump_write("du_stats.avail_space", "%lu",
                                    conf->du_stats->avail_space);
+		gf_proc_dump_write("du_stats.avail_inodes", "%lf",
+                                   conf->du_stats->avail_inodes);
                 gf_proc_dump_write("du_stats.log", "%lu", conf->du_stats->log);
         }
         gf_proc_dump_write("last_stat_fetch", "%s", ctime(&conf->last_stat_fetch.tv_sec));
@@ -318,9 +321,10 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
-        GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
+	GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
                           percent_or_size, out);
-
+	GF_OPTION_RECONF ("min-free-inodes", conf->min_free_inodes, options,
+                          percent, out);
         GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
                           options, uint32, out);
 
@@ -376,7 +380,10 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("use-readdirp", conf->use_readdirp, bool, err);
 
-        GF_OPTION_INIT ("min-free-disk", conf->min_free_disk, percent_or_size,
+	GF_OPTION_INIT ("min-free-disk", conf->min_free_disk, percent_or_size,
+			err);
+
+        GF_OPTION_INIT ("min-free-inodes", conf->min_free_inodes, percent,
                         err);
 
         conf->dir_spread_cnt = conf->subvolume_cnt;
@@ -515,6 +522,12 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
           .default_value = "10%",
           .description = "Percentage/Size of disk space that must be "
+                         "kept free."
+        },
+	{ .key  = {"min-free-inodes"},
+          .type = GF_OPTION_TYPE_PERCENT,
+          .default_value = "5%",
+          .description = "Percentage inodes that must be "
                          "kept free."
         },
         { .key = {"unhashed-sticky-bit"},
