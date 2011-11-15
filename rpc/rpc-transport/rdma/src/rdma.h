@@ -42,49 +42,49 @@
 /* FIXME: give appropriate values to these macros */
 #define GF_DEFAULT_RDMA_LISTEN_PORT (GF_DEFAULT_BASE_PORT + 1)
 
-/* If you are changing RDMA_MAX_SEGMENTS, please make sure to update
- * GLUSTERFS_RDMA_MAX_HEADER_SIZE defined in glusterfs.h .
+/* If you are changing GF_RDMA_MAX_SEGMENTS, please make sure to update
+ * GLUSTERFS_GF_RDMA_MAX_HEADER_SIZE defined in glusterfs.h .
  */
-#define RDMA_MAX_SEGMENTS           8
+#define GF_RDMA_MAX_SEGMENTS           8
 
-#define RDMA_VERSION                1
-#define RDMA_POOL_SIZE              512
+#define GF_RDMA_VERSION                1
+#define GF_RDMA_POOL_SIZE              512
 
-typedef enum rdma_errcode {
+typedef enum gf_rdma_errcode {
         ERR_VERS = 1,
         ERR_CHUNK = 2
-}rdma_errcode_t;
+}gf_rdma_errcode_t;
 
-struct rdma_err_vers {
-        uint32_t rdma_vers_low; /* Version range supported by peer */
-        uint32_t rdma_vers_high;
+struct gf_rdma_err_vers {
+        uint32_t gf_rdma_vers_low; /* Version range supported by peer */
+        uint32_t gf_rdma_vers_high;
 }__attribute__ ((packed));
-typedef struct rdma_err_vers rdma_err_vers_t;
+typedef struct gf_rdma_err_vers gf_rdma_err_vers_t;
 
-typedef enum rdma_proc {
-        RDMA_MSG   = 0,           /* An RPC call or reply msg */
-        RDMA_NOMSG = 1,           /* An RPC call or reply msg - separate body */
-        RDMA_MSGP  = 2,           /* An RPC call or reply msg with padding */
-        RDMA_DONE  = 3,           /* Client signals reply completion */
-        RDMA_ERROR = 4            /* An RPC RDMA encoding error */
-}rdma_proc_t;
+typedef enum gf_rdma_proc {
+        GF_RDMA_MSG   = 0,           /* An RPC call or reply msg */
+        GF_RDMA_NOMSG = 1,           /* An RPC call or reply msg - separate body */
+        GF_RDMA_MSGP  = 2,           /* An RPC call or reply msg with padding */
+        GF_RDMA_DONE  = 3,           /* Client signals reply completion */
+        GF_RDMA_ERROR = 4            /* An RPC RDMA encoding error */
+}gf_rdma_proc_t;
 
-typedef enum rdma_chunktype {
-        rdma_noch = 0,         /* no chunk */
-        rdma_readch,           /* some argument through rdma read */
-        rdma_areadch,          /* entire request through rdma read */
-        rdma_writech,          /* some result through rdma write */
-        rdma_replych           /* entire reply through rdma write */
-}rdma_chunktype_t;
+typedef enum gf_rdma_chunktype {
+        gf_rdma_noch = 0,         /* no chunk */
+        gf_rdma_readch,           /* some argument through rdma read */
+        gf_rdma_areadch,          /* entire request through rdma read */
+        gf_rdma_writech,          /* some result through rdma write */
+        gf_rdma_replych           /* entire reply through rdma write */
+}gf_rdma_chunktype_t;
 
-/* If you are modifying __rdma_header, please make sure to change
- * GLUSTERFS_RDMA_MAX_HEADER_SIZE defined in glusterfs.h to reflect your changes
+/* If you are modifying __gf_rdma_header, please make sure to change
+ * GLUSTERFS_GF_RDMA_MAX_HEADER_SIZE defined in glusterfs.h to reflect your changes
  */
-struct __rdma_header {
+struct __gf_rdma_header {
         uint32_t rm_xid;    /* Mirrors the RPC header xid */
         uint32_t rm_vers;   /* Version of this protocol */
         uint32_t rm_credit; /* Buffers requested/granted */
-        uint32_t rm_type;   /* Type of message (enum rdma_proc) */
+        uint32_t rm_type;   /* Type of message (enum gf_rdma_proc) */
         union {
                 struct {                          /* no chunks */
                         uint32_t rm_empty[3];     /* 3 empty chunk lists */
@@ -98,49 +98,49 @@ struct __rdma_header {
 
                 struct {
                         uint32_t rm_type;
-                        rdma_err_vers_t rm_version;
+                        gf_rdma_err_vers_t rm_version;
                 }__attribute__ ((packed)) rm_error;
 
                 uint32_t rm_chunks[0];    /* read, write and reply chunks */
         }__attribute__ ((packed)) rm_body;
 } __attribute__((packed));
-typedef struct __rdma_header rdma_header_t;
+typedef struct __gf_rdma_header gf_rdma_header_t;
 
-/* If you are modifying __rdma_segment or __rdma_read_chunk, please make sure
- * to change GLUSTERFS_RDMA_MAX_HEADER_SIZE defined in glusterfs.h to reflect
+/* If you are modifying __gf_rdma_segment or __gf_rdma_read_chunk, please make sure
+ * to change GLUSTERFS_GF_RDMA_MAX_HEADER_SIZE defined in glusterfs.h to reflect
  * your changes.
  */
-struct __rdma_segment {
+struct __gf_rdma_segment {
         uint32_t rs_handle;       /* Registered memory handle */
         uint32_t rs_length;       /* Length of the chunk in bytes */
         uint64_t rs_offset;       /* Chunk virtual address or offset */
 } __attribute__((packed));
-typedef struct __rdma_segment rdma_segment_t;
+typedef struct __gf_rdma_segment gf_rdma_segment_t;
 
 /* read chunk(s), encoded as a linked list. */
-struct __rdma_read_chunk {
+struct __gf_rdma_read_chunk {
         uint32_t       rc_discrim;      /* 1 indicates presence */
         uint32_t       rc_position;     /* Position in XDR stream */
-        rdma_segment_t rc_target;
+        gf_rdma_segment_t rc_target;
 } __attribute__((packed));
-typedef struct __rdma_read_chunk rdma_read_chunk_t;
+typedef struct __gf_rdma_read_chunk gf_rdma_read_chunk_t;
 
 /* write chunk, and reply chunk. */
-struct __rdma_write_chunk {
-        rdma_segment_t wc_target;
+struct __gf_rdma_write_chunk {
+        gf_rdma_segment_t wc_target;
 } __attribute__((packed));
-typedef struct __rdma_write_chunk rdma_write_chunk_t;
+typedef struct __gf_rdma_write_chunk gf_rdma_write_chunk_t;
 
 /* write chunk(s), encoded as a counted array. */
-struct __rdma_write_array {
+struct __gf_rdma_write_array {
         uint32_t wc_discrim;      /* 1 indicates presence */
         uint32_t wc_nchunks;      /* Array count */
-        struct __rdma_write_chunk wc_array[0];
+        struct __gf_rdma_write_chunk wc_array[0];
 } __attribute__((packed));
-typedef struct __rdma_write_array rdma_write_array_t;
+typedef struct __gf_rdma_write_array gf_rdma_write_array_t;
 
 /* options per transport end point */
-struct __rdma_options {
+struct __gf_rdma_options {
         int32_t port;
         char *device_name;
         enum ibv_mtu mtu;
@@ -149,25 +149,25 @@ struct __rdma_options {
         uint64_t recv_size;
         uint64_t send_size;
 };
-typedef struct __rdma_options rdma_options_t;
+typedef struct __gf_rdma_options gf_rdma_options_t;
 
-struct __rdma_reply_info {
+struct __gf_rdma_reply_info {
         uint32_t            rm_xid;      /* xid in network endian */
-        rdma_chunktype_t    type;        /*
-                                          * can be either rdma_replych
-                                          * or rdma_writech.
+        gf_rdma_chunktype_t    type;        /*
+                                          * can be either gf_rdma_replych
+                                          * or gf_rdma_writech.
                                           */
-        rdma_write_array_t *wc_array;
+        gf_rdma_write_array_t *wc_array;
         struct mem_pool    *pool;
 };
-typedef struct __rdma_reply_info rdma_reply_info_t;
+typedef struct __gf_rdma_reply_info gf_rdma_reply_info_t;
 
-struct __rdma_ioq {
+struct __gf_rdma_ioq {
         union {
                 struct list_head list;
                 struct {
-                        struct __rdma_ioq    *next;
-                        struct __rdma_ioq    *prev;
+                        struct __gf_rdma_ioq    *next;
+                        struct __gf_rdma_ioq    *prev;
                 };
         };
 
@@ -182,8 +182,8 @@ struct __rdma_ioq {
         struct iobref     *iobref;
 
         union {
-                struct __rdma_ioq_request {
-                        /* used to build reply_chunk for RDMA_NOMSG type msgs */
+                struct __gf_rdma_ioq_request {
+                        /* used to build reply_chunk for GF_RDMA_NOMSG type msgs */
                         struct iovec rsphdr_vec[MAX_IOVEC];
                         int          rsphdr_count;
 
@@ -200,37 +200,37 @@ struct __rdma_ioq {
                         struct iobref  *rsp_iobref;
                 }request;
 
-                rdma_reply_info_t  *reply_info;
+                gf_rdma_reply_info_t  *reply_info;
         }msg;
 
         struct mem_pool *pool;
 };
-typedef struct __rdma_ioq rdma_ioq_t;
+typedef struct __gf_rdma_ioq gf_rdma_ioq_t;
 
-typedef enum __rdma_send_post_type {
-        RDMA_SEND_POST_NO_CHUNKLIST,    /* post which is sent using rdma-send
+typedef enum __gf_rdma_send_post_type {
+        GF_RDMA_SEND_POST_NO_CHUNKLIST,    /* post which is sent using rdma-send
                                          * and the msg carries no
                                          * chunklists.
                                          */
-        RDMA_SEND_POST_READ_CHUNKLIST,  /* post which is sent using rdma-send
+        GF_RDMA_SEND_POST_READ_CHUNKLIST,  /* post which is sent using rdma-send
                                          * and the msg carries only read
                                          * chunklist.
                                          */
-        RDMA_SEND_POST_WRITE_CHUNKLIST, /* post which is sent using
+        GF_RDMA_SEND_POST_WRITE_CHUNKLIST, /* post which is sent using
                                          * rdma-send and the msg carries
                                          * only write chunklist.
                                          */
-        RDMA_SEND_POST_READ_WRITE_CHUNKLIST, /* post which is sent using
+        GF_RDMA_SEND_POST_READ_WRITE_CHUNKLIST, /* post which is sent using
                                               * rdma-send and the msg
                                               * carries both read and
                                               * write chunklists.
                                               */
-        RDMA_SEND_POST_RDMA_READ,              /* RDMA read */
-        RDMA_SEND_POST_RDMA_WRITE,             /* RDMA write */
-}rdma_send_post_type_t;
+        GF_RDMA_SEND_POST_GF_RDMA_READ,              /* RDMA read */
+        GF_RDMA_SEND_POST_GF_RDMA_WRITE,             /* RDMA write */
+}gf_rdma_send_post_type_t;
 
 /* represents one communication peer, two per transport_t */
-struct __rdma_peer {
+struct __gf_rdma_peer {
         rpc_transport_t *trans;
         struct ibv_qp *qp;
 
@@ -243,8 +243,8 @@ struct __rdma_peer {
         union {
                 struct list_head     ioq;
                 struct {
-                        rdma_ioq_t        *ioq_next;
-                        rdma_ioq_t        *ioq_prev;
+                        gf_rdma_ioq_t        *ioq_next;
+                        gf_rdma_ioq_t        *ioq_prev;
                 };
         };
 
@@ -256,91 +256,91 @@ struct __rdma_peer {
         int32_t remote_psn;
         int32_t remote_qpn;
 };
-typedef struct __rdma_peer rdma_peer_t;
+typedef struct __gf_rdma_peer gf_rdma_peer_t;
 
-struct __rdma_post_context {
-        struct ibv_mr     *mr[RDMA_MAX_SEGMENTS];
+struct __gf_rdma_post_context {
+        struct ibv_mr     *mr[GF_RDMA_MAX_SEGMENTS];
         int                mr_count;
         struct iovec       vector[MAX_IOVEC];
         int                count;
         struct iobref     *iobref;
         struct iobuf      *hdr_iobuf;
         char               is_request;
-        int                rdma_reads;
-        rdma_reply_info_t *reply_info;
+        int                gf_rdma_reads;
+        gf_rdma_reply_info_t *reply_info;
 };
-typedef struct __rdma_post_context rdma_post_context_t;
+typedef struct __gf_rdma_post_context gf_rdma_post_context_t;
 
 typedef enum {
-        RDMA_SEND_POST,
-        RDMA_RECV_POST
-} rdma_post_type_t;
+        GF_RDMA_SEND_POST,
+        GF_RDMA_RECV_POST
+} gf_rdma_post_type_t;
 
-struct __rdma_post {
-        struct __rdma_post *next, *prev;
+struct __gf_rdma_post {
+        struct __gf_rdma_post *next, *prev;
         struct ibv_mr *mr;
         char *buf;
         int32_t buf_size;
         char aux;
         int32_t reused;
-        struct __rdma_device  *device;
-        rdma_post_type_t      type;
-        rdma_post_context_t   ctx;
+        struct __gf_rdma_device  *device;
+        gf_rdma_post_type_t      type;
+        gf_rdma_post_context_t   ctx;
         int                   refcount;
         pthread_mutex_t       lock;
 };
-typedef struct __rdma_post rdma_post_t;
+typedef struct __gf_rdma_post gf_rdma_post_t;
 
-struct __rdma_queue {
-        rdma_post_t active_posts, passive_posts;
+struct __gf_rdma_queue {
+        gf_rdma_post_t active_posts, passive_posts;
         int32_t active_count, passive_count;
         pthread_mutex_t lock;
 };
-typedef struct __rdma_queue rdma_queue_t;
+typedef struct __gf_rdma_queue gf_rdma_queue_t;
 
-struct __rdma_qpreg {
+struct __gf_rdma_qpreg {
         pthread_mutex_t lock;
         int32_t count;
         struct _qpent {
                 struct _qpent *next, *prev;
                 int32_t qp_num;
-                rdma_peer_t *peer;
+                gf_rdma_peer_t *peer;
         } ents[42];
 };
-typedef struct __rdma_qpreg rdma_qpreg_t;
+typedef struct __gf_rdma_qpreg gf_rdma_qpreg_t;
 
 /* context per device, stored in global glusterfs_ctx_t->ib */
-struct __rdma_device {
-        struct __rdma_device *next;
+struct __gf_rdma_device {
+        struct __gf_rdma_device *next;
         const char *device_name;
         struct ibv_context *context;
         int32_t port;
         struct ibv_pd *pd;
         struct ibv_srq *srq;
-        rdma_qpreg_t qpreg;
+        gf_rdma_qpreg_t qpreg;
         struct ibv_comp_channel *send_chan, *recv_chan;
         struct ibv_cq *send_cq, *recv_cq;
-        rdma_queue_t sendq, recvq;
+        gf_rdma_queue_t sendq, recvq;
         pthread_t send_thread, recv_thread;
         struct mem_pool *request_ctx_pool;
         struct mem_pool *ioq_pool;
         struct mem_pool *reply_info_pool;
 };
-typedef struct __rdma_device rdma_device_t;
+typedef struct __gf_rdma_device gf_rdma_device_t;
 
 typedef enum {
-        RDMA_HANDSHAKE_START = 0,
-        RDMA_HANDSHAKE_SENDING_DATA,
-        RDMA_HANDSHAKE_RECEIVING_DATA,
-        RDMA_HANDSHAKE_SENT_DATA,
-        RDMA_HANDSHAKE_RECEIVED_DATA,
-        RDMA_HANDSHAKE_SENDING_ACK,
-        RDMA_HANDSHAKE_RECEIVING_ACK,
-        RDMA_HANDSHAKE_RECEIVED_ACK,
-        RDMA_HANDSHAKE_COMPLETE,
-} rdma_handshake_state_t;
+        GF_RDMA_HANDSHAKE_START = 0,
+        GF_RDMA_HANDSHAKE_SENDING_DATA,
+        GF_RDMA_HANDSHAKE_RECEIVING_DATA,
+        GF_RDMA_HANDSHAKE_SENT_DATA,
+        GF_RDMA_HANDSHAKE_RECEIVED_DATA,
+        GF_RDMA_HANDSHAKE_SENDING_ACK,
+        GF_RDMA_HANDSHAKE_RECEIVING_ACK,
+        GF_RDMA_HANDSHAKE_RECEIVED_ACK,
+        GF_RDMA_HANDSHAKE_COMPLETE,
+} gf_rdma_handshake_state_t;
 
-struct rdma_nbio {
+struct gf_rdma_nbio {
         int state;
         char *buf;
         int count;
@@ -349,17 +349,17 @@ struct rdma_nbio {
         int pending_count;
 };
 
-struct __rdma_request_context {
-        struct ibv_mr   *mr[RDMA_MAX_SEGMENTS];
+struct __gf_rdma_request_context {
+        struct ibv_mr   *mr[GF_RDMA_MAX_SEGMENTS];
         int              mr_count;
         struct mem_pool *pool;
-        rdma_peer_t     *peer;
+        gf_rdma_peer_t     *peer;
         struct iobref   *iobref;
         struct iobref   *rsp_iobref;
 };
-typedef struct __rdma_request_context rdma_request_context_t;
+typedef struct __gf_rdma_request_context gf_rdma_request_context_t;
 
-struct __rdma_private {
+struct __gf_rdma_private {
         int32_t sock;
         int32_t idx;
         unsigned char connected;
@@ -369,9 +369,9 @@ struct __rdma_private {
         unsigned short port;
 
         /* IB Verbs Driver specific variables, pointers */
-        rdma_peer_t peer;
-        struct __rdma_device *device;
-        rdma_options_t options;
+        gf_rdma_peer_t peer;
+        struct __gf_rdma_device *device;
+        gf_rdma_options_t options;
 
         /* Used by trans->op->receive */
         char *data_ptr;
@@ -389,16 +389,16 @@ struct __rdma_private {
         pthread_mutex_t recv_mutex;
         pthread_cond_t  recv_cond;
 
-        /* used during rdma_handshake */
+        /* used during gf_rdma_handshake */
         struct {
-                struct rdma_nbio incoming;
-                struct rdma_nbio outgoing;
+                struct gf_rdma_nbio incoming;
+                struct gf_rdma_nbio outgoing;
                 int               state;
-                rdma_header_t header;
+                gf_rdma_header_t header;
                 char *buf;
                 size_t size;
         } handshake;
 };
-typedef struct __rdma_private rdma_private_t;
+typedef struct __gf_rdma_private gf_rdma_private_t;
 
-#endif /* _XPORT_RDMA_H */
+#endif /* _XPORT_GF_RDMA_H */
