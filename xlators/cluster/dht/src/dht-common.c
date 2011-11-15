@@ -306,7 +306,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         strerror (op_errno));
 			}
                         if (op_errno == ESTALE) {
-                                /* propogate the ESTALE to parent.
+                                /* propagate the ESTALE to parent.
                                  * setting local->return_estale would send
                                  * ESTALE to parent. */
                                 local->return_estale = 1;
@@ -2317,7 +2317,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                                     orig_entry->d_name);
                         if (!subvol || (subvol != prev->this)) {
                                 /* TODO: Count the number of entries which need
-                                   linkfile to prove its existance in fs */
+                                   linkfile to prove its existence in fs */
                                 layout->search_unhashed++;
                         }
                 }

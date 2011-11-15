@@ -795,7 +795,7 @@ cleanup_and_exit (int signum)
 
         exit (0);
 #if 0
-        /* TODO: Properly do cleanup_and_exit(), with synchronisations */
+        /* TODO: Properly do cleanup_and_exit(), with synchronization */
         if (ctx->mgmt)
                 rpc_clnt_unref (ctx->mgmt);
 
@@ -834,7 +834,7 @@ reincarnate (int signum)
                 ret = glusterfs_volumes_init (ctx);
         }
 
-        /* Also, SIGHUP should do logroate */
+        /* Also, SIGHUP should do logrotate */
         gf_log_logrotate (1);
 
         if (ret < 0)
@@ -1139,7 +1139,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                 if (((ret == 0) &&
                      (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) ||
                     (ret == -1)) {
-                        /* Have seperate logfile per run */
+                        /* Have separate logfile per run */
                         tm = localtime (&utime);
                         strftime (timestr, 256, "%Y%m%d.%H%M%S", tm);
                         sprintf (tmp_logfile, "%s.%s.%d",

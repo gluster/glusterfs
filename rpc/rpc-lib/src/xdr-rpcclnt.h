@@ -33,7 +33,7 @@
 #include <rpc/rpc_msg.h>
 #include <rpc/auth_unix.h>
 
-/* Macros that simplify accesing the members of an RPC call structure. */
+/* Macros that simplify accessing the members of an RPC call structure. */
 #define rpc_reply_xid(reply)              ((reply)->rm_xid)
 #define rpc_reply_status(reply)           ((reply)->ru.RM_rmb.rp_stat)
 #define rpc_accepted_reply_status(reply)  ((reply)->acpted_rply.ar_stat)

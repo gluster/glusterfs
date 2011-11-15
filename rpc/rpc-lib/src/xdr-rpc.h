@@ -62,7 +62,7 @@ rpc_reply_to_xdr (struct rpc_msg *reply, char *dest, size_t len,
 extern int
 xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
                        char *machname, gid_t *gids);
-/* Macros that simplify accesing the members of an RPC call structure. */
+/* Macros that simplify accessing the members of an RPC call structure. */
 #define rpc_call_xid(call)              ((call)->rm_xid)
 #define rpc_call_direction(call)        ((call)->rm_direction)
 #define rpc_call_rpcvers(call)          ((call)->ru.RM_cmb.cb_rpcvers)

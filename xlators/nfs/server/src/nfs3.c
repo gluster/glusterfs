@@ -5194,7 +5194,7 @@ nfs3_init_options (struct nfs3_state *nfs3, xlator_t *nfsx)
                 nfs3->iobsize = nfs3->readdirsize;
 
         /* But this is the true size of each iobuf. We need this size to
-         * accomodate the NFS headers also in the same buffer. */
+         * accommodate the NFS headers also in the same buffer. */
         nfs3->iobsize = nfs3->iobsize * 2;
 
         /* mem-factor */

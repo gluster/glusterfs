@@ -704,7 +704,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         }
 
         gf_log (this->name, GF_LOG_TRACE,
-                "inspecting existance of %s under %s",
+                "inspecting existence of %s under %s",
                 name, local->loc.path);
 
         expunge_frame = copy_frame (frame);
@@ -1762,7 +1762,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         }
 
         gf_log (this->name, GF_LOG_TRACE,
-                "inspecting existance of %s under %s",
+                "inspecting existence of %s under %s",
                 entry->d_name, local->loc.path);
 
         entry_mode = st_mode_from_ia (entry->d_stat.ia_prot,

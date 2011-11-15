@@ -1194,7 +1194,7 @@ socket_listen (transport_t *this)
 
         if (sock != -1)  {
                 gf_log (this->xl->name, GF_LOG_DEBUG,
-                        "alreading listening");
+                        "already listening");
                 return ret;
         }
 

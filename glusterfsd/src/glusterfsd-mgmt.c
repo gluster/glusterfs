@@ -944,9 +944,9 @@ out:
 }
 
 /* Function has 3types of return value 0, -ve , 1
- *   return 0          =======> reconfiguration of options has succeded
+ *   return 0          =======> reconfiguration of options has succeeded
  *   return 1          =======> the graph has to be reconstructed and all the xlators should be inited
- *   return -1(or -ve) =======> Some Internal Error occured during the operation
+ *   return -1(or -ve) =======> Some Internal Error occurred during the operation
  */
 static int
 glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
@@ -1005,7 +1005,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 
         if (!oldvolfile_graph) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
-                        "glsuterfs_ctx->active is NULL");
+                        "glusterfs_ctx->active is NULL");
                 goto out;
         }
 
@@ -1077,9 +1077,9 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         /*  Check if only options have changed. No need to reload the
         *  volfile if topology hasn't changed.
         *  glusterfs_volfile_reconfigure returns 3 possible return states
-        *  return 0          =======> reconfiguration of options has succeded
+        *  return 0          =======> reconfiguration of options has succeeded
         *  return 1          =======> the graph has to be reconstructed and all the xlators should be inited
-        *  return -1(or -ve) =======> Some Internal Error occured during the operation
+        *  return -1(or -ve) =======> Some Internal Error occurred during the operation
         */
 
         ret = glusterfs_volfile_reconfigure (tmpfp);

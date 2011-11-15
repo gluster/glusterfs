@@ -53,7 +53,7 @@ mnt1svc_init (xlator_t *nfsx);
 extern int
 mount_init_state (xlator_t *nfsx);
 
-/* Data structureused to store the list of mounts points currently
+/* Data structure used to store the list of mounts points currently
  * in use by NFS clients.
  */
 struct mountentry {

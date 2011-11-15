@@ -2019,7 +2019,7 @@ client_destroy_rpc (xlator_t *this)
         }
 
         gf_log (this->name, GF_LOG_WARNING,
-                "RPC destory called on already destroyed "
+                "RPC destroy called on already destroyed "
                 "connection");
 
 out:

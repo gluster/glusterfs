@@ -115,7 +115,7 @@ xdr_to_dump_rsp (struct iovec inmsg, void *args);
 
 /* Returns the address of the byte that follows the
  * last byte used for decoding the previous xdr component.
- * For eg, once the RPC call for NFS has been decoded, thie macro will return
+ * E.g. once the RPC call for NFS has been decoded, the macro will return
  * the address from which the NFS header starts.
  */
 #define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)

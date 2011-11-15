@@ -358,7 +358,7 @@ marker_specific_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = marker_trav_parent (local);
 
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "Error occured "
+                gf_log (this->name, GF_LOG_DEBUG, "Error occurred "
                         "while traversing to the parent, stopping marker");
 
                 done = 1;
@@ -841,7 +841,7 @@ marker_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "linking a file ", strerror (op_errno));
         }
 
@@ -1069,7 +1069,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->err = op_errno;
                 }
 
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "renaming a file ", strerror (op_errno));
         }
 
@@ -1463,7 +1463,7 @@ marker_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "truncating a file ", strerror (op_errno));
         }
 
@@ -1531,7 +1531,7 @@ marker_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "truncating a file ", strerror (op_errno));
         }
 
@@ -1599,7 +1599,7 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_local_t     *local   = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "creating symlinks ", strerror (op_errno));
         }
 
@@ -1668,7 +1668,7 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "creating symlinks ", strerror (op_errno));
         }
 
@@ -1799,7 +1799,7 @@ marker_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "creating symlinks ", strerror (op_errno));
         }
 
@@ -1866,7 +1866,7 @@ marker_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occured while "
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
                         "creating symlinks ", strerror (op_errno));
         }
 
@@ -1934,7 +1934,7 @@ marker_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "%s occured while "
+                gf_log (this->name, GF_LOG_ERROR, "%s occurred while "
                         "creating symlinks ", strerror (op_errno));
         }
 
@@ -2006,7 +2006,7 @@ marker_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
                                      GF_LOG_ERROR),
-                        "%s occured during setattr of %s",
+                        "%s occurred during setattr of %s",
                         strerror (op_errno),
                         (local ? local->loc.path : "<nul>"));
         }
@@ -2067,7 +2067,7 @@ marker_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "%s occured while "
+                gf_log (this->name, GF_LOG_ERROR, "%s occurred while "
                         "creating symlinks ", strerror (op_errno));
         }
 

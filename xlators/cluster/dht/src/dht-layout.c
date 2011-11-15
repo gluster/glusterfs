@@ -485,7 +485,7 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
         uint32_t    last_stop = 0;
         char        is_virgin = 1;
 
-        /* TODO: explain WTF is happening */
+        /* TODO: explain what is happening */
 
         last_stop = layout->list[0].start - 1;
         prev_stop = last_stop;

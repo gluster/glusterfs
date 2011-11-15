@@ -45,10 +45,10 @@
 #endif /* AI_ADDRCONFIG */
 
 /* Given the 4-byte fragment header, returns non-zero if this fragment
- * is the last fragment for the RPC record being assemebled.
+ * is the last fragment for the RPC record being assembled.
  * RPC Record marking standard defines a 32 bit value as the fragment
  * header with the MSB signifying whether the fragment is the last
- * fragment for the record being asembled.
+ * fragment for the record being assembled.
  */
 #define RPC_LASTFRAG(fraghdr) ((uint32_t)(fraghdr & 0x80000000U))
 

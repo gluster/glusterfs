@@ -395,7 +395,7 @@ cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,
                                     loc, name);
                 else {
                         gf_log (this->name, GF_LOG_WARNING,
-                                 "Unrecognized type of marker attr recived");
+                                 "Unrecognized type of marker attr received");
                         STACK_WIND (frame, default_getxattr_cbk,
                                     *(sub_volumes + i),
                                     (*(sub_volumes + i))->fops->getxattr,

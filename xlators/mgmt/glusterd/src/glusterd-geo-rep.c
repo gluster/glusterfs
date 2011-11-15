@@ -1764,7 +1764,7 @@ _iterate_log_rotate_mst_slv (dict_t *this, char *key, data_t *value, void *data)
                 slave++;
         else {
                 gf_log ("", GF_LOG_ERROR, "geo-replication log-rotate: slave (%s) "
-                        "not comfirming to format", slave);
+                        "not conforming to format", slave);
                 return;
         }
 

@@ -745,7 +745,7 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 {
                         /*
                          * we really need not set this flag, since open is
-                         * not yet unwounded.
+                         * not yet unwound.
                          */
 
                         qr_fd_ctx->open_in_transit = 1;

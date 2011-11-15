@@ -187,8 +187,8 @@ struct rpcsvc_request {
         uint64_t                lk_owner;
         uint64_t                gfs_id;
 
-        /* Might want to move this to AUTH_UNIX specifix state since this array
-         * is not available for every authenticatino scheme.
+        /* Might want to move this to AUTH_UNIX specific state since this array
+         * is not available for every authentication scheme.
          */
         gid_t                   auxgids[NGRPS];
         int                     auxgidcount;
@@ -217,8 +217,8 @@ struct rpcsvc_request {
         int                     auth_err;
 
         /* There can be cases of RPC requests where the reply needs to
-         * be built from multiple sources. For eg. where even the NFS reply can
-         * contain a payload, as in the NFSv3 read reply. Here the RPC header
+         * be built from multiple sources. E.g. where even the NFS reply
+         * can contain a payload, as in the NFSv3 read reply. Here the RPC header
          * ,NFS header and the read data are brought together separately from
          * different buffers, so we need to stage the buffers temporarily here
          * before all of them get added to the connection's transmission list.
@@ -323,7 +323,7 @@ typedef struct rpcsvc_actor_desc {
          * the XDR scheme, RPC cannot guarantee memory aligned addresses for
          * the resulting message-specific structures. Allowing a specialized
          * handler for letting the RPC program read the data from the network
-         * directly into its alligned buffers.
+         * directly into its aligned buffers.
          */
         rpcsvc_vector_actor     vector_actor;
         rpcsvc_vector_sizer     vector_sizer;

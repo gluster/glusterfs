@@ -434,7 +434,7 @@ mem_get (struct mem_pool *mem_pool)
                 /* This is a problem area. If we've run out of
                  * chunks in our slab above, we need to allocate
                  * enough memory to service this request.
-                 * The problem is, these indvidual chunks will fail
+                 * The problem is, these individual chunks will fail
                  * the first address range check in __is_member. Now, since
                  * we're not allocating a full second slab, we wont have
                  * enough info perform the range check in __is_member.

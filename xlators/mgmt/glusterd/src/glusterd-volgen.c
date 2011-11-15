@@ -982,7 +982,7 @@ glusterd_check_option_exists (char *key, char **completion)
         ret = volopt_trie (key, completion);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
-                        "Some error occured during keyword hinting");
+                        "Some error occurred during keyword hinting");
         }
 
         return ret;

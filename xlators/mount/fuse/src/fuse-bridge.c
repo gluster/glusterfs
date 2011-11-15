@@ -562,7 +562,7 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  * is left intact upon open, setting
                                  * FOPEN_PURGE_UBC implies purge
                                  *
-                                 * [[Innnnteresting...]]
+                                 * [[Interesting...]]
                                  */
                                 foo.open_flags |= FOPEN_PURGE_UBC;
 #endif
@@ -3168,7 +3168,7 @@ fuse_thread_proc (void *data)
 
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
                 /* Add extra 128 byte to the first iov so that it can
-                 * accomodate "ordinary" non-write requests. It's not
+                 * accommodate "ordinary" non-write requests. It's not
                  * guaranteed to be big enough, as SETXATTR and namespace
                  * operations with very long names may grow behind it,
                  * but it's good enough in most cases (and we can handle

@@ -19,7 +19,7 @@
 
 /**
  * xlators/cluster/stripe:
- *    Stripe translator, stripes the data accross its child nodes,
+ *    Stripe translator, stripes the data across its child nodes,
  *    as per the options given in the volfile. The striping works
  *    fairly simple. It writes files at different offset as per
  *    calculation. So, 'ls -l' output at the real posix level will

@@ -371,7 +371,7 @@ int
 glusterd_defrag_stop (glusterd_volinfo_t *volinfo, u_quad_t *files,
                       u_quad_t *size, char *op_errstr, size_t len)
 {
-        /* TODO: set a variaeble 'stop_defrag' here, it should be checked
+        /* TODO: set a variable 'stop_defrag' here, it should be checked
            in defrag loop */
         int     ret = -1;
         GF_ASSERT (volinfo);

@@ -192,7 +192,7 @@ cli_rl_tokenize (const char *text)
         }
 
         if (i < count) {
-                /* symoblize that what needs to be autocompleted is
+                /* symbolize that what needs to be autocompleted is
                    the full set of possible nextwords, and not extend
                    the last word
                 */

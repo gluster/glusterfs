@@ -117,7 +117,7 @@ rpc_fill_denied_reply (struct rpc_msg *reply, int rjstat, int auth_err)
         reply->rm_reply.rp_stat = MSG_DENIED;
         reply->rjcted_rply.rj_stat = rjstat;
         if (rjstat == RPC_MISMATCH) {
-                /* No problem with hardocoding
+                /* No problem with hardcoding
                  * RPC version numbers. We only support
                  * v2 anyway.
                  */

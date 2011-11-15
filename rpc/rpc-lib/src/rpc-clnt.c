@@ -1279,7 +1279,7 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
         //rpc_transport_get_myname (clnt->conn.trans, myname, UNIX_PATH_MAX);
         //au.aup_machname = myname;
 
-        /* Assuming the client program would like to speak to the same versioned
+        /* Assuming the client program would like to speak to the same version of
          * program on server.
          */
         request_iob = rpc_clnt_record_build_record (clnt, prog->prognum,

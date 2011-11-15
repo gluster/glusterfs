@@ -43,7 +43,7 @@ struct nfs_direntcache {
  * different NFS versions can simply call a standard interface and have fop
  * interface dependent functions be handled internally.
  * This structure is part of such an  abstraction. The fops layer stores any
- * state is requires in the fd. For eg, the dirent cache for a directory fd_t.
+ * state is requires in the fd. E.g. the dirent cache for a directory fd_t.
  */
 typedef struct nfs_fop_fdcontext {
         pthread_mutex_t         lock;

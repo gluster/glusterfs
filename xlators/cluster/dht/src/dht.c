@@ -299,12 +299,12 @@ reconfigure (xlator_t *this, dict_t *options)
                 if (strcasecmp (temp_str, "auto")) {
                         if (!gf_string2boolean (temp_str, &search_unhashed)) {
                                 gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
-                                       " lookup-unahashed reconfigured (%s)",
+                                       " lookup-unhashed reconfigured (%s)",
                                        temp_str);
                                 conf->search_unhashed = search_unhashed;
                         } else {
                                 gf_log(this->name, GF_LOG_ERROR, "Reconfigure:"
-                                       " lookup-unahashed should be boolean,"
+                                       " lookup-unhashed should be boolean,"
                                        " not (%s), defaulting to (%d)",
                                        temp_str, conf->search_unhashed);
                                 //return -1;
@@ -313,7 +313,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         }
                 } else {
                         gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
-                               " lookup-unahashed reconfigured auto ");
+                               " lookup-unhashed reconfigured auto ");
                         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
                 }
         }
