@@ -37,6 +37,9 @@ Requires(postun): /sbin/service
 
 BuildRequires: bison flex 
 BuildRequires: gcc make
+%if 0%{?suse_version}
+BuildRequires: python-devel
+%endif
 %define _prefix /opt/%{name}/%{version}
 
 %description
