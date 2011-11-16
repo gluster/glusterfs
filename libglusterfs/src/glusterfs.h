@@ -79,6 +79,7 @@
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 #define ZR_DUMP_FUSE            "dump-fuse"
 
+#define GF_XATTR_CLRLK_CMD      "glusterfs.clrlk"
 #define GF_XATTR_PATHINFO_KEY   "trusted.glusterfs.pathinfo"
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"

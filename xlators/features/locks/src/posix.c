@@ -37,6 +37,7 @@
 #include "locks.h"
 #include "common.h"
 #include "statedump.h"
+#include "clear.h"
 
 #ifndef LLONG_MAX
 #define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
@@ -350,6 +351,114 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
         }
 
         return;
+}
+
+
+int32_t
+pl_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        return 0;
+
+}
+
+int32_t
+pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+             const char *name)
+{
+        int                     op_errno        = EINVAL;
+        int                     op_ret          = -1;
+        int32_t                 bcount          = 0;
+        int32_t                 gcount          = 0;
+        char                    key[PATH_MAX]   = {0, };
+        char                    *lk_summary     = NULL;
+        pl_inode_t              *pl_inode       = NULL;
+        dict_t                  *dict           = NULL;
+        clrlk_args              args           = {0,};
+
+        if (!name)
+                goto usual;
+
+        if (strncmp (name, GF_XATTR_CLRLK_CMD, strlen (GF_XATTR_CLRLK_CMD)))
+                goto usual;
+
+        if (clrlk_parse_args (name, &args)) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        pl_inode = pl_inode_get (this, loc->inode);
+        if (!pl_inode) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        switch (args.type) {
+                case CLRLK_INODE:
+                case CLRLK_ENTRY:
+                        op_ret = clrlk_clear_lks_in_all_domains (this, pl_inode,
+                                                                 &args, &bcount,
+                                                                 &gcount,
+                                                                 &op_errno);
+                        if (op_ret)
+                                goto out;
+                        break;
+                case CLRLK_POSIX:
+                        op_ret = clrlk_clear_posixlk (this, pl_inode, &args,
+                                                      &bcount, &gcount,
+                                                      &op_errno);
+                        if (op_ret)
+                                goto out;
+                        break;
+                case CLRLK_TYPE_MAX:
+                        op_errno = EINVAL;
+                        goto out;
+        }
+
+        if (!gcount && !bcount) {
+                if (gf_asprintf (&lk_summary, "No locks cleared.") == -1) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+        } else if (gf_asprintf (&lk_summary, "%s: %s blocked locks=%d "
+                                "granted locks=%d", this->name,
+                                (args.type == CLRLK_INODE)? "inode":
+                                (args.type == CLRLK_ENTRY)? "entry":
+                                (args.type == CLRLK_POSIX)? "posix": " ",
+                                bcount, gcount) == -1) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        strncpy (key, name, strlen (name));
+        if (dict_set_dynstr (dict, key, lk_summary)) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        op_ret = 0;
+out:
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+
+        if (args.opts)
+                GF_FREE (args.opts);
+        if (op_ret && lk_summary)
+                GF_FREE (lk_summary);
+        if (dict)
+                dict_unref (dict);
+        return 0;
+
+usual:
+        STACK_WIND (frame, pl_getxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getxattr, loc, name);
+        return 0;
 }
 
 int32_t
@@ -1980,8 +2089,8 @@ struct xlator_fops fops = {
         .fentrylk    = pl_fentrylk,
         .flush       = pl_flush,
         .opendir     = pl_opendir,
-
         .readdirp    = pl_readdirp,
+        .getxattr    = pl_getxattr,
 };
 
 struct xlator_dumpops dumpops = {
