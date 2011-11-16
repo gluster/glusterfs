@@ -163,7 +163,6 @@ done:
                 break;
         }
 
-        case GD_OP_RENAME_VOLUME:
         case GD_OP_START_BRICK:
         case GD_OP_STOP_BRICK:
         {
