@@ -411,8 +411,8 @@ out:
 }
 
 int
-glusterd_defrag_status_get_v2 (glusterd_volinfo_t *volinfo,
-                               dict_t *dict)
+glusterd_defrag_status_get (glusterd_volinfo_t *volinfo,
+                            dict_t *dict)
 {
         int      ret    = 0;
         uint64_t files  = 0;
@@ -462,57 +462,6 @@ glusterd_defrag_status_get_v2 (glusterd_volinfo_t *volinfo,
 
 out:
         return 0;
-}
-
-int
-glusterd_defrag_status_get (glusterd_volinfo_t *volinfo,
-                            dict_t *rsp)
-{
-        uint64_t        files = 0;
-        uint64_t        size  = 0;
-        uint64_t        lookedup_files = 0;
-        int             ret = -1;
-
-        if (!volinfo || !rsp)
-                goto out;
-
-        if (volinfo->defrag) {
-                LOCK (&volinfo->defrag->lock);
-                {
-                        files = volinfo->defrag->total_files;
-                        size = volinfo->defrag->total_data;
-                        lookedup_files = volinfo->defrag->num_files_lookedup;
-                }
-                UNLOCK (&volinfo->defrag->lock);
-        } else {
-                files = volinfo->rebalance_files;
-                size  = volinfo->rebalance_data;
-                lookedup_files = volinfo->lookedup_files;
-        }
-
-        ret = dict_set_uint64 (rsp, "files", files);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to set dict");
-                goto out;
-        }
-
-        ret = dict_set_uint64 (rsp, "size", size);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to set dict");
-                goto out;
-        }
-        ret = dict_set_uint64 (rsp, "lookedup-files", lookedup_files);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to set dict");
-                goto out;
-        }
-
-        return volinfo->defrag_status;
-out:
-        return ret;
 }
 
 void
@@ -705,146 +654,6 @@ out:
 
 int
 glusterd_handle_defrag_volume (rpcsvc_request_t *req)
-{
-        int32_t                ret           = -1;
-        gf_cli_req             cli_req       = {{0,}};
-        glusterd_conf_t         *priv = NULL;
-        char                   cmd_str[4096] = {0,};
-        glusterd_volinfo_t      *volinfo = NULL;
-        gf_cli_rsp              rsp = {0,};
-        char                    msg[2048] = {0};
-        dict_t                  *dict = NULL;
-        char                    *volname = NULL;
-        gf_cli_defrag_type      cmd     = 0;
-        uint64_t                files = 0;
-        uint64_t                size = 0;
-
-        GF_ASSERT (req);
-
-        priv    = THIS->private;
-
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
-                //failed to decode msg;
-                req->rpc_err = GARBAGE_ARGS;
-                goto out;
-        }
-
-        if (cli_req.dict.dict_len) {
-                /* Unserialize the dictionary */
-                dict  = dict_new ();
-
-                ret = dict_unserialize (cli_req.dict.dict_val,
-                                        cli_req.dict.dict_len,
-                                        &dict);
-                if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "failed to "
-                                "unserialize req-buffer to dictionary");
-                        goto out;
-                }
-        }
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to get volname");
-                goto out;
-        }
-
-        ret = dict_get_int32 (dict, "rebalance-command", (int32_t*)&cmd);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to get command");
-                goto out;
-        }
-
-        glusterd_rebalance_cmd_attempted_log (cmd, volname);
-
-        rsp.op_ret = -1;
-
-        ret = glusterd_rebalance_cmd_validate (cmd, volname,
-                                               &volinfo, msg, sizeof (msg));
-        if (ret)
-                goto out;
-        switch (cmd) {
-        case GF_DEFRAG_CMD_START:
-        case GF_DEFRAG_CMD_START_LAYOUT_FIX:
-        case GF_DEFRAG_CMD_START_MIGRATE_DATA:
-        case GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE:
-        {
-                ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
-                                                    cmd, NULL);
-                rsp.op_ret = ret;
-                break;
-        }
-        case GF_DEFRAG_CMD_STOP:
-                ret = glusterd_defrag_stop (volinfo, &files, &size,
-                                            msg, sizeof (msg));
-                ret = dict_set_uint64 (dict, "files", files);
-                if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "Failed to set files argument");
-                        rsp.op_ret = ret;
-                        goto out;
-                }
-
-                ret = dict_set_uint64 (dict, "size", size);
-                if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "Failed to set size argument");
-                        rsp.op_ret = ret;
-                        goto out;
-                }
-
-                rsp.op_ret = ret;
-                break;
-        case GF_DEFRAG_CMD_STATUS:
-                ret = glusterd_defrag_status_get (volinfo, dict);
-                if (ret != -1) {
-                        rsp.op_errno = ret;
-                        rsp.op_ret = 0;
-                        ret = 0;
-                }
-
-                break;
-        default:
-                break;
-        }
-        if (ret)
-                gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed",cmd_str);
-
-        if (cmd != GF_DEFRAG_CMD_STATUS) {
-                gf_cmd_log ("volume rebalance"," on volname: %s %d %s",
-                            volname,
-                            cmd, ((ret)?"FAILED":"SUCCESS"));
-        }
-
-out:
-        ret = dict_allocate_and_serialize (dict,
-                                           &rsp.dict.dict_val,
-                                           (size_t *) &rsp.dict.dict_len);
-        if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
- 
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gf_cli_rsp);
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val);//malloced by xdr
-
-        if (dict)
-                dict_unref (dict);
-
-
-        return 0;
-}
-
-int
-glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
 {
         int32_t                 ret     = -1;
         gf_cli_req              cli_req = {{0,}};
@@ -1057,7 +866,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (!tmp_dict)
                         tmp_dict = glusterd_op_get_ctx (GD_OP_REBALANCE);
 
-                ret = glusterd_defrag_status_get_v2 (volinfo, tmp_dict);
+                ret = glusterd_defrag_status_get (volinfo, tmp_dict);
                 break;
         default:
                 break;
