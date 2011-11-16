@@ -94,7 +94,6 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
 
         loc->inode = inode_ref (inode);
         loc->path = gf_strdup (path);
-        loc->ino = inode->ino;
 
         path_copy = gf_strdup (path);
         if (path_copy == NULL) {
@@ -397,8 +396,8 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 op_errno = EINVAL;
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "cannot set quick-read context in "
-                                        "inode (ino:%"PRId64" gfid:%s)",
-                                        inode->ino, inode->gfid);
+                                        "inode (gfid:%s)",
+                                        uuid_utoa (inode->gfid));
                                 goto unlock;
                         }
                 } else {
@@ -408,8 +407,8 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 op_errno = EINVAL;
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "cannot find quick-read context in "
-                                        "inode (ino:%"PRId64" gfid:%s)",
-                                        inode->ino, uuid_utoa (inode->gfid));
+                                        "inode (gfid:%s)",
+                                        uuid_utoa (inode->gfid));
                                 goto unlock;
                         }
                 }
@@ -586,8 +585,7 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "cannot find quick-read context in fd (%p) opened on "
-                        "inode (ino:%"PRId64" gfid: %s", fd, fd->inode->ino,
-                        uuid_utoa (fd->inode->gfid));
+                        "inode (gfid: %s)", fd, uuid_utoa (fd->inode->gfid));
                 goto out;
         }
 
@@ -700,8 +698,8 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "cannot set quick-read context in "
-                        "fd (%p) opened on inode (ino:%"PRId64" gfid:%s)", fd,
-                        fd->inode->ino, uuid_utoa (fd->inode->gfid));
+                        "fd (%p) opened on inode (gfid:%s)", fd,
+                        uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
 

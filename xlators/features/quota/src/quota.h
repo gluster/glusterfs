@@ -125,7 +125,7 @@
 
 struct quota_dentry {
         char            *name;
-        ino_t            par;
+        uuid_t           par;
         struct list_head next;
 };
 typedef struct quota_dentry quota_dentry_t;

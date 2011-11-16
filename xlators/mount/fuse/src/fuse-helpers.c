@@ -244,7 +244,7 @@ fuse_ino_to_inode (uint64_t ino, xlator_t *fuse)
 uint64_t
 inode_to_fuse_nodeid (inode_t *inode)
 {
-        if (!inode || inode->ino == 1)
+        if (!inode || __is_root_gfid (inode->gfid))
                 return 1;
 
         return (unsigned long) inode;
@@ -259,6 +259,7 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
         inode_t  *parent = NULL;
         int32_t   ret = -1;
         char     *path = NULL;
+        uuid_t    null_gfid = {0,};
 
         /* resistance against multiple invocation of loc_fill not to get
            reference leaks via inode_search() */
@@ -279,8 +280,8 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                 ret = inode_path (parent, name, &path);
                 if (ret <= 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                                "inode_path failed for %"PRId64"/%s",
-                                (parent)?parent->ino:0, name);
+                                "inode_path failed for %s/%s",
+                                (parent)?uuid_utoa (parent->gfid):"0", name);
                         goto fail;
                 }
                 loc->path = path;
@@ -293,22 +294,23 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
 
                 parent = loc->parent;
                 if (!parent) {
-                        parent = inode_parent (inode, par, name);
+                        parent = fuse_ino_to_inode (par, state->this);
+                        if (!parent) {
+                                parent = inode_parent (inode, null_gfid, NULL);
+                        }
+
                         loc->parent = parent;
                 }
 
                 ret = inode_path (inode, NULL, &path);
                 if (ret <= 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-                                "inode_path failed for %"PRId64,
-                                (inode)?inode->ino:0);
+                                "inode_path failed for %s",
+                                (inode) ? uuid_utoa (inode->gfid) : "0");
                         goto fail;
                 }
                 loc->path = path;
         }
-
-        if (inode)
-                loc->ino = inode->ino;
 
         if (loc->path) {
                 loc->name = strrchr (loc->path, '/');

@@ -2216,9 +2216,8 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 ret = dict_unserialize (buf, rsp.dict.dict_len, &xattr);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_WARNING,
-                                "%s (%"PRId64"): failed to "
-                                "unserialize dictionary",
-                                local->loc.path, inode->ino);
+                                "%s (%s): failed to unserialize dictionary",
+                                local->loc.path, uuid_utoa (inode->gfid));
                         op_errno = EINVAL;
                         goto out;
                 }

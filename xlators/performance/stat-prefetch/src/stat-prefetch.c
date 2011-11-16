@@ -110,8 +110,7 @@ sp_update_inode_ctx (xlator_t *this, inode_t *inode, int32_t *op_ret,
 
                 gf_log (this->name, GF_LOG_WARNING,
                         "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", inode->ino,
-                        uuid_utoa (inode->gfid));
+                        "(gfid:%s)", uuid_utoa (inode->gfid));
                 goto out;
         }
 
@@ -172,9 +171,9 @@ sp_check_and_create_inode_ctx (xlator_t *this, inode_t *inode,
                                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                                                   "stat-prefetch context is "
                                                   "present in inode "
-                                                  "(ino:%"PRId64" gfid:%s) "
+                                                  "(gfid:%s) "
                                                   "when it is supposed to be "
-                                                  "not present", inode->ino,
+                                                  "not present",
                                                   uuid_utoa (inode->gfid));
                         }
                 } else {
@@ -182,9 +181,9 @@ sp_check_and_create_inode_ctx (xlator_t *this, inode_t *inode,
                                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                                                   "stat-prefetch context is "
                                                   "not present in inode "
-                                                  "(ino:%"PRId64" gfid:%s)"
+                                                  "(gfid:%s)"
                                                   " when it is supposed to be "
-                                                  "present", inode->ino,
+                                                  "present",
                                                   uuid_utoa (inode->gfid));
                         }
 
@@ -277,8 +276,7 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (inode_ctx == NULL) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                                   "stat-prefetch context not set in inode "
-                                  "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
-                                  uuid_utoa (loc->inode->gfid));
+                                  "(gfid:%s)", uuid_utoa (loc->inode->gfid));
                 *can_wind = 1;
                 *need_unwind = 0;
                 op_errno = 0;
@@ -752,9 +750,8 @@ __sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "cannot set stat-prefetch context in fd (%p) "
-                                "opened on inode (ino:%"PRId64" gfid:%s)",
-                                fd, fd->inode->ino,
-                                uuid_utoa (fd->inode->gfid));
+                                "opened on inode (gfid:%s)",
+                                fd, uuid_utoa (fd->inode->gfid));
                         sp_fd_ctx_free (fd_ctx);
                         goto out;
                 }
@@ -1048,8 +1045,7 @@ sp_lookup_helper (call_frame_t *frame,xlator_t *this, loc_t *loc,
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
-                        uuid_utoa (loc->inode->gfid));
+                        "(gfid:%s)", uuid_utoa (loc->inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
         }
@@ -1133,9 +1129,9 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot create stat-prefetch context in inode (ino:%"
-                        PRId64", gfid:%s)(%s)", loc->inode->ino,
-                        loc->inode->gfid, strerror (op_errno));
+                        "cannot create stat-prefetch context in inode "
+                        "(gfid:%s)(%s)",
+                        uuid_utoa (loc->inode->gfid), strerror (op_errno));
                 goto unwind;
         }
 
@@ -1322,8 +1318,7 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "creation of stat-prefetch cache "
                                         "for fd (%p) opened on inode "
-                                        "(ino:%"PRId64", gfid:%s) failed", fd,
-                                        fd->inode->ino,
+                                        "(gfid:%s) failed", fd,
                                         uuid_utoa (fd->inode->gfid));
                                 goto unlock;
                         }
@@ -1333,8 +1328,7 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 sp_cache_free (cache);
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "cannot store cache in fd (%p) opened "
-                                        "on inode (ino:%"PRId64", gfid:%s)", fd,
-                                        fd->inode->ino,
+                                        "on inode (gfid:%s)", fd,
                                         uuid_utoa (fd->inode->gfid));
                                 goto unlock;
                         }
@@ -1384,8 +1378,7 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING, "cannot construct path on "
-                        "which fd (%p) is opened (fd.inode.ino = %"PRId64", "
-                        "fd.inode.gfid = %s) (%s)", fd, fd->inode->ino,
+                        "which fd (%p) is opened (gfid = %s) (%s)", fd,
                         uuid_utoa (fd->inode->gfid), strerror (op_errno));
                 goto unwind;
         }
@@ -1498,8 +1491,7 @@ sp_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "cannot set stat-prefetch context in fd (%p) opened on "
-                        "inode (ino:%"PRId64", gfid:%s)", fd, fd->inode->ino,
-                        uuid_utoa (fd->inode->gfid));
+                        "inode (gfid:%s)", fd, uuid_utoa (fd->inode->gfid));
                 sp_fd_ctx_free (fd_ctx);
                 op_errno = ENOMEM;
         }
@@ -1526,8 +1518,7 @@ sp_open_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
-                        uuid_utoa (loc->inode->gfid));
+                        "(gfid:%s)", uuid_utoa (loc->inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
         }
@@ -1653,9 +1644,8 @@ sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       &looked_up, buf, NULL, &op_errno);
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "updating stat-prefetch context in inode (ino:%"
-                        PRId64", gfid:%s) (path: %s) failed (%s)",
-                        local->loc.inode->ino,
+                        "updating stat-prefetch context in inode "
+                        "(gfid:%s) (path: %s) failed (%s)",
                         uuid_utoa (local->loc.inode->gfid), local->loc.path,
                         strerror (op_errno));
                 goto out;
@@ -1683,8 +1673,7 @@ sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "cannot set stat-prefetch context in fd (%p) opened on "
-                        "inode (ino:%"PRId64", gfid:%s)", fd, fd->inode->ino,
-                        uuid_utoa (fd->inode->gfid));
+                        "inode (gfid:%s)", fd, uuid_utoa (fd->inode->gfid));
                 sp_fd_ctx_free (fd_ctx);
                 op_errno = ENOMEM;
         }
@@ -1740,9 +1729,9 @@ sp_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot create stat-prefetch context in inode (ino:%"
-                        PRId64", gfid:%s)(%s)", loc->inode->ino,
-                        loc->inode->gfid, strerror (op_errno));
+                        "cannot create stat-prefetch context in inode "
+                        "(gfid:%s)(%s)", uuid_utoa (loc->inode->gfid),
+                        strerror (op_errno));
                 goto out;
         }
 
@@ -1776,8 +1765,7 @@ sp_opendir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
-                        uuid_utoa (loc->inode->gfid));
+                        "(gfid:%s)", uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
@@ -1898,9 +1886,8 @@ sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       &looked_up, buf, NULL, &op_errno);
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "updating stat-prefetch context in inode (ino:%"
-                        PRId64", gfid:%s) (path: %s) failed (%s)",
-                        local->loc.inode->ino,
+                        "updating stat-prefetch context in inode "
+                        "(gfid:%s) (path: %s) failed (%s)",
                         uuid_utoa (local->loc.inode->gfid), local->loc.path,
                         strerror (op_errno));
                 goto out;
@@ -1967,9 +1954,9 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot create stat-prefetch context in inode (ino:%"
-                        PRId64", gfid:%s)(%s)", loc->inode->ino,
-                        loc->inode->gfid, strerror (op_errno));
+                        "cannot create stat-prefetch context in inode "
+                        "(gfid:%s)(%s)", uuid_utoa (loc->inode->gfid),
+                        strerror (op_errno));
                 goto out;
         }
 
@@ -2033,9 +2020,9 @@ sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot create stat-prefetch context in inode (ino:%"
-                        PRId64", gfid:%s)(%s)", loc->inode->ino,
-                        loc->inode->gfid, strerror (op_errno));
+                        "cannot create stat-prefetch context in inode "
+                        "(gfid:%s)(%s)", uuid_utoa (loc->inode->gfid),
+                        strerror (op_errno));
                 goto out;
         }
 
@@ -2102,9 +2089,8 @@ sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot create stat-prefetch context in inode (ino:%"
-                        PRId64", gfid:%s)(%s)", loc->inode->ino,
-                        loc->inode->gfid, strerror (op_errno));
+                        "%s: cannot create stat-prefetch context (gfid:%s)(%s)",
+                        loc->path, loc->inode->gfid, strerror (op_errno));
                 goto out;
         }
 
@@ -2153,8 +2139,7 @@ sp_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         ret = inode_ctx_get (oldloc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", oldloc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (oldloc->inode->gfid));
                 goto unwind;
         }
@@ -2258,8 +2243,7 @@ sp_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -2350,8 +2334,7 @@ sp_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
-                        "set in fd (%p) opened on inode (ino:%"PRId64", "
-                        "gfid:%s", fd, fd->inode->ino,
+                        "set in fd (%p) opened on inode (gfid:%s)", fd,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
@@ -2399,8 +2382,7 @@ sp_setattr_helper (call_frame_t *frame, xlator_t *this,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
@@ -2502,8 +2484,7 @@ sp_readlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -2612,8 +2593,7 @@ sp_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -2707,8 +2687,7 @@ sp_rmdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -2820,8 +2799,7 @@ sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
-                        "set in fd (%p) opened on inode (ino:%"PRId64", "
-                        "gfid:%s", fd, fd->inode->ino,
+                        "set in fd (%p) opened on inode (gfid:%s)", fd,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
@@ -2859,8 +2837,7 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
-                        "set in fd (%p) opened on inode (ino:%"PRId64", "
-                        "gfid:%s", fd, fd->inode->ino,
+                        "set in fd (%p) opened on inode (gfid:%s)", fd,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
@@ -2898,8 +2875,7 @@ sp_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
-                        "set in fd (%p) opened on inode (ino:%"PRId64", "
-                        "gfid:%s", fd, fd->inode->ino,
+                        "set in fd (%p) opened on inode (gfid:%s)", fd,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
@@ -2942,8 +2918,7 @@ sp_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         ret = inode_ctx_get (oldloc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", oldloc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (oldloc->inode->gfid));
                 goto unwind;
         }
@@ -3104,8 +3079,7 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
                                     &op_errno);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING, "processing stat-prefetch "
-                        "context in inode (ino:%"PRId64", gfid:%s) (path:%s) "
-                        "failed (%s)", oldloc->inode->ino,
+                        "context in inode (gfid:%s) (path:%s) failed (%s)",
                         uuid_utoa (oldloc->inode->gfid), oldloc->path,
                         strerror (op_errno));
                 goto out;
@@ -3130,8 +3104,7 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
                         if (inode_ctx == NULL) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "stat-prefetch context not set in inode"
-                                        " (ino:%"PRId64", gfid:%s) (path:%s)",
-                                        oldloc->inode->ino,
+                                        " (gfid:%s) (path:%s)",
                                         uuid_utoa (oldloc->inode->gfid),
                                         oldloc->path);
                                 goto out;
@@ -3192,8 +3165,7 @@ sp_setxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -3282,8 +3254,7 @@ sp_removexattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -3380,8 +3351,7 @@ sp_getxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -3475,8 +3445,7 @@ sp_xattrop_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -3566,8 +3535,7 @@ sp_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
-                        "set in fd (%p) opened on inode (ino:%"PRId64", "
-                        "gfid:%s", fd, fd->inode->ino,
+                        "set in fd (%p) opened on inode (gfid:%s", fd,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
@@ -3611,8 +3579,7 @@ sp_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -3696,8 +3663,7 @@ sp_access_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -3782,8 +3748,7 @@ sp_inodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
@@ -3872,8 +3837,7 @@ sp_entrylk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "stat-prefetch context not set in inode "
-                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        "stat-prefetch context not set in inode (gfid:%s)",
                         uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }

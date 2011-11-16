@@ -23,7 +23,7 @@
 
 int32_t
 quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
-                   char *name, ino_t par);
+                   char *name, uuid_t par);
 struct volume_options options[];
 
 int
@@ -37,7 +37,6 @@ quota_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-                loc->ino = inode->ino;
         }
 
         if (parent) {
@@ -81,7 +80,7 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
 
         this = THIS;
 
-        if ((inode) && (inode->ino == 1)) {
+        if ((inode) && __is_root_gfid (inode->gfid)) {
                 loc->parent = NULL;
                 goto ignore_parent;
         }
@@ -89,8 +88,7 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
         parent = inode_parent (inode, 0, NULL);
         if (!parent) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot find parent for inode (ino:%"PRId64", "
-                        "gfid:%s)", inode->ino,
+                        "cannot find parent for inode (gfid:%s)",
                         uuid_utoa (inode->gfid));
                 goto err;
         }
@@ -99,8 +97,7 @@ ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot construct path for inode (ino:%"PRId64", "
-                        "gfid:%s)", inode->ino,
+                        "cannot construct path for inode (gfid:%s)",
                         uuid_utoa (inode->gfid));
                 goto err;
         }
@@ -155,7 +152,7 @@ err:
 
 
 quota_dentry_t *
-__quota_dentry_new (quota_inode_ctx_t *ctx, char *name, ino_t par)
+__quota_dentry_new (quota_inode_ctx_t *ctx, char *name, uuid_t par)
 {
         quota_dentry_t    *dentry = NULL;
         GF_UNUSED int32_t  ret    = 0;
@@ -170,7 +167,7 @@ __quota_dentry_new (quota_inode_ctx_t *ctx, char *name, ino_t par)
                 goto err;
         }
 
-        dentry->par = par;
+        uuid_copy (dentry->par, par);
 
         list_add_tail (&dentry->next, &ctx->parents);
 err:
@@ -224,8 +221,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context is not present in inode (ino:%"PRId64", "
-                        "gfid:%s)", local->validate_loc.inode->ino,
+                        "quota context is not present in inode (gfid:%s)",
                         uuid_utoa (local->validate_loc.inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
@@ -302,7 +298,7 @@ quota_timeout (struct timeval *tv, int32_t timeout)
 
 int32_t
 quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
-                   char *name, ino_t par)
+                   char *name, uuid_t par)
 {
         int32_t               ret            = -1;
         inode_t              *_inode         = NULL, *parent = NULL;
@@ -315,6 +311,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         int32_t               validate_count = 0, link_count = 0;
         uint64_t              value          = 0;
         char                  just_validated = 0;
+        uuid_t                trav_uuid      = {0,};
 
         GF_VALIDATE_OR_GOTO ("quota", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -345,6 +342,8 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         }
         UNLOCK (&local->lock);
 
+        uuid_copy (trav_uuid, par);
+
         do {
                 if (ctx != NULL) {
                         LOCK (&ctx->lock);
@@ -373,23 +372,22 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         }
                 }
 
-                if (_inode->ino == 1) {
+                if (__is_root_gfid (_inode->gfid)) {
                         break;
                 }
 
-                parent = inode_parent (_inode, par, name);
+                parent = inode_parent (_inode, trav_uuid, name);
 
                 if (name != NULL) {
                         name = NULL;
-                        par = 0;
+                        uuid_clear (trav_uuid);
                 }
 
                 if (parent == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cannot find parent for inode (ino:%"PRId64", "
-                                "gfid:%s), hence aborting enforcing "
-                                "quota-limits and continuing with the fop",
-                                _inode->ino, uuid_utoa (_inode->gfid));
+                                "cannot find parent for inode (gfid:%s), hence "
+                                "aborting enforcing quota-limits and continuing"
+                                " with the fop", uuid_utoa (_inode->gfid));
                 }
 
                 inode_unref (_inode);
@@ -442,9 +440,8 @@ validate:
                 ret = quota_inode_loc_fill (_inode, &local->validate_loc);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cannot fill loc for inode (ino:%"PRId64", "
-                                "gfid:%s), hence aborting quota-checks and "
-                                "continuing with the fop", _inode->ino,
+                                "cannot fill loc for inode (gfid:%s), hence "
+                                "aborting quota-checks and continuing with fop",
                                 uuid_utoa (_inode->gfid));
                         local->validate_count--;
                 }
@@ -538,8 +535,8 @@ __quota_init_inode_ctx (inode_t *inode, int64_t limit, xlator_t *this,
         ret = __inode_ctx_put (inode, this, (uint64_t )(long)ctx);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot set quota context in inode (ino:%"PRId64", "
-                        "gfid:%s)", inode->ino, uuid_utoa (inode->gfid));
+                        "cannot set quota context in inode (gfid:%s)",
+                        uuid_utoa (inode->gfid));
         }
 out:
         return ret;
@@ -600,8 +597,7 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    buf, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
-                        "context in inode(ino:%"PRId64", gfid:%s)",
-                        local->loc.inode->ino,
+                        "context in inode(gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -631,8 +627,9 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 list_for_each_entry (dentry, &ctx->parents, next) {
-                        if ((strcmp (dentry->name, local->loc.name) == 0)
-                            && (local->loc.parent->ino == dentry->par)) {
+                        if ((strcmp (dentry->name, local->loc.name) == 0) &&
+                            (uuid_compare (local->loc.parent->gfid,
+                                           dentry->par) == 0)) {
                                 found = 1;
                                 break;
                         }
@@ -641,15 +638,13 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!found) {
                         dentry = __quota_dentry_new (ctx,
                                                      (char *)local->loc.name,
-                                                     local->loc.parent->ino);
+                                                     local->loc.parent->gfid);
                         if (dentry == NULL) {
                                 /*
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "cannot create a new dentry (par:%"
                                         PRId64", name:%s) for inode(ino:%"
                                         PRId64", gfid:%s)",
-                                        local->loc.parent->ino,
-                                        local->loc.inode->ino,
                                         uuid_utoa (local->loc.inode->gfid));
                                 */
                                 op_ret = -1;
@@ -736,12 +731,14 @@ err:
 
 
 void
-quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
+quota_update_size (xlator_t *this, inode_t *inode, char *name, uuid_t par,
                    int64_t delta)
 {
-        inode_t              *_inode         = NULL, *parent = NULL;
-        uint64_t              value          = 0;
-        quota_inode_ctx_t    *ctx            = NULL;
+        inode_t           *_inode    = NULL;
+        inode_t           *parent    = NULL;
+        uint64_t           value     = 0;
+        quota_inode_ctx_t *ctx       = NULL;
+        uuid_t             trav_uuid = {0,};
 
         GF_VALIDATE_OR_GOTO ("quota", this, out);
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
@@ -751,6 +748,7 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
 
         _inode = inode_ref (inode);
 
+        uuid_copy (trav_uuid, par);
         do {
                 if ((ctx != NULL) && (ctx->limit >= 0)) {
                         LOCK (&ctx->lock);
@@ -760,22 +758,21 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, ino_t par,
                         UNLOCK (&ctx->lock);
                 }
 
-                if (_inode->ino == 1) {
+                if (__is_root_gfid (_inode->gfid)) {
                         break;
                 }
 
-                parent = inode_parent (_inode, par, name);
+                parent = inode_parent (_inode, trav_uuid, name);
                 if (parent == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cannot find parent for inode (ino:%"PRId64", "
-                                "gfid:%s), hence aborting size updation of "
-                                "parents",
-                                _inode->ino, uuid_utoa (_inode->gfid));
+                                "cannot find parent for inode (gfid:%s), hence "
+                                "aborting size updation of parents",
+                                uuid_utoa (_inode->gfid));
                 }
 
                 if (name != NULL) {
                         name = NULL;
-                        par = 0;
+                        uuid_clear (trav_uuid);
                 }
 
                 inode_unref (_inode);
@@ -823,9 +820,8 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
-                        uuid_utoa (local->loc.inode->gfid));
+                        "quota context not set in %s (gfid:%s)",
+                        local->loc.path, uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
 
@@ -907,8 +903,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = quota_inode_ctx_get (fd->inode, -1, this, NULL, NULL, &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64", "
-                        "gfid:%s)", fd->inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
@@ -1091,8 +1086,8 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = quota_inode_ctx_get (inode, -1, this, NULL, buf, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
-                        "context in inode(ino:%"PRId64", gfid:%s)",
-                        inode->ino, uuid_utoa (inode->gfid));
+                        "context in inode(gfid:%s)",
+                        uuid_utoa (inode->gfid));
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1103,13 +1098,11 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ctx->buf = *buf;
 
                 dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
-                                             local->loc.parent->ino);
+                                             local->loc.parent->gfid);
                 if (dentry == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cannot create a new dentry (par:%"
-                                PRId64", name:%s) for inode(ino:%"
-                                PRId64", gfid:%s)", local->loc.parent->ino,
-                                local->loc.name, local->loc.inode->ino,
+                                "cannot create a new dentry (name:%s) for "
+                                "inode(gfid:%s)", local->loc.name,
                                 uuid_utoa (local->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1234,14 +1227,13 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
 
         quota_update_size (this, local->loc.inode, (char *)local->loc.name,
-                           local->loc.parent->ino,
+                           local->loc.parent->gfid,
                            (-(ctx->buf.ia_blocks * 512)));
 
 out:
@@ -1308,8 +1300,8 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = quota_inode_ctx_get (inode, -1, this, NULL, NULL, &ctx, 0);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot find quota "
-                        "context in inode(ino:%"PRId64", gfid:%s)",
-                        inode->ino, uuid_utoa (inode->gfid));
+                        "context in %s (gfid:%s)", local->loc.path,
+                        uuid_utoa (inode->gfid));
                 op_ret = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -1318,15 +1310,14 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&ctx->lock);
         {
                 list_for_each_entry (dentry, &ctx->parents, next) {
-                        if ((strcmp (dentry->name, local->loc.name) == 0)
-                            && (local->loc.parent->ino == dentry->par)) {
+                        if ((strcmp (dentry->name, local->loc.name) == 0) &&
+                            (uuid_compare (local->loc.parent->gfid,
+                                           dentry->par) == 0)) {
                                 found = 1;
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "new entry being linked (par:%"
-                                        PRId64", name:%s) for inode (ino:%"
-                                        PRId64", gfid:%s) is already present "
-                                        "in inode-dentry-list", dentry->par,
-                                        dentry->name, local->loc.inode->ino,
+                                        "new entry being linked (name:%s) for "
+                                        "inode (gfid:%s) is already present "
+                                        "in inode-dentry-list", dentry->name,
                                         uuid_utoa (local->loc.inode->gfid));
                                 break;
                         }
@@ -1335,15 +1326,11 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!found) {
                         dentry = __quota_dentry_new (ctx,
                                                      (char *)local->loc.name,
-                                                     local->loc.parent->ino);
+                                                     local->loc.parent->gfid);
                         if (dentry == NULL) {
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "cannot create a new dentry (par:%"
-                                        PRId64", name:%s) for inode(ino:%"
-                                        PRId64", gfid:%s)",
-                                        local->loc.parent->ino,
-                                        local->loc.name,
-                                        local->loc.inode->ino,
+                                        "cannot create a new dentry (name:%s) "
+                                        "for inode(gfid:%s)", local->loc.name,
                                         uuid_utoa (local->loc.inode->gfid));
                                 op_ret = -1;
                                 op_errno = ENOMEM;
@@ -1427,9 +1414,8 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                                    0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", oldloc->inode?oldloc->inode->ino:0,
-                        oldloc->inode?uuid_utoa (oldloc->inode->gfid):"0");
+                        "quota context not set in inode (gfid:%s)",
+                        oldloc->inode ? uuid_utoa (oldloc->inode->gfid) : "0");
                 op_errno = EINVAL;
                 goto err;
         }
@@ -1510,8 +1496,7 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    &ctx, 0);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "quota context not"
-                        "set in inode(ino:%"PRId64", gfid:%s)",
-                        local->oldloc.inode->ino,
+                        "set in inode(gfid:%s)",
                         uuid_utoa (local->oldloc.inode->gfid));
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -1527,19 +1512,19 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  * should be changed to set a new context in newloc->inode.
                  */
                 list_for_each_entry (dentry, &ctx->parents, next) {
-                        if ((strcmp (dentry->name, local->oldloc.name) == 0)
-                            && (local->oldloc.parent->ino == dentry->par)) {
+                        if ((strcmp (dentry->name, local->oldloc.name) == 0) &&
+                            (uuid_compare (local->oldloc.parent->gfid,
+                                           dentry->par) == 0)) {
                                 old_dentry = dentry;
-                        } else if ((strcmp (dentry->name, local->newloc.name)
-                                    == 0) && (local->oldloc.parent->ino
-                                              == dentry->par)) {
+                        } else if ((strcmp (dentry->name,
+                                            local->newloc.name) == 0) &&
+                                   (uuid_compare (local->oldloc.parent->gfid,
+                                                  dentry->par) == 0)) {
                                 new_dentry_found = 1;
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "new entry being linked (par:%"
-                                        PRId64", name:%s) for inode (ino:%"
-                                        PRId64", gfid:%s) is already present "
-                                        "in inode-dentry-list", dentry->par,
-                                        dentry->name, local->newloc.inode->ino,
+                                        "new entry being linked (name:%s) for "
+                                        "inode (gfid:%s) is already present "
+                                        "in inode-dentry-list", dentry->name,
                                         uuid_utoa (local->newloc.inode->gfid));
                                 break;
                         }
@@ -1550,22 +1535,17 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 } else {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "dentry corresponding to the path just renamed "
-                                "(par:%"PRId64", name:%s) is not present",
-                                local->oldloc.inode->ino, local->oldloc.name);
+                                "(name:%s) is not present", local->oldloc.name);
                 }
 
                 if (!new_dentry_found) {
                         dentry = __quota_dentry_new (ctx,
                                                      (char *)local->newloc.name,
-                                                     local->newloc.parent->ino);
+                                                     local->newloc.parent->gfid);
                         if (dentry == NULL) {
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "cannot create a new dentry (par:%"
-                                        PRId64", name:%s) for inode(ino:%"
-                                        PRId64", gfid:%s)",
-                                        local->newloc.parent->ino,
-                                        local->newloc.name,
-                                        local->newloc.inode->ino,
+                                        "cannot create a new dentry (name:%s) "
+                                        "for inode(gfid:%s)", local->newloc.name,
                                         uuid_utoa (local->newloc.inode->gfid));
                                 op_ret = -1;
                                 op_errno = ENOMEM;
@@ -1658,11 +1638,9 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                                            &ctx, 0);
                 if (ctx == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "quota context not set in inode (ino:%"PRId64
-                                ", gfid:%s)",
-                                oldloc->inode ? oldloc->inode->ino:0,
+                                "quota context not set in inode (gfid:%s)",
                                 oldloc->inode ? uuid_utoa (oldloc->inode->gfid)
-                                :"0");
+                                : "0");
                         op_errno = EINVAL;
                         goto err;
                 }
@@ -1725,8 +1703,7 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 1);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -1736,13 +1713,11 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ctx->buf = *buf;
 
                 dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
-                                             local->loc.parent->ino);
+                                             local->loc.parent->gfid);
                 if (dentry == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cannot create a new dentry (par:%"
-                                PRId64", name:%s) for inode(ino:%"
-                                PRId64", gfid:%s)", local->loc.parent->ino,
-                                local->loc.name, local->loc.inode->ino,
+                                "cannot create a new dentry (name:%s) for "
+                                "inode(gfid:%s)", local->loc.name,
                                 uuid_utoa (local->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1876,8 +1851,7 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -1952,8 +1926,7 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2093,8 +2066,7 @@ quota_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2161,8 +2133,7 @@ quota_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2226,8 +2197,7 @@ quota_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2295,8 +2265,7 @@ quota_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2361,8 +2330,7 @@ quota_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2426,8 +2394,7 @@ quota_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2498,8 +2465,7 @@ quota_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (ino:%"PRId64
-                        ", gfid:%s)", local->loc.inode->ino,
+                        "quota context not set in inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2561,8 +2527,7 @@ quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = quota_inode_ctx_get (inode, -1, this, NULL, buf, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
-                        "context in inode(ino:%"PRId64", gfid:%s)",
-                        inode->ino, uuid_utoa (inode->gfid));
+                        "context in inode (gfid:%s)", uuid_utoa (inode->gfid));
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2573,13 +2538,11 @@ quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ctx->buf = *buf;
 
                 dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
-                                             local->loc.parent->ino);
+                                             local->loc.parent->gfid);
                 if (dentry == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cannot create a new dentry (par:%"
-                                PRId64", name:%s) for inode(ino:%"
-                                PRId64", gfid:%s)", local->loc.parent->ino,
-                                local->loc.name, local->loc.inode->ino,
+                                "cannot create a new dentry (name:%s) for "
+                                "inode(gfid:%s)", local->loc.name,
                                 uuid_utoa (local->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = ENOMEM;

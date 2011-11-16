@@ -158,8 +158,6 @@ nfs_loc_wipe (loc_t *loc)
                 inode_unref (loc->inode);
                 loc->inode = NULL;
         }
-
-        loc->ino = 0;
 }
 
 
@@ -167,8 +165,6 @@ int
 nfs_loc_copy (loc_t *dst, loc_t *src)
 {
 	int ret = -1;
-
-	dst->ino = src->ino;
 
 	if (src->inode)
 		dst->inode = inode_ref (src->inode);
@@ -211,7 +207,6 @@ nfs_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-                loc->ino = inode->ino;
         }
 
         if (parent)
@@ -250,7 +245,7 @@ nfs_inode_loc_fill (inode_t *inode, loc_t *loc)
         if ((!inode) || (!loc))
                 return ret;
 
-        if ((inode) && (inode->ino == 1))
+        if ((inode) && __is_root_gfid (inode->gfid))
                 goto ignore_parent;
 
         parent = inode_parent (inode, 0, NULL);

@@ -223,8 +223,8 @@ __is_dentry_cyclic (dentry_t *dentry)
 
                 gf_log (dentry->inode->table->name, GF_LOG_CRITICAL,
                         "detected cyclic loop formation during inode linkage."
-                        " inode (%"PRId64"/%s) linking under itself as %s",
-                        inode->ino, uuid_utoa (inode->gfid), name);
+                        " inode (%s) linking under itself as %s",
+                        uuid_utoa (inode->gfid), name);
         }
 
         return ret;
@@ -275,7 +275,7 @@ __inode_hash (inode_t *inode)
 
 
 static dentry_t *
-__dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
+__dentry_search_for_inode (inode_t *inode, uuid_t pargfid, const char *name)
 {
         dentry_t *dentry = NULL;
         dentry_t *tmp = NULL;
@@ -285,8 +285,15 @@ __dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
                 return NULL;
         }
 
+        /* earlier, just the ino was sent, which could have been 0, now
+           we deal with gfid, and if sent gfid is null or 0, no need to
+           continue with the check */
+        if (!pargfid || uuid_is_null (pargfid))
+                return NULL;
+
         list_for_each_entry (tmp, &inode->dentry_list, inode_list) {
-                if (tmp->parent->ino == par && !strcmp (tmp->name, name)) {
+                if ((uuid_compare (tmp->parent->gfid, pargfid) == 0) &&
+                    !strcmp (tmp->name, name)) {
                         dentry = tmp;
                         break;
                 }
@@ -392,7 +399,7 @@ __inode_unref (inode_t *inode)
         if (!inode)
                 return NULL;
 
-        if (inode->ino == 1)
+        if (__is_root_gfid(inode->gfid))
                 return inode;
 
         GF_ASSERT (inode->ref);
@@ -756,7 +763,6 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                         return NULL;
 
                 uuid_copy (inode->gfid, iatt->ia_gfid);
-                inode->ino        = iatt->ia_ino;
                 inode->ia_type    = iatt->ia_type;
 
                 old_inode = __inode_find (table, inode->gfid);
@@ -872,7 +878,7 @@ __inode_unlink (inode_t *inode, inode_t *parent, const char *name)
         if (!inode || !parent || !name)
                 return;
 
-        dentry = __dentry_search_for_inode (inode, parent->ino, name);
+        dentry = __dentry_search_for_inode (inode, parent->gfid, name);
 
         /* dentry NULL for corrupted backend */
         if (dentry)
@@ -955,7 +961,7 @@ __dentry_search_arbit (inode_t *inode)
 
 
 inode_t *
-inode_parent (inode_t *inode, ino_t par, const char *name)
+inode_parent (inode_t *inode, uuid_t pargfid, const char *name)
 {
         inode_t       *parent = NULL;
         inode_table_t *table = NULL;
@@ -970,8 +976,8 @@ inode_parent (inode_t *inode, ino_t par, const char *name)
 
         pthread_mutex_lock (&table->lock);
         {
-                if (par && name) {
-                        dentry = __dentry_search_for_inode (inode, par, name);
+                if (pargfid && !uuid_is_null (pargfid) && name) {
+                        dentry = __dentry_search_for_inode (inode, pargfid, name);
                 } else {
                         dentry = __dentry_search_arbit (inode);
                 }
@@ -1018,11 +1024,11 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
                 }
         }
 
-        if ((inode->ino != 1) &&
+        if (!__is_root_gfid (inode->gfid) &&
             (i == 0)) {
                 gf_log (table->name, GF_LOG_WARNING,
-                        "no dentry for non-root inode %"PRId64": %s",
-                        inode->ino, uuid_utoa (inode->gfid));
+                        "no dentry for non-root inode : %s",
+                        uuid_utoa (inode->gfid));
                 ret = -ENOENT;
                 goto out;
         }
@@ -1059,7 +1065,7 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
         }
 
 out:
-        if (inode->ino == 1 && !name) {
+        if (__is_root_gfid (inode->gfid) && !name) {
                 ret = 1;
                 if (buf) {
                         GF_FREE (buf);

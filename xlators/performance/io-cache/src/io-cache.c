@@ -1045,8 +1045,8 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                         need_validate = 0;
                         gf_log (frame->this->name, GF_LOG_TRACE,
                                 "sending validate request for "
-                                "inode(%"PRId64") at offset=%"PRId64"",
-                                fd->inode->ino, trav_offset);
+                                "inode(%s) at offset=%"PRId64"",
+                                uuid_utoa (fd->inode->gfid), trav_offset);
                         ret = ioc_cache_validate (frame, ioc_inode, fd, trav);
                         if (ret == -1) {
                                 ioc_inode_lock (ioc_inode);

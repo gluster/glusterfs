@@ -97,9 +97,9 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp.dict.dict_len = dict_serialized_length (dict);
                 if (rsp.dict.dict_len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to get serialized "
+                                "%s (%s): failed to get serialized "
                                 "length of reply dict",
-                                state->loc.path, state->loc.inode->ino);
+                                state->loc.path, uuid_utoa (state->loc.inode->gfid));
                         op_ret   = -1;
                         op_errno = EINVAL;
                         rsp.dict.dict_len = 0;
@@ -117,8 +117,8 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = dict_serialize (dict, rsp.dict.dict_val);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to serialize reply dict",
-                                state->loc.path, state->loc.inode->ino);
+                                "%s (%s): failed to serialize reply dict",
+                                state->loc.path, uuid_utoa (state->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = -ret;
                         rsp.dict.dict_len = 0;
@@ -141,7 +141,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 gf_stat_from_iatt (&rsp.stat, stbuf);
 
-                if (inode->ino != 1) {
+                if (!__is_root_gfid (inode->gfid)) {
                         link_inode = inode_link (inode, state->loc.parent,
                                                  state->loc.name, stbuf);
                         inode_lookup (link_inode);
@@ -149,7 +149,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         } else {
                 if (state->is_revalidate && op_errno == ENOENT) {
-                        if (state->loc.inode->ino != 1) {
+                        if (!__is_root_gfid (state->loc.inode->gfid)) {
                                 inode_unlink (state->loc.inode,
                                               state->loc.parent,
                                               state->loc.name);
@@ -163,10 +163,10 @@ out:
         if (op_ret) {
                 gf_log (this->name,
                         ((op_errno == ENOENT) ? GF_LOG_TRACE : GF_LOG_INFO),
-                        "%"PRId64": LOOKUP %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": LOOKUP %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -214,10 +214,10 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_proto_flock_from_flock (&rsp.flock, lock);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": LK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": LK %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -247,17 +247,18 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 if (state->flock.l_type == F_UNLCK)
                         gf_del_locker (conn->ltable, state->volume,
-                                       &state->loc, NULL, frame->root->lk_owner, GF_FOP_INODELK);
+                                       &state->loc, NULL, frame->root->lk_owner,
+                                       GF_FOP_INODELK);
                 else
                         gf_add_locker (conn->ltable, state->volume,
                                        &state->loc, NULL, frame->root->pid,
                                        frame->root->lk_owner, GF_FOP_INODELK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": INODELK %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": INODELK %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -296,10 +297,10 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                        frame->root->lk_owner, GF_FOP_INODELK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FINODELK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FINODELK %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -335,10 +336,10 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                        frame->root->lk_owner, GF_FOP_ENTRYLK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": ENTRYLK %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": ENTRYLK %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -373,11 +374,11 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                        frame->root->lk_owner, GF_FOP_ENTRYLK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FENTRYLK %"PRId64" (%"PRId64") "
+                        "%"PRId64": FENTRYLK %"PRId64" (%s) "
                         " ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -403,10 +404,10 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
         if (op_ret)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": ACCESS %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": ACCESS %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
@@ -444,10 +445,10 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.postparent, postparent);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": RMDIR %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": RMDIR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -552,10 +553,10 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSYNCDIR %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FSYNCDIR %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -586,10 +587,10 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
                 /* (op_ret == 0) is valid, and means EOF, don't log for that */
                 gf_log (this->name, (op_ret) ? GF_LOG_INFO : GF_LOG_TRACE,
-                        "%"PRId64": READDIR %"PRId64" (%"PRId64") ==> %"PRId32
+                        "%"PRId64": READDIR %"PRId64" (%s) ==> %"PRId32
                         " (%s)", frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 unwind:
         rsp.op_ret    = op_ret;
@@ -642,10 +643,10 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fd_ref (fd); // on behalf of the client
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": OPENDIR %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": OPENDIR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         req           = frame->local;
@@ -675,10 +676,10 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_errno  = gf_errno_to_error (op_errno);
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": REMOVEXATTR %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": REMOVEXATTR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
@@ -702,9 +703,9 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 len = dict_serialized_length (dict);
                 if (len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to get serialized length of "
-                                "reply dict",
-                                state->loc.path, state->resolve.ino);
+                                "%s (%s): failed to get serialized length of "
+                                "reply dict", state->loc.path,
+                                uuid_utoa (state->resolve.gfid));
                         op_ret   = -1;
                         op_errno = EINVAL;
                         len = 0;
@@ -722,8 +723,8 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = dict_serialize (dict, rsp.dict.dict_val);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to serialize reply dict",
-                                state->loc.path, state->resolve.ino);
+                                "%s (%s): failed to serialize reply dict",
+                                state->loc.path, uuid_utoa (state->resolve.gfid));
                         op_ret   = -1;
                         op_errno = EINVAL;
                         len = 0;
@@ -767,9 +768,9 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 len = dict_serialized_length (dict);
                 if (len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to get serialized "
+                                "%s (%s): failed to get serialized "
                                 "length of reply dict",
-                                state->loc.path, state->resolve.ino);
+                                state->loc.path, uuid_utoa (state->resolve.gfid));
                         op_ret   = -1;
                         op_errno = EINVAL;
                         len = 0;
@@ -785,8 +786,8 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = dict_serialize (dict, rsp.dict.dict_val);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to serialize reply dict",
-                                state->loc.path, state->resolve.ino);
+                                "%s (%s): failed to serialize reply dict",
+                                state->loc.path, uuid_utoa (state->resolve.gfid));
                         op_ret = -1;
                         op_errno = -ret;
                         len = 0;
@@ -830,10 +831,10 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": SETXATTR %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": SETXATTR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
@@ -857,10 +858,10 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSETXATTR %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
@@ -886,15 +887,12 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
 
         if (op_ret == 0) {
-                stbuf->ia_ino  = state->loc.inode->ino;
                 stbuf->ia_type = state->loc.inode->ia_type;
 
+                /* TODO: log gfid of the inodes */
                 gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                        "%"PRId64": RENAME_CBK (%"PRId64") %"PRId64"/%s "
-                        "==> %"PRId64"/%s",
-                        frame->root->unique, state->loc.inode->ino,
-                        state->loc.parent->ino, state->loc.name,
-                        state->loc2.parent->ino, state->loc2.name);
+                        "%"PRId64": RENAME_CBK  %s ==> %s",
+                        frame->root->unique, state->loc.name, state->loc2.name);
 
                 inode_rename (state->itable,
                               state->loc.parent, state->loc.name,
@@ -911,10 +909,10 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": RENAME %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": RENAME %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_rename_rsp);
@@ -940,10 +938,10 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
 
         if (op_ret == 0) {
+                /* TODO: log gfid of the inodes */
                 gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                        "%"PRId64": UNLINK_CBK %"PRId64"/%s (%"PRId64")",
-                        frame->root->unique, state->loc.parent->ino,
-                        state->loc.name, state->loc.inode->ino);
+                        "%"PRId64": UNLINK_CBK %s",
+                        frame->root->unique, state->loc.name);
 
                 inode_unlink (state->loc.inode, state->loc.parent,
                               state->loc.name);
@@ -959,10 +957,10 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": UNLINK %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": UNLINK %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -999,10 +997,10 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_unref (link_inode);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": SYMLINK %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": SYMLINK %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1031,7 +1029,6 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
 
         if (op_ret == 0) {
-                stbuf->ia_ino = state->loc.inode->ino;
 
                 gf_stat_from_iatt (&rsp.stat, stbuf);
                 gf_stat_from_iatt (&rsp.preparent, preparent);
@@ -1045,10 +1042,10 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": LINK %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": LINK %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_link_rsp);
@@ -1077,10 +1074,10 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.poststat, postbuf);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": TRUNCATE %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": TRUNCATE %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1108,10 +1105,10 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.stat, stbuf);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSTAT %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FSTAT %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1141,10 +1138,10 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.poststat, postbuf);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FTRUNCATE %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FTRUNCATE %"PRId64" (%s)==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1169,10 +1166,10 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FLUSH %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FLUSH %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1203,10 +1200,10 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&(rsp.poststat), postbuf);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSYNC %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FSYNC %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1235,10 +1232,10 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.poststat, postbuf);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": WRITEV %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": WRITEV %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1269,10 +1266,10 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp.size = op_ret;
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": READV %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": READV %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, vector, count, iobref,
@@ -1304,10 +1301,10 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": RCHECKSUM %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": RCHECKSUM %"PRId64" (%s)==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_rchecksum_rsp);
@@ -1335,10 +1332,10 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fd_ref (fd);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": OPEN %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": OPEN %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         req           = frame->local;
@@ -1370,10 +1367,11 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE (frame);
 
         if (op_ret >= 0) {
+                /* TODO: log gfid too */
                 gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                        "%"PRId64": CREATE %"PRId64"/%s (%"PRId64")",
-                        frame->root->unique, state->loc.parent->ino,
-                        state->loc.name, stbuf->ia_ino);
+                        "%"PRId64": CREATE %s (%s)",
+                        frame->root->unique, state->loc.name,
+                        uuid_utoa (inode->gfid));
 
                 link_inode = inode_link (inode, state->loc.parent,
                                          state->loc.name, stbuf);
@@ -1412,10 +1410,10 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.postparent, postparent);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": CREATE %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": CREATE %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
 out:
@@ -1453,10 +1451,10 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp.path = (char *)buf;
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": READLINK %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": READLINK %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         if (!rsp.path)
@@ -1487,10 +1485,10 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.stat, stbuf);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": STAT %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": STAT %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1521,10 +1519,10 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.statpost, statpost);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": SETATTR %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": SETATTR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1549,10 +1547,9 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.statpost, statpost);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSETATTR %"PRId64" (%"PRId64") ==> "
-                        "%"PRId32" (%s)",
+                        "%"PRId64": FSETATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0,
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
                         op_ret, strerror (op_errno));
         }
 
@@ -1582,10 +1579,10 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "%"PRId64": XATTROP %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": XATTROP %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
                 goto out;
         }
 
@@ -1593,9 +1590,10 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 len = dict_serialized_length (dict);
                 if (len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to get serialized length"
+                                "%s (%s): failed to get serialized length"
                                 " for reply dict",
-                                state->loc.path, state->loc.inode->ino);
+                                state->loc.path,
+                                uuid_utoa (state->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = EINVAL;
                         len = 0;
@@ -1611,8 +1609,9 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = dict_serialize (dict, rsp.dict.dict_val);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%"PRId64"): failed to serialize reply dict",
-                                state->loc.path, state->loc.inode->ino);
+                                "%s (%s): failed to serialize reply dict",
+                                state->loc.path,
+                                uuid_utoa (state->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = -ret;
                         len = 0;
@@ -1626,10 +1625,10 @@ out:
         rsp.dict.dict_len = len;
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": XATTROP %s (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": XATTROP %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? state->loc.inode->ino : 0,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--", op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_xattrop_rsp);
@@ -1655,10 +1654,10 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "%"PRId64": FXATTROP %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FXATTROP %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
                 goto out;
         }
 
@@ -1666,9 +1665,10 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 len = dict_serialized_length (dict);
                 if (len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%"PRId64"): failed to get "
+                                "fd - %"PRId64" (%s): failed to get "
                                 "serialized length for reply dict",
-                                state->resolve.fd_no, state->fd->inode->ino);
+                                state->resolve.fd_no,
+                                uuid_utoa (state->fd->inode->gfid));
                         op_ret = -1;
                         op_errno = EINVAL;
                         len = 0;
@@ -1684,9 +1684,9 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = dict_serialize (dict, rsp.dict.dict_val);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%"PRId64"): failed to "
-                                "serialize reply dict",
-                                state->resolve.fd_no, state->fd->inode->ino);
+                                "fd - %"PRId64" (%s): failed to serialize "
+                                "reply dict", state->resolve.fd_no,
+                                uuid_utoa (state->fd->inode->gfid));
                         op_ret = -1;
                         op_errno = -ret;
                         len = 0;
@@ -1700,10 +1700,10 @@ out:
         rsp.dict.dict_len = len;
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FXATTROP %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
+                        "%"PRId64": FXATTROP %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fxattrop_rsp);
@@ -1737,11 +1737,10 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
                 /* (op_ret == 0) is valid, and means EOF, don't log for that */
                 gf_log (this->name, (op_ret) ? GF_LOG_INFO : GF_LOG_TRACE,
-                        "%"PRId64": READDIRP %"PRId64" (%"PRId64") ==>"
-                        "%"PRId32" (%s)",
+                        "%"PRId64": READDIRP %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0, op_ret,
-                        strerror (op_errno));
+                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        op_ret, strerror (op_errno));
         }
 
 out:
@@ -2914,10 +2913,10 @@ server_create (rpcsvc_request_t *req)
                                         &params);
                 if (ret < 0) {
                         gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "%"PRId64": %s (%s): failed to "
                                 "unserialize req-buffer to dictionary",
                                 frame->root->unique, state->resolve.path,
-                                state->resolve.ino);
+                                uuid_utoa (state->resolve.gfid));
                         goto out;
                 }
 
@@ -3520,10 +3519,10 @@ server_setxattr (rpcsvc_request_t *req)
                 ret = dict_unserialize (buf, args.dict.dict_len, &dict);
                 if (ret < 0) {
                         gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "%"PRId64": %s (%s): failed to "
                                 "unserialize request buffer to dictionary",
                                 frame->root->unique, state->loc.path,
-                                state->resolve.ino);
+                                uuid_utoa (state->resolve.gfid));
                         goto err;
                 }
 
@@ -3605,10 +3604,10 @@ server_fsetxattr (rpcsvc_request_t *req)
                 ret = dict_unserialize (buf, args.dict.dict_len, &dict);
                 if (ret < 0) {
                         gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "%"PRId64": %s (%s): failed to "
                                 "unserialize request buffer to dictionary",
                                 frame->root->unique, state->loc.path,
-                                state->resolve.ino);
+                                uuid_utoa (state->resolve.gfid));
                         goto err;
                 }
                 dict->extra_free = buf;
@@ -3687,9 +3686,10 @@ server_fxattrop (rpcsvc_request_t *req)
                 ret = dict_unserialize (buf, args.dict.dict_len, &dict);
                 if (ret < 0) {
                         gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%"PRId64"): failed to unserialize "
+                                "fd - %"PRId64" (%s): failed to unserialize "
                                 "request buffer to dictionary",
-                                state->resolve.fd_no, state->fd->inode->ino);
+                                state->resolve.fd_no,
+                                uuid_utoa (state->fd->inode->gfid));
                         goto fail;
                 }
                 dict->extra_free = buf;
@@ -3770,9 +3770,10 @@ server_xattrop (rpcsvc_request_t *req)
                 ret = dict_unserialize (buf, args.dict.dict_len, &dict);
                 if (ret < 0) {
                         gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%"PRId64"): failed to unserialize "
+                                "fd - %"PRId64" (%s): failed to unserialize "
                                 "request buffer to dictionary",
-                                state->resolve.fd_no, state->fd->inode->ino);
+                                state->resolve.fd_no,
+                                uuid_utoa (state->fd->inode->gfid));
                         goto fail;
                 }
                 dict->extra_free = buf;
@@ -4191,10 +4192,10 @@ server_mknod (rpcsvc_request_t *req)
                                         &params);
                 if (ret < 0) {
                         gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "%"PRId64": %s (%s): failed to "
                                 "unserialize req-buffer to dictionary",
                                 frame->root->unique, state->resolve.path,
-                                state->resolve.ino);
+                                uuid_utoa (state->resolve.gfid));
                         goto out;
                 }
 
@@ -4289,10 +4290,10 @@ server_mkdir (rpcsvc_request_t *req)
                                         &params);
                 if (ret < 0) {
                         gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "%"PRId64": %s (%s): failed to "
                                 "unserialize req-buffer to dictionary",
                                 frame->root->unique, state->resolve.path,
-                                state->resolve.ino);
+                                uuid_utoa (state->resolve.gfid));
                         goto out;
                 }
 
@@ -4735,10 +4736,10 @@ server_symlink (rpcsvc_request_t *req)
                                         &params);
                 if (ret < 0) {
                         gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "%"PRId64": %s (%s): failed to "
                                 "unserialize req-buffer to dictionary",
                                 frame->root->unique, state->resolve.path,
-                                state->resolve.ino);
+                                uuid_utoa (state->resolve.gfid));
                         goto out;
                 }
 
@@ -4965,8 +4966,9 @@ server_lk (rpcsvc_request_t *req)
                 break;
         default:
                 gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                        "fd - %"PRId64" (%"PRId64"): Unknown lock type: %"PRId32"!",
-                        state->resolve.fd_no, state->fd->inode->ino, state->type);
+                        "fd - %"PRId64" (%s): Unknown lock type: %"PRId32"!",
+                        state->resolve.fd_no,
+                        uuid_utoa (state->fd->inode->gfid), state->type);
                 break;
         }
 
@@ -5101,10 +5103,10 @@ server_lookup (rpcsvc_request_t *req)
                                         &xattr_req);
                 if (ret < 0) {
                         gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "%"PRId64": %s (%s): failed to "
                                 "unserialize req-buffer to dictionary",
                                 frame->root->unique, state->resolve.path,
-                                state->resolve.ino);
+                                uuid_utoa (state->resolve.gfid));
                         goto out;
                 }
 

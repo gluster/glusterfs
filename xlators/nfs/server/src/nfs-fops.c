@@ -152,21 +152,22 @@ err:
  * for us to determine in the callback whether to funge the ino in the stat buf
  * with 1 for the parent.
  */
-#define nfs_fop_save_root_ino(locl, loc)                                    \
-        do {                                                                \
-                if ((loc)->ino == 1)                                        \
-                        (locl)->rootinode = 1;                              \
-                else if (((loc)->parent) && ((loc)->parent->ino == 1))      \
-                        (locl)->rootparentinode = 1;                        \
-        } while (0)                                                         \
+#define nfs_fop_save_root_ino(locl, loc)                                \
+        do {                                                            \
+                if (((loc)->inode) &&                                   \
+                    __is_root_gfid ((loc)->inode->gfid))                \
+                        (locl)->rootinode = 1;                          \
+                else if (((loc)->parent) &&                             \
+                         __is_root_gfid ((loc)->parent->gfid))          \
+                        (locl)->rootparentinode = 1;                    \
+        } while (0)
 
 /* Do the same for an fd */
-#define nfs_fop_save_root_fd_ino(locl, fdesc)                               \
-        do {                                                                \
-                if ((fdesc)->inode->ino == 1)                               \
-                        (locl)->rootinode = 1;                              \
-        } while (0)                                                         \
-
+#define nfs_fop_save_root_fd_ino(locl, fdesc)                           \
+        do {                                                            \
+                if (__is_root_gfid ((fdesc)->inode->gfid))              \
+                        (locl)->rootinode = 1;                          \
+        } while (0)
 
 
 /* Use the state saved by the previous macro to funge the ino in the appropriate
@@ -200,14 +201,15 @@ err:
 /* If the newly created, inode's parent is root, we'll need to funge the ino
  * in the parent attr when we receive them in the callback.
  */
-#define nfs_fop_newloc_save_root_ino(locl, newloc)                             \
-        do {                                                                   \
-                if ((newloc)->ino == 1)                                        \
-                        (locl)->newrootinode = 1;                              \
-                else if (((newloc)->parent) && ((newloc)->parent->ino == 1))   \
-                        (locl)->newrootparentinode = 1;                        \
-        } while (0)                                                            \
-
+#define nfs_fop_newloc_save_root_ino(locl, newloc)                      \
+        do {                                                            \
+                if (((newloc)->inode) &&                                \
+                    __is_root_gfid ((newloc)->inode->gfid))             \
+                        (locl)->newrootinode = 1;                       \
+                else if (((newloc)->parent) &&                          \
+                         __is_root_gfid ((newloc)->parent->gfid))       \
+                        (locl)->newrootparentinode = 1;                 \
+        } while (0)
 
 #define nfs_fop_newloc_restore_root_ino(locl, fopret, preattr, postattr, prepar, postpar)  \
         do {                                                                   \
