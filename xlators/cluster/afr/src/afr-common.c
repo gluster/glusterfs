@@ -808,7 +808,6 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->transaction.pre_op);
         GF_FREE (local->transaction.child_errno);
-        GF_FREE (local->child_errno);
         GF_FREE (local->transaction.eager_lock);
 
         GF_FREE (local->transaction.basename);
@@ -844,6 +843,9 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         if (local->child_up)
                 GF_FREE (local->child_up);
+
+        if (local->child_errno)
+                GF_FREE (local->child_errno);
 
         if (local->fresh_children)
                 GF_FREE (local->fresh_children);
@@ -3592,8 +3594,8 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
         local->op_ret = -1;
         local->op_errno = EUCLEAN;
 
-        local->child_up = GF_CALLOC (sizeof (*local->child_up),
-                                     priv->child_count,
+        local->child_up = GF_CALLOC (priv->child_count,
+                                     sizeof (*local->child_up),
                                      gf_afr_mt_char);
         if (!local->child_up) {
                 if (op_errno)
@@ -3611,6 +3613,16 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
                         *op_errno = ENOTCONN;
                 goto out;
         }
+
+        local->child_errno = GF_CALLOC (priv->child_count,
+                                        sizeof (*local->child_errno),
+                                        gf_afr_mt_int32_t);
+        if (!local->child_errno) {
+                if (op_errno)
+                        *op_errno = ENOMEM;
+                goto out;
+        }
+
         ret = 0;
 out:
         return ret;
@@ -3710,12 +3722,6 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
 
         local->first_up_child = afr_first_up_child (local->child_up,
                                                     priv->child_count);
-
-        local->child_errno = GF_CALLOC (sizeof (*local->child_errno),
-                                        priv->child_count,
-                                        gf_afr_mt_int32_t);
-        if (!local->child_errno)
-                goto out;
 
         local->transaction.eager_lock =
                 GF_CALLOC (sizeof (*local->transaction.eager_lock),
