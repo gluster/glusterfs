@@ -247,7 +247,7 @@ out:
 }
 
 static inline int
-__dht_rebalane_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
+__dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
                              uint64_t ia_size, int hole_exists)
 {
         int            ret    = 0;
@@ -570,8 +570,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 file_has_holes = 1;
 
         /* All I/O happens in this function */
-        ret = __dht_rebalane_migrate_data (from, to, src_fd, dst_fd,
-                                           stbuf.ia_size, file_has_holes);
+        ret = __dht_rebalance_migrate_data (from, to, src_fd, dst_fd,
+					    stbuf.ia_size, file_has_holes);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "%s: failed to migrate data",
                         loc->path);
