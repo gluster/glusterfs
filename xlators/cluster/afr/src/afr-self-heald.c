@@ -501,8 +501,6 @@ afr_build_root_loc (inode_t *inode, loc_t *loc)
         loc->path = "/";
         loc->name = "";
         loc->inode = inode;
-        loc->ino = 1;
-        loc->inode->ino = 1;
         loc->inode->ia_type = IA_IFDIR;
         memset (loc->inode->gfid, 0, 16);
         loc->inode->gfid[15] = 1;

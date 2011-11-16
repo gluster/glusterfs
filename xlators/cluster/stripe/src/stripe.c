@@ -4205,7 +4205,6 @@ unlock:
                 if (!inode)
                         goto out;
 
-                loc.ino = inode->ino = local_entry->d_ino;
                 loc.inode = inode;
                 loc.parent = local->fd->inode;
                 ret = inode_path (local->fd->inode, local_entry->d_name, &path);

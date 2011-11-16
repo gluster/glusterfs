@@ -991,7 +991,6 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->newloc.name = gf_strdup (loc_newname);
         local->newloc.path = gf_strdup (local->newpath);
         local->newloc.inode = inode_new (local->loc.inode->table);
-        local->newloc.ino   = local->newloc.inode->ino;
         local->newfd = fd_create (local->newloc.inode, frame->root->pid);
 
         flags = O_CREAT|O_EXCL|O_WRONLY;
@@ -1411,7 +1410,6 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         local->newloc.path = local->newpath;
 
         local->loc.inode = inode_ref (fd->inode);
-        local->loc.ino   = fd->inode->ino;
         local->loc.path  = pathbuf;
 
         local->fop_offset = offset;

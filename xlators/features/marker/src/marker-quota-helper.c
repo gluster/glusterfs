@@ -41,7 +41,6 @@ mq_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-                loc->ino = inode->ino;
         }
 
         if (parent)
@@ -78,7 +77,7 @@ mq_inode_loc_fill (const char *parent_gfid, inode_t *inode, loc_t *loc)
         if ((!inode) || (!loc))
                 return ret;
 
-        if ((inode) && (inode->ino == 1)) {
+        if ((inode) && __is_root_gfid (inode->gfid)) {
                 loc->parent = NULL;
                 goto ignore_parent;
         }
@@ -397,22 +396,18 @@ mq_get_contribution_from_loc (xlator_t *this, loc_t *loc)
         if (ret < 0) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                                   "cannot get marker-quota context from inode "
-                                  "(ino: %"PRId64", gfid:%s, path:%s)",
-                                  loc->inode->ino,
-                                  uuid_utoa (loc->inode->gfid),
-                                  loc->path);
+                                  "(gfid:%s, path:%s)",
+                                  uuid_utoa (loc->inode->gfid), loc->path);
                 goto err;
         }
 
         contribution = mq_get_contribution_node (loc->parent, ctx);
         if (contribution == NULL) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
-                                  "inode (ino:%"PRId64", gfid:%s, path:%s ) has"
-                                  " no contribution towards parent (ino:%"PRId64
-                                  ", gfid:%s)", loc->inode->ino,
+                                  "inode (gfid:%s, path:%s) has "
+                                  "no contribution towards parent (gfid:%s)",
                                   uuid_utoa (loc->inode->gfid),
-                                  loc->path, loc->parent->ino,
-                                  uuid_utoa (loc->parent->gfid));
+                                  loc->path, uuid_utoa (loc->parent->gfid));
                 goto err;
         }
 

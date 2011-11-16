@@ -65,7 +65,6 @@ marker_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-                loc->ino = inode->ino;
         }
 
         if (parent)
@@ -101,7 +100,7 @@ marker_inode_loc_fill (inode_t *inode, loc_t *loc)
         if ((!inode) || (!loc))
                 return ret;
 
-        if ((inode) && (inode->ino == 1)) {
+        if ((inode) && __is_root_gfid (inode->gfid)) {
                 loc->parent = NULL;
                 goto ignore_parent;
         }
@@ -921,9 +920,8 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 gf_log (this->name, GF_LOG_WARNING,
-                        "inodelk (UNLOCK) failed on path:%s, inode (ino:%"PRId64
-                        ", gfid:%s)(%s)", local->parent_loc.path,
-                        local->parent_loc.inode->ino,
+                        "inodelk (UNLOCK) failed on path:%s (gfid:%s) (%s)",
+                        local->parent_loc.path,
                         uuid_utoa (local->parent_loc.inode->gfid),
                         strerror (op_errno));
         }
@@ -948,7 +946,6 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
         if (newloc.name)
                 newloc.name++;
         newloc.parent = inode_ref (local->loc.parent);
-        newloc.ino = oplocal->loc.inode->ino;
 
         mq_rename_update_newpath (this, &newloc);
 
@@ -983,9 +980,8 @@ marker_rename_release_newp_lock (call_frame_t *frame, void *cookie,
                 }
 
                 gf_log (this->name, GF_LOG_WARNING,
-                        "inodelk (UNLOCK) failed on path:%s, inode (ino:%"PRId64
-                        ", gfid:%s)(%s)", oplocal->parent_loc.path,
-                        oplocal->parent_loc.inode->ino,
+                        "inodelk (UNLOCK) failed on %s (gfid:%s) (%s)",
+                        oplocal->parent_loc.path,
                         uuid_utoa (oplocal->parent_loc.inode->gfid),
                         strerror (op_errno));
         }
@@ -1110,7 +1106,6 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (newloc.name)
                         newloc.name++;
                 newloc.parent = inode_ref (local->loc.parent);
-                newloc.ino = oplocal->loc.inode->ino;
 
                 STACK_WIND_COOKIE (frame, marker_rename_release_oldp_lock,
                                    frame->cookie, FIRST_CHILD(this),
@@ -1170,9 +1165,8 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret < 0) && (op_errno != ENOATTR)) {
                 local->err = op_errno;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "fetching contribution values from %s (ino:%"PRId64", "
-                        "gfid:%s) failed (%s)", local->loc.path,
-                        local->loc.inode->ino,
+                        "fetching contribution values from %s (gfid:%s) "
+                        "failed (%s)", local->loc.path,
                         uuid_utoa (local->loc.inode->gfid),
                         strerror (op_errno));
                 goto err;
@@ -1223,9 +1217,8 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
         if ((op_ret < 0) && (op_errno != ENOATTR)) {
                 local->err = op_errno;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "fetching contribution values from %s (ino:%"PRId64", "
-                        "gfid:%s) failed (%s)", oplocal->loc.path,
-                        oplocal->loc.inode->ino,
+                        "fetching contribution values from %s (gfid:%s) "
+                        "failed (%s)", oplocal->loc.path,
                         uuid_utoa (oplocal->loc.inode->gfid),
                         strerror (op_errno));
                 goto err;
@@ -1282,10 +1275,8 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
         if (op_ret < 0) {
                 local->err = op_errno;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot hold inodelk on %s (ino:%"PRId64", gfid:%s)"
-                        "(%s)",
+                        "cannot hold inodelk on %s (gfid:%s) (%s)",
                         local->next_lock_on->path,
-                        local->next_lock_on->inode->ino,
                         uuid_utoa (local->next_lock_on->inode->gfid),
                         strerror (op_errno));
                 goto lock_err;
@@ -1345,9 +1336,8 @@ marker_rename_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 local->err = op_errno;
                 gf_log (this->name, GF_LOG_WARNING,
-                        "cannot hold inodelk on %s (ino:%"PRId64", gfid:%s)"
-                        "(%s)", loc->path, loc->inode->ino,
-                        uuid_utoa (loc->inode->gfid),
+                        "cannot hold inodelk on %s (gfid:%s) (%s)",
+                        loc->path, uuid_utoa (loc->inode->gfid),
                         strerror (op_errno));
                 goto err;
         }

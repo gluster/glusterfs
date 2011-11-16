@@ -176,8 +176,8 @@ pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc)
                         ipath = NULL;
         }
 
-        snprintf (str, size, "ino=%llu, fd=%p, path=%s",
-                  (unsigned long long) inode->ino, fd,
+        snprintf (str, size, "gfid=%s, fd=%p, path=%s",
+                  uuid_utoa (inode->gfid), fd,
                   ipath ? ipath : "<nul>");
 
         if (ipath)

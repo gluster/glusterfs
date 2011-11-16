@@ -44,6 +44,7 @@
 #include "compat.h"
 #include "byte-order.h"
 #include "statedump.h"
+#include "inode.h"
 
 #include "fd.h"
 
@@ -1807,7 +1808,7 @@ afr_set_root_inode_on_first_lookup (afr_local_t *local, xlator_t *this,
         afr_private_t           *priv = NULL;
         GF_ASSERT (inode);
 
-        if (inode->ino != 1)
+        if (!__is_root_gfid (inode->gfid))
                 goto out;
         if (!afr_is_fresh_lookup (&local->loc, this))
                 goto out;

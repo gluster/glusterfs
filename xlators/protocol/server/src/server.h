@@ -114,17 +114,12 @@ typedef enum {
 
 struct resolve_comp {
         char      *basename;
-        ino_t      ino;
-        uint64_t   gen;
         inode_t   *inode;
 };
 
 typedef struct {
         server_resolve_type_t  type;
         uint64_t               fd_no;
-        ino_t                  ino;
-        uint64_t               gen;
-        ino_t                  par;
         u_char                 gfid[16];
         u_char                 pargfid[16];
         char                  *path;

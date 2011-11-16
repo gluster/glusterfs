@@ -76,8 +76,6 @@ prepare_components (call_frame_t *frame)
         resolve->components = components;
 
         components[0].basename = "";
-        components[0].ino      = 1;
-        components[0].gen      = 0;
         components[0].inode    = state->itable->root;
 
         i = 1;
@@ -405,9 +403,9 @@ resolve_entry_simple (call_frame_t *frame)
         }
 
         if (resolve->type == RESOLVE_NOT) {
-                gf_log (this->name, GF_LOG_DEBUG, "inode (pointer: %p ino:%"
-                        PRIu64") found for path (%s) while type is RESOLVE_NOT",
-                        inode, inode->ino, resolve->path);
+                gf_log (this->name, GF_LOG_DEBUG, "inode (pointer: %p gfid:%s"
+                        " found for path (%s) while type is RESOLVE_NOT",
+                        inode, uuid_utoa (inode->gfid), resolve->path);
                 resolve->op_ret   = -1;
                 resolve->op_errno = EEXIST;
                 ret = -1;

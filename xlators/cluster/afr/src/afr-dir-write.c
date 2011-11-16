@@ -70,7 +70,6 @@ afr_build_parent_loc (loc_t *parent, loc_t *child)
 
         parent->inode  = inode_ref (child->parent);
         parent->parent = inode_parent (parent->inode, 0, NULL);
-        parent->ino    = parent->inode->ino;
 
         if (!uuid_is_null (child->pargfid))
                 uuid_copy (parent->gfid, child->pargfid);

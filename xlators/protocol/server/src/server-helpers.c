@@ -345,8 +345,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         } else {
 
                                 gf_log (this->name, GF_LOG_INFO, "finodelk "
-                                        "released on ino %"PRId64" with gfid %s",
-                                        locker->fd->inode->ino,
+                                        "released on inode with gfid %s",
                                         uuid_utoa (locker->fd->inode->gfid));
                         }
 
@@ -393,7 +392,8 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         }  else {
 
                                 gf_log (this->name, GF_LOG_INFO, "fentrylk "
-                                        "released on ino %lu", locker->fd->inode->ino);
+                                        "released on inode with gfid %s",
+                                        uuid_utoa (locker->fd->inode->gfid));
                         }
 
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
@@ -486,9 +486,8 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                                 GF_FREE (path);
                         }  else {
 
-                                gf_log (this->name, GF_LOG_INFO, "fd cleanup on "
-                                        "ino %"PRId64" with gfid %s",
-                                        fd->inode->ino,
+                                gf_log (this->name, GF_LOG_INFO, "fd cleanup on"
+                                        " inode with gfid %s",
                                         uuid_utoa (fd->inode->gfid));
                         }
 
@@ -666,8 +665,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                 } else {
 
                                         gf_log (this->name, GF_LOG_INFO, "finodelk "
-                                                "released on ino %"PRId64 "with gfid %s",
-                                                locker->fd->inode->ino,
+                                                "released on inode with gfid %s",
                                                 uuid_utoa (locker->fd->inode->gfid));
                                 }
 
@@ -714,8 +712,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                 } else {
 
                                         gf_log (this->name, GF_LOG_INFO, "fentrylk "
-                                                "released on ino %"PRId64" and gfid= %s",
-                                                locker->fd->inode->ino,
+                                                "released on inode with gfid %s",
                                                 uuid_utoa (locker->fd->inode->gfid));
                                 }
 
@@ -1108,15 +1105,6 @@ server_print_resolve (char *str, int size, server_resolve_t *resolve)
         if (resolve->fd_no != -1)
                 filled += snprintf (str + filled, size - filled,
                                     "fd=%"PRId64",", (uint64_t) resolve->fd_no);
-        if (resolve->ino)
-                filled += snprintf (str + filled, size - filled,
-                                    "ino=%"PRIu64",", (uint64_t) resolve->ino);
-        if (resolve->par)
-                filled += snprintf (str + filled, size - filled,
-                                    "par=%"PRIu64",", (uint64_t) resolve->par);
-        if (resolve->gen)
-                filled += snprintf (str + filled, size - filled,
-                                    "gen=%"PRIu64",", (uint64_t) resolve->gen);
         if (resolve->bname)
                 filled += snprintf (str + filled, size - filled,
                                     "bname=%s,", resolve->bname);
@@ -1215,15 +1203,6 @@ int
 server_resolve_is_empty (server_resolve_t *resolve)
 {
         if (resolve->fd_no != -1)
-                return 0;
-
-        if (resolve->ino != 0)
-                return 0;
-
-        if (resolve->gen != 0)
-                return 0;
-
-        if (resolve->par != 0)
                 return 0;
 
         if (resolve->path != 0)

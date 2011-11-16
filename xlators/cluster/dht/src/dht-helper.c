@@ -117,7 +117,6 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
                                 new_loc->path   = ((new_path) ? new_path:
                                                    gf_strdup (loc->path));
                                 new_loc->name   = new_name;
-                                new_loc->ino    = loc->ino;
                                 new_loc->inode  = inode_ref (loc->inode);
                                 new_loc->parent = inode_ref (loc->parent);
                         }
@@ -368,8 +367,8 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
 
         if (!layout) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "layout missing path=%s parent=%"PRId64,
-                        loc->path, loc->parent->ino);
+                        "layout missing path=%s parent=%s",
+                        loc->path, uuid_utoa (loc->parent->gfid));
                 goto out;
         }
 

@@ -2215,8 +2215,7 @@ trace_forget (xlator_t *this, inode_t *inode)
            he should know about 'forget' too */
         if (trace_fop_names[GF_FOP_LOOKUP].enabled) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "gfid=%s ino=%"PRIu64,
-                        uuid_utoa (inode->gfid), inode->ino);
+                        "gfid=%s", uuid_utoa (inode->gfid));
         }
         return 0;
 }

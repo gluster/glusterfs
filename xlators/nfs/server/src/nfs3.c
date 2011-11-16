@@ -740,7 +740,7 @@ nfs3_getattr_resume (void *carg)
          * sent. AND, this causes a problem for stat-prefetch in that it
          * expects even the root inode to have been looked up.
          */
-        if (cs->resolvedloc.inode->ino == 1)
+        if (__is_root_gfid (cs->resolvedloc.inode->gfid))
                 ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                   nfs3svc_getattr_lookup_cbk, cs);
         else

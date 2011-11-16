@@ -247,8 +247,8 @@ fuse_lookup_resume (fuse_state_t *state)
 
         if (state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": LOOKUP %s(%"PRId64")", state->finh->unique,
-                        state->loc.path, state->loc.inode->ino);
+                        "%"PRIu64": LOOKUP %s(%s)", state->finh->unique,
+                        state->loc.path, uuid_utoa (state->loc.inode->gfid));
                 state->is_revalidate = 1;
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -1000,8 +1000,8 @@ void
 fuse_readlink_resume (fuse_state_t *state)
 {
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64" READLINK %s/%"PRId64, state->finh->unique,
-                state->loc.path, state->loc.inode->ino);
+                "%"PRIu64" READLINK %s/%s", state->finh->unique,
+                state->loc.path, uuid_utoa (state->loc.inode->gfid));
 
         FUSE_FOP (state, fuse_readlink_cbk, GF_FOP_READLINK,
                   readlink, &state->loc, 4096);

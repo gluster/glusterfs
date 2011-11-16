@@ -96,7 +96,6 @@ struct _inode {
         gf_lock_t            lock;
         uint64_t             nlookup;
         uint32_t             ref;           /* reference count on this inode */
-        ino_t                ino;           /* inode number in the storage (persistent) */
         ia_type_t            ia_type;       /* what kind of file */
         struct list_head     fd_list;       /* list of open files on this inode */
         struct list_head     dentry_list;   /* list of directory entries for this inode */
@@ -121,7 +120,7 @@ void
 inode_unlink (inode_t *inode, inode_t *parent, const char *name);
 
 inode_t *
-inode_parent (inode_t *inode, ino_t par, const char *name);
+inode_parent (inode_t *inode, uuid_t pargfid, const char *name);
 
 inode_t *
 inode_ref (inode_t *inode);
