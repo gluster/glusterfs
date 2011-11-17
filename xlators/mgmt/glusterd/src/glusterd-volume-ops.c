@@ -408,7 +408,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 out:
         if (cli_req.dict.dict_val)
                 free (cli_req.dict.dict_val); //its malloced by xdr
-        if (dict)
+        if (ret && dict)
                 dict_unref (dict);
 
         glusterd_friend_sm ();
