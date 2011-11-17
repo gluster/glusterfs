@@ -58,6 +58,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         char            *errstr = NULL;
         int32_t         status = 0;
         int32_t         is_ctx_dict = 0;
+        int32_t         count = 0;
 
         GF_ASSERT (THIS);
 
@@ -118,6 +119,14 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_SET_VOLUME:
         case GD_OP_PROFILE_VOLUME:
         {
+                if (dict_get_int32 (ctx, "count", &count)) {
+                        ret = dict_set_int32 (ctx, "count", 0);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Failed to set brick count");
+                                break;
+                        }
+                }
                 is_ctx_dict = 1;
         }
         case GD_OP_CREATE_VOLUME:
