@@ -88,6 +88,10 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
         char           key[1024] = {0,};
         int            ret       = 0; /* not found */
 
+        /* Why check if 'char' is there if loc->name is only not there??? */
+        if (!loc->name)
+                goto out;
+
         /* Why do other tasks if first required 'char' itself is not there */
         if (loc->name && !strchr (loc->name, '@'))
                 goto out;

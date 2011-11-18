@@ -546,6 +546,8 @@ loc_wipe (loc_t *loc)
         }
         uuid_clear (loc->gfid);
         uuid_clear (loc->pargfid);
+
+        memset (loc, 0, sizeof (*loc));
 }
 
 

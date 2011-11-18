@@ -136,8 +136,10 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
         int                ret = 0;
         xlator_t          *this = NULL;
         int32_t           *disk_layout = NULL;
+        dht_local_t       *local = NULL;
 
 
+        local = frame->local;
         subvol = layout->list[i].xlator;
         this = frame->this;
 
@@ -170,6 +172,9 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 layout->type, subvol->name, loc->path);
 
         dict_ref (xattr);
+
+        if (!uuid_is_null (local->gfid))
+                uuid_copy (loc->gfid, local->gfid);
 
         STACK_WIND (frame, dht_selfheal_dir_xattr_cbk,
                     subvol, subvol->fops->setxattr,
@@ -305,6 +310,9 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                 dht_selfheal_dir_xattr (frame, loc, layout);
                 return 0;
         }
+
+        if (!uuid_is_null (local->gfid))
+                uuid_copy (loc->gfid, local->gfid);
 
         local->call_cnt = missing_attr;
         for (i = 0; i < layout->cnt; i++) {

@@ -42,22 +42,12 @@
                         fdctx = this_fd_get_ctx (args->fd, this);       \
                 }                                                       \
                 pthread_mutex_unlock (&conf->lock);                     \
-                                                                        \
-                if (fdctx == NULL) {                                    \
-                        gf_log (this->name, GF_LOG_WARNING,             \
-                                "(%s): failed to get fd ctx. EBADFD",   \
-                                uuid_utoa (args->fd->inode->gfid));     \
-                        op_errno = EBADFD;                              \
-                        goto label;                                     \
+                if (!fdctx) {                                           \
+                        fdctx = alloca (sizeof (*fdctx));               \
+                        memset (fdctx, 0, sizeof (*fdctx));             \
+                        fdctx->remote_fd = -2;                          \
                 }                                                       \
                                                                         \
-                if (fdctx->remote_fd == -1) {                           \
-                        gf_log (this->name, GF_LOG_WARNING,             \
-                                "(%s): failed to get fd ctx. EBADFD",   \
-                                uuid_utoa (args->fd->inode->gfid));     \
-                        op_errno = EBADFD;                              \
-                        goto label;                                     \
-                }                                                       \
         } while (0);
 
 struct clnt_options {

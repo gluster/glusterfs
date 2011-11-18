@@ -668,7 +668,7 @@ out:
 
 
 fd_t *
-_fd_ref (fd_t *fd);
+__fd_ref (fd_t *fd);
 
 void
 sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode,
@@ -705,7 +705,7 @@ sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode,
 
                         INIT_LIST_HEAD (&wrapper->list);
 
-                        wrapper->fd = _fd_ref (fd);
+                        wrapper->fd = __fd_ref (fd);
                         list_add_tail (&wrapper->list, &head);
                 }
         }

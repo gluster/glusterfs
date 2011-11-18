@@ -137,7 +137,9 @@ typedef struct fuse_private fuse_private_t;
                                 state->finh->unique,                    \
                                 state->finh->opcode);                   \
                         free_fuse_state (state);                        \
-                        return;                                         \
+                        /* ideally, need to 'return', but let the */    \
+                        /* calling function take care of it */          \
+                        break;                                          \
                 }                                                       \
                                                                         \
                 frame->root->state = state;                             \
@@ -154,6 +156,7 @@ typedef struct fuse_private fuse_private_t;
                 } else {                                                \
                         STACK_WIND (frame, ret, xl, xl->fops->fop, args); \
                 }                                                       \
+                                                                        \
         } while (0)
 
 
