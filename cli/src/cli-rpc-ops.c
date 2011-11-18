@@ -62,10 +62,10 @@ extern int              connected;
 char *cli_volume_type[] = {"Distribute",
                            "Stripe",
                            "Replicate",
-                           "Striped-Replicate (RAID 01)",
+                           "Striped-Replicate",
                            "Distributed-Stripe",
                            "Distributed-Replicate",
-                           "Distributed-Striped-Replicate (RAID 01)",
+                           "Distributed-Striped-Replicate",
 };
 
 
@@ -518,7 +518,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
                         vol_type = type;
 
-                        // Distributed (stripe/replicate/raid01) setups
+                        // Distributed (stripe/replicate/stripe-replica) setups
                         if ((type > 0) && ( dist_count < brick_count))
                                 vol_type = type + 3;
 
