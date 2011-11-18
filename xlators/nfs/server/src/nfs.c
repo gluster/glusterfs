@@ -274,7 +274,7 @@ nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
                 goto err;
         }
 
-        ret = nfs_inode_loc_fill (xl->itable->root, &rootloc);
+        ret = nfs_root_loc_fill (xl->itable, &rootloc);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init root loc");
                 goto err;
@@ -336,7 +336,7 @@ nfs_init_subvolume (struct nfs_state *nfs, xlator_t *xl)
                 return -1;
 
         lrusize = nfs->memfactor * GF_NFS_INODE_LRU_MULT;
-        xl->itable = inode_table_new (lrusize, xl);
+        xl->itable = inode_table_new (20480, xl);
         if (!xl->itable) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to allocate "
                         "inode table");
@@ -454,6 +454,23 @@ nfs_request_user_init (nfs_user_t *nfu, rpcsvc_request_t *req)
 
         return;
 }
+
+void
+nfs_request_primary_user_init (nfs_user_t *nfu, rpcsvc_request_t *req,
+                               uid_t uid, gid_t gid)
+{
+        gid_t           *gidarr = NULL;
+        int             gids = 0;
+
+        if ((!req) || (!nfu))
+                return;
+
+        gidarr = rpcsvc_auth_unix_auxgids (req, &gids);
+        nfs_user_create (nfu, uid, gid, gidarr, gids);
+
+        return;
+}
+
 
 int32_t
 mem_acct_init (xlator_t *this)

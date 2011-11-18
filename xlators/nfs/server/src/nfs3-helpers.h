@@ -255,7 +255,7 @@ extern int
 nfs3_cached_inode_opened (xlator_t *nfsxl, inode_t *inode);
 
 extern void
-nfs3_log_common_res (uint32_t xid, char *op, nfsstat3 stat, int pstat);
+nfs3_log_common_res (uint32_t xid, int op, nfsstat3 stat, int pstat);
 
 extern void
 nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat, char *linkpath);
@@ -269,7 +269,7 @@ nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
                     int stable, uint64_t wverf);
 
 extern void
-nfs3_log_newfh_res (uint32_t xid, char *op, nfsstat3 stat, int pstat,
+nfs3_log_newfh_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
                     struct nfs3_fh *newfh);
 
 extern void
