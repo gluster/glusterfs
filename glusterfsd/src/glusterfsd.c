@@ -1371,6 +1371,7 @@ glusterfs_signals_setup (glusterfs_ctx_t *ctx)
         signal (SIGBUS, gf_print_trace);
         signal (SIGINT, cleanup_and_exit);
         signal (SIGPIPE, SIG_IGN);
+        signal (SIGXFSZ, SIG_IGN);
 
         /* block these signals from non-sigwaiter threads */
         sigaddset (&set, SIGTERM);  /* cleanup_and_exit */
