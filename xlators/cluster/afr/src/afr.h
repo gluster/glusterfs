@@ -970,7 +970,7 @@ int32_t
 afr_resultant_errno_get (int32_t *children,
                          int *child_errno, unsigned int child_count);
 void
-afr_inode_rm_stale_children (xlator_t *this, inode_t *inode, int32_t read_child,
+afr_inode_rm_stale_children (xlator_t *this, inode_t *inode,
                              int32_t *stale_children);
 void
 afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,

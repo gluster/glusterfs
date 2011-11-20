@@ -382,44 +382,38 @@ afr_transaction_rm_stale_children (call_frame_t *frame, xlator_t *this,
         local = frame->local;
         pending = local->pending;
 
-        stale_children = afr_children_create (priv->child_count);
-        if (!stale_children)
+        if (local->op_ret < 0)
                 goto out;
-
         fresh_children = local->fresh_children;
         read_child = afr_inode_get_read_ctx (this, inode, fresh_children);
-
-        GF_ASSERT (read_child >= 0);
-
-        if (pending[read_child][idx] == 0)
-                read_child = -1;
+        if (read_child < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "Possible split-brain "
+                        "for %s", uuid_utoa (inode->gfid));
+                goto out;
+        }
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!afr_is_child_present (fresh_children,
                                            priv->child_count, i))
                         continue;
-                if (pending[i][idx] == 0) {
-                        /* child is down or op failed on it */
-                        rm_stale_children = _gf_true;
-                        afr_children_rm_child (fresh_children, i,
-                                               priv->child_count);
-                        stale_children[count++] = i;
-                }
+                if (pending[i][idx])
+                        continue;
+                /* child is down or op failed on it */
+                if (!stale_children)
+                        stale_children = afr_children_create (priv->child_count);
+                if (!stale_children)
+                        goto out;
+
+                rm_stale_children = _gf_true;
+                stale_children[count++] = i;
+                gf_log (this->name, GF_LOG_DEBUG, "Removing stale child "
+                        "%d for %s", i, uuid_utoa (inode->gfid));
         }
 
-        if (!rm_stale_children) {
-                GF_ASSERT (read_child >= 0);
+        if (!rm_stale_children)
                 goto out;
-        }
 
-        if (fresh_children[0] == -1) {
-                //All children failed. leave as-is
-                goto out;
-        }
-
-        if (read_child == -1)
-                read_child = fresh_children[0];
-        afr_inode_rm_stale_children (this, inode, read_child, stale_children);
+        afr_inode_rm_stale_children (this, inode, stale_children);
 out:
         if (stale_children)
                 GF_FREE (stale_children);

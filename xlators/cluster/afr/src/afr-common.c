@@ -325,7 +325,6 @@ afr_inode_ctx_set_read_child (afr_inode_ctx_t *ctx, int32_t read_child)
         uint64_t        remaining_mask = 0;
         uint64_t        mask         = 0;
 
-        GF_ASSERT (read_child >= 0);
         remaining_mask = (~AFR_ICTX_READ_CHILD_MASK & ctx->masks);
         mask = (AFR_ICTX_READ_CHILD_MASK & read_child);
         ctx->masks = remaining_mask | mask;
@@ -347,19 +346,23 @@ afr_inode_ctx_set_read_ctx (afr_inode_ctx_t *ctx, int32_t read_child,
 }
 
 void
-afr_inode_ctx_rm_stale_children (afr_inode_ctx_t *ctx, int32_t read_child,
-                                 int32_t *stale_children, int32_t child_count)
+afr_inode_ctx_rm_stale_children (afr_inode_ctx_t *ctx, int32_t *stale_children,
+                                 int32_t child_count)
 {
         int             i            = 0;
+        int32_t         read_child   = -1;
 
         GF_ASSERT (stale_children);
-        afr_inode_ctx_set_read_child (ctx, read_child);
         for (i = 0; i < child_count; i++) {
-                if ((ctx->fresh_children[i] == -1) || (stale_children[i] == -1))
+                if (stale_children[i] == -1)
                         break;
                 afr_children_rm_child (ctx->fresh_children,
                                        stale_children[i], child_count);
         }
+        read_child = (int32_t)(ctx->masks & AFR_ICTX_READ_CHILD_MASK);
+        if (!afr_is_child_present (ctx->fresh_children, child_count,
+                                   read_child))
+                afr_inode_ctx_set_read_child (ctx, ctx->fresh_children[0]);
 }
 
 void
@@ -421,9 +424,8 @@ afr_inode_set_ctx (xlator_t *this, inode_t *inode, afr_inode_params_t *params)
                                                     priv->child_count);
                         break;
                 case AFR_INODE_RM_STALE_CHILDREN:
-                        read_child = params->u.read_ctx.read_child;
                         stale_children = params->u.read_ctx.children;
-                        afr_inode_ctx_rm_stale_children (ctx, read_child,
+                        afr_inode_ctx_rm_stale_children (ctx,
                                                          stale_children,
                                                          priv->child_count);
                         break;
@@ -488,16 +490,14 @@ afr_inode_set_read_ctx (xlator_t *this, inode_t *inode, int32_t read_child,
 }
 
 void
-afr_inode_rm_stale_children (xlator_t *this, inode_t *inode, int32_t read_child,
+afr_inode_rm_stale_children (xlator_t *this, inode_t *inode,
                              int32_t *stale_children)
 {
         afr_inode_params_t params = {0};
 
-        GF_ASSERT (read_child >= 0);
         GF_ASSERT (stale_children);
 
         params.op = AFR_INODE_RM_STALE_CHILDREN;
-        params.u.read_ctx.read_child     = read_child;
         params.u.read_ctx.children = stale_children;
         afr_inode_set_ctx (this, inode, &params);
 }
