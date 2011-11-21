@@ -214,9 +214,9 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         priv = this->private;
 
-	if (flags & (O_CREAT|O_TRUNC)) {
-		QUORUM_CHECK(open,out);
-	}
+        if (flags & (O_CREAT|O_TRUNC)) {
+                QUORUM_CHECK(open,out);
+        }
 
         if (afr_is_split_brain (this, loc->inode)) {
                 /* self-heal failed */
