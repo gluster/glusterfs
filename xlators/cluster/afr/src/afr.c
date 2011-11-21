@@ -97,14 +97,30 @@ xlator_subvolume_count (xlator_t *this)
         return i;
 }
 
+void
+fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype)
+{
+        if (priv->quorum_count && strcmp(qtype,"fixed")) {
+                gf_log(this->name,GF_LOG_WARNING,
+                       "quorum-type %s overriding quorum-count %u",
+                       qtype, priv->quorum_count);
+        }
+        if (!strcmp(qtype,"none")) {
+                priv->quorum_count = 0;
+        }
+        else if (!strcmp(qtype,"auto")) {
+                priv->quorum_count = AFR_QUORUM_AUTO;
+        }
+}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-        afr_private_t * priv        = NULL;
-        xlator_t      * read_subvol     = NULL;
-        int             ret = -1;
-        int             index = -1;
+        afr_private_t *priv        = NULL;
+        xlator_t      *read_subvol = NULL;
+        int            ret         = -1;
+        int            index       = -1;
+        char          *qtype       = NULL;
 
         priv = this->private;
 
@@ -154,6 +170,11 @@ reconfigure (xlator_t *this, dict_t *options)
                 priv->read_child = index;
         }
 
+        GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
+        GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
+                          uint32, out);
+        fix_quorum_options(this,priv,qtype);
+
         ret = 0;
 out:
         return ret;
@@ -173,15 +194,15 @@ static const char *favorite_child_warning_str = "You have specified subvolume '%
 int32_t
 init (xlator_t *this)
 {
-        afr_private_t * priv        = NULL;
-        int             child_count = 0;
-        xlator_list_t * trav        = NULL;
-        int             i           = 0;
-        int             ret         = -1;
-        GF_UNUSED int   op_errno    = 0;
-        xlator_t * read_subvol     = NULL;
-        xlator_t * fav_child       = NULL;
-
+        afr_private_t *priv        = NULL;
+        int            child_count = 0;
+        xlator_list_t *trav        = NULL;
+        int            i           = 0;
+        int            ret         = -1;
+        GF_UNUSED int  op_errno    = 0;
+        xlator_t      *read_subvol = NULL;
+        xlator_t      *fav_child   = NULL;
+        char          *qtype       = NULL;
 
         if (!this->children) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -260,7 +281,9 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("strict-readdir", priv->strict_readdir, bool, out);
 
-        GF_OPTION_INIT ("enforce-quorum", priv->enforce_quorum, bool, out);
+        GF_OPTION_INIT ("quorum-type", qtype, str, out);
+        GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
+        fix_quorum_options(this,priv,qtype);
 
         priv->wait_count = 1;
 
@@ -492,9 +515,24 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },
-        { .key = {"enforce-quorum"},
-          .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
+        { .key = {"quorum-type"},
+          .type = GF_OPTION_TYPE_STR,
+          .value = { "none", "auto", "fixed", "" },
+          .default_value = "none",
+          .description = "If value is \"fixed\" only allow writes if "
+                         "quorum-count bricks are present.  If value is "
+                         "\"auto\" only allow writes if more than half of "
+                         "bricks, or exactly half including the first, are "
+                         "present.",
+        },
+        { .key = {"quorum-count"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 1,
+          .max = INT_MAX,
+          .default_value = 0,
+          .description = "If quorum-type is \"fixed\" only allow writes if "
+                         "this many bricks or present.  Other quorum types "
+                         "will OVERWRITE this value.",
         },
         { .key  = {NULL} },
 };

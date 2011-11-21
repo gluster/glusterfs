@@ -449,7 +449,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-	QUORUM_CHECK(writev,out);
+        QUORUM_CHECK(writev,out);
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
 
@@ -649,7 +649,7 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(truncate,out);
+        QUORUM_CHECK(truncate,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -900,7 +900,7 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(ftruncate,out);
+        QUORUM_CHECK(ftruncate,out);
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
         ret = AFR_LOCAL_INIT (local, priv);
@@ -1099,7 +1099,7 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(setattr,out);
+        QUORUM_CHECK(setattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -1306,7 +1306,7 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(fsetattr,out);
+        QUORUM_CHECK(fsetattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -1497,7 +1497,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(setxattr,out);
+        QUORUM_CHECK(setxattr,out);
 
         ALLOC_OR_GOTO (local, afr_local_t, out);
 
@@ -1683,7 +1683,7 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(removexattr,out);
+        QUORUM_CHECK(removexattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {

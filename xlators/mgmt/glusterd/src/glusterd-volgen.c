@@ -125,6 +125,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm", NULL,DOC, 0},
+        {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, NO_DOC, 0},
+        {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, NO_DOC, 0},
 
         {"cluster.stripe-block-size",            "cluster/stripe",            "block-size", NULL, DOC, 0},
 

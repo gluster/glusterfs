@@ -279,7 +279,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(create,out);
+        QUORUM_CHECK(create,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -504,7 +504,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(mknod,out);
+        QUORUM_CHECK(mknod,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -730,7 +730,7 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(mkdir,out);
+        QUORUM_CHECK(mkdir,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -955,7 +955,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(link,out);
+        QUORUM_CHECK(link,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -1179,7 +1179,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(symlink,out);
+        QUORUM_CHECK(symlink,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -1397,7 +1397,7 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(rename,out);
+        QUORUM_CHECK(rename,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -1596,7 +1596,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(unlink,out);
+        QUORUM_CHECK(unlink,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
@@ -1792,7 +1792,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-	QUORUM_CHECK(rmdir,out);
+        QUORUM_CHECK(rmdir,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
