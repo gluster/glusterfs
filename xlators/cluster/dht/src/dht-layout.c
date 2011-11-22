@@ -289,7 +289,7 @@ out:
 
 int
 dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
-                       int pos, void *disk_layout_raw)
+		       int pos, void *disk_layout_raw, int disk_layout_len)
 {
         int      cnt = 0;
         int      type = 0;
@@ -297,9 +297,15 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
         int      stop_off = 0;
         int      disk_layout[4];
 
-        /* TODO: assert disk_layout_ptr is of required length */
+	if (!disk_layout_raw) {
+		gf_log (this->name, GF_LOG_CRITICAL,
+                        "error no layout on disk for merge");
+		return -1;
+	}
 
-        memcpy (disk_layout, disk_layout_raw, sizeof (disk_layout));
+	GF_ASSERT (disk_layout_len == sizeof (disk_layout));
+
+        memcpy (disk_layout, disk_layout_raw, disk_layout_len);
 
         cnt  = ntoh32 (disk_layout[0]);
         if (cnt != 1) {
@@ -308,8 +314,17 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
                 return -1;
         }
 
-        /* TODO: assert type is compatible */
-        type      = ntoh32 (disk_layout[1]);
+	switch (disk_layout[1]) {
+	case DHT_HASH_TYPE_DM:
+		type = ntoh32 (disk_layout[1]);
+		break;
+        default:
+		gf_log (this->name, GF_LOG_CRITICAL,
+			"Catastrophic error layout with unknown type found %d",
+			disk_layout[1]);
+		return -1;
+	}
+
         start_off = ntoh32 (disk_layout[2]);
         stop_off  = ntoh32 (disk_layout[3]);
 
@@ -333,7 +348,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         int      ret   = -1;
         int      err   = -1;
         void    *disk_layout_raw = NULL;
-
+        int      disk_layout_len = 0;
 
         if (op_ret != 0) {
                 err = op_errno;
@@ -354,8 +369,8 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         if (xattr) {
                 /* during lookup and not mkdir */
-                ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
-                                    &disk_layout_raw);
+                ret = dict_get_ptr_and_len (xattr, "trusted.glusterfs.dht",
+					    &disk_layout_raw, &disk_layout_len);
         }
 
         if (ret != 0) {
@@ -367,7 +382,8 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
                 goto out;
         }
 
-        ret = dht_disk_layout_merge (this, layout, i, disk_layout_raw);
+        ret = dht_disk_layout_merge (this, layout, i, disk_layout_raw,
+				     disk_layout_len);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "layout merge from subvolume %s failed",
