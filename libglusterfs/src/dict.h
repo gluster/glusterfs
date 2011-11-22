@@ -175,6 +175,7 @@ GF_MUST_CHECK int dict_set_double (dict_t *this, char *key, double val);
 
 GF_MUST_CHECK int dict_set_static_ptr (dict_t *this, char *key, void *ptr);
 GF_MUST_CHECK int dict_get_ptr (dict_t *this, char *key, void **ptr);
+GF_MUST_CHECK int dict_get_ptr_and_len (dict_t *this, char *key, void **ptr, int *len);
 GF_MUST_CHECK int dict_set_ptr (dict_t *this, char *key, void *ptr);
 GF_MUST_CHECK int dict_set_dynptr (dict_t *this, char *key, void *ptr, size_t size);
 

@@ -314,7 +314,7 @@ int dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 int dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
                              int       pos, int32_t **disk_layout_p);
 int dht_disk_layout_merge (xlator_t   *this, dht_layout_t *layout,
-                           int         pos, void *disk_layout_raw);
+                           int         pos, void *disk_layout_raw, int disk_layout_len);
 
 
 int dht_frame_return (call_frame_t *frame);
