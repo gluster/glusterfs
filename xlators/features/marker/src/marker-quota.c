@@ -30,6 +30,8 @@
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 
+int32_t k; // moved here from marker.h
+
 int
 mq_loc_copy (loc_t *dst, loc_t *src)
 {

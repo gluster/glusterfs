@@ -124,5 +124,5 @@ struct marker_conf{
 };
 typedef struct marker_conf marker_conf_t;
 
-int32_t k;
+// int32_t k; -> moved to marker-quota.c
 #endif
