@@ -235,7 +235,7 @@ gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
                 if (S_ISDIR (stbuf.st_mode)) {
                         /* Fix the layout of the directory */
                         /* TODO: isn't error code not important ? */
-                        sys_lsetxattr (full_path, "trusted.distribute.fix.layout",
+                        sys_lsetxattr (full_path, "distribute.fix.layout",
                                        "yes", 3, 0);
 
                         volinfo->defrag->total_files += 1;
@@ -285,7 +285,7 @@ glusterd_defrag_start (void *data)
         }
 
         /* Fix the root ('/') first */
-        sys_lsetxattr (defrag->mount, "trusted.distribute.fix.layout",
+        sys_lsetxattr (defrag->mount, "distribute.fix.layout",
                        "yes", 3, 0);
 
         if ((defrag->cmd == GF_DEFRAG_CMD_START) ||

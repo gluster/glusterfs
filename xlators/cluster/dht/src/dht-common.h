@@ -29,7 +29,7 @@
 #ifndef _DHT_H
 #define _DHT_H
 
-#define GF_XATTR_FIX_LAYOUT_KEY     "trusted.distribute.fix.layout"
+#define GF_XATTR_FIX_LAYOUT_KEY     "distribute.fix.layout"
 #define GF_DHT_LOOKUP_UNHASHED_ON   1
 #define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 #define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
