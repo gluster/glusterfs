@@ -53,7 +53,7 @@ migrate_xattrs_of_file (int src, int dst)
         char     list[4096] = {0,};
 
         /* Get the size of xattr list */
-        size = flistxattr (src, list, 4096);
+        size = sys_flistxattr (src, list, 4096);
         if (size < 0) {
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to fetch the extended attribute list (%s)",
@@ -77,7 +77,7 @@ migrate_xattrs_of_file (int src, int dst)
                         continue;
                 }
 
-                len = fgetxattr (src, key, value, 4096);
+                len = sys_fgetxattr (src, key, value, 4096);
                 if (len < 0) {
                         gf_log (THIS->name, GF_LOG_ERROR,
                                 "failed to get the xattr for key %s (%s)",
@@ -85,7 +85,7 @@ migrate_xattrs_of_file (int src, int dst)
                         goto out;
                 }
 
-                ret = fsetxattr (dst, key, value, len, 0);
+                ret = sys_fsetxattr (dst, key, value, len, 0);
                 if (ret < 0) {
                         gf_log (THIS->name, GF_LOG_ERROR,
                                 "failed to set the xattr for key %s (%s)",
