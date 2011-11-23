@@ -24,6 +24,10 @@ if test x`which which 2>/dev/null` = x; then
   echo "which program not found, exiting"; exit 1
 fi
 
+if test x`which pkg-config 2>/dev/null` = x; then
+  echo "pkg-config not found, exiting"; exit 1
+fi
+
 ## jump out if one of the programs returns 'false'
 set -e
 
