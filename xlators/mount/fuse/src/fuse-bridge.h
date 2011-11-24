@@ -109,8 +109,19 @@ struct fuse_private {
         unsigned             uid_map_root;
         gf_boolean_t         acl;
         gf_boolean_t         read_only;
+
+        /* For fuse-reverse-validation */
+        int                  revchan_in;
+        int                  revchan_out;
+        gf_boolean_t         reverse_fuse_thread_started;
 };
 typedef struct fuse_private fuse_private_t;
+
+#define INVAL_BUF_SIZE (sizeof (struct fuse_out_header) +               \
+                        max (sizeof (struct fuse_notify_inval_inode_out), \
+                             sizeof (struct fuse_notify_inval_entry_out) + \
+                             NAME_MAX + 1))
+
 
 #define _FH_TO_FD(fh) ((fd_t *)(uintptr_t)(fh))
 
