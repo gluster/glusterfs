@@ -125,12 +125,13 @@ static int
 fuse_resolve_newfd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        fuse_state_t *state      = NULL;
+        fuse_state_t   *state      = NULL;
         fuse_resolve_t *resolve    = NULL;
-        fd_t         *old_fd     = NULL;
-        fd_t         *tmp_fd     = NULL;
-        uint64_t      tmp_fd_ctx = 0;
-        int           ret        = 0;
+        fd_t           *old_fd     = NULL;
+        fd_t           *tmp_fd     = NULL;
+        fuse_fd_ctx_t  *tmp_fd_ctx = 0;
+        uint64_t        val        = 0;
+        int             ret        = 0;
 
         state = frame->root->state;
         resolve = state->resolve_now;
@@ -150,15 +151,31 @@ fuse_resolve_newfd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fd_bind (fd);
 
         resolve->fd = NULL;
-        ret = fd_ctx_del (old_fd, state->this, &tmp_fd_ctx);
-        if (!ret) {
-                tmp_fd = (fd_t *)(long)tmp_fd_ctx;
-                fd_unref (tmp_fd);
+
+        LOCK (&old_fd->lock);
+        {
+                ret = __fd_ctx_get (old_fd, state->this, &val);
+                if (!ret) {
+                        tmp_fd_ctx = (fuse_fd_ctx_t *)(unsigned long)val;
+                        tmp_fd = tmp_fd_ctx->fd;
+                        if (tmp_fd) {
+                                fd_unref (tmp_fd);
+                                tmp_fd_ctx->fd = NULL;
+                        }
+                } else {
+                        tmp_fd_ctx = __fuse_fd_ctx_check_n_create (old_fd,
+                                                                   state->this);
+                }
+
+                if (tmp_fd_ctx) {
+                        tmp_fd_ctx->fd = fd;
+                } else {
+                        gf_log ("resolve", GF_LOG_WARNING,
+                                "failed to set the fd ctx with resolved fd");
+                }
         }
-        ret = fd_ctx_set (old_fd, state->this, (uint64_t)(long)fd);
-        if (ret)
-                gf_log ("resolve", GF_LOG_WARNING,
-                        "failed to set the fd ctx with resolved fd");
+        UNLOCK (&old_fd->lock);
+
 out:
         fuse_resolve_all (state);
         return 0;
