@@ -29,6 +29,7 @@ enum gf_fuse_mem_types_ {
         gf_fuse_mt_char,
         gf_fuse_mt_iov_base,
         gf_fuse_mt_fuse_state_t,
+        gf_fuse_mt_fd_ctx_t,
         gf_fuse_mt_end
 };
 #endif

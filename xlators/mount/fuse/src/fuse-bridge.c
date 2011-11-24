@@ -30,6 +30,53 @@
 static int gf_fuse_conn_err_log;
 static int gf_fuse_xattr_enotsup_log;
 
+fuse_fd_ctx_t *
+__fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this)
+{
+        uint64_t       val    = 0;
+        int32_t        ret    = 0;
+        fuse_fd_ctx_t *fd_ctx = NULL;
+
+        ret = __fd_ctx_get (fd, this, &val);
+
+        fd_ctx = (fuse_fd_ctx_t *)(unsigned long) val;
+
+        if (fd_ctx == NULL) {
+                fd_ctx = GF_CALLOC (1, sizeof (*fd_ctx),
+                                    gf_fuse_mt_fd_ctx_t);
+
+                ret = __fd_ctx_set (fd, this,
+                                    (uint64_t)(unsigned long)fd_ctx);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                                "fd-ctx-set failed");
+                        GF_FREE (fd_ctx);
+                        fd_ctx = NULL;
+                }
+        }
+
+        return fd_ctx;
+}
+
+fuse_fd_ctx_t *
+fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this)
+{
+        fuse_fd_ctx_t *fd_ctx = NULL;
+
+        if ((fd == NULL) || (this == NULL)) {
+                goto out;
+        }
+
+        LOCK (&fd->lock);
+        {
+                fd_ctx = __fuse_fd_ctx_check_n_create (fd, this);
+        }
+        UNLOCK (&fd->lock);
+
+out:
+        return fd_ctx;
+}
+
 
 /*
  * iov_out should contain a fuse_out_header at zeroth position.
@@ -531,14 +578,61 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 }
 
 
+static int32_t
+fuse_fd_inherit_directio (xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
+{
+        int32_t        ret    = 0;
+        fuse_fd_ctx_t *fdctx  = NULL, *tmp_fdctx = NULL;
+        fd_t          *tmp_fd = NULL;
+        uint64_t       val    = 0;
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("glusterfs-fuse", this, out, ret,
+                                        -EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("glusterfs-fuse", fd, out, ret,
+                                        -EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("glusterfs-fuse", foo, out, ret,
+                                        -EINVAL);
+
+        fdctx = fuse_fd_ctx_check_n_create (fd, this);
+        if (!fdctx) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        tmp_fd = fd_lookup (fd->inode, 0);
+        if (tmp_fd) {
+                ret = fd_ctx_get (tmp_fd, this, &val);
+                if (!ret) {
+                        tmp_fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
+                        if (tmp_fdctx) {
+                                foo->open_flags &= ~FOPEN_DIRECT_IO;
+                                foo->open_flags |= (tmp_fdctx->open_flags
+                                                    & FOPEN_DIRECT_IO);
+                        }
+                }
+        }
+
+        fdctx->open_flags |= (foo->open_flags & FOPEN_DIRECT_IO);
+
+        if (tmp_fd != NULL) {
+                fd_unref (tmp_fd);
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
 static int
 fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        fuse_state_t          *state;
-        fuse_in_header_t      *finh;
-        fuse_private_t        *priv = NULL;
-        struct fuse_open_out   foo = {0, };
+        fuse_state_t         *state = NULL;
+        fuse_in_header_t     *finh  = NULL;
+        fuse_private_t       *priv  = NULL;
+        int32_t               ret   = 0;
+        struct fuse_open_out  foo   = {0, };
 
         priv = this->private;
         state = frame->root->state;
@@ -572,16 +666,27 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRIu64": %s() %s => %p", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path, fd);
 
+                ret = fuse_fd_inherit_directio (this, fd, &foo);
+                if (ret < 0) {
+                        op_errno = -ret;
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "cannot inherit direct-io values from fds "
+                                "already opened");
+                        goto err;
+                }
+
                 fd_ref (fd);
+
                 if (send_fuse_obj (this, finh, &foo) == ENOENT) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "open(%s) got EINTR", state->loc.path);
                         fd_unref (fd);
-                                goto out;
+                        goto out;
                 }
 
                 fd_bind (fd);
         } else {
+        err:
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path,
@@ -1953,9 +2058,10 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         struct fuse_release_in *fri        = msg;
         fd_t                   *new_fd     = NULL;
         fd_t                   *fd         = NULL;
-        uint64_t                tmp_fd_ctx = 0;
+        uint64_t                val        = 0;
         int                     ret        = 0;
         fuse_state_t           *state      = NULL;
+        fuse_fd_ctx_t          *fdctx      = NULL;
 
         GET_STATE (this, finh, state);
         fd = FH_TO_FD (fri->fh);
@@ -1965,10 +2071,17 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": RELEASE %p", finh->unique, state->fd);
 
-        ret = fd_ctx_get (fd, this, &tmp_fd_ctx);
+        ret = fd_ctx_del (fd, this, &val);
         if (!ret) {
-                new_fd = (fd_t *)(long)tmp_fd_ctx;
-                fd_unref (new_fd);
+                fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
+                if (fdctx) {
+                        new_fd = fdctx->fd;
+                        if (new_fd) {
+                                fd_unref (new_fd);
+                        }
+
+                        GF_FREE (fdctx);
+                }
         }
         fd_unref (fd);
 
@@ -2181,9 +2294,10 @@ fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_release_in *fri        = msg;
         fd_t                   *new_fd     = NULL;
-        uint64_t                tmp_fd_ctx = 0;
+        uint64_t                val        = 0;
         int                     ret        = 0;
         fuse_state_t           *state      = NULL;
+        fuse_fd_ctx_t          *fdctx      = NULL;
 
         GET_STATE (this, finh, state);
         state->fd = FH_TO_FD (fri->fh);
@@ -2192,10 +2306,18 @@ fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": RELEASEDIR %p", finh->unique, state->fd);
 
-        ret = fd_ctx_get (state->fd, this, &tmp_fd_ctx);
+        ret = fd_ctx_del (state->fd, this, &val);
+
         if (!ret) {
-                new_fd = (fd_t *)(long)tmp_fd_ctx;
-                fd_unref (new_fd);
+                fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
+                if (fdctx) {
+                        new_fd = fdctx->fd;
+                        if (new_fd) {
+                                fd_unref (new_fd);
+                        }
+
+                        GF_FREE (fdctx);
+                }
         }
 
         fd_unref (state->fd);
