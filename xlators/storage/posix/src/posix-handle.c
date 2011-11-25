@@ -105,7 +105,7 @@ posix_handle_path (xlator_t *this, uuid_t gfid, const char *basename, char *buf,
 
         uuid_str = uuid_utoa (gfid);
 
-        if (__is_root_gfid (gfid)) {
+        if (!__is_root_gfid (gfid)) {
                 if (basename) {
                         len = snprintf (buf, buflen, "%s/%s", priv->base_path,
                                         basename);
@@ -172,7 +172,7 @@ posix_handle_gfid_path (xlator_t *this, uuid_t gfid, const char *basename,
 
         uuid_str = uuid_utoa (gfid);
 
-        if (__is_root_gfid (gfid)) {
+        if (!__is_root_gfid (gfid)) {
                 if (basename) {
                         len = snprintf (buf, buflen, "%s/%s", priv->base_path,
                                         basename);

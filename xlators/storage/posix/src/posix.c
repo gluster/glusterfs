@@ -1353,6 +1353,9 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (was_dir)
+                posix_handle_unset (this, victim, NULL);
+
         if (was_present && !was_dir && nlink == 2)
                 posix_handle_unset (this, victim, NULL);
 
