@@ -246,7 +246,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&ctx->lock);
 
-        quota_check_limit (frame, local->validate_loc.inode, this, NULL, 0);
+        quota_check_limit (frame, local->validate_loc.inode, this, NULL, NULL);
         return 0;
 
 unwind:
@@ -342,7 +342,9 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         }
         UNLOCK (&local->lock);
 
-        uuid_copy (trav_uuid, par);
+        if ( par != NULL ) {
+                uuid_copy (trav_uuid, par);
+        }
 
         do {
                 if (ctx != NULL) {
@@ -748,7 +750,10 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, uuid_t par,
 
         _inode = inode_ref (inode);
 
-        uuid_copy (trav_uuid, par);
+        if ( par != NULL ) {
+                uuid_copy (trav_uuid, par);
+        }
+
         do {
                 if ((ctx != NULL) && (ctx->limit >= 0)) {
                         LOCK (&ctx->lock);
@@ -1039,7 +1044,7 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         local->stub = stub;
         local->delta = 0;
 
-        quota_check_limit (frame, loc->parent, this, NULL, 0);
+        quota_check_limit (frame, loc->parent, this, NULL, NULL);
 
         stub = NULL;
 
@@ -1180,7 +1185,7 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         local->stub = stub;
         local->delta = 0;
 
-        quota_check_limit (frame, loc->parent, this, NULL, 0);
+        quota_check_limit (frame, loc->parent, this, NULL, NULL);
 
         stub = NULL;
 
@@ -1294,7 +1299,7 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = (quota_local_t *) frame->local;
 
-        quota_update_size (this, local->loc.parent, NULL, 0,
+        quota_update_size (this, local->loc.parent, NULL, NULL,
                            (buf->ia_blocks * 512));
 
         ret = quota_inode_ctx_get (inode, -1, this, NULL, NULL, &ctx, 0);
@@ -1422,7 +1427,7 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         local->delta = ctx->buf.ia_blocks * 512;
 
-        quota_check_limit (frame, newloc->parent, this, NULL, 0);
+        quota_check_limit (frame, newloc->parent, this, NULL, NULL);
 
         stub = NULL;
 
@@ -1483,8 +1488,8 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (local->oldloc.parent != local->newloc.parent) {
-                quota_update_size (this, local->oldloc.parent, NULL, 0, (-size));
-                quota_update_size (this, local->newloc.parent, NULL, 0, size);
+                quota_update_size (this, local->oldloc.parent, NULL, NULL, (-size));
+                quota_update_size (this, local->newloc.parent, NULL, NULL, size);
         }
 
         if (!(IA_ISREG (local->oldloc.inode->ia_type)
@@ -1649,7 +1654,7 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 local->delta = 0;
         }
 
-        quota_check_limit (frame, newloc->parent, this, NULL, 0);
+        quota_check_limit (frame, newloc->parent, this, NULL, NULL);
 
         stub = NULL;
 
@@ -1697,7 +1702,7 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         size = buf->ia_blocks * 512;
 
-        quota_update_size (this, local->loc.parent, NULL, 0, size);
+        quota_update_size (this, local->loc.parent, NULL, NULL, size);
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
                              &ctx, 1);
@@ -1795,7 +1800,7 @@ quota_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         local->stub = stub;
         local->delta = strlen (linkpath);
 
-        quota_check_limit (frame, loc->parent, this, NULL, 0);
+        quota_check_limit (frame, loc->parent, this, NULL, NULL);
 
         stub = NULL;
 
@@ -1845,7 +1850,7 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         delta = (postbuf->ia_blocks - prebuf->ia_blocks) * 512;
 
-        quota_update_size (this, local->loc.inode, NULL, 0, delta);
+        quota_update_size (this, local->loc.inode, NULL, NULL, delta);
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
                              &ctx, 0);
@@ -1920,7 +1925,7 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         delta = (postbuf->ia_blocks - prebuf->ia_blocks) * 512;
 
-        quota_update_size (this, local->loc.inode, NULL, 0, delta);
+        quota_update_size (this, local->loc.inode, NULL, NULL, delta);
 
         quota_inode_ctx_get (local->loc.inode, -1, this, NULL, NULL,
                              &ctx, 0);
@@ -2620,7 +2625,7 @@ quota_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         local->stub = stub;
         local->delta = 0;
 
-        quota_check_limit (frame, loc->parent, this, NULL, 0);
+        quota_check_limit (frame, loc->parent, this, NULL, NULL);
 
         stub = NULL;
 
