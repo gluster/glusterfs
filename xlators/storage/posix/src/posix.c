@@ -886,7 +886,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                         par_path, strerror (op_errno));
                 goto out;
         }
-        gid = stbuf.ia_gid;
+        gid = preparent.ia_gid;
 
         op_ret = mkdir (real_path, mode);
         if (op_ret == -1) {
@@ -3394,6 +3394,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         struct iatt           stbuf          = {0, };
         gf_dirent_t          *tmp_entry      = NULL;
         uuid_t                gfid;
+        ia_type_t             entry_type     = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3426,12 +3427,13 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         if (whichop == GF_FOP_READDIRP) {
                 list_for_each_entry (tmp_entry, &entries.list, list) {
                         ret = inode_grep_gfid (fd->inode->table, fd->inode,
-                                               tmp_entry->d_name, gfid);
+                                               tmp_entry->d_name, gfid,
+                                               &entry_type);
                         if (ret == 0) {
                                 memset (&stbuf, 0, sizeof (stbuf));
                                 uuid_copy (stbuf.ia_gfid, gfid);
                                 posix_fill_ino_from_gfid (this, &stbuf);
-
+                                stbuf.ia_type = entry_type;
                         } else {
                                 posix_istat (this, fd->inode->gfid,
                                              tmp_entry->d_name, &stbuf);

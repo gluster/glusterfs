@@ -662,7 +662,7 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
 
 int
 inode_grep_gfid (inode_table_t *table, inode_t *parent, const char *name,
-                 uuid_t gfid)
+                 uuid_t gfid, ia_type_t *type)
 {
         inode_t   *inode = NULL;
         dentry_t  *dentry = NULL;
@@ -683,6 +683,7 @@ inode_grep_gfid (inode_table_t *table, inode_t *parent, const char *name,
 
                 if (inode) {
                         uuid_copy (gfid, inode->gfid);
+                        *type = inode->ia_type;
                         ret = 0;
                 }
         }
