@@ -43,8 +43,7 @@ typedef int (*afr_expunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
                                        int32_t op_errno);
 
 typedef int (*afr_impunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
-                                       int child, int32_t op_error,
-                                       int32_t op_errno);
+                                       int32_t op_error, int32_t op_errno);
 typedef int (*afr_post_remove_call_t) (call_frame_t *frame, xlator_t *this);
 
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
@@ -192,7 +191,6 @@ typedef struct {
 
         afr_expunge_done_cbk_t expunge_done;
         afr_impunge_done_cbk_t impunge_done;
-        int32_t impunge_ret_child;
 
         /* array of xattr's, one for each child */
         dict_t **xattr;
@@ -226,7 +224,6 @@ typedef struct {
         unsigned char *locked_nodes;
         int lock_count;
 
-        mode_t impunging_entry_mode;
         const char *linkname;
         gf_boolean_t entries_skipped;
 
@@ -882,6 +879,7 @@ afr_launch_openfd_self_heal (call_frame_t *frame, xlator_t *this, fd_t *fd);
                 GF_FREE (__local);                      \
         } while (0);
 
+#define AFR_NUM_CHANGE_LOGS            3 /*data + metadata + entry*/
 /* allocate and return a string that is the basename of argument */
 static inline char *
 AFR_BASENAME (const char *str)
@@ -1013,6 +1011,11 @@ afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
 gf_boolean_t
 afr_have_quorum (char *logname, afr_private_t *priv);
 
+void
+afr_matrix_cleanup (int32_t **pending, unsigned int m);
+
+int32_t**
+afr_matrix_create (unsigned int m, unsigned int n);
 /*
  * Special value indicating we should use the "auto" quorum method instead of
  * a fixed value (including zero to turn off quorum enforcement).

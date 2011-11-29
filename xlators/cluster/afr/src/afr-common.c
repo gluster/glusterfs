@@ -721,8 +721,6 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 {
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
-        int              i = 0;
-
 
         sh = &local->self_heal;
         priv = this->private;
@@ -744,19 +742,8 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         if (sh->child_errno)
                 GF_FREE (sh->child_errno);
 
-        if (sh->pending_matrix) {
-                for (i = 0; i < priv->child_count; i++) {
-                        GF_FREE (sh->pending_matrix[i]);
-                }
-                GF_FREE (sh->pending_matrix);
-        }
-
-        if (sh->delta_matrix) {
-                for (i = 0; i < priv->child_count; i++) {
-                        GF_FREE (sh->delta_matrix[i]);
-                }
-                GF_FREE (sh->delta_matrix);
-        }
+        afr_matrix_cleanup (sh->pending_matrix, priv->child_count);
+        afr_matrix_cleanup (sh->delta_matrix, priv->child_count);
 
         if (sh->sources)
                 GF_FREE (sh->sources);
@@ -800,17 +787,11 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 void
 afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 {
-        int             i = 0;
         afr_private_t * priv = NULL;
 
         priv = this->private;
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->pending && local->pending[i])
-                        GF_FREE (local->pending[i]);
-        }
-
-        GF_FREE (local->pending);
+        afr_matrix_cleanup (local->pending, priv->child_count);
 
         if (local->internal_lock.locked_nodes)
                 GF_FREE (local->internal_lock.locked_nodes);
@@ -3670,10 +3651,47 @@ out:
         return ret;
 }
 
+void
+afr_matrix_cleanup (int32_t **matrix, unsigned int m)
+{
+        int             i         = 0;
+
+        if (!matrix)
+                goto out;
+        for (i = 0; i < m; i++) {
+                GF_FREE (matrix[i]);
+        }
+
+        GF_FREE (matrix);
+out:
+        return;
+}
+
+int32_t**
+afr_matrix_create (unsigned int m, unsigned int n)
+{
+        int32_t         **matrix = NULL;
+        int             i       = 0;
+
+        matrix = GF_CALLOC (sizeof (*matrix), m, gf_afr_mt_int32_t);
+        if (!matrix)
+                goto out;
+
+        for (i = 0; i < m; i++) {
+                matrix[i] = GF_CALLOC (sizeof (*matrix[i]), n,
+                                       gf_afr_mt_int32_t);
+                if (!matrix[i])
+                        goto out;
+        }
+        return matrix;
+out:
+        afr_matrix_cleanup (matrix, m);
+        return NULL;
+}
+
 int
 afr_transaction_local_init (afr_local_t *local, xlator_t *this)
 {
-        int            i = 0;
         int            child_up_count = 0;
         int            ret = -ENOMEM;
         afr_private_t *priv = NULL;
@@ -3707,13 +3725,6 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->transaction.eager_lock)
                 goto out;
 
-        local->pending = GF_CALLOC (sizeof (*local->pending),
-                                    priv->child_count,
-                                    gf_afr_mt_int32_t);
-
-        if (!local->pending)
-                goto out;
-
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children)
                 goto out;
@@ -3732,13 +3743,10 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->transaction.pre_op)
                 goto out;
 
-        for (i = 0; i < priv->child_count; i++) {
-                local->pending[i] = GF_CALLOC (sizeof (*local->pending[i]),
-                                               3, /* data + metadata + entry */
-                                               gf_afr_mt_int32_t);
-                if (!local->pending[i])
-                        goto out;
-        }
+        local->pending = afr_matrix_create (priv->child_count,
+                                            AFR_NUM_CHANGE_LOGS);
+        if (!local->pending)
+                goto out;
 
         local->transaction.child_errno =
                 GF_CALLOC (sizeof (*local->transaction.child_errno),

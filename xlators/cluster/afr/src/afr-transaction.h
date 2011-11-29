@@ -32,4 +32,6 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
 afr_fd_ctx_t *
 afr_fd_ctx_get (fd_t *fd, xlator_t *this);
+int
+afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending);
 #endif /* __TRANSACTION_H__ */

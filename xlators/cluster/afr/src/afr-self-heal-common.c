@@ -1023,8 +1023,7 @@ afr_valid_ia_type (ia_type_t ia_type)
 
 int
 afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
-                          int active_source, int ret_child, mode_t entry_mode,
-                          call_frame_t **impunge_frame)
+                          int active_source, call_frame_t **impunge_frame)
 {
         afr_local_t     *local         = NULL;
         afr_local_t     *impunge_local = NULL;
@@ -1048,12 +1047,15 @@ afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
         impunge_sh = &impunge_local->self_heal;
         impunge_sh->sh_frame = frame;
         impunge_sh->active_source = active_source;
-        impunge_sh->impunge_ret_child = ret_child;
-        impunge_sh->impunging_entry_mode = entry_mode;
         impunge_local->child_up  = memdup (local->child_up,
                                            sizeof (*local->child_up) *
                                            priv->child_count);
         if (!impunge_local->child_up)
+                goto out;
+
+        impunge_local->pending = afr_matrix_create (priv->child_count,
+                                                    AFR_NUM_CHANGE_LOGS);
+        if (!impunge_local->pending)
                 goto out;
 
         ret = afr_sh_common_create (impunge_sh, priv->child_count);
@@ -1070,54 +1072,83 @@ out:
 }
 
 void
-afr_sh_call_entry_impunge_recreate (call_frame_t *frame, xlator_t *this,
-                                    int child_index, struct iatt *buf,
-                                    struct iatt *postparent,
-                                    afr_impunge_done_cbk_t impunge_done)
+afr_sh_missing_entry_call_impunge_recreate (call_frame_t *frame, xlator_t *this,
+                                            struct iatt *buf,
+                                            struct iatt *postparent,
+                                            afr_impunge_done_cbk_t impunge_done)
 {
         call_frame_t    *impunge_frame = NULL;
         afr_local_t     *local = NULL;
         afr_local_t     *impunge_local = NULL;
         afr_self_heal_t *sh = NULL;
+        afr_self_heal_t *impunge_sh = NULL;
         int             ret = 0;
-        mode_t          mode = 0;
+        unsigned int    enoent_count = 0;
+        afr_private_t   *priv = NULL;
+        int             i = 0;
 
         local = frame->local;
         sh    = &local->self_heal;
-        mode = st_mode_from_ia (buf->ia_prot, buf->ia_type);
-        ret = afr_impunge_frame_create (frame, this, sh->source, child_index,
-                                        mode, &impunge_frame);
+        priv  = this->private;
+
+        enoent_count = afr_errno_count (NULL, sh->child_errno,
+                                        priv->child_count, ENOENT);
+        if (!enoent_count) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "no missing files - %s. proceeding to metadata check",
+                        local->loc.path);
+                goto out;
+        }
+        sh->impunge_done = impunge_done;
+        ret = afr_impunge_frame_create (frame, this, sh->source, &impunge_frame);
         if (ret)
                 goto out;
         impunge_local = impunge_frame->local;
+        impunge_sh    = &impunge_local->self_heal;
         loc_copy (&impunge_local->loc, &local->loc);
-        sh->impunge_done = impunge_done;
-        impunge_local->call_count = 1;
-        afr_sh_entry_impunge_create (impunge_frame, this, child_index, buf,
-                                     postparent);
+        afr_build_parent_loc (&impunge_sh->parent_loc, &impunge_local->loc);
+        impunge_local->call_count = enoent_count;
+        impunge_sh->entrybuf = sh->buf[sh->source];
+        impunge_sh->parentbuf = sh->parentbufs[sh->source];
+        for (i = 0; i < priv->child_count; i++) {
+                if (!impunge_local->child_up[i]) {
+                        impunge_sh->child_errno[i] = ENOTCONN;
+                        continue;
+                }
+                if (sh->child_errno[i] != ENOENT) {
+                        impunge_sh->child_errno[i] = EEXIST;
+                        continue;
+                }
+        }
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->child_errno[i] != ENOENT)
+                        continue;
+                afr_sh_entry_impunge_create (impunge_frame, this, i);
+                enoent_count--;
+        }
+        GF_ASSERT (!enoent_count);
         return;
 out:
-        gf_log (this->name, GF_LOG_ERROR, "impunge of %s failed, reason: %s",
-                local->loc.path, strerror (-ret));
-        impunge_done (frame, this, child_index, -1, -ret);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "impunge of %s failed, "
+                        "reason: %s", local->loc.path, strerror (-ret));
+                sh->op_failed = 1;
+        }
+        afr_sh_missing_entries_finish (frame, this);
 }
 
 int
-afr_sh_create_entry_cbk (call_frame_t *frame, xlator_t *this, int child,
+afr_sh_create_entry_cbk (call_frame_t *frame, xlator_t *this,
                          int32_t op_ret, int32_t op_errno)
 {
-        int             call_count = 0;
         afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
 
         local = frame->local;
-
-        if (op_ret == -1)
-                gf_log (this->name, GF_LOG_ERROR,
-                        "create entry %s failed, on child %d reason, %s",
-                        local->loc.path, child, strerror (op_errno));
-        call_count = afr_frame_return (frame);
-        if (call_count == 0)
-                afr_sh_missing_entries_finish (frame, this);
+        sh = &local->self_heal;
+        if (op_ret < 0)
+                sh->op_failed = 1;
+        afr_sh_missing_entries_finish (frame, this);
         return 0;
 }
 
@@ -1127,26 +1158,11 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         int              type = 0;
-        afr_private_t   *priv = NULL;
-        int             enoent_count = 0;
-        int             i = 0;
         struct iatt     *buf = NULL;
         struct iatt     *postparent = NULL;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
-
-        enoent_count = afr_errno_count (NULL, sh->child_errno,
-                                        priv->child_count, ENOENT);
-        if (enoent_count == 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "no missing files - %s. proceeding to metadata check",
-                        local->loc.path);
-                /* proceed to next step - metadata self-heal */
-                afr_sh_missing_entries_finish (frame, this);
-                return 0;
-        }
 
         buf = &sh->buf[sh->source];
         postparent = &sh->parentbufs[sh->source];
@@ -1160,17 +1176,9 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
                 goto out;
         }
 
-        local->call_count = enoent_count;
-        for (i = 0; i < priv->child_count; i++) {
-                //If !child_up errno will be zero
-                if (sh->child_errno[i] != ENOENT)
-                        continue;
-                afr_sh_call_entry_impunge_recreate (frame, this, i,
+        afr_sh_missing_entry_call_impunge_recreate (frame, this,
                                                     buf, postparent,
                                                     afr_sh_create_entry_cbk);
-                enoent_count--;
-        }
-        GF_ASSERT (enoent_count == 0);
 out:
         return 0;
 }
@@ -2039,7 +2047,6 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
-        int              i = 0;
         int32_t          op_errno = 0;
         int              ret = 0;
         afr_self_heal_t *orig_sh = NULL;
@@ -2060,7 +2067,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 local->self_heal.do_data_self_heal,
                 local->self_heal.do_entry_self_heal);
 
-        op_errno = ENOMEM;
+        op_errno        = ENOMEM;
         sh_frame        = copy_frame (frame);
         if (!sh_frame)
                 goto out;
@@ -2093,30 +2100,16 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         if (!sh->locked_nodes)
                 goto out;
 
-        sh->pending_matrix = GF_CALLOC (sizeof (int32_t *), priv->child_count,
-                                        gf_afr_mt_int32_t);
+        sh->pending_matrix = afr_matrix_create (priv->child_count,
+                                                priv->child_count);
         if (!sh->pending_matrix)
                 goto out;
 
-        for (i = 0; i < priv->child_count; i++) {
-                sh->pending_matrix[i] = GF_CALLOC (sizeof (int32_t),
-                                                   priv->child_count,
-                                                   gf_afr_mt_int32_t);
-                if (!sh->pending_matrix[i])
-                        goto out;
-        }
-
-        sh->delta_matrix = GF_CALLOC (sizeof (int32_t *), priv->child_count,
-                                      gf_afr_mt_int32_t);
+        sh->delta_matrix = afr_matrix_create (priv->child_count,
+                                              priv->child_count);
         if (!sh->delta_matrix)
                 goto out;
-        for (i = 0; i < priv->child_count; i++) {
-                sh->delta_matrix[i] = GF_CALLOC (sizeof (int32_t),
-                                                 priv->child_count,
-                                                 gf_afr_mt_int32_t);
-                if (!sh->delta_matrix)
-                        goto out;
-        }
+
         sh->fresh_parent_dirs = afr_children_create (priv->child_count);
         if (!sh->fresh_parent_dirs)
                 goto out;
@@ -2173,6 +2166,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
 out:
         if (op_errno) {
                 orig_sh->unwind (frame, this, -1, op_errno);
+                if (sh_frame)
+                        AFR_STACK_DESTROY (sh_frame);
         }
         return 0;
 }

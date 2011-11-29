@@ -275,8 +275,7 @@ __fop_changelog_needed (call_frame_t *frame, xlator_t *this)
         return op_ret;
 }
 
-
-static int
+int
 afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending)
 {
         int i = 0;
@@ -284,7 +283,8 @@ afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending)
 
         for (i = 0; i < priv->child_count; i++) {
                 ret = dict_set_static_bin (xattr, priv->pending_key[i],
-                                           pending[i], 3 * sizeof (int32_t));
+                                           pending[i],
+                                AFR_NUM_CHANGE_LOGS * sizeof (int32_t));
                 /* 3 = data+metadata+entry */
 
                 if (ret < 0)
@@ -568,8 +568,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->transaction.pre_op[i])
                         continue;
-                ret = afr_set_pending_dict (priv, xattr[i],
-                                            local->pending);
+                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
 
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_INFO,
@@ -665,8 +664,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                   value
                 */
 
-                ret = afr_set_pending_dict (priv, xattr[i],
-                                            local->pending);
+                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
 
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_INFO,
@@ -816,8 +814,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
         for (i = 0; i < priv->child_count; i++) {
                 if (!locked_nodes[i])
                         continue;
-                ret = afr_set_pending_dict (priv, xattr[i],
-                                            local->pending);
+                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
 
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_INFO,
@@ -918,8 +915,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                   value
                 */
 
-                ret = afr_set_pending_dict (priv, xattr[i],
-                                            local->pending);
+                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
 
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_INFO,
