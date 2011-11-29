@@ -11,6 +11,8 @@ libglusterfs_la_LIBADD = @LEXLIB@
 
 lib_LTLIBRARIES = libglusterfs.la
 
+CONTRIB_BUILDDIR = $(top_builddir)/contrib
+
 libglusterfs_la_SOURCES = dict.c graph.lex.c y.tab.c xlator.c logging.c \
 	hashfn.c defaults.c common-utils.c timer.c inode.c call-stub.c \
 	compat.c fd.c compat-errno.c event.c mem-pool.c gf-dirent.c syscall.c \
@@ -30,7 +32,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 	checksum.h daemon.h $(CONTRIBDIR)/md5/md5.h $(CONTRIBDIR)/rbtree/rb.h \
 	rbthash.h iatt.h latency.h mem-types.h $(CONTRIBDIR)/uuid/uuidd.h \
 	$(CONTRIBDIR)/uuid/uuid.h $(CONTRIBDIR)/uuid/uuidP.h \
-	$(CONTRIBDIR)/uuid/uuid_types.h syncop.h graph-utils.h trie.h run.h \
+	$(CONTRIB_BUILDDIR)/uuid/uuid_types.h syncop.h graph-utils.h trie.h run.h \
 	options.h
 
 EXTRA_DIST = graph.l graph.y
@@ -45,3 +47,4 @@ y.tab.c y.tab.h: graph.y
 	$(YACC) -d $(srcdir)/graph.y
 
 CLEANFILES = graph.lex.c y.tab.c y.tab.h yacc.stamp
+CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
