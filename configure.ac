@@ -136,6 +136,7 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-SuSE
 		extras/benchmarking/Makefile
 		contrib/fuse-util/Makefile
+		contrib/uuid/uuid_types.h
                 xlators/nfs/Makefile
                 xlators/nfs/server/Makefile
                 xlators/nfs/server/src/Makefile
@@ -172,6 +173,22 @@ AC_PROG_LEX
 if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
    AC_MSG_ERROR([Flex or lex required to build glusterfs.])
 fi
+
+dnl
+dnl Word sizes...
+dnl
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(long long)
+SIZEOF_SHORT=$ac_cv_sizeof_short
+SIZEOF_INT=$ac_cv_sizeof_int
+SIZEOF_LONG=$ac_cv_sizeof_long
+SIZEOF_LONG_LONG=$ac_cv_sizeof_long_long
+AC_SUBST(SIZEOF_SHORT)
+AC_SUBST(SIZEOF_INT)
+AC_SUBST(SIZEOF_LONG)
+AC_SUBST(SIZEOF_LONG_LONG)
 
 # YACC needs a check
 AC_PROG_YACC
