@@ -749,50 +749,6 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-static void
-afr_destroy_pending_matrix (int32_t **pending_matrix, int32_t child_count)
-{
-        int             i = 0;
-        GF_ASSERT (child_count > 0);
-        if (pending_matrix) {
-                for (i = 0; i < child_count; i++) {
-                        if (pending_matrix[i])
-                                GF_FREE (pending_matrix[i]);
-                }
-                GF_FREE (pending_matrix);
-        }
-}
-
-static int32_t**
-afr_create_pending_matrix (int32_t child_count)
-{
-        gf_boolean_t            cleanup = _gf_false;
-        int32_t                 **pending_matrix = NULL;
-        int                     i = 0;
-
-        GF_ASSERT (child_count > 0);
-
-        pending_matrix = GF_CALLOC (sizeof (*pending_matrix), child_count,
-                                    gf_afr_mt_int32_t);
-        if (NULL == pending_matrix)
-                goto out;
-        for (i = 0; i < child_count; i++) {
-                pending_matrix[i] = GF_CALLOC (sizeof (**pending_matrix),
-                                               child_count,
-                                               gf_afr_mt_int32_t);
-                if (NULL == pending_matrix[i]) {
-                        cleanup = _gf_true;
-                        goto out;
-                }
-        }
-out:
-        if (_gf_true == cleanup) {
-                afr_destroy_pending_matrix (pending_matrix, child_count);
-                pending_matrix = NULL;
-        }
-        return pending_matrix;
-}
-
 int
 afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                           dict_t **xattr,
@@ -813,7 +769,8 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         bufs = local->cont.lookup.bufs;
         success_children = local->cont.lookup.success_children;
 
-        pending_matrix = afr_create_pending_matrix (priv->child_count);
+        pending_matrix = afr_matrix_create (priv->child_count,
+                                            priv->child_count);
         if (NULL == pending_matrix)
                 goto out;
 
@@ -837,7 +794,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                                         config_read_child,
                                                         sources);
 out:
-        afr_destroy_pending_matrix (pending_matrix, priv->child_count);
+        afr_matrix_cleanup (pending_matrix, priv->child_count);
         gf_log (this->name, GF_LOG_DEBUG, "returning read_child: %d",
                 read_child);
         return read_child;

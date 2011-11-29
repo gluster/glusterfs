@@ -100,8 +100,7 @@ afr_sh_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 char *base_name, afr_lock_cbk_t lock_cbk);
 int
 afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
-                             int child_index, struct iatt *buf,
-                             struct iatt *postparent);
+                             int child_index);
 int
 afr_sh_data_unlock (call_frame_t *frame, xlator_t *this,
                     afr_lock_cbk_t lock_cbk);
@@ -125,6 +124,5 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name,
                      uuid_t gfid);
 int
 afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
-                          int active_source, int ret_child, mode_t entry_mode,
-                          call_frame_t **impunge_frame);
+                          int active_source, call_frame_t **impunge_frame);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */
