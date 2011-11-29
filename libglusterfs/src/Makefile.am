@@ -35,10 +35,13 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 
 EXTRA_DIST = graph.l graph.y
 
-graph.lex.c: graph.l y.tab.h
+graph.lex.c: graph.l yacc.stamp
 	$(LEX) -t $(srcdir)/graph.l > $@
+
+yacc.stamp: y.tab.c y.tab.h
+	touch $@
 
 y.tab.c y.tab.h: graph.y
 	$(YACC) -d $(srcdir)/graph.y
 
-CLEANFILES = graph.lex.c y.tab.c y.tab.h
+CLEANFILES = graph.lex.c y.tab.c y.tab.h yacc.stamp
