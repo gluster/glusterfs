@@ -13,7 +13,7 @@ lib_LTLIBRARIES = libglusterfs.la
 
 CONTRIB_BUILDDIR = $(top_builddir)/contrib
 
-libglusterfs_la_SOURCES = dict.c graph.lex.c y.tab.c xlator.c logging.c \
+libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	hashfn.c defaults.c common-utils.c timer.c inode.c call-stub.c \
 	compat.c fd.c compat-errno.c event.c mem-pool.c gf-dirent.c syscall.c \
 	iobuf.c globals.c statedump.c stack.c checksum.c daemon.c \
@@ -24,6 +24,10 @@ libglusterfs_la_SOURCES = dict.c graph.lex.c y.tab.c xlator.c logging.c \
 	$(CONTRIBDIR)/uuid/uuid_time.c $(CONTRIBDIR)/uuid/compare.c \
 	$(CONTRIBDIR)/uuid/isnull.c $(CONTRIBDIR)/uuid/unpack.c syncop.c \
 	graph-print.c trie.c run.c options.c
+
+nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
+
+BUILT_SOURCES = graph.lex.c
 
 noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 	logging.h xlator.h stack.h timer.h list.h inode.h call-stub.h compat.h \
@@ -37,14 +41,11 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 
 EXTRA_DIST = graph.l graph.y
 
-graph.lex.c: graph.l yacc.stamp
+graph.lex.c: graph.l y.tab.h
 	$(LEX) -t $(srcdir)/graph.l > $@
 
-yacc.stamp: y.tab.c y.tab.h
-	touch $@
-
-y.tab.c y.tab.h: graph.y
+y.tab.h: graph.y
 	$(YACC) -d $(srcdir)/graph.y
 
-CLEANFILES = graph.lex.c y.tab.c y.tab.h yacc.stamp
+CLEANFILES = graph.lex.c y.tab.c y.tab.h
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
