@@ -132,6 +132,10 @@ fd_t *
 fd_lookup (struct _inode *inode, pid_t pid);
 
 
+fd_t *
+fd_anonymous (inode_t *inode);
+
+
 uint8_t
 fd_list_empty (struct _inode *inode);
 
@@ -164,9 +168,11 @@ int
 __fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
 
 fd_t *
-_fd_ref (fd_t *fd);
+__fd_ref (fd_t *fd);
 
 void
 fd_ctx_dump (fd_t *fd, char *prefix);
 
+extern fd_t *
+fd_anonymous (inode_t *inode);
 #endif /* _FD_H */

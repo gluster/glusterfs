@@ -142,6 +142,10 @@ inode_rename (inode_table_t *table, inode_t *olddir, const char *oldname,
 inode_t *
 inode_grep (inode_table_t *table, inode_t *parent, const char *name);
 
+int
+inode_grep_gfid (inode_table_t *table, inode_t *parent, const char *name,
+                 uuid_t gfid, ia_type_t *type);
+
 inode_t *
 inode_find (inode_table_t *table, uuid_t gfid);
 
@@ -161,6 +165,12 @@ int
 inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
 
 int
+__inode_ctx_set (inode_t *inode, xlator_t *xlator, uint64_t *value);
+
+int
+inode_ctx_set (inode_t *inode, xlator_t *xlator, uint64_t *value);
+
+int
 __inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
 int
@@ -172,6 +182,13 @@ inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value);
 int
 inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
                 uint64_t value2);
+
+int
+inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                uint64_t *value2);
+int
+__inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                  uint64_t *value2);
 
 int
 inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,

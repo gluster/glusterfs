@@ -832,17 +832,20 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
 
+
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "write behind file pointer is"
-                        " not stored in context of fd(%p), returning EBADFD",
-                        fd);
-                op_errno = EBADFD;
-                goto unwind;
+                file = wb_file_create (this, fd, 0);
+        } else {
+                file = (wb_file_t *)(long)tmp_file;
+                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "wb_file not found for fd %p", fd);
+                        op_errno = EBADFD;
+                        goto unwind;
+                }
         }
 
-        file = (wb_file_t *)(long)tmp_file;
         local = GF_CALLOC (1, sizeof (*local),
                            gf_wb_mt_wb_local_t);
         if (local == NULL) {
@@ -1115,17 +1118,19 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
 
+
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "write behind file pointer is"
-                        " not stored in context of fd(%p), returning EBADFD",
-                        fd);
-                op_errno = EBADFD;
-                goto unwind;
+                file = wb_file_create (this, fd, 0);
+        } else {
+                file = (wb_file_t *)(long)tmp_file;
+                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "wb_file not found for fd %p", fd);
+                        op_errno = EBADFD;
+                        goto unwind;
+                }
         }
-
-        file = (wb_file_t *)(long)tmp_file;
 
         local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
@@ -2091,21 +2096,15 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "write behind file pointer is"
-                        " not stored in context of fd(%p), returning EBADFD",
-                        fd);
-
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        file = (wb_file_t *)(long)tmp_file;
-        if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "wb_file not found for fd %p", fd);
-                op_errno = EBADFD;
-                goto unwind;
+                file = wb_file_create (this, fd, 0);
+        } else {
+                file = (wb_file_t *)(long)tmp_file;
+                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "wb_file not found for fd %p", fd);
+                        op_errno = EBADFD;
+                        goto unwind;
+                }
         }
 
         if (file != NULL) {
@@ -2265,15 +2264,16 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "write behind file pointer is"
-                        " not stored in context of fd(%p), returning EBADFD",
-                        fd);
-                op_errno = EBADFD;
-                goto unwind;
+                file = wb_file_create (this, fd, 0);
+        } else {
+                file = (wb_file_t *)(long)tmp_file;
+                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "wb_file not found for fd %p", fd);
+                        op_errno = EBADFD;
+                        goto unwind;
+                }
         }
-
-        file = (wb_file_t *)(long)tmp_file;
 
         local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
@@ -2449,18 +2449,19 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         conf = this->private;
 
+
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "write behind file pointer is"
-                        " not stored in context of fd(%p), returning EBADFD",
-                        fd);
-
-                op_errno = EBADFD;
-                goto unwind;
+                file = wb_file_create (this, fd, 0);
+        } else {
+                file = (wb_file_t *)(long)tmp_file;
+                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "wb_file not found for fd %p", fd);
+                        op_errno = EBADFD;
+                        goto unwind;
+                }
         }
-
-        file = (wb_file_t *)(long)tmp_file;
 
         if (file != NULL) {
                 local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
@@ -2593,17 +2594,19 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, fd, unwind,
                                         op_errno, EINVAL);
 
+
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "write behind file pointer is"
-                        " not stored in context of fd(%p), returning EBADFD",
-                        fd);
-                op_errno = EBADFD;
-                goto unwind;
+                file = wb_file_create (this, fd, 0);
+        } else {
+                file = (wb_file_t *)(long)tmp_file;
+                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "wb_file not found for fd %p", fd);
+                        op_errno = EBADFD;
+                        goto unwind;
+                }
         }
-
-        file = (wb_file_t *)(long)tmp_file;
 
         local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {

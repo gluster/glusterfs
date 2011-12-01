@@ -52,6 +52,12 @@
 #include "compat.h"
 #include "timer.h"
 #include "posix-mem-types.h"
+#include "posix-handle.h"
+
+#ifdef HAVE_LIBAIO
+#include <libaio.h>
+#include "posix-aio.h"
+#endif
 
 /**
  * posix_fd - internal structure common to file and directory fd's
@@ -60,9 +66,10 @@
 struct posix_fd {
 	int     fd;      /* fd returned by the kernel */
 	int32_t flags;   /* flags for open/creat      */
-	char *  path;    /* used by setdents/getdents */
 	DIR *   dir;     /* handle returned by the kernel */
         int     flushwrites;
+        int     odirect;
+        int     op_performed;
         struct list_head list; /* to add to the janitor list */
 };
 
@@ -102,12 +109,12 @@ struct posix_private {
 	gf_boolean_t    o_direct;     /* always open files in O_DIRECT mode */
 
 
-/* 
+/*
    decide whether posix_unlink does open (file), unlink (file), close (fd)
    instead of just unlink (file). with the former approach there is no lockout
    of access to parent directory during removal of very large files for the
    entire duration of freeing of data blocks.
-*/ 
+*/
         gf_boolean_t    background_unlink;
 
 /* janitor thread which cleans up /.trash (created by replicate) */
@@ -116,31 +123,35 @@ struct posix_private {
         char *          trash_path;
 /* lock for brick dir */
         DIR     *mount_lock;
+
+        struct stat     handledir;
+
+#ifdef HAVE_LIBAIO
+        io_context_t    ctxp;
+        pthread_t       aiothread;
+#endif
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 
 #define POSIX_BASE_PATH_LEN(this) (((struct posix_private *)this->private)->base_path_length)
 
-#define MAKE_REAL_PATH(var, this, path) do {                            \
-		var = alloca (strlen (path) + POSIX_BASE_PATH_LEN(this) + 2); \
-                strcpy (var, POSIX_BASE_PATH(this));			\
-                strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);		\
-        } while (0)
-
-
 /* Helper functions */
-int setgid_override (xlator_t *this, char *real_path, gid_t *gid);
-int posix_gfid_set (xlator_t *this, const char *path, dict_t *xattr_req);
-int posix_fstat_with_gfid (xlator_t *this, int fd, struct iatt *stbuf_p);
-int posix_lstat_with_gfid (xlator_t *this, const char *path, struct iatt *buf);
+int setgid_override (xlator_t *this, uuid_t pargfid, gid_t *gid);
+int posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
+                    dict_t *xattr_req);
+int posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p);
+int posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
+                 struct iatt *iatt);
+int posix_pstat (xlator_t *this, uuid_t gfid, const char *real_path,
+                 struct iatt *iatt);
 dict_t *posix_lookup_xattr_fill (xlator_t *this, const char *path,
                                  loc_t *loc, dict_t *xattr, struct iatt *buf);
 int posix_handle_pair (xlator_t *this, const char *real_path,
                        data_pair_t *trav, int flags);
 int posix_fhandle_pair (xlator_t *this, int fd, data_pair_t *trav, int flags);
 void posix_spawn_janitor_thread (xlator_t *this);
-int posix_get_file_contents (xlator_t *this, const char *path,
+int posix_get_file_contents (xlator_t *this, uuid_t pargfid,
                              const char *name, char **contents);
 int posix_set_file_contents (xlator_t *this, const char *path,
                              data_pair_t *trav, int flags);
@@ -149,5 +160,9 @@ int posix_gfid_heal (xlator_t *this, const char *path, dict_t *xattr_req);
 int posix_entry_create_xattr_set (xlator_t *this, const char *path,
                                   dict_t *dict);
 
+int posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd);
+int posix_fd_ctx_get_off (fd_t *fd, xlator_t *this, struct posix_fd **pfd,
+                          off_t off);
+void posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf);
 
 #endif /* _POSIX_H */

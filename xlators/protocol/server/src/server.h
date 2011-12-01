@@ -124,12 +124,9 @@ typedef struct {
         u_char                 pargfid[16];
         char                  *path;
         char                  *bname;
-        char                  *resolved;
         int                    op_ret;
         int                    op_errno;
         loc_t                  deep_loc;
-        struct resolve_comp   *components;
-        int                    comp_count;
 } server_resolve_t;
 
 

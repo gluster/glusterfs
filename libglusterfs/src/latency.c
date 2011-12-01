@@ -147,6 +147,24 @@ gf_update_latency (call_frame_t *frame)
 
 
 void
+gf_latency_begin (call_frame_t *frame, void *fn)
+{
+        gf_set_fop_from_fn_pointer (frame, frame->this->fops, fn);
+
+        gettimeofday (&frame->begin, NULL);
+}
+
+
+void
+gf_latency_end (call_frame_t *frame)
+{
+        gettimeofday (&frame->end, NULL);
+
+        gf_update_latency (frame);
+}
+
+
+void
 gf_proc_dump_latency_info (xlator_t *xl)
 {
         char key_prefix[GF_DUMP_MAX_BUF_LEN];
@@ -164,6 +182,8 @@ gf_proc_dump_latency_info (xlator_t *xl)
                                     xl->latencies[i].count,
                                     xl->latencies[i].total);
         }
+
+        memset (xl->latencies, 0, sizeof (xl->latencies));
 }
 
 

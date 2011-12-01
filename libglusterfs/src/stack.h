@@ -128,12 +128,13 @@ struct _call_stack_t {
 
 struct xlator_fops;
 
-void
-gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops,
-                            void *fn);
 
 void
-gf_update_latency (call_frame_t *frame);
+gf_latency_begin (call_frame_t *frame, void *fn);
+
+void
+gf_latency_end (call_frame_t *frame);
+
 
 static inline void
 FRAME_DESTROY (call_frame_t *frame)
@@ -234,6 +235,8 @@ STACK_DESTROY (call_stack_t *stack)
                 frame->ref_count++;                                     \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
+                if (frame->this->ctx->measure_latency)                  \
+                        gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -269,6 +272,8 @@ STACK_DESTROY (call_stack_t *stack)
                 fn##_cbk = rfn;                                         \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
+                if (obj->ctx->measure_latency)                          \
+                        gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -291,6 +296,8 @@ STACK_DESTROY (call_stack_t *stack)
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
                 frame->unwind_from = __FUNCTION__;                      \
+                if (frame->this->ctx->measure_latency)                  \
+                        gf_latency_end (frame);                         \
                 fn (_parent, frame->cookie, _parent->this, params);     \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -314,6 +321,8 @@ STACK_DESTROY (call_stack_t *stack)
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
                 frame->unwind_from = __FUNCTION__;                      \
+                if (frame->this->ctx->measure_latency)                  \
+                        gf_latency_end (frame);                         \
                 fn (_parent, frame->cookie, _parent->this, params);     \
                 THIS = old_THIS;                                        \
         } while (0)

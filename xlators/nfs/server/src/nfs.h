@@ -108,6 +108,9 @@ nfs_user_create (nfs_user_t *newnfu, uid_t uid, gid_t gid, gid_t *auxgids,
 extern void
 nfs_request_user_init (nfs_user_t *nfu, rpcsvc_request_t *req);
 
+extern void
+nfs_request_primary_user_init (nfs_user_t *nfu, rpcsvc_request_t *req,
+                               uid_t uid, gid_t gid);
 extern int
 nfs_subvolume_started (struct nfs_state *nfs, xlator_t *xl);
 #endif

@@ -27,6 +27,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
+#include "statedump.h"
 #include "io-threads.h"
 #include <stdlib.h>
 #include <sys/time.h>
@@ -38,25 +39,44 @@ int iot_workers_scale (iot_conf_t *conf);
 int __iot_workers_scale (iot_conf_t *conf);
 struct volume_options options[];
 
+
 call_stub_t *
 __iot_dequeue (iot_conf_t *conf, int *pri)
 {
         call_stub_t  *stub = NULL;
         int           i = 0;
+        int           min_i = -1;
+        int           max_i = -1;
+        int           idx = -1;
 
         *pri = -1;
+
         for (i = 0; i < IOT_PRI_MAX; i++) {
-                if (list_empty (&conf->reqs[i]) ||
-                   (conf->ac_iot_count[i] >= conf->ac_iot_limit[i]))
+                if (list_empty (&conf->reqs[i]))
                         continue;
-                stub = list_entry (conf->reqs[i].next, call_stub_t, list);
-                conf->ac_iot_count[i]++;
-                *pri = i;
-                break;
+
+                if (conf->ac_iot_count[i] < conf->ac_iot_min[i]) {
+                        min_i = i;
+                        break;
+                }
+
+                if (conf->ac_iot_count[i] < conf->ac_iot_max[i]) {
+                        if (max_i == -1)
+                                max_i = i;
+                }
         }
 
-        if (!stub)
+        if (min_i != -1)
+                idx = min_i;
+        else
+                idx = max_i;
+
+        if (idx == -1)
                 return NULL;
+
+        stub = list_entry (conf->reqs[idx].next, call_stub_t, list);
+        conf->ac_iot_count[idx]++;
+        *pri = idx;
 
         conf->queue_size--;
         list_del_init (&stub->list);
@@ -75,7 +95,39 @@ __iot_enqueue (iot_conf_t *conf, call_stub_t *stub, int pri)
 
         conf->queue_size++;
 
+        conf->enqcnt++;
+
+        conf->avgqlen += ((conf->queue_size - conf->avgqlen) / conf->enqcnt);
+
         return;
+}
+
+
+void
+iot_dispatch (iot_conf_t *conf, call_stub_t *stub)
+{
+        struct timeval   begin;
+        struct timeval   end;
+        double           elapsed;
+        fop_latency_t   *lat;
+        int              op;
+
+        op = stub->fop;
+
+        gettimeofday (&begin, NULL);
+        {
+                call_resume (stub);
+        }
+        gettimeofday (&end, NULL);
+
+        elapsed = (end.tv_sec - begin.tv_sec) * 1e6
+                + (end.tv_usec - begin.tv_usec);
+
+        lat = &conf->displat[op];
+
+        lat->total += elapsed;
+        lat->count++;
+        lat->mean = lat->mean + (elapsed - lat->mean) / lat->count;
 }
 
 
@@ -135,7 +187,7 @@ iot_worker (void *data)
                 pthread_mutex_unlock (&conf->mutex);
 
                 if (stub) /* guard against spurious wakeups */
-                        call_resume (stub);
+                        iot_dispatch (conf, stub);
 
                 if (bye)
                         break;
@@ -161,9 +213,9 @@ do_iot_schedule (iot_conf_t *conf, call_stub_t *stub, int pri)
         {
                 __iot_enqueue (conf, stub, pri);
 
-                pthread_cond_signal (&conf->cond);
-
                 ret = __iot_workers_scale (conf);
+
+                pthread_cond_signal (&conf->cond);
         }
         pthread_mutex_unlock (&conf->mutex);
 
@@ -205,18 +257,25 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
                 goto out;
         }
 
+        pri = IOT_PRI_HI;
+        goto out;
+
         switch (stub->fop) {
+        case GF_FOP_READ:
+        case GF_FOP_LOOKUP:
+                pri = IOT_PRI_HI;
+                break;
+
         case GF_FOP_OPEN:
         case GF_FOP_STAT:
         case GF_FOP_FSTAT:
-        case GF_FOP_LOOKUP:
         case GF_FOP_ACCESS:
         case GF_FOP_READLINK:
         case GF_FOP_OPENDIR:
         case GF_FOP_STATFS:
         case GF_FOP_READDIR:
-        case GF_FOP_READDIRP:
-                pri = IOT_PRI_HI;
+        case GF_FOP_WRITE:
+                pri = IOT_PRI_NORMAL;
                 break;
 
         case GF_FOP_CREATE:
@@ -240,11 +299,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_FGETXATTR:
         case GF_FOP_FSETXATTR:
         case GF_FOP_REMOVEXATTR:
-                pri = IOT_PRI_NORMAL;
-                break;
-
-        case GF_FOP_READ:
-        case GF_FOP_WRITE:
+        case GF_FOP_READDIRP:
         case GF_FOP_FSYNC:
         case GF_FOP_TRUNCATE:
         case GF_FOP_FTRUNCATE:
@@ -2264,20 +2319,17 @@ out:
 int
 __iot_workers_scale (iot_conf_t *conf)
 {
-        int       log2 = 0;
         int       scale = 0;
         int       diff = 0;
         pthread_t thread;
         int       ret = 0;
 
-        log2 = log_base2 (conf->queue_size);
+        scale = (conf->curr_count - conf->sleep_count + conf->queue_size);
 
-        scale = log2;
-
-        if (log2 < IOT_MIN_THREADS)
+        if (scale < IOT_MIN_THREADS)
                 scale = IOT_MIN_THREADS;
 
-        if (log2 > conf->max_count)
+        if (scale > conf->max_count)
                 scale = conf->max_count;
 
         if (conf->curr_count < scale) {
@@ -2290,7 +2342,7 @@ __iot_workers_scale (iot_conf_t *conf)
                 ret = pthread_create (&thread, &conf->w_attr, iot_worker, conf);
                 if (ret == 0) {
                         conf->curr_count++;
-                        gf_log (conf->this->name, GF_LOG_DEBUG,
+                        gf_log (conf->this->name, GF_LOG_INFO,
                                 "scaled threads to %d (queue_size=%d/%d)",
                                 conf->curr_count, conf->queue_size, scale);
                 } else {
@@ -2338,6 +2390,40 @@ set_stack_size (iot_conf_t *conf)
 }
 
 
+int
+iot_dump_priv (xlator_t *this)
+{
+        iot_conf_t *conf = NULL;
+        char key_prefix[GF_DUMP_MAX_BUF_LEN];
+        char key[GF_DUMP_MAX_BUF_LEN];
+        int i;
+
+        conf = this->private;
+
+        snprintf (key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type,
+                  this->name);
+        gf_proc_dump_add_section (key_prefix);
+
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                gf_proc_dump_build_key (key, key_prefix, gf_fop_list[i]);
+
+                gf_proc_dump_write (key, "%.03f,%"PRId64",%.03f",
+                                    conf->displat[i].mean,
+                                    conf->displat[i].count,
+                                    conf->displat[i].total);
+        }
+
+        gf_proc_dump_build_key (key, key_prefix, "avgqlen");
+        gf_proc_dump_write (key, "%.03f", conf->avgqlen);
+
+        memset (conf->displat, sizeof (conf->displat), 0);
+        conf->avgqlen = 0;
+        conf->enqcnt = 0;
+
+        return 0;
+}
+
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -2370,18 +2456,32 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("thread-count", conf->max_count, options, int32, out);
 
-        GF_OPTION_RECONF ("high-prio-threads",
-                          conf->ac_iot_limit[IOT_PRI_HI], options, int32, out);
+        GF_OPTION_RECONF ("prio-high-max-threads",
+                          conf->ac_iot_max[IOT_PRI_HI], options, int32, out);
 
-        GF_OPTION_RECONF ("normal-prio-threads",
-                          conf->ac_iot_limit[IOT_PRI_NORMAL], options, int32,
+        GF_OPTION_RECONF ("prio-normal-max-threads",
+                          conf->ac_iot_max[IOT_PRI_NORMAL], options, int32,
                           out);
 
-        GF_OPTION_RECONF ("low-prio-threads",
-                          conf->ac_iot_limit[IOT_PRI_LO], options, int32, out);
+        GF_OPTION_RECONF ("prio-low-max-threads",
+                          conf->ac_iot_max[IOT_PRI_LO], options, int32, out);
 
-        GF_OPTION_RECONF ("least-prio-threads",
-                          conf->ac_iot_limit[IOT_PRI_LEAST], options, int32,
+        GF_OPTION_RECONF ("prio-least-max-threads",
+                          conf->ac_iot_max[IOT_PRI_LEAST], options, int32,
+                          out);
+
+        GF_OPTION_RECONF ("prio-high-min-threads",
+                          conf->ac_iot_min[IOT_PRI_HI], options, int32, out);
+
+        GF_OPTION_RECONF ("prio-normal-min-threads",
+                          conf->ac_iot_min[IOT_PRI_NORMAL], options, int32,
+                          out);
+
+        GF_OPTION_RECONF ("prio-low-min-threads",
+                          conf->ac_iot_min[IOT_PRI_LO], options, int32, out);
+
+        GF_OPTION_RECONF ("prio-least-min-threads",
+                          conf->ac_iot_min[IOT_PRI_LEAST], options, int32,
                           out);
 
 	ret = 0;
@@ -2432,17 +2532,29 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("thread-count", conf->max_count, int32, out);
 
-        GF_OPTION_INIT ("high-prio-threads",
-                        conf->ac_iot_limit[IOT_PRI_HI], int32, out);
+        GF_OPTION_INIT ("prio-high-max-threads",
+                        conf->ac_iot_max[IOT_PRI_HI], int32, out);
 
-        GF_OPTION_INIT ("normal-prio-threads",
-                        conf->ac_iot_limit[IOT_PRI_NORMAL], int32, out);
+        GF_OPTION_INIT ("prio-normal-max-threads",
+                        conf->ac_iot_max[IOT_PRI_NORMAL], int32, out);
 
-        GF_OPTION_INIT ("low-prio-threads",
-                        conf->ac_iot_limit[IOT_PRI_LO], int32, out);
+        GF_OPTION_INIT ("prio-low-max-threads",
+                        conf->ac_iot_max[IOT_PRI_LO], int32, out);
 
-        GF_OPTION_INIT ("least-prio-threads",
-                        conf->ac_iot_limit[IOT_PRI_LEAST], int32, out);
+        GF_OPTION_INIT ("prio-least-max-threads",
+                        conf->ac_iot_max[IOT_PRI_LEAST], int32, out);
+
+        GF_OPTION_INIT ("prio-high-min-threads",
+                        conf->ac_iot_min[IOT_PRI_HI], int32, out);
+
+        GF_OPTION_INIT ("prio-normal-min-threads",
+                        conf->ac_iot_min[IOT_PRI_NORMAL], int32, out);
+
+        GF_OPTION_INIT ("prio-low-min-threads",
+                        conf->ac_iot_min[IOT_PRI_LO], int32, out);
+
+        GF_OPTION_INIT ("prio-least-min-threads",
+                        conf->ac_iot_min[IOT_PRI_LEAST], int32, out);
 
         GF_OPTION_INIT ("idle-time", conf->idle_time, int32, out);
 
@@ -2523,6 +2635,12 @@ struct xlator_fops fops = {
         .rchecksum   = iot_rchecksum,
 };
 
+
+struct xlator_dumpops dumpops = {
+        .priv    = iot_dump_priv,
+};
+
+
 struct xlator_cbks cbks = {
 };
 
@@ -2531,44 +2649,79 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_INT,
 	  .min  = IOT_MIN_THREADS,
 	  .max  = IOT_MAX_THREADS,
-          .default_value = "16",
+          .default_value = "64",
           .description = "Number of threads in IO threads translator which "
                          "perform concurrent IO operations"
 
 	},
-	{ .key  = {"high-prio-threads"},
+	{ .key  = {"prio-high-max-threads"},
 	  .type = GF_OPTION_TYPE_INT,
-	  .min  = IOT_MIN_THREADS,
+	  .min  = 1,
 	  .max  = IOT_MAX_THREADS,
-          .default_value = "16",
+          .default_value = "64",
           .description = "Max number of threads in IO threads translator which "
                          "perform high priority IO operations at a given time"
 
 	},
-	{ .key  = {"normal-prio-threads"},
+	{ .key  = {"prio-normal-max-threads"},
 	  .type = GF_OPTION_TYPE_INT,
-	  .min  = IOT_MIN_THREADS,
+	  .min  = 1,
 	  .max  = IOT_MAX_THREADS,
-          .default_value = "16",
+          .default_value = "64",
           .description = "Max number of threads in IO threads translator which "
                          "perform normal priority IO operations at a given time"
 
 	},
-	{ .key  = {"low-prio-threads"},
+	{ .key  = {"prio-low-max-threads"},
 	  .type = GF_OPTION_TYPE_INT,
-	  .min  = IOT_MIN_THREADS,
+	  .min  = 1,
 	  .max  = IOT_MAX_THREADS,
-          .default_value = "16",
+          .default_value = "64",
           .description = "Max number of threads in IO threads translator which "
                          "perform low priority IO operations at a given time"
 
 	},
-	{ .key  = {"least-prio-threads"},
+	{ .key  = {"prio-least-max-threads"},
 	  .type = GF_OPTION_TYPE_INT,
-	  .min  = IOT_MIN_THREADS,
+	  .min  = 1,
+	  .max  = IOT_MAX_THREADS,
+          .default_value = "64",
+          .description = "Max number of threads in IO threads translator which "
+                         "perform least priority IO operations at a given time"
+	},
+	{ .key  = {"prio-high-min-threads"},
+	  .type = GF_OPTION_TYPE_INT,
+	  .min  = 0,
+	  .max  = IOT_MAX_THREADS,
+          .default_value = "4",
+          .description = "Min number of threads in IO threads translator which "
+                         "perform high priority IO operations at a given time"
+
+	},
+	{ .key  = {"prio-normal-min-threads"},
+	  .type = GF_OPTION_TYPE_INT,
+	  .min  = 0,
+	  .max  = IOT_MAX_THREADS,
+          .default_value = "2",
+          .description = "Min number of threads in IO threads translator which "
+                         "perform normal priority IO operations at a given time"
+
+	},
+	{ .key  = {"prio-low-min-threads"},
+	  .type = GF_OPTION_TYPE_INT,
+	  .min  = 0,
 	  .max  = IOT_MAX_THREADS,
           .default_value = "1",
-          .description = "Max number of threads in IO threads translator which "
+          .description = "Min number of threads in IO threads translator which "
+                         "perform low priority IO operations at a given time"
+
+	},
+	{ .key  = {"prio-least-min-threads"},
+	  .type = GF_OPTION_TYPE_INT,
+	  .min  = 0,
+	  .max  = IOT_MAX_THREADS,
+          .default_value = "0",
+          .description = "Min number of threads in IO threads translator which "
                          "perform least priority IO operations at a given time"
 	},
         {.key   = {"idle-time"},
