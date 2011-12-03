@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -1164,6 +1165,35 @@ data_to_uint16 (data_t *data)
         str[data->len] = '\0';
 
         return strtol (str, NULL, 0);
+}
+
+uint8_t
+data_to_uint8 (data_t *data)
+{
+	uint32_t value = 0;
+
+        if (!data) {
+		gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
+                return -1;
+	}
+
+        char *str = alloca (data->len + 1);
+        if (!str)
+                return -1;
+
+        memcpy (str, data->data, data->len);
+        str[data->len] = '\0';
+
+	errno = 0;
+	value = strtol (str, NULL, 0);
+
+	if ((UCHAR_MAX - value) < 0) {
+		errno = ERANGE;
+		gf_log_callingfn ("dict", GF_LOG_WARNING, "data conversion overflow detected (%s)", strerror(errno));
+		return -1;
+	}
+
+        return (uint8_t) value;
 }
 
 char *

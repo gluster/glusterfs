@@ -110,6 +110,7 @@ int8_t data_to_int8 (data_t *data);
 uint64_t data_to_uint64 (data_t *data);
 uint32_t data_to_uint32 (data_t *data);
 uint16_t data_to_uint16 (data_t *data);
+uint8_t data_to_uint8 (data_t *data);
 
 data_t *data_from_ptr (void *value);
 data_t *data_from_static_ptr (void *value);

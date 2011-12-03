@@ -299,7 +299,6 @@ __gf_rdma_ioq_entry_free (gf_rdma_ioq_t *entry)
                 iobref_unref (entry->msg.request.rsp_iobref);
                 entry->msg.request.rsp_iobref = NULL;
         }
-        /* TODO: use mem-pool */
         mem_put (entry);
 }
 
@@ -1788,7 +1787,7 @@ gf_rdma_ioq_new (rpc_transport_t *this, rpc_transport_data_t *data)
         }
 
         priv = this->private;
-        /* TODO: use mem-pool */
+
         entry = mem_get (priv->device->ioq_pool);
         if (entry == NULL) {
                 goto out;
@@ -2426,11 +2425,10 @@ gf_rdma_connect_qp (rpc_transport_t *this)
                 return -1;
         }
 
-        /* TODO: make timeout and retry_cnt configurable from options */
         attr.qp_state       = IBV_QPS_RTS;
-        attr.timeout        = 14;
-        attr.retry_cnt      = 7;
-        attr.rnr_retry      = 7;
+        attr.timeout        = options->attr_timeout;
+        attr.retry_cnt      = options->attr_retry_cnt;
+        attr.rnr_retry      = options->attr_rnr_retry;
         attr.sq_psn         = priv->peer.local_psn;
         attr.max_rd_atomic  = 1;
         if (ibv_modify_qp (priv->peer.qp, &attr,
@@ -3615,6 +3613,9 @@ gf_rdma_options_init (rpc_transport_t *this)
         options->recv_size = GLUSTERFS_RDMA_INLINE_THRESHOLD;/*this->ctx->page_size * 4;  512 KB*/
         options->send_count = 4096;
         options->recv_count = 4096;
+	options->attr_timeout = GF_RDMA_TIMEOUT;
+	options->attr_retry_cnt = GF_RDMA_RETRY_CNT;
+	options->attr_rnr_retry = GF_RDMA_RNR_RETRY;
 
         temp = dict_get (this->options,
                          "transport.rdma.work-request-send-count");
@@ -3624,7 +3625,22 @@ gf_rdma_options_init (rpc_transport_t *this)
         temp = dict_get (this->options,
                          "transport.rdma.work-request-recv-count");
         if (temp)
-                options->recv_count = data_to_int32 (temp);
+		options->recv_count = data_to_int32 (temp);
+
+	temp = dict_get (this->options, "transport.rdma.attr-timeout");
+
+	if (temp)
+		options->attr_timeout = data_to_uint8 (temp);
+
+	temp = dict_get (this->options, "transport.rdma.attr-retry-cnt");
+
+	if (temp)
+		options->attr_retry_cnt = data_to_uint8 (temp);
+
+	temp = dict_get (this->options, "transport.rdma.attr-rnr-retry");
+
+	if (temp)
+		options->attr_rnr_retry = data_to_uint8 (temp);
 
         options->port = 1;
         temp = dict_get (this->options,
@@ -4903,6 +4919,18 @@ struct volume_options options[] = {
         { .key   = {"remote-port",
                     "transport.remote-port",
                     "transport.rdma.remote-port"},
+          .type  = GF_OPTION_TYPE_INT
+        },
+	{ .key   = {"transport.rdma.attr-timeout",
+		    "rdma-attr-timeout"},
+          .type  = GF_OPTION_TYPE_INT
+        },
+	{ .key   = {"transport.rdma.attr-retry-cnt",
+		    "rdma-attr-retry-cnt"},
+          .type  = GF_OPTION_TYPE_INT
+        },
+	{ .key   = {"transport.rdma.attr-rnr-retry",
+		    "rdma-attr-rnr-retry"},
           .type  = GF_OPTION_TYPE_INT
         },
         { .key   = {"transport.rdma.listen-port", "listen-port"},
