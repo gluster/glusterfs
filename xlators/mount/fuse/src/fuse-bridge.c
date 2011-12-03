@@ -17,14 +17,6 @@
    <http://www.gnu.org/licenses/>.
 */
 
-/*
- * TODO:
- * Need to free_state() when fuse_reply_err() + return.
- * Check loc->path for "" after fuse_loc_fill in all fops
- * (now being done in getattr, lookup) or better - make
- * fuse_loc_fill() and inode_path() return success/failure.
- */
-
 #include "fuse-bridge.h"
 
 static int gf_fuse_conn_err_log;
@@ -248,8 +240,6 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 inode_lookup (linked_inode);
 
-                /* TODO: make these timeouts configurable (via meta?) */
-                /* should we do linked_node or inode */
                 feo.nodeid = inode_to_fuse_nodeid (linked_inode);
 
                 inode_unref (linked_inode);
@@ -437,8 +427,6 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR",
                         prebuf->ia_ino);
 
-                /* TODO: make these timeouts configurable via meta */
-                /* TODO: what if the inode number has changed by now */
                 postbuf->ia_blksize = this->ctx->page_size;
                 gf_fuse_stat2attr (postbuf, &fao.attr);
 
@@ -491,8 +479,6 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR",
                         buf->ia_ino);
 
-                /* TODO: make these timeouts configurable via meta */
-                /* TODO: what if the inode number has changed by now */
                 buf->ia_blksize = this->ctx->page_size;
                 gf_fuse_stat2attr (buf, &fao.attr);
 
@@ -791,11 +777,7 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR",
                         statpost->ia_ino);
 
-                /* TODO: make these timeouts configurable via meta */
-                /* TODO: what if the inode number has changed by now */
-
                 statpost->ia_blksize = this->ctx->page_size;
-
                 gf_fuse_stat2attr (statpost, &fao.attr);
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
@@ -1493,8 +1475,6 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* ugly ugly - to stay blind to situation where
                            rename happens on a new inode
                         */
-                        /* TODO: can i remove below line */
-                        //buf->ia_ino = state->loc.ino;
                         buf->ia_type = state->loc.inode->ia_type;
                 }
                 buf->ia_blksize = this->ctx->page_size;
@@ -2119,7 +2099,6 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fd = FH_TO_FD (fri->fh);
         state->fd = fd;
 
-        /* TODO */
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": RELEASE %p", finh->unique, state->fd);
 
@@ -2354,7 +2333,6 @@ fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
         state->fd = FH_TO_FD (fri->fh);
 
-        /* TODO: free 'new-fd' in the ctx */
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": RELEASEDIR %p", finh->unique, state->fd);
 
@@ -2421,19 +2399,6 @@ fuse_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = frame->root->state;
         priv  = this->private;
         finh  = state->finh;
-        /*
-          Filesystems (like ZFS on solaris) reports
-          different ->f_frsize and ->f_bsize. Old coreutils
-          df tools use statfs() and do not see ->f_frsize.
-          the ->f_blocks, ->f_bavail and ->f_bfree are
-          w.r.t ->f_frsize and not ->f_bsize which makes the
-          df tools report wrong values.
-
-          Scale the block counts to match ->f_bsize.
-        */
-        /* TODO: with old coreutils, f_bsize is taken from stat()'s ia_blksize
-         * so the df with old coreutils this wont work :(
-         */
 
         if (op_ret == 0) {
 #ifndef GF_DARWIN_HOST_OS
@@ -3201,7 +3166,6 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
         if (fini->minor >= 13) {
                 /* these values seemed to work fine during testing */
-
                 fino.max_background = 64;
                 fino.congestion_threshold = 48;
         }
