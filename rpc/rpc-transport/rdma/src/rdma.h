@@ -50,6 +50,11 @@
 #define GF_RDMA_VERSION                1
 #define GF_RDMA_POOL_SIZE              512
 
+/* Additional attributes */
+#define GF_RDMA_TIMEOUT                14
+#define GF_RDMA_RETRY_CNT              7
+#define GF_RDMA_RNR_RETRY              7
+
 typedef enum gf_rdma_errcode {
         ERR_VERS = 1,
         ERR_CHUNK = 2
@@ -148,6 +153,9 @@ struct __gf_rdma_options {
         int32_t  recv_count;
         uint64_t recv_size;
         uint64_t send_size;
+	uint8_t  attr_timeout;
+	uint8_t  attr_retry_cnt;
+	uint8_t  attr_rnr_retry;
 };
 typedef struct __gf_rdma_options gf_rdma_options_t;
 
