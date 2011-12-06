@@ -141,6 +141,14 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
                 }                                                       \
         }while (0);
 
+#define GF_ASSERT_AND_GOTO_WITH_ERROR(name, arg, label, errno, error) do { \
+                if (!arg) {                                             \
+                        GF_ASSERT (0)                                   \
+                        errno = error;                                  \
+                        goto label;                                     \
+                }                                                       \
+        }while (0);
+
 #define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name,arg,label)               \
         do {                                                            \
                 GF_VALIDATE_OR_GOTO (name, arg, label);                 \
