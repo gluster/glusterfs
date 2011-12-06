@@ -17,6 +17,8 @@
   <http://www.gnu.org/licenses/>.
 */
 
+#include <fnmatch.h>
+
 #include "quota.h"
 #include "common-utils.h"
 #include "defaults.h"
@@ -2650,6 +2652,72 @@ err:
         return 0;
 }
 
+int
+quota_setxattr_cbk (call_frame_t *frame, void *cookie,
+                    xlator_t *this, int op_ret, int op_errno)
+{
+        QUOTA_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+quota_setxattr (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, dict_t *dict, int flags)
+{
+        data_pair_t    *trav     = NULL;
+        int             op_errno = EINVAL;
+        int             op_ret   = -1;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*", dict,
+                                   trav, op_errno, err);
+
+        STACK_WIND (frame, quota_setxattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setxattr,
+                    loc, dict, flags);
+        return 0;
+err:
+        QUOTA_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+quota_fsetxattr_cbk (call_frame_t *frame, void *cookie,
+                     xlator_t *this, int op_ret, int op_errno)
+{
+        QUOTA_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 dict_t *dict, int flags)
+{
+        data_pair_t    *trav     = NULL;
+        int32_t         op_ret   = -1;
+        int32_t         op_errno = EINVAL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*", dict,
+                                   trav, op_errno, err);
+
+        STACK_WIND (frame, quota_fsetxattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsetxattr,
+                    fd, dict, flags);
+        return 0;
+ err:
+        QUOTA_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
 
 int32_t
 quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2950,7 +3018,9 @@ struct xlator_fops fops = {
         .fsync     = quota_fsync,
         .setattr   = quota_setattr,
         .fsetattr  = quota_fsetattr,
-        .mknod     = quota_mknod
+        .mknod     = quota_mknod,
+        .setxattr  = quota_setxattr,
+        .fsetxattr = quota_fsetxattr
 };
 
 struct xlator_cbks cbks = {

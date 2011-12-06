@@ -396,6 +396,7 @@ struct xlator_fops fops = {
         .truncate    = afr_truncate,
         .ftruncate   = afr_ftruncate,
         .setxattr    = afr_setxattr,
+        .fsetxattr   = afr_fsetxattr,
         .setattr     = afr_setattr,
         .fsetattr    = afr_fsetattr,
         .removexattr = afr_removexattr,

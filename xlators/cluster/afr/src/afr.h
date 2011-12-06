@@ -550,6 +550,11 @@ typedef struct _afr_local {
                 } setxattr;
 
                 struct {
+                        dict_t *dict;
+                        int32_t flags;
+                } fsetxattr;
+
+                struct {
                         char *name;
                 } removexattr;
 

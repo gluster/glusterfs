@@ -32,6 +32,7 @@
  *  very much necessary, or else, use it in combination with AFR, to have a
  *  backup copy.
  */
+#include <fnmatch.h>
 
 #include "stripe.h"
 #include "libxlator.h"
@@ -4167,6 +4168,72 @@ out:
 
 }
 
+int
+stripe_setxattr_cbk (call_frame_t *frame, void *cookie,
+                     xlator_t *this, int op_ret, int op_errno)
+{
+        STRIPE_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+stripe_setxattr (call_frame_t *frame, xlator_t *this,
+                 loc_t *loc, dict_t *dict, int flags)
+{
+        data_pair_t    *trav     = NULL;
+        int32_t         op_errno = EINVAL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.*stripe*", dict,
+                                   trav, op_errno, err);
+
+        STACK_WIND (frame, stripe_setxattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setxattr,
+                    loc, dict, flags);
+        return 0;
+err:
+        STRIPE_STACK_UNWIND (setxattr, frame, -1,  op_errno);
+        return 0;
+}
+
+
+int
+stripe_fsetxattr_cbk (call_frame_t *frame, void *cookie,
+                      xlator_t *this, int op_ret, int op_errno)
+{
+        STRIPE_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+stripe_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  dict_t *dict, int flags)
+{
+        data_pair_t    *trav     = NULL;
+        int32_t         op_ret   = -1;
+        int32_t         op_errno = EINVAL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.*stripe*", dict,
+                                   trav, op_errno, err);
+
+        STACK_WIND (frame, stripe_fsetxattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsetxattr,
+                    fd, dict, flags);
+        return 0;
+ err:
+        STRIPE_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
 int32_t
 stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, gf_dirent_t *orig_entries)
@@ -4918,7 +4985,8 @@ struct xlator_fops fops = {
         .fsetattr    = stripe_fsetattr,
         .lookup      = stripe_lookup,
         .mknod       = stripe_mknod,
-
+        .setxattr    = stripe_setxattr,
+        .fsetxattr   = stripe_fsetxattr,
         .getxattr    = stripe_getxattr,
         .readdirp    = stripe_readdirp,
 };
