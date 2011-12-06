@@ -2673,6 +2673,9 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
         conf = this->private;
 
@@ -2717,6 +2720,9 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
         req.offset = args->offset;
 
@@ -2803,6 +2809,9 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
         req.mask = args->mask;
 
@@ -2848,6 +2857,9 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
         req.size = args->size;
         conf = this->private;
@@ -2895,6 +2907,9 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.pargfid, args->loc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.pargfid)),
+                                       unwind, op_errno, EINVAL);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         conf = this->private;
@@ -2940,6 +2955,9 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.pargfid, args->loc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.pargfid)),
+                                       unwind, op_errno, EINVAL);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.flags = args->flags;
@@ -2995,6 +3013,9 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.pargfid, args->loc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.pargfid)),
+                                       unwind, op_errno, EINVAL);
         req.path     = (char *)args->loc->path;
         req.linkname = (char *)args->linkname;
         req.bname    = (char *)args->loc->name;
@@ -3070,6 +3091,12 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.newgfid, args->newloc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.oldgfid)),
+                                       unwind, op_errno, EINVAL);
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.newgfid)),
+                                       unwind, op_errno, EINVAL);
         req.oldpath = (char *)args->oldloc->path;
         req.oldbname =  (char *)args->oldloc->name;
         req.newpath = (char *)args->newloc->path;
@@ -3123,6 +3150,12 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.newgfid, args->newloc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.oldgfid)),
+                                       unwind, op_errno, EINVAL);
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.newgfid)),
+                                       unwind, op_errno, EINVAL);
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
                 op_errno = ENOMEM;
@@ -3188,6 +3221,9 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.pargfid, args->loc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.pargfid)),
+                                       unwind, op_errno, EINVAL);
         req.path   = (char *)args->loc->path;
         req.bname  = (char *)args->loc->name;
         req.mode   = args->mode;
@@ -3269,6 +3305,9 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.pargfid, args->loc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.pargfid)),
+                                       unwind, op_errno, EINVAL);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
@@ -3350,6 +3389,9 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.pargfid, args->loc->pargfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.pargfid)),
+                                       unwind, op_errno, EINVAL);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
@@ -3432,6 +3474,9 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.flags = gf_flags_from_flags (args->flags);
         req.wbflags = args->wbflags;
         req.path = (char *)args->loc->path;
@@ -3751,6 +3796,9 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
 
         conf = this->private;
@@ -3842,6 +3890,9 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
         } else
 		req.gfid[15] = 1;
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
 
         conf = this->private;
@@ -3887,6 +3938,9 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -4157,6 +4211,10 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                 memcpy (req.gfid,  args->loc->inode->gfid, 16);
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
+
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.namelen = 1; /* Use it as a flag */
         req.path = (char *)args->loc->path;
         req.name = (char *)args->name;
@@ -4282,6 +4340,9 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -4478,6 +4539,9 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
         req.name = (char *)args->name;
 
@@ -4599,6 +4663,9 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         if (args->cmd == F_GETLK || args->cmd == F_GETLK64)
                 gf_cmd = GF_LK_GETLK;
         else if (args->cmd == F_SETLK || args->cmd == F_SETLK64)
@@ -4743,6 +4810,9 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
         req.cmd = args->cmd_entrylk;
         req.type = args->type;
@@ -5085,6 +5155,9 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
         else
                 memcpy (req.gfid, args->loc->gfid, 16);
 
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !uuid_is_null (*((uuid_t*)req.gfid)),
+                                       unwind, op_errno, EINVAL);
         req.path = (char *)args->loc->path;
         req.valid = args->valid;
         gf_stat_from_iatt (&req.stbuf, args->stbuf);
