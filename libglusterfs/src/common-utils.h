@@ -176,6 +176,25 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
         } while (0);                                                    \
 
 
+#define GF_IF_INTERNAL_XATTR_GOTO(pattern, dict, trav, op_errno, label) \
+        do{                                                             \
+                if (!dict) {                                            \
+                        gf_log (THIS->name, GF_LOG_ERROR,               \
+                                "setxattr dict is null");               \
+                        goto label;                                     \
+                }                                                       \
+                trav = dict->members_list;                              \
+                while (trav) {                                          \
+                        if (!fnmatch (pattern, trav->key, 0)) {         \
+                                gf_log (THIS->name, GF_LOG_ERROR,       \
+                                        "attempt to set internal"       \
+                                        " xattr: %s", trav->key);       \
+                                op_errno = EPERM;                       \
+                                goto label;                             \
+                        }                                               \
+                        trav = trav->next;                              \
+                }                                                       \
+        } while(0);                                                     \
 
 #define GF_FILE_CONTENT_REQUESTED(_xattr_req,_content_limit) \
 	(dict_get_uint64 (_xattr_req, "glusterfs.content", _content_limit) == 0)

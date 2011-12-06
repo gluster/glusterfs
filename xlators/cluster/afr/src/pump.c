@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <fnmatch.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -1642,14 +1643,16 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	call_frame_t   *transaction_frame = NULL;
-
+        data_pair_t   * trav  = NULL;
 	int ret = -1;
-
 	int op_errno = 0;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
+
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.pump*", dict,
+                                   trav, op_errno, out);
 
 	priv = this->private;
         if (!priv->use_afr_in_pump) {

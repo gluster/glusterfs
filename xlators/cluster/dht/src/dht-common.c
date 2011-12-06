@@ -1706,11 +1706,15 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol   = NULL;
         dht_local_t  *local    = NULL;
         int           op_errno = EINVAL;
+        data_pair_t  *trav     = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
+
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.dht*", xattr,
+                                   trav, op_errno, err);
 
         local = dht_local_init (frame, NULL, fd, GF_FOP_FSETXATTR);
         if (!local) {
@@ -1806,6 +1810,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         char          value[4096] = {0,};
         int           forced_rebalance = 0;
         int           call_cnt = 0;
+        data_pair_t  *trav     = NULL;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -1813,6 +1818,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
+
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.dht*", xattr,
+                                   trav, op_errno, err);
 
         conf   = this->private;
         local = dht_local_init (frame, loc, NULL, GF_FOP_SETXATTR);

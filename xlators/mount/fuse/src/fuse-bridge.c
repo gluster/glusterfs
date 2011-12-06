@@ -2641,6 +2641,12 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
+        if (!strcmp (GFID_XATTR_KEY, name)) {
+                send_fuse_err (this, finh, EPERM);
+                GF_FREE (finh);
+                return;
+        }
+
         GET_STATE (this, finh, state);
         state->size = fsi->size;
         ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);

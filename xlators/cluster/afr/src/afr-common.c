@@ -940,6 +940,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                         dict_unref (local->cont.setxattr.dict);
         }
 
+        { /* fsetxattr */
+                if (local->cont.fsetxattr.dict)
+                        dict_unref (local->cont.fsetxattr.dict);
+        }
+
         { /* removexattr */
                 GF_FREE (local->cont.removexattr.name);
         }
