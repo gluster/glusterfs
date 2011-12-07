@@ -160,6 +160,18 @@ enum gf1_cli_top_op {
 };
 typedef enum gf1_cli_top_op gf1_cli_top_op;
 
+enum gf_cli_status_type {
+	GF_CLI_STATUS_NONE = 0x0000,
+	GF_CLI_STATUS_VOL = 0x0100,
+	GF_CLI_STATUS_ALL = 0x0200,
+	GF_CLI_STATUS_BRICK = 0x0400,
+	GF_CLI_STATUS_DETAIL = 0x0800,
+	GF_CLI_STATUS_VOL_DETAIL = 0x0900,
+	GF_CLI_STATUS_ALL_DETAIL = 0x0A00,
+	GF_CLI_STATUS_BRICK_DETAIL = 0x0C00,
+};
+typedef enum gf_cli_status_type gf_cli_status_type;
+
 struct gf_cli_req {
 	struct {
 		u_int dict_len;
@@ -298,6 +310,7 @@ extern  bool_t xdr_gf1_cli_op_flags (XDR *, gf1_cli_op_flags*);
 extern  bool_t xdr_gf1_cli_gsync_set (XDR *, gf1_cli_gsync_set*);
 extern  bool_t xdr_gf1_cli_stats_op (XDR *, gf1_cli_stats_op*);
 extern  bool_t xdr_gf1_cli_top_op (XDR *, gf1_cli_top_op*);
+extern  bool_t xdr_gf_cli_status_type (XDR *, gf_cli_status_type*);
 extern  bool_t xdr_gf_cli_req (XDR *, gf_cli_req*);
 extern  bool_t xdr_gf_cli_rsp (XDR *, gf_cli_rsp*);
 extern  bool_t xdr_gf1_cli_probe_req (XDR *, gf1_cli_probe_req*);
@@ -329,6 +342,7 @@ extern bool_t xdr_gf1_cli_op_flags ();
 extern bool_t xdr_gf1_cli_gsync_set ();
 extern bool_t xdr_gf1_cli_stats_op ();
 extern bool_t xdr_gf1_cli_top_op ();
+extern bool_t xdr_gf_cli_status_type ();
 extern bool_t xdr_gf_cli_req ();
 extern bool_t xdr_gf_cli_rsp ();
 extern bool_t xdr_gf1_cli_probe_req ();

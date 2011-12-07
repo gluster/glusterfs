@@ -1795,23 +1795,84 @@ out:
         return ret;
 }
 
-int32_t
+int
 cli_cmd_volume_status_parse (const char **words, int wordcount,
-                                dict_t **options)
+                             dict_t **options)
 {
         dict_t *dict            = NULL;
         int     ret             = -1;
+        int     cmd             = 0;
 
-        GF_ASSERT (words);
         GF_ASSERT (options);
 
         dict = dict_new ();
         if (!dict)
                 goto out;
 
-        GF_ASSERT(words[2]);
+        switch (wordcount) {
 
-        ret = dict_set_str (dict, "volname", (char *)words[2]);
+        case 2:
+                cmd = GF_CLI_STATUS_ALL;
+                ret = 0;
+                break;
+
+        case 3:
+                if (!strcmp (words[2], "all")) {
+
+                        cmd = GF_CLI_STATUS_ALL;
+                        ret = 0;
+
+                } else if (!strcmp (words[2], "detail")) {
+
+                        cmd = GF_CLI_STATUS_ALL_DETAIL;
+                        ret = 0;
+
+                } else {
+                        cmd = GF_CLI_STATUS_VOL;
+                        ret = dict_set_str (dict, "volname", (char *)words[2]);
+                }
+                break;
+
+        case 4:
+                if (!strcmp (words[2], "all") &&
+                    !strcmp (words[3], "detail")) {
+
+                        cmd = GF_CLI_STATUS_ALL_DETAIL;
+                        ret = 0;
+
+                } else if (!strcmp (words[3], "detail")) {
+                        cmd = GF_CLI_STATUS_VOL_DETAIL;
+                        ret = dict_set_str (dict, "volname", (char *)words[2]);
+
+                } else {
+
+                        cmd = GF_CLI_STATUS_BRICK;
+                        ret = dict_set_str (dict, "volname", (char *)words[2]);
+                        if (ret)
+                                goto out;
+                        ret = dict_set_str (dict, "brick", (char *)words[3]);
+                }
+                break;
+
+        case 5:
+                if (strcmp (words[4], "detail"))
+                        goto out;
+
+                cmd = GF_CLI_STATUS_BRICK_DETAIL;
+                ret = dict_set_str (dict, "volname", (char *)words[2]);
+                if (ret)
+                        goto out;
+                ret = dict_set_str (dict, "brick", (char *)words[3]);
+                break;
+
+        default:
+                goto out;
+        }
+
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "cmd", cmd);
         if (ret)
                 goto out;
 

@@ -103,6 +103,19 @@ enum gf1_cli_top_op {
         GF_CLI_TOP_WRITE_PERF
 };
 
+/* The unconventional hex numbers help us perform
+   bit-wise operations which reduces complexity */
+enum gf_cli_status_type {
+        GF_CLI_STATUS_NONE         = 0x0000,
+        GF_CLI_STATUS_VOL          = 0x0100,
+        GF_CLI_STATUS_ALL          = 0x0200,
+        GF_CLI_STATUS_BRICK        = 0x0400,
+        GF_CLI_STATUS_DETAIL       = 0x0800,
+        GF_CLI_STATUS_VOL_DETAIL   = 0x0900,
+        GF_CLI_STATUS_ALL_DETAIL   = 0x0A00,
+        GF_CLI_STATUS_BRICK_DETAIL = 0x0C00
+};
+
  struct gf_cli_req {
         opaque  dict<>;
 }  ;

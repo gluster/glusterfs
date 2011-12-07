@@ -74,6 +74,11 @@ void trap (void);
 
 #define WIPE(statp) do { typeof(*statp) z = {0,}; if (statp) *statp = z; } while (0)
 
+#define IS_EXT_FS(fs_name)          \
+        (!strcmp (fs_name, "ext2") || \
+         !strcmp (fs_name, "ext3") || \
+         !strcmp (fs_name, "ext4"))
+
 enum _gf_boolean
 {
 	_gf_false = 0,
@@ -409,6 +414,9 @@ int get_checksum_for_path (char *path, uint32_t *checksum);
 char *strtail (char *str, const char *pattern);
 void skipwhite (char **s);
 char *nwstrtail (char *str, char *pattern);
+void skip_word (char **str);
+/* returns a new string with nth word of given string. n>=1 */
+char *get_nth_word (const char *str, int n);
 
 char valid_host_name (char *address, int length);
 char valid_ipv4_address (char *address, int length);

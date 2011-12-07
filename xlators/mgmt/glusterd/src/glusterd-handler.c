@@ -2511,10 +2511,11 @@ int
 glusterd_handle_status_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret     = -1;
+        uint32_t                        cmd     = 0;
+        dict_t                         *dict    = NULL;
+        char                           *volname = 0;
         gf_cli_req                      cli_req = {{0,}};
-        dict_t                          *dict    = NULL;
-        glusterd_op_t                   cli_op = GD_OP_STATUS_VOLUME;
-        char                            *volname = 0;
+        glusterd_op_t                   cli_op  = GD_OP_STATUS_VOLUME;
 
         GF_ASSERT (req);
 
@@ -2530,7 +2531,7 @@ glusterd_handle_status_volume (rpcsvc_request_t *req)
                 if (!dict)
                         goto out;
                 ret = dict_unserialize (cli_req.dict.dict_val,
-                                  cli_req.dict.dict_len, &dict);
+                                        cli_req.dict.dict_len, &dict);
                 if (ret < 0) {
                         gf_log (THIS->name, GF_LOG_ERROR, "failed to "
                                 "unserialize buffer");
@@ -2539,15 +2540,22 @@ glusterd_handle_status_volume (rpcsvc_request_t *req)
 
         }
 
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+        ret = dict_get_uint32 (dict, "cmd", &cmd);
+        if (ret)
                 goto out;
+
+        if (!(cmd & GF_CLI_STATUS_ALL)) {
+                ret = dict_get_str (dict, "volname", &volname);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to get volname");
+                        goto out;
+                }
+                gf_log (THIS->name, GF_LOG_INFO,
+                        "Received status volume req "
+                        "for volume %s", volname);
+
         }
-
-        gf_log ("glusterd", GF_LOG_INFO, "Received status volume req "
-                "for volume %s", volname);
-
 
         ret = glusterd_op_begin (req, GD_OP_STATUS_VOLUME, dict);
 

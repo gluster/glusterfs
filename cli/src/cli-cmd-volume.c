@@ -1344,39 +1344,177 @@ out:
 
 int
 cli_cmd_volume_status_cbk (struct cli_state *state,
-                              struct cli_cmd_word *word,
-                              const char **words, int wordcount)
+                           struct cli_cmd_word *word,
+                           const char **words, int wordcount)
 {
         int                   ret         = -1;
         rpc_clnt_procedure_t *proc        = NULL;
         call_frame_t         *frame       = NULL;
         dict_t               *dict        = NULL;
+        uint32_t              cmd         = 0;
 
-        if (wordcount != 3) {
+        ret = cli_cmd_volume_status_parse (words, wordcount, &dict);
+
+        if (ret) {
                 cli_usage_out (word->pattern);
                 goto out;
         }
 
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STATUS_VOLUME];
+        ret = dict_get_uint32 (dict, "cmd", &cmd);
+        if (ret)
+                goto out;
+
+        if (!(cmd & GF_CLI_STATUS_ALL)) {
+                /* for one volume or brick */
+                proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STATUS_VOLUME];
+        } else {
+                /* volume status all or all detail */
+                proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STATUS_ALL];
+        }
+
+        if (!proc->fn)
+                goto out;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_status_parse (words, wordcount, &dict);
-        if (ret)
-                goto out;
-
-        if (proc->fn)
-                ret = proc->fn (frame, THIS, dict);
+        ret = proc->fn (frame, THIS, dict);
 
  out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
 
 int
-cli_print_brick_status (char *brick, int port, int online, char *pid)
+cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
+{
+        uint64_t                   free            = -1;
+        uint64_t                   total           = -1;
+        char                       key[1024]       = {0};
+        int                        ret             = 0;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.free", i);
+        ret = dict_get_uint64 (dict, key, &free);
+        if (ret)
+                goto out;
+
+        status->free = gf_uint64_2human_readable (free);
+        if (!status->free)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.total", i);
+        ret = dict_get_uint64 (dict, key, &total);
+        if (ret)
+                goto out;
+
+        status->total = gf_uint64_2human_readable (total);
+        if (!status->total)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.device", i);
+        ret = dict_get_str (dict, key, &(status->device));
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.block_size", i);
+        ret = dict_get_uint64 (dict, key, &(status->block_size));
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.mnt_options", i);
+        ret = dict_get_str (dict, key, &(status->mount_options));
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.fs_name", i);
+        ret = dict_get_str (dict, key, &(status->fs_name));
+        if (ret)
+                goto out;
+
+        if (IS_EXT_FS(status->fs_name) ||
+            !strcmp (status->fs_name, "xfs")) {
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.inode_size", i);
+                ret = dict_get_str (dict, key, &(status->inode_size));
+                if (ret)
+                        status->inode_size = NULL;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.total_inodes", i);
+                ret = dict_get_uint64 (dict, key, &(status->total_inodes));
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.free_inodes", i);
+                ret = dict_get_uint64 (dict, key, &(status->free_inodes));
+                if (ret)
+                        goto out;
+
+        } else {
+                status->inode_size = NULL;
+                status->total_inodes = 0;
+                status->free_inodes = 0;
+        }
+
+ out:
+        return ret;
+}
+
+void
+cli_print_detailed_status (cli_volume_status_t *status)
+{
+        cli_out ("%-20s : %-20s", "Brick", status->brick);
+        cli_out ("%-20s : %-20d", "Port", status->port);
+        cli_out ("%-20s : %-20c", "Online", (status->online) ? 'Y' : 'N');
+        cli_out ("%-20s : %-20s", "Pid", status->pid_str);
+        cli_out ("%-20s : %-20s", "File System", status->fs_name);
+        cli_out ("%-20s : %-20s", "Device", status->device);
+
+        if (status->mount_options) {
+                cli_out ("%-20s : %-20s", "Mount Options",
+                         status->mount_options);
+        } else {
+                cli_out ("%-20s : %-20s", "Mount Options", "N/A");
+        }
+
+        cli_out ("%-20s : %-20s", "Disk Space Free", status->free);
+        cli_out ("%-20s : %-20s", "Total Disk Space", status->total);
+
+        if (status->inode_size) {
+                cli_out ("%-20s : %-20s", "Inode Size",
+                         status->inode_size);
+        } else {
+                cli_out ("%-20s : %-20s", "Inode Size", "N/A");
+        }
+
+        if (status->total_inodes) {
+                cli_out ("%-20s : %-20ld", "Inode Count",
+                         status->total_inodes);
+        } else {
+                cli_out ("%-20s : %-20s", "Inode Count", "N/A");
+        }
+
+        if (status->free_inodes) {
+                cli_out ("%-20s : %-20ld", "Free Inodes",
+                         status->free_inodes);
+        } else {
+                cli_out ("%-20s : %-20s", "Free Inodes", "N/A");
+        }
+}
+
+int
+cli_print_brick_status (cli_volume_status_t *status)
 {
         int  fieldlen = CLI_VOL_STATUS_BRICK_LEN;
         char buf[80] = {0,};
@@ -1385,22 +1523,24 @@ cli_print_brick_status (char *brick, int port, int online, char *pid)
         char *p = NULL;
         int  num_tabs = 0;
 
-        bricklen = strlen (brick);
-        p = brick;
+        bricklen = strlen (status->brick);
+        p = status->brick;
         while (bricklen > 0) {
                 if (bricklen > fieldlen) {
                         i++;
                         strncpy (buf, p, fieldlen);
                         buf[strlen(buf) + 1] = '\0';
                         cli_out ("%s", buf);
-                        p = brick + i * fieldlen;
+                        p = status->brick + i * fieldlen;
                         bricklen -= fieldlen;
                 } else {
                         num_tabs = (fieldlen - bricklen) / CLI_TAB_LENGTH + 1;
                         printf ("%s", p);
                         while (num_tabs-- != 0)
                                 printf ("\t");
-                        cli_out ("%d\t%c\t%s", port, online?'Y':'N', pid);
+                        cli_out ("%d\t%c\t%s",
+                                 status->port, status->online?'Y':'N',
+                                 status->pid_str);
                         bricklen = 0;
                 }
         }
@@ -1597,7 +1737,7 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_top_cbk,
            "volume top operations"},
 
-        { "volume status <VOLNAME>",
+        { "volume status [all|<VOLNAME>] [brick] [detail]",
           cli_cmd_volume_status_cbk,
          "display status of specified volume"},
 

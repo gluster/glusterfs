@@ -1607,6 +1607,55 @@ nwstrtail (char *str, char *pattern)
         return *pattern ? NULL : str;
 }
 
+void
+skipword (char **s)
+{
+        if (!*s)
+                return;
+
+        skipwhite (s);
+
+        while (!isspace(**s))
+                (*s)++;
+}
+
+char *
+get_nth_word (const char *str, int n)
+{
+        char           buf[4096] = {0};
+        char          *start     = NULL;
+        char          *word      = NULL;
+        int            i         = 0;
+        int            word_len  = 0;
+        const char    *end       = NULL;
+
+        if (!str)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%s", str);
+        start = buf;
+
+        for (i = 0; i < n-1; i++)
+                skipword (&start);
+
+        skipwhite (&start);
+        end = strpbrk ((const char *)start, " \t\n\0");
+
+        if (!end)
+                goto out;
+
+        word_len = abs (end - start);
+
+        word = GF_CALLOC (1, word_len + 1, gf_common_mt_strdup);
+        if (!word)
+                goto out;
+
+        strncpy (word, start, word_len);
+        *(word + word_len) = '\0';
+ out:
+        return word;
+}
+
 /* RFC 1123 & 952 */
 char
 valid_host_name (char *address, int length)

@@ -527,12 +527,16 @@ out:
 static int
 glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
 {
-        int                 ret            = -1;
-        gf_boolean_t        exists         = _gf_false;
-        char               *volname        = NULL;
-        glusterd_conf_t    *priv           = NULL;
-        xlator_t           *this           = NULL;
-        char msg[2048]                     = {0,};
+        int                    ret            = -1;
+        uint32_t               cmd            = 0;
+        char                   msg[2048]      = {0,};
+        char                  *volname        = NULL;
+        char                  *brick          = NULL;
+        xlator_t              *this           = NULL;
+        glusterd_conf_t       *priv           = NULL;
+        glusterd_brickinfo_t  *brickinfo      = NULL;
+        glusterd_brickinfo_t  *tmpbrickinfo   = NULL;
+        glusterd_volinfo_t    *volinfo        = NULL;
 
         GF_ASSERT (dict);
         this = THIS;
@@ -540,21 +544,54 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         priv = this->private;
         GF_ASSERT(priv);
 
+        ret = dict_get_uint32 (dict, "cmd", &cmd);
+        if (ret)
+                goto out;
+
+        if (cmd & GF_CLI_STATUS_ALL)
+                goto out;
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Unable to get volume name");
                 goto out;
         }
 
-        exists = glusterd_check_volume_exists (volname);
-        if (!exists) {
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
                 snprintf (msg, sizeof(msg), "Volume %s does not exist", volname);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup(msg);
                 ret = -1;
                 goto out;
+        }
+
+        if ((cmd & GF_CLI_STATUS_BRICK) != 0) {
+                ret = dict_get_str (dict, "brick", &brick);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_volume_brickinfo_get (NULL,
+                                                     brickinfo->hostname,
+                                                     brickinfo->path,
+                                                     volinfo,
+                                                     &tmpbrickinfo,
+                                                     GF_PATH_COMPLETE);
+
+                if (ret) {
+                        snprintf (msg, sizeof(msg), "No brick %s in"
+                                  " volume %s", brick, volname);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+
+                        *op_errstr = gf_strdup(msg);
+                        ret = -1;
+                        goto out;
+                }
         }
 
         ret = 0;
@@ -563,7 +600,7 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         if (ret && !(*op_errstr))
                 *op_errstr = gf_strdup ("Validation Failed for Status");
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning: %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning: %d", ret);
         return ret;
 }
 
@@ -1203,15 +1240,17 @@ static int
 glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                            dict_t *rsp_dict)
 {
-        int                     ret = -1;
-        char                    *volname = NULL;
-        int                     count = 0;
-        int                     brick_count = 0;
-        glusterd_volinfo_t      *volinfo = NULL;
-        glusterd_brickinfo_t    *brickinfo = NULL;
-        glusterd_conf_t         *priv = NULL;
-        xlator_t                *this = NULL;
-        int32_t                 brick_index = 0;
+        int                     ret             = -1;
+        int                     brick_count     = 0;
+        int32_t                 brick_index     = 0;
+        uint32_t                cmd             = 0;
+        char                   *volname         = NULL;
+        char                   *brick           = NULL;
+        xlator_t               *this            = NULL;
+        glusterd_volinfo_t     *volinfo         = NULL;
+        glusterd_brickinfo_t   *brickinfo       = NULL;
+        glusterd_brickinfo_t   *tmpbrickinfo    = NULL;
+        glusterd_conf_t        *priv            = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1221,41 +1260,83 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
 
         GF_ASSERT (dict);
 
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (!ret) {
-                ret = glusterd_volinfo_find (volname, &volinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
-                                "does not exist", volname);
-                        goto out;
-                }
-        }
+        ret = dict_get_uint32 (dict, "cmd", &cmd);
+        if (ret)
+                goto out;
 
         if (!rsp_dict) {
                 //this should happen only on source
                 ret = 0;
                 rsp_dict = glusterd_op_get_ctx ();
+
+                if ((cmd & GF_CLI_STATUS_ALL)) {
+                        ret = glusterd_get_all_volnames (rsp_dict);
+                        if (ret)
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "failed to get all volume "
+                                        "names for status");
+                }
+
         }
 
-        if (volname) {
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                        if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
-                                ret = glusterd_add_brick_to_dict (volinfo,
-                                                                  brickinfo,
-                                                                  rsp_dict,
-                                                                  brick_index);
-                                count++;
-                                brick_count = count;
-                        }
-                        brick_index++;
+        ret = dict_set_uint32 (rsp_dict, "cmd", cmd);
+        if (ret)
+                goto out;
+
+        if (cmd & GF_CLI_STATUS_ALL)
+                goto out;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Volume with name: %s "
+                        "does not exist", volname);
+                goto out;
+        }
+
+        if ((cmd & GF_CLI_STATUS_BRICK) != 0) {
+                ret = dict_get_str (dict, "brick", &brick);
+                if (ret)
+                        goto out;
+                ret = glusterd_brickinfo_from_brick (brick, &tmpbrickinfo);
+                if (ret)
+                        goto out;
+                if (uuid_is_null (tmpbrickinfo->uuid) &&
+                    glusterd_resolve_brick (tmpbrickinfo))
+                        goto out;
+        }
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
+
+                        if ((cmd & GF_CLI_STATUS_BRICK) != 0 &&
+                            (strcmp (tmpbrickinfo->path,
+                                     brickinfo->path) ||
+                             uuid_compare (tmpbrickinfo->uuid,
+                                           brickinfo->uuid)))
+                                continue;
+
+                        glusterd_add_brick_to_dict (volinfo, brickinfo,
+                                                    rsp_dict, brick_index);
+
+                        if (cmd & GF_CLI_STATUS_DETAIL)
+                                glusterd_add_brick_detail_to_dict (volinfo,
+                                                                   brickinfo,
+                                                                   rsp_dict,
+                                                                   brick_index);
+                        brick_count++;
                 }
+                if (!(cmd & GF_CLI_STATUS_BRICK))
+                        brick_index++;
         }
 
         ret = dict_set_int32 (rsp_dict, "count", brick_count);
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
@@ -2119,7 +2200,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                                              rsp_dict);
 
         if (status) {
-                gf_log ("", GF_LOG_ERROR, "Commit failed: %d", status);
+                gf_log (THIS->name, GF_LOG_ERROR, "Commit failed: %d", status);
         }
 
         ret = glusterd_op_commit_send_resp (req_ctx->req, req_ctx->op,
@@ -2131,7 +2212,8 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         if (rsp_dict)
                 dict_unref (rsp_dict);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
 }
