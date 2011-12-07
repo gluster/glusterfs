@@ -58,6 +58,9 @@
 #include <rpc/pmap_clnt.h>
 #include <unistd.h>
 #include <fnmatch.h>
+#include <sys/statvfs.h>
+
+
 #ifdef GF_SOLARIS_HOST_OS
 #include <sys/sockio.h>
 #endif
@@ -679,11 +682,11 @@ glusterd_brickinfo_from_brick (char *brick,
         GF_ASSERT (brickinfo);
 
         tmp_host = gf_strdup (brick);
-        if (tmp_host)
-                get_host_name (tmp_host, &hostname);
+        if (tmp_host && !get_host_name (tmp_host, &hostname))
+                goto out;
         tmp_path = gf_strdup (brick);
-        if (tmp_path)
-                get_path_name (tmp_path, &path);
+        if (tmp_path && !get_path_name (tmp_path, &path))
+                goto out;
 
         GF_ASSERT (hostname);
         GF_ASSERT (path);
@@ -3084,21 +3087,331 @@ out:
         return -1;
 }
 
+int
+glusterd_get_brick_root (char *path, char **mount_point)
+{
+        char           *ptr            = NULL;
+        struct stat     brickstat      = {0};
+        struct stat     buf            = {0};
+
+        if (!path)
+                goto err;
+        *mount_point = gf_strdup (path);
+        if (!*mount_point)
+                goto err;
+        if (stat (*mount_point, &brickstat))
+                goto err;
+
+        while ((ptr = strrchr (*mount_point, '/')) &&
+               ptr != *mount_point) {
+
+                *ptr = '\0';
+                if (stat (*mount_point, &buf)) {
+                        gf_log (THIS->name, GF_LOG_ERROR, "error in "
+                                "stat: %s", strerror (errno));
+                        goto err;
+                }
+
+                if (brickstat.st_dev != buf.st_dev) {
+                        *ptr = '/';
+                        break;
+                }
+        }
+
+        if (ptr == *mount_point) {
+                if (stat ("/", &buf)) {
+                        gf_log (THIS->name, GF_LOG_ERROR, "error in "
+                                "stat: %s", strerror (errno));
+                        goto err;
+                }
+                if (brickstat.st_dev == buf.st_dev)
+                        strcpy (*mount_point, "/");
+        }
+
+        return 0;
+
+ err:
+        if (*mount_point)
+                GF_FREE (*mount_point);
+        return -1;
+}
+
+static int
+glusterd_add_inode_size_to_dict (dict_t *dict, int count)
+{
+        int             ret               = -1;
+        int             fd                = -1;
+        char            key[1024]         = {0};
+        char            buffer[4096]      = {0};
+        char            cmd_str[4096]     = {0};
+        char           *inode_size        = NULL;
+        char           *device            = NULL;
+        char           *fs_name           = NULL;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.device", count);
+        ret = dict_get_str (dict, key, &device);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.fs_name", count);
+        ret = dict_get_str (dict, key, &fs_name);
+        if (ret)
+                goto out;
+
+        /* get inode size for xfs or ext2/3/4 */
+        if (!strcmp (fs_name, "xfs")) {
+
+                snprintf (cmd_str, sizeof (cmd_str),
+                          "xfs_info %s | "
+                          "grep isize | "
+                          "cut -d ' ' -f 2-  | "
+                          "cut -d '=' -f 2 | "
+                          "cut -d ' ' -f 1 "
+                          "> /tmp/gf_status.txt ",
+                          device);
+
+        } else if (IS_EXT_FS(fs_name)) {
+
+                snprintf (cmd_str, sizeof (cmd_str),
+                          "tune2fs -l %s | "
+                          "grep -i 'inode size' | "
+                          "awk '{print $3}' "
+                          "> /tmp/gf_status.txt ",
+                          device);
+
+        } else {
+                ret = 0;
+                gf_log (THIS->name, GF_LOG_INFO, "Skipped fetching "
+                        "inode size for %s: FS type not recommended",
+                        fs_name);
+                goto out;
+        }
+
+        ret = runcmd ("/bin/sh", "-c", cmd_str, NULL);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "could not get inode "
+                        "size for %s : %s package missing", fs_name,
+                        ((strcmp (fs_name, "xfs")) ?
+                         "e2fsprogs" : "xfsprogs"));
+                goto out;
+        }
+
+        fd = open ("/tmp/gf_status.txt", O_RDONLY);
+        unlink ("/tmp/gf_status.txt");
+        if (fd < 0) {
+                ret = -1;
+                goto out;
+        }
+        memset (buffer, 0, sizeof (buffer));
+        ret = read (fd, buffer, sizeof (buffer));
+        if (ret < 2) {
+                ret = -1;
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.inode_size", count);
+
+        inode_size = get_nth_word (buffer, 1);
+        if (!inode_size) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, key, inode_size);
+
+ out:
+        if (fd >= 0)
+                close (fd);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get inode size");
+        return ret;
+}
+
+static int
+glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
+                                  dict_t *dict, int count)
+{
+        int             ret                  = -1;
+        int             fd                   = -1;
+        char            key[1024]            = {0};
+        char            base_key[1024]       = {0};
+        char            buffer[4096]         = {0};
+        char            cmd_str[1024]        = {0};
+        char           *mnt_pt               = NULL;
+        char           *fs_name              = NULL;
+        char           *mnt_options          = NULL;
+        char           *device               = NULL;
+        runner_t        runner               = {0};
+
+        snprintf (base_key, sizeof (base_key), "brick%d", count);
+
+        ret = glusterd_get_brick_root (brickinfo->path, &mnt_pt);
+        if (ret)
+                goto out;
+
+        /* get mount details of brick in back-end */
+        snprintf (cmd_str, sizeof (cmd_str), " %s ", mnt_pt);
+
+        runinit (&runner);
+        runner_add_args (&runner, "grep", cmd_str, "/etc/mtab", NULL);
+        runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
+
+        ret = runner_start (&runner);
+        if (ret)
+                goto out;
+
+        if (!fgets (buffer, sizeof(buffer),
+                    runner_chio (&runner, STDOUT_FILENO))) {
+                ret = -1;
+                goto out;
+        }
+
+        runner_end (&runner);
+
+        /* get device file */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.device", base_key);
+
+        device = get_nth_word (buffer, 1);
+        if (!device)
+                goto out;
+
+        ret = dict_set_dynstr (dict, key, device);
+        if (ret)
+                goto out;
+
+        /* fs type */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.fs_name", base_key);
+
+        fs_name = get_nth_word (buffer, 3);
+        if (!fs_name)
+                goto out;
+
+        ret = dict_set_dynstr (dict, key, fs_name);
+        if (ret)
+                goto out;
+
+        /* mount options */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.mnt_options", base_key);
+
+        mnt_options = get_nth_word (buffer, 4);
+        if (!mnt_options)
+                goto out;
+        ret = dict_set_dynstr (dict, key, mnt_options);
+
+ out:
+        if (mnt_pt)
+                GF_FREE (mnt_pt);
+        if (fd >= 0)
+                close (fd);
+        return ret;
+}
+
+int
+glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
+                                   glusterd_brickinfo_t *brickinfo,
+                                   dict_t *dict, int count)
+{
+        int             ret               = -1;
+        uint64_t        memtotal          = 0;
+        uint64_t        memfree           = 0;
+        uint64_t        inodes_total      = 0;
+        uint64_t        inodes_free       = 0;
+        uint64_t        block_size        = 0;
+        char            key[1024]         = {0};
+        char            base_key[1024]    = {0};
+        struct statvfs  brickstat         = {0};
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+        GF_ASSERT (dict);
+
+        snprintf (base_key, sizeof (base_key), "brick%d", count);
+
+        ret = statvfs (brickinfo->path, &brickstat);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "statfs error: %s ",
+                        strerror (errno));
+                goto out;
+        }
+
+        /* file system block size */
+        block_size = brickstat.f_bsize;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.block_size", base_key);
+        ret = dict_set_uint64 (dict, key, block_size);
+        if (ret)
+                goto out;
+
+        /* free space in brick */
+        memfree = brickstat.f_bfree * brickstat.f_bsize;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.free", base_key);
+        ret = dict_set_uint64 (dict, key, memfree);
+        if (ret)
+                goto out;
+
+        /* total space of brick */
+        memtotal = brickstat.f_blocks * brickstat.f_bsize;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.total", base_key);
+        ret = dict_set_uint64 (dict, key, memtotal);
+        if (ret)
+                goto out;
+
+        /* inodes: total and free counts only for ext2/3/4 and xfs */
+        inodes_total = brickstat.f_files;
+        if (inodes_total) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.total_inodes", base_key);
+                ret = dict_set_uint64 (dict, key, inodes_total);
+                if (ret)
+                        goto out;
+        }
+
+        inodes_free = brickstat.f_ffree;
+        if (inodes_free) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.free_inodes", base_key);
+                ret = dict_set_uint64 (dict, key, inodes_free);
+                if (ret)
+                        goto out;
+        }
+
+        ret = glusterd_add_brick_mount_details (brickinfo, dict, count);
+        if (ret)
+                goto out;
+
+        ret = glusterd_add_inode_size_to_dict (dict, count);
+
+ out:
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG, "Error adding brick"
+                        " detail to dict: %s", strerror (errno));
+        return ret;
+}
+
 int32_t
 glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                             glusterd_brickinfo_t *brickinfo,
                             dict_t  *dict, int32_t count)
 {
 
-        int             ret = -1;
-        char            key[8192] = {0,};
-        char            base_key[8192] = {0};
-        char            pidfile[PATH_MAX] = {0};
-        char            path[PATH_MAX] = {0};
-        int32_t         pid = -1;
-        int32_t         brick_online = -1;
-        xlator_t        *this = NULL;
-        glusterd_conf_t *priv = NULL;
+        int             ret                   = -1;
+        int32_t         pid                   = -1;
+        int32_t         brick_online          = -1;
+        char            key[1024]             = {0};
+        char            base_key[1024]        = {0};
+        char            pidfile[PATH_MAX]     = {0};
+        char            path[PATH_MAX]        = {0};
+        xlator_t        *this                 = NULL;
+        glusterd_conf_t *priv                 = NULL;
+
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -3111,6 +3424,7 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
         snprintf (key, sizeof (key), "%s.hostname", base_key);
+
         ret = dict_set_str (dict, key, brickinfo->hostname);
         if (ret)
                 goto out;
@@ -3142,13 +3456,42 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.status", base_key);
         ret = dict_set_int32 (dict, key, brick_online);
-        if (ret)
-                goto out;
 
 out:
         if (ret)
-                gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+                gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
 
+        return ret;
+}
+
+int32_t
+glusterd_get_all_volnames (dict_t *dict)
+{
+        int                    ret        = -1;
+        int32_t                vol_count  = 0;
+        char                   key[256]   = {0};
+        glusterd_volinfo_t    *entry      = NULL;
+        glusterd_conf_t       *priv       = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (entry, &priv->volumes, vol_list) {
+                memset (key, sizeof (key), 0);
+                snprintf (key, sizeof (key), "vol%d", vol_count);
+                ret = dict_set_str (dict, key, entry->volname);
+                if (ret)
+                        goto out;
+
+                vol_count++;
+        }
+
+        ret = dict_set_int32 (dict, "vol_count", vol_count);
+
+ out:
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get all "
+                        "volume names for status");
         return ret;
 }
 

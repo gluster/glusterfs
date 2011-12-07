@@ -37,7 +37,7 @@
 #define DEFAULT_CLI_LOG_FILE_DIRECTORY     DATADIR "/log/glusterfs"
 #define CLI_VOL_STATUS_BRICK_LEN              55
 #define CLI_TAB_LENGTH                         8
-#define CLI_BRICK_STATUS_LINE_LEN             75
+#define CLI_BRICK_STATUS_LINE_LEN             78
 
 enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
@@ -123,6 +123,24 @@ struct cli_local {
 
         dict_t          *dict;
 };
+
+struct cli_volume_status {
+        int            port;
+        int            online;
+        uint64_t       block_size;
+        uint64_t       total_inodes;
+        uint64_t       free_inodes;
+        char          *brick;
+        char          *pid_str;
+        char          *fs_name;
+        char          *free;
+        char          *total;
+        char          *mount_options;
+        char          *device;
+        char          *inode_size;
+};
+
+typedef struct cli_volume_status cli_volume_status_t;
 
 typedef struct cli_local cli_local_t;
 
@@ -236,7 +254,13 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                              dict_t **options);
 
 int
-cli_print_brick_status (char *brick, int port, int online, char *pid);
+cli_print_brick_status (cli_volume_status_t *status);
+
+void
+cli_print_detailed_status (cli_volume_status_t *status);
+
+int
+cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status);
 
 void
 cli_print_line (int len);
