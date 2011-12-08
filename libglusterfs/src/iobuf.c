@@ -968,7 +968,7 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
         gf_proc_dump_write("iobuf_pool.arena_cnt", "%d",
                            iobuf_pool->arena_cnt);
 
-        for (j = 0; j < GF_VARIABLE_IOBUF_COUNT; j++) {
+        for (j = 0; j < IOBUF_ARENA_MAX_INDEX; j++) {
                 list_for_each_entry (trav, &iobuf_pool->arenas[j], list) {
                         snprintf(msg, sizeof(msg),
                                  "arena.%d", i);
