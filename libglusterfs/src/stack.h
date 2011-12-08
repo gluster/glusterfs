@@ -99,6 +99,7 @@ struct _call_stack_t {
                 };
         };
         call_pool_t                  *pool;
+        gf_lock_t                     stack_lock;
         void                         *trans;
         uint64_t                      unique;
         void                         *state;  /* pointer to request state */
@@ -218,20 +219,24 @@ STACK_DESTROY (call_stack_t *stack)
                 }                                                       \
                 typeof(fn##_cbk) tmp_cbk = rfn;                         \
                 _new->root = frame->root;                               \
-                _new->next = frame->root->frames.next;                  \
-                _new->prev = &frame->root->frames;                      \
-                if (frame->root->frames.next)                           \
-                        frame->root->frames.next->prev = _new;          \
-                frame->root->frames.next = _new;                        \
                 _new->this = obj;                                       \
                 _new->ret = (ret_fn_t) tmp_cbk;                         \
                 _new->parent = frame;                                   \
                 _new->cookie = _new;                                    \
-                LOCK_INIT (&_new->lock);                                \
                 _new->wind_from = __FUNCTION__;                         \
                 _new->wind_to = #fn;                                    \
                 _new->unwind_to = #rfn;                                 \
-                frame->ref_count++;                                     \
+                LOCK_INIT (&_new->lock);                                \
+                LOCK(&frame->root->stack_lock);                         \
+                {                                                       \
+                        _new->next = frame->root->frames.next;          \
+                        _new->prev = &frame->root->frames;              \
+                        if (frame->root->frames.next)                   \
+                                frame->root->frames.next->prev = _new;  \
+                        frame->root->frames.next = _new;                \
+                        frame->ref_count++;                             \
+                }                                                       \
+                UNLOCK(&frame->root->stack_lock);                       \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
                 fn (_new, obj, params);                                 \
@@ -252,20 +257,24 @@ STACK_DESTROY (call_stack_t *stack)
                 }                                                       \
                 typeof(fn##_cbk) tmp_cbk = rfn;                         \
                 _new->root = frame->root;                               \
-                _new->next = frame->root->frames.next;                  \
-                _new->prev = &frame->root->frames;                      \
-                if (frame->root->frames.next)                           \
-                        frame->root->frames.next->prev = _new;          \
-                frame->root->frames.next = _new;                        \
                 _new->this = obj;                                       \
                 _new->ret = (ret_fn_t) tmp_cbk;                         \
                 _new->parent = frame;                                   \
                 _new->cookie = cky;                                     \
-                LOCK_INIT (&_new->lock);                                \
                 _new->wind_from = __FUNCTION__;                         \
                 _new->wind_to = #fn;                                    \
                 _new->unwind_to = #rfn;                                 \
-                frame->ref_count++;                                     \
+                LOCK_INIT (&_new->lock);                                \
+                LOCK(&frame->root->stack_lock);                         \
+                {                                                       \
+                        frame->ref_count++;                             \
+                        _new->next = frame->root->frames.next;          \
+                        _new->prev = &frame->root->frames;              \
+                        if (frame->root->frames.next)                   \
+                                frame->root->frames.next->prev = _new;  \
+                        frame->root->frames.next = _new;                \
+                }                                                       \
+                UNLOCK(&frame->root->stack_lock);                       \
                 fn##_cbk = rfn;                                         \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
@@ -286,7 +295,11 @@ STACK_DESTROY (call_stack_t *stack)
                 }                                                       \
                 fn = frame->ret;                                        \
                 _parent = frame->parent;                                \
-                _parent->ref_count--;                                   \
+                LOCK(&frame->root->stack_lock);                         \
+                {                                                       \
+                        _parent->ref_count--;                           \
+                }                                                       \
+                UNLOCK(&frame->root->stack_lock);                       \
                 old_THIS = THIS;                                        \
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
@@ -309,7 +322,11 @@ STACK_DESTROY (call_stack_t *stack)
                 }                                                       \
                 fn = (fop_##op##_cbk_t )frame->ret;                     \
                 _parent = frame->parent;                                \
-                _parent->ref_count--;                                   \
+                LOCK(&frame->root->stack_lock);                         \
+                {                                                       \
+                        _parent->ref_count--;                           \
+                }                                                       \
+                UNLOCK(&frame->root->stack_lock);                       \
                 old_THIS = THIS;                                        \
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
@@ -352,6 +369,7 @@ copy_frame (call_frame_t *frame)
         newstack->lk_owner = oldstack->lk_owner;
 
         LOCK_INIT (&newstack->frames.lock);
+        LOCK_INIT (&newstack->stack_lock);
 
         LOCK (&oldstack->pool->lock);
         {
@@ -389,6 +407,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
         UNLOCK (&pool->lock);
 
         LOCK_INIT (&stack->frames.lock);
+        LOCK_INIT (&stack->stack_lock);
 
         return &stack->frames;
 }
