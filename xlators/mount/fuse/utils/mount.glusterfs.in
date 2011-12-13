@@ -189,6 +189,7 @@ check_recursive_mount ()
     # remove trailing / from mount point
     mnt_dir=${2%/};
 
+    export PATH;
     # check whether getfattr exists
     which getfattr > /dev/null;
     if [ $? -ne 0 ]; then
