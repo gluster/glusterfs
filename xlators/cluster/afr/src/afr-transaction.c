@@ -450,9 +450,22 @@ afr_changelog_pre_op_call_count (afr_transaction_type type,
         GF_ASSERT (locked_nodes);
 
         call_count = afr_locked_children_count (locked_nodes, child_count);
-        if (type == AFR_ENTRY_RENAME_TRANSACTION) {
+        if (type == AFR_ENTRY_RENAME_TRANSACTION)
                 call_count *= 2;
-        }
+
+        return call_count;
+}
+
+int
+afr_changelog_post_op_call_count (afr_transaction_type type,
+                                  unsigned char *pre_op,
+                                  unsigned int child_count)
+{
+        int           call_count = 0;
+
+        call_count = afr_pre_op_done_children_count (pre_op, child_count);
+        if (type == AFR_ENTRY_RENAME_TRANSACTION)
+                call_count *= 2;
 
         return call_count;
 }
@@ -490,8 +503,9 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 xattr[i] = dict_new ();
         }
 
-        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
-                                                     priv->child_count);
+        call_count = afr_changelog_post_op_call_count (local->transaction.type,
+                                                       local->transaction.pre_op,
+                                                       priv->child_count);
         local->call_count = call_count;
 
         if (local->fd)
