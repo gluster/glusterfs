@@ -362,7 +362,8 @@ error_gen (xlator_t *this, int op_no)
                                 rand_no = 0;
                         ret = error_no_list[op_no].error_no[rand_no];
                 }
-                egp->failure_iter_no = 3 + (rand () % GF_UNIVERSAL_ANSWER);
+                if (egp->random_failure == _gf_true)
+                        egp->failure_iter_no = 3 + (rand () % GF_UNIVERSAL_ANSWER);
         }
         return ret;
 }
@@ -1871,6 +1872,7 @@ init (xlator_t *this)
         data_t          *error_no = NULL;
         data_t          *failure_percent = NULL;
         data_t          *enable = NULL;
+        gf_boolean_t    random_failure = _gf_false;
         int32_t          ret = 0;
         char            *error_enable_fops = NULL;
         char            *op_no_str = NULL;
@@ -1953,6 +1955,11 @@ init (xlator_t *this)
                         }
                 }
         }
+
+        random_failure = dict_get_str_boolean (this->options, "random-failure",
+                                               _gf_false);
+        pvt->random_failure = random_failure;
+
         this->private = pvt;
 
         /* Give some seed value here */
@@ -2036,6 +2043,8 @@ struct volume_options options[] = {
                     "ENODEV","EXDEV","EMFILE","ENFILE","ENOSYS","EINTR",
                     "EFBIG","EAGAIN"},
           .type = GF_OPTION_TYPE_STR },
+        { .key = {"random-failure"},
+          .type = GF_OPTION_TYPE_BOOL},
         { .key  = {"enable"},
           .type = GF_OPTION_TYPE_STR },
         { .key  = {NULL} }

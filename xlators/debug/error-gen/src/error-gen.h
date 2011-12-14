@@ -34,6 +34,7 @@ typedef struct {
         int op_count;
         int failure_iter_no;
         char *error_no;
+        gf_boolean_t random_failure;
         gf_lock_t lock;
 } eg_t;
 
