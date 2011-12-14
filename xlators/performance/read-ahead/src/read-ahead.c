@@ -1096,10 +1096,13 @@ fini (xlator_t *this)
                 goto out;
         }
 
+        this->private = NULL;
+
+        GF_ASSERT ((conf->files.next == &conf->files)
+                   && (conf->files.prev == &conf->files));
+
         pthread_mutex_destroy (&conf->conf_lock);
         GF_FREE (conf);
-
-        this->private = NULL;
 
 out:
         return;
