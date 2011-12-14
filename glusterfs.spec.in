@@ -175,11 +175,20 @@ echo "%{_prefix}/lib" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
 /sbin/ldconfig
 
 if [ -d /etc/glusterd/vols ]; then
-#for each dir under vols, backup non-fuse .vol files  as .Vol.old
-for file in `find /etc/glusterd/vols -type f ! -name *-fuse.vol `;
-do
-grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old
-done
+  # Rename old volfiles in an RPM-standard way.  These aren't actually
+  # considered package config files, so %config doesn't work for them.
+  #
+  # NB: we used to exempt client-side volfiles from this treatment.  The
+  # only reason we do it at all (I'm guessing) is because they might be
+  # rewritten differently by a new version of code, and the old versions might
+  # be useful for a merge or rollback (especially if they were tweaked).
+  # Since that rationale does apply to client-side volfiles as well, the
+  # exception has been removed.
+  for file in $(find /etc/glusterd/vols -name '*.vol'); do
+    newfile=${file}.rpmsave
+    echo "warning: ${file} saved as ${newfile}"
+    cp ${file} ${newfile}
+  done
 fi
 
 pidof -c -o %PPID -x glusterd &> /dev/null
