@@ -1923,18 +1923,33 @@ out:
 void
 fini (xlator_t *this)
 {
-        ioc_table_t *table = NULL;
+        ioc_table_t         *table = NULL;
+        struct ioc_priority *curr  = NULL, *tmp = NULL;
+        int                  i     = 0;
 
         table = this->private;
 
         if (table == NULL)
                 return;
 
+        this->private = NULL;
+
         if (table->mem_pool != NULL) {
                 mem_pool_destroy (table->mem_pool);
                 table->mem_pool = NULL;
         }
 
+        list_for_each_entry_safe (curr, tmp, &table->priority_list, list) {
+                list_del_init (&curr->list);
+                GF_FREE (curr->pattern);
+                GF_FREE (curr);
+        }
+
+        for (i = 0; i < table->max_pri; i++) {
+                GF_ASSERT (list_empty (&table->inode_lru[i]));
+        }
+
+        GF_ASSERT (list_empty (&table->inodes));
         pthread_mutex_destroy (&table->table_lock);
         GF_FREE (table);
 
