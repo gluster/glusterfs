@@ -3575,8 +3575,59 @@ out:
 
 
 void
+qr_inode_table_destroy (qr_private_t *priv)
+{
+        int        i    = 0;
+        qr_conf_t *conf = NULL;
+
+        conf = &priv->conf;
+
+        for (i = 0; i < conf->max_pri; i++) {
+                GF_ASSERT (list_empty (&priv->table.lru[i]));
+        }
+
+        LOCK_DESTROY (&priv->table.lock);
+
+        return;
+}
+
+
+void
+qr_conf_destroy (qr_conf_t *conf)
+{
+        struct qr_priority *curr = NULL, *tmp = NULL;
+
+        list_for_each_entry_safe (curr, tmp, &conf->priority_list, list) {
+                list_del (&curr->list);
+                GF_FREE (curr->pattern);
+                GF_FREE (curr);
+        }
+
+        return;
+}
+
+
+void
 fini (xlator_t *this)
 {
+        qr_private_t *priv = NULL;
+
+        if (this == NULL) {
+                goto out;
+        }
+
+        priv = this->private;
+        if (priv == NULL) {
+                goto out;
+        }
+
+        qr_inode_table_destroy (priv);
+        qr_conf_destroy (&priv->conf);
+
+        this->private = NULL;
+
+        GF_FREE (priv);
+out:
         return;
 }
 
