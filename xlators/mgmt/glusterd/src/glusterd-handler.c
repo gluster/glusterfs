@@ -463,6 +463,7 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         gd1_mgmt_cluster_lock_req       lock_req = {{0},};
         int32_t                         ret = -1;
         glusterd_op_lock_ctx_t          *ctx = NULL;
+        glusterd_peerinfo_t             *peerinfo = NULL;
 
         GF_ASSERT (req);
 
@@ -475,6 +476,13 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_INFO,
                 "Received LOCK from uuid: %s", uuid_utoa (lock_req.uuid));
 
+        if (glusterd_friend_find_by_uuid (lock_req.uuid, &peerinfo)) {
+                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                        "belong to the cluster. Ignoring request.",
+                        uuid_utoa (lock_req.uuid));
+                ret = -1;
+                goto out;
+        }
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
 
@@ -551,11 +559,20 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         glusterd_req_ctx_t              *req_ctx = NULL;
         gd1_mgmt_stage_op_req           op_req = {{0},};
+        glusterd_peerinfo_t             *peerinfo = NULL;
 
         GF_ASSERT (req);
         if (!xdr_to_generic (req->msg[0], &op_req, (xdrproc_t)xdr_gd1_mgmt_stage_op_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (glusterd_friend_find_by_uuid (op_req.uuid, &peerinfo)) {
+                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                        "belong to the cluster. Ignoring request.",
+                        uuid_utoa (op_req.uuid));
+                ret = -1;
                 goto out;
         }
 
@@ -581,12 +598,21 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         glusterd_req_ctx_t              *req_ctx = NULL;
         gd1_mgmt_commit_op_req          op_req = {{0},};
+        glusterd_peerinfo_t             *peerinfo = NULL;
 
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &op_req, (xdrproc_t)xdr_gd1_mgmt_commit_op_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (glusterd_friend_find_by_uuid (op_req.uuid, &peerinfo)) {
+                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                        "belong to the cluster. Ignoring request.",
+                        uuid_utoa (op_req.uuid));
+                ret = -1;
                 goto out;
         }
 
@@ -1239,6 +1265,7 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
         gd1_mgmt_cluster_unlock_req     unlock_req = {{0}, };
         int32_t                         ret = -1;
         glusterd_op_lock_ctx_t          *ctx = NULL;
+        glusterd_peerinfo_t             *peerinfo = NULL;
 
         GF_ASSERT (req);
 
@@ -1252,6 +1279,14 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
 
         gf_log ("glusterd", GF_LOG_INFO,
                 "Received UNLOCK from uuid: %s", uuid_utoa (unlock_req.uuid));
+
+        if (glusterd_friend_find_by_uuid (unlock_req.uuid, &peerinfo)) {
+                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                        "belong to the cluster. Ignoring request.",
+                        uuid_utoa (unlock_req.uuid));
+                ret = -1;
+                goto out;
+        }
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
 
