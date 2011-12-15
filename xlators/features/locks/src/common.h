@@ -21,6 +21,22 @@
 #define __COMMON_H__
 
 #include "lkowner.h"
+/*dump locks format strings */
+#define RANGE_FMT               "type=%s, whence=%hd, start=%llu, len=%llu"
+#define ENTRY_FMT               "type=%s on basename=%s"
+#define DUMP_GEN_FMT            "pid = %llu, owner=%s, transport=%p, "
+#define GRNTD_AT                "granted at %s"
+#define BLKD_AT                 "blocked at %s"
+#define DUMP_BLKD_FMT           DUMP_GEN_FMT", "BLKD_AT
+#define DUMP_GRNTD_FMT          DUMP_GEN_FMT", "GRNTD_AT
+#define DUMP_BLKD_GRNTD_FMT     DUMP_GEN_FMT", "BLKD_AT", "GRNTD_AT
+#define ENTRY_BLKD_FMT          ENTRY_FMT", "DUMP_BLKD_FMT
+#define ENTRY_GRNTD_FMT         ENTRY_FMT", "DUMP_GRNTD_FMT
+#define ENTRY_BLKD_GRNTD_FMT    ENTRY_FMT", "DUMP_BLKD_GRNTD_FMT
+
+#define RANGE_BLKD_FMT          RANGE_FMT", "DUMP_BLKD_FMT
+#define RANGE_GRNTD_FMT         RANGE_FMT", "DUMP_GRNTD_FMT
+#define RANGE_BLKD_GRNTD_FMT    RANGE_FMT", "DUMP_BLKD_GRNTD_FMT
 
 #define SET_FLOCK_PID(flock, lock) ((flock)->l_pid = lock->client_pid)
 posix_lock_t *

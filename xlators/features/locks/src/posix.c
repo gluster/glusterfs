@@ -1708,19 +1708,17 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
 
         if (active) {
                 if (blkd_time && *blkd_time == 0) {
-                        snprintf (str, size, "type=%s, start=%llu, len=%llu, "
-                                  "pid=%llu, lk-owner=%s, transport=%p, "
-                                  "granted at %s",
-                                  type_str, (unsigned long long) flock->l_start,
+                        snprintf (str, size, RANGE_GRNTD_FMT,
+                                  type_str, flock->l_whence,
+                                  (unsigned long long) flock->l_start,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
                                   lkowner_utoa (owner),
                                   trans, ctime (granted_time));
                 } else {
-                        snprintf (str, size, "type=%s, start=%llu, len=%llu, "
-                                  "pid=%llu, lk-owner=%s, transport=%p, "
-                                  "blocked at %s, granted at  %s",
-                                  type_str, (unsigned long long) flock->l_start,
+                        snprintf (str, size, RANGE_BLKD_GRNTD_FMT,
+                                  type_str, flock->l_whence,
+                                  (unsigned long long) flock->l_start,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
                                   lkowner_utoa (owner),
@@ -1728,9 +1726,9 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                 }
         }
         else {
-                snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, "
-                          "lk-owner=%s, transport=%p, blocked at  %s",
-                          type_str, (unsigned long long) flock->l_start,
+                snprintf (str, size, RANGE_BLKD_FMT,
+                          type_str, flock->l_whence,
+                          (unsigned long long) flock->l_start,
                           (unsigned long long) flock->l_len,
                           (unsigned long long) flock->l_pid,
                           lkowner_utoa (owner),
@@ -1764,16 +1762,14 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
                                                "entrylk[%d](ACTIVE)", count );
                         if (lock->blkd_time.tv_sec == 0 && lock->blkd_time.tv_usec == 0) {
-                                snprintf (tmp, 256," %s on %s pid = %llu, owner=%s, transport=%p,"
-                                          " granted at %s",
+                                snprintf (tmp, 256, ENTRY_GRNTD_FMT,
                                           lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
                                           lkowner_utoa (&lock->owner), lock->trans,
                                           ctime (&lock->granted_time.tv_sec));
                         } else {
-                                snprintf (tmp, 256," %s on %s pid = %llu, owner=%s, transport=%p,"
-                                          " blocked at %s, granted at %s",
+                                snprintf (tmp, 256, ENTRY_BLKD_GRNTD_FMT,
                                           lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
@@ -1792,8 +1788,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
                                                "entrylk[%d](BLOCKED)", count );
-                        snprintf (tmp, 256," %s on %s pid = %llu, owner=%s, transport=%p,"
-                                  " blocked at %s",
+                        snprintf (tmp, 256, ENTRY_BLKD_FMT,
                                   lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                   "ENTRYLK_WRLCK", lock->basename,
                                   (unsigned long long) lock->client_pid,
@@ -1936,6 +1931,7 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
         int             ret = -1;
         uint64_t        tmp_pl_inode = 0;
         pl_inode_t      *pl_inode = NULL;
+        char            *pathname = NULL;
 
         int count      = 0;
 
@@ -1955,6 +1951,12 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
 
         gf_proc_dump_add_section("xlator.features.locks.%s.inode", this->name);
 
+        /*We are safe to call __inode_path since we have the
+         * inode->table->lock */
+        __inode_path (inode, NULL, &pathname);
+        if (pathname)
+                gf_proc_dump_write ("path", "%s", pathname);
+
         gf_proc_dump_write("mandatory", "%d", pl_inode->mandatory);
 
         count = get_entrylk_count (this, inode);
@@ -1965,7 +1967,7 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
 
         count = get_inodelk_count (this, inode);
         if (count) {
-                gf_proc_dump_write("inodlk-count", "%d", count);
+                gf_proc_dump_write("inodelk-count", "%d", count);
                 dump_inodelks(pl_inode);
         }
 
@@ -1976,6 +1978,9 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
         }
 
 out:
+        if (pathname)
+                GF_FREE (pathname);
+
         return ret;
 }
 
