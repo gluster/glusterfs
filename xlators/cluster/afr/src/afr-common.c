@@ -3366,11 +3366,6 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("entry-change_log", "%d", priv->entry_change_log);
         gf_proc_dump_write("read_child", "%d", priv->read_child);
         gf_proc_dump_write("favorite_child", "%d", priv->favorite_child);
-        gf_proc_dump_write("data_lock_server_count", "%u", priv->data_lock_server_count);
-        gf_proc_dump_write("metadata_lock_server_count", "%u",
-                           priv->metadata_lock_server_count);
-        gf_proc_dump_write("entry_lock_server_count", "%u",
-                           priv->entry_lock_server_count);
         gf_proc_dump_write("wait_count", "%u", priv->wait_count);
 
         return 0;
@@ -3892,4 +3887,40 @@ afr_have_quorum (char *logname, afr_private_t *priv)
 
 out:
         return _gf_false;
+}
+
+void
+afr_priv_destroy (afr_private_t *priv)
+{
+        int            i           = 0;
+
+        if (!priv)
+                goto out;
+        inode_unref (priv->root_inode);
+        GF_FREE (priv->shd.pos);
+        GF_FREE (priv->last_event);
+        if (priv->pending_key) {
+                for (i = 0; i < priv->child_count; i++)
+                        GF_FREE (priv->pending_key[i]);
+        }
+        GF_FREE (priv->pending_key);
+        GF_FREE (priv->children);
+        GF_FREE (priv->child_up);
+        LOCK_DESTROY (&priv->lock);
+        LOCK_DESTROY (&priv->read_child_lock);
+        pthread_mutex_destroy (&priv->mutex);
+        GF_FREE (priv);
+out:
+        return;
+}
+
+int
+xlator_subvolume_count (xlator_t *this)
+{
+        int i = 0;
+        xlator_list_t *list = NULL;
+
+        for (list = this->children; list; list = list->next)
+                i++;
+        return i;
 }

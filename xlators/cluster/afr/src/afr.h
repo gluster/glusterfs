@@ -104,7 +104,6 @@ typedef struct _afr_private {
 
         xlator_t **children;
 
-        gf_lock_t root_inode_lk;
         int first_lookup;
         inode_t *root_inode;
 
@@ -129,10 +128,6 @@ typedef struct _afr_private {
         int read_child;               /* read-subvolume */
         int favorite_child;  /* subvolume to be preferred in resolving
                                          split-brain cases */
-
-        unsigned int data_lock_server_count;
-        unsigned int metadata_lock_server_count;
-        unsigned int entry_lock_server_count;
 
         gf_boolean_t inodelk_trace;
         gf_boolean_t entrylk_trace;
