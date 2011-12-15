@@ -57,8 +57,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         xdrproc_t       xdrproc = NULL;
         char            *errstr = NULL;
         int32_t         status = 0;
-        int32_t         is_ctx_dict = 0;
         int32_t         count = 0;
+        gf_cli_rsp      rsp = {0,};
 
         GF_ASSERT (THIS);
 
@@ -73,14 +73,13 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         {
                 if (ctx)
                         ret = dict_get_str (ctx, "errstr", &errstr);
-                is_ctx_dict = 1;
-                goto done;
+                break;
         }
         case GD_OP_RESET_VOLUME:
         {
                 if (op_ret && !op_errstr)
                         errstr = "Error while resetting options";
-                goto done;
+                break;
         }
         case GD_OP_REBALANCE:
         {
@@ -90,9 +89,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                                 gf_log (THIS->name, GF_LOG_TRACE,
                                         "failed to get status");
                         }
-                        is_ctx_dict = 1;
                 }
-                goto done;
+                break;
         }
         case GD_OP_GSYNC_SET:
         {
@@ -101,9 +99,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         ret = dict_set_str (ctx, "glusterd_workdir", conf->workdir);
                         /* swallow error here, that will be re-triggered in cli */
 
-                        is_ctx_dict = 1;
-                        goto done;
                }
+               break;
 
         }
         case GD_OP_QUOTA:
@@ -111,23 +108,30 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 if (ctx && !op_errstr) {
                         ret = dict_get_str (ctx, "errstr", &errstr);
                 }
-                is_ctx_dict = 1;
-                goto done;
+                break;
         }
-        case GD_OP_REPLACE_BRICK:
-        case GD_OP_STATUS_VOLUME:
-        case GD_OP_SET_VOLUME:
         case GD_OP_PROFILE_VOLUME:
         {
-                if (dict_get_int32 (ctx, "count", &count)) {
+                if (ctx && dict_get_int32 (ctx, "count", &count)) {
                         ret = dict_set_int32 (ctx, "count", 0);
                         if (ret) {
                                 gf_log (THIS->name, GF_LOG_ERROR,
-                                        "Failed to set brick count");
-                                break;
+                                        "failed to set count in dictionary");
                         }
                 }
-                is_ctx_dict = 1;
+                break;
+        }
+        case GD_OP_START_BRICK:
+        case GD_OP_STOP_BRICK:
+        {
+                gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
+                break;
+        }
+        case GD_OP_NONE:
+        case GD_OP_MAX:
+        {
+                gf_log ("", GF_LOG_ERROR, "invalid operation %d", op);
+                break;
         }
         case GD_OP_CREATE_VOLUME:
         case GD_OP_START_VOLUME:
@@ -139,53 +143,41 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_SYNC_VOLUME:
         case GD_OP_HEAL_VOLUME:
         case GD_OP_STATEDUMP_VOLUME:
-
-done:
+        case GD_OP_REPLACE_BRICK:
+        case GD_OP_STATUS_VOLUME:
+        case GD_OP_SET_VOLUME:
         {
-                gf_cli_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = errno;
-                if (errstr)
-                        rsp.op_errstr = errstr;
-                else if (op_errstr)
-                        rsp.op_errstr = op_errstr;
+                /*nothing specific to be done*/
+                break;
+        }
+        }
 
-                if (!rsp.op_errstr)
-                        rsp.op_errstr = "";
+        rsp.op_ret = op_ret;
+        rsp.op_errno = errno;
+        if (errstr)
+                rsp.op_errstr = errstr;
+        else if (op_errstr)
+                rsp.op_errstr = op_errstr;
 
-                if (ctx && is_ctx_dict) {
-                        ret = dict_allocate_and_serialize (ctx, &rsp.dict.dict_val,
-                                                          (size_t*)&rsp.dict.dict_len);
-                        if (ret < 0 ) {
-                                gf_log (THIS->name, GF_LOG_ERROR, "failed to "
-                                        "serialize buffer");
-                                break;
-                        }
+        if (!rsp.op_errstr)
+                rsp.op_errstr = "";
+
+        if (ctx) {
+                ret = dict_allocate_and_serialize (ctx, &rsp.dict.dict_val,
+                                                   (size_t*)&rsp.dict.dict_len);
+                if (ret < 0 )
+                        gf_log (THIS->name, GF_LOG_ERROR, "failed to "
+                                "serialize buffer");
+                else
                         free_ptr = rsp.dict.dict_val;
-                }
-                /* needed by 'rebalance status' */
-                if (status)
-                        rsp.op_errno = status;
-
-                cli_rsp = &rsp;
-                xdrproc = (xdrproc_t) xdr_gf_cli_rsp;
-                break;
         }
 
-        case GD_OP_START_BRICK:
-        case GD_OP_STOP_BRICK:
-        {
-                gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
-                break;
-        }
+        /* needed by 'rebalance status' */
+        if (status)
+                rsp.op_errno = status;
 
-        case GD_OP_NONE:
-        case GD_OP_MAX:
-        {
-                gf_log ("", GF_LOG_ERROR, "invalid operation %d", op);
-                break;
-        }
-        }
+        cli_rsp = &rsp;
+        xdrproc = (xdrproc_t) xdr_gf_cli_rsp;
 
         ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
                                      xdrproc);
