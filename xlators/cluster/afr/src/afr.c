@@ -85,18 +85,6 @@ xlator_subvolume_index (xlator_t *this, xlator_t *subvol)
         return index;
 }
 
-
-int
-xlator_subvolume_count (xlator_t *this)
-{
-        int i = 0;
-        xlator_list_t *list = NULL;
-
-        for (list = this->children; list; list = list->next)
-                i++;
-        return i;
-}
-
 void
 fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype)
 {
@@ -219,6 +207,16 @@ init (xlator_t *this)
         ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
         priv = this->private;
+        LOCK_INIT (&priv->lock);
+        LOCK_INIT (&priv->read_child_lock);
+        //lock recovery is not done in afr
+        pthread_mutex_init (&priv->mutex, NULL);
+        INIT_LIST_HEAD (&priv->saved_fds);
+
+        child_count = xlator_subvolume_count (this);
+
+        priv->child_count = child_count;
+
 
         priv->read_child = -1;
 
@@ -287,13 +285,6 @@ init (xlator_t *this)
 
         priv->wait_count = 1;
 
-        child_count = xlator_subvolume_count (this);
-
-        priv->child_count = child_count;
-
-        LOCK_INIT (&priv->lock);
-        LOCK_INIT (&priv->read_child_lock);
-
         priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                     gf_afr_mt_char);
         if (!priv->child_up) {
@@ -356,12 +347,8 @@ init (xlator_t *this)
                 goto out;
         }
 
-        LOCK_INIT (&priv->root_inode_lk);
         priv->first_lookup = 1;
         priv->root_inode = NULL;
-
-        pthread_mutex_init (&priv->mutex, NULL);
-        INIT_LIST_HEAD (&priv->saved_fds);
 
         ret = 0;
 out:
@@ -372,6 +359,11 @@ out:
 int
 fini (xlator_t *this)
 {
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+        this->private = NULL;
+        afr_priv_destroy (priv);
         return 0;
 }
 

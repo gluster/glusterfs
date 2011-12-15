@@ -50,7 +50,7 @@ typedef enum {
 
 typedef struct _pump_private {
 	struct syncenv *env;            /* The env pointer to the pump synctask */
-        const char *resume_path;        /* path to resume from the last pause */
+        char *resume_path;              /* path to resume from the last pause */
         gf_lock_t resume_path_lock;     /* Synchronize resume_path changes */
         gf_lock_t pump_state_lock;      /* Synchronize pump_state changes */
         pump_state_t pump_state;        /* State of pump */

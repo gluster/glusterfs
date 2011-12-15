@@ -140,9 +140,7 @@ pump_set_resume_path (xlator_t *this, const char *path)
 
         LOCK (&pump_priv->resume_path_lock);
         {
-                pump_priv->resume_path = strdup (path);
-                if (!pump_priv->resume_path)
-                        ret = -1;
+                strncpy (pump_priv->resume_path, path, strlen (path) + 1);
         }
         UNLOCK (&pump_priv->resume_path_lock);
 
@@ -453,7 +451,6 @@ out:
         if (free_entries)
                 gf_dirent_free (&entries);
         return 0;
-
 }
 
 static int
@@ -2385,6 +2382,20 @@ init (xlator_t *this)
 	ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
 	priv = this->private;
+        LOCK_INIT (&priv->lock);
+        LOCK_INIT (&priv->read_child_lock);
+        //lock recovery is not done in afr
+        pthread_mutex_init (&priv->mutex, NULL);
+        INIT_LIST_HEAD (&priv->saved_fds);
+
+        child_count = xlator_subvolume_count (this);
+        if (child_count != 2) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "There should be exactly 2 children - one source "
+                        "and one sink");
+                return -1;
+        }
+	priv->child_count = child_count;
 
         priv->read_child = source_child;
         priv->favorite_child = source_child;
@@ -2410,31 +2421,9 @@ init (xlator_t *this)
            and the sink.
         */
 
-	priv->data_lock_server_count = 2;
-	priv->metadata_lock_server_count = 2;
-	priv->entry_lock_server_count = 2;
-
 	priv->strict_readdir = _gf_false;
 
-        trav = this->children;
-        while (trav) {
-                child_count++;
-                trav = trav->next;
-        }
-
 	priv->wait_count = 1;
-
-        if (child_count != 2) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "There should be exactly 2 children - one source "
-                        "and one sink");
-                return -1;
-        }
-	priv->child_count = child_count;
-
-	LOCK_INIT (&priv->lock);
-        LOCK_INIT (&priv->read_child_lock);
-
 	priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                  gf_afr_mt_char);
 	if (!priv->child_up) {
@@ -2522,9 +2511,6 @@ init (xlator_t *this)
 
 	priv->pump_private = pump_priv;
 
-        pthread_mutex_init (&priv->mutex, NULL);
-        INIT_LIST_HEAD (&priv->saved_fds);
-
         pump_change_state (this, PUMP_STATE_ABORT);
 
 	ret = 0;
@@ -2535,6 +2521,28 @@ out:
 int
 fini (xlator_t *this)
 {
+        afr_private_t * priv        = NULL;
+        pump_private_t *pump_priv = NULL;
+
+        priv      = this->private;
+        this->private = NULL;
+        if (!priv)
+                goto out;
+
+        pump_priv = priv->pump_private;
+        if (!pump_priv)
+                goto afr_priv;
+
+        if (pump_priv->env)
+                syncenv_destroy (pump_priv->env);
+
+        GF_FREE (pump_priv->resume_path);
+        LOCK_DESTROY (&pump_priv->resume_path_lock);
+        LOCK_DESTROY (&pump_priv->pump_state_lock);
+        GF_FREE (pump_priv);
+afr_priv:
+        afr_priv_destroy (priv);
+out:
 	return 0;
 }
 
