@@ -1479,7 +1479,7 @@ cli_cmd_volume_statedump_cbk (struct cli_state *state, struct cli_cmd_word *word
                 goto out;
         }
 
-        if (wordcount > 3) {
+        if (wordcount >= 3) {
                ret = cli_cmd_volume_statedump_options_parse (words, wordcount,
                                                               &options);
                if (ret) {
@@ -1489,19 +1489,6 @@ cli_cmd_volume_statedump_cbk (struct cli_state *state, struct cli_cmd_word *word
                        cli_out ("Error parsing options");
                        cli_usage_out (word->pattern);
                }
-        } else {
-                options = dict_new ();
-                if (!options) {
-                        ret = -1;
-                        gf_log ("cli", GF_LOG_ERROR, "Could not create dict");
-                        goto out;
-                }
-                ret = dict_set_str (options, "options","");
-                if (ret)
-                        goto out;
-                ret = dict_set_int32 (options, "option-cnt", 0);
-                if (ret)
-                        goto out;
         }
 
         ret = dict_set_str (options, "volname", (char *)words[2]);
