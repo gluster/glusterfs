@@ -597,7 +597,7 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 
         afr_set_lock_number (frame, this);
 
-        int_lock->lk_flock.l_start = 0;
+        int_lock->lk_flock.l_start = LLONG_MAX - 1;
         int_lock->lk_flock.l_len   = 0;
         int_lock->lk_flock.l_type  = F_WRLCK;
         int_lock->lock_cbk         = afr_sh_metadata_post_nonblocking_inodelk_cbk;
