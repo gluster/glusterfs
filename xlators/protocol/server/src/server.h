@@ -57,9 +57,7 @@ struct _server_connection {
         struct list_head    list;
         char               *id;
         int                 ref;
-        int                 active_transports;
         pthread_mutex_t     lock;
-        char                disconnected;
         fdtable_t          *fdtable;
         struct _lock_table *ltable;
         xlator_t           *bound_xl;
