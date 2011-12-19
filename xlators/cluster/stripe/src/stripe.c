@@ -4221,6 +4221,8 @@ unlock:
 
                 loc.name = strrchr (loc.path, '/');
                 loc.name++;
+                uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
+
                 trav = this->children;
                 while (trav) {
                         STACK_WIND_COOKIE (frame, stripe_readdirp_entry_stat_cbk,
