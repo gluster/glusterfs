@@ -381,6 +381,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
         struct list_head released;
 
         char *path = NULL;
+        char *file = NULL;
 
         INIT_LIST_HEAD (&granted);
         INIT_LIST_HEAD (&released);
@@ -396,18 +397,16 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
 
                         list_del_init (&l->blocked_locks);
 
-                        if (inode_path (inode, NULL, &path) < 0) {
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "inode_path failed");
-                                goto unlock;
-                        }
+                        inode_path (inode, NULL, &path);
+                        if (path)
+                                file = path;
+                        else
+                                file = uuid_utoa (inode->gfid);
 
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "releasing lock on %s held by "
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "releasing blocking lock on %s held by "
                                 "{transport=%p, pid=%"PRId64" lk-owner=%"PRIu64"}",
-                                path, trans,
-                                (uint64_t) l->client_pid,
-                                l->owner);
+                                file, trans, (uint64_t) l->client_pid, l->owner);
 
                         list_add (&l->blocked_locks, &released);
                         if (path) {
@@ -423,26 +422,22 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                         __delete_inode_lock (l);
                         __destroy_inode_lock (l);
 
+                        inode_path (inode, NULL, &path);
+                        if (path)
+                                file = path;
+                        else
+                                file = uuid_utoa (inode->gfid);
 
-                        if (inode_path (inode, NULL, &path) < 0) {
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "inode_path failed");
-                                goto unlock;
-                        }
-
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "releasing lock on %s held by "
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "releasing granted lock on %s held by "
                                 "{transport=%p, pid=%"PRId64" lk-owner=%"PRIu64"}",
-                                path, trans,
-                                (uint64_t) l->client_pid,
-                                l->owner);
+                                file, trans, (uint64_t) l->client_pid, l->owner);
                         if (path) {
                                 GF_FREE (path);
                                 path = NULL;
                         }
                 }
         }
-unlock:
         if (path)
                 GF_FREE (path);
 
