@@ -1079,6 +1079,8 @@ out:
                 }
         }
 
+        if (ret < 0)
+                *bufp = NULL;
         return ret;
 }
 
