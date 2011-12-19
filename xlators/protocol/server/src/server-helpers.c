@@ -552,7 +552,6 @@ out:
 int
 server_connection_cleanup (xlator_t *this, server_connection_t *conn)
 {
-        char                do_cleanup = 0;
         struct _lock_table *ltable = NULL;
         fdentry_t          *fdentries = NULL;
         uint32_t            fd_count = 0;
@@ -563,24 +562,20 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
 
         pthread_mutex_lock (&conn->lock);
         {
-                conn->active_transports--;
-                if (conn->active_transports == 0) {
-                        if (conn->ltable) {
-                                ltable = conn->ltable;
-                                conn->ltable = gf_lock_table_new ();
-                        }
-
-                        if (conn->fdtable) {
-                                fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
-                                                                       &fd_count);
-                        }
-                        do_cleanup = 1;
+                if (conn->ltable) {
+                        ltable = conn->ltable;
+                        conn->ltable = gf_lock_table_new ();
                 }
+
+                if (conn->fdtable)
+                        fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
+                                                               &fd_count);
         }
         pthread_mutex_unlock (&conn->lock);
 
-        if (do_cleanup && conn->bound_xl)
-                ret = do_connection_cleanup (this, conn, ltable, fdentries, fd_count);
+        if (conn->bound_xl)
+                ret = do_connection_cleanup (this, conn, ltable,
+                                             fdentries, fd_count);
 
 out:
         return ret;
@@ -814,7 +809,6 @@ server_connection_get (xlator_t *this, const char *id)
                 list_add (&conn->list, &conf->conns);
 
                 conn->ref++;
-                conn->active_transports++;
         }
 unlock:
         pthread_mutex_unlock (&conf->mutex);

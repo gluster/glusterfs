@@ -98,12 +98,14 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         struct iovec            rsp        = {0,};
         server_state_t         *state      = NULL;
         char                    new_iobref = 0;
+        server_connection_t    *conn  = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", req, ret);
 
         if (frame) {
                 state = CALL_STATE (frame);
                 frame->local = NULL;
+                conn  = SERVER_CONNECTION(frame);
         }
 
         if (!iobref) {
@@ -138,6 +140,8 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         iobuf_unref (iob);
         if (ret == -1) {
                 gf_log_callingfn ("", GF_LOG_ERROR, "Reply submission failed");
+                if (frame && conn)
+                        server_connection_cleanup (frame->this, conn);
                 goto ret;
         }
 
