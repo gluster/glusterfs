@@ -552,8 +552,21 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         int                    size_default = 0;
         int                    size_access = 0;
         mode_t                 retmode = 0;
+        int16_t                tmp_mode = 0;
+        mode_t                 client_umask = 0;
 
         retmode = mode;
+        ret = dict_get_int16 (params, "umask", &tmp_mode);
+        if (ret == 0) {
+                client_umask = (mode_t)tmp_mode;
+                ret = dict_get_int16 (params, "mode", &tmp_mode);
+                if (ret == 0) {
+                        retmode = (mode_t)tmp_mode;
+                } else {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "client sent umask, but not the original mode");
+                }
+        }
 
         ret = posix_acl_get (loc->parent, this, NULL, &par_default);
 
@@ -566,7 +579,8 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         if (!acl_access)
                 goto out;
 
-        retmode = posix_acl_inherit_mode (acl_access, mode);
+        client_umask = 0; // No umask if we inherit an ACL
+        retmode = posix_acl_inherit_mode (acl_access, retmode);
         ctx->perm = retmode;
 
         size_access = posix_acl_to_xattr (this, acl_access, NULL, 0);
@@ -615,6 +629,8 @@ set:
                 goto out;
 
 out:
+        retmode &= ~client_umask;
+
         if (par_default)
                 posix_acl_unref (this, par_default);
         if (acl_access)
