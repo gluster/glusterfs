@@ -113,6 +113,11 @@ struct syncargs {
         struct iobref      *iobref;
         char               *buffer;
 
+        /* some more _cbk needs */
+        uuid_t              uuid;
+        char               *errstr;
+        dict_t             *dict;
+
         /* do not touch */
         pthread_mutex_t     mutex;
         char                complete;

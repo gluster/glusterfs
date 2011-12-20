@@ -48,6 +48,8 @@
 #include "common-utils.h"
 #include "run.h"
 
+#include "syncop.h"
+
 #include "glusterd-mountbroker.h"
 
 static uuid_t glusterd_uuid;
@@ -966,6 +968,7 @@ init (xlator_t *this)
                 }
         }
 #endif
+
         this->private = conf;
         (void) glusterd_nodesvc_set_running ("glustershd", _gf_false);
         /* this->ctx->top = this;*/
