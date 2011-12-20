@@ -1385,6 +1385,7 @@ afr_sh_remove_entry_cbk (call_frame_t *frame, xlator_t *this, int child,
 void
 afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
                                   int child_index, struct iatt *buf,
+                                  struct iatt *parentbuf,
                                   afr_expunge_done_cbk_t expunge_done)
 {
         call_frame_t    *expunge_frame = NULL;
@@ -1408,7 +1409,8 @@ afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
         expunge_sh->sh_frame = frame;
         loc_copy (&expunge_local->loc, &local->loc);
         sh->expunge_done = expunge_done;
-        afr_sh_entry_expunge_remove (expunge_frame, this, child_index, buf);
+        afr_sh_entry_expunge_remove (expunge_frame, this, child_index, buf,
+                                     parentbuf);
         return;
 out:
         gf_log (this->name, GF_LOG_ERROR, "Expunge of %s failed, reason: %s",
@@ -1540,6 +1542,7 @@ afr_sh_purge_entry_common (call_frame_t *frame, xlator_t *this,
                         "on %d", local->loc.path, i);
                 afr_sh_call_entry_expunge_remove (frame, this,
                                                   (long) i, &sh->buf[i],
+                                                  &sh->parentbufs[i],
                                                   afr_sh_remove_entry_cbk);
         }
 out:
