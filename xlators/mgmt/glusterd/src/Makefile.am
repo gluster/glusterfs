@@ -6,7 +6,8 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c glusterd-op-sm
 	glusterd-utils.c glusterd-rpc-ops.c glusterd-store.c glusterd-handshake.c \
 	glusterd-pmap.c glusterd-volgen.c glusterd-rebalance.c glusterd-quota.c \
 	glusterd-geo-rep.c glusterd-replace-brick.c glusterd-log-ops.c \
-	glusterd-volume-ops.c glusterd-brick-ops.c glusterd-mountbroker.c
+	glusterd-volume-ops.c glusterd-brick-ops.c glusterd-mountbroker.c \
+	glusterd-syncop.c
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		     $(top_builddir)/rpc/xdr/src/libgfxdr.la \
@@ -14,7 +15,7 @@ glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 
 noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h glusterd-sm.h \
 	glusterd-store.h glusterd-mem-types.h glusterd-pmap.h glusterd-volgen.h \
-        glusterd-mountbroker.h
+        glusterd-mountbroker.h glusterd-syncop.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)\

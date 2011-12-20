@@ -46,6 +46,7 @@
 #include "protocol-common.h"
 #include "glusterd-pmap.h"
 #include "cli1-xdr.h"
+#include "syncop.h"
 
 #define GLUSTERD_MAX_VOLUME_NAME        1000
 #define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
@@ -123,6 +124,8 @@ typedef struct {
 #ifdef DEBUG
         gf_boolean_t      valgrind;
 #endif
+        pthread_t       brick_thread;
+        xlator_t       *xl;  /* Should be set to 'THIS' before creating thread */
 } glusterd_conf_t;
 
 typedef enum gf_brick_status {
@@ -627,5 +630,13 @@ int glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
 int glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags);
 int glusterd_op_statedump_volume_args_get (dict_t *dict, char **volname,
                                            char **options, int *option_cnt);
+
+/* Synctask part */
+int gd_sync_task_begin (void *data);
+int gd_sync_task_completion (int op_ret, call_frame_t *sync_frame, void *data);
+
+int32_t glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
+                                    void *dict);
+
 
 #endif

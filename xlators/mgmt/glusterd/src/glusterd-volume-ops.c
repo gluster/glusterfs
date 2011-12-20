@@ -252,7 +252,7 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
-        char                            *dup_volname = NULL;
+        char                            *volname = NULL;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_START_VOLUME;
 
@@ -280,17 +280,18 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
                 }
         }
 
-        ret = dict_get_str (dict, "volname", &dup_volname);
+        ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "dict get failed");
                 goto out;
         }
 
         gf_log ("glusterd", GF_LOG_INFO, "Received start vol req"
-                "for volume %s", dup_volname);
-        ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
+                "for volume %s", volname);
 
-        gf_cmd_log ("volume start","on volname: %s %s", dup_volname,
+        ret = glusterd_op_begin_synctask (req, GD_OP_START_VOLUME, dict);
+
+        gf_cmd_log ("volume start","on volname: %s %s", volname,
                     ((ret == 0) ? "SUCCESS": "FAILED"));
 
 out:

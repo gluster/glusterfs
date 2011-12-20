@@ -149,7 +149,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                     " dst_brick:%s op:%s", volname, src_brick, dst_brick,
                     operation);
 
-        ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict);
+        ret = glusterd_op_begin_synctask (req, GD_OP_REPLACE_BRICK, dict);
         gf_cmd_log ("Volume replace-brick","on volname: %s %s", volname,
                    (ret) ? "FAILED" : "SUCCESS");
 

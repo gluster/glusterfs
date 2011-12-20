@@ -1244,12 +1244,12 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
         runner_log (&runner, "", GF_LOG_DEBUG, "Starting GlusterFS");
         ret = runner_run (&runner);
+        if (ret)
+                goto out;
 
-        if (ret == 0) {
-                //pmap_registry_bind (THIS, port, brickinfo->path);
-                brickinfo->port = port;
-                brickinfo->rdma_port = rdma_port;
-        }
+        //pmap_registry_bind (THIS, port, brickinfo->path);
+        brickinfo->port = port;
+        brickinfo->rdma_port = rdma_port;
 
 connect:
         ret = glusterd_brick_connect (volinfo, brickinfo);
@@ -3213,18 +3213,23 @@ out:
         return ret;
 }
 
-int
-glusterd_restart_bricks (glusterd_conf_t *conf)
+void *
+glusterd_brick_restart_proc (void *data)
 {
-        glusterd_volinfo_t       *volinfo = NULL;
-        glusterd_brickinfo_t     *brickinfo = NULL;
-        int                      ret = 0;
-        gf_boolean_t             start_nodesvcs = _gf_false;
+        glusterd_conf_t      *conf           = NULL;
+        glusterd_volinfo_t   *volinfo        = NULL;
+        glusterd_brickinfo_t *brickinfo      = NULL;
+        gf_boolean_t          start_nodesvcs = _gf_false;
+
+        conf = data;
 
         GF_ASSERT (conf);
 
+        /* set the proper 'THIS' value as it is new thread */
+        THIS = conf->xl;
+
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                //If volume status is not started, do not proceed
+                /* If volume status is not started, do not proceed */
                 if (volinfo->status == GLUSTERD_STATUS_STARTED) {
                         list_for_each_entry (brickinfo, &volinfo->bricks,
                                              brick_list) {
@@ -3233,8 +3238,28 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         start_nodesvcs = _gf_true;
                 }
         }
+
         if (start_nodesvcs)
                 glusterd_nodesvcs_handle_graph_change (NULL);
+
+        return NULL;
+}
+
+int
+glusterd_restart_bricks (glusterd_conf_t *conf)
+{
+        int ret = 0;
+
+        conf->xl = THIS;
+        ret = pthread_create (&conf->brick_thread, NULL,
+                              glusterd_brick_restart_proc,
+                              conf);
+        if (ret != 0) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "pthread_create() failed (%s)",
+                        strerror (errno));
+        }
+
         return ret;
 }
 
@@ -3254,7 +3279,6 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         else
                 return;
         uuid_len = (slave - value->data - 1);
-
 
         strncpy (uuid_str, (char*)value->data, uuid_len);
         glusterd_start_gsync (volinfo, slave, uuid_str, NULL);

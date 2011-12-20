@@ -307,8 +307,6 @@ out:
         return ret;
 }
 
-
-
 /* Handler functions */
 int
 glusterd_handle_add_brick (rpcsvc_request_t *req)
@@ -496,7 +494,7 @@ brick_val:
                                 "failed to set the new type in dict");
         }
 
-        ret = glusterd_op_begin (req, GD_OP_ADD_BRICK, dict);
+        ret = glusterd_op_begin_synctask (req, GD_OP_ADD_BRICK, dict);
 
 out:
         gf_cmd_log ("Volume add-brick","on volname: %s %s", volname,
