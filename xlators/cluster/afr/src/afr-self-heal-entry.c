@@ -475,7 +475,8 @@ afr_sh_entry_expunge_rmdir (call_frame_t *expunge_frame, xlator_t *this,
 
 int
 afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
-                             int active_src, struct iatt *buf)
+                             int active_src, struct iatt *buf,
+                             struct iatt *parentbuf)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *expunge_local = NULL;
@@ -484,6 +485,7 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
         int              type = 0;
         afr_self_heal_t *sh            = NULL;
         afr_local_t     *local         = NULL;
+        loc_t           *loc           = NULL;
 
         priv = this->private;
         expunge_local = expunge_frame->local;
@@ -491,8 +493,11 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
         frame = expunge_sh->sh_frame;
         local         = frame->local;
         sh            = &local->self_heal;
+        loc           = &expunge_local->loc;
 
         type = buf->ia_type;
+        if (loc->parent && uuid_is_null (loc->parent->gfid))
+                uuid_copy (loc->pargfid, parentbuf->ia_gfid);
 
         switch (type) {
         case IA_IFSOCK:
@@ -556,7 +561,8 @@ afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
                 goto out;
         }
 
-        afr_sh_entry_expunge_remove (expunge_frame, this, active_src, buf);
+        afr_sh_entry_expunge_remove (expunge_frame, this, active_src, buf,
+                                     postparent);
 
         return 0;
 out:

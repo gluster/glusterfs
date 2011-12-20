@@ -97,7 +97,8 @@ afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                       int32_t flags);
 int
 afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
-                             int active_src, struct iatt *buf);
+                             int active_src, struct iatt *buf,
+                             struct iatt *parentbuf);
 int
 afr_sh_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 char *base_name, afr_lock_cbk_t lock_cbk);
