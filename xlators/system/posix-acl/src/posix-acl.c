@@ -1944,6 +1944,30 @@ err:
 int
 fini (xlator_t *this)
 {
+        struct posix_acl_conf   *conf = NULL;
+        struct posix_acl        *minacl = NULL;
+
+        conf = this->private;
+        if (!conf)
+                return 0;
+        this->private = NULL;
+
+        minacl = conf->minimal_acl;
+
+        LOCK (&conf->acl_lock);
+        {
+                conf->minimal_acl = NULL;
+        }
+        UNLOCK (&conf->acl_lock);
+
+        LOCK_DESTROY (&conf->acl_lock);
+
+        if (minacl)
+                GF_FREE (minacl);
+
+        if (conf)
+                GF_FREE (conf);
+
         return 0;
 }
 
