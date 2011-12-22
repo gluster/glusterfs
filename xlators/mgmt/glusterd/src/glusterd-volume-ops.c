@@ -965,7 +965,6 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
         char                                    *volname = NULL;
-        gf_boolean_t                            exists  = _gf_false;
         gf_boolean_t                            enabled = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    msg[2048];
@@ -974,18 +973,9 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
 
         priv = THIS->private;
         if (!priv) {
+                ret = -1;
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "priv is NULL");
-                ret = -1;
-                goto out;
-        }
-
-        if (!glusterd_shd_is_running ()) {
-                ret = -1;
-                snprintf (msg, sizeof (msg), "Self-heal daemon is not "
-                          "running.");
-                *op_errstr = gf_strdup (msg);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 goto out;
         }
 
@@ -995,38 +985,30 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        exists = glusterd_check_volume_exists (volname);
-
-        if (!exists) {
-                snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
-                gf_log ("", GF_LOG_ERROR, "%s",
-                        msg);
-                *op_errstr = gf_strdup (msg);
-                ret = -1;
-        } else {
-                ret = 0;
-        }
-
         ret  = glusterd_volinfo_find (volname, &volinfo);
-
-        if (ret)
-                goto out;
-
-        if (!glusterd_is_volume_started (volinfo)) {
-                snprintf (msg, sizeof (msg), "Volume %s is not started.",
-                          volname);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+        if (ret) {
                 ret = -1;
+                snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
                 goto out;
         }
 
         if (!glusterd_is_volume_replicate (volinfo)) {
-                snprintf (msg, sizeof (msg), "Volume %s is not of type."
-                          "replicate", volname);
+                ret = -1;
+                snprintf (msg, sizeof (msg), "Volume %s is not a replicate "
+                          "type volume", volname);
+                *op_errstr = gf_strdup (msg);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                goto out;
+        }
+
+        if (!glusterd_is_volume_started (volinfo)) {
+                ret = -1;
+                snprintf (msg, sizeof (msg), "Volume %s is not started.",
+                          volname);
                 gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 *op_errstr = gf_strdup (msg);
-                ret = -1;
                 goto out;
         }
 
@@ -1039,12 +1021,21 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         enabled = dict_get_str_boolean (opt_dict, "cluster.self-heal-daemon",
                                         1);
         if (!enabled) {
+                ret = -1;
                 snprintf (msg, sizeof (msg), "Self-heal-daemon is "
                           "disabled. Heal will not be triggered on volume %s",
                           volname);
                 gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        if (!glusterd_shd_is_running ()) {
                 ret = -1;
+                snprintf (msg, sizeof (msg), "Self-heal daemon is not "
+                          "running. Check self-heal daemon log file.");
+                *op_errstr = gf_strdup (msg);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 goto out;
         }
 
