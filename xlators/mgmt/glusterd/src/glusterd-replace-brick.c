@@ -317,7 +317,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
                         "for the volume %s ", volname);
                 snprintf (msg, sizeof(msg), GEOREP" sessions are active "
-                                "for the volume %s.\nStop "GEOREP "sessions "
+                                "for the volume %s.\nStop "GEOREP " sessions "
                                 "involved in this volume. Use 'volume "GEOREP
                                 " status' command for more info.",
                                 volname);
@@ -473,7 +473,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
 
         if (glusterd_rb_check_bricks (volinfo, src_brickinfo, dst_brickinfo)) {
                 gf_log ("", GF_LOG_ERROR, "replace brick: incorrect source or"
-                       "  destination bricks specified");
+                       " destination bricks specified");
                 ret = -1;
                 goto out;
        }
@@ -625,7 +625,7 @@ rb_send_xattr_command (glusterd_volinfo_t *volinfo,
         ret = stat (mount_point_path, &buf);
          if (ret) {
                  gf_log ("", GF_LOG_DEBUG,
-                         "stat failed. Could not send "
+                         "stat failed. Could not send"
                          " %s command", xattr_key);
                  goto out;
          }
@@ -1281,7 +1281,7 @@ rb_get_xattr_command (glusterd_volinfo_t *volinfo,
        ret = stat (mount_point_path, &buf);
          if (ret) {
                  gf_log ("", GF_LOG_DEBUG,
-                         "stat failed. Could not send "
+                         "stat failed. Could not send"
                          " %s command", xattr_key);
                  goto out;
          }
@@ -1805,7 +1805,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 if (ret)
                                         gf_log (THIS->name, GF_LOG_ERROR,
                                                 "failed to set pump status"
-                                                "in ctx");
+                                                " in ctx");
                                 goto out;
                         }
 
