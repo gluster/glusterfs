@@ -2544,6 +2544,12 @@ void
 fini (xlator_t *this)
 {
         struct ios_conf *conf = NULL;
+        struct ios_stat_head *list_head = NULL;
+        struct ios_stat_list *entry     = NULL;
+        struct ios_stat_list *tmp       = NULL;
+        struct ios_stat_list *list      = NULL;
+        struct ios_stat      *stat      = NULL;
+        int    i                        = 0;
 
         if (!this)
                 return;
@@ -2554,7 +2560,38 @@ fini (xlator_t *this)
                 return;
         this->private = NULL;
 
-        GF_FREE(conf);
+        for (i = 0; i < IOS_STATS_TYPE_MAX; i++) {
+                list_head = &conf->list[i];
+                if (!list_head)
+                        continue;
+                list_for_each_entry_safe (entry, tmp,
+                                          &list_head->iosstats->list, list) {
+                        list = entry;
+                        stat = list->iosstat;
+                        ios_stat_unref (stat);
+                        list_del (&list->list);
+                        if (list)
+                                GF_FREE (list);
+                }
+        }
+
+        for (i = 0; i < IOS_STATS_THRU_MAX; i++) {
+                list_head = &conf->thru_list[i];
+                if (!list_head)
+                        continue;
+                list_for_each_entry_safe (entry, tmp,
+                                          &list_head->iosstats->list, list) {
+                        list = entry;
+                        stat = list->iosstat;
+                        ios_stat_unref (stat);
+                        list_del (&list->list);
+                        if (list)
+                                GF_FREE (list);
+                }
+        }
+
+        if (conf)
+                GF_FREE(conf);
 
         gf_log (this->name, GF_LOG_INFO,
                 "io-stats translator unloaded");
