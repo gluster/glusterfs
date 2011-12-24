@@ -5640,6 +5640,118 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_clearlocks_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                                  int count, void *myframe)
+{
+        gf_cli_rsp                      rsp = {0,};
+        int                             ret = -1;
+        char                            *lk_summary = NULL;
+        char                            *volname = NULL;
+        dict_t                          *dict = NULL;
+
+        if (-1 == req->rpc_status)
+                goto out;
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+
+                gf_log ("cli", GF_LOG_ERROR, "XDR decoding failed");
+                goto out;
+        }
+        gf_log ("cli", GF_LOG_DEBUG, "Received response to clear-locks");
+
+        if (rsp.op_ret) {
+                cli_out ("Volume clear-locks unsuccessful");
+                cli_out ("%s", rsp.op_errstr);
+
+        } else {
+                if (!rsp.dict.dict_len) {
+                        cli_out ("Possibly no locks cleared");
+                        ret = 0;
+                        goto out;
+                }
+
+                dict = dict_new ();
+
+                if (!dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (rsp.dict.dict_val,
+                                        rsp.dict.dict_len,
+                                        &dict);
+
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Unable to serialize response dictionary");
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, "volname", &volname);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Unable to get volname "
+                                "from dictionary");
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, "lk-summary", &lk_summary);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Unable to get lock "
+                                "summary from dictionary");
+                        goto out;
+                }
+                cli_out ("Volume clear-locks successful");
+                cli_out ("%s", lk_summary);
+
+        }
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_clearlocks_volume (call_frame_t *frame, xlator_t *this,
+                             void *data)
+{
+        gf_cli_req                      req = {{0,}};
+        dict_t                          *options = NULL;
+        int                             ret = -1;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        options = data;
+
+        ret = dict_allocate_and_serialize (options,
+                                           &req.dict.dict_val,
+                                           (size_t *)&req.dict.dict_len);
+        if (ret < 0) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "failed to serialize the data");
+
+                goto out;
+        }
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_CLRLOCKS_VOLUME, NULL,
+                              this, gf_cli3_1_clearlocks_volume_cbk,
+                              (xdrproc_t)xdr_gf_cli_req);
+
+out:
+        if (options)
+                dict_destroy (options);
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        if (req.dict.dict_val)
+                GF_FREE (req.dict.dict_val);
+        return ret;
+}
+
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
         [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli3_1_probe},
@@ -5675,6 +5787,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_HEAL_VOLUME]      = {"HEAL_VOLUME", gf_cli3_1_heal_volume},
         [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", gf_cli3_1_statedump_volume},
         [GLUSTER_CLI_LIST_VOLUME]      = {"LIST_VOLUME", gf_cli3_1_list_volume},
+        [GLUSTER_CLI_CLRLOCKS_VOLUME]  = {"CLEARLOCKS_VOLUME", gf_cli3_1_clearlocks_volume},
 };
 
 struct rpc_clnt_program cli_prog = {

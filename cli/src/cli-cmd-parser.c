@@ -2032,3 +2032,67 @@ out:
                 gf_log ("cli", GF_LOG_ERROR, "Error parsing dumpoptions");
         return ret;
 }
+
+int
+cli_cmd_volume_clrlks_opts_parse (const char **words, int wordcount,
+                                  dict_t **options)
+{
+        int     ret = -1;
+        int     i = 0;
+        dict_t  *dict = NULL;
+        char    *kind_opts[4] = {"blocked", "granted", "all", NULL};
+        char    *types[4] = {"inode", "entry", "posix", NULL};
+        char    *free_ptr = NULL;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (strcmp (words[4], "kind"))
+                goto out;
+
+        for (i = 0; kind_opts[i]; i++) {
+               if (!strcmp (words[5], kind_opts[i])) {
+                       free_ptr = gf_strdup (words[5]);
+                       ret = dict_set_dynstr (dict, "kind", free_ptr);
+                       if (ret)
+                               goto out;
+                       free_ptr = NULL;
+                       break;
+               }
+        }
+        if (i == 3)
+                goto out;
+
+        ret = -1;
+        for (i = 0; types[i]; i++) {
+               if (!strcmp (words[6], types[i])) {
+                       free_ptr = gf_strdup (words[6]);
+                       ret = dict_set_dynstr (dict, "type", free_ptr);
+                       if (ret)
+                               goto out;
+                       free_ptr = NULL;
+                       break;
+               }
+        }
+        if (i == 3)
+                goto out;
+
+        if (wordcount == 8) {
+                free_ptr = gf_strdup (words[7]);
+                ret = dict_set_dynstr (dict, "opts", free_ptr);
+                if (ret)
+                        goto out;
+                free_ptr = NULL;
+        }
+
+        ret = 0;
+        *options = dict;
+out:
+       if (ret) {
+               GF_FREE (free_ptr);
+               dict_unref (dict);
+       }
+
+       return ret;
+}

@@ -2871,25 +2871,6 @@ generate_single_transport_client_volfile (glusterd_volinfo_t *volinfo,
         return ret;
 }
 
-void
-get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo, gf_transport_type type)
-{
-        char  path[PATH_MAX] = {0,};
-        glusterd_conf_t *priv = NULL;
-
-        priv = THIS->private;
-
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-
-        if ((volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) &&
-            (type == GF_TRANSPORT_RDMA))
-                snprintf (filepath, PATH_MAX, "%s/%s.rdma-fuse.vol",
-                          path, volinfo->volname);
-        else
-                snprintf (filepath, PATH_MAX, "%s/%s-fuse.vol",
-                          path, volinfo->volname);
-}
-
 static void
 enumerate_transport_reqs (gf_transport_type type, char **types)
 {
@@ -2927,7 +2908,7 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo)
                 if (ret)
                         goto out;
                 type = transport_str_to_type (types[i]);
-                get_client_filepath (filepath, volinfo, type);
+                glusterd_get_client_filepath (filepath, volinfo, type);
                 ret = generate_single_transport_client_volfile (volinfo,
                                                                 filepath,
                                                                 dict);

@@ -219,6 +219,9 @@ cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options)
 int32_t
 cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
                                         dict_t **options);
+int32_t
+cli_cmd_volume_clrlks_opts_parse (const char **words, int wordcount,
+                                  dict_t **options);
 
 cli_local_t * cli_local_get ();
 

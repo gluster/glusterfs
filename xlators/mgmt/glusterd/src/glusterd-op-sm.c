@@ -1616,6 +1616,7 @@ glusterd_op_build_payload (dict_t **req)
                 case GD_OP_REBALANCE:
                 case GD_OP_HEAL_VOLUME:
                 case GD_OP_STATEDUMP_VOLUME:
+                case GD_OP_CLEARLOCKS_VOLUME:
                         {
                                 dict_t  *dict = ctx;
                                 dict_copy (dict, req_dict);
@@ -2219,8 +2220,16 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         rsp_dict = glusterd_op_init_commit_rsp_dict (req_ctx->op);
         if (NULL == rsp_dict)
                 return -1;
-        status = glusterd_op_commit_perform (req_ctx->op, dict, &op_errstr,
-                                             rsp_dict);
+
+        if (GD_OP_CLEARLOCKS_VOLUME == req_ctx->op) {
+                /*clear locks should be run only on
+                 * originator glusterd*/
+                status = 0;
+
+        } else {
+                status = glusterd_op_commit_perform (req_ctx->op, dict,
+                                                     &op_errstr, rsp_dict);
+        }
 
         if (status) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Commit failed: %d", status);
@@ -2370,6 +2379,10 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_statedump_volume (dict,
                                                                   op_errstr);
                         break;
+                case GD_OP_CLEARLOCKS_VOLUME:
+                        ret = glusterd_op_stage_clearlocks_volume (dict,
+                                                                   op_errstr);
+                        break;
 
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
@@ -2460,6 +2473,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                 case GD_OP_STATEDUMP_VOLUME:
                         ret = glusterd_op_statedump_volume (dict, op_errstr);
+                        break;
+
+                case GD_OP_CLEARLOCKS_VOLUME:
+                        ret = glusterd_op_clearlocks_volume (dict, op_errstr);
                         break;
 
                 default:
@@ -3740,6 +3757,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_REBALANCE:
                 case GD_OP_HEAL_VOLUME:
                 case GD_OP_STATEDUMP_VOLUME:
+                case GD_OP_CLEARLOCKS_VOLUME:
                         dict_unref (ctx);
                         break;
                 default:

@@ -386,4 +386,7 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid);
 
 gf_boolean_t
 glusterd_chk_peers_connected_befriended (uuid_t skip_uuid);
+void
+glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
+                              gf_transport_type type);
 #endif

@@ -23,6 +23,7 @@
 #endif
 
 #include "common-utils.h"
+#include "syscall.h"
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 #include "glusterd.h"
@@ -1098,6 +1099,73 @@ out:
 }
 
 int
+glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr)
+{
+        int                     ret = -1;
+        char                    *volname = NULL;
+        char                    *path    = NULL;
+        char                    *type    = NULL;
+        char                    *kind    = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        char                    msg[2048] = {0,};
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Failed to get volume name");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "path", &path);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Failed to get path");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "kind", &kind);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Failed to get kind");
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "type", &type);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Failed to get type");
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Volume %s does not exist",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        if (!glusterd_is_volume_started (volinfo)) {
+                snprintf (msg, sizeof(msg), "Volume %s is not started",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+
+int
 glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 {
         int                   ret        = 0;
@@ -1431,3 +1499,328 @@ out:
         return ret;
 }
 
+int
+glusterd_clearlocks_send_cmd (glusterd_volinfo_t *volinfo, char *cmd,
+                              char *path, char *result, char *errstr,
+                              int err_len, char *mntpt)
+{
+        int               ret                   = -1;
+        glusterd_conf_t  *priv                  = NULL;
+
+        priv = THIS->private;
+
+        ret = sys_lgetxattr (mntpt, cmd, result, PATH_MAX);
+        if (ret < 0) {
+                snprintf (errstr, err_len, "clear-locks getxattr command "
+                          "failed. Reason: %s", strerror (errno));
+                gf_log (THIS->name, GF_LOG_DEBUG, "%s", errstr);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_clearlocks_rmdir_mount (glusterd_volinfo_t *volinfo, char *mntpt)
+{
+        int              ret               = -1;
+        glusterd_conf_t *priv              = NULL;
+
+        priv = THIS->private;
+
+        ret = rmdir (mntpt);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "rmdir failed");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+void
+glusterd_clearlocks_unmount (glusterd_volinfo_t *volinfo, char *mntpt)
+{
+        glusterd_conf_t  *priv               = NULL;
+        runner_t          runner             = {0,};
+        int               ret                = 0;
+
+        priv = THIS->private;
+
+        /*umount failures are ignored. Using stat we could have avoided
+         * attempting to unmount a non-existent filesystem. But a failure of
+         * stat() on mount can be due to network failures.*/
+
+        runinit (&runner);
+        runner_add_args (&runner, "/bin/umount", "-f", NULL);
+        runner_argprintf (&runner, "%s", mntpt);
+
+        ret = runner_run (&runner);
+        if (ret) {
+                ret = 0;
+                gf_log ("", GF_LOG_DEBUG,
+                        "umount failed on maintenance client");
+        }
+
+        return;
+}
+
+int
+glusterd_clearlocks_create_mount (glusterd_volinfo_t *volinfo, char **mntpt)
+{
+        int              ret                    = -1;
+        glusterd_conf_t *priv                   = NULL;
+        char             template[PATH_MAX]     = {0,};
+        char            *tmpl                   = NULL;
+
+        priv = THIS->private;
+
+        snprintf (template, sizeof (template), "/tmp/%s.XXXXXX",
+                  volinfo->volname);
+        tmpl = mkdtemp (template);
+        if (!tmpl) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "Couldn't create temporary "
+                        "mount directory. Reason %s", strerror (errno));
+                goto out;
+        }
+
+        *mntpt = gf_strdup (tmpl);
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_clearlocks_mount (glusterd_volinfo_t *volinfo, char **xl_opts,
+                           char *mntpt)
+{
+        int             ret                             = -1;
+        int             i                               = 0;
+        glusterd_conf_t *priv                           = NULL;
+        runner_t        runner                          = {0,};
+        char            client_volfpath[PATH_MAX]       = {0,};
+
+        priv = THIS->private;
+
+        runinit (&runner);
+        glusterd_get_client_filepath (client_volfpath, volinfo,
+                                      volinfo->transport_type);
+        runner_add_args (&runner, SBIN_DIR"/glusterfs", "-f", NULL);
+        runner_argprintf (&runner, "%s", client_volfpath);
+
+        for (i = 0; i < volinfo->brick_count && xl_opts[i]; i++) {
+                runner_add_arg (&runner, "--xlator-option");
+                runner_argprintf (&runner, "%s", xl_opts[i]);
+        }
+
+        runner_argprintf (&runner, "%s", mntpt);
+        ret = runner_run (&runner);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "Could not start glusterfs");
+                goto out;
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG,
+                "Started glusterfs successfully");
+
+out:
+        return ret;
+}
+
+int
+glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
+                                            char **xl_opts)
+{
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+        glusterd_conf_t         *priv           = NULL;
+        int                     index           = 0;
+        int                     ret             = -1;
+        int                     i               = 0;
+        int                     port            = 0;
+
+        GF_ASSERT (xl_opts);
+        if (!xl_opts) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "Should pass non-NULL "
+                        "xl_opts");
+                goto out;
+        }
+
+        priv = THIS->private;
+
+        index = -1;
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                index++;
+                if (uuid_compare (brickinfo->uuid, priv->uuid))
+                        continue;
+
+                port = pmap_registry_search (THIS, brickinfo->path,
+                                             GF_PMAP_PORT_BRICKSERVER);
+                if (!port) {
+                        ret = -1;
+                        gf_log (THIS->name, GF_LOG_DEBUG, "Couldn't get port "
+                                " for brick %s:%s", brickinfo->hostname,
+                                brickinfo->path);
+                        goto out;
+                }
+
+                ret = gf_asprintf (&xl_opts[i], "%s-client-%d.remote-port=%d",
+                                   volinfo->volname, index, port);
+                if (ret == -1) {
+                        xl_opts[i] = NULL;
+                        goto out;
+                }
+                i++;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr)
+{
+        int32_t                         ret                 = -1;
+        int                             i                   = 0;
+        char                            *volname            = NULL;
+        char                            *path               = NULL;
+        char                            *kind               = NULL;
+        char                            *type               = NULL;
+        char                            *opts               = NULL;
+        char                            *cmd_str            = NULL;
+        char                            *free_ptr           = NULL;
+        char                            msg[PATH_MAX]       = {0,};
+        char                            result[PATH_MAX]    = {0,};
+        char                            *mntpt              = NULL;
+        char                            **xl_opts           = NULL;
+        dict_t                          *ctx                = NULL;
+        glusterd_volinfo_t              *volinfo            = NULL;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get volume name");
+                goto out;
+        }
+        gf_log ("", GF_LOG_DEBUG, "Performing clearlocks on volume %s", volname);
+
+        ret = dict_get_str (dict, "path", &path);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get path");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "kind", &kind);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get kind");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "type", &type);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get type");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "opts", &opts);
+        if (ret)
+                ret = 0;
+
+        gf_log (THIS->name, GF_LOG_INFO, "Received clear-locks request for "
+                "volume %s with kind %s type %s and options %s", volname,
+                kind, type, opts);
+
+        if (opts)
+                ret = gf_asprintf (&cmd_str, GF_XATTR_CLRLK_CMD".t%s.k%s.%s",
+                                   type, kind, opts);
+        else
+                ret = gf_asprintf (&cmd_str, GF_XATTR_CLRLK_CMD".t%s.k%s",
+                                   type, kind);
+        if (ret == -1)
+                goto out;
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Volume %s doesn't exist.",
+                          volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                goto out;
+        }
+
+        xl_opts = GF_CALLOC (volinfo->brick_count+1, sizeof (char*),
+                             gf_gld_mt_charptr);
+        if (!xl_opts)
+                goto out;
+
+        ret = glusterd_clearlocks_get_local_client_ports (volinfo, xl_opts);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Couldn't get port numbers of "
+                          "local bricks");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                goto out;
+        }
+
+        ret = glusterd_clearlocks_create_mount (volinfo, &mntpt);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Creating mount directory "
+                          "for clear-locks failed.");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                goto out;
+        }
+
+        ret = glusterd_clearlocks_mount (volinfo, xl_opts, mntpt);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Failed to mount clear-locks "
+                          "maintenance client.");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                goto out;
+        }
+
+        ret = glusterd_clearlocks_send_cmd (volinfo, cmd_str, path, result,
+                                            msg, sizeof (msg), mntpt);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                goto umount;
+        }
+
+        ctx = glusterd_op_get_ctx ();
+        if (!ctx)
+                /*Impossible. Only originator glusterd can
+                 * come here. */
+                goto umount;
+
+        free_ptr = gf_strdup(result);
+        if (dict_set_dynstr (ctx, "lk-summary", free_ptr)) {
+                GF_FREE (free_ptr);
+                snprintf (msg, sizeof (msg), "Failed to set clear-locks "
+                          "result");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+        }
+
+umount:
+        glusterd_clearlocks_unmount (volinfo, mntpt);
+
+        if (glusterd_clearlocks_rmdir_mount (volinfo, mntpt))
+                gf_log (THIS->name, GF_LOG_WARNING, "Couldn't unmount "
+                        "clear-locks mount point");
+
+out:
+        if (ret)
+                *op_errstr = gf_strdup (msg);
+
+        if (xl_opts) {
+                for (i = 0; i < volinfo->brick_count && xl_opts[i]; i++)
+                        GF_FREE (xl_opts[i]);
+                GF_FREE (xl_opts);
+        }
+
+        if (cmd_str)
+                GF_FREE (cmd_str);
+
+        if (mntpt)
+                GF_FREE (mntpt);
+
+        return ret;
+}
