@@ -78,6 +78,7 @@ typedef enum glusterd_op_ {
         GD_OP_HEAL_VOLUME,
         GD_OP_STATEDUMP_VOLUME,
         GD_OP_LIST_VOLUME,
+        GD_OP_CLEARLOCKS_VOLUME,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -537,6 +538,7 @@ int32_t glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx);
 /* removed other definitions as they have been defined elsewhere in this file*/
 
 int glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req);
+int glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req);
 
 int glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                                   size_t len, int cmd, defrag_cbk_fn_t cbk);
@@ -575,6 +577,9 @@ int glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 
 int glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_statedump_volume (dict_t *dict, char **op_errstr);
+
+int glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr);
 
 /* misc */
 void glusterd_do_replace_brick (void *data);

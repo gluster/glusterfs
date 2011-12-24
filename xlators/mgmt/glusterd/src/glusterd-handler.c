@@ -2622,6 +2622,73 @@ out:
 }
 
 int
+glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf_cli_req                      cli_req = {{0,}};
+        glusterd_op_t                   cli_op = GD_OP_CLEARLOCKS_VOLUME;
+        char                            *volname = NULL;
+        dict_t                          *dict = NULL;
+
+        GF_ASSERT (req);
+
+        ret = -1;
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf_cli_req)) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to unserialize req-buffer to"
+                                " dictionary");
+                        goto out;
+                }
+
+        } else {
+                ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "Empty cli request.");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+                goto out;
+        }
+
+        gf_log (THIS->name, GF_LOG_INFO, "Received clear-locks volume req "
+                "for volume %s", volname);
+
+        ret = glusterd_op_begin (req, cli_op, dict);
+
+        gf_cmd_log ("clear-locks", "on volume %s %s", volname,
+                    ((0 == ret) ? "SUCCEEDED" : "FAILED"));
+
+out:
+        if (ret && dict)
+                dict_unref (dict);
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret)
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     NULL, "operation failed");
+        if (cli_req.dict.dict_val)
+                free (cli_req.dict.dict_val);
+
+        return ret;
+}
+
+int
 glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event,
                           void *data)
@@ -2898,6 +2965,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_HEAL_VOLUME]  = { "HEAL_VOLUME", GLUSTER_CLI_HEAL_VOLUME, glusterd_handle_cli_heal_volume, NULL, NULL, 0},
         [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", GLUSTER_CLI_STATEDUMP_VOLUME, glusterd_handle_cli_statedump_volume, NULL, NULL, 0},
         [GLUSTER_CLI_LIST_VOLUME] = {"LIST_VOLUME", GLUSTER_CLI_LIST_VOLUME, glusterd_handle_cli_list_volume, NULL, NULL, 0},
+        [GLUSTER_CLI_CLRLOCKS_VOLUME] = {"CLEARLOCKS_VOLUME", GLUSTER_CLI_CLRLOCKS_VOLUME, glusterd_handle_cli_clearlocks_volume, NULL, NULL, 0},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {
