@@ -1,4 +1,4 @@
-# if you make changes, the it is advised to increment this number, and provide 
+# if you make changes, the it is advised to increment this number, and provide
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
 %define release 1%{?dist}
@@ -35,7 +35,7 @@ Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
 Requires(postun): /sbin/service
 
-BuildRequires: bison flex 
+BuildRequires: bison flex
 BuildRequires: gcc make
 %if 0%{?suse_version}
 BuildRequires: python-devel
@@ -52,7 +52,7 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
 %package core
-Summary: GlusterFS common files for both the client and the server 
+Summary: GlusterFS common files for both the client and the server
 Group: System Environment/Libraries
 Obsoletes: glusterfs-libs <= 2.0.0 glusterfs-common < 3.1.0 glusterfs-server < 3.1.0
 Provides: glusterfs-libs = %{version}-%{release}
@@ -93,7 +93,7 @@ This package provides support to ib-verbs library.
 %package geo-replication
 Summary: GlusterFS Geo-replication
 Group: Applications/File
-Requires: glusterfs-core >= %{version}-%{release} , python-ctypes , rsync >= 3.0.7
+Requires: glusterfs-core >= %{version}-%{release} , python-ctypes , rsync >= 3.0.0
 
 %description geo-replication
 GlusterFS is a clustered file-system capable of scaling to several
@@ -138,7 +138,7 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 
 
 %install
-%{__rm} -rf %{buildroot} 
+%{__rm} -rf %{buildroot}
 %{__make} install DESTDIR=%{buildroot}
 %{__mkdir_p} %{buildroot}/usr/sbin
 %{__mkdir_p} %{buildroot}/usr/local/libexec/glusterfs
@@ -176,10 +176,10 @@ echo "%{_prefix}/lib" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/glusterfs.conf
 
 if [ -d /etc/glusterd/vols ]; then
 #for each dir under vols, backup non-fuse .vol files  as .Vol.old
-for file in `find /etc/glusterd/vols -type f ! -name *-fuse.vol `; 
+for file in `find /etc/glusterd/vols -type f ! -name *-fuse.vol `;
 do
-grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old 
-done 
+grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old
+done
 fi
 
 pidof -c -o %PPID -x glusterd &> /dev/null
@@ -200,7 +200,7 @@ fi
 /sbin/ldconfig -n %{_libdir}
 
 %preun core
-if [ $1 -eq 0 ]; then 
+if [ $1 -eq 0 ]; then
     /sbin/chkconfig --del glusterd
 fi
 
@@ -209,7 +209,7 @@ fi
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
 %doc %{_datadir}/doc/glusterfs
 %if 0%{?_with_fusermount:1}
-%{_bindir}/fusermount-glusterfs 
+%{_bindir}/fusermount-glusterfs
 %endif
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
@@ -265,11 +265,11 @@ fi
 %changelog
 * Wed Jul 01 2009 Harshavardhana <harsha@gluster.com> - 2.1
 - Removed mod_glusterfs.so and added new --without epoll build
-  option. 
+  option.
 
 * Thu Apr 16 2009 Harshavardhana <harsha@gluster.com> - 2.0
 - Galore of updates including new packages added common,
-  client,server splitting the original package. rpmbuild 
-  fully restructured to adhere to Fedora rpm standards. 
-  Older changelog removed as there were warnings when 
-  tried with 'rpmlint'. 
+  client,server splitting the original package. rpmbuild
+  fully restructured to adhere to Fedora rpm standards.
+  Older changelog removed as there were warnings when
+  tried with 'rpmlint'.
