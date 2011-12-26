@@ -478,7 +478,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
                                       sh->success_children,
-                                      AFR_METADATA_TRANSACTION);
+                                      AFR_METADATA_TRANSACTION, NULL, _gf_false);
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "No self-heal needed for %s",

@@ -1598,7 +1598,7 @@ afr_sh_need_recreate (afr_self_heal_t *impunge_sh, int *sources,
         GF_ASSERT (sources);
 
         success_children = impunge_sh->success_children;
-        if (sources[child] || (child == impunge_sh->active_source)) {
+        if (child == impunge_sh->active_source) {
                 GF_ASSERT (afr_is_child_present (success_children,
                                                  child_count, child));
                 goto out;
@@ -2115,8 +2115,8 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this,
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
         int              source = 0;
-
-        int nsources = 0;
+        int              nsources = 0;
+        int32_t          subvol_status = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -2137,23 +2137,31 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this,
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
                                       sh->success_children,
-                                      AFR_ENTRY_TRANSACTION);
-        if (nsources == 0) {
+                                      AFR_ENTRY_TRANSACTION, &subvol_status,
+                                      _gf_true);
+        if ((subvol_status & ALL_FOOLS) ||
+            (subvol_status & SPLIT_BRAIN)) {
+                gf_log (this->name, GF_LOG_INFO, "%s: Performing conservative "
+                        "merge", local->loc.path);
+                source = -1;
+                memset (sh->sources, 0,
+                        sizeof (*sh->sources) * priv->child_count);
+        } else if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "No self-heal needed for %s",
                         local->loc.path);
 
                 afr_sh_entry_finish (frame, this);
                 return;
+        } else {
+                source = afr_sh_select_source (sh->sources, priv->child_count);
         }
-
-        source = afr_sh_select_source (sh->sources, priv->child_count);
 
         sh->source = source;
 
         afr_reset_children (sh->fresh_children, priv->child_count);
         afr_get_fresh_children (sh->success_children, sh->sources,
-                                        sh->fresh_children, priv->child_count);
+                                sh->fresh_children, priv->child_count);
         if (sh->source >= 0)
                 afr_inode_set_read_ctx (this, sh->inode, sh->source,
                                         sh->fresh_children);

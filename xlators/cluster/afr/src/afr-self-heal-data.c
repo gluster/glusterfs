@@ -662,7 +662,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                 frame->root->lk_owner);
         nsources = afr_build_sources (this, sh->xattr, sh->buf, sh->pending_matrix,
                                       sh->sources, sh->success_children,
-                                      AFR_DATA_TRANSACTION);
+                                      AFR_DATA_TRANSACTION, NULL, _gf_false);
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "No self-heal needed for %s",
@@ -806,6 +806,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         int32_t                  nsources         = 0;
         int32_t                  prev_read_child  = -1;
         int32_t                  config_read_child = -1;
+        int32_t                  subvol_status = 0;
 
         priv = this->private;
         bufs = local->cont.lookup.bufs;
@@ -819,7 +820,11 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         memset (sources, 0, sizeof (*sources) * priv->child_count);
 
         nsources = afr_build_sources (this, xattr, bufs, pending_matrix,
-                                      sources, success_children, txn_type);
+                                      sources, success_children, txn_type,
+                                      &subvol_status, _gf_false);
+        if (subvol_status & SPLIT_BRAIN)
+                gf_log (this->name, GF_LOG_WARNING, "%s: Possible split-brain",
+                        local->loc.path);
         if (nsources < 0)
                 goto out;
 
@@ -991,7 +996,7 @@ afr_post_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
                 (void) afr_build_sources (this, sh->xattr, NULL,
                                           sh->pending_matrix,
                                           sh->sources, sh->success_children,
-                                          AFR_DATA_TRANSACTION);
+                                          AFR_DATA_TRANSACTION, NULL, _gf_false);
                 ret = afr_sh_inode_set_read_ctx (sh, this);
                 if (ret)
                         afr_sh_data_fail (frame, this);

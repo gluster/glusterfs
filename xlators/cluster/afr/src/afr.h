@@ -58,6 +58,11 @@ typedef enum {
 } afr_child_pos_t;
 
 typedef enum {
+        SPLIT_BRAIN = 1,
+        ALL_FOOLS = 2
+} afr_subvol_status_t;
+
+typedef enum {
         AFR_INODE_SET_READ_CTX = 1,
         AFR_INODE_RM_STALE_CHILDREN,
         AFR_INODE_SET_OPENDIR_DONE,
