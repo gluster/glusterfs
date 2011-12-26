@@ -16,24 +16,34 @@ remove_xattrs ()
 main ()
 {
     if [ -z "$1" ]; then
-        echo "Please specify the brick path(s)";
+        echo "Usage: $0 <brick_path(s)>";
         exit 1;
     fi
 
+    export PATH;
     which getfattr > /dev/null 2>&1;
     if [ $? -ne 0 ]; then
         echo "attr package missing";
-        exit 1;
+        exit 2;
     fi
 
     which setfattr > /dev/null 2>&1;
     if [ $? -ne 0 ]; then
         echo "attr package missing";
-        exit 1;
+        exit 2;
     fi
 
     for brick in "$@";
     do
+        stat "$brick" > /dev/null 2>&1;
+        if [ $? -ne 0 ]; then
+            echo "brick: $brick does not exist";
+            exit 3;
+        fi
+        if [ ! -d "$brick" ]; then
+            echo "$brick: not a directory";
+            exit 4;
+        fi
         echo "xattr clean-up in progress: $brick";
         remove_xattrs "$brick";
         echo "$brick ready to be used as a glusterfs brick";
