@@ -3727,6 +3727,20 @@ glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
         return (volinfo->defrag != NULL);
 }
 
+gf_boolean_t
+glusterd_is_rb_ongoing (glusterd_volinfo_t *volinfo)
+{
+        gf_boolean_t     ret = _gf_false;
+
+        GF_ASSERT (volinfo);
+
+        if (glusterd_is_rb_started (volinfo) ||
+            glusterd_is_rb_paused (volinfo))
+                ret = _gf_true;
+
+        return ret;
+}
+
 int
 glusterd_is_replace_running (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *brickinfo)
 {

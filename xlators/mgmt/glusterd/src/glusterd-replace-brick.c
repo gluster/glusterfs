@@ -378,8 +378,24 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 break;
 
         case GF_REPLACE_OP_COMMIT_FORCE: break;
+
         case GF_REPLACE_OP_STATUS:
+
+                if (glusterd_is_rb_ongoing (volinfo) == _gf_false) {
+                        ret = gf_asprintf (op_errstr, "replace-brick not"
+                                           " started on volume %s",
+                                           volinfo->volname);
+                        if (ret < 0) {
+                                *op_errstr = NULL;
+                                goto out;
+                        }
+
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", *op_errstr);
+                        ret = -1;
+                        goto out;
+                }
                 break;
+
         default:
                 ret = -1;
                 goto out;
@@ -472,11 +488,15 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         if (glusterd_rb_check_bricks (volinfo, src_brickinfo, dst_brickinfo)) {
-                gf_log ("", GF_LOG_ERROR, "replace brick: incorrect source or"
-                       " destination bricks specified");
+
                 ret = -1;
+                *op_errstr = gf_strdup ("incorrect source or "
+                                        "destination brick");
+                if (*op_errstr)
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", *op_errstr);
                 goto out;
        }
+
         if (!glusterd_is_local_addr (host)) {
                 ret = glusterd_brick_create_path (host, path,
                                                   volinfo->volume_id, 0777,
