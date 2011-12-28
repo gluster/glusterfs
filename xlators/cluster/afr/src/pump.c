@@ -1374,7 +1374,7 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
 	xlator_t **       children   = NULL;
 	int               call_child = 0;
 	afr_local_t       *local     = NULL;
-	int32_t           op_ret     = -1;
+	int32_t           ret     = -1;
 	int32_t           op_errno   = 0;
         uint64_t          read_child = 0;
 
@@ -1387,15 +1387,21 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (priv->children, out);
 
 	children = priv->children;
-
-	ALLOC_OR_GOTO (local, afr_local_t, out);
-	frame->local = local;
-
-        op_ret = AFR_LOCAL_INIT (local, priv);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                goto out;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame, default_getxattr_cbk,
+                            FIRST_CHILD (this),
+                            (FIRST_CHILD (this))->fops->getxattr,
+                            loc, name);
+                return 0;
         }
+
+
+	ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+	local = frame->local;
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
+                goto out;
 
         if (name) {
                 if (!strncmp (name, AFR_XATTR_PREFIX,
@@ -1409,35 +1415,27 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Hit pump command - status");
                         pump_execute_status (frame, this);
-                        op_ret = 0;
+                        ret = 0;
                         goto out;
                 }
-        }
-
-        if (!priv->use_afr_in_pump) {
-                STACK_WIND (frame, default_getxattr_cbk,
-                            FIRST_CHILD (this),
-                            (FIRST_CHILD (this))->fops->getxattr,
-                            loc, name);
-                return 0;
         }
 
         local->fresh_children = GF_CALLOC (priv->child_count,
                                           sizeof (*local->fresh_children),
                                           gf_afr_mt_int32_t);
-        if (local->fresh_children) {
+        if (!local->fresh_children) {
+                ret = -1;
                 op_errno = ENOMEM;
                 goto out;
         }
 
         read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.getxattr.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
 	loc_copy (&local->loc, loc);
@@ -1449,11 +1447,10 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
 			   children[call_child], children[call_child]->fops->getxattr,
 			   loc, name);
 
-	op_ret = 0;
+	ret = 0;
 out:
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, NULL);
-	}
+	if (ret < 0)
+		AFR_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL);
 	return 0;
 }
 
@@ -1651,7 +1648,6 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
 
 	int ret = -1;
 
-	int op_ret   = -1;
 	int op_errno = 0;
 
 	VALIDATE_OR_GOTO (frame, out);
@@ -1659,22 +1655,6 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
-
-	ALLOC_OR_GOTO (local, afr_local_t, out);
-
-	ret = AFR_LOCAL_INIT (local, priv);
-	if (ret < 0) {
-		op_errno = -ret;
-		goto out;
-	}
-
-        ret = pump_parse_command (frame, this,
-                                  local, dict);
-        if (ret >= 0) {
-                op_ret = 0;
-                goto out;
-        }
-
         if (!priv->use_afr_in_pump) {
                 STACK_WIND (frame, default_setxattr_cbk,
                             FIRST_CHILD (this),
@@ -1683,10 +1663,29 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
+
+	ALLOC_OR_GOTO (local, afr_local_t, out);
+
+	ret = afr_local_init (local, priv, &op_errno);
+	if (ret < 0) {
+                afr_local_cleanup (local, this);
+		goto out;
+        }
+
+        ret = pump_parse_command (frame, this,
+                                  local, dict);
+        if (ret >= 0) {
+                ret = 0;
+                goto out;
+        }
+
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory.");
+                op_errno = ENOMEM;
+                ret = -1;
+                afr_local_cleanup (local, this);
 		goto out;
 	}
 
@@ -1709,12 +1708,12 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
 
 	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
 
-	op_ret = 0;
+	ret = 0;
 out:
-	if (op_ret == -1) {
+	if (ret < 0) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
+		AFR_STACK_UNWIND (setxattr, frame, -1, op_errno);
 	}
 
 	return 0;

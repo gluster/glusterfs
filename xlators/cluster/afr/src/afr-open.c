@@ -202,7 +202,6 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         int             i          = 0;
         int             ret        = -1;
         int32_t         call_count = 0;
-        int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
         int32_t         wind_flags = flags & (~O_TRUNC);
         //We can't let truncation to happen outside transaction.
@@ -226,15 +225,13 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
-        frame->local = local;
         call_count   = local->call_count;
         loc_copy (&local->loc, loc);
 
@@ -255,11 +252,10 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (open, frame, op_ret, op_errno, fd);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (open, frame, -1, op_errno, fd);
 
         return 0;
 }
@@ -395,9 +391,9 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                         ret = -ENOMEM;
                         goto out;
                 }
-                ALLOC_OR_GOTO (open_local, afr_local_t, out);
-                open_frame->local = open_local;
-                ret = AFR_LOCAL_INIT (open_local, priv);
+                ALLOC_OR_GOTO (open_frame->local, afr_local_t, out);
+                open_local = open_frame->local;
+                ret = afr_local_init (open_local, priv, &op_errno);
                 if (ret < 0)
                         goto out;
                 loc_copy (&open_local->loc, &local->loc);

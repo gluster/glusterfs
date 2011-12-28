@@ -2284,12 +2284,11 @@ afr_flush_done (call_frame_t *frame, xlator_t *this)
 int
 afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret        = -1;
-        int op_ret   = -1;
-        int op_errno = 0;
+        afr_private_t *priv  = NULL;
+        afr_local_t   *local = NULL;
+        call_frame_t  *transaction_frame = NULL;
+        int            ret        = -1;
+        int            op_errno   = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2297,21 +2296,18 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
-                goto out;
-        }
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
                 goto out;
         }
 
-        transaction_frame->local = local;
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
+                goto out;
 
         local->op = GF_FOP_FLUSH;
 
@@ -2327,20 +2323,19 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         ret = afr_open_fd_fix (transaction_frame, this, _gf_false);
         if (ret) {
-                op_ret = -1;
                 op_errno = -ret;
                 goto out;
         }
         afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
 
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
 
-                AFR_STACK_UNWIND (flush, frame, op_ret, op_errno);
+                AFR_STACK_UNWIND (flush, frame, -1, op_errno);
         }
 
         return 0;
@@ -2484,7 +2479,6 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -2493,16 +2487,14 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         local->fd             = fd_ref (fd);
 
@@ -2518,11 +2510,10 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (fsync, frame, op_ret, op_errno, NULL, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2567,7 +2558,6 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -2576,16 +2566,14 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2598,11 +2586,10 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (fsyncdir, frame, op_ret, op_errno);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (fsyncdir, frame, -1, op_errno);
         return 0;
 }
 
@@ -2648,7 +2635,6 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -2657,16 +2643,14 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2679,11 +2663,10 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (xattrop, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2730,7 +2713,6 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -2739,16 +2721,14 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2761,11 +2741,10 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (fxattrop, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2810,7 +2789,6 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -2819,16 +2797,14 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2842,11 +2818,10 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (inodelk, frame, op_ret, op_errno);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (inodelk, frame, -1, op_errno);
         return 0;
 }
 
@@ -2889,7 +2864,6 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -2898,16 +2872,14 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2921,11 +2893,10 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (finodelk, frame, op_ret, op_errno);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (finodelk, frame, -1, op_errno);
         return 0;
 }
 
@@ -2969,7 +2940,6 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -2978,16 +2948,14 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -3001,11 +2969,10 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (entrylk, frame, op_ret, op_errno);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (entrylk, frame, -1, op_errno);
         return 0;
 }
 
@@ -3050,7 +3017,6 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
         int ret = -1;
         int i = 0;
         int32_t call_count = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -3059,16 +3025,14 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         call_count = local->call_count;
-        frame->local = local;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -3082,11 +3046,10 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (fentrylk, frame, op_ret, op_errno);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (fentrylk, frame, -1, op_errno);
         return 0;
 }
 
@@ -3140,7 +3103,6 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
         int              i           = 0;
         int              ret = -1;
         int              call_count = 0;
-        int32_t          op_ret      = -1;
         int32_t          op_errno    = 0;
 
         VALIDATE_OR_GOTO (this, out);
@@ -3150,15 +3112,13 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         child_count = priv->child_count;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
-        frame->local = local;
         call_count = local->call_count;
 
         for (i = 0; i < child_count; i++) {
@@ -3172,11 +3132,10 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (statfs, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (statfs, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3314,8 +3273,8 @@ afr_lk (call_frame_t *frame, xlator_t *this,
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
         int i = 0;
-        int32_t op_ret   = -1;
         int32_t op_errno = 0;
+        int     ret      = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3323,10 +3282,12 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        AFR_LOCAL_INIT (local, priv);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        frame->local  = local;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
+                goto out;
 
         local->cont.lk.locked_nodes = GF_CALLOC (priv->child_count,
                                                  sizeof (*local->cont.lk.locked_nodes),
@@ -3347,11 +3308,10 @@ afr_lk (call_frame_t *frame, xlator_t *this,
                            priv->children[i]->fops->lk,
                            fd, cmd, flock);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (lk, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (lk, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3628,29 +3588,35 @@ afr_first_up_child (unsigned char *child_up, size_t child_count)
 }
 
 int
-AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
+afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 {
+        int     ret = -1;
+
         local->op_ret = -1;
         local->op_errno = EUCLEAN;
-        local->call_count = afr_up_children_count (priv->child_up,
-                                                   priv->child_count);
-        if (local->call_count == 0) {
-                gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
-                return -ENOTCONN;
-        }
-
 
         local->child_up = GF_CALLOC (sizeof (*local->child_up),
                                      priv->child_count,
                                      gf_afr_mt_char);
         if (!local->child_up) {
-                return -ENOMEM;
+                if (op_errno)
+                        *op_errno = ENOMEM;
+                goto out;
         }
 
         memcpy (local->child_up, priv->child_up,
                 sizeof (*local->child_up) * priv->child_count);
-
-        return 0;
+        local->call_count = afr_up_children_count (local->child_up,
+                                                   priv->child_count);
+        if (local->call_count == 0) {
+                gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
+                if (op_errno)
+                        *op_errno = ENOTCONN;
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
 }
 
 int

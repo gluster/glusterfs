@@ -902,7 +902,7 @@ int32_t *
 afr_children_create (int32_t child_count);
 
 int
-AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv);
+afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno);
 
 int
 afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,

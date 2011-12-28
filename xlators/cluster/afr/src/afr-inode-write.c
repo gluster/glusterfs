@@ -440,7 +440,6 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -451,15 +450,12 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         QUORUM_CHECK(writev,out);
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        frame->local = local;
 
         local->cont.writev.vector     = iov_dup (vector, count);
         local->cont.writev.count      = count;
@@ -475,11 +471,10 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
 
         return 0;
 }
@@ -640,7 +635,6 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -653,20 +647,16 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
-
-        local->op_ret = -1;
 
         local->cont.truncate.offset  = offset;
 
@@ -682,12 +672,12 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (truncate, frame, op_ret, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
         }
 
         return 0;
@@ -891,7 +881,6 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -902,15 +891,12 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 
         QUORUM_CHECK(ftruncate,out);
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        ret = AFR_LOCAL_INIT (local, priv);
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        frame->local = local;
 
         local->cont.ftruncate.offset  = offset;
 
@@ -923,12 +909,12 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
         }
 
         return 0;
@@ -1090,7 +1076,6 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1103,20 +1088,16 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
-
-        local->op_ret = -1;
 
         local->cont.setattr.in_buf = *buf;
         local->cont.setattr.valid  = valid;
@@ -1133,12 +1114,12 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (setattr, frame, op_ret, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
         }
 
         return 0;
@@ -1297,7 +1278,6 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1314,16 +1294,12 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        transaction_frame->local = local;
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        local->op_ret = -1;
 
         local->cont.fsetattr.in_buf = *buf;
         local->cont.fsetattr.valid  = valid;
@@ -1334,10 +1310,9 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         local->fd                 = fd_ref (fd);
 
-        op_ret = afr_open_fd_fix (transaction_frame, this, _gf_false);
+        ret = afr_open_fd_fix (transaction_frame, this, _gf_false);
         if (ret) {
-                op_errno = -op_ret;
-                op_ret = -1;
+                op_errno = -ret;
                 goto out;
         }
 
@@ -1347,12 +1322,12 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL);
         }
 
         return 0;
@@ -1488,7 +1463,6 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1498,23 +1472,18 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         QUORUM_CHECK(setxattr,out);
-
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
-                goto out;
-        }
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        transaction_frame->local = local;
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        local->op_ret = -1;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
+                goto out;
 
         local->cont.setxattr.dict  = dict_ref (dict);
         local->cont.setxattr.flags = flags;
@@ -1531,12 +1500,12 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
+                AFR_STACK_UNWIND (setxattr, frame, -1, op_errno);
         }
 
         return 0;
@@ -1673,7 +1642,6 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1687,20 +1655,16 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
-
-        local->op_ret = -1;
 
         local->cont.removexattr.name = gf_strdup (name);
 
@@ -1716,12 +1680,12 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (removexattr, frame, op_ret, op_errno);
+                AFR_STACK_UNWIND (removexattr, frame, -1, op_errno);
         }
 
         return 0;
