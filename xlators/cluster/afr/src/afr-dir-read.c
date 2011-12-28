@@ -307,7 +307,6 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
         int             i           = 0;
         int             ret         = -1;
         int             call_count  = -1;
-        int32_t         op_ret      = -1;
         int32_t         op_errno    = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -318,16 +317,15 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 
         child_count = priv->child_count;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         loc_copy (&local->loc, loc);
 
-        frame->local = local;
         local->fd    = fd_ref (fd);
 
         call_count = local->call_count;
@@ -345,11 +343,10 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (opendir, frame, op_ret, op_errno, fd);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (opendir, frame, -1, op_errno, fd);
 
         return 0;
 }
@@ -640,7 +637,6 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
         uint64_t         ctx        = 0;
         afr_fd_ctx_t    *fd_ctx     = NULL;
         int              ret        = -1;
-        int32_t          op_ret     = -1;
         int32_t          op_errno   = 0;
         uint64_t         read_child = 0;
 
@@ -651,14 +647,12 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
         priv     = this->private;
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        frame->local = local;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
@@ -668,13 +662,12 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
 
         read_child = afr_inode_get_read_ctx (this, fd->inode,
                                              local->fresh_children);
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.readdir.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
 
@@ -718,11 +711,10 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
                                    children[call_child]->fops->readdirp, fd,
                                    size, offset);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (readdir, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (readdir, frame, -1, op_errno, NULL);
         return 0;
 }
 

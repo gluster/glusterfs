@@ -111,9 +111,9 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         xlator_t        **children = NULL;
         int             call_child = 0;
         afr_local_t     *local     = NULL;
-        int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
         int32_t         read_child = -1;
+        int             ret        = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -124,14 +124,12 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        frame->local = local;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        op_ret = AFR_LOCAL_INIT (local, priv);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
@@ -142,13 +140,12 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         read_child = afr_inode_get_read_ctx (this, loc->inode,
                                              local->fresh_children);
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.access.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
 
@@ -161,11 +158,10 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
                            children[call_child]->fops->access,
                            loc, mask);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (access, frame, op_ret, op_errno);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (access, frame, -1, op_errno);
         return 0;
 }
 
@@ -230,9 +226,9 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         afr_local_t     *local     = NULL;
         xlator_t        **children = NULL;
         int             call_child = 0;
-        int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
         int32_t         read_child = -1;
+        int             ret        = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -243,13 +239,12 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        frame->local = local;
-        op_ret = AFR_LOCAL_INIT (local, priv);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
@@ -259,13 +254,12 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         read_child = afr_inode_get_read_ctx (this, loc->inode,
                                              local->fresh_children);
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.stat.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
         loc_copy (&local->loc, loc);
@@ -275,11 +269,10 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                            children[call_child]->fops->stat,
                            loc);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (stat, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (stat, frame, -1, op_errno, NULL);
 
         return 0;
 }
@@ -345,9 +338,9 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
         afr_local_t     *local     = NULL;
         xlator_t        **children = NULL;
         int             call_child = 0;
-        int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
         int32_t         read_child = 0;
+        int             ret        = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -361,14 +354,12 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
         VALIDATE_OR_GOTO (fd->inode, out);
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        frame->local = local;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        op_ret = AFR_LOCAL_INIT (local, priv);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
@@ -381,22 +372,20 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
 
 
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.fstat.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
 
         local->fd = fd_ref (fd);
 
-        op_ret = afr_open_fd_fix (frame, this, _gf_false);
-        if (op_ret) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        ret = afr_open_fd_fix (frame, this, _gf_false);
+        if (ret) {
+                op_errno = -ret;
                 goto out;
         }
         STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) call_child,
@@ -404,11 +393,10 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
                            children[call_child]->fops->fstat,
                            fd);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (fstat, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (fstat, frame, -1, op_errno, NULL);
 
         return 0;
 }
@@ -474,9 +462,9 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
         xlator_t        **children = NULL;
         int             call_child = 0;
         afr_local_t     *local     = NULL;
-        int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
         int32_t         read_child = -1;
+        int             ret        = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -487,13 +475,12 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        frame->local = local;
-        op_ret = AFR_LOCAL_INIT (local, priv);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
@@ -502,13 +489,12 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
         }
         read_child = afr_inode_get_read_ctx (this, loc->inode,
                                              local->fresh_children);
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.readlink.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
 
@@ -522,11 +508,10 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
                            children[call_child]->fops->readlink,
                            loc, size);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (readlink, frame, op_ret, op_errno, NULL, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (readlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -761,9 +746,9 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
         xlator_list_t   *trav         = NULL;
         xlator_t        **sub_volumes = NULL;
         int             i             = 0;
-        int32_t         op_ret        = -1;
         int32_t         op_errno      = 0;
         int32_t         read_child    = -1;
+        int             ret           = -1;
 
 
         VALIDATE_OR_GOTO (frame, out);
@@ -775,14 +760,12 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        frame->local = local;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
 
-        op_ret = AFR_LOCAL_INIT (local, priv);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         loc_copy (&local->loc, loc);
         if (name)
@@ -885,13 +868,12 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.getxattr.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
 
@@ -901,11 +883,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                            children[call_child]->fops->getxattr,
                            loc, name);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, NULL);
-        }
+        if (ret < 0)
+                AFR_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -992,9 +973,9 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local      = NULL;
         xlator_t **     children   = NULL;
         int             call_child = 0;
-        int32_t         op_ret     = -1;
         int32_t         op_errno   = 0;
         int32_t         read_child = -1;
+        int             ret        = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1004,13 +985,12 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         priv     = this->private;
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
-        frame->local = local;
-        op_ret = AFR_LOCAL_INIT (local, priv);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
 
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
@@ -1019,13 +999,12 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         }
 
         read_child = afr_inode_get_read_ctx (this, fd->inode, local->fresh_children);
-        op_ret = afr_get_call_child (this, local->child_up, read_child,
+        ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
                                      &local->cont.readv.last_index);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
         }
 
@@ -1034,10 +1013,9 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         local->cont.readv.size       = size;
         local->cont.readv.offset     = offset;
 
-        op_ret = afr_open_fd_fix (frame, this, _gf_false);
-        if (op_ret) {
-                op_errno = -op_ret;
-                op_ret = -1;
+        ret = afr_open_fd_fix (frame, this, _gf_false);
+        if (ret) {
+                op_errno = -ret;
                 goto out;
         }
         STACK_WIND_COOKIE (frame, afr_readv_cbk,
@@ -1046,10 +1024,10 @@ afr_readv (call_frame_t *frame, xlator_t *this,
                            children[call_child]->fops->readv,
                            fd, size, offset);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
-                AFR_STACK_UNWIND (readv, frame, op_ret, op_errno, NULL, 0, NULL,
+        if (ret < 0) {
+                AFR_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL,
                                   NULL);
         }
         return 0;

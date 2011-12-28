@@ -266,12 +266,11 @@ afr_create (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int32_t flags, mode_t mode,
             fd_t *fd, dict_t *params)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_ret   = -1;
-        int op_errno = 0;
+        afr_private_t  *priv  = NULL;
+        afr_local_t    *local = NULL;
+        call_frame_t   *transaction_frame = NULL;
+        int             ret = -1;
+        int             op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -283,18 +282,16 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         loc_copy (&local->loc, loc);
 
@@ -322,12 +319,12 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (create, frame, op_ret, op_errno,
+                AFR_STACK_UNWIND (create, frame, -1, op_errno,
                                   NULL, NULL, NULL, NULL, NULL);
         }
 
@@ -495,7 +492,6 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t  * transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -508,18 +504,16 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         loc_copy (&local->loc, loc);
 
@@ -546,12 +540,12 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (mknod, frame, op_ret, op_errno,
+                AFR_STACK_UNWIND (mknod, frame, -1, op_errno,
                                   NULL, NULL, NULL, NULL);
         }
 
@@ -721,7 +715,6 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t  * transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -734,18 +727,16 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         loc_copy (&local->loc, loc);
 
@@ -771,13 +762,13 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
 
-                AFR_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
+                AFR_STACK_UNWIND (mkdir, frame, -1, op_errno,
                                   NULL, NULL, NULL, NULL);
         }
 
@@ -946,7 +937,6 @@ afr_link (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t  * transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -959,18 +949,16 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         loc_copy (&local->loc,    oldloc);
         loc_copy (&local->newloc, newloc);
@@ -994,12 +982,12 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (link, frame, op_ret, op_errno,
+                AFR_STACK_UNWIND (link, frame, -1, op_errno,
                                   NULL, NULL, NULL, NULL);
         }
 
@@ -1170,7 +1158,6 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t  * transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1183,18 +1170,16 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         loc_copy (&local->loc, loc);
 
@@ -1220,12 +1205,12 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret  < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (symlink, frame, op_ret, op_errno,
+                AFR_STACK_UNWIND (symlink, frame, -1, op_errno,
                                   NULL, NULL, NULL, NULL);
         }
 
@@ -1388,7 +1373,6 @@ afr_rename (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t  * transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1401,18 +1385,16 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         loc_copy (&local->loc,    oldloc);
         loc_copy (&local->newloc, newloc);
@@ -1432,13 +1414,13 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_RENAME_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
 
-                AFR_STACK_UNWIND (rename, frame, op_ret, op_errno,
+                AFR_STACK_UNWIND (rename, frame, -1, op_errno,
                                   NULL, NULL, NULL, NULL, NULL);
         }
 
@@ -1587,7 +1569,6 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t  * transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1600,18 +1581,16 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         loc_copy (&local->loc, loc);
 
@@ -1626,12 +1605,12 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (unlink, frame, op_ret, op_errno,
+                AFR_STACK_UNWIND (unlink, frame, -1, op_errno,
                                   NULL, NULL);
         }
 
@@ -1783,7 +1762,6 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
         afr_local_t   * local = NULL;
         call_frame_t  * transaction_frame = NULL;
         int ret = -1;
-        int op_ret   = -1;
         int op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -1796,18 +1774,16 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
+                op_errno = ENOMEM;
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        local = transaction_frame->local;
 
-        ret = AFR_LOCAL_INIT (local, priv);
-        if (ret < 0) {
-                op_errno = -ret;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
                 goto out;
-        }
-
-        transaction_frame->local = local;
 
         local->cont.rmdir.flags = flags;
         loc_copy (&local->loc, loc);
@@ -1823,13 +1799,12 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 
-        op_ret = 0;
+        ret = 0;
 out:
-        if (op_ret == -1) {
+        if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (rmdir, frame, op_ret, op_errno,
-                                  NULL, NULL);
+                AFR_STACK_UNWIND (rmdir, frame, -1, op_errno, NULL, NULL);
         }
 
         return 0;

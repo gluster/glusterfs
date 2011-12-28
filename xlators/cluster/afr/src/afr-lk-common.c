@@ -2165,13 +2165,14 @@ out:
 int
 afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
 {
-        call_frame_t    *frame     = NULL;
-        afr_private_t   *priv      = NULL;
-        afr_local_t     *local     = NULL;
-        afr_locked_fd_t *locked_fd = NULL;
+        call_frame_t    *frame      = NULL;
+        afr_private_t   *priv       = NULL;
+        afr_local_t     *local      = NULL;
+        afr_locked_fd_t *locked_fd  = NULL;
         afr_locked_fd_t  *tmp       = NULL;
-        int              ret       = 0;
+        int              ret        = -1;
         struct list_head locks_list = {0,};
+        int32_t          op_errno   = 0;
 
 
         priv = this->private;
@@ -2185,15 +2186,10 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
                 goto out;
         }
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_afr_mt_afr_local_t);
-        if (!local) {
-                ret = -1;
-                goto out;
-        }
-
-        AFR_LOCAL_INIT (local, priv);
-        if (!local) {
+        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        local = frame->local;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0) {
                 ret = -1;
                 goto out;
         }
@@ -2231,6 +2227,8 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
         }
 
 out:
+        if ((ret < 0) && frame)
+                AFR_STACK_DESTROY (frame);
         return ret;
 }
 
