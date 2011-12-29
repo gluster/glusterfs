@@ -1462,8 +1462,9 @@ afr_error_more_important (int32_t old_errno, int32_t new_errno)
         if (old_errno == ESTALE)
                 ret = _gf_false;
 
-        /* Nothing should overwrite ENOENT, except ESTALE */
-        else if ((old_errno == ENOENT) && (new_errno != ESTALE))
+        /* Nothing should overwrite ENOENT, except ESTALE/EIO*/
+        else if ((old_errno == ENOENT) && (new_errno != ESTALE)
+                 && (new_errno != EIO))
                 ret = _gf_false;
 
         return ret;
