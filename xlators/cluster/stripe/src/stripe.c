@@ -298,9 +298,12 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        int32_t         callcnt = 0;
-        stripe_local_t *local = NULL;
-        call_frame_t   *prev = NULL;
+        int32_t         callcnt     = 0;
+        stripe_local_t *local       = NULL;
+        call_frame_t   *prev        = NULL;
+        uint64_t        stripe_size = 0;
+        char size_xattr[256]        = {0,};
+        int             ret         = 0;
 
         if (!this || !frame || !frame->local || !cookie) {
                 gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
@@ -342,6 +345,19 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                                 local->xattr);
                                         dict_unref (local->xattr);
                                         local->xattr = NULL;
+                                }
+
+                                (void) snprintf (size_xattr, 256,
+                                                 "trusted.%s.stripe-size",
+                                                 this->name);
+                                ret = dict_get_uint64 (dict, size_xattr,
+                                                       &stripe_size);
+                                if (!ret) {
+                                        ret = inode_ctx_put (inode, this,
+                                                             stripe_size);
+                                        if (ret)
+                                                gf_log (this->name, GF_LOG_ERROR,
+                                                        "Error setting ctx");
                                 }
                         }
                         if (!local->dict && !local->xattr) {
@@ -401,12 +417,13 @@ int32_t
 stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                dict_t *xattr_req)
 {
-        stripe_local_t   *local = NULL;
-        xlator_list_t    *trav = NULL;
-        stripe_private_t *priv = NULL;
+        stripe_local_t   *local    = NULL;
+        xlator_list_t    *trav     = NULL;
+        stripe_private_t *priv     = NULL;
         int32_t           op_errno = EINVAL;
         int64_t           filesize = 0;
-        int               ret = 0;
+        int               ret      = 0;
+        char xtra_xattr[256]       = {0,};
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -432,6 +449,16 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ret = dict_get_int64 (xattr_req, GF_CONTENT_KEY, &filesize);
                 if (!ret && (filesize > priv->block_size))
                         dict_del (xattr_req, GF_CONTENT_KEY);
+        }
+
+        /* get stripe-size xattr on lookup for pathinfo string */
+        if (xattr_req) {
+                (void) snprintf (xtra_xattr, 256, "trusted.%s.stripe-size",
+                                 this->name);
+                ret = dict_set_uint64 (xattr_req, xtra_xattr, (uint64_t) 0);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Cannot set stripe-"
+                                "size key in xattr request dict");
         }
 
         /* Everytime in stripe lookup, all child nodes
@@ -3923,6 +3950,12 @@ err:
 	return 0;
 }
 
+int
+stripe_forget (xlator_t *this, inode_t *inode)
+{
+        (void) inode_ctx_del (inode, this, 0);
+        return 0;
+}
 
 int32_t
 notify (xlator_t *this, int32_t event, void *data, ...)
@@ -4762,12 +4795,13 @@ int32_t
 stripe_getxattr (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, const char *name)
 {
-        stripe_local_t     *local = NULL;
-        xlator_list_t      *trav = NULL;
-        stripe_private_t   *priv = NULL;
-        int32_t             op_errno = EINVAL;
-        int                 i = 0;
-        xlator_t          **sub_volumes;
+        stripe_local_t    *local    = NULL;
+        xlator_list_t     *trav     = NULL;
+        stripe_private_t  *priv     = NULL;
+        int32_t            op_errno = EINVAL;
+        int                i        = 0;
+        xlator_t         **sub_volumes;
+        int                ret      = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -4830,9 +4864,12 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (name && (strncmp (name, GF_XATTR_PATHINFO_KEY,
                               strlen (GF_XATTR_PATHINFO_KEY)) == 0)) {
-                local->stripe_size = stripe_get_matching_bs (loc->path,
-                                                             priv->pattern,
-                                                             priv->block_size);
+                ret = inode_ctx_get (loc->inode, this,
+                                     (uint64_t *) &local->stripe_size);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "stripe size unavailable from inode ctx - relying"
+                                " on pathinfo could lead to wrong results");
                 local->nallocs = local->wind_count = priv->child_count;
 
                 for (i = 0, trav = this->children; i < priv->child_count; i++,
@@ -4917,6 +4954,7 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .release = stripe_release,
+        .forget  = stripe_forget,
 };
 
 
