@@ -106,14 +106,18 @@ enum gf1_cli_top_op {
 /* The unconventional hex numbers help us perform
    bit-wise operations which reduces complexity */
 enum gf_cli_status_type {
-        GF_CLI_STATUS_NONE         = 0x0000,
-        GF_CLI_STATUS_VOL          = 0x0100,
-        GF_CLI_STATUS_ALL          = 0x0200,
-        GF_CLI_STATUS_BRICK        = 0x0400,
-        GF_CLI_STATUS_DETAIL       = 0x0800,
-        GF_CLI_STATUS_VOL_DETAIL   = 0x0900,
-        GF_CLI_STATUS_ALL_DETAIL   = 0x0A00,
-        GF_CLI_STATUS_BRICK_DETAIL = 0x0C00
+        GF_CLI_STATUS_INVAL        = -1,
+        GF_CLI_STATUS_NONE         = 0x000,
+        GF_CLI_STATUS_MEM          = 0x001,     /*000000000001*/
+        GF_CLI_STATUS_CLIENTS      = 0x002,     /*000000000010*/
+        GF_CLI_STATUS_INODE        = 0x004,     /*000000000100*/
+        GF_CLI_STATUS_FD           = 0x008,     /*000000001000*/
+        GF_CLI_STATUS_CALLPOOL     = 0x010,     /*000000010000*/
+        GF_CLI_STATUS_DETAIL       = 0x020,     /*000000100000*/
+        GF_CLI_STATUS_MASK         = 0x0FF,     /*000011111111 Used to get the op*/
+        GF_CLI_STATUS_VOL          = 0x100,     /*000100000000*/
+        GF_CLI_STATUS_ALL          = 0x200,     /*001000000000*/
+        GF_CLI_STATUS_BRICK        = 0x400      /*010000000000*/
 };
 
  struct gf_cli_req {

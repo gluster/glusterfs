@@ -1795,6 +1795,42 @@ out:
         return ret;
 }
 
+gf_boolean_t
+cli_cmd_validate_statusop (const char *arg)
+{
+        char    *opwords[] = {"misc-details", "mem", "clients", "fd", "inode",
+                              "callpool", NULL};
+        char    *w = NULL;
+
+        w = str_getunamb (arg, opwords);
+        if (!w) {
+                gf_log ("cli", GF_LOG_ERROR, "Unknown status op  %s",
+                        arg);
+                return _gf_false;
+        }
+        return _gf_true;
+}
+
+int
+cli_cmd_get_statusop (const char *arg)
+{
+        int ret = GF_CLI_STATUS_INVAL;
+        if (!strcmp (arg, "misc-details"))
+                ret = GF_CLI_STATUS_DETAIL;
+        else if (!strcmp (arg, "mem"))
+                ret = GF_CLI_STATUS_MEM;
+        else if (!strcmp (arg, "clients"))
+                ret = GF_CLI_STATUS_CLIENTS;
+        else if (!strcmp (arg, "inode"))
+                ret = GF_CLI_STATUS_INODE;
+        else if (!strcmp (arg, "fd"))
+                ret = GF_CLI_STATUS_FD;
+        else if (!strcmp (arg, "callpool"))
+                ret = GF_CLI_STATUS_CALLPOOL;
+
+        return ret;
+}
+
 int
 cli_cmd_volume_status_parse (const char **words, int wordcount,
                              dict_t **options)
@@ -1821,12 +1857,6 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 
                         cmd = GF_CLI_STATUS_ALL;
                         ret = 0;
-
-                } else if (!strcmp (words[2], "detail")) {
-
-                        cmd = GF_CLI_STATUS_ALL_DETAIL;
-                        ret = 0;
-
                 } else {
                         cmd = GF_CLI_STATUS_VOL;
                         ret = dict_set_str (dict, "volname", (char *)words[2]);
@@ -1834,34 +1864,50 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                 break;
 
         case 4:
-                if (!strcmp (words[2], "all") &&
-                    !strcmp (words[3], "detail")) {
-
-                        cmd = GF_CLI_STATUS_ALL_DETAIL;
-                        ret = 0;
-
-                } else if (!strcmp (words[3], "detail")) {
-                        cmd = GF_CLI_STATUS_VOL_DETAIL;
-                        ret = dict_set_str (dict, "volname", (char *)words[2]);
-
+                if (!strcmp (words[2], "all")) {
+                        cli_out ("Cannot specify brick/status-type for \"all\"");
+                        ret = -1;
+                        goto out;
                 } else {
-
-                        cmd = GF_CLI_STATUS_BRICK;
+                        cmd = GF_CLI_STATUS_VOL;
                         ret = dict_set_str (dict, "volname", (char *)words[2]);
                         if (ret)
                                 goto out;
+                }
+
+                if (cli_cmd_validate_statusop (words[3])) {
+                        ret = cli_cmd_get_statusop (words[3]);
+                        if (GF_CLI_STATUS_INVAL == ret)
+                                goto out;
+                        cmd |= ret;
+                        ret = 0;
+                } else {
+                        cmd = GF_CLI_STATUS_BRICK;
                         ret = dict_set_str (dict, "brick", (char *)words[3]);
                 }
                 break;
 
         case 5:
-                if (strcmp (words[4], "detail"))
+                if (!cli_cmd_validate_statusop (words[4])) {
+                        ret = -1;
                         goto out;
+                }
 
-                cmd = GF_CLI_STATUS_BRICK_DETAIL;
-                ret = dict_set_str (dict, "volname", (char *)words[2]);
-                if (ret)
+                cmd = GF_CLI_STATUS_BRICK;
+                ret = cli_cmd_get_statusop (words[4]);
+                if (GF_CLI_STATUS_INVAL == ret)
                         goto out;
+                cmd |= ret;
+
+                if (!strcmp (words[2], "all")) {
+                        cli_out ("Cannot specify brick/status-type for \"all\"");
+                        ret = -1;
+                        goto out;
+                } else {
+                        ret = dict_set_str (dict, "volname", (char *)words[2]);
+                        if (ret)
+                                goto out;
+                }
                 ret = dict_set_str (dict, "brick", (char *)words[3]);
                 break;
 

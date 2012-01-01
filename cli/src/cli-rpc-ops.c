@@ -3807,6 +3807,869 @@ out:
         return ret;
 }
 
+void
+cli_print_volume_status_mempool (dict_t *dict, char *prefix)
+{
+        int             ret = -1;
+        int32_t         mempool_count = 0;
+        char            *name = NULL;
+        int32_t         hotcount = 0;
+        int32_t         coldcount = 0;
+        uint64_t        paddedsizeof = 0;
+        uint64_t        alloccount = 0;
+        int32_t         maxalloc = 0;
+        char            key[1024] = {0,};
+        int             i = 0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (prefix);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.mempool-count",prefix);
+        ret = dict_get_int32 (dict, key, &mempool_count);
+        if (ret)
+                goto out;
+
+        cli_out ("Mempool Stats\n-------------");
+        cli_out ("%-30s %9s %9s %12s %10s %8s", "Name", "HotCount","ColdCount",
+                 "PaddedSizeof", "AllocCount", "MaxAlloc");
+        cli_out ("%-30s %9s %9s %12s %10s %8s", "----", "--------", "---------",
+                 "------------", "----------", "--------");
+
+        for (i = 0; i < mempool_count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.name", prefix, i);
+                ret = dict_get_str (dict, key, &name);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.hotcount", prefix, i);
+                ret = dict_get_int32 (dict, key, &hotcount);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.coldcount", prefix, i);
+                ret = dict_get_int32 (dict, key, &coldcount);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.paddedsizeof",
+                          prefix, i);
+                ret = dict_get_uint64 (dict, key, &paddedsizeof);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.alloccount", prefix, i);
+                ret = dict_get_uint64 (dict, key, &alloccount);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.max_alloc", prefix, i);
+                ret = dict_get_int32 (dict, key, &maxalloc);
+                if (ret)
+                        goto out;
+
+                cli_out ("%-30s %9d %9d %12"PRIu64" %10"PRIu64" %8d", name,
+                         hotcount, coldcount, paddedsizeof, alloccount,
+                         maxalloc);
+        }
+
+out:
+        return;
+
+}
+
+void
+cli_print_volume_status_mem (dict_t *dict)
+{
+        int             ret = -1;
+        char            *volname = NULL;
+        char            *hostname = NULL;
+        char            *path = NULL;
+        int             online = -1;
+        char            key[1024] = {0,};
+        int             brick_count = 0;
+        int             val = 0;
+        int             i = 0;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+        cli_out ("Memory status for volume : %s", volname);
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+
+        for (i = 0; i < brick_count; i++) {
+                cli_out ("----------------------------------------------");
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.path", i);
+                ret = dict_get_str (dict, key, &path);
+                if (ret)
+                        goto out;
+                cli_out ("Brick : %s:%s", hostname, path);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.status", i);
+                ret = dict_get_int32 (dict, key, &online);
+                if (ret)
+                        goto out;
+                if (!online) {
+                        cli_out ("Brick is offline");
+                        continue;
+                }
+
+                cli_out ("Mallinfo\n--------");
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.arena", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if (ret)
+                        goto out;
+                cli_out ("%-8s : %d","Arena", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.ordblks", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if(ret)
+                        goto out;
+                cli_out ("%-8s : %d","Ordblks", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.smblks", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if(ret)
+                        goto out;
+                cli_out ("%-8s : %d","Smblks", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.hblks", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if(ret)
+                        goto out;
+                cli_out ("%-8s : %d", "Hblks", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.hblkhd", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if (ret)
+                        goto out;
+                cli_out ("%-8s : %d", "Hblkhd", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.usmblks", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if (ret)
+                        goto out;
+                cli_out ("%-8s : %d", "Usmblks", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.fsmblks", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if (ret)
+                        goto out;
+                cli_out ("%-8s : %d", "Fsmblks", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.uordblks", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if (ret)
+                        goto out;
+                cli_out ("%-8s : %d", "Uordblks", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.fordblks", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if (ret)
+                        goto out;
+                cli_out ("%-8s : %d", "Fordblks", val);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.mallinfo.keepcost", i);
+                ret = dict_get_int32 (dict, key, &val);
+                if (ret)
+                        goto out;
+                cli_out ("%-8s : %d", "Keepcost", val);
+
+                cli_out (" ");
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d", i);
+                cli_print_volume_status_mempool (dict, key);
+        }
+out:
+        cli_out ("----------------------------------------------\n");
+        return;
+}
+
+void
+cli_print_volume_status_clients (dict_t *dict)
+{
+        int             ret = -1;
+        char            *volname = NULL;
+        int             brick_count = 0;
+        char            *hostname = NULL;
+        char            *path = NULL;
+        int             online = -1;
+        int             client_count = 0;
+        char            *clientname = NULL;
+        uint64_t        bytesread = 0;
+        uint64_t        byteswrite = 0;
+        char            key[1024] = {0,};
+        int             i = 0;
+        int             j = 0;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+        cli_out ("Client connections for volume %s", volname);
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+
+        for ( i = 0; i < brick_count; i++) {
+                cli_out ("----------------------------------------------");
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.path", i);
+                ret = dict_get_str (dict, key, &path);
+                if (ret)
+                        goto out;
+                cli_out ("Brick : %s:%s", hostname, path);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.status", i);
+                ret = dict_get_int32 (dict, key, &online);
+                if (ret)
+                        goto out;
+                if (!online) {
+                        cli_out ("Brick is offline");
+                        continue;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.clientcount", i);
+                ret = dict_get_int32 (dict, key, &client_count);
+                if (ret)
+                        goto out;
+
+                cli_out ("Clients connected : %d", client_count);
+                cli_out ("%-48s %15s %15s", "Hostname", "BytesRead",
+                         "BytesWritten");
+                cli_out ("%-48s %15s %15s", "--------", "---------",
+                         "------------");
+                for (j =0; j < client_count; j++) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),
+                                  "brick%d.client%d.hostname", i, j);
+                        ret = dict_get_str (dict, key, &clientname);
+                        if (ret)
+                                goto out;
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),
+                                  "brick%d.client%d.bytesread", i, j);
+                        ret = dict_get_uint64 (dict, key, &bytesread);
+                        if (ret)
+                                goto out;
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),
+                                 "brick%d.client%d.byteswrite", i, j);
+                        ret = dict_get_uint64 (dict, key, &byteswrite);
+                        if (ret)
+                                goto out;
+
+                        cli_out ("%-48s %15"PRIu64" %15"PRIu64,
+                                 clientname, bytesread, byteswrite);
+                }
+        }
+out:
+        cli_out ("----------------------------------------------\n");
+        return;
+}
+
+void
+cli_print_volume_status_inode_entry (dict_t *dict, char *prefix)
+{
+        int             ret = -1;
+        char            key[1024] = {0,};
+        char            *gfid = NULL;
+        uint64_t        nlookup = 0;
+        uint32_t        ref = 0;
+        int             ia_type = 0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (prefix);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.gfid", prefix);
+        ret = dict_get_str (dict, key, &gfid);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.nlookup", prefix);
+        ret = dict_get_uint64 (dict, key, &nlookup);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.ref", prefix);
+        ret = dict_get_uint32 (dict, key, &ref);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.ia_type", prefix);
+        ret = dict_get_int32 (dict, key, &ia_type);
+        if (ret)
+                goto out;
+
+        cli_out ("%-40s %14"PRIu64" %14"PRIu32" %9d",
+                 gfid, nlookup, ref, ia_type);
+
+out:
+        return;
+
+}
+
+void
+cli_print_volume_status_itables (dict_t *dict, char *prefix)
+{
+        int             ret = -1;
+        char            key[1024] = {0,};
+        uint32_t        active_size = 0;
+        uint32_t        lru_size = 0;
+        uint32_t        purge_size = 0;
+        int             i =0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (prefix);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.active_size", prefix);
+        ret = dict_get_uint32 (dict, key, &active_size);
+        if (ret)
+                goto out;
+        if (active_size != 0) {
+                cli_out ("Active inodes:");
+                cli_out ("%-40s %14s %14s %9s", "GFID", "Lookups", "Ref",
+                         "IA type");
+                cli_out ("%-40s %14s %14s %9s", "----", "-------", "---",
+                         "-------");
+        }
+        for (i = 0; i < active_size; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.active%d", prefix, i);
+                cli_print_volume_status_inode_entry (dict, key);
+        }
+        cli_out (" ");
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.lru_size", prefix);
+        ret = dict_get_uint32 (dict, key, &lru_size);
+        if (ret)
+                goto out;
+        if (lru_size != 0) {
+                cli_out ("LRU inodes:");
+                cli_out ("%-40s %14s %14s %9s", "GFID", "Lookups", "Ref",
+                         "IA type");
+                cli_out ("%-40s %14s %14s %9s", "----", "-------", "---",
+                         "-------");
+        }
+        for (i = 0; i < lru_size; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.lru%d", prefix, i);
+                cli_print_volume_status_inode_entry (dict, key);
+        }
+        cli_out (" ");
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.purge_size", prefix);
+        ret = dict_get_uint32 (dict, key, &purge_size);
+        if (ret)
+                goto out;
+        if (purge_size != 0) {
+                cli_out ("Purged inodes:");
+                cli_out ("%-40s %14s %14s %9s", "GFID", "Lookups", "Ref",
+                         "IA type");
+                cli_out ("%-40s %14s %14s %9s", "----", "-------", "---",
+                         "-------");
+        }
+        for (i = 0; i < purge_size; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.purge%d", prefix, i);
+                cli_print_volume_status_inode_entry (dict, key);
+        }
+
+out:
+        return;
+}
+
+void
+cli_print_volume_status_inode (dict_t *dict)
+{
+        int             ret = -1;
+        char            *volname = NULL;
+        int             brick_count = 0;
+        char            *hostname = NULL;
+        char            *path = NULL;
+        int             online = -1;
+        int             conn_count = 0;
+        char            key[1024] = {0,};
+        int             i = 0;
+        int             j = 0;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+        cli_out ("Inode tables for volume %s", volname);
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+
+        for (i = 0; i < brick_count; i++) {
+                cli_out ("----------------------------------------------");
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.path", i);
+                ret = dict_get_str (dict, key, &path);
+                if (ret)
+                        goto out;
+                cli_out ("Brick : %s:%s", hostname, path);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.status", i);
+                ret = dict_get_int32 (dict, key, &online);
+                if (ret)
+                        goto out;
+                if (!online) {
+                        cli_out ("Brick is offline");
+                        continue;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.conncount", i);
+                ret = dict_get_int32 (dict, key, &conn_count);
+                if (ret)
+                        goto out;
+
+                for (j = 0; j < conn_count; j++) {
+                        if (conn_count > 1)
+                                cli_out ("Connection %d:", j+1);
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "brick%d.conn%d.itable",
+                                  i, j);
+                        cli_print_volume_status_itables (dict, key);
+                        cli_out (" ");
+                }
+        }
+out:
+        cli_out ("----------------------------------------------");
+        return;
+}
+
+void
+cli_print_volume_status_fdtable (dict_t *dict, char *prefix)
+{
+        int             ret = -1;
+        char            key[1024] = {0,};
+        int             refcount = 0;
+        uint32_t        maxfds = 0;
+        int             firstfree = 0;
+        int             openfds = 0;
+        int             fd_pid = 0;
+        int             fd_refcount = 0;
+        int             fd_flags = 0;
+        int             i = 0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (prefix);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.refcount", prefix);
+        ret = dict_get_int32 (dict, key, &refcount);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.maxfds", prefix);
+        ret = dict_get_uint32 (dict, key, &maxfds);
+        if (ret)
+                goto out;
+
+        memset (key, 0 ,sizeof (key));
+        snprintf (key, sizeof (key), "%s.firstfree", prefix);
+        ret = dict_get_int32 (dict, key, &firstfree);
+        if (ret)
+                goto out;
+
+        cli_out ("RefCount = %d  MaxFDs = %d  FirstFree = %d",
+                 refcount, maxfds, firstfree);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.openfds", prefix);
+        ret = dict_get_int32 (dict, key, &openfds);
+        if (ret)
+                goto out;
+        if (0 == openfds) {
+                cli_out ("No open fds");
+                goto out;
+        }
+
+        cli_out ("%-19s %-19s %-19s %-19s", "FD Entry", "PID",
+                 "RefCount", "Flags");
+        cli_out ("%-19s %-19s %-19s %-19s", "--------", "---",
+                 "--------", "-----");
+
+        for (i = 0; i < maxfds ; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.fdentry%d.pid", prefix, i);
+                ret = dict_get_int32 (dict, key, &fd_pid);
+                if (ret)
+                        continue;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.fdentry%d.refcount",
+                          prefix, i);
+                ret = dict_get_int32 (dict, key, &fd_refcount);
+                if (ret)
+                        continue;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.fdentry%d.flags", prefix, i);
+                ret = dict_get_int32 (dict, key, &fd_flags);
+                if (ret)
+                        continue;
+
+                cli_out ("%-19d %-19d %-19d %-19d", i, fd_pid, fd_refcount,
+                         fd_flags);
+        }
+
+out:
+        return;
+}
+
+void
+cli_print_volume_status_fd (dict_t *dict)
+{
+        int             ret = -1;
+        char            *volname = NULL;
+        int             brick_count = 0;
+        char            *hostname = NULL;
+        char            *path = NULL;
+        int             online = -1;
+        int             conn_count = 0;
+        char            key[1024] = {0,};
+        int             i = 0;
+        int             j = 0;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+        cli_out ("FD tables for volume %s", volname);
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+
+        for (i = 0; i < brick_count; i++) {
+                cli_out ("----------------------------------------------");
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.path", i);
+                ret = dict_get_str (dict, key, &path);
+                if (ret)
+                        goto out;
+                cli_out ("Brick : %s:%s", hostname, path);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.status", i);
+                ret = dict_get_int32 (dict, key, &online);
+                if (ret)
+                        goto out;
+                if (!online) {
+                        cli_out ("Brick is offline");
+                        continue;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.conncount", i);
+                ret = dict_get_int32 (dict, key, &conn_count);
+                if (ret)
+                        goto out;
+
+                for (j = 0; j < conn_count; j++) {
+                        cli_out ("Connection %d:", j+1);
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "brick%d.conn%d.fdtable",
+                                  i, j);
+                        cli_print_volume_status_fdtable (dict, key);
+                        cli_out (" ");
+                }
+        }
+out:
+        cli_out ("----------------------------------------------");
+        return;
+}
+
+void
+cli_print_volume_status_call_frame (dict_t *dict, char *prefix)
+{
+        int             ret = -1;
+        char            key[1024] = {0,};
+        int             ref_count = 0;
+        char            *translator = 0;
+        int             complete = 0;
+        char            *parent = NULL;
+        char            *wind_from = NULL;
+        char            *wind_to = NULL;
+        char            *unwind_from = NULL;
+        char            *unwind_to = NULL;
+
+        if (!dict || !prefix)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.refcount", prefix);
+        ret = dict_get_int32 (dict, key, &ref_count);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.translator", prefix);
+        ret = dict_get_str (dict, key, &translator);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.complete", prefix);
+        ret = dict_get_int32 (dict, key, &complete);
+        if (ret)
+                return;
+
+        cli_out ("  Ref Count   = %d", ref_count);
+        cli_out ("  Translator  = %s", translator);
+        cli_out ("  Completed   = %s", (complete ? "Yes" : "No"));
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.parent", prefix);
+        ret = dict_get_str (dict, key, &parent);
+        if (!ret)
+                cli_out ("  Parent      = %s", parent);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.windfrom", prefix);
+        ret = dict_get_str (dict, key, &wind_from);
+        if (!ret)
+                cli_out ("  Wind From   = %s", wind_from);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.windto", prefix);
+        ret = dict_get_str (dict, key, &wind_to);
+        if (!ret)
+                cli_out ("  Wind To     = %s", wind_to);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.unwindfrom", prefix);
+        ret = dict_get_str (dict, key, &unwind_from);
+        if (!ret)
+                cli_out ("  Unwind From = %s", unwind_from);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.unwindto", prefix);
+        ret = dict_get_str (dict, key, &unwind_to);
+        if (!ret)
+                cli_out ("  Unwind To   = %s", unwind_to);
+}
+
+void
+cli_print_volume_status_call_stack (dict_t *dict, char *prefix)
+{
+        int             ret = -1;
+        char            key[1024] = {0,};
+        int             uid = 0;
+        int             gid = 0;
+        int             pid = 0;
+        uint64_t        unique = 0;
+        //char            *op = NULL;
+        int             count = 0;
+        int             i = 0;
+
+        if (!dict || !prefix)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.uid", prefix);
+        ret = dict_get_int32 (dict, key, &uid);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.gid", prefix);
+        ret = dict_get_int32 (dict, key, &gid);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.pid", prefix);
+        ret = dict_get_int32 (dict, key, &pid);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.unique", prefix);
+        ret = dict_get_uint64 (dict, key, &unique);
+        if (ret)
+                return;
+
+        /*
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.op", prefix);
+        ret = dict_get_str (dict, key, &op);
+        if (ret)
+                return;
+        */
+
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.count", prefix);
+        ret = dict_get_int32 (dict, key, &count);
+        if (ret)
+                return;
+
+        cli_out (" UID    : %d", uid);
+        cli_out (" GID    : %d", gid);
+        cli_out (" PID    : %d", pid);
+        cli_out (" Unique : %"PRIu64, unique);
+        //cli_out ("\tOp     : %s", op);
+        cli_out (" Frames : %d", count);
+
+        for (i = 0; i < count; i++) {
+                cli_out (" Frame %d", i+1);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.frame%d", prefix, i);
+                cli_print_volume_status_call_frame (dict, key);
+        }
+
+        cli_out (" ");
+}
+
+void
+cli_print_volume_status_callpool (dict_t *dict)
+{
+        int             ret = -1;
+        char            *volname = NULL;
+        int             brick_count = 0;
+        char            *hostname = NULL;
+        char            *path = NULL;
+        int             online = -1;
+        int             call_count = 0;
+        char            key[1024] = {0,};
+        int             i = 0;
+        int             j = 0;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+        cli_out ("Pending calls for volume %s", volname);
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+
+        for (i = 0; i < brick_count; i++) {
+                cli_out ("----------------------------------------------");
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.path", i);
+                ret = dict_get_str (dict, key, &path);
+                if (ret)
+                        goto out;
+                cli_out ("Brick : %s:%s", hostname, path);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.status", i);
+                ret = dict_get_int32 (dict, key, &online);
+                if (ret)
+                        goto out;
+                if (!online) {
+                        cli_out ("Brick is offline");
+                        continue;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.callpool.count", i);
+                ret = dict_get_int32 (dict, key, &call_count);
+                if (ret)
+                        goto out;
+                cli_out ("Pending calls: %d", call_count);
+
+                if (0 == call_count)
+                        continue;
+
+                for (j = 0; j < call_count; j++) {
+                        cli_out ("Call Stack%d", j+1);
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),
+                                  "brick%d.callpool.stack%d", i, j);
+                        cli_print_volume_status_call_stack (dict, key);
+                }
+        }
+
+out:
+        cli_out ("----------------------------------------------");
+        return;
+}
+
 static int
 gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                       int count, void *myframe)
@@ -3868,6 +4731,31 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         status.brick = GF_CALLOC (1, PATH_MAX + 256, gf_common_mt_strdup);
+
+        switch (cmd & GF_CLI_STATUS_MASK) {
+                case GF_CLI_STATUS_MEM:
+                        cli_print_volume_status_mem (dict);
+                        goto cont;
+                        break;
+                case GF_CLI_STATUS_CLIENTS:
+                        cli_print_volume_status_clients (dict);
+                        goto cont;
+                        break;
+                case GF_CLI_STATUS_INODE:
+                        cli_print_volume_status_inode (dict);
+                        goto cont;
+                        break;
+                case GF_CLI_STATUS_FD:
+                        cli_print_volume_status_fd (dict);
+                        goto cont;
+                        break;
+                case GF_CLI_STATUS_CALLPOOL:
+                        cli_print_volume_status_callpool (dict);
+                        goto cont;
+                        break;
+                default:
+                        break;
+        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
@@ -3934,9 +4822,10 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
+cont:
         ret = rsp.op_ret;
 
- out:
+out:
         if (status.brick)
                 GF_FREE (status.brick);
 

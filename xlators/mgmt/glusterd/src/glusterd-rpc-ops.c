@@ -1038,8 +1038,7 @@ glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
         rsp_ctx.count = count;
         rsp_ctx.dict = ctx_dict;
         dict_foreach (rsp_dict, glusterd_volume_status_add_peer_rsp, &rsp_ctx);
-        dict_del (ctx_dict, "count");
-        ret = dict_get_int32 (ctx_dict, "count", &brick_count);
+
         ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
 out:
         return ret;
@@ -1626,9 +1625,13 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         call_frame_t                  *frame = NULL;
         glusterd_op_brick_rsp_ctx_t   *ev_ctx = NULL;
         dict_t                        *dict = NULL;
+        int                           index = 0;
+        glusterd_req_ctx_t            *req_ctx = NULL;
+        glusterd_pending_node_t       *node = NULL;
 
         GF_ASSERT (req);
         frame = myframe;
+        req_ctx = frame->local;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1643,7 +1646,7 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = strdup ("Unable to decode response");
+                rsp.op_errstr = strdup ("Unable to decode brick op response");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
@@ -1668,6 +1671,19 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_ret = rsp.op_ret;
 
+        /* Add index to rsp_dict for GD_OP_STATUS_VOLUME */
+        if (GD_OP_STATUS_VOLUME == req_ctx->op) {
+                node = frame->cookie;
+                index = node->index;
+                ret = dict_set_int32 (dict, "index", index);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Error setting index on brick status rsp dict");
+                        rsp.op_ret = -1;
+                        event_type = GD_OP_EVENT_RCVD_RJT;
+                        goto out;
+                }
+        }
 out:
         ev_ctx = GF_CALLOC (1, sizeof (*ev_ctx), gf_gld_mt_brick_rsp_ctx_t);
         GF_ASSERT (ev_ctx);

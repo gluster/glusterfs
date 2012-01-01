@@ -414,6 +414,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 }
 
 void gf_proc_dump_pending_frames(call_pool_t *call_pool);
-
+void gf_proc_dump_pending_frames_to_dict (call_pool_t *call_pool,
+                                          dict_t *dict);
 gf_boolean_t __is_fuse_call (call_frame_t *frame);
 #endif /* _STACK_H */

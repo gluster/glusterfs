@@ -77,9 +77,17 @@ int gf_proc_dump_write(char *key, char *value,...);
 
 void inode_table_dump(inode_table_t *itable, char *prefix);
 
+void inode_table_dump_to_dict (inode_table_t *itable, char *prefix, dict_t *dict);
+
 void fdtable_dump(fdtable_t *fdtable, char *prefix);
 
+void fdtable_dump_to_dict (fdtable_t *fdtable, char *prefix, dict_t *dict);
+
 void inode_dump(inode_t *inode, char *prefix);
+
+void gf_proc_dump_mem_info_to_dict (dict_t *dict);
+
+void gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict);
 
 void glusterd_init (int sig);
 #endif /* STATEDUMP_H */
