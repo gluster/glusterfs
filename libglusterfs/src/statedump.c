@@ -235,6 +235,61 @@ gf_proc_dump_mem_info ()
 }
 
 void
+gf_proc_dump_mem_info_to_dict (dict_t *dict)
+{
+        if (!dict)
+                return;
+#ifdef HAVE_MALLOC_STATS
+        struct  mallinfo info;
+        int     ret = -1;
+
+        memset (&info, 0, sizeof(struct mallinfo));
+        info = mallinfo ();
+
+        ret = dict_set_int32 (dict, "mallinfo.arena", info.arena);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.ordblks", info.ordblks);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.smblks", info.smblks);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.hblks", info.hblks);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.hblkhd", info.hblkhd);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.usmblks", info.usmblks);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.fsmblks", info.fsmblks);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.uordblks", info.uordblks);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.fordblks", info.fordblks);
+        if (ret)
+                return;
+
+        ret = dict_set_int32 (dict, "mallinfo.keepcost", info.keepcost);
+        if (ret)
+                return;
+#endif
+        return;
+}
+
+void
 gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
 {
         struct mem_pool *pool = NULL;
@@ -251,6 +306,61 @@ gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
                 gf_proc_dump_write ("alloc-count", "%"PRIu64, pool->alloc_count);
                 gf_proc_dump_write ("max-alloc", "%d", pool->max_alloc);
         }
+}
+
+void
+gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict)
+{
+        struct mem_pool *pool = NULL;
+        char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        int             count = 0;
+        int             ret = -1;
+
+        if (!ctx || !dict)
+                return;
+
+        list_for_each_entry (pool, &ctx->mempool_list, global_list) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.name", count);
+                ret = dict_set_str (dict, key, pool->name);
+                if (ret)
+                        return;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.hotcount", count);
+                ret = dict_set_int32 (dict, key, pool->hot_count);
+                if (ret)
+                        return;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.coldcount", count);
+                ret = dict_set_int32 (dict, key, pool->cold_count);
+                if (ret)
+                        return;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.paddedsizeof", count);
+                ret = dict_set_uint64 (dict, key, pool->padded_sizeof_type);
+                if (ret)
+                        return;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.alloccount", count);
+                ret = dict_set_uint64 (dict, key, pool->alloc_count);
+                if (ret)
+                        return;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.max_alloc", count);
+                ret = dict_set_int32 (dict, key, pool->max_alloc);
+                if (ret)
+                        return;
+
+                count++;
+        }
+        ret = dict_set_int32 (dict, "mempool-count", count);
+
+        return;
 }
 
 void gf_proc_dump_latency_info (xlator_t *xl);

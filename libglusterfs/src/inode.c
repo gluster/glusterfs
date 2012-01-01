@@ -1637,3 +1637,99 @@ inode_table_dump (inode_table_t *itable, char *prefix)
 
         pthread_mutex_unlock(&itable->lock);
 }
+
+void
+inode_dump_to_dict (inode_t *inode, char *prefix, dict_t *dict)
+{
+        int             ret = -1;
+        char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+
+        ret = TRY_LOCK (&inode->lock);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.gfid", prefix);
+        ret = dict_set_str (dict, key, gf_strdup (uuid_utoa (inode->gfid)));
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.nlookup", prefix);
+        ret = dict_set_uint64 (dict, key, inode->nlookup);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.ref", prefix);
+        ret = dict_set_uint32 (dict, key, inode->ref);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.ia_type", prefix);
+        ret = dict_set_int32 (dict, key, inode->ia_type);
+
+out:
+        UNLOCK (&inode->lock);
+        return;
+}
+
+void
+inode_table_dump_to_dict (inode_table_t *itable, char *prefix, dict_t *dict)
+{
+        char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        int             ret = 0;
+        inode_t         *inode = NULL;
+        int             count = 0;
+
+        ret = pthread_mutex_trylock (&itable->lock);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.itable.active_size", prefix);
+        ret = dict_set_uint32 (dict, key, itable->active_size);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.itable.lru_size", prefix);
+        ret = dict_set_uint32 (dict, key, itable->lru_size);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.itable.purge_size", prefix);
+        ret = dict_set_uint32 (dict, key, itable->purge_size);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (inode, &itable->active, list) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.itable.active%d", prefix,
+                          count++);
+                inode_dump_to_dict (inode, key, dict);
+        }
+        count = 0;
+
+        list_for_each_entry (inode, &itable->lru, list) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.itable.lru%d", prefix,
+                          count++);
+                inode_dump_to_dict (inode, key, dict);
+        }
+        count = 0;
+
+        list_for_each_entry (inode, &itable->purge, list) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.itable.purge%d", prefix,
+                          count++);
+                inode_dump_to_dict (inode, key, dict);
+        }
+
+out:
+        pthread_mutex_unlock (&itable->lock);
+
+        return;
+}

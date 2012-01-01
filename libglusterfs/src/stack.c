@@ -161,6 +161,194 @@ gf_proc_dump_pending_frames (call_pool_t *call_pool)
         UNLOCK (&(call_pool->lock));
 }
 
+void
+gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
+                                 char *prefix, dict_t *dict)
+{
+        int             ret = -1;
+        char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        call_frame_t    tmp_frame = {0,};
+
+        if (!call_frame || !dict)
+                return;
+
+        ret = TRY_LOCK (&call_frame->lock);
+        if (ret)
+                return;
+        memcpy (&tmp_frame, call_frame, sizeof (tmp_frame));
+        UNLOCK (&call_frame->lock);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.refcount", prefix);
+        ret = dict_set_int32 (dict, key, tmp_frame.ref_count);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.translator", prefix);
+        ret = dict_set_str (dict, key, gf_strdup (tmp_frame.this->name));
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.complete", prefix);
+        ret = dict_set_int32 (dict, key, tmp_frame.complete);
+        if (ret)
+                return;
+
+        if (tmp_frame.parent) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.parent", prefix);
+                ret = dict_set_str (dict, key,
+                                    gf_strdup (tmp_frame.parent->this->name));
+                if (ret)
+                        return;
+        }
+
+        if (tmp_frame.wind_from) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.windfrom", prefix);
+                ret = dict_set_str (dict, key, gf_strdup (tmp_frame.wind_from));
+                if (ret)
+                        return;
+        }
+
+        if (tmp_frame.wind_to) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.windto", prefix);
+                ret = dict_set_str (dict, key, gf_strdup (tmp_frame.wind_to));
+                if (ret)
+                        return;
+        }
+
+        if (tmp_frame.unwind_from) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.unwindfrom", prefix);
+                ret = dict_set_str (dict, key, gf_strdup (tmp_frame.unwind_from));
+                if (ret)
+                        return;
+        }
+
+        if (tmp_frame.unwind_to) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.unwind_to", prefix);
+                ret = dict_set_str (dict, key, gf_strdup (tmp_frame.unwind_to));
+        }
+
+        return;
+}
+
+void
+gf_proc_dump_call_stack_to_dict (call_stack_t *call_stack,
+                                 char *prefix, dict_t *dict)
+{
+        int             ret = -1;
+        char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        call_frame_t    *trav = NULL;
+        int             count = 0;
+        int             i = 0;
+
+        if (!call_stack || !dict)
+                return;
+
+        count = call_frames_count (&call_stack->frames);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.uid", prefix);
+        ret = dict_set_int32 (dict, key, call_stack->uid);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.gid", prefix);
+        ret = dict_set_int32 (dict, key, call_stack->gid);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.pid", prefix);
+        ret = dict_set_int32 (dict, key, call_stack->pid);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.unique", prefix);
+        ret = dict_set_uint64 (dict, key, call_stack->unique);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.op", prefix);
+        if (call_stack->type == GF_OP_TYPE_FOP)
+                ret = dict_set_str (dict, key,
+                                    gf_fop_list[call_stack->op]);
+        else if (call_stack->type == GF_OP_TYPE_MGMT)
+                ret = dict_set_str (dict, key,
+                                    gf_mgmt_list[call_stack->op]);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.type", prefix);
+        ret = dict_set_int32 (dict, key, call_stack->type);
+        if (ret)
+                return;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.count", prefix);
+        ret = dict_set_int32 (dict, key, count);
+        if (ret)
+                return;
+
+        trav = &call_stack->frames;
+        for (i = 0; i < count; i++) {
+                if (trav) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "%s.frame%d",
+                                  prefix, i);
+                        gf_proc_dump_call_frame_to_dict (trav, key, dict);
+                        trav = trav->next;
+                }
+        }
+
+        return;
+}
+
+void
+gf_proc_dump_pending_frames_to_dict (call_pool_t *call_pool, dict_t *dict)
+{
+        int             ret = -1;
+        call_stack_t    *trav = NULL;
+        char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        int             i = 0;
+
+        if (!call_pool || !dict)
+                return;
+
+        ret = TRY_LOCK (&call_pool->lock);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_WARNING, "Unable to dump call pool"
+                        " to dict. errno: %d", errno);
+                return;
+        }
+
+        ret = dict_set_int32 (dict, "callpool.count", call_pool->cnt);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (trav, &call_pool->all_frames, all_frames) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "callpool.stack%d", i);
+                gf_proc_dump_call_stack_to_dict (trav, key, dict);
+                i++;
+        }
+
+out:
+        UNLOCK (&call_pool->lock);
+
+        return;
+}
+
 gf_boolean_t
 __is_fuse_call (call_frame_t *frame)
 {

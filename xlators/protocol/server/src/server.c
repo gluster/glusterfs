@@ -164,6 +164,38 @@ ret:
 
 /* */
 int
+server_fd_to_dict (xlator_t *this, dict_t *dict)
+{
+        server_conf_t           *conf = NULL;
+        server_connection_t     *trav = NULL;
+        char                    key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        int                     count = 0;
+        int                     ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+
+        conf = this->private;
+        if (!conf)
+                return -1;
+
+        ret = pthread_mutex_trylock (&conf->mutex);
+        if (ret)
+                return -1;
+
+        list_for_each_entry (trav, &conf->conns, list) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "conn%d", count++);
+                fdtable_dump_to_dict (trav->fdtable, key, dict);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
+        ret = dict_set_int32 (dict, "conncount", count);
+out:
+        return ret;
+}
+
+int
 server_fd (xlator_t *this)
 {
         server_conf_t        *conf = NULL;
@@ -218,6 +250,53 @@ out:
 }
 
 int
+server_priv_to_dict (xlator_t *this, dict_t *dict)
+{
+        server_conf_t   *conf = NULL;
+        rpc_transport_t *xprt = NULL;
+        peer_info_t     *peerinfo = NULL;
+        char            key[32] = {0,};
+        int             count = 0;
+        int             ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, dict, out);
+
+        conf = this->private;
+        if (!conf)
+                return 0;
+        //TODO: Dump only specific info to dict
+
+        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                peerinfo = &xprt->peerinfo;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.hostname", count);
+                ret = dict_set_str (dict, key, peerinfo->identifier);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.bytesread", count);
+                ret = dict_set_uint64 (dict, key, xprt->total_bytes_read);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.byteswrite", count);
+                ret = dict_set_uint64 (dict, key, xprt->total_bytes_write);
+                if (ret)
+                        goto out;
+
+                count++;
+        }
+
+        ret = dict_set_int32 (dict, "clientcount", count);
+
+out:
+        return ret;
+}
+
+int
 server_priv (xlator_t *this)
 {
         server_conf_t    *conf = NULL;
@@ -246,6 +325,57 @@ server_priv (xlator_t *this)
 
         ret = 0;
 out:
+        return ret;
+}
+
+int
+server_inode_to_dict (xlator_t *this, dict_t *dict)
+{
+        server_conf_t           *conf = NULL;
+        server_connection_t     *trav = NULL;
+        char                    key[32] = {0,};
+        int                     count = 0;
+        int                     ret = -1;
+        xlator_t                *prev_bound_xl = NULL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+
+        conf = this->private;
+        if (!conf)
+                return -1;
+
+        ret = pthread_mutex_trylock (&conf->mutex);
+        if (ret)
+                return -1;
+
+        list_for_each_entry (trav, &conf->conns, list) {
+                if (trav->bound_xl && trav->bound_xl->itable) {
+                        /* Presently every brick contains only one
+                         * bound_xl for all connections. This will lead
+                         * to duplicating of the inode lists, if listing
+                         * is done for every connection. This simple check
+                         * prevents duplication in the present case. If
+                         * need arises the check can be improved.
+                         */
+                        if (trav->bound_xl == prev_bound_xl)
+                                continue;
+                        prev_bound_xl = trav->bound_xl;
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "conn%d", count);
+                        inode_table_dump_to_dict (trav->bound_xl->itable,
+                                                  key, dict);
+                        count++;
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
+        ret = dict_set_int32 (dict, "conncount", count);
+
+out:
+        if (prev_bound_xl)
+                prev_bound_xl = NULL;
         return ret;
 }
 
@@ -811,9 +941,12 @@ struct xlator_cbks cbks = {
 };
 
 struct xlator_dumpops dumpops = {
-        .priv  = server_priv,
-        .fd    = server_fd,
-        .inode = server_inode,
+        .priv           = server_priv,
+        .fd             = server_fd,
+        .inode          = server_inode,
+        .priv_to_dict   = server_priv_to_dict,
+        .fd_to_dict     = server_fd_to_dict,
+        .inode_to_dict  = server_inode_to_dict,
 };
 
 

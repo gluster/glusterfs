@@ -756,12 +756,29 @@ typedef int32_t (*dumpop_inodectx_t) (xlator_t *this, inode_t *ino);
 
 typedef int32_t (*dumpop_fdctx_t) (xlator_t *this, fd_t *fd);
 
+typedef int32_t (*dumpop_priv_to_dict_t) (xlator_t *this, dict_t *dict);
+
+typedef int32_t (*dumpop_inode_to_dict_t) (xlator_t *this, dict_t *dict);
+
+typedef int32_t (*dumpop_fd_to_dict_t) (xlator_t *this, dict_t *dict);
+
+typedef int32_t (*dumpop_inodectx_to_dict_t) (xlator_t *this, inode_t *ino,
+                                              dict_t *dict);
+
+typedef int32_t (*dumpop_fdctx_to_dict_t) (xlator_t *this, fd_t *fd,
+                                           dict_t *dict);
+
 struct xlator_dumpops {
-        dumpop_priv_t            priv;
-        dumpop_inode_t           inode;
-        dumpop_fd_t              fd;
-        dumpop_inodectx_t        inodectx;
-        dumpop_fdctx_t           fdctx;
+        dumpop_priv_t                   priv;
+        dumpop_inode_t                  inode;
+        dumpop_fd_t                     fd;
+        dumpop_inodectx_t               inodectx;
+        dumpop_fdctx_t                  fdctx;
+        dumpop_priv_to_dict_t           priv_to_dict;
+        dumpop_inode_to_dict_t          inode_to_dict;
+        dumpop_fd_to_dict_t             fd_to_dict;
+        dumpop_inodectx_to_dict_t       inodectx_to_dict;
+        dumpop_fdctx_to_dict_t          fdctx_to_dict;
 };
 
 typedef struct xlator_list {

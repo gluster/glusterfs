@@ -1740,7 +1740,8 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_top_cbk,
            "volume top operations"},
 
-        { "volume status [all|<VOLNAME>] [brick] [detail]",
+        { "volume status [all|{<VOLNAME> [<BRICKNAME>] "
+          "[misc-details|clients|mem|inode|fd|callpool]}]",
           cli_cmd_volume_status_cbk,
          "display status of specified volume"},
 

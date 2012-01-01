@@ -240,6 +240,7 @@ typedef struct glusterd_pending_node_ {
         struct list_head list;
         void   *node;
         gd_node_type type;
+        int32_t index;
 } glusterd_pending_node_t;
 
 enum glusterd_op_ret {
