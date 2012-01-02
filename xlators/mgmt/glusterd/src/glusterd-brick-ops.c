@@ -431,6 +431,12 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 if (ret == 1)
                         stripe_count = 0;
 
+                ret = dict_set_int32 (dict, "stripe-count", stripe_count);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to set the stripe-count in dict");
+                        goto out;
+                }
                 goto brick_val;
         }
 
@@ -446,6 +452,13 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         /* if replica count is same as earlier, set it back to 0 */
         if (ret == 1)
                 replica_count = 0;
+
+        ret = dict_set_int32 (dict, "replica-count", replica_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set the replica-count in dict");
+                goto out;
+        }
 
 brick_val:
         ret = dict_get_str (dict, "bricks", &bricks);
