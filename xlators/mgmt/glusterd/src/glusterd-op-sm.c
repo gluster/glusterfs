@@ -2459,7 +2459,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_STATEDUMP_VOLUME:
-                        ret = glusterd_op_statedump_volume (dict);
+                        ret = glusterd_op_statedump_volume (dict, op_errstr);
                         break;
 
                 default:

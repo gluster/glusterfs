@@ -1749,7 +1749,8 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_heal_cbk,
           "Start healing of volume specified by <VOLNAME>"},
 
-        {"volume statedump <VOLNAME> [all|mem|iobuf|callpool|priv|fd|inode]...",
+        {"volume statedump <VOLNAME> [nfs] [all|mem|iobuf|callpool|priv|fd|"
+         "inode]...",
          cli_cmd_volume_statedump_cbk,
          "perform statedump on bricks"},
 

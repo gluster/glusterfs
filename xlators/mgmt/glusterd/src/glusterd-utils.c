@@ -4532,13 +4532,15 @@ int
 glusterd_set_dump_options (char *dumpoptions_path, char *options,
                            int option_cnt)
 {
-        int     ret = -1;
+        int     ret = 0;
         char    *dup_options = NULL;
         char    *option = NULL;
         char    *tmpptr = NULL;
         FILE    *fp = NULL;
+        int     nfs_cnt = 0;
 
-        if (0 == option_cnt) {
+        if (0 == option_cnt ||
+            (option_cnt == 1 && (!strcmp (options, "nfs ")))) {
                 ret = 0;
                 goto out;
         }
@@ -4553,6 +4555,16 @@ glusterd_set_dump_options (char *dumpoptions_path, char *options,
                 dup_options);
         option = strtok_r (dup_options, " ", &tmpptr);
         while (option) {
+                if (!strcmp (option, "nfs")) {
+                        if (nfs_cnt > 0) {
+                                unlink (dumpoptions_path);
+                                ret = 0;
+                                goto out;
+                        }
+                        nfs_cnt++;
+                        option = strtok_r (NULL, " ", &tmpptr);
+                        continue;
+                }
                 fprintf (fp, "%s=yes\n", option);
                 option = strtok_r (NULL, " ", &tmpptr);
         }
@@ -4560,13 +4572,15 @@ glusterd_set_dump_options (char *dumpoptions_path, char *options,
 out:
         if (fp)
                 fclose (fp);
+        if (dup_options)
+                GF_FREE (dup_options);
         return ret;
 }
 
 int
 glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *brickinfo,
-                          char *options, int option_cnt)
+                          char *options, int option_cnt, char **op_errstr)
 {
         int                     ret = -1;
         xlator_t                *this = NULL;
@@ -4618,8 +4632,13 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
 
         snprintf (dumpoptions_path, sizeof (dumpoptions_path),
                   "/tmp/glusterdump.%d.options", pid);
-        glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
-
+        ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error while parsing the statedump "
+                        "options");
+                ret = -1;
+                goto out;
+        }
 
         gf_log ("", GF_LOG_INFO, "Performing statedump on brick with pid %d",
                 pid);
@@ -4627,12 +4646,87 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
         kill (pid, SIGUSR1);
 
         sleep (1);
+        ret = 0;
+out:
         unlink (dumpoptions_path);
+        if (pidfile)
+                fclose (pidfile);
+        return ret;
+}
+
+int
+glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
+{
+        int                     ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *conf = NULL;
+        char                    pidfile_path[PATH_MAX] = {0,};
+        char                    path[PATH_MAX] = {0,};
+        FILE                    *pidfile = NULL;
+        pid_t                   pid = -1;
+        char                    dumpoptions_path[PATH_MAX] = {0,};
+        char                    *option = NULL;
+        char                    *tmpptr = NULL;
+        char                    *dup_options = NULL;
+        char                    msg[256] = {0,};
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        dup_options = gf_strdup (options);
+        option = strtok_r (dup_options, " ", &tmpptr);
+        if (strcmp (option, "nfs")) {
+                snprintf (msg, sizeof (msg), "for nfs statedump, options should"
+                          " be after the key nfs");
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        GLUSTERD_GET_NFS_DIR (path, conf);
+        GLUSTERD_GET_NFS_PIDFILE (pidfile_path, path);
+
+        pidfile = fopen (pidfile_path, "r");
+        if (!pidfile) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                        pidfile_path);
+                ret = -1;
+                goto out;
+        }
+
+        ret = fscanf (pidfile, "%d", &pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get pid of brick process");
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (dumpoptions_path, sizeof (dumpoptions_path),
+                  "/tmp/glusterdump.%d.options", pid);
+        ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error while parsing the statedump "
+                        "options");
+                ret = -1;
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_INFO, "Performing statedump on nfs server with "
+                "pid %d", pid);
+
+        kill (pid, SIGUSR1);
+
+        sleep (1);
 
         ret = 0;
 out:
         if (pidfile)
                 fclose (pidfile);
+        unlink (dumpoptions_path);
+        if (dup_options)
+                GF_FREE (dup_options);
         return ret;
 }
 
