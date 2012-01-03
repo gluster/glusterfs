@@ -1383,7 +1383,7 @@ glusterd_op_heal_volume (dict_t *dict, char **op_errstr)
 }
 
 int
-glusterd_op_statedump_volume (dict_t *dict)
+glusterd_op_statedump_volume (dict_t *dict, char **op_errstr)
 {
         int                     ret = 0;
         char                    *volname = NULL;
@@ -1401,11 +1401,19 @@ glusterd_op_statedump_volume (dict_t *dict)
         if (ret)
                 goto out;
         gf_log ("", GF_LOG_DEBUG, "Performing statedump on volume %s", volname);
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_brick_statedump (volinfo, brickinfo, options,
-                                                option_cnt);
+        if (strstr (options, "nfs") != NULL) {
+                ret = glusterd_nfs_statedump (options, option_cnt, op_errstr);
                 if (ret)
                         goto out;
+        } else {
+                list_for_each_entry (brickinfo, &volinfo->bricks,
+                                                        brick_list) {
+                        ret = glusterd_brick_statedump (volinfo, brickinfo,
+                                                        options, option_cnt,
+                                                        op_errstr);
+                        if (ret)
+                                goto out;
+                }
         }
 
 out:

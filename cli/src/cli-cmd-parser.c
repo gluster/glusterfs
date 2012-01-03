@@ -1934,8 +1934,8 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 gf_boolean_t
 cli_cmd_validate_dumpoption (const char *option)
 {
-        char    *opwords[] = {"all", "mem", "iobuf", "callpool", "priv", "fd",
-                              "inode", NULL};
+        char    *opwords[] = {"all", "nfs", "mem", "iobuf", "callpool", "priv",
+			      "fd", "inode", NULL};
         char    *w = NULL;
 
         w = str_getunamb (option, opwords);
@@ -1965,6 +1965,7 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
                 strncat (option_str, words[i], sizeof (words [i]));
                 strncat (option_str, " ", 1);
         }
+
         dict = dict_new ();
         if (!dict)
                 goto out;

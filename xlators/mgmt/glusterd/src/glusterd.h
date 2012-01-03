@@ -284,6 +284,9 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                   GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname, \
                   GLUSTERD_BRICK_INFO_DIR);
 
+#define GLUSTERD_GET_NFS_DIR(path, priv) \
+        snprintf (path, PATH_MAX, "%s/nfs", priv->workdir);
+
 #define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {               \
                 int i = 0;                                              \
                 for (i = 1; i < strlen (path); i++) {                   \
@@ -298,6 +301,11 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 GLUSTERD_REMOVE_SLASH_FROM_PATH (brickpath, exp_path);  \
                 snprintf (pidfile, PATH_MAX, "%s/run/%s-%s.pid",        \
                           volpath, hostname, exp_path);                 \
+        }
+
+#define GLUSTERD_GET_NFS_PIDFILE(pidfile,nfspath) {                     \
+                snprintf (pidfile, PATH_MAX, "%s/run/nfs.pid",          \
+                          nfspath);                                     \
         }
 
 #define GLUSTERD_STACK_DESTROY(frame) do {\
@@ -565,7 +573,7 @@ int glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr);
 int glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 
 int glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr);
-int glusterd_op_statedump_volume (dict_t *dict);
+int glusterd_op_statedump_volume (dict_t *dict, char **op_errstr);
 
 /* misc */
 void glusterd_do_replace_brick (void *data);
