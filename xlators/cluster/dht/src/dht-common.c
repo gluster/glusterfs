@@ -75,7 +75,7 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                 /* compare user xattrs only */
                 if (!strncmp (key, "user.", strlen ("user."))) {
                         ret = dict_lookup (dst, key, &data_pair); 
-                        if (!ret && data) {
+                        if (!ret && data_pair && value) {
                                 ret = is_data_equal (data_pair->value, value);
                                 if (!ret)
                                         gf_log ("dht", GF_LOG_WARNING,

@@ -108,9 +108,12 @@ int32_t
 is_data_equal (data_t *one,
                data_t *two)
 {
-        /* LOG-TODO */
-        if (!one || !two || !one->data || !two->data)
-                return 1;
+        if (!one || !two || !one->data || !two->data) {
+		gf_log_callingfn ("dict", GF_LOG_ERROR,
+				  "input arguments are provided "
+				  "with value data_t as NULL");
+                return -1;
+	}
 
         if (one == two)
                 return 1;
