@@ -643,6 +643,17 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 }
         }
 
+	if (!replica_count &&
+            (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) &&
+            (volinfo->brick_count == volinfo->dist_leaf_count)) {
+                snprintf (err_str, 2048, "Removing bricks from stripe-replicate"
+                          " configuration is not allowed without reducing "
+                          "replica or stripe count explicitly.");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
+                ret = -1;
+                goto out;
+        }
+
         brick_list = GF_MALLOC (120000 * sizeof(*brick_list),gf_common_mt_char);
 
         if (!brick_list) {
