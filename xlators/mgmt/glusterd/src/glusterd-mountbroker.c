@@ -38,7 +38,7 @@
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-utils.h"
-
+#include "common-utils.h"
 #include "glusterd-mountbroker.h"
 #include "glusterd-op-sm.h"
 
@@ -62,31 +62,6 @@ seq_dict_foreach (dict_t *dict,
                         return ret;
         }
 }
-
-static void
-skipwhite (char **s)
-{
-        while (isspace (**s))
-                (*s)++;
-}
-
-static char *
-nwstrtail (char *str, char *pattern)
-{
-        for (;;) {
-                skipwhite (&str);
-                skipwhite (&pattern);
-
-                if (*str != *pattern || !*str)
-                        break;
-
-                str++;
-                pattern++;
-        }
-
-        return *pattern ? NULL : str;
-}
-
 
 int
 parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)

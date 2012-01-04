@@ -407,6 +407,8 @@ int log_base2 (unsigned long x);
 int get_checksum_for_path (char *path, uint32_t *checksum);
 
 char *strtail (char *str, const char *pattern);
+void skipwhite (char **s);
+char *nwstrtail (char *str, char *pattern);
 
 char valid_host_name (char *address, int length);
 char valid_ipv4_address (char *address, int length);
