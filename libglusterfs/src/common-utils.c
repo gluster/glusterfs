@@ -1583,6 +1583,30 @@ strtail (char *str, const char *pattern)
         return NULL;
 }
 
+void
+skipwhite (char **s)
+{
+        while (isspace (**s))
+                (*s)++;
+}
+
+char *
+nwstrtail (char *str, char *pattern)
+{
+        for (;;) {
+                skipwhite (&str);
+                skipwhite (&pattern);
+
+                if (*str != *pattern || !*str)
+                        break;
+
+                str++;
+                pattern++;
+        }
+
+        return *pattern ? NULL : str;
+}
+
 /* RFC 1123 & 952 */
 char
 valid_host_name (char *address, int length)
