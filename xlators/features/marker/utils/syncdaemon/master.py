@@ -58,14 +58,15 @@ class GMaster(object):
         if isinstance(xt, int) and xt != ENODATA:
             return xt
         invalid_xtime = (xt == ENODATA or xt < self.volmark)
-        if invalid_xtime and opts['create']:
-            t = time.time()
-            sec = int(t)
-            nsec = int((t - sec) * 1000000)
-            xt = (sec, nsec)
-            rsc.server.set_xtime(path, self.uuid, xt)
         if invalid_xtime:
-            xt = opts['default_xtime']
+            if opts['create']:
+                t = time.time()
+                sec = int(t)
+                nsec = int((t - sec) * 1000000)
+                xt = (sec, nsec)
+                rsc.server.set_xtime(path, self.uuid, xt)
+            else:
+                xt = opts['default_xtime']
         return xt
 
     def __init__(self, master, slave):
