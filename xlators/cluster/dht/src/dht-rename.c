@@ -646,7 +646,8 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "link/file on %s failed (%s)",
                         prev->this->name, strerror (op_errno));
                 local->op_ret   = -1;
-                local->op_errno = op_errno;
+                if (op_errno != ENOENT)
+                        local->op_errno = op_errno;
         }
 
         this_call_cnt = dht_frame_return (frame);
