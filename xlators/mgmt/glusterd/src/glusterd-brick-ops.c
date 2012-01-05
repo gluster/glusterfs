@@ -130,7 +130,7 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
         case GF_CLUSTER_TYPE_STRIPE:
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 if (stripe_count < volinfo->stripe_count) {
-                        snprintf (err_str, sizeof (err_str),
+                        snprintf (err_str, err_len,
                                   "wrong stripe count (%d) given. "
                                   "already have %d",
                                   stripe_count, volinfo->stripe_count);
@@ -202,7 +202,7 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
         case GF_CLUSTER_TYPE_REPLICATE:
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 if (replica_count < volinfo->replica_count) {
-                        snprintf (err_str, sizeof (err_str),
+                        snprintf (err_str, err_len,
                                   "wrong replica count (%d) given. "
                                   "already have %d",
                                   replica_count, volinfo->replica_count);
