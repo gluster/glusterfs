@@ -984,7 +984,6 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
         char                                    *brick = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
-        char                                    cmd_str[1024];
         glusterd_conf_t                         *priv = NULL;
         char                                    msg[2048] = {0,};
         gf_boolean_t                            brick_alloc = _gf_false;
@@ -997,20 +996,22 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Unable to get volume name");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to find volume: %s", volname);
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Unable to find volume: %s", volname);
                 goto out;
         }
 
         if (glusterd_is_defrag_on(volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
                           "progress. Please retry after completion", volname);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -1023,7 +1024,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "bricks", &bricks);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to get bricks");
                 goto out;
         }
 
@@ -1038,8 +1039,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
 
         str_ret = glusterd_check_brick_rb_part (all_bricks, count, volinfo);
         if (str_ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "%s", str_ret);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", str_ret);
                 *op_errstr = gf_strdup (str_ret);
                 ret = -1;
                 goto out;
@@ -1051,10 +1051,10 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
 
         while ( i < count) {
                 if (!glusterd_store_is_valid_brickpath (volname, brick) ||
-                        !glusterd_is_valid_volfpath (volname, brick)) {
-                        snprintf (msg, sizeof (msg), "brick path %s is too "
-                                  "long.", brick);
-                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                    !glusterd_is_valid_volfpath (volname, brick)) {
+                        snprintf (msg, sizeof (msg), "brick path %s is "
+                                  "too long", brick);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                         *op_errstr = gf_strdup (msg);
 
                         ret = -1;
@@ -1066,25 +1066,26 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                                                               &brickinfo,
                                                               GF_PATH_PARTIAL);
                 if (!ret) {
-                        gf_log ("", GF_LOG_ERROR, "Adding duplicate brick: %s",
-                                brick);
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Adding duplicate brick: %s", brick);
                         ret = -1;
                         goto out;
                 } else {
                         ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
                         if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Add-brick: Unable"
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Add-brick: Unable"
                                         " to get brickinfo");
                                 goto out;
                         }
                         brick_alloc = _gf_true;
                 }
 
-                snprintf (cmd_str, 1024, "%s", brickinfo->path);
-                ret = glusterd_resolve_brick (brickinfo);
+                ret = glusterd_new_brick_validate (brick, brickinfo, msg,
+                                                   sizeof (msg));
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "resolve brick failed");
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
                         goto out;
                 }
 
@@ -1114,7 +1115,7 @@ out:
         if (all_bricks)
                 GF_FREE (all_bricks);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
