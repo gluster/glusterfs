@@ -803,6 +803,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 __destroy_lock (lock);
                                 INIT_LIST_HEAD (&sum->list);
+                                posix_lock_to_flock (sum, &sum->user_flock);
                                 __insert_and_merge (pl_inode, sum);
 
                                 return;
@@ -830,6 +831,8 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                                 continue;
 
                                         INIT_LIST_HEAD (&v.locks[i]->list);
+                                        posix_lock_to_flock (v.locks[i],
+                                                       &v.locks[i]->user_flock);
                                         __insert_and_merge (pl_inode,
                                                             v.locks[i]);
                                 }
