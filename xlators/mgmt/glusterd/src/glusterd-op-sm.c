@@ -4622,7 +4622,7 @@ glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave
         if (ret) {
                 snprintf(errmsg, sizeof(errmsg), "geo-replication session b/w %s %s not active",
                          volinfo->volname, slave);
-                gf_log ("", GF_LOG_WARNING, errmsg);
+                gf_log ("", GF_LOG_WARNING, "%s", errmsg);
                 if (op_errstr)
                         *op_errstr = gf_strdup(errmsg);
                 goto out;
@@ -4713,7 +4713,7 @@ glusterd_rotate_gsync_logs (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if ((ret) || (!exists)) {
                 snprintf (errmsg, sizeof(errmsg), "Volume %s does not"
                           " exist", volname);
-                gf_log ("", GF_LOG_WARNING, errmsg);
+                gf_log ("", GF_LOG_WARNING, "%s", errmsg);
                 *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;
