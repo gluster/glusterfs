@@ -3812,7 +3812,7 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
         if (ret) {
                 snprintf (op_errstr, len, "Host %s not a friend",
                           newbrickinfo->hostname);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", op_errstr);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", op_errstr);
                 goto out;
         }
 
@@ -3825,7 +3825,7 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
             (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
                 snprintf(op_errstr, len, "Host %s not connected",
                          newbrickinfo->hostname);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", op_errstr);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", op_errstr);
                 ret = -1;
                 goto out;
         }
@@ -3836,7 +3836,7 @@ brick_validation:
         if (!ret) {
                 snprintf(op_errstr, len, "Brick: %s already in use",
                          brick);
-                gf_log ("", GF_LOG_ERROR, "%s", op_errstr);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", op_errstr);
                 ret = -1;
                 goto out;
         } else {
@@ -3845,7 +3845,7 @@ brick_validation:
 out:
         if (is_allocated && newbrickinfo)
                 glusterd_brickinfo_delete (newbrickinfo);
-        gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
 
