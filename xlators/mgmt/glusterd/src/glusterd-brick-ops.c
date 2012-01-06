@@ -107,11 +107,18 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
         case GF_CLUSTER_TYPE_NONE:
                 if ((volinfo->brick_count * stripe_count) == total_bricks) {
                         /* Change the volume type */
+                        *type = GF_CLUSTER_TYPE_STRIPE;
                         gf_log (THIS->name, GF_LOG_INFO,
                                 "Changing the type of volume %s from "
-                                "None to 'stripe'", volinfo->volname);
-                        *type = GF_CLUSTER_TYPE_STRIPE;
+                                "'distribute' to 'stripe'", volinfo->volname);
                         ret = 0;
+                        goto out;
+                } else {
+                        snprintf (err_str, err_len, "Incorrect number of "
+                                  "bricks (%d) supplied for stripe count (%d).",
+                                  (total_bricks - volinfo->brick_count),
+                                  stripe_count);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
                         goto out;
                 }
                 break;
@@ -131,10 +138,10 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 if (stripe_count < volinfo->stripe_count) {
                         snprintf (err_str, err_len,
-                                  "wrong stripe count (%d) given. "
-                                  "already have %d",
+                                  "Incorrect stripe count (%d) supplied. "
+                                  "Volume already has stripe count (%d)",
                                   stripe_count, volinfo->stripe_count);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
                         goto out;
                 }
                 if (stripe_count == volinfo->stripe_count) {
@@ -170,7 +177,8 @@ out:
 
 static int
 gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
-                                 int total_bricks, int *type, char *err_str, int err_len)
+                                 int total_bricks, int *type, char *err_str,
+                                 int err_len)
 {
         int ret = -1;
 
@@ -179,11 +187,19 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
         case GF_CLUSTER_TYPE_NONE:
                 if ((volinfo->brick_count * replica_count) == total_bricks) {
                         /* Change the volume type */
+                        *type = GF_CLUSTER_TYPE_REPLICATE;
                         gf_log (THIS->name, GF_LOG_INFO,
                                 "Changing the type of volume %s from "
-                                "None to 'replica'", volinfo->volname);
-                        *type = GF_CLUSTER_TYPE_REPLICATE;
+                                "'distribute' to 'replica'", volinfo->volname);
                         ret = 0;
+                        goto out;
+
+                } else {
+                        snprintf (err_str, err_len, "Incorrect number of "
+                                  "bricks (%d) supplied for replica count (%d).",
+                                  (total_bricks - volinfo->brick_count),
+                                  replica_count);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
                         goto out;
                 }
                 break;
@@ -203,10 +219,10 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 if (replica_count < volinfo->replica_count) {
                         snprintf (err_str, err_len,
-                                  "wrong replica count (%d) given. "
-                                  "already have %d",
+                                  "Incorrect replica count (%d) supplied. "
+                                  "Volume already has (%d)",
                                   replica_count, volinfo->replica_count);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
                         goto out;
                 }
                 if (replica_count == volinfo->replica_count) {
