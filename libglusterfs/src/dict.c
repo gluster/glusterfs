@@ -1085,6 +1085,8 @@ data_to_int32 (data_t *data)
 int16_t
 data_to_int16 (data_t *data)
 {
+	int16_t value = 0;
+
         if (!data) {
                 gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return -1;
@@ -1097,7 +1099,18 @@ data_to_int16 (data_t *data)
         memcpy (str, data->data, data->len);
         str[data->len] = '\0';
 
-        return strtol (str, NULL, 0);
+	errno = 0;
+	value = strtol (str, NULL, 0);
+
+	if ((SHRT_MAX > value) || (SHRT_MIN < value)) {
+		errno = ERANGE;
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+				  "Error in data conversion: "
+				  "detected overflow");
+                return -1;
+	}
+
+        return (int16_t)value;
 }
 
 
@@ -1124,7 +1137,8 @@ data_to_int8 (data_t *data)
 	if ((SCHAR_MAX > value) || (SCHAR_MIN < value)) {
 		errno = ERANGE;
                 gf_log_callingfn ("dict", GF_LOG_WARNING,
-				  "Error in data conversion: detected overflow");
+				  "Error in data conversion: "
+				  "detected overflow");
                 return -1;
 	}
 
@@ -1166,6 +1180,8 @@ data_to_uint32 (data_t *data)
 uint16_t
 data_to_uint16 (data_t *data)
 {
+	uint16_t value = 0;
+
         if (!data)
                 return -1;
 
@@ -1176,7 +1192,18 @@ data_to_uint16 (data_t *data)
         memcpy (str, data->data, data->len);
         str[data->len] = '\0';
 
-        return strtol (str, NULL, 0);
+	errno = 0;
+	value = strtol (str, NULL, 0);
+
+	if ((USHRT_MAX - value) < 0) {
+		errno = ERANGE;
+		gf_log_callingfn ("dict", GF_LOG_WARNING,
+				  "Error in data conversion: "
+				  "overflow detected");
+		return -1;
+	}
+
+        return (uint16_t)value;
 }
 
 uint8_t
