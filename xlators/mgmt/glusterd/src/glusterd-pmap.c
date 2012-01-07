@@ -449,7 +449,7 @@ fail:
 }
 
 rpcsvc_actor_t gluster_pmap_actors[] = {
-        [GF_PMAP_NULL] = {"NULL", GF_HNDSK_NULL, NULL, NULL, NULL },
+        [GF_PMAP_NULL] = {"NULL", GF_PMAP_NULL, NULL, NULL, NULL },
         [GF_PMAP_PORTBYBRICK] = {"PORTBYBRICK", GF_PMAP_PORTBYBRICK,
                                  gluster_pmap_portbybrick, NULL, NULL },
         [GF_PMAP_BRICKBYPORT] = {"BRICKBYPORT", GF_PMAP_BRICKBYPORT,
