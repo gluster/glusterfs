@@ -204,7 +204,7 @@ enum glusterd_brick_procnum {
 #define GD_FRIEND_VERSION        2  /* 0.0.2 */
 
 #define GLUSTER_CLI_PROGRAM      1238463 /* Completely random */
-#define GLUSTER_CLI_VERSION      2   /* 0.0.1 */
+#define GLUSTER_CLI_VERSION      2   /* 0.0.2 */
 
 #define GD_BRICK_PROGRAM         4867634 /*Completely random*/
 #define GD_BRICK_VERSION         2
