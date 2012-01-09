@@ -1548,7 +1548,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_defrag_cbk,
           "rebalance operations"},
 
-        { "volume replace-brick <VOLNAME> <BRICK> <NEW-BRICK> {start|pause|abort|status|commit}",
+        { "volume replace-brick <VOLNAME> <BRICK> <NEW-BRICK> {start|pause|abort|status|commit [force]}",
           cli_cmd_volume_replace_brick_cbk,
           "replace-brick operations"},
 
