@@ -38,9 +38,6 @@ int
 afr_sh_select_source (int sources[], int child_count);
 
 int
-afr_sh_sink_count (int sources[], int child_count);
-
-int
 afr_sh_source_count (int sources[], int child_count);
 
 void
@@ -66,9 +63,6 @@ int
 afr_sh_delta_to_xattr (afr_private_t *priv,
                        int32_t *delta_matrix[], dict_t *xattr[],
 		       int child_count, afr_transaction_type type);
-
-int
-afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count);
 
 void
 afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
