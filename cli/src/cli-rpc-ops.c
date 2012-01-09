@@ -1721,6 +1721,11 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_cli3_1_print_limit_list (volname,
                                                     limit_list,
                                                     rsp.op_errstr);
+                } else {
+                        gf_log ("cli", GF_LOG_INFO, "Received resp to quota "
+                                "command ");
+                        if (rsp.op_errstr)
+                                cli_out ("%s", rsp.op_errstr);
                 }
         } else {
                 gf_log ("cli", GF_LOG_INFO, "Received resp to quota command ");

@@ -530,6 +530,13 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
         GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
 
+        ret = glusterd_check_if_quota_trans_enabled (volinfo);
+        if (ret == -1) {
+                *op_errstr = gf_strdup ("Quota is disabled, please enable "
+                                        "quota");
+                goto out;
+        }
+
         ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_LIMIT_USAGE,
                                     &quota_limits);
         if (ret) {
