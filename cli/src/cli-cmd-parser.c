@@ -1122,6 +1122,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 GF_ASSERT (!"opword mismatch");
 
         /* commit force option */
+
         op_index = 6;
 
         if (wordcount > (op_index + 1)) {
@@ -1130,6 +1131,10 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         }
 
         if (wordcount == (op_index + 1)) {
+                if (replace_op != GF_REPLACE_OP_COMMIT) {
+                        ret = -1;
+                        goto out;
+                }
                 if (!strcmp ("force", words[op_index])) {
                         replace_op = GF_REPLACE_OP_COMMIT_FORCE;
                 }
@@ -1146,13 +1151,11 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 goto out;
 
 
-
-
         *options = dict;
 
 out:
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Unable to parse remove-brick CLI");
+                gf_log ("cli", GF_LOG_ERROR, "Unable to parse replace-brick CLI");
                 if (dict)
                         dict_destroy (dict);
         }
