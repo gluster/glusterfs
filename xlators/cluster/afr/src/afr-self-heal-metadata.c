@@ -88,21 +88,6 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-
-int
-afr_sh_metadata_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno)
-{
-        int               call_count = 0;
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                afr_sh_metadata_done (frame, this);
-
-        return 0;
-}
-
 int
 afr_sh_inode_unlock (call_frame_t *frame, xlator_t *this)
 {

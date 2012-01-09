@@ -81,21 +81,6 @@ afr_sh_mark_source_sinks (call_frame_t *frame, xlator_t *this)
         sh->active_sinks = active_sinks;
 }
 
-/**
- * sink_count - return number of sinks in sources array
- */
-
-int
-afr_sh_sink_count (int sources[], int child_count)
-{
-        int i = 0;
-        int sinks = 0;
-        for (i = 0; i < child_count; i++)
-                if (!sources[i])
-                        sinks++;
-        return sinks;
-}
-
 int
 afr_sh_source_count (int sources[], int child_count)
 {
@@ -891,25 +876,6 @@ afr_sh_has_entry_pending (dict_t *xattr, xlator_t *this)
 
         return 0;
 }
-
-
-/**
- * is_matrix_zero - return true if pending matrix is all zeroes
- */
-
-int
-afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count)
-{
-        int i = 0;
-        int j = 0;
-
-        for (i = 0; i < child_count; i++)
-                for (j = 0; j < child_count; j++)
-                        if (pending_matrix[i][j])
-                                return 0;
-        return 1;
-}
-
 
 int
 afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
