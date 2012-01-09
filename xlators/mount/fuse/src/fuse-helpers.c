@@ -18,6 +18,11 @@
 */
 
 #include "fuse-bridge.h"
+#if defined(GF_SOLARIS_HOST_OS)
+#include <sys/procfs.h>
+#else
+#include <sys/sysctl.h>
+#endif
 
 xlator_t *
 fuse_state_subvol (fuse_state_t *state)
@@ -138,25 +143,26 @@ get_fuse_state (xlator_t *this, fuse_in_header_t *finh)
 void
 frame_fill_groups (call_frame_t *frame)
 {
-        char         filename[128];
+#if defined(GF_LINUX_HOST_OS)
+        char         filename[32];
         char         line[128];
         char        *ptr = NULL;
-        int          ret = 0;
         FILE        *fp = NULL;
         int          idx = 0;
         long int     id = 0;
         char        *saveptr = NULL;
         char        *endptr = NULL;
+        int          ret = 0;
 
-        ret = snprintf (filename, 128, "/proc/%d/status", frame->root->pid);
-        if (ret == 128)
+        ret = snprintf (filename, sizeof filename, "/proc/%d/status", frame->root->pid);
+        if (ret >= sizeof filename)
                 goto out;
 
         fp = fopen (filename, "r");
         if (!fp)
                 goto out;
 
-        while ((ptr = fgets (line, 128, fp))) {
+        while ((ptr = fgets (line, sizeof line, fp))) {
                 if (strncmp (ptr, "Groups:", 7) != 0)
                         continue;
 
@@ -182,7 +188,53 @@ frame_fill_groups (call_frame_t *frame)
 out:
         if (fp)
                 fclose (fp);
-        return;
+#elif defined(GF_SOLARIS_HOST_OS)
+        char         filename[32];
+        char         scratch[128];
+        prcred_t    *prcred = (prcred_t *) scratch;
+        FILE        *fp = NULL;
+        int          ret = 0;
+
+        ret = snprintf (filename, sizeof filename,
+                        "/proc/%d/cred", frame->root->pid);
+
+        if (ret < sizeof filename) {
+                fp = fopen (filename, "r");
+                if (fp != NULL) {
+                        if (fgets (scratch, sizeof scratch, fp) != NULL) {
+                                frame->root->ngrps = MIN(prcred->pr_ngroups,
+                                                         GF_REQUEST_MAXGROUPS);
+                        }
+                        fclose (fp);
+                 }
+         }
+#elif defined(CTL_KERN) /* DARWIN and *BSD */
+        /* 
+           N.B. CTL_KERN is an enum on Linux. (Meaning, if it's not
+           obvious, that it's not subject to preprocessor directives 
+           like '#if defined'.)
+           Unlike Linux, on Mac OS and the BSDs it is a #define. We
+           could test to see that KERN_PROC is defined, but, barring any 
+           evidence to the contrary, I think that's overkill.
+           We might also test that GF_DARWIN_HOST_OS is defined, why
+           limit this to just Mac OS. It's equally valid for the BSDs
+           and we do have people building on NetBSD and FreeBSD.
+        */
+        int name[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, frame->root->pid };
+        size_t namelen = sizeof name / sizeof name[0];
+        struct kinfo_proc kp;
+        size_t kplen = sizeof(kp);
+        int i, ngroups;
+
+        if (sysctl(name, namelen, &kp, &kplen, NULL, 0) != 0)
+                return;
+        ngroups = MIN(kp.kp_eproc.e_ucred.cr_ngroups, GF_REQUEST_MAXGROUPS);
+        for (i = 0; i < ngroups; i++)
+                frame->root->groups[i] = kp.kp_eproc.e_ucred.cr_groups[i];
+        frame->root->ngrps = ngroups;
+#else
+        frame->root->ngrps = 0;
+#endif /* GF_LINUX_HOST_OS */
 }
 
 
