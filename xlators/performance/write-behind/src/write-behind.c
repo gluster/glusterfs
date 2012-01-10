@@ -1344,6 +1344,29 @@ out:
         return 0;
 }
 
+void
+wb_disable_all (xlator_t *this, fd_t *origfd)
+{
+        inode_t *inode    = NULL;
+        fd_t    *otherfd  = NULL;
+        uint64_t tmp_file = 0;
+
+        inode = origfd->inode;
+        LOCK(&inode->lock);
+        list_for_each_entry (otherfd, &inode->fd_list, inode_list) {
+                if (otherfd == origfd) {
+                        continue;
+                }
+                if (fd_ctx_get(otherfd,this,&tmp_file)) {
+                        continue;
+                }
+                gf_log(this->name,GF_LOG_DEBUG,
+                       "disabling wb on %p because %p is O_SYNC",
+                       otherfd, origfd);
+                ((wb_file_t *)(long)tmp_file)->disabled = 1;
+        }
+        UNLOCK(&inode->lock);
+}
 
 int32_t
 wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
@@ -1382,10 +1405,13 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                             || ((flags & O_ACCMODE) == O_RDONLY)
                             || (((flags & O_SYNC) == O_SYNC)
                                 && conf->enable_O_SYNC == _gf_true)) {
-                                file->window_conf = 0;
+                                gf_log(this->name,GF_LOG_DEBUG,
+                                       "disabling wb on %p", fd);
+                                file->disabled = 1;
+                                wb_disable_all(this,fd);
                         }
 
-                        if (wbflags & GF_OPEN_NOWB) {
+                        else if (wbflags & GF_OPEN_NOWB) {
                                 file->disabled = 1;
                         }
                 }
