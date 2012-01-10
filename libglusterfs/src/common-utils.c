@@ -42,6 +42,10 @@
 #include <signal.h>
 #include <stdlib.h>
 
+#if defined GF_BSD_HOST_OS || defined GF_DARWIN_HOST_OS
+#include <sys/sysctl.h>
+#endif
+
 #include "logging.h"
 #include "common-utils.h"
 #include "revision.h"
@@ -1874,30 +1878,25 @@ get_mem_size ()
 {
         uint64_t memsize = -1;
 
-#ifdef __linux__
-        FILE *fp = NULL;
-        char    line[1028] = {0,};
+#if defined GF_LINUX_HOST_OS || defined GF_SOLARIS_HOST_OS
 
-        fp = fopen ("/proc/meminfo", "r");
-        if (!fp) {
-                gf_log ("common-utils", GF_LOG_DEBUG,
-                        "Could not open /proc/meminfo");
-                return memsize;
-        }
+	uint64_t page_size = 0;
+	uint64_t num_pages = 0;
 
-        while (fgets (line, sizeof (line), fp) != 0) {
-                if (strncmp (line, "MemTotal:", 9) == 0) {
-                        sscanf (line, "%*s %"SCNu64" kB", &memsize);
-                        memsize *= 1024;        //convert to bytes
-                        gf_log ("common-utils", GF_LOG_INFO,
-                                "Total Mem: %"PRIu64, memsize);
-                        break;
-                }
-        }
+	page_size = sysconf (_SC_PAGESIZE);
+	num_pages = sysconf (_SC_PHYS_PAGES);
+
+	memsize = page_size * num_pages;
 #endif
-        // TODO: Methods for other platforms
 
-        return memsize;
+#if defined GF_BSD_HOST_OS || defined GF_DARWIN_HOST_OS
+
+	size_t len = sizeof(memsize);
+	int name [] = { CTL_HW, HW_PHYSMEM };
+
+	sysctl (name, 2, &memsize, &len, NULL, 0);
+#endif
+	return memsize;
 }
 
 
