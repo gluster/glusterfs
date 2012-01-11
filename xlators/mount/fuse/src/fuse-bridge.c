@@ -3979,6 +3979,9 @@ init (xlator_t *this_xl)
                 priv->fuse_ops  = fuse_dump_ops;
         }
 
+        if (fsname_allocated)
+                GF_FREE (fsname);
+        GF_FREE (mnt_args);
         return 0;
 
 cleanup_exit:
