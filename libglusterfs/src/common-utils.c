@@ -442,8 +442,7 @@ gf_trim (char *string)
 {
         register char *s, *t;
 
-        if (string == NULL)
-        {
+        if (string == NULL) {
                 return NULL;
         }
 
@@ -480,13 +479,11 @@ gf_strsplit (const char *str, const char *delim,
 
         _running = gf_strdup (str);
         if (_running == NULL)
-        {
                 return -1;
-        }
+
         running = _running;
 
-        while ((token = strsep (&running, delim)) != NULL)
-        {
+        while ((token = strsep (&running, delim)) != NULL) {
                 if (token[0] != '\0')
                         count++;
         }
@@ -494,20 +491,17 @@ gf_strsplit (const char *str, const char *delim,
 
         _running = gf_strdup (str);
         if (_running == NULL)
-        {
                 return -1;
-        }
+
         running = _running;
 
         if ((token_list = GF_CALLOC (count, sizeof (char *),
-                                     gf_common_mt_char)) == NULL)
-        {
+                                     gf_common_mt_char)) == NULL) {
                 GF_FREE (_running);
                 return -1;
         }
 
-        while ((token = strsep (&running, delim)) != NULL)
-        {
+        while ((token = strsep (&running, delim)) != NULL) {
                 if (token[0] == '\0')
                         continue;
 
@@ -526,9 +520,8 @@ gf_strsplit (const char *str, const char *delim,
 free_exit:
         GF_FREE (_running);
         for (j = 0; j < i; j++)
-        {
                 GF_FREE (token_list[j]);
-        }
+
         GF_FREE (token_list);
         return -1;
 }
@@ -581,12 +574,9 @@ gf_volume_name_validate (const char *volume_name)
         }
 
         if (!isalpha (volume_name[0]))
-        {
                 return 1;
-        }
 
-        for (vname = &volume_name[1]; *vname != '\0'; vname++)
-        {
+        for (vname = &volume_name[1]; *vname != '\0'; vname++) {
                 if (!(isalnum (*vname) || *vname == '_'))
                         return 1;
         }
@@ -603,23 +593,17 @@ gf_string2time (const char *str, uint32_t *n)
         int old_errno = 0;
         const char *s = NULL;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
 
-        for (s = str; *s != '\0'; s++)
-        {
+        for (s = str; *s != '\0'; s++) {
                 if (isspace (*s))
-                {
                         continue;
-                }
                 if (*s == '-')
-                {
                         return -1;
-                }
                 break;
         }
 
@@ -628,21 +612,16 @@ gf_string2time (const char *str, uint32_t *n)
         value = strtol (str, &tail, 0);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (!((tail[0] == '\0') ||
               ((tail[0] == 's') && (tail[1] == '\0')) ||
-              ((tail[0] == 's') && (tail[1] == 'e') && (tail[2] == 'c') && (tail[3] == '\0'))))
-        {
+              ((tail[0] == 's') && (tail[1] == 'e') &&
+	       (tail[2] == 'c') && (tail[3] == '\0'))))
                 return -1;
-        }
 
         *n = value;
 
@@ -658,23 +637,17 @@ gf_string2percent (const char *str, uint32_t *n)
         int old_errno = 0;
         const char *s = NULL;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
 
-        for (s = str; *s != '\0'; s++)
-        {
+        for (s = str; *s != '\0'; s++) {
                 if (isspace (*s))
-                {
                         continue;
-                }
                 if (*s == '-')
-                {
                         return -1;
-                }
                 break;
         }
 
@@ -683,20 +656,14 @@ gf_string2percent (const char *str, uint32_t *n)
         value = strtol (str, &tail, 0);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (!((tail[0] == '\0') ||
               ((tail[0] == '%') && (tail[1] == '\0'))))
-        {
                 return -1;
-        }
 
         *n = value;
 
@@ -711,8 +678,7 @@ _gf_string2long (const char *str, long *n, int base)
         char *tail = NULL;
         int old_errno = 0;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
@@ -723,20 +689,13 @@ _gf_string2long (const char *str, long *n, int base)
         value = strtol (str, &tail, base);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (tail[0] != '\0')
-        {
-                /* bala: invalid integer format */
                 return -1;
-        }
 
         *n = value;
 
@@ -751,25 +710,17 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
         int old_errno = 0;
         const char *s = NULL;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
 
-        for (s = str; *s != '\0'; s++)
-        {
+        for (s = str; *s != '\0'; s++) {
                 if (isspace (*s))
-                {
                         continue;
-                }
                 if (*s == '-')
-                {
-                        /* bala: we do not support suffixed (-) sign and
-                           invalid integer format */
                         return -1;
-                }
                 break;
         }
 
@@ -778,20 +729,13 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
         value = strtoul (str, &tail, base);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (tail[0] != '\0')
-        {
-                /* bala: invalid integer format */
                 return -1;
-        }
 
         *n = value;
 
@@ -806,25 +750,17 @@ _gf_string2uint (const char *str, unsigned int *n, int base)
         int old_errno = 0;
         const char *s = NULL;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
 
-        for (s = str; *s != '\0'; s++)
-        {
+        for (s = str; *s != '\0'; s++) {
                 if (isspace (*s))
-                {
                         continue;
-                }
                 if (*s == '-')
-                {
-                        /* bala: we do not support suffixed (-) sign and
-                           invalid integer format */
                         return -1;
-                }
                 break;
         }
 
@@ -833,20 +769,13 @@ _gf_string2uint (const char *str, unsigned int *n, int base)
         value = strtoul (str, &tail, base);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (tail[0] != '\0')
-        {
-                /* bala: invalid integer format */
                 return -1;
-        }
 
         *n = (unsigned int)value;
 
@@ -870,17 +799,14 @@ _gf_string2double (const char *str, double *n)
         errno = 0;
         value = strtod (str, &tail);
 
-        if (errno == ERANGE || errno == EINVAL) {
+        if (errno == ERANGE || errno == EINVAL)
                 return -1;
-        }
 
-        if (errno == 0) {
+        if (errno == 0)
                 errno = old_errno;
-        }
 
-        if (tail[0] != '\0') {
+        if (tail[0] != '\0')
                 return -1;
-        }
 
         *n = value;
 
@@ -894,8 +820,7 @@ _gf_string2longlong (const char *str, long long *n, int base)
         char *tail = NULL;
         int old_errno = 0;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
@@ -906,20 +831,13 @@ _gf_string2longlong (const char *str, long long *n, int base)
         value = strtoll (str, &tail, base);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (tail[0] != '\0')
-        {
-                /* bala: invalid integer format */
                 return -1;
-        }
 
         *n = value;
 
@@ -934,25 +852,17 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
         int old_errno = 0;
         const char *s = NULL;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
 
-        for (s = str; *s != '\0'; s++)
-        {
+        for (s = str; *s != '\0'; s++) {
                 if (isspace (*s))
-                {
                         continue;
-                }
                 if (*s == '-')
-                {
-                        /* bala: we do not support suffixed (-) sign and
-                           invalid integer format */
                         return -1;
-                }
                 break;
         }
 
@@ -961,20 +871,13 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
         value = strtoull (str, &tail, base);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (tail[0] != '\0')
-        {
-                /* bala: invalid integer format */
                 return -1;
-        }
 
         *n = value;
 
@@ -1039,8 +942,7 @@ gf_string2int8 (const char *str, int8_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= INT8_MIN && l <= INT8_MAX)
-        {
+        if (l >= INT8_MIN && l <= INT8_MAX) {
                 *n = (int8_t) l;
                 return 0;
         }
@@ -1059,8 +961,7 @@ gf_string2int16 (const char *str, int16_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= INT16_MIN && l <= INT16_MAX)
-        {
+        if (l >= INT16_MIN && l <= INT16_MAX) {
                 *n = (int16_t) l;
                 return 0;
         }
@@ -1079,8 +980,7 @@ gf_string2int32 (const char *str, int32_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= INT32_MIN && l <= INT32_MAX)
-        {
+        if (l >= INT32_MIN && l <= INT32_MAX) {
                 *n = (int32_t) l;
                 return 0;
         }
@@ -1099,8 +999,7 @@ gf_string2int64 (const char *str, int64_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= INT64_MIN && l <= INT64_MAX)
-        {
+        if (l >= INT64_MIN && l <= INT64_MAX) {
                 *n = (int64_t) l;
                 return 0;
         }
@@ -1119,8 +1018,7 @@ gf_string2uint8 (const char *str, uint8_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT8_MAX)
-        {
+        if (l >= 0 && l <= UINT8_MAX) {
                 *n = (uint8_t) l;
                 return 0;
         }
@@ -1139,8 +1037,7 @@ gf_string2uint16 (const char *str, uint16_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT16_MAX)
-        {
+        if (l >= 0 && l <= UINT16_MAX) {
                 *n = (uint16_t) l;
                 return 0;
         }
@@ -1159,8 +1056,7 @@ gf_string2uint32 (const char *str, uint32_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT32_MAX)
-        {
+        if (l >= 0 && l <= UINT32_MAX) {
                 *n = (uint32_t) l;
                 return 0;
         }
@@ -1179,8 +1075,7 @@ gf_string2uint64 (const char *str, uint64_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT64_MAX)
-        {
+        if (l >= 0 && l <= UINT64_MAX) {
                 *n = (uint64_t) l;
                 return 0;
         }
@@ -1211,8 +1106,7 @@ gf_string2uint8_base10 (const char *str, uint8_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT8_MAX)
-        {
+        if (l >= 0 && l <= UINT8_MAX) {
                 *n = (uint8_t) l;
                 return 0;
         }
@@ -1231,8 +1125,7 @@ gf_string2uint16_base10 (const char *str, uint16_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT16_MAX)
-        {
+        if (l >= 0 && l <= UINT16_MAX) {
                 *n = (uint16_t) l;
                 return 0;
         }
@@ -1251,8 +1144,7 @@ gf_string2uint32_base10 (const char *str, uint32_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT32_MAX)
-        {
+        if (l >= 0 && l <= UINT32_MAX) {
                 *n = (uint32_t) l;
                 return 0;
         }
@@ -1271,8 +1163,7 @@ gf_string2uint64_base10 (const char *str, uint64_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT64_MAX)
-        {
+        if (l >= 0 && l <= UINT64_MAX) {
                 *n = (uint64_t) l;
                 return 0;
         }
@@ -1325,25 +1216,17 @@ gf_string2bytesize (const char *str, uint64_t *n)
         int old_errno = 0;
         const char *s = NULL;
 
-        if (str == NULL || n == NULL)
-        {
+        if (str == NULL || n == NULL) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
 
-        for (s = str; *s != '\0'; s++)
-        {
+        for (s = str; *s != '\0'; s++) {
                 if (isspace (*s))
-                {
                         continue;
-                }
                 if (*s == '-')
-                {
-                        /* bala: we do not support suffixed (-) sign and
-                           invalid integer format */
                         return -1;
-                }
                 break;
         }
 
@@ -1352,42 +1235,25 @@ gf_string2bytesize (const char *str, uint64_t *n)
         value = strtoull (str, &tail, 10);
 
         if (errno == ERANGE || errno == EINVAL)
-        {
                 return -1;
-        }
 
         if (errno == 0)
-        {
                 errno = old_errno;
-        }
 
         if (tail[0] != '\0')
         {
                 if (strcasecmp (tail, GF_UNIT_KB_STRING) == 0)
-                {
                         value *= GF_UNIT_KB;
-                }
                 else if (strcasecmp (tail, GF_UNIT_MB_STRING) == 0)
-                {
                         value *= GF_UNIT_MB;
-                }
                 else if (strcasecmp (tail, GF_UNIT_GB_STRING) == 0)
-                {
                         value *= GF_UNIT_GB;
-                }
                 else if (strcasecmp (tail, GF_UNIT_TB_STRING) == 0)
-                {
                         value *= GF_UNIT_TB;
-                }
                 else if (strcasecmp (tail, GF_UNIT_PB_STRING) == 0)
-                {
                         value *= GF_UNIT_PB;
-                }
                 else
-                {
-                        /* bala: invalid integer format */
                         return -1;
-                }
         }
 
         *n = value;
@@ -1697,15 +1563,13 @@ valid_ipv4_address (char *address, int length)
         prev = tmp;
         prev = strtok_r (tmp, ".", &ptr);
 
-        while (prev != NULL)
-        {
+        while (prev != NULL) {
                 octets++;
                 value = strtol (prev, &endptr, 10);
                 if ((value > 255) || (value < 0) || (endptr != NULL)) {
                         ret = 0;
                         goto out;
                 }
-
                 prev = strtok_r (NULL, ".", &ptr);
         }
 
@@ -1729,8 +1593,7 @@ valid_ipv6_address (char *address, int length)
         tmp = gf_strdup (address);
         prev = strtok_r (tmp, ":", &ptr);
 
-        while (prev != NULL)
-        {
+        while (prev != NULL) {
                 hex_numbers++;
                 value = strtol (prev, &endptr, 16);
                 if ((value > 0xffff) || (value < 0)
@@ -1738,7 +1601,6 @@ valid_ipv6_address (char *address, int length)
                         ret = 0;
                         goto out;
                 }
-
                 prev = strtok_r (NULL, ":", &ptr);
         }
 
@@ -1763,15 +1625,13 @@ valid_internet_address (char *address)
         }
 
         length = strlen (address);
-        if (length == 0) {
+        if (length == 0)
                 goto out;
-        }
 
         if (valid_ipv4_address (address, length)
             || valid_ipv6_address (address, length)
-            || valid_host_name (address, length)) {
+            || valid_host_name (address, length))
                 ret = 1;
-        }
 
 out:
         return ret;
@@ -1837,8 +1697,8 @@ gf_array_insertionsort (void *A, int l, int r, size_t elem_size,
         for(i = l; i < N; i++) {
                 Temp = gf_array_elem (A, i, elem_size);
                 j = i - 1;
-                while((cmp (Temp, gf_array_elem (A, j, elem_size)) < 0) && j>=0)
-                {
+                while((cmp (Temp, gf_array_elem (A, j, elem_size))
+		       < 0) && j>=0) {
                         gf_elem_swap (Temp, gf_array_elem (A, j, elem_size),
                                       elem_size);
                         Temp = gf_array_elem (A, j, elem_size);
@@ -1893,9 +1753,8 @@ gf_roundup_power_of_two (uint32_t nr)
                 goto out;
         }
 
-        while (result < nr) {
+        while (result < nr)
                 result *= 2;
-        }
 
 out:
         return result;
@@ -1923,9 +1782,8 @@ gf_roundup_next_power_of_two (uint32_t nr)
                 goto out;
         }
 
-        while (result <= nr) {
+        while (result <= nr)
                 result *= 2;
-        }
 
 out:
         return result;
@@ -1938,9 +1796,9 @@ validate_brick_name (char *brick)
         int  ret = 0;
         delimiter = strrchr (brick, ':');
         if (!delimiter || delimiter == brick
-            || *(delimiter+1) != '/') {
+            || *(delimiter+1) != '/')
                 ret = -1;
-        }
+
         return ret;
 }
 
@@ -1979,9 +1837,10 @@ gf_path_strip_trailing_slashes (char *path)
                 return;
 
         len = strlen (path);
-        for (i = len - 1; i > 0; i--)
+        for (i = len - 1; i > 0; i--) {
                 if (path[i] != '/')
                         break;
+	}
 
         if (i < (len -1))
                 path [i+1] = '\0';
