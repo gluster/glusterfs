@@ -3570,11 +3570,16 @@ glusterd_op_sm ()
         glusterd_op_sm_event_t          *event = NULL;
         glusterd_op_sm_event_t          *tmp = NULL;
         int                             ret = -1;
+        int                             lock_err = 0;
         glusterd_op_sm_ac_fn            handler = NULL;
         glusterd_op_sm_t                *state = NULL;
         glusterd_op_sm_event_type_t     event_type = GD_OP_EVENT_NONE;
 
-        (void ) pthread_mutex_lock (&gd_op_sm_lock);
+        if ((lock_err = pthread_mutex_trylock (&gd_op_sm_lock))) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "lock failed due to %s",
+                        strerror (lock_err));
+                goto lock_failed;
+        }
 
         while (!list_empty (&gd_op_sm_queue)) {
 
@@ -3623,6 +3628,8 @@ glusterd_op_sm ()
 
         (void ) pthread_mutex_unlock (&gd_op_sm_lock);
         ret = 0;
+
+lock_failed:
 
         return ret;
 }
