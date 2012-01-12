@@ -2506,12 +2506,16 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
+        runner_t                runner = {0,};
         char                    pidfile[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
         char                    volfile[PATH_MAX] = {0,};
         char                    rundir[PATH_MAX] = {0,};
         char                    shd_sockfpath[PATH_MAX] = {0,};
         char                    volfileid[256]   = {0};
+#ifdef DEBUG
+        char                    valgrind_logfile[PATH_MAX] = {0};
+#endif
 
         this = THIS;
         GF_ASSERT(this);
@@ -2550,22 +2554,40 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
                                                   sizeof (shd_sockfpath));
         }
 
+        runinit (&runner);
         //TODO: kp:change the assumption that shd is the one which signs in
         // use runner_add_args?
+#ifdef DEBUG
+        if (priv->valgrind) {
+                snprintf (valgrind_logfile, PATH_MAX,
+                          "%s/valgrnd-%s.log",
+                          DEFAULT_LOG_FILE_DIRECTORY,
+                          server);
+
+                runner_add_args (&runner, "valgrind", "--leak-check=full",
+                                 "--trace-children=yes", NULL);
+                runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
+        }
+#endif
+
         if (pmap_signin) {
-                ret = runcmd (SBIN_DIR"/glusterfs", "-s", "localhost",
-                              "--volfile-id", volfileid,
-                              "-p", pidfile, "-l", logfile,
-                              "-S", shd_sockfpath, NULL);
-                if (!ret)
+                runner_add_args (&runner, SBIN_DIR"/glusterfs", "-s",
+                                 "localhost", "--volfile-id", volfileid,
+                                 "-p", pidfile, "-l", logfile,
+                                 "-S", shd_sockfpath, NULL);
+        } else {
+                runner_add_args (&runner, SBIN_DIR"/glusterfs", "-f", volfile,
+                                 "-p", pidfile, "-l", logfile, NULL);
+        }
+
+        runner_log (&runner, "", GF_LOG_DEBUG, "Starting the nfs/glustershd "
+                    "services");
+
+        ret = runner_run (&runner);
+        if (ret == 0) {
+                if (pmap_signin)
                         glusterd_shd_connect (shd_sockfpath);
-
         }
-        else {
-                ret = runcmd (SBIN_DIR"/glusterfs", "-f", volfile,
-                              "-p", pidfile, "-l", logfile, NULL);
-        }
-
 out:
         return ret;
 }
