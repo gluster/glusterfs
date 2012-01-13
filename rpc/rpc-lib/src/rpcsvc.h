@@ -328,6 +328,8 @@ typedef struct rpcsvc_actor_desc {
         rpcsvc_vector_actor     vector_actor;
         rpcsvc_vector_sizer     vector_sizer;
 
+        /* Can actor be ran on behalf an unprivileged requestor? */
+        gf_boolean_t            unprivileged;
 } rpcsvc_actor_t;
 
 /* Describes a program and its version along with the function pointers

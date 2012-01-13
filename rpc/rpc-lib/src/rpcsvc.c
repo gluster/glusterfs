@@ -438,6 +438,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
         int                     ret = -1;
         uint16_t                port = 0;
         gf_boolean_t            is_unix = _gf_false;
+        gf_boolean_t            unprivileged = _gf_false;
 
         if (!trans || !svc)
                 return -1;
@@ -467,13 +468,8 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 
                 gf_log ("rpcsvc", GF_LOG_TRACE, "Client port: %d", (int)port);
 
-                if ((port > 1024) && (0 == svc->allow_insecure)) {
-                        /* Non-privileged user, fail request */
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "Request received from non-"
-                                "privileged port. Failing request");
-                        return -1;
-                }
+                if (port > 1024)
+                        unprivileged = _gf_true;
         }
 
         req = rpcsvc_request_create (svc, trans, msg);
@@ -487,7 +483,16 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
         if (!actor)
                 goto err_reply;
 
-        if (actor && (req->rpc_err == SUCCESS)) {
+        if (0 == svc->allow_insecure && unprivileged && !actor->unprivileged) {
+                        /* Non-privileged user, fail request */
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Request received from non-"
+                                "privileged port. Failing request");
+                        rpcsvc_request_destroy (req);
+                        return -1;
+        }
+
+        if (req->rpc_err == SUCCESS) {
                 /* Before going to xlator code, set the THIS properly */
                 THIS = svc->mydata;
 
@@ -2378,9 +2383,9 @@ out:
 
 
 rpcsvc_actor_t gluster_dump_actors[] = {
-        [GF_DUMP_NULL] = {"NULL", GF_DUMP_NULL, NULL, NULL, NULL },
-        [GF_DUMP_DUMP] = {"DUMP", GF_DUMP_DUMP, rpcsvc_dump, NULL, NULL },
-        [GF_DUMP_MAXVALUE] = {"MAXVALUE", GF_DUMP_MAXVALUE, NULL, NULL, NULL },
+        [GF_DUMP_NULL] = {"NULL", GF_DUMP_NULL, NULL, NULL, NULL, 0},
+        [GF_DUMP_DUMP] = {"DUMP", GF_DUMP_DUMP, rpcsvc_dump, NULL, NULL, 0},
+        [GF_DUMP_MAXVALUE] = {"MAXVALUE", GF_DUMP_MAXVALUE, NULL, NULL, NULL, 0},
 };
 
 

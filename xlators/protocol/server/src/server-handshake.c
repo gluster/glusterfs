@@ -665,10 +665,10 @@ server_ping (rpcsvc_request_t *req)
 
 
 rpcsvc_actor_t gluster_handshake_actors[] = {
-        [GF_HNDSK_NULL]      = {"NULL",      GF_HNDSK_NULL,      server_null, NULL, NULL },
-        [GF_HNDSK_SETVOLUME] = {"SETVOLUME", GF_HNDSK_SETVOLUME, server_setvolume, NULL, NULL },
-        [GF_HNDSK_GETSPEC]   = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL },
-        [GF_HNDSK_PING]      = {"PING",      GF_HNDSK_PING,      server_ping, NULL, NULL },
+        [GF_HNDSK_NULL]      = {"NULL",      GF_HNDSK_NULL,      server_null, NULL, NULL, 0},
+        [GF_HNDSK_SETVOLUME] = {"SETVOLUME", GF_HNDSK_SETVOLUME, server_setvolume, NULL, NULL, 0},
+        [GF_HNDSK_GETSPEC]   = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL, 0},
+        [GF_HNDSK_PING]      = {"PING",      GF_HNDSK_PING,      server_ping, NULL, NULL, 0},
 };
 
 
