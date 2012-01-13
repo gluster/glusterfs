@@ -2142,6 +2142,12 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 UNLOCK (&priv->lock);
         }
 
+        if (!local->loc.name) {
+                /* nameless lookup */
+                sh->do_missing_entry_self_heal = _gf_false;
+                sh->do_gfid_self_heal = _gf_false;
+        }
+
         FRAME_SU_DO (sh_frame, afr_local_t);
         if (sh->do_missing_entry_self_heal) {
                 afr_self_heal_conflicting_entries (sh_frame, this);

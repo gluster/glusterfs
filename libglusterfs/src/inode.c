@@ -660,6 +660,39 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
         return inode;
 }
 
+int
+inode_grep_for_gfid (inode_table_t *table, inode_t *parent, const char *name,
+                     uuid_t gfid, ia_type_t *type)
+{
+        inode_t   *inode = NULL;
+        dentry_t  *dentry = NULL;
+        int        ret = -1;
+
+        if (!table || !parent || !name) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "table || parent || name not found");
+                return ret;
+        }
+
+        pthread_mutex_lock (&table->lock);
+        {
+                dentry = __dentry_grep (table, parent, name);
+
+                if (dentry)
+                        inode = dentry->inode;
+
+                if (inode) {
+                        uuid_copy (gfid, inode->gfid);
+                        *type = inode->ia_type;
+                        ret = 0;
+                }
+        }
+        pthread_mutex_unlock (&table->lock);
+
+        return ret;
+}
+
+
 /* return 1 if gfid is of root, 0 if not */
 gf_boolean_t
 __is_root_gfid (uuid_t gfid)
@@ -998,6 +1031,7 @@ int
 __inode_path (inode_t *inode, const char *name, char **bufp)
 {
         inode_table_t *table = NULL;
+        inode_t       *itrav = NULL;
         dentry_t      *trav  = NULL;
         size_t         i     = 0, size = 0;
         int64_t        ret   = 0;
@@ -1011,8 +1045,10 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
 
         table = inode->table;
 
-        for (trav = __dentry_search_arbit (inode); trav;
-             trav = __dentry_search_arbit (trav->parent)) {
+        itrav = inode;
+        for (trav = __dentry_search_arbit (itrav); trav;
+             trav = __dentry_search_arbit (itrav)) {
+                itrav = trav->parent;
                 i ++; /* "/" */
                 i += strlen (trav->name);
                 if (i > PATH_MAX) {
@@ -1024,13 +1060,9 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
                 }
         }
 
-        if (!__is_root_gfid (inode->gfid) &&
-            (i == 0)) {
-                gf_log (table->name, GF_LOG_WARNING,
-                        "no dentry for non-root inode : %s",
-                        uuid_utoa (inode->gfid));
-                ret = -ENOENT;
-                goto out;
+        if (!__is_root_gfid (itrav->gfid)) {
+                /* "<gfid:00000000-0000-0000-0000-000000000000>"/path */
+                i += GFID_STR_PFX_LEN;
         }
 
         if (name) {
@@ -1052,13 +1084,22 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
                         i -= (len + 1);
                 }
 
-                for (trav = __dentry_search_arbit (inode); trav;
-                     trav = __dentry_search_arbit (trav->parent)) {
+                itrav = inode;
+                for (trav = __dentry_search_arbit (itrav); trav;
+                     trav = __dentry_search_arbit (itrav)) {
+                        itrav = trav->parent;
                         len = strlen (trav->name);
                         strncpy (buf + (i - len), trav->name, len);
                         buf[i-len-1] = '/';
                         i -= (len + 1);
                 }
+
+                if (!__is_root_gfid (itrav->gfid)) {
+                        snprintf (&buf[i-GFID_STR_PFX_LEN], GFID_STR_PFX_LEN,
+                                  "<gfid:%s>", uuid_utoa (itrav->gfid));
+                        buf[i-1] = '>';
+                }
+
                 *bufp = buf;
         } else {
                 ret = -ENOMEM;
@@ -1323,45 +1364,47 @@ out:
 
 
 int
-__inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
-                  uint64_t value2)
+__inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
+                  uint64_t *value2_p)
 {
         int ret = 0;
         int index = 0;
-        int put_idx = -1;
+        int set_idx = -1;
 
         if (!inode || !xlator)
                 return -1;
 
         for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (!inode->_ctx[index].xl_key) {
-                        if (put_idx == -1)
-                                put_idx = index;
+                        if (set_idx == -1)
+                                set_idx = index;
                         /* dont break, to check if key already exists
                            further on */
                 }
                 if (inode->_ctx[index].xl_key == xlator) {
-                        put_idx = index;
+                        set_idx = index;
                         break;
                 }
         }
 
-        if (put_idx == -1) {
+        if (set_idx == -1) {
                 ret = -1;
                 goto out;;
         }
 
-        inode->_ctx[put_idx].xl_key = xlator;
-        inode->_ctx[put_idx].value1 = value1;
-        inode->_ctx[put_idx].value2 = value2;
+        inode->_ctx[set_idx].xl_key = xlator;
+        if (value1_p)
+                inode->_ctx[set_idx].value1 = *value1_p;
+        if (value2_p)
+                inode->_ctx[set_idx].value2 = *value2_p;
 out:
         return ret;
 }
 
 
 int
-inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
-                uint64_t value2)
+inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
+                uint64_t *value2_p)
 {
         int ret = 0;
 
@@ -1370,7 +1413,7 @@ inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
 
         LOCK (&inode->lock);
         {
-                ret = __inode_ctx_put2 (inode, xlator, value1, value2);
+                ret = __inode_ctx_set2 (inode, xlator, value1_p, value2_p);
         }
         UNLOCK (&inode->lock);
 
@@ -1466,41 +1509,6 @@ unlock:
 }
 
 
-int
-__inode_ctx_put (inode_t *inode, xlator_t *key, uint64_t value)
-{
-        return __inode_ctx_put2 (inode, key, value, 0);
-}
-
-
-int
-inode_ctx_put (inode_t *inode, xlator_t *key, uint64_t value)
-{
-        return inode_ctx_put2 (inode, key, value, 0);
-}
-
-
-int
-__inode_ctx_get (inode_t *inode, xlator_t *key, uint64_t *value)
-{
-        return __inode_ctx_get2 (inode, key, value, 0);
-}
-
-
-int
-inode_ctx_get (inode_t *inode, xlator_t *key, uint64_t *value)
-{
-        return inode_ctx_get2 (inode, key, value, 0);
-}
-
-
-int
-inode_ctx_del (inode_t *inode, xlator_t *key, uint64_t *value)
-{
-        return inode_ctx_del2 (inode, key, value, 0);
-}
-
-
 void
 inode_dump (inode_t *inode, char *prefix)
 {
@@ -1557,7 +1565,7 @@ inode_dump (inode_t *inode, char *prefix)
                         INIT_LIST_HEAD (&fd_wrapper->next);
                         list_add_tail (&fd_wrapper->next, &fd_list);
 
-                        fd_wrapper->fd = _fd_ref (fd);
+                        fd_wrapper->fd = __fd_ref (fd);
                 }
         }
 unlock:

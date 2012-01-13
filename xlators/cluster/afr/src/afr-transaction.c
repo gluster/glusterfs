@@ -34,20 +34,49 @@
 
 
 afr_fd_ctx_t *
-afr_fd_ctx_get (fd_t *fd, xlator_t *this)
+__afr_fd_ctx_get (fd_t *fd, xlator_t *this)
 {
         uint64_t       ctx = 0;
-        afr_fd_ctx_t  *fd_ctx = NULL;
         int            ret = 0;
+        afr_fd_ctx_t  *fd_ctx = NULL;
+        int            i = 0;
+        afr_private_t *priv = NULL;
 
-        ret = fd_ctx_get (fd, this, &ctx);
+        priv = this->private;
 
-        if (ret < 0)
-                goto out;
+        ret = __fd_ctx_get (fd, this, &ctx);
+
+        if (ret < 0 && fd_is_anonymous (fd)) {
+                ret = __afr_fd_ctx_set (this, fd);
+                if (ret < 0)
+                        goto out;
+
+                ret = __fd_ctx_get (fd, this, &ctx);
+                if (ret < 0)
+                        goto out;
+
+                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+                for (i = 0; i < priv->child_count; i++)
+                        fd_ctx->opened_on[i] = AFR_FD_OPENED;
+        }
 
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
 out:
+        return fd_ctx;
+}
+
+
+afr_fd_ctx_t *
+afr_fd_ctx_get (fd_t *fd, xlator_t *this)
+{
+        afr_fd_ctx_t  *fd_ctx = NULL;
+
+        LOCK(&fd->lock);
+        {
+                fd_ctx = __afr_fd_ctx_get (fd, this);
+        }
+        UNLOCK(&fd->lock);
+
         return fd_ctx;
 }
 

@@ -68,7 +68,7 @@ fuse_resolve_wipe (fuse_resolve_t *resolve)
         if (resolve->resolved)
                 GF_FREE ((void *)resolve->resolved);
 
-        loc_wipe (&resolve->deep_loc);
+        loc_wipe (&resolve->resolve_loc);
 
         comp = resolve->components;
 
@@ -321,6 +321,8 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                 if (!parent) {
                         parent = fuse_ino_to_inode (par, state->this);
                         loc->parent = parent;
+                        if (parent)
+                                uuid_copy (loc->pargfid, parent->gfid);
                 }
 
                 inode = loc->inode;
@@ -342,16 +344,17 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                 if (!inode) {
                         inode = fuse_ino_to_inode (ino, state->this);
                         loc->inode = inode;
+                        if (inode)
+                                uuid_copy (loc->gfid, inode->gfid);
                 }
 
                 parent = loc->parent;
                 if (!parent) {
-                        parent = fuse_ino_to_inode (par, state->this);
-                        if (!parent) {
-                                parent = inode_parent (inode, null_gfid, NULL);
-                        }
-
+                        parent = inode_parent (inode, null_gfid, NULL);
                         loc->parent = parent;
+                        if (parent)
+                                uuid_copy (loc->pargfid, parent->gfid);
+
                 }
 
                 ret = inode_path (inode, NULL, &path);

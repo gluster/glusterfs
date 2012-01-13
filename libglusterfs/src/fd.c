@@ -35,7 +35,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr);
 
 
 fd_t *
-_fd_ref (fd_t *fd);
+__fd_ref (fd_t *fd);
 
 static int
 gf_fd_chain_fd_entries (fdentry_t *entries, uint32_t startidx,
@@ -269,6 +269,10 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
         fd_t *fdptr = NULL;
         fdentry_t *fde = NULL;
 
+        if (fd == -2)
+                /* anonymous fd */
+                return;
+
         if (fdtable == NULL || fd < 0) {
                 gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 return;
@@ -336,7 +340,7 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
 
 
 fd_t *
-_fd_ref (fd_t *fd)
+__fd_ref (fd_t *fd)
 {
         ++fd->refcount;
 
@@ -355,7 +359,7 @@ fd_ref (fd_t *fd)
         }
 
         LOCK (&fd->inode->lock);
-        refed_fd = _fd_ref (fd);
+        refed_fd = __fd_ref (fd);
         UNLOCK (&fd->inode->lock);
 
         return refed_fd;
@@ -363,7 +367,7 @@ fd_ref (fd_t *fd)
 
 
 fd_t *
-_fd_unref (fd_t *fd)
+__fd_unref (fd_t *fd)
 {
         GF_ASSERT (fd->refcount);
 
@@ -443,7 +447,7 @@ fd_unref (fd_t *fd)
 
         LOCK (&fd->inode->lock);
         {
-                _fd_unref (fd);
+                __fd_unref (fd);
                 refcount = fd->refcount;
         }
         UNLOCK (&fd->inode->lock);
@@ -457,28 +461,34 @@ fd_unref (fd_t *fd)
 
 
 fd_t *
-fd_bind (fd_t *fd)
+__fd_bind (fd_t *fd)
 {
-        inode_t *inode = NULL;
-
-        if (!fd || !fd->inode) {
-                gf_log_callingfn ("fd", GF_LOG_ERROR, "!fd || !fd->inode");
-                return NULL;
-        }
-        inode = fd->inode;
-
-        LOCK (&inode->lock);
-        {
-                list_add (&fd->inode_list, &inode->fd_list);
-        }
-        UNLOCK (&inode->lock);
+        list_add (&fd->inode_list, &fd->inode->fd_list);
 
         return fd;
 }
 
 
 fd_t *
-fd_create (inode_t *inode, pid_t pid)
+fd_bind (fd_t *fd)
+{
+        if (!fd || !fd->inode) {
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "!fd || !fd->inode");
+                return NULL;
+        }
+
+        LOCK (&fd->inode->lock);
+        {
+                fd = __fd_bind (fd);
+        }
+        UNLOCK (&fd->inode->lock);
+
+        return fd;
+}
+
+
+static fd_t *
+__fd_create (inode_t *inode, pid_t pid)
 {
         fd_t *fd = NULL;
 
@@ -506,13 +516,44 @@ fd_create (inode_t *inode, pid_t pid)
         INIT_LIST_HEAD (&fd->inode_list);
 
         LOCK_INIT (&fd->lock);
-
-        LOCK (&inode->lock);
-        {
-                fd = _fd_ref (fd);
-        }
-        UNLOCK (&inode->lock);
 out:
+        return fd;
+}
+
+
+fd_t *
+fd_create (inode_t *inode, pid_t pid)
+{
+        fd_t *fd = NULL;
+
+        fd = __fd_create (inode, pid);
+        if (!fd)
+                goto out;
+
+        fd = fd_ref (fd);
+
+out:
+        return fd;
+}
+
+
+static fd_t *
+__fd_lookup (inode_t *inode, pid_t pid)
+{
+        fd_t *iter_fd = NULL;
+        fd_t *fd = NULL;
+
+        if (list_empty (&inode->fd_list))
+                return NULL;
+
+
+        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                if (!pid || iter_fd->pid == pid) {
+                        fd = __fd_ref (iter_fd);
+                        break;
+                }
+        }
+
         return fd;
 }
 
@@ -521,7 +562,6 @@ fd_t *
 fd_lookup (inode_t *inode, pid_t pid)
 {
         fd_t *fd = NULL;
-        fd_t *iter_fd = NULL;
 
         if (!inode) {
                 gf_log_callingfn ("fd", GF_LOG_WARNING, "!inode");
@@ -530,25 +570,56 @@ fd_lookup (inode_t *inode, pid_t pid)
 
         LOCK (&inode->lock);
         {
-                if (list_empty (&inode->fd_list)) {
-                        fd = NULL;
-                } else {
-                        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-                                if (pid) {
-                                        if (iter_fd->pid == pid) {
-                                                fd = _fd_ref (iter_fd);
-                                                break;
-                                        }
-                                } else {
-                                        fd = _fd_ref (iter_fd);
-                                        break;
-                                }
-                        }
-                }
+                fd = __fd_lookup (inode, pid);
         }
         UNLOCK (&inode->lock);
 
         return fd;
+}
+
+
+
+fd_t *
+__fd_anonymous (inode_t *inode)
+{
+        fd_t *fd = NULL;
+
+        fd = __fd_lookup (inode, -1);
+
+        if (!fd) {
+                fd = __fd_create (inode, -1);
+
+                if (!fd)
+                        return NULL;
+
+                __fd_bind (fd);
+        }
+
+        __fd_ref (fd);
+
+        return fd;
+}
+
+
+fd_t *
+fd_anonymous (inode_t *inode)
+{
+        fd_t *fd = NULL;
+
+        LOCK (&inode->lock);
+        {
+                fd = __fd_anonymous (inode);
+        }
+        UNLOCK (&inode->lock);
+
+        return fd;
+}
+
+
+gf_boolean_t
+fd_is_anonymous (fd_t *fd)
+{
+        return (fd && fd->pid == -1);
 }
 
 
