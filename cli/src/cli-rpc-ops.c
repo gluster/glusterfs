@@ -408,6 +408,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int                        opt_count = 0;
         int                        k = 0;
         char                       err_str[2048] = {0};
+        char                       *volume_id_str = NULL;
 
         snprintf (err_str, sizeof (err_str), "Volume info unsuccessful");
         if (-1 == req->rpc_status) {
@@ -462,6 +463,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
                 if (!count && (local->get_vol.flags ==
                                         GF_CLI_GET_NEXT_VOLUME)) {
+                        GF_FREE (local->get_vol.volname);
                         local->get_vol.volname = NULL;
                         ret = 0;
                         goto out;
@@ -516,6 +518,11 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
+                        snprintf (key, 256, "volume%d.volume_id", i);
+                        ret = dict_get_str (dict, key, &volume_id_str);
+                        if (ret)
+                                goto out;
+
                         vol_type = type;
 
                         // Distributed (stripe/replicate/stripe-replica) setups
@@ -524,6 +531,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
                         cli_out ("Volume Name: %s", volname);
                         cli_out ("Type: %s", cli_volume_type[vol_type]);
+                        cli_out ("Volume ID: %s", volume_id_str);
                         cli_out ("Status: %s", cli_volume_status[status]);
 
                         if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
@@ -620,6 +628,12 @@ out:
 
         if (dict)
                 dict_destroy (dict);
+
+        if (rsp.dict.dict_val)
+                free (rsp.dict.dict_val);
+
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
 
         gf_log ("", GF_LOG_INFO, "Returning: %d", ret);
         return ret;
@@ -1987,6 +2001,12 @@ gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
                               (xdrproc_t) xdr_gf_cli_req);
 
 out:
+        if (dict)
+                dict_unref (dict);
+
+        if (req.dict.dict_val)
+                GF_FREE (req.dict.dict_val);
+
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
