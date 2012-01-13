@@ -97,7 +97,7 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
         gf1_cli_probe_rsp    rsp   = {0,};
-        int                   ret   = 0;
+        int                   ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -173,7 +173,7 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                        int count, void *myframe)
 {
         gf1_cli_deprobe_rsp    rsp   = {0,};
-        int                   ret   = 0;
+        int                   ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -231,7 +231,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_peer_list_rsp      rsp   = {0,};
-        int                        ret   = 0;
+        int                        ret   = -1;
         dict_t                     *dict = NULL;
         char                       *uuid_buf = NULL;
         char                       *hostname_buf = NULL;
@@ -385,7 +385,7 @@ int
 gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
-        int                        ret                  = 0;
+        int                        ret                  = -1;
         int                        opt_count            = 0;
         int                        k                    = 0;
         int32_t                    i                    = 0;
@@ -637,7 +637,7 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp              rsp   = {0,};
-        int                     ret   = 0;
+        int                     ret   = -1;
         cli_local_t             *local = NULL;
         char                    *volname = NULL;
         dict_t                  *dict = NULL;
@@ -687,7 +687,7 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp              rsp   = {0,};
-        int                     ret   = 0;
+        int                     ret   = -1;
         cli_local_t             *local = NULL;
         char                    *volname = NULL;
         call_frame_t            *frame = NULL;
@@ -742,7 +742,7 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp              rsp   = {0,};
-        int                     ret   = 0;
+        int                     ret   = -1;
         cli_local_t             *local = NULL;
         char                    *volname = NULL;
         call_frame_t            *frame = NULL;
@@ -802,7 +802,7 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp            rsp   = {0,};
-        int                   ret   = 0;
+        int                   ret   = -1;
         cli_local_t           *local = NULL;
         char                  *volname = NULL;
         call_frame_t          *frame = NULL;
@@ -863,7 +863,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         call_frame_t            *frame   = NULL;
         char                    *status  = "unknown";
         int                      cmd     = 0;
-        int                      ret     = 0;
+        int                      ret     = -1;
         dict_t                  *dict    = NULL;
         dict_t                  *local_dict = NULL;
         uint64_t                 files   = 0;
@@ -1040,7 +1040,7 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp              rsp   = {0,};
-        int                     ret   = 0;
+        int                     ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1069,7 +1069,7 @@ gf_cli3_1_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp           rsp   = {0,};
-        int                  ret   = 0;
+        int                  ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1101,7 +1101,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp           rsp   = {0,};
-        int                  ret   = 0;
+        int                  ret   = -1;
         dict_t               *dict = NULL;
         char                 *help_str = NULL;
 
@@ -1150,7 +1150,7 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp                  rsp   = {0,};
-        int                         ret   = 0;
+        int                         ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1187,7 +1187,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp               rsp     = {0,};
         char                    *status  = "unknown";
-        int                      ret     = 0;
+        int                      ret     = -1;
         uint64_t                 files   = 0;
         uint64_t                 size    = 0;
         dict_t                  *dict    = NULL;
@@ -1296,7 +1296,7 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp                      rsp   = {0,};
-        int                             ret   = 0;
+        int                             ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1334,7 +1334,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp                       rsp              = {0,};
-        int                              ret              = 0;
+        int                              ret              = -1;
         cli_local_t                     *local            = NULL;
         call_frame_t                    *frame            = NULL;
         dict_t                          *dict             = NULL;
@@ -1664,7 +1664,7 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
                      int count, void *myframe)
 {
         gf_cli_rsp         rsp        = {0,};
-        int                ret        = 0;
+        int                ret        = -1;
         dict_t            *dict       = NULL;
         char              *volname    = NULL;
         char              *limit_list = NULL;
@@ -1746,7 +1746,7 @@ gf_cli3_1_getspec_cbk (struct rpc_req *req, struct iovec *iov,
                        int count, void *myframe)
 {
         gf_getspec_rsp          rsp   = {0,};
-        int                     ret   = 0;
+        int                     ret   = -1;
         char                   *spec  = NULL;
 
         if (-1 == req->rpc_status) {
@@ -1783,7 +1783,7 @@ gf_cli3_1_pmap_b2p_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
         pmap_port_by_brick_rsp rsp = {0,};
-        int                     ret   = 0;
+        int                     ret   = -1;
         char                   *spec  = NULL;
 
         if (-1 == req->rpc_status) {
@@ -3026,7 +3026,7 @@ int
 gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                          int count, void *myframe)
 {
-        int                     ret     = 0;
+        int                     ret     = -1;
         gf_cli_rsp              rsp     = {0, };
         dict_t                  *dict   = NULL;
         char                    *gsync_status = NULL;
@@ -3761,7 +3761,7 @@ gf_cli3_1_getwd_cbk (struct rpc_req *req, struct iovec *iov,
                        int count, void *myframe)
 {
         gf1_cli_getwd_rsp rsp   = {0,};
-        int               ret   = 0;
+        int               ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -4055,7 +4055,7 @@ gf_cli3_1_mount_cbk (struct rpc_req *req, struct iovec *iov,
                   int count, void *myframe)
 {
         gf1_cli_mount_rsp rsp   = {0,};
-        int               ret   = 0;
+        int               ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -4122,7 +4122,7 @@ gf_cli3_1_umount_cbk (struct rpc_req *req, struct iovec *iov,
                    int count, void *myframe)
 {
         gf1_cli_umount_rsp rsp   = {0,};
-        int               ret   = 0;
+        int               ret   = -1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -4184,7 +4184,7 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf_cli_rsp              rsp   = {0,};
-        int                     ret   = 0;
+        int                     ret   = -1;
         cli_local_t             *local = NULL;
         char                    *volname = NULL;
         call_frame_t            *frame = NULL;
