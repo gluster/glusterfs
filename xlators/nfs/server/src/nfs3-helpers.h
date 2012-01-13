@@ -255,7 +255,7 @@ extern int
 nfs3_cached_inode_opened (xlator_t *nfsxl, inode_t *inode);
 
 extern void
-nfs3_log_common_res (uint32_t xid, char *op, nfsstat3 stat, int pstat);
+nfs3_log_common_res (uint32_t xid, int op, nfsstat3 stat, int pstat);
 
 extern void
 nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat, char *linkpath);
@@ -269,7 +269,7 @@ nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
                     int stable, uint64_t wverf);
 
 extern void
-nfs3_log_newfh_res (uint32_t xid, char *op, nfsstat3 stat, int pstat,
+nfs3_log_newfh_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
                     struct nfs3_fh *newfh);
 
 extern void
@@ -330,17 +330,8 @@ nfs3_fh_resolve_and_resume (nfs3_call_state_t *cs, struct nfs3_fh *fh,
                             char *entry, nfs3_resume_fn_t resum_fn);
 
 extern int
-nfs3_file_open_and_resume (nfs3_call_state_t *cs, nfs3_resume_fn_t resume);
-
-extern int
-nfs3_dir_open_and_resume (nfs3_call_state_t *cs, nfs3_resume_fn_t resume);
-
-extern int
 nfs3_verify_dircookie (struct nfs3_state *nfs3, fd_t *dirfd, cookie3 cookie,
                        uint64_t cverf, nfsstat3 *stat);
-
-extern int
-nfs3_fdcache_remove (struct nfs3_state *nfs3, fd_t *fd);
 
 extern int
 nfs3_is_parentdir_entry (char *entry);
@@ -348,7 +339,4 @@ nfs3_is_parentdir_entry (char *entry);
 uint32_t
 nfs3_request_to_accessbits (int32_t accbits);
 
-int
-nfs3_flush_inode_queue (struct inode_op_queue *inode_q, fd_t *openedfd,
-                        int32_t call_resume);
 #endif

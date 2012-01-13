@@ -196,6 +196,7 @@ struct nfs3_local {
         mode_t                  mode;
 
         /* NFSv3 FH resolver state */
+	int			hardresolved;
         struct nfs3_fh          resolvefh;
         loc_t                   resolvedloc;
         int                     resolve_ret;
@@ -211,6 +212,9 @@ struct nfs3_local {
 
 #define nfs3_is_revalidate_lookup(cst) ((cst)->lookuptype == GF_NFS3_REVALIDATE)
 #define nfs3_lookup_op(cst) (rpcsvc_request_procnum(cst->req) == NFS3_LOOKUP)
+#define nfs3_create_op(cst) (rpcsvc_request_procnum(cst->req) == NFS3_CREATE)
+#define nfs3_create_exclusive_op(cst) ((cst)->createmode == EXCLUSIVE)
+
 typedef struct nfs3_local nfs3_call_state_t;
 
 /* Queue of ops waiting for open fop to return. */

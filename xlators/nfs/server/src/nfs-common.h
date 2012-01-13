@@ -67,7 +67,7 @@ nfs_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path);
 #define NFS_RESOLVE_CREATE      2
 
 extern int
-nfs_inode_loc_fill (inode_t *inode, loc_t *loc);
+nfs_inode_loc_fill (inode_t *inode, loc_t *loc, int how);
 
 extern int
 nfs_ino_loc_fill (inode_table_t *itable, uuid_t gfid, loc_t *l);
@@ -81,4 +81,7 @@ nfs_root_loc_fill (inode_table_t *itable, loc_t *loc);
 
 extern uint32_t
 nfs_hash_gfid (uuid_t gfid);
+
+extern int
+nfs_gfid_loc_fill (inode_table_t *itable, uuid_t gfid, loc_t *loc, int how);
 #endif

@@ -274,7 +274,7 @@ nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
                 goto err;
         }
 
-        ret = nfs_inode_loc_fill (xl->itable->root, &rootloc);
+        ret = nfs_root_loc_fill (xl->itable, &rootloc);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init root loc");
                 goto err;
@@ -454,6 +454,23 @@ nfs_request_user_init (nfs_user_t *nfu, rpcsvc_request_t *req)
 
         return;
 }
+
+void
+nfs_request_primary_user_init (nfs_user_t *nfu, rpcsvc_request_t *req,
+                               uid_t uid, gid_t gid)
+{
+        gid_t           *gidarr = NULL;
+        int             gids = 0;
+
+        if ((!req) || (!nfu))
+                return;
+
+        gidarr = rpcsvc_auth_unix_auxgids (req, &gids);
+        nfs_user_create (nfu, uid, gid, gidarr, gids);
+
+        return;
+}
+
 
 int32_t
 mem_acct_init (xlator_t *this)
@@ -792,22 +809,6 @@ fini (xlator_t *this)
 int32_t
 nfs_forget (xlator_t *this, inode_t *inode)
 {
-        int32_t                 ret = -1;
-        uint64_t                ctx = 0;
-        struct inode_op_queue  *inode_q = NULL;
-
-        if (!inode || !this)
-                return 0;
-        ret = inode_ctx_del (inode, this, &ctx);
-        if (!ret && ctx && !(IA_ISDIR (inode->ia_type))) {
-                inode_q = (struct inode_op_queue *) (long) ctx;
-                pthread_mutex_lock (&inode_q->qlock);
-                {
-                        nfs3_flush_inode_queue (inode_q, NULL, 0);
-                }
-                pthread_mutex_unlock (&inode_q->qlock);
-        }
-
         return 0;
 }
 
