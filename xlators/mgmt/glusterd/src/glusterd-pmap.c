@@ -449,17 +449,17 @@ fail:
 }
 
 rpcsvc_actor_t gluster_pmap_actors[] = {
-        [GF_PMAP_NULL] = {"NULL", GF_PMAP_NULL, NULL, NULL, NULL },
+        [GF_PMAP_NULL] = {"NULL", GF_PMAP_NULL, NULL, NULL, NULL, 0},
         [GF_PMAP_PORTBYBRICK] = {"PORTBYBRICK", GF_PMAP_PORTBYBRICK,
-                                 gluster_pmap_portbybrick, NULL, NULL },
+                                 gluster_pmap_portbybrick, NULL, NULL, 0},
         [GF_PMAP_BRICKBYPORT] = {"BRICKBYPORT", GF_PMAP_BRICKBYPORT,
-                                 gluster_pmap_brickbyport, NULL, NULL },
+                                 gluster_pmap_brickbyport, NULL, NULL, 0},
         [GF_PMAP_SIGNIN] = {"SIGNIN", GF_PMAP_SIGNIN,
-                              gluster_pmap_signin, NULL, NULL },
+                              gluster_pmap_signin, NULL, NULL, 0},
         [GF_PMAP_SIGNOUT] = {"SIGNOUT", GF_PMAP_SIGNOUT,
-                              gluster_pmap_signout, NULL, NULL },
+                              gluster_pmap_signout, NULL, NULL, 0},
         [GF_PMAP_SIGNUP] = {"SIGNUP", GF_PMAP_SIGNUP,
-                              gluster_pmap_signup, NULL, NULL },
+                              gluster_pmap_signup, NULL, NULL, 0},
 };
 
 

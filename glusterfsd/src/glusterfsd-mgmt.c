@@ -803,10 +803,10 @@ rpc_clnt_prog_t clnt_handshake_prog = {
 };
 
 rpcsvc_actor_t glusterfs_actors[] = {
-        [GLUSTERD_BRICK_NULL]        = { "NULL",    GLUSTERD_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, NULL},
-        [GLUSTERD_BRICK_TERMINATE] = { "TERMINATE", GLUSTERD_BRICK_TERMINATE, glusterfs_handle_rpc_msg, NULL, NULL},
-        [GLUSTERD_BRICK_XLATOR_INFO] = { "TRANSLATOR INFO", GLUSTERD_BRICK_XLATOR_INFO, glusterfs_handle_rpc_msg, NULL, NULL},
-        [GLUSTERD_BRICK_XLATOR_HEAL] = { "TRANSLATOR HEAL", GLUSTERD_BRICK_XLATOR_HEAL, glusterfs_handle_rpc_msg, NULL, NULL}
+        [GLUSTERD_BRICK_NULL]        = { "NULL",    GLUSTERD_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, NULL, 0},
+        [GLUSTERD_BRICK_TERMINATE] = { "TERMINATE", GLUSTERD_BRICK_TERMINATE, glusterfs_handle_rpc_msg, NULL, NULL, 0},
+        [GLUSTERD_BRICK_XLATOR_INFO] = { "TRANSLATOR INFO", GLUSTERD_BRICK_XLATOR_INFO, glusterfs_handle_rpc_msg, NULL, NULL, 0},
+        [GLUSTERD_BRICK_XLATOR_HEAL] = { "TRANSLATOR HEAL", GLUSTERD_BRICK_XLATOR_HEAL, glusterfs_handle_rpc_msg, NULL, NULL, 0}
 };
 
 struct rpcsvc_program glusterfs_mop_prog = {
