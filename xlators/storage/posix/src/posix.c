@@ -101,13 +101,12 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr_req)
 {
         struct iatt buf                = {0, };
-        char *      real_path          = NULL;
         int32_t     op_ret             = -1;
         int32_t     entry_ret          = 0;
         int32_t     op_errno           = 0;
         dict_t *    xattr              = NULL;
-        char *      pathdup            = NULL;
-        char *      parentpath         = NULL;
+        char *      real_path          = NULL;
+        char *      par_path           = NULL;
         struct iatt postparent         = {0,};
 
         VALIDATE_OR_GOTO (frame, out);
@@ -115,18 +114,23 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
         VALIDATE_OR_GOTO (loc->path, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        if (uuid_is_null (loc->pargfid)) {
+                /* nameless lookup */
+                MAKE_INODE_HANDLE (real_path, this, loc, &buf);
+        } else {
+                MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
-        posix_gfid_set (this, real_path, xattr_req);
+                if (uuid_is_null (loc->inode->gfid))
+                        posix_gfid_set (this, real_path, loc, xattr_req);
+        }
 
-        op_ret   = posix_lstat_with_gfid (this, real_path, &buf);
         op_errno = errno;
 
         if (op_ret == -1) {
                 if (op_errno != ENOENT) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "lstat on %s failed: %s",
-                                loc->path, strerror (op_errno));
+                                real_path, strerror (op_errno));
                 }
 
                 entry_ret = -1;
@@ -139,27 +143,19 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         }
 
 parent:
-        if (loc->parent) {
-                pathdup = gf_strdup (real_path);
-                GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
-
-                parentpath = dirname (pathdup);
-
-                op_ret = posix_lstat_with_gfid (this, parentpath, &postparent);
+        if (par_path) {
+                op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
-                                "post-operation lstat on parent of %s failed: %s",
-                                loc->path, strerror (op_errno));
+                                "post-operation lstat on parent %s failed: %s",
+                                par_path, strerror (op_errno));
                         goto out;
                 }
         }
 
         op_ret = entry_ret;
 out:
-        if (pathdup)
-                GF_FREE (pathdup);
-
         if (xattr)
                 dict_ref (xattr);
 
@@ -177,10 +173,10 @@ int32_t
 posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         struct iatt           buf       = {0,};
-        char *                real_path = NULL;
         int32_t               op_ret    = -1;
         int32_t               op_errno  = 0;
         struct posix_private *priv      = NULL;
+        char                 *real_path = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -192,13 +188,13 @@ posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &buf);
+        MAKE_INODE_HANDLE (real_path, this, loc, &buf);
+
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "lstat on %s failed: %s", loc->path,
+                        "lstat on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
@@ -328,9 +324,8 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, &statpre);
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &statpre);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -384,7 +379,7 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &statpost);
+        op_ret = posix_pstat (this, loc->gfid, real_path, &statpost);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -456,7 +451,6 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
         struct iatt    statpre     = {0,};
         struct iatt    statpost    = {0,};
         struct posix_fd *pfd = NULL;
-        uint64_t         tmp_pfd = 0;
         int32_t          ret = -1;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -467,16 +461,15 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
-        op_ret = posix_fstat_with_gfid (this, pfd->fd, &statpre);
+        op_ret = posix_fdstat (this, pfd->fd, &statpre);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -531,7 +524,7 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = posix_fstat_with_gfid (this, pfd->fd, &statpost);
+        op_ret = posix_fdstat (this, pfd->fd, &statpost);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -570,7 +563,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
         dir = opendir (real_path);
 
@@ -578,7 +571,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "opendir failed on %s: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
 
@@ -587,7 +580,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "dirfd() failed on %s: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
 
@@ -599,16 +592,12 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 
         pfd->dir = dir;
         pfd->fd = dirfd (dir);
-        pfd->path = gf_strdup (real_path);
-        if (!pfd->path) {
-                goto out;
-        }
 
         op_ret = fd_ctx_set (fd, this, (uint64_t)(long)pfd);
         if (op_ret)
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to set the fd context path=%s fd=%p",
-                        loc->path, fd);
+                        real_path, fd);
 
         op_ret = 0;
 
@@ -619,8 +608,6 @@ out:
                         dir = NULL;
                 }
                 if (pfd) {
-                        if (pfd->path)
-                                GF_FREE (pfd->path);
                         GF_FREE (pfd);
                         pfd = NULL;
                 }
@@ -654,18 +641,11 @@ posix_releasedir (xlator_t *this,
         pfd = (struct posix_fd *)(long)tmp_pfd;
         if (!pfd->dir) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "pfd->dir is NULL for fd=%p path=%s",
-                        fd, pfd->path ? pfd->path : "<NULL>");
+                        "pfd->dir is NULL for fd=%p", fd);
                 goto out;
         }
 
         priv = this->private;
-
-        if (!pfd->path) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "pfd->path was NULL. fd=%p pfd=%p",
-                        fd, pfd);
-        }
 
         pthread_mutex_lock (&priv->janitor_lock);
         {
@@ -686,7 +666,6 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 {
         char *  dest      = NULL;
         int32_t op_ret    = -1;
-        int32_t lstat_ret = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
         struct iatt stbuf = {0,};
@@ -699,29 +678,25 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 
         dest = alloca (size + 1);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, &stbuf);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "lstat on %s failed: %s", real_path,
+                        strerror (op_errno));
+                goto out;
+        }
 
         op_ret = readlink (real_path, dest, size);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "readlink on %s failed: %s", loc->path,
+                        "readlink on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
 
         dest[op_ret] = 0;
-
-        lstat_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
-        if (lstat_ret == -1) {
-                op_ret = -1;
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "lstat on %s failed: %s", loc->path,
-                        strerror (op_errno));
-                goto out;
-        }
-
 out:
         SET_TO_OLD_FS_ID ();
 
@@ -739,14 +714,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
         char                 *real_path   = 0;
+        char                 *par_path    = 0;
         struct iatt           stbuf       = { 0, };
         char                  was_present = 1;
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
-        char                 *pathdup   = NULL;
         struct iatt           preparent = {0,};
         struct iatt           postparent = {0,};
-        char                 *parentpath = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -757,30 +731,23 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
 
         gid = frame->root->gid;
 
-        op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
-                goto out;
-        }
-
         SET_FS_ID (frame->root->uid, gid);
-        pathdup = gf_strdup (real_path);
-        GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
-        parentpath = dirname (pathdup);
-
-        op_ret = posix_lstat_with_gfid (this, parentpath, &preparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pre-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
+        }
+
+        if (preparent.ia_prot.sgid) {
+                gid = preparent.ia_gid;
         }
 
 #ifdef __NetBSD__
@@ -799,23 +766,23 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                         if (tmp_fd == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "create failed on %s: %s",
-                                        loc->path, strerror (errno));
+                                        real_path, strerror (errno));
                                 goto out;
                         }
                         close (tmp_fd);
                 } else {
 
                         gf_log (this->name, GF_LOG_ERROR,
-                                "mknod on %s failed: %s", loc->path,
+                                "mknod on %s failed: %s", real_path,
                                 strerror (op_errno));
                         goto out;
                 }
         }
 
-        op_ret = posix_gfid_set (this, real_path, params);
+        op_ret = posix_gfid_set (this, real_path, loc, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", loc->path);
+                        "setting gfid on %s failed", real_path);
         }
 
 #ifndef HAVE_SET_FSID
@@ -823,7 +790,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "lchown on %s failed: %s", loc->path,
+                        "lchown on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
@@ -832,41 +799,38 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         op_ret = posix_acl_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting ACLs on %s failed (%s)", loc->path,
+                        "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
         op_ret = posix_entry_create_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting xattrs on %s failed (%s)", loc->path,
+                        "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
+        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "mknod on %s failed: %s", loc->path,
+                        "mknod on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, parentpath, &postparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "post-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "post-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
 out:
-        if (pathdup)
-                GF_FREE (pathdup);
-
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
@@ -879,6 +843,7 @@ out:
         return 0;
 }
 
+
 int
 posix_mkdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode, dict_t *params)
@@ -886,12 +851,11 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
         char                 *real_path   = NULL;
+        char                 *par_path   = NULL;
         struct iatt           stbuf       = {0, };
         char                  was_present = 1;
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
-        char                 *pathdup   = NULL;
-        char                 *parentpath = NULL;
         struct iatt           preparent = {0,};
         struct iatt           postparent = {0,};
 
@@ -904,51 +868,44 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
 
         gid = frame->root->gid;
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
+        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
 
-        op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
-                goto out;
-        }
-
         SET_FS_ID (frame->root->uid, gid);
-        pathdup = gf_strdup (real_path);
-        if (!pathdup)
-                goto out;
 
-        parentpath = dirname (pathdup);
-
-        op_ret = posix_lstat_with_gfid (this, parentpath, &preparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "pre-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "pre-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
+        }
+
+        if (preparent.ia_prot.sgid) {
+                gid = preparent.ia_gid;
+                mode |= S_ISGID;
         }
 
         op_ret = mkdir (real_path, mode);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "mkdir of %s failed: %s", loc->path,
+                        "mkdir of %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_gfid_set (this, real_path, params);
+        op_ret = posix_gfid_set (this, real_path, loc, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", loc->path);
+                        "setting gfid on %s failed", real_path);
         }
 
 #ifndef HAVE_SET_FSID
@@ -956,7 +913,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "chown on %s failed: %s", loc->path,
+                        "chown on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
@@ -965,41 +922,38 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         op_ret = posix_acl_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting ACLs on %s failed (%s)", loc->path,
+                        "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
         op_ret = posix_entry_create_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting xattrs on %s failed (%s)", loc->path,
+                        "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
+        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "lstat on %s failed: %s", loc->path,
+                        "lstat on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, parentpath, &postparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "post-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
 out:
-        if (pathdup)
-                GF_FREE (pathdup);
-
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
@@ -1020,9 +974,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         int32_t                  op_ret    = -1;
         int32_t                  op_errno  = 0;
         char                    *real_path = NULL;
-        char                    *pathdup   = NULL;
-        char                    *parentpath = NULL;
+        char                    *par_path = NULL;
         int32_t                  fd = -1;
+        struct iatt            stbuf;
         struct posix_private    *priv      = NULL;
         struct iatt            preparent = {0,};
         struct iatt            postparent = {0,};
@@ -1034,22 +988,19 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
-        pathdup = gf_strdup (real_path);
-        if (!pathdup)
-                goto out;
-
-        parentpath = dirname (pathdup);
-
-        op_ret = posix_lstat_with_gfid (this, parentpath, &preparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "pre-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "pre-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
         }
+
+        if (stbuf.ia_nlink == 1)
+                posix_handle_unset (this, stbuf.ia_gfid, NULL);
 
         priv = this->private;
         if (priv->background_unlink) {
@@ -1059,7 +1010,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                                 op_ret = -1;
                                 op_errno = errno;
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "open of %s failed: %s", loc->path,
+                                        "open of %s failed: %s", real_path,
                                         strerror (op_errno));
                                 goto out;
                         }
@@ -1070,26 +1021,23 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "unlink of %s failed: %s", loc->path,
+                        "unlink of %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, parentpath, &postparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "post-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "post-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
 out:
-        if (pathdup)
-                GF_FREE (pathdup);
-
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
@@ -1110,10 +1058,10 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
-        char *  pathdup   = NULL;
-        char *  parentpath = NULL;
+        char *  par_path = NULL;
         struct iatt   preparent = {0,};
         struct iatt   postparent = {0,};
+        struct iatt   stbuf;
         struct posix_private    *priv      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -1125,20 +1073,14 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
-        pathdup = gf_strdup (real_path);
-        if (!pathdup)
-                goto out;
-
-        parentpath = dirname (pathdup);
-
-        op_ret = posix_lstat_with_gfid (this, parentpath, &preparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "pre-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "pre-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
         }
 
@@ -1155,6 +1097,10 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         }
         op_errno = errno;
 
+        if (op_ret == 0) {
+                posix_handle_unset (this, stbuf.ia_gfid, NULL);
+        }
+
         if (op_errno == EEXIST)
                 /* Solaris sets errno = EEXIST instead of ENOTEMPTY */
                 op_errno = ENOTEMPTY;
@@ -1162,7 +1108,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         /* No need to log a common error as ENOTEMPTY */
         if (op_ret == -1 && op_errno != ENOTEMPTY) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "rmdir of %s failed: %s", loc->path,
+                        "rmdir of %s failed: %s", real_path,
                         strerror (op_errno));
         }
 
@@ -1170,23 +1116,20 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name,
                         (op_errno == ENOTEMPTY) ? GF_LOG_DEBUG : GF_LOG_ERROR,
                         "%s on %s failed", (flags) ? "rename" : "rmdir",
-                        loc->path);
+                        real_path);
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, parentpath, &postparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "post-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        par_path, strerror (op_errno));
                 goto out;
         }
 
 out:
-        if (pathdup)
-                GF_FREE (pathdup);
-
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
@@ -1203,12 +1146,11 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
         char *                real_path   = 0;
+        char *                par_path   = 0;
         struct iatt           stbuf       = { 0, };
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
         char                  was_present = 1;
-        char                 *pathdup   = NULL;
-        char                 *parentpath = NULL;
         struct iatt           preparent = {0,};
         struct iatt           postparent = {0,};
 
@@ -1222,36 +1164,27 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
         }
 
+        SET_FS_ID (frame->root->uid, gid);
+
         gid = frame->root->gid;
 
-        op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
-                goto out;
-        }
-
-        SET_FS_ID (frame->root->uid, gid);
-        pathdup = gf_strdup (real_path);
-        if (!pathdup)
-                goto out;
-
-        parentpath = dirname (pathdup);
-
-        op_ret = posix_lstat_with_gfid (this, parentpath, &preparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "pre-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "pre-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
+        }
+
+        if (preparent.ia_prot.sgid) {
+                gid = preparent.ia_gid;
         }
 
         op_ret = symlink (linkname, real_path);
@@ -1260,14 +1193,14 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "symlink of %s --> %s failed: %s",
-                        loc->path, linkname, strerror (op_errno));
+                        real_path, linkname, strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_gfid_set (this, real_path, params);
+        op_ret = posix_gfid_set (this, real_path, loc, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", loc->path);
+                        "setting gfid on %s failed", real_path);
         }
 
 #ifndef HAVE_SET_FSID
@@ -1276,7 +1209,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "lchown failed on %s: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
 #endif
@@ -1284,41 +1217,38 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         op_ret = posix_acl_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting ACLs on %s failed (%s)", loc->path,
+                        "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
         op_ret = posix_entry_create_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting xattrs on %s failed (%s)", loc->path,
+                        "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
+        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "lstat failed on %s: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, parentpath, &postparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "post-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "post-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
 out:
-        if (pathdup)
-                GF_FREE (pathdup);
-
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno,
@@ -1340,19 +1270,20 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno     = 0;
         char                 *real_oldpath = NULL;
         char                 *real_newpath = NULL;
+        char                 *par_oldpath = NULL;
+        char                 *par_newpath = NULL;
         struct iatt           stbuf        = {0, };
         struct posix_private *priv         = NULL;
         char                  was_present  = 1;
-        char                 *oldpathdup    = NULL;
-        char                 *oldparentpath = NULL;
-        char                 *newpathdup    = NULL;
-        char                 *newparentpath = NULL;
         struct iatt           preoldparent  = {0, };
         struct iatt           postoldparent = {0, };
         struct iatt           prenewparent  = {0, };
         struct iatt           postnewparent = {0, };
         char                  olddirid[64];
         char                  newdirid[64];
+        uuid_t                victim;
+        int                   was_dir;
+        int                   nlink;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1365,42 +1296,35 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
-        MAKE_REAL_PATH (real_newpath, this, newloc->path);
+        MAKE_ENTRY_HANDLE (real_oldpath, par_oldpath, this, oldloc, NULL);
+        MAKE_ENTRY_HANDLE (real_newpath, par_newpath, this, newloc, &stbuf);
 
-        oldpathdup = gf_strdup (real_oldpath);
-        if (!oldpathdup)
+        op_ret = posix_pstat (this, oldloc->pargfid, par_oldpath, &preoldparent);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "pre-operation lstat on parent %s failed: %s",
+                        par_oldpath, strerror (op_errno));
                 goto out;
+        }
 
-        oldparentpath = dirname (oldpathdup);
-
-        op_ret = posix_lstat_with_gfid (this, oldparentpath, &preoldparent);
+        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &prenewparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pre-operation lstat on parent of %s failed: %s",
-                        oldloc->path, strerror (op_errno));
+                        par_newpath, strerror (op_errno));
                 goto out;
         }
 
-        newpathdup = gf_strdup (real_newpath);
-        if (!newpathdup)
-                goto out;
-
-        newparentpath = dirname (newpathdup);
-
-        op_ret = posix_lstat_with_gfid (this, newparentpath, &prenewparent);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "pre-operation lstat on parent of %s failed: %s",
-                        newloc->path, strerror (op_errno));
-                goto out;
-        }
-
-        op_ret = posix_lstat_with_gfid (this, real_newpath, &stbuf);
+        op_ret = posix_pstat (this, NULL, real_newpath, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
+        } else {
+                uuid_copy (victim, stbuf.ia_gfid);
+                if (IA_ISDIR (stbuf.ia_type))
+                        was_dir = 1;
+                nlink = stbuf.ia_nlink;
         }
 
         if (was_present && IA_ISDIR(stbuf.ia_type) && !newloc->inode) {
@@ -1424,17 +1348,32 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (IA_ISDIR (oldloc->inode->ia_type)) {
+                posix_handle_unset (this, oldloc->inode->gfid, NULL);
+        }
+
         op_ret = sys_rename (real_oldpath, real_newpath);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name,
                         (op_errno == ENOTEMPTY ? GF_LOG_DEBUG : GF_LOG_ERROR),
                         "rename of %s to %s failed: %s",
-                        oldloc->path, newloc->path, strerror (op_errno));
+                        real_oldpath, real_newpath, strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_newpath, &stbuf);
+        if (was_dir)
+                posix_handle_unset (this, victim, NULL);
+
+        if (was_present && !was_dir && nlink == 2)
+                posix_handle_unset (this, victim, NULL);
+
+        if (IA_ISDIR (oldloc->inode->ia_type)) {
+                posix_handle_soft (this, real_newpath, newloc,
+                                   oldloc->inode->gfid, NULL);
+        }
+
+        op_ret = posix_pstat (this, NULL, real_newpath, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1443,33 +1382,27 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, oldparentpath, &postoldparent);
+        op_ret = posix_pstat (this, oldloc->pargfid, par_oldpath, &postoldparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "post-operation lstat on parent of %s failed: %s",
-                        oldloc->path, strerror (op_errno));
+                        "post-operation lstat on parent %s failed: %s",
+                        par_oldpath, strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, newparentpath, &postnewparent);
+        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &postnewparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "post-operation lstat on parent of %s failed: %s",
-                        newloc->path, strerror (op_errno));
+                        "post-operation lstat on parent %s failed: %s",
+                        par_newpath, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
 out:
-        if (oldpathdup)
-                GF_FREE (oldpathdup);
-
-        if (newpathdup)
-                GF_FREE (newpathdup);
-
 
         SET_TO_OLD_FS_ID ();
 
@@ -1493,11 +1426,10 @@ posix_link (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno     = 0;
         char                 *real_oldpath = 0;
         char                 *real_newpath = 0;
+        char                 *par_newpath = 0;
         struct iatt           stbuf        = {0, };
         struct posix_private *priv         = NULL;
         char                  was_present  = 1;
-        char                 *newpathdup   = NULL;
-        char                 *newparentpath = NULL;
         struct iatt           preparent = {0,};
         struct iatt           postparent = {0,};
 
@@ -1512,26 +1444,18 @@ posix_link (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
-        MAKE_REAL_PATH (real_newpath, this, newloc->path);
+        MAKE_INODE_HANDLE (real_oldpath, this, oldloc, &stbuf);
 
-        op_ret = posix_lstat_with_gfid (this, real_newpath, &stbuf);
+        MAKE_ENTRY_HANDLE (real_newpath, par_newpath, this, newloc, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
 
-        newpathdup  = gf_strdup (real_newpath);
-        if (!newpathdup) {
-                op_errno = ENOMEM;
-                goto out;
-        }
-
-        newparentpath = dirname (newpathdup);
-        op_ret = posix_lstat_with_gfid (this, newparentpath, &preparent);
+        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat failed: %s: %s",
-                        newparentpath, strerror (op_errno));
+                        par_newpath, strerror (op_errno));
                 goto out;
         }
 
@@ -1551,11 +1475,11 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "link %s to %s failed: %s",
-                        oldloc->path, newloc->path, strerror (op_errno));
+                        real_oldpath, real_newpath, strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_newpath, &stbuf);
+        op_ret = posix_pstat (this, NULL, real_newpath, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1564,19 +1488,17 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, newparentpath, &postparent);
+        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat failed: %s: %s",
-                        newparentpath, strerror (op_errno));
+                        par_newpath, strerror (op_errno));
                 goto out;
         }
 
         op_ret = 0;
 
 out:
-        if (newpathdup)
-                GF_FREE (newpathdup);
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno,
@@ -1611,14 +1533,13 @@ posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         VALIDATE_OR_GOTO (priv, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &prebuf);
+        MAKE_INODE_HANDLE (real_path, this, loc, &prebuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pre-operation lstat on %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
 
@@ -1627,11 +1548,11 @@ posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "truncate on %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &postbuf);
+        op_ret = posix_pstat (this, loc->gfid, real_path, &postbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lstat on %s failed: %s",
@@ -1651,7 +1572,7 @@ out:
 }
 
 
-int32_t
+int
 posix_create (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t flags, mode_t mode,
               fd_t *fd, dict_t *params)
@@ -1661,14 +1582,13 @@ posix_create (call_frame_t *frame, xlator_t *this,
         int32_t                _fd         = -1;
         int                    _flags      = 0;
         char *                 real_path   = NULL;
+        char *                 par_path   = NULL;
         struct iatt            stbuf       = {0, };
         struct posix_fd *      pfd         = NULL;
         struct posix_private * priv        = NULL;
         char                   was_present = 1;
 
         gid_t                  gid         = 0;
-        char                  *pathdup   = NULL;
-        char                  *parentpath = NULL;
         struct iatt            preparent = {0,};
         struct iatt            postparent = {0,};
 
@@ -1683,31 +1603,23 @@ posix_create (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
         gid = frame->root->gid;
 
-        op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
-                goto out;
-        }
-
         SET_FS_ID (frame->root->uid, gid);
-        pathdup = gf_strdup (real_path);
-        if (!pathdup)
-                goto out;
 
-        parentpath = dirname (pathdup);
-
-        op_ret = posix_lstat_with_gfid (this, parentpath, &preparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "pre-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "pre-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
+        }
+
+        if (preparent.ia_prot.sgid) {
+                gid = preparent.ia_gid;
         }
 
         if (!flags) {
@@ -1717,7 +1629,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 _flags = flags | O_CREAT;
         }
 
-        op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
+        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
         if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
@@ -1731,15 +1643,15 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 op_ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "open on %s failed: %s", loc->path,
+                        "open on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
         }
 
-        op_ret = posix_gfid_set (this, real_path, params);
+        op_ret = posix_gfid_set (this, real_path, loc, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", loc->path);
+                        "setting gfid on %s failed", real_path);
         }
 
 #ifndef HAVE_SET_FSID
@@ -1755,18 +1667,18 @@ posix_create (call_frame_t *frame, xlator_t *this,
         op_ret = posix_acl_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting ACLs on %s failed (%s)", loc->path,
+                        "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
         op_ret = posix_entry_create_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setting xattrs on %s failed (%s)", loc->path,
+                        "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &stbuf);
+        op_ret = posix_fdstat (this, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1774,12 +1686,12 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_lstat_with_gfid (this, parentpath, &postparent);
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "post-operation lstat on parent of %s failed: %s",
-                        loc->path, strerror (op_errno));
+                        "post-operation lstat on parent %s failed: %s",
+                        par_path, strerror (op_errno));
                 goto out;
         }
 
@@ -1797,7 +1709,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (op_ret)
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to set the fd context path=%s fd=%p",
-                        loc->path, fd);
+                        real_path, fd);
 
         LOCK (&priv->lock);
         {
@@ -1808,8 +1720,6 @@ posix_create (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
 out:
-        if (pathdup)
-                GF_FREE (pathdup);
         SET_TO_OLD_FS_ID ();
 
         if ((-1 == op_ret) && (_fd != -1)) {
@@ -1837,7 +1747,6 @@ posix_open (call_frame_t *frame, xlator_t *this,
         int32_t               _fd          = -1;
         struct posix_fd      *pfd          = NULL;
         struct posix_private *priv         = NULL;
-        gid_t                 gid          = 0;
         struct iatt           stbuf        = {0, };
 
         DECLARE_OLD_FS_ID_VAR;
@@ -1851,21 +1760,12 @@ posix_open (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, &stbuf);
 
-        op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0) {
-                op_errno = -op_ret;
-                op_ret = -1;
-                goto out;
-        }
-
-        SET_FS_ID (frame->root->uid, gid);
+        SET_FS_ID (frame->root->uid, frame->root->gid);
 
         if (priv->o_direct)
                 flags |= O_DIRECT;
-
-        op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
 
         _fd = open (real_path, flags, 0);
         if (_fd == -1) {
@@ -1891,30 +1791,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         if (op_ret)
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to set the fd context path=%s fd=%p",
-                        loc->path, fd);
-
-#ifndef HAVE_SET_FSID
-        if (flags & O_CREAT) {
-                op_ret = chown (real_path, frame->root->uid, gid);
-                if (op_ret == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "chown on %s failed: %s",
-                                real_path, strerror (op_errno));
-                        goto out;
-                }
-        }
-#endif
-
-        if (flags & O_CREAT) {
-                op_ret = posix_lstat_with_gfid (this, real_path, &stbuf);
-                if (op_ret == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, "lstat on (%s) "
-                                "failed: %s", real_path, strerror (op_errno));
-                        goto out;
-                }
-        }
+                        real_path, fd);
 
         LOCK (&priv->lock);
         {
@@ -1945,7 +1822,6 @@ int
 posix_readv (call_frame_t *frame, xlator_t *this,
              fd_t *fd, size_t size, off_t offset)
 {
-        uint64_t               tmp_pfd    = 0;
         int32_t                op_ret     = -1;
         int32_t                op_errno   = 0;
         int                    _fd        = -1;
@@ -1965,14 +1841,13 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         if (!size) {
                 op_errno = EINVAL;
@@ -2014,7 +1889,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
          *  we read from
          */
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &stbuf);
+        op_ret = posix_fdstat (this, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2142,7 +2017,6 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         struct iatt            postop    = {0,};
         int                      ret      = -1;
 
-        uint64_t  tmp_pfd   = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2154,18 +2028,17 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 
         VALIDATE_OR_GOTO (priv, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL from fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &preop);
+        op_ret = posix_fdstat (this, _fd, &preop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2201,7 +2074,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                         fsync (_fd);
                 }
 
-                ret = posix_fstat_with_gfid (this, _fd, &postop);
+                ret = posix_fdstat (this, _fd, &postop);
                 if (ret == -1) {
                         op_ret = -1;
                         op_errno = errno;
@@ -2235,7 +2108,7 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
         VALIDATE_OR_GOTO (this->private, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
         priv = this->private;
 
@@ -2273,13 +2146,13 @@ posix_flush (call_frame_t *frame, xlator_t *this,
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
         int               ret      = -1;
-        uint64_t          tmp_pfd  = 0;
+        struct posix_fd  *pfd      = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -2310,7 +2183,7 @@ posix_release (xlator_t *this,
 
         priv = this->private;
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = fd_ctx_del (fd, this, &tmp_pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL from fd=%p", fd);
@@ -2352,7 +2225,6 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         int               _fd      = -1;
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
-        uint64_t          tmp_pfd  = 0;
         struct iatt       preop = {0,};
         struct iatt       postop = {0,};
 
@@ -2370,18 +2242,17 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         goto out;
 #endif
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd not found in fd's ctx");
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &preop);
+        op_ret = posix_fdstat (this, _fd, &preop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -2411,7 +2282,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &postop);
+        op_ret = posix_fdstat (this, _fd, &postop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -2450,7 +2321,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
         VALIDATE_OR_GOTO (dict, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
         dict_del (dict, GFID_XATTR_KEY);
 
@@ -2506,13 +2377,13 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
         priv = this->private;
 
         if (loc->inode && IA_ISDIR(loc->inode->ia_type) && name &&
             ZR_FILE_CONTENT_REQUEST(name)) {
-                ret = posix_get_file_contents (this, real_path, name,
+                ret = posix_get_file_contents (this, loc->gfid, &name[15],
                                                &file_contents);
                 if (ret < 0) {
                         op_errno = -ret;
@@ -2677,7 +2548,6 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 {
         int32_t           op_ret         = -1;
         int32_t           op_errno       = ENOENT;
-        uint64_t          tmp_pfd        = 0;
         struct posix_fd * pfd            = NULL;
         int               _fd            = -1;
         int32_t           list_offset    = 0;
@@ -2697,14 +2567,13 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -2832,7 +2701,6 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         int32_t            op_ret       = -1;
         int32_t            op_errno     = 0;
         struct posix_fd *  pfd          = NULL;
-        uint64_t           tmp_pfd      = 0;
         int                _fd          = -1;
         data_pair_t * trav              = NULL;
         int           ret               = -1;
@@ -2845,14 +2713,13 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, out);
         VALIDATE_OR_GOTO (dict, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
         _fd = pfd->fd;
 
         dict_del (dict, GFID_XATTR_KEY);
@@ -2889,13 +2756,14 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
 
         DECLARE_OLD_FS_ID_VAR;
 
+        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+
         if (!strcmp (GFID_XATTR_KEY, name)) {
                 gf_log (this->name, GF_LOG_WARNING, "Remove xattr called"
-                        " on gfid for file %s", loc->path);
+                        " on gfid for file %s", real_path);
                 goto out;
         }
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
@@ -2904,7 +2772,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
                 op_errno = errno;
                 if (op_errno != ENOATTR && op_errno != EPERM)
                         gf_log (this->name, GF_LOG_ERROR,
-                                "removexattr on %s (for %s): %s", loc->path,
+                                "removexattr on %s (for %s): %s", real_path,
                                 name, strerror (op_errno));
                 goto out;
         }
@@ -2926,13 +2794,13 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
         int               ret      = -1;
-        uint64_t          tmp_pfd  = 0;
+        struct posix_fd  *pfd      = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -3006,7 +2874,6 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 
         int              ret = 0;
         int              _fd = -1;
-        uint64_t         tmp_pfd = 0;
         struct posix_fd *pfd = NULL;
 
         data_pair_t     *trav = NULL;
@@ -3021,7 +2888,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
         trav = xattr->members_list;
 
         if (fd) {
-                ret = fd_ctx_get (fd, this, &tmp_pfd);
+                ret = posix_fd_ctx_get (fd, this, &pfd);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get pfd from fd=%p",
@@ -3030,15 +2897,14 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
                         op_errno = EBADFD;
                         goto out;
                 }
-                pfd = (struct posix_fd *)(long)tmp_pfd;
                 _fd = pfd->fd;
         }
 
-        if (loc && loc->path)
-                MAKE_REAL_PATH (real_path, this, loc->path);
+        if (loc && !uuid_is_null (loc->gfid))
+                MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
-        if (loc) {
-                path  = gf_strdup (loc->path);
+        if (real_path) {
+                path  = gf_strdup (real_path);
                 inode = loc->inode;
         } else if (fd) {
                 inode = fd->inode;
@@ -3207,13 +3073,13 @@ posix_access (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
-        MAKE_REAL_PATH (real_path, this, loc->path);
+        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
         op_ret = access (real_path, mask & 07);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "access failed on %s: %s",
-                        loc->path, strerror (op_errno));
+                        real_path, strerror (op_errno));
                 goto out;
         }
         op_ret = 0;
@@ -3237,7 +3103,6 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         struct iatt           postop   = {0,};
         struct posix_fd      *pfd      = NULL;
         int                   ret      = -1;
-        uint64_t              tmp_pfd  = 0;
         struct posix_private *priv     = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -3250,18 +3115,17 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &preop);
+        op_ret = posix_fdstat (this, _fd, &preop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -3280,7 +3144,7 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &postop);
+        op_ret = posix_fdstat (this, _fd, &postop);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -3309,7 +3173,6 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno = 0;
         struct iatt           buf      = {0,};
         struct posix_fd      *pfd      = NULL;
-        uint64_t              tmp_pfd  = 0;
         int                   ret      = -1;
         struct posix_private *priv     = NULL;
 
@@ -3323,18 +3186,17 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
 
         _fd = pfd->fd;
 
-        op_ret = posix_fstat_with_gfid (this, _fd, &buf);
+        op_ret = posix_fdstat (this, _fd, &buf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR, "fstat failed on fd=%p: %s",
@@ -3425,18 +3287,17 @@ posix_fentrylk (call_frame_t *frame, xlator_t *this,
 
 
 int
-__posix_fill_readdir (DIR *dir, off_t off, size_t size, gf_dirent_t *entries,
-                      const char *real_path, const char *base_path)
+posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
+                    gf_dirent_t *entries)
 {
         off_t     in_case = -1;
         size_t    filled = 0;
-        int           ret = 0;
         int             count = 0;
+        char      entrybuf[sizeof(struct dirent) + 256 + 8];
         struct dirent  *entry          = NULL;
         int32_t               this_size      = -1;
         gf_dirent_t          *this_entry     = NULL;
-        char                  hidden_path[PATH_MAX] = {0, };
-        struct stat           statbuf        = {0, };
+        uuid_t                rootgfid = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
 
         if (!off) {
                 rewinddir (dir);
@@ -3455,7 +3316,8 @@ __posix_fill_readdir (DIR *dir, off_t off, size_t size, gf_dirent_t *entries,
                 }
 
                 errno = 0;
-                entry = readdir (dir);
+                entry = NULL;
+                readdir_r (dir, (struct dirent *)entrybuf, &entry);
 
                 if (!entry) {
                         if (errno == EBADF) {
@@ -3467,7 +3329,7 @@ __posix_fill_readdir (DIR *dir, off_t off, size_t size, gf_dirent_t *entries,
                         break;
                 }
 
-                if ((!strcmp (real_path, base_path))
+                if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
                     && (!strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)))
                         continue;
 
@@ -3480,19 +3342,15 @@ __posix_fill_readdir (DIR *dir, off_t off, size_t size, gf_dirent_t *entries,
 		* when the cluster/dht xlator decides to distribute
 		* exended attribute backing file accross storage servers.
 		*/
-		if ((!strcmp(real_path, base_path))
+		if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
 		    && (!strcmp(entry->d_name, ".attribute")))
 			continue;
 #endif /* __NetBSD__ */
 
-                if ((!strcmp (real_path, base_path))
+                if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
                     && (!strncmp (GF_HIDDEN_PATH, entry->d_name,
                                   strlen (GF_HIDDEN_PATH)))) {
-                        snprintf (hidden_path, PATH_MAX, "%s/%s", real_path,
-                                  entry->d_name);
-                        ret = lstat (hidden_path, &statbuf);
-                        if (!ret && S_ISDIR (statbuf.st_mode))
-                                continue;
+                        continue;
                 }
 
                 this_size = max (sizeof (gf_dirent_t),
@@ -3533,7 +3391,6 @@ int32_t
 posix_do_readdir (call_frame_t *frame, xlator_t *this,
                   fd_t *fd, size_t size, off_t off, int whichop)
 {
-        uint64_t              tmp_pfd        = 0;
         struct posix_fd      *pfd            = NULL;
         DIR                  *dir            = NULL;
         int                   ret            = -1;
@@ -3541,14 +3398,12 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret         = -1;
         int32_t               op_errno       = 0;
         gf_dirent_t           entries;
-        char                 *real_path      = NULL;
-        int                   real_path_len  = -1;
-        char                 *entry_path     = NULL;
-        int                   entry_path_len = -1;
         struct iatt           stbuf          = {0, };
-        char                  base_path[PATH_MAX] = {0,};
         gf_dirent_t          *tmp_entry      = NULL;
-
+#ifdef IGNORE_READDIRP_ATTRS
+        uuid_t                gfid;
+        ia_type_t             entry_type     = 0;
+#endif
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3556,38 +3411,13 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
 
         INIT_LIST_HEAD (&entries.list);
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
-        if (!pfd->path) {
-                op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_WARNING,
-                        "pfd does not have path set (possibly file "
-                        "fd, fd=%p)", fd);
-                goto out;
-        }
-
-        real_path     = pfd->path;
-        real_path_len = strlen (real_path);
-
-        entry_path_len = real_path_len + NAME_MAX;
-        entry_path     = alloca (entry_path_len);
-
-        strncpy(base_path, POSIX_BASE_PATH(this), sizeof(base_path));
-        base_path[strlen(base_path)] = '/';
-
-        if (!entry_path) {
-                op_errno = errno;
-                goto out;
-        }
-
-        strncpy (entry_path, real_path, entry_path_len);
-        entry_path[real_path_len] = '/';
 
         dir = pfd->dir;
 
@@ -3598,23 +3428,30 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-
-        LOCK (&fd->lock);
-        {
-                count = __posix_fill_readdir (dir, off, size, &entries,
-                                              real_path, base_path);
-
-        }
-        UNLOCK (&fd->lock);
+        count = posix_fill_readdir (fd, dir, off, size, &entries);
 
         /* pick ENOENT to indicate EOF */
         op_errno = errno;
 
         if (whichop == GF_FOP_READDIRP) {
                 list_for_each_entry (tmp_entry, &entries.list, list) {
-                        strcpy (entry_path + real_path_len + 1,
-                                tmp_entry->d_name);
-                        posix_lstat_with_gfid (this, entry_path, &stbuf);
+#ifdef IGNORE_READDIRP_ATTRS
+                        ret = inode_grep_for_gfid (fd->inode->table, fd->inode,
+                                                   tmp_entry->d_name, gfid,
+                                                   &entry_type);
+                        if (ret == 0) {
+                                memset (&stbuf, 0, sizeof (stbuf));
+                                uuid_copy (stbuf.ia_gfid, gfid);
+                                posix_fill_ino_from_gfid (this, &stbuf);
+                                stbuf.ia_type = entry_type;
+                        } else {
+                                posix_istat (this, fd->inode->gfid,
+                                             tmp_entry->d_name, &stbuf);
+                        }
+#else
+                        posix_istat (this, fd->inode->gfid,
+                                     tmp_entry->d_name, &stbuf);
+#endif
                         if (stbuf.ia_ino)
                                 tmp_entry->d_ino = stbuf.ia_ino;
                         tmp_entry->d_stat = stbuf;
@@ -3690,7 +3527,6 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         char *buf = NULL;
 
         int       _fd      = -1;
-        uint64_t  tmp_pfd  =  0;
 
         struct posix_fd *pfd  = NULL;
 
@@ -3714,14 +3550,13 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
                 goto out;
         }
-        pfd = (struct posix_fd *)(long) tmp_pfd;
 
         _fd = pfd->fd;
 
@@ -3809,6 +3644,7 @@ init (xlator_t *this)
         uuid_t                 old_uuid      = {0,};
         uuid_t                 dict_uuid     = {0,};
         uuid_t                 gfid          = {0,};
+        uuid_t                 rootgfid = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
 
         dir_data = dict_get (this->options, "directory");
 
@@ -3949,6 +3785,16 @@ init (xlator_t *this)
                         "%s: failed to fetch gfid (%s)",
                         dir_data->data, strerror (errno));
                 goto out;
+        } else {
+                /* First time volume, set the GFID */
+                ret = sys_lsetxattr (dir_data->data, "trusted.gfid", rootgfid,
+                                     16, XATTR_CREATE);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: failed to set gfid (%s)",
+                                dir_data->data, strerror (errno));
+                        goto out;
+                }
         }
 
         op_ret = sys_lgetxattr (dir_data->data, "system.posix_acl_access",
@@ -4095,6 +3941,14 @@ init (xlator_t *this)
         }
 #endif
         this->private = (void *)_private;
+
+        op_ret = posix_handle_init (this);
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Posix handle setup failed");
+                ret = -1;
+                goto out;
+        }
 
         pthread_mutex_init (&_private->janitor_lock, NULL);
         pthread_cond_init (&_private->janitor_cond, NULL);

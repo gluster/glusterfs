@@ -974,11 +974,10 @@ afr_link (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_link_done;
         local->transaction.unwind = afr_link_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, oldloc);
+        afr_build_parent_loc (&local->transaction.parent_loc, newloc);
 
         local->transaction.main_frame   = frame;
-        local->transaction.basename     = AFR_BASENAME (oldloc->path);
-        local->transaction.new_basename = AFR_BASENAME (newloc->path);
+        local->transaction.basename     = AFR_BASENAME (newloc->path);
 
         afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
 

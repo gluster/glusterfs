@@ -19,6 +19,7 @@
 
 #include "stat-prefetch.h"
 #include "statedump.h"
+#include "fd.h"
 
 #define GF_SP_CACHE_BUCKETS 1
 #define GF_SP_CACHE_ENTRIES_EXPECTED (128 * 1024) //1048576
@@ -667,9 +668,6 @@ out:
 }
 
 
-fd_t *
-_fd_ref (fd_t *fd);
-
 void
 sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode,
                                       char *name)
@@ -705,7 +703,7 @@ sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode,
 
                         INIT_LIST_HEAD (&wrapper->list);
 
-                        wrapper->fd = _fd_ref (fd);
+                        wrapper->fd = __fd_ref (fd);
                         list_add_tail (&wrapper->list, &head);
                 }
         }

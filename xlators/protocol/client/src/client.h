@@ -35,28 +35,18 @@
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
 #define CLIENT_DUMP_LOCKS     "trusted.glusterfs.clientlk-dump"
 
-#define CLIENT_GET_FD_CTX(conf, args, fdctx, op_errno, label)           \
+#define CLIENT_GET_REMOTE_FD(conf, fd, remote_fd, label)                \
         do {                                                            \
+                clnt_fd_ctx_t      *fdctx    = NULL;                    \
                 pthread_mutex_lock (&conf->lock);                       \
                 {                                                       \
-                        fdctx = this_fd_get_ctx (args->fd, this);       \
+                        fdctx = this_fd_get_ctx (fd, THIS);             \
                 }                                                       \
                 pthread_mutex_unlock (&conf->lock);                     \
-                                                                        \
-                if (fdctx == NULL) {                                    \
-                        gf_log (this->name, GF_LOG_WARNING,             \
-                                "(%s): failed to get fd ctx. EBADFD",   \
-                                uuid_utoa (args->fd->inode->gfid));     \
-                        op_errno = EBADFD;                              \
-                        goto label;                                     \
-                }                                                       \
-                                                                        \
-                if (fdctx->remote_fd == -1) {                           \
-                        gf_log (this->name, GF_LOG_WARNING,             \
-                                "(%s): failed to get fd ctx. EBADFD",   \
-                                uuid_utoa (args->fd->inode->gfid));     \
-                        op_errno = EBADFD;                              \
-                        goto label;                                     \
+                if (!fdctx) {                                           \
+                        remote_fd = -2;                                 \
+                } else {                                                \
+                        remote_fd = fdctx->remote_fd;                   \
                 }                                                       \
         } while (0);
 

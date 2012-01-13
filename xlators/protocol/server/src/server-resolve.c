@@ -33,72 +33,9 @@ resolve_entry_simple (call_frame_t *frame);
 int
 resolve_inode_simple (call_frame_t *frame);
 int
-resolve_path_simple (call_frame_t *frame);
-
+resolve_continue (call_frame_t *frame);
 int
-component_count (const char *path)
-{
-        int         count = 0;
-        const char *trav = NULL;
-
-        for (trav = path; *trav; trav++) {
-                if (*trav == '/')
-                        count++;
-        }
-
-        return count + 2;
-}
-
-
-int
-prepare_components (call_frame_t *frame)
-{
-        server_state_t       *state = NULL;
-        server_resolve_t     *resolve = NULL;
-        char                 *resolved = NULL;
-        int                   count = 0;
-        struct resolve_comp  *components = NULL;
-        int                   i = 0;
-        char                 *trav = NULL;
-
-        state = CALL_STATE (frame);
-        resolve = state->resolve_now;
-
-        resolved = gf_strdup (resolve->path);
-        resolve->resolved = resolved;
-
-        count = component_count (resolve->path);
-        components = GF_CALLOC (sizeof (*components), count,
-                                gf_server_mt_resolv_comp_t);
-        if (!components)
-                goto out;
-
-        resolve->components = components;
-
-        components[0].basename = "";
-        components[0].inode    = state->itable->root;
-
-        i = 1;
-        for (trav = resolved; *trav; trav++) {
-                if (*trav == '/') {
-                        *trav = 0;
-
-                        if (!(*(trav + 1))) {
-                                /* Skip trailing "/" in a path.
-                                   This is the check which prevents
-                                   inode_link'age of itable->root
-                                */
-                                break;
-                        }
-
-                        components[i].basename = trav + 1;
-                        i++;
-                }
-        }
-out:
-        return 0;
-}
-
+resolve_anonfd_simple (call_frame_t *frame);
 
 int
 resolve_loc_touchup (call_frame_t *frame)
@@ -123,19 +60,7 @@ resolve_loc_touchup (call_frame_t *frame)
                 if (ret)
                         gf_log (frame->this->name, GF_LOG_TRACE,
                                 "return value inode_path %d", ret);
-
-                if (!path)
-                        path = gf_strdup (resolve->path);
-
                 loc->path = path;
-        }
-
-        loc->name = strrchr (loc->path, '/');
-        if (loc->name)
-                loc->name++;
-
-        if (!loc->parent && loc->inode) {
-                loc->parent = inode_parent (loc->inode, 0, NULL);
         }
 
         return 0;
@@ -143,7 +68,137 @@ resolve_loc_touchup (call_frame_t *frame)
 
 
 int
-resolve_deep_continue (call_frame_t *frame)
+resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int op_ret, int op_errno, inode_t *inode,
+                        struct iatt *buf, dict_t *xattr, struct iatt *postparent)
+{
+        server_state_t       *state = NULL;
+        server_resolve_t     *resolve = NULL;
+        inode_t              *link_inode = NULL;
+        loc_t                *resolve_loc = NULL;
+
+        state = CALL_STATE (frame);
+        resolve = state->resolve_now;
+        resolve_loc = &resolve->resolve_loc;
+
+        if (op_ret == -1) {
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_WARNING),
+                        "%s/%s: failed to resolve (%s)",
+                        uuid_utoa (resolve_loc->pargfid), resolve_loc->name,
+                        strerror (op_errno));
+                goto out;
+        }
+
+        link_inode = inode_link (inode, resolve_loc->parent,
+                                 resolve_loc->name, buf);
+
+        if (!link_inode)
+                goto out;
+
+        inode_lookup (link_inode);
+
+        inode_unref (link_inode);
+
+out:
+        loc_wipe (resolve_loc);
+
+        resolve_continue (frame);
+        return 0;
+}
+
+
+int
+resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
+                  dict_t *xattr, struct iatt *postparent)
+{
+        server_state_t       *state = NULL;
+        server_resolve_t     *resolve = NULL;
+        inode_t              *link_inode = NULL;
+        loc_t                *resolve_loc = NULL;
+
+        state = CALL_STATE (frame);
+        resolve = state->resolve_now;
+        resolve_loc = &resolve->resolve_loc;
+
+        if (op_ret == -1) {
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_WARNING),
+                        "%s: failed to resolve (%s)",
+                        uuid_utoa (resolve_loc->gfid), strerror (op_errno));
+                loc_wipe (&resolve->resolve_loc);
+                goto out;
+        }
+
+        loc_wipe (resolve_loc);
+
+        link_inode = inode_link (inode, NULL, NULL, buf);
+
+        if (!link_inode)
+                goto out;
+
+        inode_lookup (link_inode);
+
+        if (uuid_is_null (resolve->pargfid)) {
+                inode_unref (link_inode);
+                goto out;
+        }
+
+        resolve_loc->parent = link_inode;
+        uuid_copy (resolve_loc->pargfid, resolve_loc->parent->gfid);
+
+        resolve_loc->name = resolve->bname;
+
+        resolve_loc->inode = inode_new (state->itable);
+        inode_path (resolve_loc->parent, resolve_loc->name,
+                    (char **) &resolve_loc->path);
+
+        STACK_WIND (frame, resolve_gfid_entry_cbk,
+                    BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
+                    &resolve->resolve_loc, NULL);
+        return 0;
+out:
+        resolve_continue (frame);
+        return 0;
+}
+
+
+int
+resolve_gfid (call_frame_t *frame)
+{
+        server_state_t       *state = NULL;
+        xlator_t             *this = NULL;
+        server_resolve_t     *resolve = NULL;
+        loc_t                *resolve_loc = NULL;
+        int                   ret = 0;
+
+        state = CALL_STATE (frame);
+        this  = frame->this;
+        resolve = state->resolve_now;
+        resolve_loc = &resolve->resolve_loc;
+
+        if (!uuid_is_null (resolve->pargfid)) {
+                uuid_copy (resolve_loc->gfid, resolve->pargfid);
+                resolve_loc->inode = inode_new (state->itable);
+                ret = inode_path (resolve_loc->inode, NULL,
+                                  (char **)&resolve_loc->path);
+        } else if (!uuid_is_null (resolve->gfid)) {
+                uuid_copy (resolve_loc->gfid, resolve->gfid);
+                resolve_loc->inode = inode_new (state->itable);
+                ret = inode_path (resolve_loc->inode, NULL,
+                                  (char **)&resolve_loc->path);
+        }
+
+        STACK_WIND (frame, resolve_gfid_cbk,
+                    BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
+                    &resolve->resolve_loc, NULL);
+        return 0;
+}
+
+
+int
+resolve_continue (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
         xlator_t             *this = NULL;
@@ -157,196 +212,24 @@ resolve_deep_continue (call_frame_t *frame)
         resolve->op_ret   = 0;
         resolve->op_errno = 0;
 
-        if (!uuid_is_null (resolve->pargfid))
+        if (resolve->fd_no != -1) {
+                ret = resolve_anonfd_simple (frame);
+                goto out;
+        } else if (!uuid_is_null (resolve->pargfid))
                 ret = resolve_entry_simple (frame);
         else if (!uuid_is_null (resolve->gfid))
                 ret = resolve_inode_simple (frame);
-        else if (resolve->path)
-                ret = resolve_path_simple (frame);
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "return value of resolve_*_simple %d", ret);
 
         resolve_loc_touchup (frame);
-
+out:
         server_resolve_all (frame);
 
         return 0;
 }
 
-
-int
-resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
-                  dict_t *xattr, struct iatt *postparent)
-{
-        server_state_t       *state = NULL;
-        server_resolve_t     *resolve = NULL;
-        struct resolve_comp  *components = NULL;
-        int                   i = 0;
-        inode_t              *link_inode = NULL;
-
-        state = CALL_STATE (frame);
-        resolve = state->resolve_now;
-        components = resolve->components;
-
-        i = (long) cookie;
-
-        if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_WARNING),
-                        "%s: failed to resolve (%s)",
-                        resolve->resolved, strerror (op_errno));
-                goto get_out_of_here;
-        }
-
-        if (i != 0) {
-                /* no linking for root inode */
-                link_inode = inode_link (inode, resolve->deep_loc.parent,
-                                         resolve->deep_loc.name, buf);
-                inode_lookup (link_inode);
-                components[i].inode  = link_inode;
-                link_inode = NULL;
-        }
-
-        loc_wipe (&resolve->deep_loc);
-
-        i++; /* next component */
-
-        if (!components[i].basename) {
-                /* all components of the path are resolved */
-                goto get_out_of_here;
-        }
-
-        /* join the current component with the path resolved until now */
-        *(components[i].basename - 1) = '/';
-
-        resolve->deep_loc.path   = gf_strdup (resolve->resolved);
-        resolve->deep_loc.parent = inode_ref (components[i-1].inode);
-        resolve->deep_loc.inode  = inode_new (state->itable);
-        resolve->deep_loc.name   = components[i].basename;
-
-        if (frame && frame->root->state && BOUND_XL (frame)) {
-                STACK_WIND_COOKIE (frame, resolve_deep_cbk, (void *) (long) i,
-                                   BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
-                                   &resolve->deep_loc, NULL);
-                return 0;
-        }
-
-get_out_of_here:
-        resolve_deep_continue (frame);
-        return 0;
-}
-
-
-int
-resolve_path_deep (call_frame_t *frame)
-{
-        server_state_t     *state = NULL;
-        server_resolve_t   *resolve = NULL;
-        int                 i = 0;
-
-        state = CALL_STATE (frame);
-        resolve = state->resolve_now;
-
-        gf_log (BOUND_XL (frame)->name, GF_LOG_DEBUG,
-                "RESOLVE %s() seeking deep resolution of %s",
-                gf_fop_list[frame->root->op], resolve->path);
-
-        prepare_components (frame);
-
-        /* start from the root */
-        resolve->deep_loc.inode = state->itable->root;
-        resolve->deep_loc.path  = gf_strdup ("/");
-        resolve->deep_loc.name  = "";
-
-        if (frame && frame->root->state && BOUND_XL (frame)) {
-                STACK_WIND_COOKIE (frame, resolve_deep_cbk, (void *) (long) i,
-                                   BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
-                                   &resolve->deep_loc, NULL);
-                return 0;
-        }
-
-        resolve_deep_continue (frame);
-        return 0;
-}
-
-
-int
-resolve_path_simple (call_frame_t *frame)
-{
-        server_state_t       *state = NULL;
-        server_resolve_t     *resolve = NULL;
-        struct resolve_comp  *components = NULL;
-        int                   ret = -1;
-        int                   par_idx = -1;
-        int                   ino_idx = -1;
-        int                   i = 0;
-
-        state = CALL_STATE (frame);
-        resolve = state->resolve_now;
-        components = resolve->components;
-
-        if (!components) {
-                gf_log ("", GF_LOG_INFO,
-                        "failed to resolve, component not found");
-                resolve->op_ret   = -1;
-                resolve->op_errno = ENOENT;
-                goto out;
-        }
-
-        for (i = 0; components[i].basename; i++) {
-                par_idx = ino_idx;
-                ino_idx = i;
-        }
-
-        if (ino_idx == -1) {
-                gf_log ("", GF_LOG_INFO,
-                        "failed to resolve, inode index not found");
-                resolve->op_ret  = -1;
-                resolve->op_errno = EINVAL;
-                goto out;
-        }
-
-        if (par_idx == -1)
-                /* "/" will not have a parent */
-                goto noparent;
-
-        if (!components[par_idx].inode) {
-                gf_log ("", GF_LOG_INFO,
-                        "failed to resolve, parent inode not found");
-                resolve->op_ret    = -1;
-                resolve->op_errno  = ENOENT;
-                goto out;
-        }
-        state->loc_now->parent = inode_ref (components[par_idx].inode);
-noparent:
-
-        if (!components[ino_idx].inode &&
-            (resolve->type == RESOLVE_MUST || resolve->type == RESOLVE_EXACT)) {
-                gf_log ("", GF_LOG_INFO,
-                        "failed to resolve, inode not found");
-                resolve->op_ret    = -1;
-                resolve->op_errno  = ENOENT;
-                goto out;
-        }
-
-        if (components[ino_idx].inode && resolve->type == RESOLVE_NOT) {
-                gf_log ("", GF_LOG_INFO,
-                        "failed to resolve, inode found");
-                resolve->op_ret    = -1;
-                resolve->op_errno  = EEXIST;
-                goto out;
-        }
-
-        if (components[ino_idx].inode)
-                state->loc_now->inode  = inode_ref (components[ino_idx].inode);
-
-        ret = 0;
-
-out:
-        return ret;
-}
 
 /*
   Check if the requirements are fulfilled by entries in the inode cache itself
@@ -380,7 +263,9 @@ resolve_entry_simple (call_frame_t *frame)
         }
 
         /* expected @parent was found from the inode cache */
+        uuid_copy (state->loc_now->pargfid, resolve->pargfid);
         state->loc_now->parent = inode_ref (parent);
+        state->loc_now->name = resolve->bname;
 
         inode = inode_grep (state->itable, parent, resolve->bname);
         if (!inode) {
@@ -441,7 +326,7 @@ server_resolve_entry (call_frame_t *frame)
 
         if (ret > 0) {
                 loc_wipe (loc);
-                resolve_path_deep (frame);
+                resolve_gfid (frame);
                 return 0;
         }
 
@@ -477,6 +362,7 @@ resolve_inode_simple (call_frame_t *frame)
         ret = 0;
 
         state->loc_now->inode = inode_ref (inode);
+        uuid_copy (state->loc_now->gfid, resolve->gfid);
 
 out:
         if (inode)
@@ -500,7 +386,7 @@ server_resolve_inode (call_frame_t *frame)
 
         if (ret > 0) {
                 loc_wipe (loc);
-                resolve_path_deep (frame);
+                resolve_gfid (frame);
                 return 0;
         }
 
@@ -510,6 +396,62 @@ server_resolve_inode (call_frame_t *frame)
         server_resolve_all (frame);
 
         return 0;
+}
+
+
+int
+resolve_anonfd_simple (call_frame_t *frame)
+{
+        server_state_t     *state = NULL;
+        server_resolve_t   *resolve = NULL;
+        inode_t            *inode = NULL;
+        int                 ret = 0;
+
+        state = CALL_STATE (frame);
+        resolve = state->resolve_now;
+
+        inode = inode_find (state->itable, resolve->gfid);
+
+        if (!inode) {
+                resolve->op_ret   = -1;
+                resolve->op_errno = ENOENT;
+                ret = 1;
+                goto out;
+        }
+
+        ret = 0;
+
+        state->fd = fd_anonymous (inode);
+out:
+        if (inode)
+                inode_unref (inode);
+
+        return ret;
+}
+
+
+int
+server_resolve_anonfd (call_frame_t *frame)
+{
+        server_state_t     *state = NULL;
+        int                 ret = 0;
+        loc_t              *loc = NULL;
+
+        state = CALL_STATE (frame);
+        loc  = state->loc_now;
+
+        ret = resolve_anonfd_simple (frame);
+
+        if (ret > 0) {
+                loc_wipe (loc);
+                resolve_gfid (frame);
+                return 0;
+        }
+
+        server_resolve_all (frame);
+
+        return 0;
+
 }
 
 
@@ -526,6 +468,11 @@ server_resolve_fd (call_frame_t *frame)
         conn  = SERVER_CONNECTION (frame);
 
         fd_no = resolve->fd_no;
+
+        if (fd_no == -2) {
+                server_resolve_anonfd (frame);
+                return 0;
+        }
 
         state->fd = gf_fd_fdptr_get (conn->fdtable, fd_no);
 
@@ -562,14 +509,11 @@ server_resolve (call_frame_t *frame)
 
                 server_resolve_inode (frame);
 
-        } else if (resolve->path) {
-
-                gf_log (frame->this->name, GF_LOG_INFO,
-                        "pure path resolution for %s (%s)",
-                        resolve->path, gf_fop_list[frame->root->op]);
-                resolve_path_deep (frame);
-
-        } else  {
+        } else {
+                if (resolve == &state->resolve)
+                        gf_log (frame->this->name, GF_LOG_WARNING,
+                                "no resolution type for %s (%s)",
+                                resolve->path, gf_fop_list[frame->root->op]);
 
                 resolve->op_ret = -1;
                 resolve->op_errno = EINVAL;

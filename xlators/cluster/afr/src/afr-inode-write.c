@@ -356,6 +356,12 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
         priv  = this->private;
 
         GF_ASSERT (local->fd);
+
+        if (fd_is_anonymous (local->fd)) {
+                fop_continue = _gf_true;
+                goto out;
+        }
+
         if (pause_fop)
                 GF_ASSERT (local->fop_call_continue);
 

@@ -3378,6 +3378,7 @@ fuse_first_lookup (xlator_t *this)
         loc.path = "/";
         loc.name = "";
         loc.inode = fuse_ino_to_inode (1, this);
+        uuid_copy (loc.gfid, loc.inode->gfid);
         loc.parent = NULL;
 
         dict = dict_new ();

@@ -2071,7 +2071,7 @@ out:
 /* {{{ open */
 
 int
-afr_fd_ctx_set (xlator_t *this, fd_t *fd)
+__afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 {
         afr_private_t * priv   = NULL;
         int             ret    = -1;
@@ -2083,82 +2083,92 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 
         priv = this->private;
 
+        ret = __fd_ctx_get (fd, this, &ctx);
+
+        if (ret == 0)
+                goto out;
+
+        fd_ctx = GF_CALLOC (1, sizeof (afr_fd_ctx_t),
+                            gf_afr_mt_afr_fd_ctx_t);
+        if (!fd_ctx) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        fd_ctx->pre_op_done = GF_CALLOC (sizeof (*fd_ctx->pre_op_done),
+                                         priv->child_count,
+                                         gf_afr_mt_char);
+        if (!fd_ctx->pre_op_done) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        fd_ctx->pre_op_piggyback = GF_CALLOC (sizeof (*fd_ctx->pre_op_piggyback),
+                                              priv->child_count,
+                                              gf_afr_mt_char);
+        if (!fd_ctx->pre_op_piggyback) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        fd_ctx->opened_on = GF_CALLOC (sizeof (*fd_ctx->opened_on),
+                                       priv->child_count,
+                                       gf_afr_mt_int32_t);
+        if (!fd_ctx->opened_on) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        fd_ctx->lock_piggyback = GF_CALLOC (sizeof (*fd_ctx->lock_piggyback),
+                                            priv->child_count,
+                                            gf_afr_mt_char);
+        if (!fd_ctx->lock_piggyback) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        fd_ctx->lock_acquired = GF_CALLOC (sizeof (*fd_ctx->lock_acquired),
+                                           priv->child_count,
+                                           gf_afr_mt_char);
+        if (!fd_ctx->lock_acquired) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        fd_ctx->up_count   = priv->up_count;
+        fd_ctx->down_count = priv->down_count;
+
+        fd_ctx->locked_on = GF_CALLOC (sizeof (*fd_ctx->locked_on),
+                                       priv->child_count,
+                                       gf_afr_mt_char);
+        if (!fd_ctx->locked_on) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&fd_ctx->paused_calls);
+        INIT_LIST_HEAD (&fd_ctx->entries);
+
+        ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to set fd ctx (%p)", fd);
+out:
+        return ret;
+}
+
+
+int
+afr_fd_ctx_set (xlator_t *this, fd_t *fd)
+{
+        int ret = -1;
+
         LOCK (&fd->lock);
         {
-                ret = __fd_ctx_get (fd, this, &ctx);
-
-                if (ret == 0)
-                        goto unlock;
-
-                fd_ctx = GF_CALLOC (1, sizeof (afr_fd_ctx_t),
-                                    gf_afr_mt_afr_fd_ctx_t);
-                if (!fd_ctx) {
-                        ret = -ENOMEM;
-                        goto unlock;
-                }
-
-                fd_ctx->pre_op_done = GF_CALLOC (sizeof (*fd_ctx->pre_op_done),
-                                                 priv->child_count,
-                                                 gf_afr_mt_char);
-                if (!fd_ctx->pre_op_done) {
-                        ret = -ENOMEM;
-                        goto unlock;
-                }
-
-                fd_ctx->pre_op_piggyback = GF_CALLOC (sizeof (*fd_ctx->pre_op_piggyback),
-                                                      priv->child_count,
-                                                      gf_afr_mt_char);
-                if (!fd_ctx->pre_op_piggyback) {
-                        ret = -ENOMEM;
-                        goto unlock;
-                }
-
-                fd_ctx->opened_on = GF_CALLOC (sizeof (*fd_ctx->opened_on),
-                                               priv->child_count,
-                                               gf_afr_mt_int32_t);
-                if (!fd_ctx->opened_on) {
-                        ret = -ENOMEM;
-                        goto unlock;
-                }
-
-                fd_ctx->lock_piggyback = GF_CALLOC (sizeof (*fd_ctx->lock_piggyback),
-                                                    priv->child_count,
-                                                    gf_afr_mt_char);
-                if (!fd_ctx->lock_piggyback) {
-                        ret = -ENOMEM;
-                        goto unlock;
-                }
-
-                fd_ctx->lock_acquired = GF_CALLOC (sizeof (*fd_ctx->lock_acquired),
-                                                    priv->child_count,
-                                                    gf_afr_mt_char);
-                if (!fd_ctx->lock_acquired) {
-                        ret = -ENOMEM;
-                        goto unlock;
-                }
-
-                fd_ctx->up_count   = priv->up_count;
-                fd_ctx->down_count = priv->down_count;
-
-                fd_ctx->locked_on = GF_CALLOC (sizeof (*fd_ctx->locked_on),
-                                               priv->child_count,
-                                               gf_afr_mt_char);
-                if (!fd_ctx->locked_on) {
-                        ret = -ENOMEM;
-                        goto unlock;
-                }
-
-                INIT_LIST_HEAD (&fd_ctx->paused_calls);
-                INIT_LIST_HEAD (&fd_ctx->entries);
-
-                ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
-                if (ret)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set fd ctx (%p)", fd);
+                ret = __afr_fd_ctx_set (this, fd);
         }
-unlock:
         UNLOCK (&fd->lock);
-out:
+
         return ret;
 }
 

@@ -2690,7 +2690,6 @@ server_stat (rpcsvc_request_t *req)
                 return 0;
 
         /* Initialize args first, then decode */
-        args.path = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_stat_req)) {
                 //failed to decode msg;
@@ -2715,7 +2714,6 @@ server_stat (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.path  = gf_strdup (args.path);
 
         ret = 0;
         resolve_and_resume (frame, server_stat_resume);
@@ -2734,8 +2732,6 @@ server_setattr (rpcsvc_request_t *req)
 
         if (!req)
                 return 0;
-
-        args.path = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_setattr_req)) {
                 //failed to decode msg;
@@ -2760,7 +2756,6 @@ server_setattr (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.path  = gf_strdup (args.path);
 
         gf_stat_to_iatt (&args.stbuf, &state->stbuf);
         state->valid = args.valid;
@@ -2828,8 +2823,6 @@ server_readlink (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
-
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_readlink_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -2853,7 +2846,6 @@ server_readlink (rpcsvc_request_t *req)
 
         state->resolve.type = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.path = gf_strdup (args.path);
 
         state->size  = args.size;
 
@@ -2877,7 +2869,6 @@ server_create (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_create_req)) {
@@ -2927,7 +2918,6 @@ server_create (rpcsvc_request_t *req)
                 buf = NULL;
         }
 
-        state->resolve.path   = gf_strdup (args.path);
         state->resolve.bname  = gf_strdup (args.bname);
         state->mode           = args.mode;
         state->flags          = gf_flags_to_flags (args.flags);
@@ -2976,8 +2966,6 @@ server_open (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
-
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_open_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3001,7 +2989,6 @@ server_open (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.path  = gf_strdup (args.path);
 
         state->flags = gf_flags_to_flags (args.flags);
 
@@ -3048,6 +3035,7 @@ server_readv (rpcsvc_request_t *req)
         state->resolve.fd_no  = args.fd;
         state->size           = args.size;
         state->offset         = args.offset;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_readv_resume);
@@ -3095,6 +3083,7 @@ server_writev (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->offset        = args.offset;
         state->iobref        = iobref_ref (req->iobref);
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (len < req->msg[0].iov_len) {
                 state->payload_vector[0].iov_base
@@ -3236,6 +3225,7 @@ server_fsync (rpcsvc_request_t *req)
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->flags         = args.data;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_fsync_resume);
@@ -3279,6 +3269,7 @@ server_flush (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_flush_resume);
@@ -3323,6 +3314,7 @@ server_ftruncate (rpcsvc_request_t *req)
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.fd_no  = args.fd;
         state->offset         = args.offset;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_ftruncate_resume);
@@ -3365,6 +3357,7 @@ server_fstat (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.fd_no   = args.fd;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_fstat_resume);
@@ -3384,7 +3377,6 @@ server_truncate (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_truncate_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3407,7 +3399,6 @@ server_truncate (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.path  = gf_strdup (args.path);
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->offset        = args.offset;
 
@@ -3430,7 +3421,6 @@ server_unlink (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_unlink_req)) {
@@ -3455,7 +3445,6 @@ server_unlink (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.path   = gf_strdup (args.path);
         state->resolve.bname  = gf_strdup (args.bname);
         memcpy (state->resolve.pargfid, args.pargfid, 16);
 
@@ -3482,7 +3471,6 @@ server_setxattr (rpcsvc_request_t *req)
 
         conn = req->trans->xl_private;
 
-        args.path          = alloca (req->msg[0].iov_len);
         args.dict.dict_val = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_setxattr_req)) {
@@ -3507,7 +3495,6 @@ server_setxattr (rpcsvc_request_t *req)
         }
 
         state->resolve.type     = RESOLVE_MUST;
-        state->resolve.path     = gf_strdup (args.path);
         state->flags            = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
@@ -3595,6 +3582,7 @@ server_fsetxattr (rpcsvc_request_t *req)
         state->resolve.type      = RESOLVE_MUST;
         state->resolve.fd_no     = args.fd;
         state->flags             = args.flags;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.dict.dict_len) {
                 dict = dict_new ();
@@ -3732,7 +3720,6 @@ server_xattrop (rpcsvc_request_t *req)
         conn = req->trans->xl_private;
 
         args.dict.dict_val = alloca (req->msg[0].iov_len);
-        args.path          = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_xattrop_req)) {
                 //failed to decode msg;
@@ -3756,7 +3743,6 @@ server_xattrop (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_MUST;
-        state->resolve.path    = gf_strdup (args.path);
         state->flags           = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
@@ -3808,8 +3794,7 @@ server_getxattr (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
-        args.name = alloca (4096);
+        args.name = alloca (256);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_getxattr_req)) {
                 //failed to decode msg;
@@ -3833,7 +3818,6 @@ server_getxattr (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.path  = gf_strdup (args.path);
         memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.namelen) {
@@ -3860,7 +3844,7 @@ server_fgetxattr (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.name = alloca (4096);
+        args.name = alloca (256);
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fgetxattr_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3884,6 +3868,7 @@ server_fgetxattr (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.namelen)
                 state->name = gf_strdup (args.name);
@@ -3907,8 +3892,7 @@ server_removexattr (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
-        args.name = alloca (4096);
+        args.name = alloca (256);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_removexattr_req)) {
                 //failed to decode msg;
@@ -3932,7 +3916,6 @@ server_removexattr (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.path   = gf_strdup (args.path);
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->name           = gf_strdup (args.name);
 
@@ -3956,8 +3939,6 @@ server_opendir (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
-
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_opendir_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3980,7 +3961,6 @@ server_opendir (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.path   = gf_strdup (args.path);
         memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
@@ -4037,6 +4017,7 @@ server_readdirp (rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->offset = args.offset;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_readdirp_resume);
@@ -4091,6 +4072,7 @@ server_readdir (rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->offset = args.offset;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_readdir_resume);
@@ -4133,6 +4115,7 @@ server_fsyncdir (rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->flags = args.data;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
         resolve_and_resume (frame, server_fsyncdir_resume);
@@ -4155,7 +4138,6 @@ server_mknod (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_mknod_req)) {
@@ -4208,7 +4190,6 @@ server_mknod (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_NOT;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
-        state->resolve.path    = gf_strdup (args.path);
         state->resolve.bname   = gf_strdup (args.bname);
 
         state->mode = args.mode;
@@ -4254,7 +4235,6 @@ server_mkdir (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_mkdir_req)) {
@@ -4306,7 +4286,6 @@ server_mkdir (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_NOT;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
-        state->resolve.path    = gf_strdup (args.path);
         state->resolve.bname   = gf_strdup (args.bname);
 
         state->mode = args.mode;
@@ -4348,7 +4327,6 @@ server_rmdir (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path  = alloca (req->msg[0].iov_len);
         args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_rmdir_req)) {
@@ -4374,7 +4352,6 @@ server_rmdir (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_MUST;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
-        state->resolve.path    = gf_strdup (args.path);
         state->resolve.bname   = gf_strdup (args.bname);
 
         state->flags = args.flags;
@@ -4399,8 +4376,7 @@ server_inodelk (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path   = alloca (req->msg[0].iov_len);
-        args.volume = alloca (4096);
+        args.volume = alloca (256);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_inodelk_req)) {
                 //failed to decode msg;
@@ -4425,7 +4401,6 @@ server_inodelk (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_EXACT;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.path    = gf_strdup (args.path);
 
         cmd = args.cmd;
         switch (cmd) {
@@ -4474,7 +4449,7 @@ server_finodelk (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.volume = alloca (4096);
+        args.volume = alloca (256);
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_finodelk_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -4500,6 +4475,7 @@ server_finodelk (rpcsvc_request_t *req)
         state->volume = gf_strdup (args.volume);
         state->resolve.fd_no = args.fd;
         state->cmd = args.cmd;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         switch (state->cmd) {
         case GF_LK_GETLK:
@@ -4547,9 +4523,8 @@ server_entrylk (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path   = alloca (req->msg[0].iov_len);
-        args.volume = alloca (4096);
-        args.name   = alloca (4096);
+        args.volume = alloca (256);
+        args.name   = alloca (256);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_entrylk_req)) {
                 //failed to decode msg;
@@ -4573,7 +4548,6 @@ server_entrylk (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_EXACT;
-        state->resolve.path   = gf_strdup (args.path);
         memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.namelen)
@@ -4600,8 +4574,8 @@ server_fentrylk (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.name   = alloca (4096);
-        args.volume = alloca (4096);
+        args.name   = alloca (256);
+        args.volume = alloca (256);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fentrylk_req)) {
                 //failed to decode msg;
@@ -4628,6 +4602,7 @@ server_fentrylk (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->cmd  = args.cmd;
         state->type = args.type;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.namelen)
                 state->name = gf_strdup (args.name);
@@ -4650,7 +4625,6 @@ server_access (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_access_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -4674,7 +4648,6 @@ server_access (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.path  = gf_strdup (args.path);
         state->mask          = args.mask;
 
         ret = 0;
@@ -4698,7 +4671,6 @@ server_symlink (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path     = alloca (req->msg[0].iov_len);
         args.bname    = alloca (req->msg[0].iov_len);
         args.linkname = alloca (4096);
 
@@ -4752,7 +4724,6 @@ server_symlink (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_NOT;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
-        state->resolve.path   = gf_strdup (args.path);
         state->resolve.bname  = gf_strdup (args.bname);
         state->name           = gf_strdup (args.linkname);
 
@@ -4925,6 +4896,7 @@ server_lk (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->cmd =  args.cmd;
         state->type = args.type;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         switch (state->cmd) {
         case GF_LK_GETLK:
@@ -5052,7 +5024,6 @@ server_lookup (rpcsvc_request_t *req)
 
         conn = req->trans->xl_private;
 
-        args.path          = alloca (req->msg[0].iov_len);
         args.bname         = alloca (req->msg[0].iov_len);
         args.dict.dict_val = alloca (req->msg[0].iov_len);
 
@@ -5080,14 +5051,14 @@ server_lookup (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        memcpy (state->resolve.gfid, args.gfid, 16);
 
         state->resolve.type   = RESOLVE_DONTCARE;
-        memcpy (state->resolve.pargfid, args.pargfid, 16);
-        state->resolve.path   = gf_strdup (args.path);
 
-        if (IS_NOT_ROOT (STRLEN_0 (args.path))) {
+        if (args.bname && strcmp (args.bname, "")) {
+                memcpy (state->resolve.pargfid, args.pargfid, 16);
                 state->resolve.bname = gf_strdup (args.bname);
+        } else {
+                memcpy (state->resolve.gfid, args.gfid, 16);
         }
 
         if (args.dict.dict_len) {
@@ -5147,7 +5118,6 @@ server_statfs (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.path = alloca (req->msg[0].iov_len);
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_statfs_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -5171,7 +5141,6 @@ server_statfs (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.path   = gf_strdup (args.path);
 
         ret = 0;
         resolve_and_resume (frame, server_statfs_resume);

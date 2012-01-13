@@ -106,6 +106,10 @@ struct _inode {
 };
 
 
+#define UUID0_STR "00000000-0000-0000-0000-000000000000"
+#define GFID_STR_PFX "<gfid:" UUID0_STR ">"
+#define GFID_STR_PFX_LEN (sizeof (GFID_STR_PFX) - 1)
+
 inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl);
 
@@ -142,6 +146,10 @@ inode_rename (inode_table_t *table, inode_t *olddir, const char *oldname,
 inode_t *
 inode_grep (inode_table_t *table, inode_t *parent, const char *name);
 
+int
+inode_grep_for_gfid (inode_table_t *table, inode_t *parent, const char *name,
+                     uuid_t gfid, ia_type_t *type);
+
 inode_t *
 inode_find (inode_table_t *table, uuid_t gfid);
 
@@ -155,31 +163,43 @@ inode_t *
 inode_from_path (inode_table_t *table, const char *path);
 
 int
-__inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
-
+inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                uint64_t *value2);
 int
-inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
-
-int
-__inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
-
-int
-inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
-
-int
-inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value);
-
-int
-inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
-                uint64_t value2);
+__inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                  uint64_t *value2);
 
 int
 inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 uint64_t *value2);
+int
+__inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                  uint64_t *value2);
 
 int
 inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 uint64_t *value2);
+
+#define __inode_ctx_set(i,x,v_p) __inode_ctx_set2(i,x,v_p,0)
+#define inode_ctx_set(i,x,v_p) inode_ctx_set2(i,x,v_p,0)
+
+static inline int
+__inode_ctx_put(inode_t *inode, xlator_t *this, uint64_t v)
+{
+        return __inode_ctx_set2 (inode, this, &v, 0);
+}
+
+static inline int
+inode_ctx_put(inode_t *inode, xlator_t *this, uint64_t v)
+{
+        return inode_ctx_set2(inode, this, &v, 0);
+}
+
+#define __inode_ctx_get(i,x,v) __inode_ctx_get2(i,x,v,0)
+#define inode_ctx_get(i,x,v) inode_ctx_get2(i,x,v,0)
+
+#define inode_ctx_del(i,x,v) inode_ctx_del2(i,x,v,0)
+
 
 gf_boolean_t
 __is_root_gfid (uuid_t gfid);

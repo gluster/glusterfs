@@ -791,6 +791,9 @@ afr_lk_transfer_datalock (call_frame_t *dst, call_frame_t *src,
 int pump_start (call_frame_t *frame, xlator_t *this);
 
 int
+__afr_fd_ctx_set (xlator_t *this, fd_t *fd);
+
+int
 afr_fd_ctx_set (xlator_t *this, fd_t *fd);
 
 int32_t

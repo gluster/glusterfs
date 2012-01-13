@@ -26,374 +26,202 @@
 
 static int
 fuse_resolve_all (fuse_state_t *state);
-static int
-fuse_resolve_path_simple (fuse_state_t *state);
 
-static int
-component_count (const char *path)
-{
-        int         count = 0;
-        const char *trav = NULL;
-
-        for (trav = path; *trav; trav++) {
-                if (*trav == '/')
-                        count++;
-        }
-
-        return count + 2;
-}
-
-
-static int
-prepare_components (fuse_state_t *state)
-{
-        fuse_resolve_t           *resolve    = NULL;
-        char                   *resolved   = NULL;
-        struct fuse_resolve_comp *components = NULL;
-        char                   *trav       = NULL;
-        int                     count      = 0;
-        int                     i          = 0;
-
-        resolve = state->resolve_now;
-
-        resolved = gf_strdup (resolve->path);
-        resolve->resolved = resolved;
-
-        count = component_count (resolve->path);
-        components = GF_CALLOC (sizeof (*components), count, 0); //TODO
-        if (!components)
-                goto out;
-        resolve->components = components;
-
-        components[0].basename = "";
-        components[0].ino      = 1;
-        components[0].gen      = 0;
-        components[0].inode    = inode_ref (state->itable->root);
-
-        i = 1;
-        for (trav = resolved; *trav; trav++) {
-                if (*trav == '/') {
-                        components[i].basename = trav + 1;
-                        *trav = 0;
-                        i++;
-                }
-        }
-out:
-        return 0;
-}
+int fuse_resolve_continue (fuse_state_t *state);
+int fuse_resolve_entry_simple (fuse_state_t *state);
+int fuse_resolve_inode_simple (fuse_state_t *state);
 
 
 static int
 fuse_resolve_loc_touchup (fuse_state_t *state)
 {
         fuse_resolve_t *resolve = NULL;
-        loc_t        *loc     = NULL;
-        char         *path    = NULL;
-        int           ret     = 0;
+        loc_t          *loc     = NULL;
+        char           *path    = NULL;
+        int             ret     = 0;
 
         resolve = state->resolve_now;
         loc     = state->loc_now;
 
         if (!loc->path) {
-                if (loc->parent) {
+                if (loc->parent && resolve->bname) {
                         ret = inode_path (loc->parent, resolve->bname, &path);
                 } else if (loc->inode) {
                         ret = inode_path (loc->inode, NULL, &path);
                 }
                 if (ret)
-                        gf_log ("", GF_LOG_TRACE,
+                        gf_log (THIS->name, GF_LOG_TRACE,
                                 "return value inode_path %d", ret);
-
-                if (!path)
-                        path = gf_strdup (resolve->path);
-
                 loc->path = path;
-        }
-
-        loc->name = strrchr (loc->path, '/');
-        if (loc->name)
-                loc->name++;
-
-        if (!loc->parent && loc->inode) {
-                loc->parent = inode_parent (loc->inode, 0, NULL);
         }
 
         return 0;
 }
 
-static int
-fuse_resolve_newfd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, fd_t *fd)
+
+int
+fuse_resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int op_ret, int op_errno, inode_t *inode,
+                             struct iatt *buf, dict_t *xattr,
+                             struct iatt *postparent)
 {
         fuse_state_t   *state      = NULL;
         fuse_resolve_t *resolve    = NULL;
-        fd_t           *old_fd     = NULL;
-        fd_t           *tmp_fd     = NULL;
-        fuse_fd_ctx_t  *tmp_fd_ctx = 0;
-        uint64_t        val        = 0;
-        int             ret        = 0;
+        inode_t        *link_inode = NULL;
+        loc_t          *resolve_loc   = NULL;
 
         state = frame->root->state;
         resolve = state->resolve_now;
+        resolve_loc = &resolve->resolve_loc;
 
         STACK_DESTROY (frame->root);
 
         if (op_ret == -1) {
-                resolve->op_ret   = -1;
-                resolve->op_errno = op_errno;
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_WARNING),
+                        "%s/%s: failed to resolve (%s)",
+                        uuid_utoa (resolve_loc->pargfid), resolve_loc->name,
+                        strerror (op_errno));
                 goto out;
         }
 
-        old_fd = resolve->fd;
+        link_inode = inode_link (inode, resolve_loc->parent,
+                                 resolve_loc->name, buf);
 
-        state->fd = fd_ref (fd);
+        if (!link_inode)
+                goto out;
 
-        fd_bind (fd);
+        inode_lookup (link_inode);
 
-        resolve->fd = NULL;
-
-        LOCK (&old_fd->lock);
-        {
-                ret = __fd_ctx_get (old_fd, state->this, &val);
-                if (!ret) {
-                        tmp_fd_ctx = (fuse_fd_ctx_t *)(unsigned long)val;
-                        tmp_fd = tmp_fd_ctx->fd;
-                        if (tmp_fd) {
-                                fd_unref (tmp_fd);
-                                tmp_fd_ctx->fd = NULL;
-                        }
-                } else {
-                        tmp_fd_ctx = __fuse_fd_ctx_check_n_create (old_fd,
-                                                                   state->this);
-                }
-
-                if (tmp_fd_ctx) {
-                        tmp_fd_ctx->fd = fd;
-                } else {
-                        gf_log ("resolve", GF_LOG_WARNING,
-                                "failed to set the fd ctx with resolved fd");
-                }
-        }
-        UNLOCK (&old_fd->lock);
+        inode_unref (link_inode);
 
 out:
-        fuse_resolve_all (state);
+        loc_wipe (resolve_loc);
+
+        fuse_resolve_continue (state);
         return 0;
 }
 
-static void
-fuse_resolve_new_fd (fuse_state_t *state)
+
+int
+fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
+                       dict_t *xattr, struct iatt *postparent)
 {
-        fuse_resolve_t *resolve = NULL;
-        fd_t         *new_fd  = NULL;
-        fd_t         *fd      = NULL;
+        fuse_state_t   *state      = NULL;
+        fuse_resolve_t *resolve    = NULL;
+        inode_t        *link_inode = NULL;
+        loc_t          *resolve_loc   = NULL;
 
+        state = frame->root->state;
         resolve = state->resolve_now;
-        fd = resolve->fd;
+        resolve_loc = &resolve->resolve_loc;
 
-        new_fd = fd_create (state->loc.inode, state->finh->pid);
-        new_fd->flags = (fd->flags & ~O_TRUNC);
+        STACK_DESTROY (frame->root);
 
-        gf_log ("resolve", GF_LOG_DEBUG,
-                "%"PRIu64": OPEN %s", state->finh->unique,
-                state->loc.path);
+        if (op_ret == -1) {
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_WARNING),
+                        "%s: failed to resolve (%s)",
+                        uuid_utoa (resolve_loc->gfid), strerror (op_errno));
+                loc_wipe (&resolve->resolve_loc);
+                goto out;
+        }
 
-        FUSE_FOP (state, fuse_resolve_newfd_cbk, GF_FOP_OPEN,
-                  open, &state->loc, new_fd->flags, new_fd, 0);
+        loc_wipe (resolve_loc);
+
+        link_inode = inode_link (inode, NULL, NULL, buf);
+
+        if (!link_inode)
+                goto out;
+
+        inode_lookup (link_inode);
+
+        if (uuid_is_null (resolve->pargfid)) {
+                inode_unref (link_inode);
+                goto out;
+        }
+
+        resolve_loc->parent = link_inode;
+        uuid_copy (resolve_loc->pargfid, resolve_loc->parent->gfid);
+
+        resolve_loc->name = resolve->bname;
+
+        resolve_loc->inode = inode_new (state->itable);
+        inode_path (resolve_loc->parent, resolve_loc->name,
+                    (char **) &resolve_loc->path);
+
+        FUSE_FOP (state, fuse_resolve_gfid_entry_cbk, GF_FOP_LOOKUP,
+                  lookup, &resolve->resolve_loc, NULL);
+
+        return 0;
+out:
+        fuse_resolve_continue (state);
+        return 0;
 }
 
-static int
-fuse_resolve_deep_continue (fuse_state_t *state)
+
+int
+fuse_resolve_gfid (fuse_state_t *state)
+{
+        fuse_resolve_t *resolve  = NULL;
+        loc_t          *resolve_loc = NULL;
+        int             ret      = 0;
+
+        resolve = state->resolve_now;
+        resolve_loc = &resolve->resolve_loc;
+
+        if (!uuid_is_null (resolve->pargfid)) {
+                uuid_copy (resolve_loc->gfid, resolve->pargfid);
+                resolve_loc->inode = inode_new (state->itable);
+                ret = inode_path (resolve_loc->inode, NULL,
+                                  (char **)&resolve_loc->path);
+        } else if (!uuid_is_null (resolve->gfid)) {
+                uuid_copy (resolve_loc->gfid, resolve->gfid);
+                resolve_loc->inode = inode_new (state->itable);
+                ret = inode_path (resolve_loc->inode, NULL,
+                                  (char **)&resolve_loc->path);
+        }
+        if (ret <= 0) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to get the path from inode %s",
+                        uuid_utoa (resolve->gfid));
+        }
+
+        FUSE_FOP (state, fuse_resolve_gfid_cbk, GF_FOP_LOOKUP,
+                  lookup, &resolve->resolve_loc, NULL);
+
+        return 0;
+}
+
+
+int
+fuse_resolve_continue (fuse_state_t *state)
 {
         fuse_resolve_t     *resolve = NULL;
-        int               ret = 0;
+        int                   ret = 0;
 
         resolve = state->resolve_now;
 
         resolve->op_ret   = 0;
         resolve->op_errno = 0;
 
-        if (resolve->path)
-                ret = fuse_resolve_path_simple (state);
+        /* TODO: should we handle 'fd' here ? */
+        if (!uuid_is_null (resolve->pargfid))
+                ret = fuse_resolve_entry_simple (state);
+        else if (!uuid_is_null (resolve->gfid))
+                ret = fuse_resolve_inode_simple (state);
         if (ret)
-                gf_log ("resolve", GF_LOG_TRACE,
+                gf_log (THIS->name, GF_LOG_DEBUG,
                         "return value of resolve_*_simple %d", ret);
 
         fuse_resolve_loc_touchup (state);
 
-        /* This function is called by either fd resolve or inode resolve */
-        if (!resolve->fd)
-                fuse_resolve_all (state);
-        else
-                fuse_resolve_new_fd (state);
+        fuse_resolve_all (state);
 
         return 0;
 }
 
-
-static int
-fuse_resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
-                  dict_t *xattr, struct iatt *postparent)
-{
-        fuse_state_t           *state      = NULL;
-        fuse_resolve_t           *resolve    = NULL;
-        struct fuse_resolve_comp *components = NULL;
-        inode_t                *link_inode = NULL;
-        int                     i          = 0;
-
-        state = frame->root->state;
-        resolve = state->resolve_now;
-        components = resolve->components;
-
-        i = (long) cookie;
-
-        STACK_DESTROY (frame->root);
-
-        if (op_ret == -1) {
-                goto get_out_of_here;
-        }
-
-        if (i != 0) {
-                /* no linking for root inode */
-                link_inode = inode_link (inode, resolve->deep_loc.parent,
-                                         resolve->deep_loc.name, buf);
-                components[i].inode  = link_inode;
-                link_inode = NULL;
-        }
-
-        loc_wipe (&resolve->deep_loc);
-        i++; /* next component */
-
-        if (!components[i].basename) {
-                /* all components of the path are resolved */
-                goto get_out_of_here;
-        }
-
-        /* join the current component with the path resolved until now */
-        *(components[i].basename - 1) = '/';
-
-        resolve->deep_loc.path   = gf_strdup (resolve->resolved);
-        resolve->deep_loc.parent = inode_ref (components[i-1].inode);
-        resolve->deep_loc.inode  = inode_new (state->itable);
-        resolve->deep_loc.name   = components[i].basename;
-
-        FUSE_FOP_COOKIE (state, state->itable->xl, fuse_resolve_deep_cbk,
-                         (void *)(long)i,
-                         GF_FOP_LOOKUP, lookup, &resolve->deep_loc, NULL);
-        return 0;
-
-get_out_of_here:
-        fuse_resolve_deep_continue (state);
-        return 0;
-}
-
-
-static int
-fuse_resolve_path_deep (fuse_state_t *state)
-{
-        fuse_resolve_t           *resolve    = NULL;
-        struct fuse_resolve_comp *components = NULL;
-        inode_t                *inode      = NULL;
-        long                    i          = 0;
-
-        resolve = state->resolve_now;
-
-        prepare_components (state);
-
-        components = resolve->components;
-
-        /* start from the root */
-        for (i = 1; components[i].basename; i++) {
-                *(components[i].basename - 1) = '/';
-                inode = inode_grep (state->itable, components[i-1].inode,
-                                    components[i].basename);
-                if (!inode)
-                        break;
-                components[i].inode = inode;
-        }
-
-        if (!components[i].basename)
-                goto resolved;
-
-        resolve->deep_loc.path   = gf_strdup (resolve->resolved);
-        resolve->deep_loc.parent = inode_ref (components[i-1].inode);
-        resolve->deep_loc.inode  = inode_new (state->itable);
-        resolve->deep_loc.name   = components[i].basename;
-
-        FUSE_FOP_COOKIE (state, state->itable->xl, fuse_resolve_deep_cbk,
-                         (void *)(long)i,
-                         GF_FOP_LOOKUP, lookup, &resolve->deep_loc, NULL);
-
-        return 0;
-resolved:
-        fuse_resolve_deep_continue (state);
-        return 0;
-}
-
-
-static int
-fuse_resolve_path_simple (fuse_state_t *state)
-{
-        fuse_resolve_t           *resolve    = NULL;
-        struct fuse_resolve_comp *components = NULL;
-        int                     ret        = -1;
-        int                     par_idx    = 0;
-        int                     ino_idx    = 0;
-        int                     i          = 0;
-
-        resolve = state->resolve_now;
-        components = resolve->components;
-
-        if (!components) {
-                resolve->op_ret   = -1;
-                resolve->op_errno = ENOENT;
-                goto out;
-        }
-
-        for (i = 0; components[i].basename; i++) {
-                par_idx = ino_idx;
-                ino_idx = i;
-        }
-
-        if (!components[par_idx].inode) {
-                resolve->op_ret    = -1;
-                resolve->op_errno  = ENOENT;
-                goto out;
-        }
-
-        if (!components[ino_idx].inode &&
-            (resolve->type == RESOLVE_MUST || resolve->type == RESOLVE_EXACT)) {
-                resolve->op_ret    = -1;
-                resolve->op_errno  = ENOENT;
-                goto out;
-        }
-
-        if (components[ino_idx].inode && resolve->type == RESOLVE_NOT) {
-                resolve->op_ret    = -1;
-                resolve->op_errno  = EEXIST;
-                goto out;
-        }
-
-        if (components[ino_idx].inode) {
-                if (state->loc_now->inode) {
-                        inode_unref (state->loc_now->inode);
-                }
-
-                state->loc_now->inode  = inode_ref (components[ino_idx].inode);
-        }
-
-        if (state->loc_now->parent) {
-                inode_unref (state->loc_now->parent);
-        }
-
-        state->loc_now->parent = inode_ref (components[par_idx].inode);
-
-        ret = 0;
-
-out:
-        return ret;
-}
 
 /*
   Check if the requirements are fulfilled by entries in the inode cache itself
@@ -445,6 +273,7 @@ fuse_resolve_entry_simple (fuse_state_t *state)
         }
 
         state->loc_now->inode  = inode_ref (inode);
+        uuid_copy (state->loc_now->gfid, resolve->gfid);
 
 out:
         if (parent)
@@ -468,7 +297,7 @@ fuse_resolve_entry (fuse_state_t *state)
         ret = fuse_resolve_entry_simple (state);
         if (ret > 0) {
                 loc_wipe (loc);
-                fuse_resolve_path_deep (state);
+                fuse_resolve_gfid (state);
                 return 0;
         }
 
@@ -505,6 +334,7 @@ fuse_resolve_inode_simple (fuse_state_t *state)
         }
 
         state->loc_now->inode = inode_ref (inode);
+        uuid_copy (state->loc_now->gfid, resolve->gfid);
 
 out:
         if (inode)
@@ -526,7 +356,7 @@ fuse_resolve_inode (fuse_state_t *state)
 
         if (ret > 0) {
                 loc_wipe (loc);
-                fuse_resolve_path_deep (state);
+                fuse_resolve_gfid (state);
                 return 0;
         }
 
@@ -574,8 +404,6 @@ fuse_resolve_fd (fuse_state_t *state)
 
         state->loc_now     = &state->loc;
 
-        fuse_resolve_path_deep (state);
-
 out:
         return 0;
 }
@@ -599,10 +427,6 @@ fuse_resolve (fuse_state_t *state)
         } else if (!uuid_is_null (resolve->gfid)) {
 
                 fuse_resolve_inode (state);
-
-        } else if (resolve->path) {
-
-                fuse_resolve_path_deep (state);
 
         } else {
 
