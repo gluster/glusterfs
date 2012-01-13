@@ -105,6 +105,9 @@ out:
                         cli_out ("Getting Volume information failed!");
         }
 
+        if (frame)
+                FRAME_DESTROY (frame);
+
         return ret;
 
 }

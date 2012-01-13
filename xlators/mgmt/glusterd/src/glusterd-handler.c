@@ -287,6 +287,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         data_t                  *value = NULL;
         int                     opt_count = 0;
         glusterd_conf_t         *priv = NULL;
+        char                    *volume_id_str  = NULL;
 
 
         GF_ASSERT (volinfo);
@@ -333,6 +334,15 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         snprintf (key, 256, "volume%d.transport", count);
         ret = dict_set_int32 (volumes, key, volinfo->transport_type);
+        if (ret)
+                goto out;
+
+        volume_id_str = gf_strdup (uuid_utoa (volinfo->volume_id));
+        if (!volume_id_str)
+                goto out;
+
+        snprintf (key, sizeof (key), "volume%d.volume_id", count);
+        ret = dict_set_dynstr (volumes, key, volume_id_str);
         if (ret)
                 goto out;
 
