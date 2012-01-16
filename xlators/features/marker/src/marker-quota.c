@@ -152,7 +152,7 @@ mq_assign_lk_owner (xlator_t *this, call_frame_t *frame)
         }
         UNLOCK (&conf->lock);
 
-        frame->root->lk_owner = lk_owner;
+        set_lk_owner_from_uint64 (&frame->root->lk_owner, lk_owner);
 
         return;
 }

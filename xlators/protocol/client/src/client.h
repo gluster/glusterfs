@@ -111,8 +111,7 @@ typedef struct _client_posix_lock {
         off_t              fl_end;
         short              fl_type;
         int32_t            cmd;           /* the cmd for the lock call */
-        uint64_t           owner;         /* lock owner from fuse */
-
+        gf_lkowner_t       owner; /* lock owner from fuse */
         struct list_head   list;          /* reference used to add to the fdctx list of locks */
 } client_posix_lock_t;
 
@@ -126,7 +125,7 @@ typedef struct client_local {
         struct iobref       *iobref;
 
         client_posix_lock_t *client_lock;
-        uint64_t             owner;
+        gf_lkowner_t         owner;
         int32_t              cmd;
         struct list_head     lock_list;
         pthread_mutex_t      mutex;
@@ -190,9 +189,9 @@ int unserialize_rsp_direntp (struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries
 int clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
 int clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
 int client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx);
-int32_t delete_granted_locks_owner (fd_t *fd, uint64_t owner);
-int client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock, uint64_t owner,
-                                  int32_t cmd);
+int32_t delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner);
+int client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock,
+                                  gf_lkowner_t *owner, int32_t cmd);
 uint64_t decrement_reopen_fd_count (xlator_t *this, clnt_conf_t *conf);
 int32_t delete_granted_locks_fd (clnt_fd_ctx_t *fdctx);
 int32_t client_cmd_to_gf_cmd (int32_t cmd, int32_t *gf_cmd);

@@ -82,7 +82,7 @@ main ()
     rpcgen -h -o $hfile $xfile;
 
     # the '#ifdef' part of file should be fixed
-    sed -i -e 's:\(.*\)-\(.*\)_H_RPCGEN:\1_\2_H_RPCGEN:g' $hfile;
+    sed -i -e 's/-/_/g' $hfile;
 
     echo "OK";
 

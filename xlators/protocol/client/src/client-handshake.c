@@ -31,6 +31,7 @@
 
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
+#include "rpc-common-xdr.h"
 
 extern rpc_clnt_prog_t clnt3_1_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;

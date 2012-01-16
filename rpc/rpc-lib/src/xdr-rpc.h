@@ -17,7 +17,7 @@
   <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _XDR_RPC_H
+#ifndef _XDR_RPC_H_
 #define _XDR_RPC_H_
 
 #ifndef _CONFIG_H
@@ -38,6 +38,13 @@
 #include <arpa/inet.h>
 #include <rpc/xdr.h>
 #include <sys/uio.h>
+
+#include "xdr-common.h"
+
+typedef enum {
+        AUTH_GLUSTERFS = 5,
+        AUTH_GLUSTERFS_v2 = 6,
+} gf_rpc_authtype_t;
 
 /* Converts a given network buffer from its XDR format to a structure
  * that contains everything an RPC call needs to work.

@@ -39,7 +39,7 @@ struct _locker {
         char             *volume;
         loc_t             loc;
         fd_t             *fd;
-        uint64_t          owner;
+        gf_lkowner_t      owner;
         pid_t             pid;
 };
 

@@ -35,7 +35,8 @@
 
 static pl_entry_lock_t *
 new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
-                  void *trans, pid_t client_pid, uint64_t owner, const char *volume)
+                  void *trans, pid_t client_pid, gf_lkowner_t *owner,
+                  const char *volume)
 
 {
         pl_entry_lock_t *newlock = NULL;
@@ -46,12 +47,12 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
                 goto out;
         }
 
-        newlock->basename       = basename ? gf_strdup (basename) : NULL;
-        newlock->type           = type;
-        newlock->trans          = trans;
-        newlock->volume         = volume;
-        newlock->client_pid     = client_pid;
-        newlock->owner          = owner;
+        newlock->basename   = basename ? gf_strdup (basename) : NULL;
+        newlock->type       = type;
+        newlock->trans      = trans;
+        newlock->volume     = volume;
+        newlock->client_pid = client_pid;
+        newlock->owner      = *owner;
 
         INIT_LIST_HEAD (&newlock->domain_list);
         INIT_LIST_HEAD (&newlock->blocked_locks);
@@ -81,11 +82,11 @@ names_conflict (const char *n1, const char *n2)
 }
 
 
-static int
+static inline int
 __same_entrylk_owner (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
 {
 
-        return ((l1->owner == l2->owner) &&
+        return (is_same_lkowner (&l1->owner, &l2->owner) &&
                 (l1->trans  == l2->trans));
 }
 
@@ -320,15 +321,13 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
         pl_entry_lock_t *conf       = NULL;
         void            *trans      = NULL;
         pid_t            client_pid = 0;
-        uint64_t         owner      = 0;
-
-        int ret = -EINVAL;
+        int              ret        = -EINVAL;
 
         trans = frame->root->trans;
         client_pid = frame->root->pid;
-        owner      = frame->root->lk_owner;
 
-        lock = new_entrylk_lock (pinode, basename, type, trans, client_pid, owner, dom->domain);
+        lock = new_entrylk_lock (pinode, basename, type, trans, client_pid,
+                                 &frame->root->lk_owner, dom->domain);
         if (!lock) {
                 ret = -ENOMEM;
                 goto out;
@@ -601,7 +600,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                    const char *volume, inode_t *inode, const char *basename,
                    entrylk_cmd cmd, entrylk_type type, loc_t *loc, fd_t *fd)
 {
-        uint64_t owner    = 0;
         int32_t  op_ret   = -1;
         int32_t  op_errno = 0;
 
@@ -628,10 +626,9 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 
         entrylk_trace_in (this, frame, volume, fd, loc, basename, cmd, type);
 
-        owner     = frame->root->lk_owner;
         transport = frame->root->trans;
 
-        if (owner == 0) {
+        if (frame->root->lk_owner.len == 0) {
                 /*
                   this is a special case that means release
                   all locks from this transport

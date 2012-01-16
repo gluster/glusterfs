@@ -37,7 +37,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 	rbthash.h iatt.h latency.h mem-types.h $(CONTRIBDIR)/uuid/uuidd.h \
 	$(CONTRIBDIR)/uuid/uuid.h $(CONTRIBDIR)/uuid/uuidP.h \
 	$(CONTRIB_BUILDDIR)/uuid/uuid_types.h syncop.h graph-utils.h trie.h run.h \
-	options.h
+	options.h lkowner.h
 
 EXTRA_DIST = graph.l graph.y
 

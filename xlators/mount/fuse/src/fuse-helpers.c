@@ -145,7 +145,7 @@ frame_fill_groups (call_frame_t *frame)
 {
 #if defined(GF_LINUX_HOST_OS)
         char         filename[32];
-        char         line[128];
+        char         line[4096];
         char        *ptr = NULL;
         FILE        *fp = NULL;
         int          idx = 0;
@@ -178,7 +178,7 @@ frame_fill_groups (call_frame_t *frame)
                         if (!endptr || *endptr)
                                 break;
                         frame->root->groups[idx++] = id;
-                        if (idx == GF_REQUEST_MAXGROUPS)
+                        if (idx == GF_MAX_AUX_GROUPS)
                                 break;
                 }
 
@@ -237,7 +237,6 @@ out:
 #endif /* GF_LINUX_HOST_OS */
 }
 
-
 call_frame_t *
 get_call_frame_for_req (fuse_state_t *state)
 {
@@ -260,8 +259,9 @@ get_call_frame_for_req (fuse_state_t *state)
                 frame->root->uid      = finh->uid;
                 frame->root->gid      = finh->gid;
                 frame->root->pid      = finh->pid;
-                frame->root->lk_owner = state->lk_owner;
                 frame->root->unique   = finh->unique;
+                set_lk_owner_from_uint64 (&frame->root->lk_owner,
+                                          state->lk_owner);
         }
 
         frame_fill_groups (frame);

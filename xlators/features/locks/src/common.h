@@ -20,10 +20,12 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#include "lkowner.h"
+
 #define SET_FLOCK_PID(flock, lock) ((flock)->l_pid = lock->client_pid)
 posix_lock_t *
 new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
-                uint64_t owner, fd_t *fd);
+                gf_lkowner_t *owner, fd_t *fd);
 
 pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode);

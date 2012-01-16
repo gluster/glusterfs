@@ -50,5 +50,5 @@ convert_fuse_file_lock (struct fuse_file_lock *fl, struct gf_flock *flock,
         else
                 flock->l_len = fl->end - fl->start + 1;
         flock->l_pid = fl->pid;
-        flock->l_owner = lk_owner;
+        set_lk_owner_from_uint64 (&flock->l_owner, lk_owner);
 }

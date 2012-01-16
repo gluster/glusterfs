@@ -22,12 +22,6 @@
 
 #define GF_DEFAULT_BASE_PORT 24007
 
-/* This corresponds to the max 16 number of group IDs that are sent through an
- * RPC request. Since NFS is the only one going to set this, we can be safe
- * in keeping this size hardcoded.
- */
-#define GF_REQUEST_MAXGROUPS    16
-
 #include "glusterfs.h"
 
 /* CTX */
@@ -52,6 +46,7 @@ int synctask_set (void *);
 
 /* uuid_buf */
 char *glusterfs_uuid_buf_get();
+char *glusterfs_lkowner_buf_get();
 
 /* init */
 int glusterfs_globals_init (void);
