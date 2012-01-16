@@ -45,7 +45,6 @@
 #include "list.h"
 #include "logging.h"
 
-
 #define GF_YES 1
 #define GF_NO  0
 
@@ -114,6 +113,12 @@
 /* TODO: Should we use PATH-MAX? On some systems it may save space */
 #define ZR_PATH_MAX 4096
 
+/* GlusterFS's maximum supported Auxilary GIDs */
+/* TODO: Keeping it to 200, so that we can fit in 2KB buffer for auth data
+ * in RPC server code, if there is ever need for having more aux-gids, then
+ * we have to add aux-gid in payload of actors */
+#define GF_MAX_AUX_GROUPS   200
+
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
         GF_FOP_NULL = 0,
@@ -176,15 +181,6 @@ typedef enum {
         GF_OP_TYPE_MGMT,
         GF_OP_TYPE_MAX,
 } gf_op_type_t;
-
-struct gf_flock {
-        short    l_type;
-        short    l_whence;
-        off_t    l_start;
-        off_t    l_len;
-        pid_t    l_pid;
-        uint64_t l_owner;
-};
 
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
 typedef enum {
@@ -384,6 +380,19 @@ typedef enum {
         GF_EVENT_TRIGGER_HEAL,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
+
+/* gf_lkowner_t is defined in lkowner.h */
+#include "lkowner.h"
+
+struct gf_flock {
+        short        l_type;
+        short        l_whence;
+        off_t        l_start;
+        off_t        l_len;
+        pid_t        l_pid;
+        gf_lkowner_t l_owner;
+};
+
 
 extern char *glusterfs_strevent (glusterfs_event_t ev);
 

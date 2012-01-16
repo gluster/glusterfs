@@ -32,6 +32,7 @@
 #include "protocol-common.h"
 #include "mem-pool.h"
 #include "xdr-rpc.h"
+#include "rpc-common-xdr.h"
 
 void
 rpc_clnt_reply_deinit (struct rpc_req *req, struct mem_pool *pool);
@@ -1091,7 +1092,7 @@ rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
 }
 
 ssize_t
-xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms *au)
+xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms_v2 *au)
 {
         ssize_t ret = -1;
         XDR     xdr;
@@ -1099,10 +1100,9 @@ xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms *au)
         if ((!dest) || (!au))
                 return -1;
 
-        xdrmem_create (&xdr, dest, 1024,
-                       XDR_ENCODE);
+        xdrmem_create (&xdr, dest, GF_MAX_AUTH_BYTES, XDR_ENCODE);
 
-        if (!xdr_auth_glusterfs_parms (&xdr, au)) {
+        if (!xdr_auth_glusterfs_parms_v2 (&xdr, au)) {
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to encode auth glusterfs elements");
                 ret = -1;
@@ -1118,7 +1118,7 @@ ret:
 
 int
 rpc_clnt_fill_request (int prognum, int progver, int procnum, int payload,
-                       uint64_t xid, struct auth_glusterfs_parms *au,
+                       uint64_t xid, struct auth_glusterfs_parms_v2 *au,
                        struct rpc_msg *request, char *auth_data)
 {
         int   ret          = -1;
@@ -1146,7 +1146,7 @@ rpc_clnt_fill_request (int prognum, int progver, int procnum, int payload,
                 goto out;
         }
 
-        request->rm_call.cb_cred.oa_flavor = AUTH_GLUSTERFS;
+        request->rm_call.cb_cred.oa_flavor = AUTH_GLUSTERFS_v2;
         request->rm_call.cb_cred.oa_base   = auth_data;
         request->rm_call.cb_cred.oa_length = ret;
 
@@ -1198,16 +1198,16 @@ out:
 struct iobuf *
 rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
                               int procnum, size_t payload, uint64_t xid,
-                              struct auth_glusterfs_parms *au,
+                              struct auth_glusterfs_parms_v2 *au,
                               struct iovec *recbuf)
 {
-        struct rpc_msg           request                            = {0, };
-        struct iobuf            *request_iob                        = NULL;
-        char                    *record                             = NULL;
-        struct iovec             recordhdr                          = {0, };
-        size_t                   pagesize                           = 0;
-        int                      ret                                = -1;
-        char                     auth_data[RPC_CLNT_MAX_AUTH_BYTES] = {0, };
+        struct rpc_msg  request                      = {0, };
+        struct iobuf   *request_iob                  = NULL;
+        char           *record                       = NULL;
+        struct iovec    recordhdr                    = {0, };
+        size_t          pagesize                     = 0;
+        int             ret                          = -1;
+        char            auth_data[GF_MAX_AUTH_BYTES] = {0, };
 
         if ((!clnt) || (!recbuf) || (!au)) {
                 goto out;
@@ -1237,8 +1237,6 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         recordhdr = rpc_clnt_record_build_header (record, pagesize, &request,
                                                   payload);
 
-        //GF_FREE (request.rm_call.cb_cred.oa_base);
-
         if (!recordhdr.iov_base) {
                 gf_log (clnt->conn.trans->name, GF_LOG_ERROR,
                         "Failed to build record header");
@@ -1261,29 +1259,38 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
                  rpc_clnt_prog_t *prog,int procnum, size_t payload_len,
                  struct iovec *rpchdr, uint64_t callid)
 {
-        struct auth_glusterfs_parms  au                    = {0, };
-        struct iobuf                *request_iob           = NULL;
+        struct auth_glusterfs_parms_v2  au          = {0, };
+        struct iobuf                   *request_iob = NULL;
+        char                            owner[4] = {0,};
 
         if (!prog || !rpchdr || !call_frame) {
                 goto out;
         }
 
-        au.pid      = call_frame->root->pid;
-        au.uid      = call_frame->root->uid;
-        au.gid      = call_frame->root->gid;
-        au.ngrps    = call_frame->root->ngrps;
-        au.lk_owner = call_frame->root->lk_owner;
-        if (!au.lk_owner)
-                au.lk_owner = au.pid;
+        au.pid                   = call_frame->root->pid;
+        au.uid                   = call_frame->root->uid;
+        au.gid                   = call_frame->root->gid;
+        au.groups.groups_len     = call_frame->root->ngrps;
+        au.lk_owner.lk_owner_len = call_frame->root->lk_owner.len;
+
+        if (au.groups.groups_len)
+                au.groups.groups_val = call_frame->root->groups;
+
+        if (call_frame->root->lk_owner.len)
+                au.lk_owner.lk_owner_val = call_frame->root->lk_owner.data;
+        else {
+                owner[0] = (char)(au.pid & 0xff);
+                owner[1] = (char)((au.pid >> 8) & 0xff);
+                owner[2] = (char)((au.pid >> 16) & 0xff);
+                owner[3] = (char)((au.pid >> 24) & 0xff);
+
+                au.lk_owner.lk_owner_val = owner;
+                au.lk_owner.lk_owner_len = 4;
+        }
 
         gf_log (clnt->conn.trans->name, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
-                ", gid: %d, owner: %"PRId64,
-                au.pid, au.uid, au.gid, au.lk_owner);
-
-        memcpy (au.groups, call_frame->root->groups, sizeof (au.groups));
-
-        //rpc_transport_get_myname (clnt->conn.trans, myname, UNIX_PATH_MAX);
-        //au.aup_machname = myname;
+                ", gid: %d, owner: %s", au.pid, au.uid, au.gid,
+                lkowner_utoa (&call_frame->root->lk_owner));
 
         /* Assuming the client program would like to speak to the same version of
          * program on server.

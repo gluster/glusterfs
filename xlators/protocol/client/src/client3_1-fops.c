@@ -725,10 +725,10 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         if (rsp.op_ret >= 0) {
                 /* Delete all saved locks of the owner issuing flush */
-                ret = delete_granted_locks_owner (local->fd, local->owner);
+                ret = delete_granted_locks_owner (local->fd, &local->owner);
                 gf_log (this->name, GF_LOG_TRACE,
-                        "deleting locks of owner (%llu) returned %d",
-                        (long long unsigned) local->owner, ret);
+                        "deleting locks of owner (%s) returned %d",
+                        lkowner_utoa (&local->owner), ret);
         }
 
 out:
@@ -3655,7 +3655,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         gfs3_flush_req  req      = {{0,},};
         int64_t         remote_fd = -1;
         clnt_conf_t    *conf     = NULL;
-        clnt_local_t *local    = NULL;
+        clnt_local_t   *local    = NULL;
         int             op_errno = ESTALE;
         int             ret      = 0;
 

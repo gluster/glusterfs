@@ -62,7 +62,8 @@ afr_set_lk_owner (call_frame_t *frame, xlator_t *this)
         gf_log (this->name, GF_LOG_TRACE,
                 "Setting lk-owner=%llu",
                 (unsigned long long) (unsigned long)frame->root);
-        frame->root->lk_owner = (uint64_t) (unsigned long)frame->root;
+
+        set_lk_owner_from_ptr (&frame->root->lk_owner, frame->root);
 }
 
 static int
@@ -115,7 +116,7 @@ internal_lock_count (call_frame_t *frame, xlator_t *this)
 
 static void
 afr_print_inodelk (char *str, int size, int cmd,
-                   struct gf_flock *flock, uint64_t owner)
+                   struct gf_flock *flock, gf_lkowner_t *owner)
 {
         char *cmd_str = NULL;
         char *type_str = NULL;
@@ -163,11 +164,11 @@ afr_print_inodelk (char *str, int size, int cmd,
         }
 
         snprintf (str, size, "lock=INODELK, cmd=%s, type=%s, "
-                  "start=%llu, len=%llu, pid=%llu, lk-owner=%llu",
+                  "start=%llu, len=%llu, pid=%llu, lk-owner=%s",
                   cmd_str, type_str, (unsigned long long) flock->l_start,
                   (unsigned long long) flock->l_len,
                   (unsigned long long) flock->l_pid,
-                  (unsigned long long) owner);
+                  lkowner_utoa (owner));
 
 }
 
@@ -183,11 +184,11 @@ afr_print_lockee (char *str, int size, loc_t *loc, fd_t *fd,
 
 void
 afr_print_entrylk (char *str, int size, const char *basename,
-                   uint64_t owner)
+                   gf_lkowner_t *owner)
 {
-        snprintf (str, size, "Basename=%s, lk-owner=%llu",
+        snprintf (str, size, "Basename=%s, lk-owner=%s",
                   basename ? basename : "<nul>",
-                  (unsigned long long)owner);
+                  lkowner_utoa (owner));
 }
 
 static void
@@ -302,7 +303,7 @@ afr_trace_inodelk_in (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
                 return;
         }
 
-        afr_print_inodelk (lock, 256, cmd, flock, frame->root->lk_owner);
+        afr_print_inodelk (lock, 256, cmd, flock, &frame->root->lk_owner);
         afr_print_lockee (lockee, 256, &local->loc, local->fd, child_index);
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
@@ -339,7 +340,7 @@ afr_trace_entrylk_in (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
                 return;
         }
 
-        afr_print_entrylk (lock, 256, basename, frame->root->lk_owner);
+        afr_print_entrylk (lock, 256, basename, &frame->root->lk_owner);
         afr_print_lockee (lockee, 256, &local->loc, local->fd, child_index);
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
@@ -602,8 +603,8 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         flock.l_type  = F_UNLCK;
 
         gf_log (this->name, GF_LOG_DEBUG, "attempting data unlock range %"PRIu64
-                " %"PRIu64" by %"PRIu64, flock.l_start, flock.l_len,
-                frame->root->lk_owner);
+                " %"PRIu64" by %s", flock.l_start, flock.l_len,
+                lkowner_utoa (&frame->root->lk_owner));
 
         call_count = afr_locked_nodes_count (int_lock->inode_locked_nodes,
                                              priv->child_count);
@@ -1422,8 +1423,8 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
         flock.l_type  = int_lock->lk_flock.l_type;
 
         gf_log (this->name, GF_LOG_DEBUG, "attempting data lock range %"PRIu64
-                " %"PRIu64" by %"PRIu64, flock.l_start, flock.l_len,
-                frame->root->lk_owner);
+                " %"PRIu64" by %s", flock.l_start, flock.l_len,
+                lkowner_utoa (&frame->root->lk_owner));
 
         full_flock.l_type = int_lock->lk_flock.l_type;
 

@@ -34,6 +34,8 @@
 #include "iobuf.h"
 #include "globals.h"
 #include "xdr-common.h"
+#include "xdr-generic.h"
+#include "rpc-common-xdr.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -1687,7 +1689,7 @@ fail:
         iov.iov_base = rsp_buf;
         iov.iov_len  = dump_rsp_len;
 
-        ret = xdr_serialize_dump_rsp (iov, &rsp);
+        ret = xdr_serialize_generic (iov, &rsp, (xdrproc_t)xdr_gf_dump_rsp);
         if (ret < 0) {
                 if (req)
                         req->rpc_err = GARBAGE_ARGS;

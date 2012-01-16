@@ -694,7 +694,7 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
 	priv = this->private;
         pump_priv = priv->pump_private;
 
-	pump_frame->root->lk_owner = (uint64_t) (unsigned long)pump_frame->root;
+        afr_set_lk_owner (pump_frame, this);
 	pump_pid = (uint64_t) (unsigned long)pump_frame->root;
 
 	ret = synctask_new (pump_priv->env, pump_task,
@@ -708,8 +708,8 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
         }
 
         gf_log (this->name, GF_LOG_DEBUG,
-                "setting pump as started lk_owner: %"PRIu64" %"PRIu64,
-                pump_frame->root->lk_owner, pump_pid);
+                "setting pump as started lk_owner: %s %"PRIu64,
+                lkowner_utoa (&pump_frame->root->lk_owner), pump_pid);
 
         priv->use_afr_in_pump = 1;
 out:

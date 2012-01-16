@@ -197,7 +197,11 @@ gf_proto_flock_to_flock (struct gf_proto_flock *gf_proto_flock, struct gf_flock 
 	gf_flock->l_start    = gf_proto_flock->start;
 	gf_flock->l_len      = gf_proto_flock->len;
 	gf_flock->l_pid      = gf_proto_flock->pid;
-	gf_flock->l_owner    = gf_proto_flock->owner;
+        gf_flock->l_owner.len = gf_proto_flock->lk_owner.lk_owner_len;
+        if (gf_flock->l_owner.len &&
+            (gf_flock->l_owner.len < GF_MAX_LOCK_OWNER_LEN))
+                memcpy (gf_flock->l_owner.data, gf_proto_flock->lk_owner.lk_owner_val,
+                        gf_flock->l_owner.len);
 }
 
 
@@ -212,7 +216,9 @@ gf_proto_flock_from_flock (struct gf_proto_flock *gf_proto_flock, struct gf_floc
 	gf_proto_flock->start    =  (gf_flock->l_start);
 	gf_proto_flock->len      =  (gf_flock->l_len);
 	gf_proto_flock->pid      =  (gf_flock->l_pid);
-	gf_proto_flock->owner    =  (gf_flock->l_owner);
+	gf_proto_flock->lk_owner.lk_owner_len =  gf_flock->l_owner.len;
+        if (gf_flock->l_owner.len)
+                gf_proto_flock->lk_owner.lk_owner_val = gf_flock->l_owner.data;
 }
 
 static inline void

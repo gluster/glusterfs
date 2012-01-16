@@ -40,6 +40,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #include "logging.h"
 #include "common-utils.h"
@@ -48,6 +49,7 @@
 #include "stack.h"
 #include "globals.h"
 #include "md5.h"
+#include "lkowner.h"
 
 #ifndef AI_ADDRCONFIG
 #define AI_ADDRCONFIG 0
@@ -1653,6 +1655,25 @@ uuid_utoa_r (uuid_t uuid, char *dst)
         if(!dst)
                 return NULL;
         uuid_unparse (uuid, dst);
+        return dst;
+}
+
+/*Thread safe conversion function*/
+char *
+lkowner_utoa (gf_lkowner_t *lkowner)
+{
+        char *lkowner_buffer = glusterfs_lkowner_buf_get();
+        lkowner_unparse (lkowner, lkowner_buffer, GF_LKOWNER_BUF_SIZE);
+        return lkowner_buffer;
+}
+
+/*Re-entrant conversion function*/
+char *
+lkowner_utoa_r (gf_lkowner_t *lkowner, char *dst, int len)
+{
+        if(!dst)
+                return NULL;
+        lkowner_unparse (lkowner, dst, len);
         return dst;
 }
 

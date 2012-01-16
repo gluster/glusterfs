@@ -30,6 +30,8 @@
 #include "call-stub.h"
 #include "locks-mem-types.h"
 
+#include "lkowner.h"
+
 #define POSIX_LOCKS "posix-locks"
 struct __pl_fd;
 
@@ -55,8 +57,8 @@ struct __posix_lock {
            across nodes */
 
         void              *transport;     /* to identify client node */
+        gf_lkowner_t       owner;
         pid_t              client_pid;    /* pid of client process */
-        uint64_t           owner;         /* lock owner from fuse */
 };
 typedef struct __posix_lock posix_lock_t;
 
@@ -83,8 +85,8 @@ struct __pl_inode_lock {
            across nodes */
 
         void              *transport;     /* to identify client node */
+        gf_lkowner_t       owner;
         pid_t              client_pid;    /* pid of client process */
-        uint64_t           owner;
 };
 typedef struct __pl_inode_lock pl_inode_lock_t;
 
@@ -120,9 +122,9 @@ struct __entry_lock {
         struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
         struct timeval     granted_time; /*time at which lock was queued into active list*/
 
-        void      *trans;
+        void             *trans;
+        gf_lkowner_t      owner;
         pid_t             client_pid;    /* pid of client process */
-        uint64_t          owner;
 };
 typedef struct __entry_lock pl_entry_lock_t;
 

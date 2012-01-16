@@ -90,7 +90,7 @@ unsigned int            cval = 1;
 int
 nfs_frame_getctr ()
 {
-        int val = 0;
+        uint64_t val = 0;
 
         pthread_mutex_lock (&ctr);
         {
@@ -132,7 +132,8 @@ nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
                 gf_log (GF_NFS, GF_LOG_TRACE, "gid: %d", nfu->gids[x]);
                 frame->root->groups[y] = nfu->gids[x];
         }
-        frame->root->lk_owner = nfs_frame_getctr ();
+
+        set_lk_owner_from_uint64 (&frame->root->lk_owner, nfs_frame_getctr ());
 
 err:
         return frame;

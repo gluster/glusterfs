@@ -45,6 +45,12 @@
 #define GF_NFS_DVM_ON                   1
 #define GF_NFS_DVM_OFF                  2
 
+/* This corresponds to the max 16 number of group IDs that are sent through an
+ * RPC request. Since NFS is the only one going to set this, we can be safe
+ * in keeping this size hardcoded.
+ */
+#define GF_REQUEST_MAXGROUPS    16
+
 /* Callback into a version-specific NFS protocol.
  * The return type is used by the nfs.c code to register the protocol.
  * with the RPC service.

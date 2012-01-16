@@ -80,7 +80,7 @@ xdr_gf_proto_flock (XDR *xdrs, gf_proto_flock *objp)
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->pid))
 		 return FALSE;
-	 if (!xdr_u_quad_t (xdrs, &objp->owner))
+	 if (!xdr_bytes (xdrs, (char **)&objp->lk_owner.lk_owner_val, (u_int *) &objp->lk_owner.lk_owner_len, ~0))
 		 return FALSE;
 	return TRUE;
 }

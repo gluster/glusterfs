@@ -44,6 +44,7 @@ typedef struct _call_pool_t call_pool_t;
 #include "list.h"
 #include "common-utils.h"
 #include "globals.h"
+#include "lkowner.h"
 
 #define NFS_PID 1
 #define LOW_PRIO_PROC_PID -1
@@ -106,9 +107,9 @@ struct _call_stack_t {
         uid_t                         uid;
         gid_t                         gid;
         pid_t                         pid;
-        uint32_t                      ngrps;
-        uint32_t                      groups[GF_REQUEST_MAXGROUPS];
-        uint64_t                      lk_owner;
+        uint16_t                      ngrps;
+        uint32_t                      groups[GF_MAX_AUX_GROUPS];
+        gf_lkowner_t                  lk_owner;
 
         call_frame_t                  frames;
 
@@ -360,7 +361,7 @@ copy_frame (call_frame_t *frame)
         newstack->op  = oldstack->op;
         newstack->type = oldstack->type;
         memcpy (newstack->groups, oldstack->groups,
-                sizeof (uint32_t) * GF_REQUEST_MAXGROUPS);
+                sizeof (gid_t) * GF_MAX_AUX_GROUPS);
         newstack->unique = oldstack->unique;
 
         newstack->frames.this = frame->this;

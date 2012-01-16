@@ -31,8 +31,6 @@ typedef enum {
         RPC_CLNT_MSG
 } rpc_clnt_event_t;
 
-#define AUTH_GLUSTERFS  5
-#define RPC_CLNT_MAX_AUTH_BYTES 1024
 
 #define SFRAME_GET_PROGNUM(sframe) (sframe->rpcreq->prog->prognum)
 #define SFRAME_GET_PROGVER(sframe) (sframe->rpcreq->prog->progver)
@@ -121,11 +119,10 @@ typedef struct rpcclnt_cb_program {
 
 
 
-#define RPC_MAX_AUTH_BYTES   400
 typedef struct rpc_auth_data {
-        int             flavour;
-        int             datalen;
-        char            authdata[RPC_MAX_AUTH_BYTES];
+        int  flavour;
+        int  datalen;
+        char authdata[GF_MAX_AUTH_BYTES];
 } rpc_auth_data_t;
 
 

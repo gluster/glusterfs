@@ -34,10 +34,10 @@ auth_null_request_init (rpcsvc_request_t *req, void *priv)
         if (!req)
                 return -1;
 
-        memset (req->cred.authdata, 0, RPCSVC_MAX_AUTH_BYTES);
+        memset (req->cred.authdata, 0, GF_MAX_AUTH_BYTES);
         req->cred.datalen = 0;
 
-        memset (req->verf.authdata, 0, RPCSVC_MAX_AUTH_BYTES);
+        memset (req->verf.authdata, 0, GF_MAX_AUTH_BYTES);
         req->verf.datalen = 0;
 
         return 0;

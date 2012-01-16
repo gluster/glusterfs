@@ -293,6 +293,43 @@ glusterfs_uuid_buf_get ()
         return buf;
 }
 
+/* LKOWNER_BUFFER */
+
+static pthread_key_t lkowner_buf_key;
+static char global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
+void
+glusterfs_lkowner_buf_destroy (void *ptr)
+{
+        if (ptr)
+                FREE (ptr);
+}
+
+int
+glusterfs_lkowner_buf_init ()
+{
+        int ret = 0;
+
+        ret = pthread_key_create (&lkowner_buf_key,
+                                  glusterfs_lkowner_buf_destroy);
+        return ret;
+}
+
+char *
+glusterfs_lkowner_buf_get ()
+{
+        char *buf;
+        int ret = 0;
+
+        buf = pthread_getspecific (lkowner_buf_key);
+        if(!buf) {
+                buf = MALLOC (GF_LKOWNER_BUF_SIZE);
+                ret = pthread_setspecific (lkowner_buf_key, (void *) buf);
+                if(ret)
+                        buf = global_lkowner_buf;
+        }
+        return buf;
+}
+
 int
 glusterfs_globals_init ()
 {
@@ -320,6 +357,13 @@ glusterfs_globals_init ()
         if(ret) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs uuid buffer init failed");
+                goto out;
+        }
+
+        ret = glusterfs_lkowner_buf_init ();
+        if(ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs lkowner buffer init failed");
                 goto out;
         }
 

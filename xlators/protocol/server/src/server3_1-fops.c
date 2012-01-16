@@ -247,12 +247,13 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 if (state->flock.l_type == F_UNLCK)
                         gf_del_locker (conn->ltable, state->volume,
-                                       &state->loc, NULL, frame->root->lk_owner,
+                                       &state->loc, NULL, &frame->root->lk_owner,
                                        GF_FOP_INODELK);
                 else
                         gf_add_locker (conn->ltable, state->volume,
                                        &state->loc, NULL, frame->root->pid,
-                                       frame->root->lk_owner, GF_FOP_INODELK);
+                                       &frame->root->lk_owner,
+                                       GF_FOP_INODELK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": INODELK %s (%s) ==> %"PRId32" (%s)",
@@ -289,12 +290,12 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (state->flock.l_type == F_UNLCK)
                         gf_del_locker (conn->ltable, state->volume,
                                        NULL, state->fd,
-                                       frame->root->lk_owner, GF_FOP_INODELK);
+                                       &frame->root->lk_owner,  GF_FOP_INODELK);
                 else
                         gf_add_locker (conn->ltable, state->volume,
                                        NULL, state->fd,
                                        frame->root->pid,
-                                       frame->root->lk_owner, GF_FOP_INODELK);
+                                       &frame->root->lk_owner, GF_FOP_INODELK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FINODELK %"PRId64" (%s) ==> %"PRId32" (%s)",
@@ -329,11 +330,13 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 if (state->cmd == ENTRYLK_UNLOCK)
                         gf_del_locker (conn->ltable, state->volume,
-                                       &state->loc, NULL, frame->root->lk_owner, GF_FOP_ENTRYLK);
+                                       &state->loc, NULL, &frame->root->lk_owner,
+                                       GF_FOP_ENTRYLK);
                 else
                         gf_add_locker (conn->ltable, state->volume,
                                        &state->loc, NULL, frame->root->pid,
-                                       frame->root->lk_owner, GF_FOP_ENTRYLK);
+                                       &frame->root->lk_owner,
+                                       GF_FOP_ENTRYLK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": ENTRYLK %s (%s) ==> %"PRId32" (%s)",
@@ -367,11 +370,12 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 if (state->cmd == ENTRYLK_UNLOCK)
                         gf_del_locker (conn->ltable, state->volume,
-                                       NULL, state->fd, frame->root->lk_owner, GF_FOP_ENTRYLK);
+                                       NULL, state->fd, &frame->root->lk_owner,
+                                       GF_FOP_ENTRYLK);
                 else
                         gf_add_locker (conn->ltable, state->volume,
                                        NULL, state->fd, frame->root->pid,
-                                       frame->root->lk_owner, GF_FOP_ENTRYLK);
+                                       &frame->root->lk_owner, GF_FOP_ENTRYLK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FENTRYLK %"PRId64" (%s) "

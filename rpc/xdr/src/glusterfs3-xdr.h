@@ -63,7 +63,10 @@ struct gf_proto_flock {
 	u_quad_t start;
 	u_quad_t len;
 	u_int pid;
-	u_quad_t owner;
+	struct {
+		u_int lk_owner_len;
+		char *lk_owner_val;
+	} lk_owner;
 };
 typedef struct gf_proto_flock gf_proto_flock;
 

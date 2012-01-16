@@ -9,14 +9,14 @@ libgfxdr_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 \
 libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
 
-libgfxdr_la_SOURCES =  xdr-generic.c \
+libgfxdr_la_SOURCES =  xdr-generic.c rpc-common-xdr.c \
 			glusterfs3-xdr.c \
 			cli1-xdr.c \
 			glusterd1-xdr.c \
 			portmap-xdr.c \
 			xdr-nfs3.c msg-nfs3.c
 
-noinst_HEADERS = xdr-generic.h \
+noinst_HEADERS = xdr-generic.h rpc-common-xdr.h \
 		glusterfs3-xdr.h glusterfs3.h \
 		cli1-xdr.h \
 		glusterd1-xdr.h \

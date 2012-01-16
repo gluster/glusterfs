@@ -43,10 +43,6 @@
 #include <rpc/rpc_msg.h>
 #include "compat.h"
 
-#ifndef NGRPS
-#define NGRPS 16
-#endif /* !NGRPS */
-
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
 #endif
@@ -115,8 +111,6 @@
 #define AUTH_KERB       4               /* kerberos style */
 #endif /* */
 
-#define AUTH_GLUSTERFS  5
-
 typedef struct rpcsvc_program rpcsvc_program_t;
 
 struct rpcsvc_notify_wrapper {
@@ -143,11 +137,10 @@ struct rpcsvc_config {
         int    max_block_size;
 };
 
-#define RPCSVC_MAX_AUTH_BYTES   400
 typedef struct rpcsvc_auth_data {
         int             flavour;
         int             datalen;
-        char            authdata[RPCSVC_MAX_AUTH_BYTES];
+        char            authdata[GF_MAX_AUTH_BYTES];
 } rpcsvc_auth_data_t;
 
 #define rpcsvc_auth_flavour(au)    ((au).flavour)
@@ -184,13 +177,13 @@ struct rpcsvc_request {
         gid_t                   gid;
         pid_t                   pid;
 
-        uint64_t                lk_owner;
+        gf_lkowner_t            lk_owner;
         uint64_t                gfs_id;
 
         /* Might want to move this to AUTH_UNIX specific state since this array
          * is not available for every authentication scheme.
          */
-        gid_t                   auxgids[NGRPS];
+        gid_t                   auxgids[GF_MAX_AUX_GROUPS];
         int                     auxgidcount;
 
 

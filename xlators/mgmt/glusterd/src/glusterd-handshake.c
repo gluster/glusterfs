@@ -35,6 +35,7 @@
 #include "glusterfs3.h"
 #include "protocol-common.h"
 #include "rpcsvc.h"
+#include "rpc-common-xdr.h"
 
 extern struct rpc_clnt_program gd_peer_prog;
 extern struct rpc_clnt_program gd_mgmt_prog;

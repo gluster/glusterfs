@@ -19,7 +19,7 @@ struct gf_proto_flock {
 	unsigned hyper start;
 	unsigned hyper len;
         unsigned int   pid;
-        unsigned hyper owner;
+        opaque         lk_owner<>;
 } ;
 
 
