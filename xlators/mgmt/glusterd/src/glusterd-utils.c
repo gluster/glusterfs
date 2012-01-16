@@ -738,7 +738,8 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                                         "given path %s lies"
                                                         " within %s", path,
                                                         brickiter->path);
-                                                *brickinfo = brickiter;
+                                                if (brickinfo)
+                                                        *brickinfo = brickiter;
                                                 break;
                                         }
                                 } else
@@ -748,7 +749,8 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                                         " %s", brickiter->path,
                                                         path);
                                                 ret = 0;
-                                                *brickinfo = brickiter;
+                                                if (brickinfo)
+                                                        *brickinfo = brickiter;
                                                 break;
                                         }
                         }
