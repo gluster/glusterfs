@@ -1893,3 +1893,183 @@ out:
 
         return 0;
 }
+
+/* ffremovexattr */
+int
+afr_fremovexattr_unwind (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *   local = NULL;
+        call_frame_t   *main_frame = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                if (local->transaction.main_frame)
+                        main_frame = local->transaction.main_frame;
+                local->transaction.main_frame = NULL;
+        }
+        UNLOCK (&frame->lock);
+
+        if (main_frame) {
+                AFR_STACK_UNWIND (fremovexattr, main_frame,
+                                  local->op_ret, local->op_errno)
+                        }
+        return 0;
+}
+
+
+int
+afr_fremovexattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno)
+{
+        afr_local_t *   local = NULL;
+        afr_private_t * priv  = NULL;
+        int call_count  = -1;
+        int need_unwind = 0;
+
+        local = frame->local;
+        priv = this->private;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret != -1) {
+                        if (local->success_count == 0) {
+                                local->op_ret = op_ret;
+                        }
+                        local->success_count++;
+
+                        if (local->success_count == priv->wait_count) {
+                                need_unwind = 1;
+                        }
+                }
+
+                local->op_errno = op_errno;
+        }
+        UNLOCK (&frame->lock);
+
+        if (need_unwind)
+                local->transaction.unwind (frame, this);
+
+        call_count = afr_frame_return (frame);
+
+        if (call_count == 0) {
+                local->transaction.resume (frame, this);
+        }
+
+        return 0;
+}
+
+
+int32_t
+afr_fremovexattr_wind (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int call_count = -1;
+        int i = 0;
+
+        local = frame->local;
+        priv = this->private;
+
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
+
+        if (call_count == 0) {
+                local->transaction.resume (frame, this);
+                return 0;
+        }
+
+        local->call_count = call_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->transaction.pre_op[i]) {
+                        STACK_WIND_COOKIE (frame, afr_fremovexattr_wind_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->fremovexattr,
+                                           local->fd,
+                                           local->cont.removexattr.name);
+
+                        if (!--call_count)
+                                break;
+                }
+        }
+
+        return 0;
+}
+
+
+int
+afr_fremovexattr_done (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t * local = frame->local;
+
+        local->transaction.unwind (frame, this);
+
+        AFR_STACK_DESTROY (frame);
+
+        return 0;
+}
+
+
+int
+afr_fremovexattr (call_frame_t *frame, xlator_t *this,
+                  fd_t *fd, const char *name)
+{
+        afr_private_t * priv  = NULL;
+        afr_local_t   * local = NULL;
+        call_frame_t   *transaction_frame = NULL;
+        int ret = -1;
+        int op_ret   = -1;
+        int op_errno = 0;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+
+        priv = this->private;
+
+        QUORUM_CHECK(fremovexattr, out);
+
+        transaction_frame = copy_frame (frame);
+        if (!transaction_frame) {
+                goto out;
+        }
+
+        ALLOC_OR_GOTO (local, afr_local_t, out);
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0) {
+                op_errno = -ret;
+                goto out;
+        }
+
+        transaction_frame->local = local;
+
+        local->op_ret = -1;
+
+        local->cont.removexattr.name = gf_strdup (name);
+
+        local->transaction.fop    = afr_fremovexattr_wind;
+        local->transaction.done   = afr_fremovexattr_done;
+        local->transaction.unwind = afr_fremovexattr_unwind;
+
+        local->fd = fd_ref (fd);
+
+        local->transaction.main_frame = frame;
+        local->transaction.start   = LLONG_MAX - 1;
+        local->transaction.len     = 0;
+
+        afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+
+        op_ret = 0;
+out:
+        if (op_ret == -1) {
+                if (transaction_frame)
+                        AFR_STACK_DESTROY (transaction_frame);
+                AFR_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno);
+        }
+
+        return 0;
+}

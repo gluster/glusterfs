@@ -2786,6 +2786,59 @@ out:
         return 0;
 }
 
+int32_t
+posix_fremovexattr (call_frame_t *frame, xlator_t *this,
+                    fd_t *fd, const char *name)
+{
+        int32_t           op_ret   = -1;
+        int32_t           op_errno = 0;
+        struct posix_fd * pfd      = NULL;
+        int               _fd      = -1;
+        uint64_t          tmp_pfd  = 0;
+        int               ret      = -1;
+
+        DECLARE_OLD_FS_ID_VAR;
+
+        if (!strcmp (GFID_XATTR_KEY, name)) {
+                gf_log (this->name, GF_LOG_WARNING, "Remove xattr called"
+                        " on gfid for file");
+                goto out;
+        }
+
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "pfd is NULL from fd=%p", fd);
+                goto out;
+        }
+        pfd = (struct posix_fd *)(long)tmp_pfd;
+
+        _fd = pfd->fd;
+
+
+
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        op_ret = sys_fremovexattr (_fd, name);
+        if (op_ret == -1) {
+                op_errno = errno;
+                if (op_errno != ENOATTR && op_errno != EPERM)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fremovexattr (for %s): %s",
+                                name, strerror (op_errno));
+                goto out;
+        }
+
+        op_ret = 0;
+
+out:
+        SET_TO_OLD_FS_ID ();
+
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
 
 int32_t
 posix_fsyncdir (call_frame_t *frame, xlator_t *this,
@@ -4037,6 +4090,7 @@ struct xlator_fops fops = {
         .getxattr    = posix_getxattr,
         .fgetxattr   = posix_fgetxattr,
         .removexattr = posix_removexattr,
+        .fremovexattr = posix_fremovexattr,
         .fsyncdir    = posix_fsyncdir,
         .access      = posix_access,
         .ftruncate   = posix_ftruncate,

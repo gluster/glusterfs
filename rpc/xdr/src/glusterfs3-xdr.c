@@ -1064,6 +1064,21 @@ xdr_gfs3_removexattr_req (XDR *xdrs, gfs3_removexattr_req *objp)
 }
 
 bool_t
+xdr_gfs3_fremovexattr_req (XDR *xdrs, gfs3_fremovexattr_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
+		 return FALSE;
+	 if (!xdr_quad_t (xdrs, &objp->fd))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->name, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gfs3_opendir_req (XDR *xdrs, gfs3_opendir_req *objp)
 {
 	register int32_t *buf;

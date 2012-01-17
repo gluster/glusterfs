@@ -240,6 +240,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_FGETXATTR:
         case GF_FOP_FSETXATTR:
         case GF_FOP_REMOVEXATTR:
+        case GF_FOP_FREMOVEXATTR:
                 pri = IOT_PRI_NORMAL;
                 break;
 
@@ -1828,6 +1829,53 @@ out:
         return 0;
 }
 
+int
+iot_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+iot_fremovexattr_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                          const char *name)
+{
+        STACK_WIND (frame, iot_fremovexattr_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->fremovexattr, fd, name);
+        return 0;
+}
+
+
+int
+iot_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 const char *name)
+{
+        call_stub_t     *stub = NULL;
+        int             ret = -1;
+
+        stub = fop_fremovexattr_stub (frame, iot_fremovexattr_wrapper, fd,
+                                      name);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR,"cannot get fremovexattr fop"
+                        "(out of memory)");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule (frame, this, stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND_STRICT (fremovexattr, frame, -1, -ret);
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+        return 0;
+}
+
 
 int
 iot_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2512,6 +2560,7 @@ struct xlator_fops fops = {
         .fgetxattr   = iot_fgetxattr,
         .fsetxattr   = iot_fsetxattr,
         .removexattr = iot_removexattr,
+        .fremovexattr = iot_fremovexattr,
         .readdir     = iot_readdir,
         .readdirp    = iot_readdirp,
         .inodelk     = iot_inodelk,

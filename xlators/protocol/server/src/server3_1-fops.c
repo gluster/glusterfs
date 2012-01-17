@@ -692,6 +692,33 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
+server_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno)
+{
+        gf_common_rsp     rsp = {0,};
+        rpcsvc_request_t *req = NULL;
+        server_state_t      *state = NULL;
+
+        req   = frame->local;
+        state = CALL_STATE(frame);
+
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+        if (op_ret == -1)
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": FREMOVEXATTR (%s) ==> %"PRId32" (%s)",
+                        frame->root->unique, ((state->fd->inode) ?
+                                              uuid_utoa (state->fd->inode->gfid) :
+                                              "--"),
+                        op_ret, strerror (op_errno));
+
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gf_common_rsp);
+
+        return 0;
+}
+
+int
 server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
@@ -2207,6 +2234,26 @@ server_removexattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 err:
         server_removexattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
                                 state->resolve.op_errno);
+        return 0;
+}
+
+int
+server_fremovexattr_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_fremovexattr_cbk,
+                    bound_xl, bound_xl->fops->fremovexattr,
+                    state->fd, state->name);
+        return 0;
+err:
+        server_fremovexattr_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                                 state->resolve.op_errno);
         return 0;
 }
 
@@ -3932,6 +3979,52 @@ out:
         return ret;
 }
 
+int
+server_fremovexattr (rpcsvc_request_t *req)
+{
+        server_state_t       *state                 = NULL;
+        call_frame_t         *frame                 = NULL;
+        gfs3_fremovexattr_req  args                  = {{0,},};
+        int                   ret                   = -1;
+
+        if (!req)
+                return ret;
+
+        args.name = alloca (4096);
+
+        if (!xdr_to_generic (req->msg[0], &args,
+                             (xdrproc_t)xdr_gfs3_fremovexattr_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                // something wrong, mostly insufficient memory
+                req->rpc_err = GARBAGE_ARGS; /* TODO */
+                goto out;
+        }
+        frame->root->op = GF_FOP_FREMOVEXATTR;
+
+        state = CALL_STATE (frame);
+        if (!state->conn->bound_xl) {
+                /* auth failure, request on subvolume without setvolume */
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.fd_no  = args.fd;
+        memcpy (state->resolve.gfid, args.gfid, 16);
+        state->name           = gf_strdup (args.name);
+
+        ret = 0;
+        resolve_and_resume (frame, server_fremovexattr_resume);
+out:
+        return ret;
+}
+
 
 
 
@@ -5223,6 +5316,7 @@ rpcsvc_actor_t glusterfs3_1_fop_actors[] = {
         [GFS3_OP_READDIRP]    = { "READDIRP",   GFS3_OP_READDIRP, server_readdirp, NULL, NULL, 0},
         [GFS3_OP_RELEASE]     = { "RELEASE",    GFS3_OP_RELEASE, server_release, NULL, NULL, 0},
         [GFS3_OP_RELEASEDIR]  = { "RELEASEDIR", GFS3_OP_RELEASEDIR, server_releasedir, NULL, NULL, 0},
+        [GFS3_OP_FREMOVEXATTR] = { "FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server_fremovexattr, NULL, NULL, 0},
 };
 
 

@@ -1463,6 +1463,48 @@ out:
         return stub;
 }
 
+call_stub_t *
+fop_fremovexattr_stub (call_frame_t *frame,
+                       fop_fremovexattr_t fn,
+                       fd_t *fd,
+                       const char *name)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fd, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", name, out);
+
+        stub = stub_new (frame, 1, GF_FOP_FREMOVEXATTR);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->args.fremovexattr.fn = fn;
+        stub->args.fremovexattr.fd = fd_ref (fd);
+        stub->args.fremovexattr.name = gf_strdup (name);
+out:
+        return stub;
+}
+
+
+call_stub_t *
+fop_fremovexattr_cbk_stub (call_frame_t *frame,
+                           fop_fremovexattr_cbk_t fn,
+                           int32_t op_ret,
+                           int32_t op_errno)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_FREMOVEXATTR);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->args.fremovexattr_cbk.fn = fn;
+        stub->args.fremovexattr_cbk.op_ret = op_ret;
+        stub->args.fremovexattr_cbk.op_errno = op_errno;
+out:
+        return stub;
+}
 
 call_stub_t *
 fop_lk_stub (call_frame_t *frame,
@@ -2303,6 +2345,15 @@ call_resume_wind (call_stub_t *stub)
                 break;
         }
 
+        case GF_FOP_FREMOVEXATTR:
+        {
+                stub->args.fremovexattr.fn (stub->frame,
+                                            stub->frame->this,
+                                            stub->args.fremovexattr.fd,
+                                            stub->args.fremovexattr.name);
+                break;
+        }
+
         case GF_FOP_OPENDIR:
         {
                 stub->args.opendir.fn (stub->frame,
@@ -2939,6 +2990,22 @@ call_resume_unwind (call_stub_t *stub)
                 break;
         }
 
+        case GF_FOP_FREMOVEXATTR:
+        {
+                if (!stub->args.fremovexattr_cbk.fn)
+                        STACK_UNWIND (stub->frame,
+                                      stub->args.fremovexattr_cbk.op_ret,
+                                      stub->args.fremovexattr_cbk.op_errno);
+                else
+                        stub->args.fremovexattr_cbk.fn (stub->frame,
+                                                        stub->frame->cookie,
+                                                        stub->frame->this,
+                                                        stub->args.fremovexattr_cbk.op_ret,
+                                                        stub->args.fremovexattr_cbk.op_errno);
+
+                break;
+        }
+
         case GF_FOP_OPENDIR:
         {
                 if (!stub->args.opendir_cbk.fn)
@@ -3454,6 +3521,13 @@ call_stub_destroy_wind (call_stub_t *stub)
                 break;
         }
 
+        case GF_FOP_FREMOVEXATTR:
+        {
+                fd_unref (stub->args.fremovexattr.fd);
+                GF_FREE ((char *)stub->args.fremovexattr.name);
+                break;
+        }
+
         case GF_FOP_OPENDIR:
         {
                 loc_wipe (&stub->args.opendir.loc);
@@ -3717,6 +3791,8 @@ call_stub_destroy_unwind (call_stub_t *stub)
         break;
 
         case GF_FOP_REMOVEXATTR:
+                break;
+        case GF_FOP_FREMOVEXATTR:
                 break;
 
         case GF_FOP_OPENDIR:

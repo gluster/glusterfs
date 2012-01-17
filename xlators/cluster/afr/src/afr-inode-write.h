@@ -73,4 +73,8 @@ int32_t
 afr_removexattr (call_frame_t *frame, xlator_t *this,
 		 loc_t *loc, const char *name);
 
+int32_t
+afr_fremovexattr (call_frame_t *frame, xlator_t *this,
+                  fd_t *fd, const char *name);
+
 #endif /* __INODE_WRITE_H__ */
