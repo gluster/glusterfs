@@ -1545,7 +1545,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "cache-timeout %d seconds invalid,"
                                         " has to be  >=0", cache_timeout);
-                                goto out;
+                                goto unlock;
                         }
 
 
@@ -1553,7 +1553,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "cache-timeout %d seconds invalid,"
                                         " has to be  <=60", cache_timeout);
-                                goto out;
+                                goto unlock;
                         }
 
                         table->cache_timeout = cache_timeout;
@@ -1577,7 +1577,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                         "invalid number format \"%s\" of "
                                         "\"option cache-size\" Defaulting"
                                         "to old value", cache_size_string);
-                                goto out;
+                                goto unlock;
                         }
 
                         if (cache_size < (4 * GF_UNIT_MB)) {
@@ -1587,7 +1587,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                        "Max value can be 4MiB, Defaulting to "
                                        "old value (%"PRIu64")",
                                        cache_size_string, table->cache_size);
-                                goto out;
+                                goto unlock;
                         }
 
                         if (cache_size > (6 * GF_UNIT_GB)) {
@@ -1597,7 +1597,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                         "Max value can be 6GiB, Defaulting to "
                                         "old value (%"PRIu64")",
                                         cache_size_string, table->cache_size);
-                                goto out;
+                                goto unlock;
                         }
 
 
@@ -1620,7 +1620,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
                         if (table->max_pri == -1) {
                                 ret = -1;
-                                goto out;
+                                goto unlock;
                         }
                         table->max_pri ++;
                 }
@@ -1637,7 +1637,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                         "invalid number format \"%s\" of "
                                         "\"option min-file-size\"", tmp);
                                 ret = -1;
-                                goto out;
+                                goto unlock;
                         }
 
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -1655,7 +1655,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                         "invalid number format \"%s\" of "
                                         "\"option max-file-size\"", tmp);
                                 ret = -1;
-                                goto out;
+                                goto unlock;
                         }
 
 
@@ -1670,7 +1670,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                 "greater than maximum size (%"PRIu64"). "
                                 "Hence Defaulting to old value",
                                 table->min_file_size, table->max_file_size);
-                        goto out;
+                        goto unlock;
                 }
 
                 table->min_file_size = min_file_size;
@@ -1681,6 +1681,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         table->max_file_size = 0;
         }
 
+unlock:
         ioc_table_unlock (table);
 out:
         return ret;
