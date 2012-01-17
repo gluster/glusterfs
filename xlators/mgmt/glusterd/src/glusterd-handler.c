@@ -1741,16 +1741,12 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-
-
-
         if (cli_req.dict.dict_len > 0) {
                 dict = dict_new();
                 if (!dict)
                         goto out;
                 dict_unserialize (cli_req.dict.dict_val,
                                   cli_req.dict.dict_len, &dict);
-
         }
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -1759,7 +1755,7 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received volume profile req "
+        gf_log (THIS->name, GF_LOG_INFO, "Received volume profile req "
                 "for volume %s", volname);
         ret = dict_get_int32 (dict, "op", &op);
         if (ret) {
@@ -1785,7 +1781,7 @@ out:
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
