@@ -1421,6 +1421,38 @@ out:
 	return 0;
 }
 
+int32_t
+client_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                     const char *name)
+{
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+        rpc_clnt_procedure_t *proc = NULL;
+        clnt_args_t  args = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args.name = name;
+        args.fd  = fd;
+
+        proc = &conf->fops->proctable[GF_FOP_FREMOVEXATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FREMOVEXATTR]);
+                goto out;
+        }
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT (fremovexattr, frame, -1, ENOTCONN);
+
+	return 0;
+}
+
 
 int32_t
 client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
@@ -2303,6 +2335,7 @@ struct xlator_fops fops = {
         .fsetxattr   = client_fsetxattr,
         .fgetxattr   = client_fgetxattr,
         .removexattr = client_removexattr,
+        .fremovexattr = client_fremovexattr,
         .opendir     = client_opendir,
         .readdir     = client_readdir,
         .readdirp    = client_readdirp,

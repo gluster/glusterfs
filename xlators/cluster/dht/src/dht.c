@@ -486,6 +486,7 @@ struct xlator_fops fops = {
         .lk          = dht_lk,
 
         /* Inode write operations */
+        .fremovexattr = dht_fremovexattr,
         .removexattr = dht_removexattr,
         .setxattr    = dht_setxattr,
         .fsetxattr   = dht_fsetxattr,

@@ -2311,6 +2311,63 @@ err:
         return 0;
 }
 
+int
+dht_fremovexattr (call_frame_t *frame, xlator_t *this,
+                  fd_t *fd, const char *key)
+{
+        xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+        dht_local_t  *local = NULL;
+        dht_layout_t *layout = NULL;
+        int           call_cnt = 0;
+
+        int i;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+
+        local = dht_local_init (frame, NULL, fd, GF_FOP_FREMOVEXATTR);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        subvol = local->cached_subvol;
+        if (!subvol) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "no cached subvolume for inode=%s",
+                        uuid_utoa (fd->inode->gfid));
+                op_errno = EINVAL;
+                goto err;
+        }
+
+        layout = local->layout;
+        if (!local->layout) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "no layout for inode=%s", uuid_utoa (fd->inode->gfid));
+                op_errno = EINVAL;
+                goto err;
+        }
+
+        local->call_cnt = call_cnt = layout->cnt;
+        local->key = gf_strdup (key);
+
+        for (i = 0; i < call_cnt; i++) {
+                STACK_WIND (frame, dht_removexattr_cbk,
+                            layout->list[i].xlator,
+                            layout->list[i].xlator->fops->fremovexattr,
+                            fd, key);
+        }
+
+        return 0;
+
+err:
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        DHT_STACK_UNWIND (fremovexattr, frame, -1, op_errno);
+
+        return 0;
+}
+
 
 int
 dht_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

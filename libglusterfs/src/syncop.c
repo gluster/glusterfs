@@ -475,6 +475,34 @@ syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name)
 }
 
 int
+syncop_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_fremovexattr (xlator_t *subvol, fd_t *fd, const char *name)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_fremovexattr_cbk,
+                subvol->fops->fremovexattr, fd, name);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
 syncop_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno)
 {

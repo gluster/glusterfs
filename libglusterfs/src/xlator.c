@@ -69,6 +69,7 @@ fill_defaults (xlator_t *xl)
         SET_DEFAULT_FOP (fsetxattr);
         SET_DEFAULT_FOP (fgetxattr);
         SET_DEFAULT_FOP (removexattr);
+        SET_DEFAULT_FOP (fremovexattr);
         SET_DEFAULT_FOP (opendir);
         SET_DEFAULT_FOP (readdir);
         SET_DEFAULT_FOP (readdirp);

@@ -517,6 +517,13 @@ struct gfs3_removexattr_req {
 };
 typedef struct gfs3_removexattr_req gfs3_removexattr_req;
 
+struct gfs3_fremovexattr_req {
+	char gfid[16];
+	quad_t fd;
+	char *name;
+};
+typedef struct gfs3_fremovexattr_req gfs3_fremovexattr_req;
+
 struct gfs3_opendir_req {
 	char gfid[16];
 	char *path;
@@ -850,6 +857,7 @@ extern  bool_t xdr_gfs3_getxattr_rsp (XDR *, gfs3_getxattr_rsp*);
 extern  bool_t xdr_gfs3_fgetxattr_req (XDR *, gfs3_fgetxattr_req*);
 extern  bool_t xdr_gfs3_fgetxattr_rsp (XDR *, gfs3_fgetxattr_rsp*);
 extern  bool_t xdr_gfs3_removexattr_req (XDR *, gfs3_removexattr_req*);
+extern  bool_t xdr_gfs3_fremovexattr_req (XDR *, gfs3_fremovexattr_req*);
 extern  bool_t xdr_gfs3_opendir_req (XDR *, gfs3_opendir_req*);
 extern  bool_t xdr_gfs3_opendir_rsp (XDR *, gfs3_opendir_rsp*);
 extern  bool_t xdr_gfs3_fsyncdir_req (XDR *, gfs3_fsyncdir_req*);
@@ -937,6 +945,7 @@ extern bool_t xdr_gfs3_getxattr_rsp ();
 extern bool_t xdr_gfs3_fgetxattr_req ();
 extern bool_t xdr_gfs3_fgetxattr_rsp ();
 extern bool_t xdr_gfs3_removexattr_req ();
+extern bool_t xdr_gfs3_fremovexattr_req ();
 extern bool_t xdr_gfs3_opendir_req ();
 extern bool_t xdr_gfs3_opendir_rsp ();
 extern bool_t xdr_gfs3_fsyncdir_req ();

@@ -1040,6 +1040,44 @@ out:
 }
 
 int
+client3_1_fremovexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                            void *myframe)
+{
+        call_frame_t    *frame      = NULL;
+        gf_common_rsp    rsp        = {0,};
+        int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
+
+        frame = myframe;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_common_rsp);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
+        STACK_UNWIND_STRICT (fremovexattr, frame, rsp.op_ret,
+                             gf_error_to_errno (rsp.op_errno));
+
+        return 0;
+}
+
+int
 client3_1_fsyncdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
@@ -4582,6 +4620,50 @@ unwind:
         return 0;
 }
 
+int32_t
+client3_1_fremovexattr (call_frame_t *frame, xlator_t *this,
+                        void *data)
+{
+        clnt_conf_t           *conf     = NULL;
+        clnt_args_t           *args     = NULL;
+        gfs3_fremovexattr_req  req      = {{0,},};
+        int                    ret      = 0;
+        int64_t                remote_fd = -1;
+        int                    op_errno = ESTALE;
+
+        if (!frame || !this || !data)
+                goto unwind;
+
+        args = data;
+
+        if (!(args->fd && args->fd->inode))
+                goto unwind;
+
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+
+        memcpy (req.gfid,  args->fd->inode->gfid, 16);
+        req.name = (char *)args->name;
+        req.fd = remote_fd;
+
+        conf = this->private;
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FREMOVEXATTR,
+                                     client3_1_fremovexattr_cbk, NULL,
+                                     NULL, 0, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfs3_fremovexattr_req);
+        if (ret) {
+                op_errno = ENOTCONN;
+                goto unwind;
+        }
+
+        return 0;
+unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
+        STACK_UNWIND_STRICT (fremovexattr, frame, -1, op_errno);
+        return 0;
+}
+
 
 int32_t
 client3_1_lk (call_frame_t *frame, xlator_t *this,
@@ -5308,6 +5390,7 @@ rpc_clnt_procedure_t clnt3_1_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_RELEASE]     = { "RELEASE",     client3_1_release },
         [GF_FOP_RELEASEDIR]  = { "RELEASEDIR",  client3_1_releasedir },
         [GF_FOP_GETSPEC]     = { "GETSPEC",     client3_getspec },
+        [GF_FOP_FREMOVEXATTR] = { "FREMOVEXATTR", client3_1_fremovexattr },
 };
 
 /* Used From RPC-CLNT library to log proper name of procedure based on number */
@@ -5355,6 +5438,7 @@ char *clnt3_1_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_READDIRP]    = "READDIRP",
         [GFS3_OP_RELEASE]     = "RELEASE",
         [GFS3_OP_RELEASEDIR]  = "RELEASEDIR",
+        [GFS3_OP_FREMOVEXATTR] = "FREMOVEXATTR",
 };
 
 rpc_clnt_prog_t clnt3_1_fop_prog = {

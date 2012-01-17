@@ -176,6 +176,11 @@ int32_t default_removexattr (call_frame_t *frame,
                              loc_t *loc,
                              const char *name);
 
+int32_t default_fremovexattr (call_frame_t *frame,
+                              xlator_t *this,
+                              fd_t *fd,
+                              const char *name);
+
 int32_t default_lk (call_frame_t *frame,
                     xlator_t *this,
                     fd_t *fd,
@@ -389,6 +394,11 @@ int32_t default_removexattr_resume (call_frame_t *frame,
                              xlator_t *this,
                              loc_t *loc,
                              const char *name);
+
+int32_t default_fremovexattr_resume (call_frame_t *frame,
+                                     xlator_t *this,
+                                     fd_t *fd,
+                                     const char *name);
 
 int32_t default_lk_resume (call_frame_t *frame,
                     xlator_t *this,
@@ -622,6 +632,10 @@ default_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 default_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno);
+
+int32_t
+default_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno);
 
 int32_t
 default_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

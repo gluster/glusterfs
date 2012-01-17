@@ -140,6 +140,9 @@ int
 sys_lremovexattr (const char *path, const char *name);
 
 int
+sys_fremovexattr (int filedes, const char *name);
+
+int
 sys_access (const char *pathname, int mode);
 
 int

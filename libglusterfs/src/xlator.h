@@ -343,6 +343,12 @@ typedef int32_t (*fop_removexattr_cbk_t) (call_frame_t *frame,
                                           int32_t op_ret,
                                           int32_t op_errno);
 
+typedef int32_t (*fop_fremovexattr_cbk_t) (call_frame_t *frame,
+                                           void *cookie,
+                                           xlator_t *this,
+                                           int32_t op_ret,
+                                           int32_t op_errno);
+
 typedef int32_t (*fop_lk_cbk_t) (call_frame_t *frame,
                                  void *cookie,
                                  xlator_t *this,
@@ -564,6 +570,11 @@ typedef int32_t (*fop_removexattr_t) (call_frame_t *frame,
                                       loc_t *loc,
                                       const char *name);
 
+typedef int32_t (*fop_fremovexattr_t) (call_frame_t *frame,
+                                       xlator_t *this,
+                                       fd_t *fd,
+                                       const char *name);
+
 typedef int32_t (*fop_lk_t) (call_frame_t *frame,
                              xlator_t *this,
                              fd_t *fd,
@@ -665,6 +676,7 @@ struct xlator_fops {
         fop_fsetxattr_t      fsetxattr;
         fop_fgetxattr_t      fgetxattr;
         fop_removexattr_t    removexattr;
+        fop_fremovexattr_t   fremovexattr;
         fop_lk_t             lk;
         fop_inodelk_t        inodelk;
         fop_finodelk_t       finodelk;
@@ -708,6 +720,7 @@ struct xlator_fops {
         fop_fsetxattr_cbk_t      fsetxattr_cbk;
         fop_fgetxattr_cbk_t      fgetxattr_cbk;
         fop_removexattr_cbk_t    removexattr_cbk;
+        fop_fremovexattr_cbk_t   fremovexattr_cbk;
         fop_lk_cbk_t             lk_cbk;
         fop_inodelk_cbk_t        inodelk_cbk;
         fop_finodelk_cbk_t       finodelk_cbk;

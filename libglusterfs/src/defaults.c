@@ -327,6 +327,15 @@ default_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+
+int32_t
+default_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
 int32_t
 default_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
@@ -671,6 +680,15 @@ default_removexattr_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         STACK_WIND (frame, default_removexattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->removexattr, loc, name);
+        return 0;
+}
+
+int32_t
+default_fremovexattr_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                             const char *name)
+{
+        STACK_WIND (frame, default_fremovexattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fremovexattr, fd, name);
         return 0;
 }
 
@@ -1039,6 +1057,15 @@ default_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         STACK_WIND (frame, default_removexattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->removexattr, loc, name);
+        return 0;
+}
+
+int32_t
+default_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                      const char *name)
+{
+        STACK_WIND (frame, default_fremovexattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fremovexattr, fd, name);
         return 0;
 }
 

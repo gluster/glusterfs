@@ -412,6 +412,18 @@ typedef struct {
 			int32_t op_ret, op_errno;
 		} removexattr_cbk;
 
+
+		/* fremovexattr */
+		struct {
+			fop_fremovexattr_t fn;
+			fd_t *fd;
+			const char *name;
+		} fremovexattr;
+		struct {
+			fop_fremovexattr_cbk_t fn;
+			int32_t op_ret, op_errno;
+		} fremovexattr_cbk;
+
 		/* lk */
 		struct {
 			fop_lk_t fn;
@@ -964,6 +976,20 @@ fop_removexattr_cbk_stub (call_frame_t *frame,
 			  fop_removexattr_cbk_t fn,
 			  int32_t op_ret,
 			  int32_t op_errno);
+
+
+call_stub_t *
+fop_fremovexattr_stub (call_frame_t *frame,
+                       fop_fremovexattr_t fn,
+                       fd_t *fd,
+                       const char *name);
+
+call_stub_t *
+fop_fremovexattr_cbk_stub (call_frame_t *frame,
+                           fop_fremovexattr_cbk_t fn,
+                           int32_t op_ret,
+                           int32_t op_errno);
+
 call_stub_t *
 fop_lk_stub (call_frame_t *frame,
 	     fop_lk_t fn,

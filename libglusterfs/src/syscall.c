@@ -361,6 +361,32 @@ sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 
 
 int
+sys_fremovexattr (int filedes, const char *name)
+{
+
+#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
+        return fremovexattr (filedes, name);
+#endif
+
+        errno = ENOSYS;
+        return -1;
+#if 0 /* TODO: to port to other OSes, fill in each of below */
+#ifdef GF_BSD_HOST_OS
+        return extattr_remove_fd (filedes, EXTATTR_NAMESPACE_USER, name);
+#endif
+
+#ifdef GF_SOLARIS_HOST_OS
+        return solaris_fremovexattr (filedes, name);
+#endif
+
+#ifdef GF_DARWIN_HOST_OS
+        return fremovexattr (filedes, name, 0);
+#endif
+#endif
+}
+
+
+int
 sys_fsetxattr (int filedes, const char *name, const void *value,
                size_t size, int flags)
 {

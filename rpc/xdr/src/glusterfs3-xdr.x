@@ -388,6 +388,12 @@ struct   gfs3_finodelk_req {
 	string     name<>;
 }  ;
 
+ struct gfs3_fremovexattr_req {
+        opaque gfid[16];
+        hyper  fd;
+	string     name<>;
+}  ;
+
 
 
  struct gfs3_opendir_req {

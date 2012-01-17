@@ -317,4 +317,5 @@ int fuse_flip_user_to_trusted (char *okey, char **nkey);
 int fuse_xattr_alloc_default (char *okey, char **nkey);
 fuse_fd_ctx_t * __fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
 fuse_fd_ctx_t * fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
+
 #endif /* _GF_FUSE_BRIDGE_H_ */

@@ -400,6 +400,7 @@ struct xlator_fops fops = {
         .setattr     = afr_setattr,
         .fsetattr    = afr_fsetattr,
         .removexattr = afr_removexattr,
+        .fremovexattr = afr_fremovexattr,
 
         /* dir read */
         .opendir     = afr_opendir,
