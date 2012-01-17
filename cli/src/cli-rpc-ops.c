@@ -112,24 +112,24 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to probe");
-	 if (!rsp.op_ret) {
-	 	switch (rsp.op_errno) {
-		 	case GF_PROBE_SUCCESS:
-		      		cli_out ("Probe successful");
-		      		break;
-	 	 	case GF_PROBE_LOCALHOST:
-		      		cli_out ("Probe on localhost not needed");
-		      		break;
-			case GF_PROBE_FRIEND:
-				cli_out ("Probe on host %s port %d already"
-					 " in peer list", rsp.hostname, rsp.port);
-				break;
-		 	default:
-		      		cli_out ("Probe returned with unknown errno %d",
-					rsp.op_errno);
-		      		break;
-	 	}
-	 }
+         if (!rsp.op_ret) {
+                switch (rsp.op_errno) {
+                        case GF_PROBE_SUCCESS:
+                                cli_out ("Probe successful");
+                                break;
+                        case GF_PROBE_LOCALHOST:
+                                cli_out ("Probe on localhost not needed");
+                                break;
+                        case GF_PROBE_FRIEND:
+                                cli_out ("Probe on host %s port %d already"
+                                         " in peer list", rsp.hostname, rsp.port);
+                                break;
+                        default:
+                                cli_out ("Probe returned with unknown errno %d",
+                                        rsp.op_errno);
+                                break;
+                }
+         }
 
         if (rsp.op_ret) {
                 switch (rsp.op_errno) {
@@ -383,244 +383,237 @@ cli_out_options ( char *substr, char *optstr, char *valstr)
 
 int
 gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
-                             int count, void *myframe)
+                          int count, void *myframe)
 {
-        gf_cli_rsp                 rsp   = {0,};
-        int                        ret   = 0;
-        dict_t                     *dict = NULL;
-        char                       *volname = NULL;
-        int32_t                    i = 0;
-        char                       key[1024] = {0,};
-        int32_t                    status = 0;
-        int32_t                    type = 0;
-        int32_t                    brick_count = 0;
-        int32_t                    dist_count = 0;
-        int32_t                    stripe_count = 0;
-        int32_t                    replica_count = 0;
-        int32_t                    vol_type = 0;
-        char                       *brick = NULL;
-        int32_t                    j = 1;
-        cli_local_t                *local = NULL;
-        int32_t                    transport = 0;
-        data_pair_t                *pairs = NULL;
-        char                       *ptr = NULL;
-        data_t                     *value = NULL;
-        int                        opt_count = 0;
-        int                        k = 0;
-        char                       err_str[2048] = {0};
-        char                       *volume_id_str = NULL;
+        int                        ret                  = 0;
+        int                        opt_count            = 0;
+        int                        k                    = 0;
+        int32_t                    i                    = 0;
+        int32_t                    j                    = 1;
+        int32_t                    status               = 0;
+        int32_t                    type                 = 0;
+        int32_t                    brick_count          = 0;
+        int32_t                    dist_count           = 0;
+        int32_t                    stripe_count         = 0;
+        int32_t                    replica_count        = 0;
+        int32_t                    vol_type             = 0;
+        int32_t                    transport            = 0;
+        char                      *ptr                  = NULL;
+        char                      *volume_id_str        = NULL;
+        char                      *brick                = NULL;
+        char                      *volname              = NULL;
+        dict_t                    *dict                 = NULL;
+        data_pair_t               *pairs                = NULL;
+        data_t                    *value                = NULL;
+        cli_local_t               *local                = NULL;
+        char                       key[1024]            = {0};
+        char                       err_str[2048]        = {0};
+        gf_cli_rsp                 rsp                  = {0};
 
-        snprintf (err_str, sizeof (err_str), "Volume info unsuccessful");
-        if (-1 == req->rpc_status) {
+        if (-1 == req->rpc_status)
                 goto out;
-        }
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
-                //rsp.op_ret   = -1;
-                //rsp.op_errno = EINVAL;
+                gf_log ("cli", GF_LOG_ERROR, "error");
                 goto out;
         }
-
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to get vol: %d",
                 rsp.op_ret);
 
-        if (!rsp.op_ret) {
+        if (rsp.op_ret) {
+                ret = -1;
+                goto out;
+        }
 
-                if (!rsp.dict.dict_len) {
-                        cli_out ("No volumes present");
-                        ret = 0;
-                        goto out;
-                }
+        if (!rsp.dict.dict_len) {
+                cli_out ("No volumes present");
+                ret = 0;
+                goto out;
+        }
 
-                dict = dict_new ();
+        dict = dict_new ();
 
-                if (!dict) {
-                        ret = -1;
-                        goto out;
-                }
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
 
-                ret = dict_unserialize (rsp.dict.dict_val,
-                                        rsp.dict.dict_len,
-                                        &dict);
+        ret = dict_unserialize (rsp.dict.dict_val,
+                                rsp.dict.dict_len,
+                                &dict);
 
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
-                                        "Unable to allocate memory");
-                        goto out;
-                }
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Unable to allocate memory");
+                goto out;
+        }
 
-                ret = dict_get_int32 (dict, "count", &count);
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret)
+                goto out;
 
-                if (ret) {
-                        goto out;
-                }
+        local = ((call_frame_t *)myframe)->local;
 
-                local = ((call_frame_t *)myframe)->local;
-                //cli_out ("Number of Volumes: %d", count);
+        if (!count) {
+                switch (local->get_vol.flags) {
 
-                if (!count && (local->get_vol.flags ==
-                                        GF_CLI_GET_NEXT_VOLUME)) {
+                case GF_CLI_GET_NEXT_VOLUME:
                         GF_FREE (local->get_vol.volname);
                         local->get_vol.volname = NULL;
                         ret = 0;
                         goto out;
-                } else if (!count && (local->get_vol.flags ==
-                                        GF_CLI_GET_VOLUME)) {
+
+                case GF_CLI_GET_VOLUME:
+                        memset (err_str, 0, sizeof (err_str));
                         snprintf (err_str, sizeof (err_str),
                                   "Volume %s does not exist",
                                   local->get_vol.volname);
                         ret = -1;
                         goto out;
                 }
+        }
 
-                while ( i < count) {
-                        cli_out (" ");
-                        snprintf (key, 256, "volume%d.name", i);
-                        ret = dict_get_str (dict, key, &volname);
-                        if (ret)
-                                goto out;
+        while ( i < count) {
+                cli_out (" ");
+                snprintf (key, 256, "volume%d.name", i);
+                ret = dict_get_str (dict, key, &volname);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.type", i);
-                        ret = dict_get_int32 (dict, key, &type);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.type", i);
+                ret = dict_get_int32 (dict, key, &type);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.status", i);
-                        ret = dict_get_int32 (dict, key, &status);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.status", i);
+                ret = dict_get_int32 (dict, key, &status);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.brick_count", i);
-                        ret = dict_get_int32 (dict, key, &brick_count);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.brick_count", i);
+                ret = dict_get_int32 (dict, key, &brick_count);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.dist_count", i);
-                        ret = dict_get_int32 (dict, key, &dist_count);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.dist_count", i);
+                ret = dict_get_int32 (dict, key, &dist_count);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.stripe_count", i);
-                        ret = dict_get_int32 (dict, key, &stripe_count);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.stripe_count", i);
+                ret = dict_get_int32 (dict, key, &stripe_count);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.replica_count", i);
-                        ret = dict_get_int32 (dict, key, &replica_count);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.replica_count", i);
+                ret = dict_get_int32 (dict, key, &replica_count);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.transport", i);
-                        ret = dict_get_int32 (dict, key, &transport);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.transport", i);
+                ret = dict_get_int32 (dict, key, &transport);
+                if (ret)
+                        goto out;
 
-                        snprintf (key, 256, "volume%d.volume_id", i);
-                        ret = dict_get_str (dict, key, &volume_id_str);
-                        if (ret)
-                                goto out;
+                snprintf (key, 256, "volume%d.volume_id", i);
+                ret = dict_get_str (dict, key, &volume_id_str);
+                if (ret)
+                        goto out;
 
-                        vol_type = type;
+                vol_type = type;
 
-                        // Distributed (stripe/replicate/stripe-replica) setups
-                        if ((type > 0) && ( dist_count < brick_count))
-                                vol_type = type + 3;
+                // Distributed (stripe/replicate/stripe-replica) setups
+                if ((type > 0) && ( dist_count < brick_count))
+                        vol_type = type + 3;
 
-                        cli_out ("Volume Name: %s", volname);
-                        cli_out ("Type: %s", cli_volume_type[vol_type]);
-                        cli_out ("Volume ID: %s", volume_id_str);
-                        cli_out ("Status: %s", cli_volume_status[status]);
+                cli_out ("Volume Name: %s", volname);
+                cli_out ("Type: %s", cli_volume_type[vol_type]);
+                cli_out ("Volume ID: %s", volume_id_str);
+                cli_out ("Status: %s", cli_volume_status[status]);
 
-                        if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
-                                cli_out ("Number of Bricks: %d x %d x %d = %d",
-                                         (brick_count / dist_count),
-                                         stripe_count,
-                                         replica_count,
-                                         brick_count);
-                        else if (type == GF_CLUSTER_TYPE_NONE)
-                                cli_out ("Number of Bricks: %d",
-                                         brick_count);
-                        else
-                                /* For both replicate and stripe, dist_count is
-                                   good enough */
-                                cli_out ("Number of Bricks: %d x %d = %d",
-                                         (brick_count / dist_count),
-                                         dist_count,
-                                         brick_count);
+                if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
+                        cli_out ("Number of Bricks: %d x %d x %d = %d",
+                                 (brick_count / dist_count),
+                                 stripe_count,
+                                 replica_count,
+                                 brick_count);
 
+                } else if (type == GF_CLUSTER_TYPE_NONE) {
+                        cli_out ("Number of Bricks: %d", brick_count);
 
-                        cli_out ("Transport-type: %s",
-                                 ((transport == 0)?"tcp":
-                                   (transport == 1)?"rdma":
-                                  "tcp,rdma"));
-                        j = 1;
-
-
-                        GF_FREE (local->get_vol.volname);
-                        local->get_vol.volname = gf_strdup (volname);
-
-                        if (brick_count)
-                                cli_out ("Bricks:");
-
-                        while ( j <= brick_count) {
-                                snprintf (key, 1024, "volume%d.brick%d",
-                                          i, j);
-                                ret = dict_get_str (dict, key, &brick);
-                                if (ret)
-                                        goto out;
-                                cli_out ("Brick%d: %s", j, brick);
-                                j++;
-                        }
-                        pairs = dict->members_list;
-                        if (!pairs) {
-                                ret = -1;
-                                goto out;
-                        }
-
-                        snprintf (key, 256, "volume%d.opt_count",i);
-                        ret = dict_get_int32 (dict, key, &opt_count);
-                        if (ret)
-                            goto out;
-
-                        if (!opt_count)
-                            goto out;
-
-                        cli_out ("Options Reconfigured:");
-                        k = 0;
-                        while ( k < opt_count) {
-
-                                snprintf (key, 256, "volume%d.option.",i);
-                                while (pairs) {
-                                        ptr = strstr (pairs->key, "option.");
-                                        if (ptr) {
-                                                value = pairs->value;
-                                                if (!value) {
-                                                        ret = -1;
-                                                        goto out;
-                                                }
-                                                cli_out_options (key, pairs->key,
-                                                                 value->data);
-                                        }
-                                        pairs = pairs->next;
-                                }
-                                k++;
-                       }
-
-                       i++;
+                } else {
+                        /* For both replicate and stripe, dist_count is
+                           good enough */
+                        cli_out ("Number of Bricks: %d x %d = %d",
+                                 (brick_count / dist_count),
+                                 dist_count, brick_count);
                 }
 
+                cli_out ("Transport-type: %s",
+                         ((transport == 0)?"tcp":
+                          (transport == 1)?"rdma":
+                          "tcp,rdma"));
+                j = 1;
 
-        } else {
-                ret = -1;
-                goto out;
+                GF_FREE (local->get_vol.volname);
+                local->get_vol.volname = gf_strdup (volname);
+
+                if (brick_count)
+                        cli_out ("Bricks:");
+
+                while (j <= brick_count) {
+                        snprintf (key, 1024, "volume%d.brick%d", i, j);
+                        ret = dict_get_str (dict, key, &brick);
+                        if (ret)
+                                goto out;
+
+                        cli_out ("Brick%d: %s", j, brick);
+                        j++;
+                }
+
+                pairs = dict->members_list;
+                if (!pairs) {
+                        ret = -1;
+                        goto out;
+                }
+
+                snprintf (key, 256, "volume%d.opt_count",i);
+                ret = dict_get_int32 (dict, key, &opt_count);
+                if (ret)
+                        goto out;
+
+                if (!opt_count)
+                        goto out;
+
+                cli_out ("Options Reconfigured:");
+                k = 0;
+
+                while (k < opt_count) {
+
+                        snprintf (key, 256, "volume%d.option.",i);
+                        while (pairs) {
+                                ptr = strstr (pairs->key, "option.");
+                                if (ptr) {
+                                        value = pairs->value;
+                                        if (!value) {
+                                                ret = -1;
+                                                goto out;
+                                        }
+                                        cli_out_options (key, pairs->key,
+                                                         value->data);
+                                }
+                                pairs = pairs->next;
+                        }
+                        k++;
+                }
+
+                i++;
         }
 
 
         ret = 0;
-
 out:
         cli_cmd_broadcast_response (ret);
         if (ret)
@@ -635,7 +628,7 @@ out:
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
 
-        gf_log ("", GF_LOG_INFO, "Returning: %d", ret);
+        gf_log ("cli", GF_LOG_INFO, "Returning: %d", ret);
         return ret;
 }
 
@@ -667,8 +660,8 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_str (dict, "volname", &volname);
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to create volume");
-	if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-	        cli_out ("%s", rsp.op_errstr);
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                cli_out ("%s", rsp.op_errstr);
         else
                 cli_out ("Creation of volume %s has been %s", volname,
                                 (rsp.op_ret) ? "unsuccessful":
@@ -1142,7 +1135,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (dict_get_str (dict, "help-str", &help_str))
                 cli_out ("Set volume %s", (rsp.op_ret) ? "unsuccessful":
                                                          "successful");
-        else 
+        else
                 cli_out ("%s", help_str);
 
         ret = rsp.op_ret;
@@ -2342,7 +2335,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_reset_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_reset_volume (call_frame_t *frame, xlator_t *this,
                         void *data)
 {
         gf_cli_req              req =  {{0,}};
@@ -2555,7 +2548,7 @@ out:
 
         if (status_req.dict.dict_val)
                 GF_FREE (status_req.dict.dict_val);
- 
+
         if (req_dict)
                 dict_unref (req_dict);
 
@@ -2580,7 +2573,7 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-	dict = data;
+        dict = data;
 
         local = cli_local_get ();
         if (!local) {
@@ -3372,7 +3365,7 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp                        rsp   = {0,};
         int                               ret   = -1;
         dict_t                            *dict = NULL;
-	gf1_cli_stats_op                  op = GF_CLI_STATS_NONE;
+        gf1_cli_stats_op                  op = GF_CLI_STATS_NONE;
         char                              key[256] = {0};
         int                               interval = 0;
         int                               i = 1;
@@ -3488,7 +3481,7 @@ gf_cli3_1_profile_volume (call_frame_t *frame, xlator_t *this, void *data)
 {
         int                        ret   = -1;
         gf_cli_req                 req   = {{0,}};
-        dict_t			   *dict = NULL;
+        dict_t                     *dict = NULL;
 
         GF_ASSERT (frame);
         GF_ASSERT (this);
