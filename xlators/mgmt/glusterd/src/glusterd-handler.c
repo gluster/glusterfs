@@ -2111,12 +2111,20 @@ glusterd_friend_add (const char *hoststr, int port,
                 is_allocated = _gf_true;
         }
 
-        peerinfo->rpc = rpc;
+        /* If peer is unreachable when in DEFAULT state, we cleanup peerinfo
+         * via the friend state machine. ie, peerinfo could have been freed.
+         * peer_rpc_notify sets peerctx->peerinfo to NULL to indicate the
+         * same*/
+        peerinfo = peerctx->peerinfo;
 
-        if (!restore)
-                ret = glusterd_store_peerinfo (peerinfo);
+        if (peerinfo) {
+                peerinfo->rpc = rpc;
 
-        list_add_tail (&peerinfo->uuid_list, &conf->peers);
+                if (!restore)
+                        ret = glusterd_store_peerinfo (peerinfo);
+
+                list_add_tail (&peerinfo->uuid_list, &conf->peers);
+        }
 
 out:
         if (ret) {
@@ -2671,12 +2679,6 @@ glusterd_friend_remove_notify (glusterd_peerinfo_t *peerinfo, rpcsvc_request_t *
         ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
                                             &new_event);
         if (!ret) {
-                new_event->peerinfo = peerinfo;
-                ret = glusterd_friend_sm_inject_event (new_event);
-
-                glusterd_friend_sm ();
-                glusterd_op_sm ();
-
                 if (!req) {
                         gf_log (THIS->name, GF_LOG_WARNING,
                                 "Unable to find the request for responding "
@@ -2686,6 +2688,11 @@ glusterd_friend_remove_notify (glusterd_peerinfo_t *peerinfo, rpcsvc_request_t *
 
                 glusterd_xfer_cli_probe_resp (req, -1, ENOTCONN,
                                               peerinfo->hostname, peerinfo->port);
+
+                new_event->peerinfo = peerinfo;
+                ret = glusterd_friend_sm_inject_event (new_event);
+                glusterd_friend_sm ();
+
         } else {
                 gf_log ("glusterd", GF_LOG_ERROR,
                         "Unable to create event for removing peer %s",
@@ -2770,6 +2777,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                            'peer' and connection with this peer didn't
                            succeed. we have opportunity to notify user
                         */
+                        peerctx->peerinfo = NULL;
                         glusterd_friend_remove_notify (peerinfo,
                                                        peerctx->args.req);
                 }
