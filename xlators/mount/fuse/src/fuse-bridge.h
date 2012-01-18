@@ -276,6 +276,11 @@ typedef struct {
         xlator_t       *old_xl;
 } fuse_state_t;
 
+typedef struct fuse_fd_ctx {
+        uint32_t  open_flags;
+        fd_t     *fd;
+} fuse_fd_ctx_t;
+
 typedef void (*fuse_resume_fn_t) (fuse_state_t *state);
 
 GF_MUST_CHECK int32_t
@@ -292,4 +297,6 @@ inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
 int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);
 int fuse_gfid_set (fuse_state_t *state);
+fuse_fd_ctx_t * __fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
+fuse_fd_ctx_t * fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
 #endif /* _GF_FUSE_BRIDGE_H_ */
