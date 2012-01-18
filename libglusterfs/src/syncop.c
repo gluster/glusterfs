@@ -394,12 +394,13 @@ syncop_readdirp (xlator_t *subvol,
                  fd_t *fd,
                  size_t size,
                  off_t off,
+                 dict_t *dict,
                  gf_dirent_t *entries)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_readdirp_cbk, subvol->fops->readdirp,
-                fd, size, off);
+                fd, size, off, dict);
 
         if (entries)
                 list_splice_init (&args.entries.list, &entries->list);

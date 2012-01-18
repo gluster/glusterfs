@@ -555,7 +555,7 @@ int32_t dht_readdir (call_frame_t  *frame,
 int32_t dht_readdirp (call_frame_t *frame,
                       xlator_t *this,
                       fd_t     *fd,
-                      size_t    size, off_t off);
+                      size_t    size, off_t off, dict_t *dict);
 
 int32_t dht_xattrop (call_frame_t           *frame,
                      xlator_t           *this,

@@ -2129,8 +2129,10 @@ mq_req_xattr (xlator_t *this,
         int32_t               ret       = -1;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
+
+        if (!loc)
+                goto set_size;
 
         //if not "/" then request contribution
         if (strcmp (loc->path, "/") == 0)

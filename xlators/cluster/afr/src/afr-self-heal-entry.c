@@ -832,7 +832,7 @@ afr_sh_entry_expunge_subvol (call_frame_t *frame, xlator_t *this,
         STACK_WIND (frame, afr_sh_entry_expunge_readdir_cbk,
                     priv->children[active_src],
                     priv->children[active_src]->fops->readdirp,
-                    sh->healing_fd, sh->block_size, sh->offset);
+                    sh->healing_fd, sh->block_size, sh->offset, NULL);
 
         return 0;
 }
@@ -1889,7 +1889,7 @@ afr_sh_entry_impunge_subvol (call_frame_t *frame, xlator_t *this,
         STACK_WIND (frame, afr_sh_entry_impunge_readdir_cbk,
                     priv->children[active_src],
                     priv->children[active_src]->fops->readdirp,
-                    sh->healing_fd, sh->block_size, sh->offset);
+                    sh->healing_fd, sh->block_size, sh->offset, 0);
 
         return 0;
 }

@@ -27,6 +27,7 @@
 #endif
 
 #include "iatt.h"
+#include "inode.h"
 
 #define gf_dirent_size(name) (sizeof (gf_dirent_t) + strlen (name) + 1)
 
@@ -51,12 +52,15 @@ struct _gf_dirent_t {
 	uint32_t                             d_len;
 	uint32_t                             d_type;
         struct iatt                          d_stat;
+        dict_t                              *dict;
+        inode_t                             *inode;
 	char                                 d_name[0];
 };
 
 
 gf_dirent_t *gf_dirent_for_name (const char *name);
 void gf_dirent_free (gf_dirent_t *entries);
-gf_dirent_t * gf_dirent_for_namelen (int len);
+int gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
+                                gf_dirent_t *entries);
 
 #endif /* _GF_DIRENT_H */

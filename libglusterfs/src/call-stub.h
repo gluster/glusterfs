@@ -502,6 +502,7 @@ typedef struct {
 			fd_t *fd;
 			size_t size;
 			off_t off;
+                        dict_t *dict;
 		} readdirp;
 		struct {
 			fop_readdirp_cbk_t fn;
@@ -1022,10 +1023,11 @@ fop_readdir_stub (call_frame_t *frame,
 
 call_stub_t *
 fop_readdirp_stub (call_frame_t *frame,
-		   fop_readdir_t fn,
+		   fop_readdirp_t fn,
 		   fd_t *fd,
 		   size_t size,
-		   off_t off);
+		   off_t off,
+                   dict_t *dict);
 
 call_stub_t *
 fop_readdirp_cbk_stub (call_frame_t *frame,

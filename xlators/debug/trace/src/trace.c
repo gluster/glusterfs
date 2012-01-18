@@ -1986,20 +1986,21 @@ trace_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
 int
 trace_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-                off_t offset)
+                off_t offset, dict_t *dict)
 {
         if (trace_fop_names[GF_FOP_READDIRP].enabled) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": gfid=%s fd=%p, size=%"GF_PRI_SIZET", offset=%"PRId64,
+                        "%"PRId64": gfid=%s fd=%p, size=%"GF_PRI_SIZET", "
+                        "offset=%"PRId64" dict=%p",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
-                        fd, size, offset);
+                        fd, size, offset, dict);
                 frame->local = fd->inode->gfid;
         }
 
         STACK_WIND (frame, trace_readdirp_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdirp,
-                    fd, size, offset);
+                    fd, size, offset, dict);
 
         return 0;
 }

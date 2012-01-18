@@ -1038,7 +1038,6 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.preparent, preparent);
                 gf_stat_from_iatt (&rsp.postparent, postparent);
 
-
                 link_inode = inode_link (inode, state->loc2.parent,
                                          state->loc2.name, stbuf);
                 inode_unref (link_inode);
@@ -1738,6 +1737,10 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_errno = ENOMEM;
                         goto out;
                 }
+
+                /* TODO: need more clear thoughts before calling this function. */
+                /* gf_link_inodes_from_dirent (this, state->fd->inode, entries); */
+
         } else {
                 /* (op_ret == 0) is valid, and means EOF, don't log for that */
                 gf_log (this->name, (op_ret) ? GF_LOG_INFO : GF_LOG_TRACE,
@@ -2132,7 +2135,7 @@ server_readdirp_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         STACK_WIND (frame, server_readdirp_cbk, bound_xl,
                     bound_xl->fops->readdirp, state->fd, state->size,
-                    state->offset);
+                    state->offset, state->dict);
 
         return 0;
 err:
@@ -3979,10 +3982,10 @@ server_readdirp (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
+        char                *buf          = NULL;
         gfs3_readdirp_req    args         = {{0,},};
         size_t               headers_size = 0;
         int                  ret          = -1;
-
         if (!req)
                 return ret;
 
@@ -4022,6 +4025,29 @@ server_readdirp (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->offset = args.offset;
         memcpy (state->resolve.gfid, args.gfid, 16);
+
+        if (args.dict.dict_len) {
+                /* Unserialize the dictionary */
+                state->dict = dict_new ();
+
+                buf = memdup (args.dict.dict_val, args.dict.dict_len);
+                if (buf == NULL) {
+                        goto out;
+                }
+
+                ret = dict_unserialize (buf, args.dict.dict_len,
+                                        &state->dict);
+                if (ret < 0) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": failed to unserialize req-buffer "
+                                " to dictionary", frame->root->unique);
+                        goto out;
+                }
+
+                state->dict->extra_free = buf;
+
+                buf = NULL;
+        }
 
         ret = 0;
         resolve_and_resume (frame, server_readdirp_resume);

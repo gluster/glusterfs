@@ -206,7 +206,7 @@ int32_t default_readdir (call_frame_t *frame,
 int32_t default_readdirp (call_frame_t *frame,
                           xlator_t *this,
                           fd_t *fd,
-                          size_t size, off_t off);
+                          size_t size, off_t off, dict_t *dict);
 
 int32_t default_xattrop (call_frame_t *frame,
                          xlator_t *this,
@@ -418,9 +418,9 @@ int32_t default_readdir_resume (call_frame_t *frame,
                           size_t size, off_t off);
 
 int32_t default_readdirp_resume (call_frame_t *frame,
-                          xlator_t *this,
-                          fd_t *fd,
-                          size_t size, off_t off);
+                                 xlator_t *this,
+                                 fd_t *fd,
+                                 size_t size, off_t off, dict_t *dict);
 
 int32_t default_xattrop_resume (call_frame_t *frame,
                          xlator_t *this,

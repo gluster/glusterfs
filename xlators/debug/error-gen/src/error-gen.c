@@ -1807,7 +1807,7 @@ error_gen_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 error_gen_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-                    off_t off)
+                    off_t off, dict_t *dict)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -1828,7 +1828,7 @@ error_gen_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	STACK_WIND (frame, error_gen_readdirp_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdirp,
-                    fd, size, off);
+                    fd, size, off, dict);
 	return 0;
 }
 

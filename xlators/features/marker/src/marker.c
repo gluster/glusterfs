@@ -2188,6 +2188,47 @@ err:
         return 0;
 }
 
+int
+marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, gf_dirent_t *entries)
+{
+        gf_dirent_t *entry = NULL;
+
+        if (op_ret <= 0)
+                goto unwind;
+
+        list_for_each_entry (entry, &entries->list, list) {
+                /* TODO: fill things */
+        }
+
+unwind:
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
+
+        return 0;
+}
+int
+marker_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                 off_t offset, dict_t *dict)
+{
+        marker_conf_t  *priv    = NULL;
+
+        priv = this->private;
+
+        if (priv->feature_enabled == 0)
+                goto wind;
+
+        if ((priv->feature_enabled & GF_QUOTA) && dict)
+                mq_req_xattr (this, NULL, dict);
+
+wind:
+        STACK_WIND (frame, marker_readdirp_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp,
+                    fd, size, offset, dict);
+
+        return 0;
+}
+
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -2479,7 +2520,8 @@ struct xlator_fops fops = {
         .setattr     = marker_setattr,
         .fsetattr    = marker_fsetattr,
         .removexattr = marker_removexattr,
-        .getxattr    = marker_getxattr
+        .getxattr    = marker_getxattr,
+        .readdirp    = marker_readdirp,
 };
 
 struct xlator_cbks cbks = {

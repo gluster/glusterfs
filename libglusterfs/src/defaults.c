@@ -750,10 +750,10 @@ default_readdir_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int32_t
 default_readdirp_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                         size_t size, off_t off)
+                         size_t size, off_t off, dict_t *dict)
 {
         STACK_WIND (frame, default_readdirp_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdirp, fd, size, off);
+                    FIRST_CHILD(this)->fops->readdirp, fd, size, off, dict);
         return 0;
 }
 
@@ -1117,10 +1117,10 @@ default_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int32_t
 default_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                  size_t size, off_t off)
+                  size_t size, off_t off, dict_t *dict)
 {
         STACK_WIND (frame, default_readdirp_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdirp, fd, size, off);
+                    FIRST_CHILD(this)->fops->readdirp, fd, size, off, dict);
         return 0;
 }
 

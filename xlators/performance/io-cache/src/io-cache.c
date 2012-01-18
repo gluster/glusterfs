@@ -1409,6 +1409,35 @@ ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         return 0;
 }
 
+int
+ioc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int op_ret, int op_errno, gf_dirent_t *entries)
+{
+        gf_dirent_t *entry = NULL;
+
+        if (op_ret <= 0)
+                goto unwind;
+
+        list_for_each_entry (entry, &entries->list, list) {
+                /* TODO: fill things */
+        }
+
+unwind:
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
+
+        return 0;
+}
+int
+ioc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+              off_t offset, dict_t *dict)
+{
+        STACK_WIND (frame, ioc_readdirp_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp,
+                    fd, size, offset, dict);
+
+        return 0;
+}
+
 int32_t
 ioc_get_priority_list (const char *opt_str, struct list_head *first)
 {
@@ -1924,7 +1953,9 @@ struct xlator_fops fops = {
         .lookup      = ioc_lookup,
         .lk          = ioc_lk,
         .setattr     = ioc_setattr,
-        .mknod       = ioc_mknod
+        .mknod       = ioc_mknod,
+
+        .readdirp    = ioc_readdirp,
 };
 
 
