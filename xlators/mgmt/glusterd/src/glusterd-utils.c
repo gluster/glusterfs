@@ -2016,6 +2016,15 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 goto out;
         }
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.rebalance", count);
+        ret = dict_get_uint32 (vols, key, &new_volinfo->defrag_cmd);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
+                goto out;
+        }
+
         uuid_parse (volume_id_str, new_volinfo->volume_id);
 
         memset (key, 0, sizeof (key));
@@ -2438,6 +2447,7 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
         struct rpc_clnt *rpc = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
         nodesrv_t               *shd       = NULL;
+        glusterd_volinfo_t      *volinfo   = NULL;
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node, out);
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node->node, out);
 
@@ -2448,6 +2458,11 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
         } else if (pending_node->type == GD_NODE_SHD) {
                 shd       = pending_node->node;
                 rpc       = shd->rpc;
+
+        } else if (pending_node->type == GD_NODE_REBALANCE) {
+                volinfo = pending_node->node;
+                if (volinfo->defrag)
+                        rpc = volinfo->defrag->rpc;
 
         } else {
                 GF_ASSERT (0);
@@ -4810,4 +4825,43 @@ glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
         else
                 snprintf (filepath, PATH_MAX, "%s/%s-fuse.vol",
                           path, volinfo->volname);
+}
+
+int
+glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
+                              size_t len, int cmd, defrag_cbk_fn_t cbk)
+{
+        glusterd_conf_t         *priv                   = NULL;
+        char                     pidfile[PATH_MAX];
+        int                      ret                    = -1;
+        pid_t                    pid;
+
+        priv = THIS->private;
+        if (!priv)
+                return ret;
+
+        GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
+
+        if (!glusterd_is_service_running (pidfile, &pid)) {
+                glusterd_handle_defrag_start (volinfo, op_errstr, len, cmd,
+                                              cbk);
+        }
+
+        return ret;
+}
+
+int
+glusterd_restart_rebalance (glusterd_conf_t *conf)
+{
+        glusterd_volinfo_t       *volinfo = NULL;
+        int                      ret = 0;
+        char                     op_errstr[256];
+
+        list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                if (!volinfo->defrag_cmd)
+                        continue;
+                glusterd_volume_defrag_restart (volinfo, op_errstr, 256,
+                                                volinfo->defrag_cmd, NULL);
+        }
+        return ret;
 }

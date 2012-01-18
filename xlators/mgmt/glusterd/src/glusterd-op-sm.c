@@ -150,6 +150,8 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
 {
         int                     ret = -1;
         gd1_mgmt_brick_op_req   *brick_req = NULL;
+        char                    *volname = NULL;
+        char                    name[1024] = {0,};
 
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
@@ -203,6 +205,21 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 brick_req->op = GLUSTERD_BRICK_STATUS;
                 brick_req->name = "";
         }
+                break;
+        case GD_OP_REBALANCE:
+        case GD_OP_DEFRAG_BRICK_VOLUME:
+                brick_req = GF_CALLOC (1, sizeof (*brick_req),
+                                       gf_gld_mt_mop_brick_req_t);
+                if (!brick_req)
+                        goto out;
+
+                brick_req->op = GLUSTERD_BRICK_XLATOR_DEFRAG;
+                ret = dict_get_str (dict, "volname", &volname);
+                if (ret)
+                        goto out;
+                snprintf (name, 1024, "%s-dht",volname);
+                brick_req->name = gf_strdup (name);
+
                 break;
         default:
                 goto out;
@@ -1617,6 +1634,7 @@ glusterd_op_build_payload (dict_t **req)
                 case GD_OP_HEAL_VOLUME:
                 case GD_OP_STATEDUMP_VOLUME:
                 case GD_OP_CLEARLOCKS_VOLUME:
+                case GD_OP_DEFRAG_BRICK_VOLUME:
                         {
                                 dict_t  *dict = ctx;
                                 dict_copy (dict, req_dict);
@@ -2173,6 +2191,7 @@ glusterd_need_brick_op (glusterd_op_t op)
         switch (op) {
         case GD_OP_PROFILE_VOLUME:
         case GD_OP_STATUS_VOLUME:
+        case GD_OP_DEFRAG_BRICK_VOLUME:
                 ret = _gf_true;
                 break;
         default:
@@ -2368,6 +2387,7 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_REBALANCE:
+                case GD_OP_DEFRAG_BRICK_VOLUME:
                         ret = glusterd_op_stage_rebalance (dict, op_errstr);
                         break;
 
@@ -2464,6 +2484,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_REBALANCE:
+                case GD_OP_DEFRAG_BRICK_VOLUME:
                         ret = glusterd_op_rebalance (dict, op_errstr, rsp_dict);
                         break;
 
@@ -2613,6 +2634,10 @@ glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
                                                         op_ctx, op_errstr);
                 break;
 
+        case GD_OP_DEFRAG_BRICK_VOLUME:
+                dict_copy (rsp_dict, op_ctx);
+        break;
+
         default:
                 break;
         }
@@ -2753,6 +2778,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
+
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -2962,6 +2988,56 @@ out:
         return ret;
 
 }
+
+
+static int
+glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = -1;
+        char                                    *volname = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        xlator_t                                *this = NULL;
+        char                                    msg[2048] = {0,};
+        glusterd_pending_node_t                 *pending_node = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "volume name get failed");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist",
+                          volname);
+
+                *op_errstr = gf_strdup (msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                goto out;
+        }
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
+                goto out;
+        } else {
+                pending_node->node = volinfo;
+                pending_node->type = GD_NODE_REBALANCE;
+                list_add_tail (&pending_node->list,
+                               &opinfo.pending_bricks);
+                pending_node = NULL;
+        }
+
+out:
+        return ret;
+}
+
+
+
 
 static int
 glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr)
@@ -3196,6 +3272,9 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr)
                 ret = glusterd_bricks_select_status_volume (dict, op_errstr);
                 break;
 
+        case GD_OP_DEFRAG_BRICK_VOLUME:
+                ret = glusterd_bricks_select_rebalance_volume (dict, op_errstr);
+                break;
         default:
                 break;
          }
@@ -3758,6 +3837,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_HEAL_VOLUME:
                 case GD_OP_STATEDUMP_VOLUME:
                 case GD_OP_CLEARLOCKS_VOLUME:
+                case GD_OP_DEFRAG_BRICK_VOLUME:
                         dict_unref (ctx);
                         break;
                 default:

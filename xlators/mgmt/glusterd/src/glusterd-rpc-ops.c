@@ -82,6 +82,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 break;
         }
         case GD_OP_REBALANCE:
+        case GD_OP_DEFRAG_BRICK_VOLUME:
         {
                 if (ctx) {
                         ret = dict_get_int32 (ctx, "status", &status);
@@ -1058,7 +1059,8 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
         GF_ASSERT (rsp_dict);
 
         op = glusterd_op_get_op ();
-        GF_ASSERT (GD_OP_REBALANCE == op);
+        GF_ASSERT ((GD_OP_REBALANCE == op) ||
+                   (GD_OP_DEFRAG_BRICK_VOLUME == op));
 
         ctx_dict = glusterd_op_get_ctx (op);
 
@@ -1224,10 +1226,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
                 case GD_OP_REBALANCE:
-                        ret = glusterd_volume_rebalance_use_rsp_dict (dict);
-                        if (ret)
-                                goto out;
-
+                case GD_OP_DEFRAG_BRICK_VOLUME:
                 break;
 
                 default:

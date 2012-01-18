@@ -184,6 +184,7 @@ enum glusterd_brick_procnum {
         GLUSTERD_BRICK_XLATOR_HEAL,
         GLUSTERD_BRICK_STATUS,
         GLUSTERD_BRICK_OP,
+        GLUSTERD_BRICK_XLATOR_DEFRAG,
         GLUSTERD_BRICK_MAXVALUE,
 };
 

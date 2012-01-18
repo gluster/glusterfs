@@ -79,6 +79,7 @@ typedef enum glusterd_op_ {
         GD_OP_STATEDUMP_VOLUME,
         GD_OP_LIST_VOLUME,
         GD_OP_CLEARLOCKS_VOLUME,
+        GD_OP_DEFRAG_BRICK_VOLUME,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -164,6 +165,9 @@ struct glusterd_defrag_info_ {
         gf_lock_t                    lock;
         int                          cmd;
         pthread_t                    th;
+        gf_defrag_status_t           defrag_status;
+        struct rpc_clnt            * rpc;
+        uint32_t                     connected;
         char                         mount[1024];
         char                         databuf[131072];
         struct gf_defrag_brickinfo_ *bricks; /* volinfo->brick_count */
@@ -210,6 +214,7 @@ struct glusterd_volinfo_ {
         uint64_t                rebalance_data;
         uint64_t                lookedup_files;
         glusterd_defrag_info_t  *defrag;
+        gf_cli_defrag_type      defrag_cmd;
 
         /* Replace brick status */
         gf_rb_status_t          rb_status;
@@ -235,7 +240,8 @@ struct glusterd_volinfo_ {
 typedef enum gd_node_type_ {
         GD_NODE_NONE,
         GD_NODE_BRICK,
-        GD_NODE_SHD
+        GD_NODE_SHD,
+        GD_NODE_REBALANCE,
 } gd_node_type;
 
 typedef struct glusterd_pending_node_ {
@@ -314,6 +320,27 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 		frame->local = NULL;	  \
 		STACK_DESTROY (frame->root);\
 	} while (0)
+
+#define GLUSTERD_GET_DEFRAG_DIR(path, volinfo, priv) do {               \
+                char vol_path[PATH_MAX];                                \
+                GLUSTERD_GET_VOLUME_DIR(vol_path, volinfo, priv);       \
+                snprintf (path, PATH_MAX, "%s/rebalance",vol_path);     \
+        } while (0)
+
+#define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo, priv) do {         \
+                char defrag_path[PATH_MAX];                             \
+                GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);    \
+                snprintf (path, PATH_MAX, "%s/%s.sock", defrag_path,    \
+                           uuid_utoa(priv->uuid));                      \
+        } while (0)
+
+#define GLUSTERD_GET_DEFRAG_PID_FILE(path, volinfo, priv) do {          \
+                char defrag_path[PATH_MAX];                             \
+                GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);    \
+                snprintf (path, PATH_MAX, "%s/%s.pid", defrag_path,     \
+                           uuid_utoa(priv->uuid));                      \
+        } while (0)
+
 
 int32_t
 glusterd_brick_from_brickinfo (glusterd_brickinfo_t *brickinfo,

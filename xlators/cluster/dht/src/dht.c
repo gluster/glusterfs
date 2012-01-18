@@ -182,11 +182,20 @@ out:
 int
 notify (xlator_t *this, int event, void *data, ...)
 {
-        int ret = -1;
+        int              ret = -1;
+        va_list          ap;
+        dict_t          *output = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
 
-        ret = dht_notify (this, event, data);
+
+        if (!data)
+                goto out;
+
+        va_start (ap, data);
+        output = va_arg (ap, dict_t*);
+
+        ret = dht_notify (this, event, data, output);
 
 out:
         return ret;
@@ -343,10 +352,13 @@ out:
 int
 init (xlator_t *this)
 {
-        dht_conf_t    *conf = NULL;
-        char          *temp_str = NULL;
-        int            ret = -1;
-        int            i = 0;
+        dht_conf_t                      *conf           = NULL;
+        char                            *temp_str       = NULL;
+        int                              ret            = -1;
+        int                              i              = 0;
+        gf_defrag_info_t                *defrag         = NULL;
+        int                              cmd            = 0;
+
 
         GF_VALIDATE_OR_GOTO ("dht", this, err);
 
@@ -365,6 +377,24 @@ init (xlator_t *this)
         if (!conf) {
                 goto err;
         }
+
+        ret = dict_get_int32 (this->options, "rebalance-cmd", &cmd);
+
+        if (cmd) {
+                defrag = GF_CALLOC (1, sizeof (gf_defrag_info_t),
+                                    gf_defrag_info_mt);
+
+                GF_VALIDATE_OR_GOTO (this->name, defrag, err);
+
+                LOCK_INIT (&defrag->lock);
+
+                defrag->is_exiting = 0;
+
+                defrag->cmd = cmd;
+
+                conf->defrag = defrag;
+        }
+
 
         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
         if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
@@ -550,5 +580,9 @@ struct volume_options options[] = {
         { .key  = {"decommissioned-bricks"},
           .type = GF_OPTION_TYPE_ANY,
         },
+        { .key  = {"rebalance-cmd"},
+          .type = GF_OPTION_TYPE_INT,
+        },
+
         { .key  = {NULL} },
 };

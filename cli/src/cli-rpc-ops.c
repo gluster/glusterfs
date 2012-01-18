@@ -1052,9 +1052,9 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                           volname);
                 } else {
                         snprintf (msg, sizeof (msg),
-                                  "stopped rebalance process of volume %s \n"
-                                  "(after rebalancing %"PRId64" files totaling"
-                                  " %"PRId64" bytes)", volname, files, size);
+                                 "Stopped rebalance process on volume %s \n"
+                                 "(after rebalancing %"PRId64" bytes - "
+                                 "%"PRId64" files)", volname, size, files);
                 }
                 goto done;
         }
@@ -1065,7 +1065,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                           "%s", rsp.op_errstr);
                         else
                                 snprintf (msg, sizeof (msg),
-                                          "failed to get the status of "
+                                          "Failed to get the status of "
                                           "rebalance process");
                         goto done;
                 }
@@ -1074,11 +1074,8 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case GF_DEFRAG_STATUS_NOT_STARTED:
                         status = "not started";
                         break;
-                case GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED:
-                        status = "step 1: layout fix in progress";
-                        break;
-                case GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED:
-                        status = "step 2: data migration in progress";
+                case GF_DEFRAG_STATUS_STARTED:
+                        status = "in progress";
                         break;
                 case GF_DEFRAG_STATUS_STOPPED:
                         status = "stopped";
@@ -1089,38 +1086,17 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case GF_DEFRAG_STATUS_FAILED:
                         status = "failed";
                         break;
-                case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
-                        status = "step 1: layout fix complete";
-                        break;
-                case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
-                        status = "step 2: data migration complete";
-                        break;
-                case GF_DEFRAG_STATUS_PAUSED:
-                        status = "paused";
-                        break;
                 }
-                if (files && (rsp.op_errno == 1)) {
-                        snprintf (msg, sizeof (msg),
-                                  "rebalance %s: fixed layout %"PRId64,
-                                  status, files);
-                        goto done;
-                }
-                if (files && (rsp.op_errno == 6)) {
-                        snprintf (msg, sizeof (msg),
-                                  "rebalance %s: fixed layout %"PRId64,
-                                  status, files);
-                        goto done;
-                }
-                if (files) {
-                        snprintf (msg, sizeof (msg),
-                                  "rebalance %s: rebalanced %"PRId64
+                if (files || size || lookup) {
+                        snprintf (msg, sizeof(msg),
+                                  "Rebalance %s: rebalanced %"PRId64
                                   " files of size %"PRId64" (total files"
                                   " scanned %"PRId64")", status,
                                   files, size, lookup);
                         goto done;
                 }
 
-                snprintf (msg, sizeof (msg), "rebalance %s", status);
+                snprintf (msg, sizeof (msg), "Rebalance %s", status);
                 goto done;
         }
 
@@ -1129,7 +1105,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
                 snprintf (msg, sizeof (msg),
-                          "starting rebalance on volume %s has been %s",
+                          "Starting rebalance on volume %s has been %s",
                           volname, (rsp.op_ret) ? "unsuccessful":
                           "successful");
 
@@ -1398,23 +1374,17 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         case GF_DEFRAG_STATUS_NOT_STARTED:
                 status = "not started";
                 break;
-        case GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED:
-        case GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED:
-        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
+        case GF_DEFRAG_STATUS_STARTED:
                 status = "in progress";
                 break;
         case GF_DEFRAG_STATUS_STOPPED:
                 status = "stopped";
                 break;
         case GF_DEFRAG_STATUS_COMPLETE:
-        case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
                 status = "completed";
                 break;
         case GF_DEFRAG_STATUS_FAILED:
                 status = "failed";
-                break;
-        case GF_DEFRAG_STATUS_PAUSED:
-                status = "paused";
                 break;
         }
 
@@ -2479,18 +2449,17 @@ gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
 
         if (strcmp (cmd_str, "start") == 0) {
                 cmd = GF_DEFRAG_CMD_START;
-                ret = dict_get_str (dict, "start-type", &cmd_str);
+                ret = dict_get_str (dict, "option", &cmd_str);
                 if (!ret) {
-                        if (strcmp (cmd_str, "fix-layout") == 0) {
-                                cmd = GF_DEFRAG_CMD_START_LAYOUT_FIX;
-                        }
-                        if (strcmp (cmd_str, "migrate-data") == 0) {
-                                cmd = GF_DEFRAG_CMD_START_MIGRATE_DATA;
-                        }
-                        if (strcmp (cmd_str, "migrate-data-force") == 0) {
-                                cmd = GF_DEFRAG_CMD_START_MIGRATE_DATA_FORCE;
+                        if (strcmp (cmd_str, "force") == 0) {
+                                cmd = GF_DEFRAG_CMD_START_FORCE;
                         }
                 }
+                goto done;
+        }
+
+        if (strcmp (cmd_str, "fix-layout") == 0) {
+                cmd = GF_DEFRAG_CMD_START_LAYOUT_FIX;
                 goto done;
         }
         if (strcmp (cmd_str, "stop") == 0) {

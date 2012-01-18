@@ -31,6 +31,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "run.h"
+#include <sys/signal.h>
 
 /* misc */
 
@@ -1384,8 +1385,6 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
         switch (volinfo->defrag_status) {
         case GF_DEFRAG_STATUS_FAILED:
         case GF_DEFRAG_STATUS_COMPLETE:
-        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
-        case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
                 volinfo->defrag_status = 0;
         default:
                 break;
@@ -1420,6 +1419,9 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         int32_t             replica_count  = 0;
         glusterd_brickinfo_t *brickinfo    = NULL;
         glusterd_brickinfo_t *tmp          = NULL;
+        glusterd_conf_t      *priv         = NULL;
+        char                  pidfile[PATH_MAX];
+
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1456,7 +1458,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         if (volinfo->defrag) {
                                 LOCK (&volinfo->defrag->lock);
 
-                                volinfo->defrag_status = GF_DEFRAG_STATUS_PAUSED;
+                                //volinfo->defrag_status = GF_DEFRAG_STATUS_PAUSED;
 
                                 UNLOCK (&volinfo->defrag->lock);
                         }
@@ -1470,13 +1472,14 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_ABORT:
         {
                 if (volinfo->decommission_in_progress) {
-                        if (volinfo->defrag) {
-                                LOCK (&volinfo->defrag->lock);
+                        priv = THIS->private;
+                        if (!priv)
+                                return ret;
 
-                                volinfo->defrag_status = GF_DEFRAG_STATUS_STOPPED;
+                        GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
 
-                                UNLOCK (&volinfo->defrag->lock);
-                        }
+                        glusterd_service_stop ("rebalance", pidfile, SIGTERM, 1);
+
                 }
 
                 /* Fall back to the old volume file */
@@ -1577,8 +1580,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         switch (volinfo->defrag_status) {
         case GF_DEFRAG_STATUS_FAILED:
         case GF_DEFRAG_STATUS_COMPLETE:
-        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
-        case GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE:
                 volinfo->defrag_status = 0;
         default:
                 break;
