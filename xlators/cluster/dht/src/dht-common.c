@@ -4296,16 +4296,22 @@ dht_forget (xlator_t *this, inode_t *inode)
 int
 dht_notify (xlator_t *this, int event, void *data, ...)
 {
-        xlator_t   *subvol = NULL;
-        int         cnt    = -1;
-        int         i      = -1;
-        dht_conf_t *conf   = NULL;
-        int         ret    = -1;
-        int         propagate = 0;
+        xlator_t                *subvol = NULL;
+        int                      cnt    = -1;
+        int                      i      = -1;
+        dht_conf_t              *conf   = NULL;
+        int                      ret    = -1;
+        int                      propagate = 0;
 
-        int         had_heard_from_all = 0;
-        int         have_heard_from_all = 0;
-        struct timeval  time = {0,};
+        int                      had_heard_from_all = 0;
+        int                      have_heard_from_all = 0;
+        struct timeval           time = {0,};
+        gf_defrag_info_t        *defrag = NULL;
+        dict_t                  *dict   = NULL;
+        gf_defrag_type           cmd    = 0;
+        dict_t                  *output = NULL;
+        va_list                  ap;
+
 
         conf = this->private;
         if (!conf)
@@ -4418,6 +4424,36 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 UNLOCK (&conf->subvolume_lock);
 
                 break;
+        case GF_EVENT_VOLUME_DEFRAG:
+        {
+                if (!conf->defrag) {
+                        return ret;
+                }
+                defrag = conf->defrag;
+
+                dict = data;
+                va_start (ap, data);
+                output = va_arg (ap, dict_t*);
+
+                ret = dict_get_int32 (dict, "rebalance-command",
+                                      (int32_t*)&cmd);
+                if (ret)
+                        return ret;
+                LOCK (&defrag->lock);
+                {
+                        if (defrag->is_exiting)
+                                goto unlock;
+                        if (cmd == GF_DEFRAG_CMD_STATUS)
+                                gf_defrag_status_get (defrag, output);
+                        else if (cmd == GF_DEFRAG_CMD_STOP)
+                                gf_defrag_stop (defrag, output);
+                }
+unlock:
+                UNLOCK (&defrag->lock);
+                return 0;
+                break;
+        }
+
         default:
                 propagate = 1;
                 break;
@@ -4433,8 +4469,19 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
         /* if all subvols have reported status, no need to hide anything
            or wait for anything else. Just propagate blindly */
-        if (have_heard_from_all)
+        if (have_heard_from_all) {
                 propagate = 1;
+                if (conf->defrag) {
+                        ret = pthread_create (&conf->defrag->th, NULL,
+                                              gf_defrag_start, this);
+                        if (ret) {
+                                conf->defrag = NULL;
+                                GF_FREE (conf->defrag);
+                                kill (getpid(), SIGTERM);
+                        }
+                }
+        }
+
 
         if (!had_heard_from_all && have_heard_from_all) {
                 /* This is the first event which completes aggregation

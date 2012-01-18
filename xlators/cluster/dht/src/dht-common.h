@@ -175,6 +175,43 @@ struct dht_du {
 };
 typedef struct dht_du dht_du_t;
 
+enum gf_defrag_type {
+        GF_DEFRAG_CMD_START = 1,
+        GF_DEFRAG_CMD_STOP = 1 + 1,
+        GF_DEFRAG_CMD_STATUS = 1 + 2,
+        GF_DEFRAG_CMD_START_LAYOUT_FIX = 1 + 3,
+        GF_DEFRAG_CMD_START_FORCE = 1 + 4,
+};
+typedef enum gf_defrag_type gf_defrag_type;
+
+enum gf_defrag_status_t {
+        GF_DEFRAG_STATUS_NOT_STARTED,
+        GF_DEFRAG_STATUS_STARTED,
+        GF_DEFRAG_STATUS_STOPPED,
+        GF_DEFRAG_STATUS_COMPLETE,
+        GF_DEFRAG_STATUS_FAILED,
+};
+typedef enum gf_defrag_status_t gf_defrag_status_t;
+
+
+struct gf_defrag_info_ {
+        uint64_t                     total_files;
+        uint64_t                     total_data;
+        uint64_t                     num_files_lookedup;
+        gf_lock_t                    lock;
+        int                          cmd;
+        pthread_t                    th;
+        gf_defrag_status_t           defrag_status;
+        struct rpc_clnt             *rpc;
+        uint32_t                     connected;
+        uint32_t                     is_exiting;
+        pid_t                        pid;
+        inode_t                     *root_inode;
+
+};
+
+typedef struct gf_defrag_info_ gf_defrag_info_t;
+
 struct dht_conf {
         gf_lock_t      subvolume_lock;
         int            subvolume_cnt;
@@ -208,6 +245,9 @@ struct dht_conf {
 
         /* to keep track of nodes which are decomissioned */
         xlator_t     **decommissioned_bricks;
+
+        /* defrag related */
+        gf_defrag_info_t *defrag;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -608,6 +648,13 @@ int dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
                      struct iatt *postparent);
 
+int
+gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
 
+int
+gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output);
+
+void*
+gf_defrag_start (void *this);
 
 #endif/* _DHT_H */

@@ -622,6 +622,15 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        if (volinfo->defrag_cmd == GF_DEFRAG_CMD_STATUS)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->defrag_cmd);
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG,
+                                        buf);
+        if (ret)
+                goto out;
+
 out:
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "Unable to write volume values"
@@ -1860,6 +1869,9 @@ glusterd_store_retrieve_volume (char    *volname)
                         }
                         gf_log ("", GF_LOG_DEBUG, "Parsed as "GEOREP" "
                                 " slave:key=%s,value:%s", key, value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
+                                     strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
+                        volinfo->defrag_cmd = atoi (value);
                 }
                 else {
                         exists = glusterd_check_option_exists (key, NULL);

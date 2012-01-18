@@ -346,6 +346,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        snprintf (key, 256, "volume%d.rebalance", count);
+        ret = dict_set_int32 (volumes, key, volinfo->defrag_cmd);
+        if (ret)
+                goto out;
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 char    brick[1024] = {0,};
                 snprintf (key, 256, "volume%d.brick%d", count, i);
@@ -2046,6 +2051,7 @@ glusterd_rpc_create (struct rpc_clnt **rpc,
         GF_ASSERT (this);
 
         GF_ASSERT (options);
+
         new_rpc = rpc_clnt_new (options, this->ctx, this->name);
 
         if (!new_rpc)

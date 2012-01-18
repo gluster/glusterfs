@@ -383,6 +383,7 @@ typedef enum {
         GF_EVENT_TRANSLATOR_INFO,
         GF_EVENT_TRIGGER_HEAL,
         GF_EVENT_AUTH_FAILED,
+        GF_EVENT_VOLUME_DEFRAG,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 

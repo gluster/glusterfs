@@ -999,6 +999,8 @@ init (xlator_t *this)
         ret = glusterd_restart_gsyncds (conf);
         if (ret)
                 goto out;
+
+        glusterd_restart_rebalance (conf);
         ret = 0;
 out:
         if (ret < 0) {

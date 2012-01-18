@@ -386,4 +386,6 @@ glusterd_chk_peers_connected_befriended (uuid_t skip_uuid);
 void
 glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
                               gf_transport_type type);
+int
+glusterd_restart_rebalance (glusterd_conf_t *conf);
 #endif
