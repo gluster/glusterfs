@@ -177,7 +177,7 @@ _crawl_directory (loc_t *loc, pid_t pid)
                 goto out;
         }
 
-        while (syncop_readdirp (this, fd, 131072, offset, &entries)) {
+        while (syncop_readdirp (this, fd, 131072, offset, NULL, &entries)) {
                 ret = 0;
                 free_entries = _gf_true;
                 if (afr_up_children_count (priv->child_up,

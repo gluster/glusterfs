@@ -550,6 +550,10 @@ struct gfs3_readdirp_req {
 	quad_t fd;
 	u_quad_t offset;
 	u_int size;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
 };
 typedef struct gfs3_readdirp_req gfs3_readdirp_req;
 
@@ -777,6 +781,10 @@ struct gfs3_dirplist {
 	u_int d_type;
 	char *name;
 	struct gf_iatt stat;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
 	struct gfs3_dirplist *nextentry;
 };
 typedef struct gfs3_dirplist gfs3_dirplist;

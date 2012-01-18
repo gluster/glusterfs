@@ -1496,6 +1496,67 @@ out:
 
         return 0;
 }
+int
+pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int op_ret, int op_errno, gf_dirent_t *entries)
+{
+        pl_local_t *local  = NULL;
+        gf_dirent_t *entry = NULL;
+
+        local = frame->local;
+
+        if (op_ret <= 0)
+                goto unwind;
+
+        list_for_each_entry (entry, &entries->list, list) {
+                if (local->entrylk_count_req)
+                        pl_entrylk_xattr_fill (this, entry->inode, entry->dict);
+                if (local->inodelk_count_req)
+                        pl_inodelk_xattr_fill (this, entry->inode, entry->dict);
+                if (local->posixlk_count_req)
+                        pl_posixlk_xattr_fill (this, entry->inode, entry->dict);
+        }
+
+unwind:
+        frame->local = NULL;
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
+
+        if (local)
+                GF_FREE (local);
+
+        return 0;
+}
+
+int
+pl_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t offset, dict_t *dict)
+{
+        pl_local_t *local  = NULL;
+
+        local = GF_CALLOC (1, sizeof (*local), gf_locks_mt_pl_local_t);
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
+
+        if (dict) {
+                if (dict_get (dict, GLUSTERFS_ENTRYLK_COUNT))
+                        local->entrylk_count_req = 1;
+                if (dict_get (dict, GLUSTERFS_INODELK_COUNT))
+                        local->inodelk_count_req = 1;
+                if (dict_get (dict, GLUSTERFS_POSIXLK_COUNT))
+                        local->posixlk_count_req = 1;
+        }
+
+        frame->local = local;
+
+        STACK_WIND (frame, pl_readdirp_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp,
+                    fd, size, offset, dict);
+
+        return 0;
+out:
+        STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM, NULL);
+        return 0;
+}
+
 
 void
 pl_dump_lock (char *str, int size, struct gf_flock *flock,
@@ -1920,6 +1981,8 @@ struct xlator_fops fops = {
         .fentrylk    = pl_fentrylk,
         .flush       = pl_flush,
         .opendir     = pl_opendir,
+
+        .readdirp    = pl_readdirp,
 };
 
 struct xlator_dumpops dumpops = {

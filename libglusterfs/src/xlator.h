@@ -606,7 +606,8 @@ typedef int32_t (*fop_readdirp_t) (call_frame_t *frame,
                                    xlator_t *this,
                                    fd_t *fd,
                                    size_t size,
-                                   off_t offset);
+                                   off_t offset,
+                                   dict_t *dict);
 
 typedef int32_t (*fop_xattrop_t) (call_frame_t *frame,
                                   xlator_t *this,

@@ -3386,10 +3386,27 @@ out:
         return count;
 }
 
+dict_t *
+posix_entry_xattr_fill (xlator_t *this, inode_t *inode,
+                        fd_t *fd, char *name, dict_t *dict,
+                        struct iatt *stbuf)
+{
+        loc_t  tmp_loc    = {0,};
+        char  *entry_path = NULL;
+
+        /* if we don't send the 'loc', open-fd-count be a problem. */
+        tmp_loc.inode = inode;
+
+        MAKE_HANDLE_PATH (entry_path, this, fd->inode->gfid, name);
+
+        return posix_lookup_xattr_fill (this, entry_path,
+                                        &tmp_loc, dict, stbuf);
+
+}
 
 int32_t
 posix_do_readdir (call_frame_t *frame, xlator_t *this,
-                  fd_t *fd, size_t size, off_t off, int whichop)
+                  fd_t *fd, size_t size, off_t off, int whichop, dict_t *dict)
 {
         struct posix_fd      *pfd            = NULL;
         DIR                  *dir            = NULL;
@@ -3400,6 +3417,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         gf_dirent_t           entries;
         struct iatt           stbuf          = {0, };
         gf_dirent_t          *tmp_entry      = NULL;
+        inode_table_t        *itable         = NULL;
 #ifdef IGNORE_READDIRP_ATTRS
         uuid_t                gfid;
         ia_type_t             entry_type     = 0;
@@ -3432,33 +3450,47 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
 
         /* pick ENOENT to indicate EOF */
         op_errno = errno;
+        op_ret = count;
 
-        if (whichop == GF_FOP_READDIRP) {
-                list_for_each_entry (tmp_entry, &entries.list, list) {
+        if (whichop != GF_FOP_READDIRP)
+                goto out;
+
+        itable = fd->inode->table;
+
+        list_for_each_entry (tmp_entry, &entries.list, list) {
 #ifdef IGNORE_READDIRP_ATTRS
-                        ret = inode_grep_for_gfid (fd->inode->table, fd->inode,
-                                                   tmp_entry->d_name, gfid,
-                                                   &entry_type);
-                        if (ret == 0) {
-                                memset (&stbuf, 0, sizeof (stbuf));
-                                uuid_copy (stbuf.ia_gfid, gfid);
-                                posix_fill_ino_from_gfid (this, &stbuf);
-                                stbuf.ia_type = entry_type;
-                        } else {
-                                posix_istat (this, fd->inode->gfid,
-                                             tmp_entry->d_name, &stbuf);
-                        }
-#else
+                ret = inode_grep_for_gfid (fd->inode->table, fd->inode,
+                                           tmp_entry->d_name, gfid,
+                                           &entry_type);
+                if (ret == 0) {
+                        memset (&stbuf, 0, sizeof (stbuf));
+                        uuid_copy (stbuf.ia_gfid, gfid);
+                        posix_fill_ino_from_gfid (this, &stbuf);
+                        stbuf.ia_type = entry_type;
+                } else {
                         posix_istat (this, fd->inode->gfid,
                                      tmp_entry->d_name, &stbuf);
-#endif
-                        if (stbuf.ia_ino)
-                                tmp_entry->d_ino = stbuf.ia_ino;
-                        tmp_entry->d_stat = stbuf;
                 }
-        }
+#else
+                posix_istat (this, fd->inode->gfid,
+                             tmp_entry->d_name, &stbuf);
+#endif
+                if (stbuf.ia_ino)
+                        tmp_entry->d_ino = stbuf.ia_ino;
 
-        op_ret = count;
+                if (dict) {
+                        tmp_entry->inode = inode_find (itable, stbuf.ia_gfid);
+                        if (!tmp_entry->inode)
+                                tmp_entry->inode = inode_new (itable);
+
+                        tmp_entry->dict =
+                                posix_entry_xattr_fill (this, tmp_entry->inode,
+                                                        fd, tmp_entry->d_name,
+                                                        dict, &stbuf);
+                }
+
+                tmp_entry->d_stat = stbuf;
+        }
 
 out:
         STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries);
@@ -3473,16 +3505,16 @@ int32_t
 posix_readdir (call_frame_t *frame, xlator_t *this,
                fd_t *fd, size_t size, off_t off)
 {
-        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIR);
+        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIR, NULL);
         return 0;
 }
 
 
 int32_t
 posix_readdirp (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, size_t size, off_t off)
+                fd_t *fd, size_t size, off_t off, dict_t *dict)
 {
-        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIRP);
+        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIRP, dict);
         return 0;
 }
 

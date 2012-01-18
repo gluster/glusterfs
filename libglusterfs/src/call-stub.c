@@ -1810,7 +1810,8 @@ fop_readdirp_stub (call_frame_t *frame,
                    fop_readdirp_t fn,
                    fd_t *fd,
                    size_t size,
-                   off_t off)
+                   off_t off,
+                   dict_t *dict)
 {
         call_stub_t *stub = NULL;
 
@@ -1821,6 +1822,7 @@ fop_readdirp_stub (call_frame_t *frame,
         stub->args.readdirp.fd = fd_ref (fd);
         stub->args.readdirp.size = size;
         stub->args.readdirp.off = off;
+        stub->args.readdirp.dict = dict;
 
 out:
         return stub;
@@ -2438,7 +2440,8 @@ call_resume_wind (call_stub_t *stub)
                                         stub->frame->this,
                                         stub->args.readdirp.fd,
                                         stub->args.readdirp.size,
-                                        stub->args.readdirp.off);
+                                        stub->args.readdirp.off,
+                                        stub->args.readdirp.dict);
                 break;
         }
 

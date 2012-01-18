@@ -1914,12 +1914,12 @@ int
 client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
-        call_frame_t           *frame = NULL;
-        gfs3_readdirp_rsp       rsp   = {0,};
-        int32_t                 ret   = 0;
-        clnt_local_t         *local = NULL;
-        gf_dirent_t             entries;
-        xlator_t         *this       = NULL;
+        call_frame_t      *frame = NULL;
+        gfs3_readdirp_rsp  rsp   = {0,};
+        int32_t            ret   = 0;
+        clnt_local_t      *local = NULL;
+        gf_dirent_t        entries;
+        xlator_t          *this  = NULL;
 
         this = THIS;
 
@@ -1943,7 +1943,7 @@ client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         INIT_LIST_HEAD (&entries.list);
         if (rsp.op_ret > 0) {
-                unserialize_rsp_direntp (&rsp, &entries);
+                unserialize_rsp_direntp (this, local->fd, &rsp, &entries);
         }
 
 out:
@@ -5073,6 +5073,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         struct iovec     *rsphdr            = NULL;
         struct iovec      vector[MAX_IOVEC] = {{0}, };
         clnt_local_t     *local             = NULL;
+        size_t            dict_len          = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -5085,23 +5086,23 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         readdirp_rsp_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_readdirp_rsp, &rsp)
                 + args->size;
 
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_client_mt_clnt_local_t);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+        frame->local = local;
+
         if ((readdirp_rsp_size + GLUSTERFS_RPC_REPLY_SIZE
              + GLUSTERFS_RDMA_MAX_HEADER_SIZE)
             > (GLUSTERFS_RDMA_INLINE_THRESHOLD)) {
-                local = GF_CALLOC (1, sizeof (*local),
-                                   gf_client_mt_clnt_local_t);
-                if (!local) {
-                        op_errno = ENOMEM;
-                        goto unwind;
-                }
-                frame->local = local;
-
                 rsp_iobref = iobref_new ();
                 if (rsp_iobref == NULL) {
                         goto unwind;
                 }
 
-                        /* TODO: what is the size we should send ? */
+                /* TODO: what is the size we should send ? */
                 rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
                 if (rsp_iobuf == NULL) {
                         goto unwind;
@@ -5111,18 +5112,32 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
                 iobuf_unref (rsp_iobuf);
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
-                rsphdr->iov_len
-                        = iobuf_pagesize (rsp_iobuf);
+                rsphdr->iov_len  = iobuf_pagesize (rsp_iobuf);
                 count = 1;
                 rsp_iobuf = NULL;
                 local->iobref = rsp_iobref;
                 rsp_iobref = NULL;
         }
 
+        local->fd = fd_ref (args->fd);
+
         req.size = args->size;
         req.offset = args->offset;
         req.fd = remote_fd;
         memcpy (req.gfid, args->fd->inode->gfid, 16);
+
+        if (args->dict) {
+                ret = dict_allocate_and_serialize (args->dict,
+                                                   &req.dict.dict_val,
+                                                   &dict_len);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to get serialized dict");
+                        op_errno = EINVAL;
+                        goto unwind;
+                }
+                req.dict.dict_len = dict_len;
+        }
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_READDIRP,

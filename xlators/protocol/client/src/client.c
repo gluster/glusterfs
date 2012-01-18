@@ -1671,7 +1671,7 @@ out:
 
 int32_t
 client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 size_t size, off_t off)
+                 size_t size, off_t off, dict_t *dict)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1685,6 +1685,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.fd = fd;
         args.size = size;
         args.offset = off;
+        args.xattr_req = dict;
 
         proc = &conf->fops->proctable[GF_FOP_READDIRP];
         if (!proc) {

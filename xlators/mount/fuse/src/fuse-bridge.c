@@ -2385,6 +2385,9 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         send_fuse_data (this, finh, buf, size);
 
+        /* TODO: */
+        /* gf_link_inodes_from_dirent (this, state->fd->inode, entries); */
+
 out:
         free_fuse_state (state);
         STACK_DESTROY (frame->root);

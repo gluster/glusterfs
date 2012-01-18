@@ -610,7 +610,7 @@ nfs_fop_readdirp (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *dirfd,
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
         STACK_WIND_COOKIE (frame, nfs_fop_readdirp_cbk, xl, xl,
-                           xl->fops->readdirp, dirfd, bufsize, offset);
+                           xl->fops->readdirp, dirfd, bufsize, offset, 0);
 
         ret = 0;
 err:

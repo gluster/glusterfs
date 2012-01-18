@@ -184,7 +184,8 @@ int protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx);
 int protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx);
 
 int unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries);
-int unserialize_rsp_direntp (struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries);
+int unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
+                             struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries);
 
 int clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
 int clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);

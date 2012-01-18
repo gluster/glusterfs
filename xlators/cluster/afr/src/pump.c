@@ -362,7 +362,7 @@ gf_pump_traverse_directory (loc_t *loc)
                 "pump opendir on %s returned=%d",
                 loc->path, ret);
 
-        while (syncop_readdirp (this, fd, 131072, offset, &entries)) {
+        while (syncop_readdirp (this, fd, 131072, offset, NULL, &entries)) {
                 free_entries = _gf_true;
 
                 if (list_empty (&entries.list)) {
@@ -2195,11 +2195,8 @@ pump_readdir (call_frame_t *frame,
 
 
 static int32_t
-pump_readdirp (call_frame_t *frame,
-               xlator_t *this,
-               fd_t *fd,
-               size_t size,
-               off_t off)
+pump_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
+               size_t size, off_t off, dict_t *dict)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2208,10 +2205,10 @@ pump_readdirp (call_frame_t *frame,
                             default_readdirp_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readdirp,
-                            fd, size, off);
+                            fd, size, off, dict);
                 return 0;
         }
-        afr_readdirp (frame, this, fd, size, off);
+        afr_readdirp (frame, this, fd, size, off, dict);
         return 0;
 
 }

@@ -1327,10 +1327,39 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
                 trav->d_off  = entry->d_off;
                 trav->d_len  = entry->d_len;
                 trav->d_type = entry->d_type;
-                //trav->name   = memdup (entry->d_name, entry->d_len + 1);
                 trav->name   = entry->d_name;
 
                 gf_stat_from_iatt (&trav->stat, &entry->d_stat);
+
+                /* if 'dict' is present, pack it */
+                if (entry->dict) {
+                        trav->dict.dict_len = dict_serialized_length (entry->dict);
+                        if (trav->dict.dict_len < 0) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "failed to get serialized length "
+                                        "of reply dict");
+                                errno = EINVAL;
+                                trav->dict.dict_len = 0;
+                                goto out;
+                        }
+
+                        trav->dict.dict_val = GF_CALLOC (1, trav->dict.dict_len,
+                                                         gf_server_mt_rsp_buf_t);
+                        if (!trav->dict.dict_val) {
+                                errno = ENOMEM;
+                                trav->dict.dict_len = 0;
+                                goto out;
+                        }
+
+                        ret = dict_serialize (entry->dict, trav->dict.dict_val);
+                        if (ret < 0) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "failed to serialize reply dict");
+                                errno = -ret;
+                                trav->dict.dict_len = 0;
+                                goto out;
+                        }
+                }
 
                 if (prev)
                         prev->nextentry = trav;

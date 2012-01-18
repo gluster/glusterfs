@@ -154,7 +154,7 @@ struct _server_state {
 
         fd_t             *fd;
         dict_t           *params;
-        int               flags;
+        int32_t           flags;
         int               wbflags;
         struct iovec      payload_vector[MAX_IOVEC];
         int               payload_count;

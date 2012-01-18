@@ -419,6 +419,7 @@ struct   gfs3_finodelk_req {
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
+        opaque dict<>;
 }  ;
 
 
@@ -605,6 +606,7 @@ struct gfs3_dirplist {
        unsigned int d_type;
        string name<>;
        struct gf_iatt stat;
+       opaque dict<>;
        struct gfs3_dirplist *nextentry;
 };
 

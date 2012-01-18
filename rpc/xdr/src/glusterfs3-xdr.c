@@ -1137,6 +1137,8 @@ xdr_gfs3_readdirp_req (XDR *xdrs, gfs3_readdirp_req *objp)
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->size))
 		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -1666,6 +1668,8 @@ xdr_gfs3_dirplist (XDR *xdrs, gfs3_dirplist *objp)
 	 if (!xdr_string (xdrs, &objp->name, ~0))
 		 return FALSE;
 	 if (!xdr_gf_iatt (xdrs, &objp->stat))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
 		 return FALSE;
 	 if (!xdr_pointer (xdrs, (char **)&objp->nextentry, sizeof (gfs3_dirplist), (xdrproc_t) xdr_gfs3_dirplist))
 		 return FALSE;

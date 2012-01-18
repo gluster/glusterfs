@@ -165,6 +165,7 @@ int syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
                    struct iatt *iatt, dict_t **xattr_rsp, struct iatt *parent);
 
 int syncop_readdirp (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
+                     dict_t *dict,
                      /* out */
                      gf_dirent_t *entries);
 

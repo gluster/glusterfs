@@ -3563,6 +3563,7 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stripe_local_t *local = NULL;
         struct iovec   *final_vec = NULL;
         struct iatt     tmp_stbuf = {0,};
+        struct iatt    *tmp_stbuf_p = NULL; //need it for a warning
         struct iobref  *tmp_iobref = NULL;
         stripe_fd_ctx_t  *fctx = NULL;
 
@@ -3660,7 +3661,8 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 GF_FREE (mlocal->replies);
                 tmp_iobref = mlocal->iobref;
                 /* work around for nfs truncated read. Bug 3774 */
-                WIPE (&tmp_stbuf);
+                tmp_stbuf_p = &tmp_stbuf;
+                WIPE (tmp_stbuf_p);
                 STRIPE_STACK_UNWIND (readv, mframe, op_ret, op_errno, final_vec,
                                      final_count, &tmp_stbuf, tmp_iobref);
 
@@ -4348,7 +4350,7 @@ out:
 }
 int32_t
 stripe_readdirp (call_frame_t *frame, xlator_t *this,
-                 fd_t *fd, size_t size, off_t off)
+                 fd_t *fd, size_t size, off_t off, dict_t *dict)
 {
         stripe_local_t  *local  = NULL;
         stripe_private_t *priv = NULL;
@@ -4390,7 +4392,7 @@ stripe_readdirp (call_frame_t *frame, xlator_t *this,
                 goto err;
 
         STACK_WIND (frame, stripe_readdirp_cbk, trav->xlator,
-                    trav->xlator->fops->readdirp, fd, size, off);
+                    trav->xlator->fops->readdirp, fd, size, off, dict);
         return 0;
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;

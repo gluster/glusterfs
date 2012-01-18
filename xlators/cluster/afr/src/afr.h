@@ -495,7 +495,7 @@ typedef struct _afr_local {
                         int32_t op_errno;
                         size_t size;
                         off_t offset;
-
+                        dict_t *dict;
                         gf_boolean_t failed;
                         int last_index;
                 } readdir;

@@ -957,6 +957,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                 if (local->cont.opendir.checksum)
                         GF_FREE (local->cont.opendir.checksum);
         }
+
+        { /* readdirp */
+                if (local->cont.readdir.dict)
+                        dict_unref (local->cont.readdir.dict);
+        }
 }
 
 

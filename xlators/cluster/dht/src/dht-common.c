@@ -2616,7 +2616,8 @@ done:
 
                 STACK_WIND (frame, dht_readdirp_cbk,
                             next_subvol, next_subvol->fops->readdirp,
-                            local->fd, local->size, next_offset);
+                            local->fd, local->size, next_offset,
+                            local->xattr_req);
                 return 0;
         }
 
@@ -2730,7 +2731,7 @@ unwind:
 
 int
 dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-                off_t yoff, int whichop)
+                off_t yoff, int whichop, dict_t *dict)
 {
         dht_local_t  *local  = NULL;
         int           op_errno = -1;
@@ -2750,6 +2751,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         local->fd = fd_ref (fd);
         local->size = size;
+        local->xattr_req = (dict)? dict_ref (dict) : NULL;
 
         dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
 
@@ -2759,7 +2761,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                             fd, size, xoff);
         else
                 STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
-                            fd, size, xoff);
+                            fd, size, xoff, dict);
 
         return 0;
 
@@ -2794,15 +2796,15 @@ dht_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 op = GF_FOP_READDIRP;
 
 out:
-        dht_do_readdir (frame, this, fd, size, yoff, op);
+        dht_do_readdir (frame, this, fd, size, yoff, op, 0);
         return 0;
 }
 
 int
 dht_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-              off_t yoff)
+              off_t yoff, dict_t *dict)
 {
-        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIRP);
+        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIRP, dict);
         return 0;
 }
 
@@ -3988,7 +3990,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         STACK_WIND (frame, dht_rmdir_readdirp_cbk,
                     prev->this, prev->this->fops->readdirp,
-                    local->fd, 4096, 0);
+                    local->fd, 4096, 0, NULL);
 
         return 0;
 

@@ -661,7 +661,8 @@ quiesce_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && (op_errno == ENOTCONN)) {
                 /* Re-transmit (by putting in the queue) */
                 stub = fop_readdirp_stub (frame, default_readdirp_resume,
-                                          local->fd, local->size, local->offset);
+                                          local->fd, local->size, local->offset,
+                                          local->dict);
                 if (!stub) {
                         STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM,
                                              NULL);
@@ -2257,7 +2258,7 @@ quiesce_readdirp (call_frame_t *frame,
 		  xlator_t *this,
 		  fd_t *fd,
 		  size_t size,
-		  off_t off)
+		  off_t off, dict_t *dict)
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
@@ -2270,17 +2271,19 @@ quiesce_readdirp (call_frame_t *frame,
                 local->fd = fd_ref (fd);
                 local->size = size;
                 local->offset = off;
+                local->dict = dict_ref (dict);
                 frame->local = local;
 
                 STACK_WIND (frame,
                             quiesce_readdirp_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readdirp,
-                            fd, size, off);
+                            fd, size, off, dict);
 	        return 0;
         }
 
-        stub = fop_readdirp_stub (frame, default_readdirp_resume, fd, size, off);
+        stub = fop_readdirp_stub (frame, default_readdirp_resume, fd, size,
+                                  off, dict);
         if (!stub) {
                 STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM, NULL);
                 return 0;
