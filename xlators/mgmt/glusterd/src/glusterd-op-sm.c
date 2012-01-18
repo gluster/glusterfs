@@ -2922,6 +2922,7 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_op_t               op = GD_OP_NONE;
         dict_t                      *op_ctx = NULL;
         glusterd_req_ctx_t          *req_ctx = NULL;
+        void                        *pending_entry = NULL;
 
         GF_ASSERT (event);
         GF_ASSERT (ctx);
@@ -2932,9 +2933,10 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 
         op = req_ctx->op;
         op_ctx = glusterd_op_get_ctx ();
+        pending_entry = ev_ctx->pending_node->node;
 
         ret = glusterd_remove_pending_entry (&opinfo.pending_bricks,
-                                             ev_ctx->pending_node->node);
+                                             pending_entry);
         if (ret) {
                 gf_log ("glusterd", GF_LOG_ERROR, "unknown response received ");
                 ret = -1;
@@ -2944,8 +2946,9 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.brick_pending_count > 0)
                 opinfo.brick_pending_count--;
 
-        glusterd_handle_brick_rsp (ev_ctx->pending_node->node, op, ev_ctx->rsp_dict,
-                                           op_ctx, &op_errstr);
+        glusterd_handle_brick_rsp (pending_entry, op, ev_ctx->rsp_dict,
+                                   op_ctx, &op_errstr);
+
         if (opinfo.brick_pending_count > 0)
                 goto out;
 
