@@ -25,6 +25,7 @@
 #include "common-utils.h"
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
+#include "glusterfs.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
@@ -1083,7 +1084,7 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
 
 
         ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_START_CMD,
+                                     dst_brickinfo, RB_PUMP_CMD_START,
                                      start_value);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
@@ -1128,7 +1129,7 @@ rb_do_operation_pause (glusterd_volinfo_t *volinfo,
 		"mounted the replace brick client");
 
         ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_PAUSE_CMD,
+                                     dst_brickinfo, RB_PUMP_CMD_PAUSE,
                                      "jargon");
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
@@ -1201,7 +1202,7 @@ rb_do_operation_commit (glusterd_volinfo_t *volinfo,
 		"mounted the replace brick client");
 
         cmd_ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_COMMIT_CMD,
+                                     dst_brickinfo, RB_PUMP_CMD_COMMIT,
                                      "jargon");
         if (cmd_ret) {
                 gf_log ("", GF_LOG_DEBUG,
@@ -1247,7 +1248,7 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
 		"mounted the replace brick client");
 
         ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                     dst_brickinfo, RB_PUMP_ABORT_CMD,
+                                     dst_brickinfo, RB_PUMP_CMD_ABORT,
                                      "jargon");
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
@@ -1353,7 +1354,7 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
 			"mounted the replace brick client");
 
                 ret = rb_get_xattr_command (volinfo, src_brickinfo,
-                                            dst_brickinfo, RB_PUMP_STATUS_CMD,
+                                            dst_brickinfo, RB_PUMP_CMD_STATUS,
                                             status);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
