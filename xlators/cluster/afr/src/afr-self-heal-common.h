@@ -21,6 +21,7 @@
 #define __AFR_SELF_HEAL_COMMON_H__
 
 #define FILE_HAS_HOLES(buf) (((buf)->ia_size) > ((buf)->ia_blocks * 512))
+#define AFR_SH_MIN_PARTICIPANTS 2
 
 typedef enum {
         AFR_SELF_HEAL_ENTRY,
