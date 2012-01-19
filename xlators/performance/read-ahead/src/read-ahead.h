@@ -76,7 +76,8 @@ struct ra_page {
         struct ra_page   *next;
         struct ra_page   *prev;
         struct ra_file   *file;
-        char              dirty;
+        char              dirty;    /* Internal request, not from user. */
+        char              poisoned; /* Pending read invalidated by write. */
         char              ready;
         struct iovec     *vector;
         int32_t           count;
