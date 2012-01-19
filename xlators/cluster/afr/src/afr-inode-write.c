@@ -369,7 +369,7 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
         fd_ctx = afr_fd_ctx_get (local->fd, this);
         if (!fd_ctx) {
                 ret = -EINVAL;
-                goto unlock;
+                goto out;
         }
 
         LOCK (&local->fd->lock);
