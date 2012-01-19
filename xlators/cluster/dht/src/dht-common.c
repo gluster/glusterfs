@@ -34,6 +34,7 @@
 
 #include <sys/time.h>
 #include <libgen.h>
+#include <signal.h>
 
 
 void
@@ -5272,7 +5273,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 if (conf->assert_no_child_down) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Received CHILD_DOWN. Exiting");
-                        exit(0);
+                        kill (getpid(), SIGTERM);
                 }
 
                 for (i = 0; i < conf->subvolume_cnt; i++) {
