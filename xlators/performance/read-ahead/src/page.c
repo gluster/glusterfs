@@ -175,18 +175,35 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret >= 0)
                         file->stbuf = *stbuf;
 
-                if (op_ret < 0) {
-                        page = ra_page_get (file, pending_offset);
-                        if (page)
-                                waitq = ra_page_error (page, op_ret, op_errno);
-                        goto unlock;
-                }
-
                 page = ra_page_get (file, pending_offset);
+
                 if (!page) {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "wasted copy: %"PRId64"[+%"PRId64"] file=%p",
                                 pending_offset, file->page_size, file);
+                        goto unlock;
+                }
+
+                /*
+                 * "Dirty" means that the request was a pure read-ahead; it's
+                 * set for requests we issue ourselves, and cleared when user
+                 * requests are issued or put on the waitq.  "Poisoned" means
+                 * that we got a write while a read was still in flight, and we
+                 * couldn't stop it so we marked it instead.  If it's both
+                 * dirty and poisoned by the time we get here, we cancel its
+                 * effect so that a subsequent user read doesn't get data that
+                 * we know is stale (because we made it stale ourselves).  We
+                 * can't use ESTALE because that has special significance.
+                 * ECANCELED has no such special meaning, and is close to what
+                 * we're trying to indicate.
+                 */
+                if (page->dirty && page->poisoned) {
+                        op_ret = -1;
+                        op_errno = ECANCELED;
+                }
+
+                if (op_ret < 0) {
+                        waitq = ra_page_error (page, op_ret, op_errno);
                         goto unlock;
                 }
 

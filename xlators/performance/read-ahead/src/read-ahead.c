@@ -231,7 +231,8 @@ ra_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 */
 
 static void
-flush_region (call_frame_t *frame, ra_file_t *file, off_t offset, off_t size)
+flush_region (call_frame_t *frame, ra_file_t *file, off_t offset, off_t size,
+              int for_write)
 {
         ra_page_t *trav = NULL;
         ra_page_t *next = NULL;
@@ -243,8 +244,13 @@ flush_region (call_frame_t *frame, ra_file_t *file, off_t offset, off_t size)
                        && trav->offset < (offset + size)) {
 
                         next = trav->next;
-                        if (trav->offset >= offset && !trav->waitq) {
-                                ra_page_purge (trav);
+                        if (trav->offset >= offset) {
+                                if (!trav->waitq) {
+                                        ra_page_purge (trav);
+                                }
+                                else if (for_write) {
+                                        trav->poisoned = 1;
+                                }
                         }
                         trav = next;
                 }
@@ -392,15 +398,15 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
                         trav = ra_page_get (file, trav_offset);
                         if (!trav) {
                                 trav = ra_page_create (file, trav_offset);
+                                if (!trav) {
+                                        local->op_ret = -1;
+                                        local->op_errno = ENOMEM;
+                                        goto unlock;
+                                }
                                 fault = 1;
                                 need_atime_update = 0;
                         }
-
-                        if (!trav) {
-                                local->op_ret = -1;
-                                local->op_errno = ENOMEM;
-                                goto unlock;
-                        }
+                        trav->dirty = 0;
 
                         if (trav->ready) {
                                 gf_log (frame->this->name, GF_LOG_TRACE,
@@ -513,7 +519,7 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
         if (!expected_offset) {
-                flush_region (frame, file, 0, file->pages.prev->offset + 1);
+                flush_region (frame, file, 0, file->pages.prev->offset + 1, 0);
         }
 
         local = (void *) GF_CALLOC (1, sizeof (*local), gf_ra_mt_ra_local_t);
@@ -536,7 +542,7 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         dispatch_requests (frame, file);
 
-        flush_region (frame, file, 0, floor (offset, file->page_size));
+        flush_region (frame, file, 0, floor (offset, file->page_size), 0);
 
         read_ahead (frame, file);
 
@@ -596,7 +602,7 @@ ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         file = (ra_file_t *)(long)tmp_file;
         if (file) {
-                flush_region (frame, file, 0, file->pages.prev->offset+1);
+                flush_region (frame, file, 0, file->pages.prev->offset+1, 0);
         }
 
         STACK_WIND (frame, ra_flush_cbk, FIRST_CHILD (this),
@@ -624,7 +630,7 @@ ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 
         file = (ra_file_t *)(long)tmp_file;
         if (file) {
-                flush_region (frame, file, 0, file->pages.prev->offset+1);
+                flush_region (frame, file, 0, file->pages.prev->offset+1, 0);
         }
 
         STACK_WIND (frame, ra_fsync_cbk, FIRST_CHILD (this),
@@ -649,7 +655,7 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         file = frame->local;
 
         if (file) {
-                flush_region (frame, file, 0, file->pages.prev->offset+1);
+                flush_region (frame, file, 0, file->pages.prev->offset+1, 1);
         }
 
         frame->local = NULL;
@@ -673,7 +679,7 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         fd_ctx_get (fd, this, &tmp_file);
         file = (ra_file_t *)(long)tmp_file;
         if (file) {
-                flush_region (frame, file, 0, file->pages.prev->offset+1);
+                flush_region (frame, file, 0, file->pages.prev->offset+1, 1);
                 frame->local = file;
                 /* reset the read-ahead counters too */
                 file->expected = file->page_count = 0;
@@ -739,8 +745,16 @@ ra_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
                         if (!file)
                                 continue;
+                        /*
+                         * Truncation invalidates reads just like writing does.
+                         * TBD: this seems to flush more than it should.  The
+                         * only time we should flush at all is when we're
+                         * shortening (not lengthening) the file, and then only
+                         * from new EOF to old EOF.  The same problem exists in
+                         * ra_ftruncate.
+                         */
                         flush_region (frame, file, 0,
-                                      file->pages.prev->offset + 1);
+                                      file->pages.prev->offset + 1, 1);
                 }
         }
         UNLOCK (&inode->lock);
@@ -774,6 +788,8 @@ ra_page_dump (struct ra_page *page)
         gf_proc_dump_write ("size", "%"PRId64, page->size);
 
         gf_proc_dump_write ("dirty", "%s", page->dirty ? "yes" : "no");
+
+        gf_proc_dump_write ("poisoned", "%s", page->poisoned ? "yes" : "no");
 
         gf_proc_dump_write ("ready", "%s", page->ready ? "yes" : "no");
 
@@ -870,7 +886,7 @@ ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         if (!file)
                                 continue;
                         flush_region (frame, file, 0,
-                                      file->pages.prev->offset + 1);
+                                      file->pages.prev->offset + 1, 0);
                 }
         }
         UNLOCK (&inode->lock);
@@ -907,8 +923,16 @@ ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                         file = (ra_file_t *)(long)tmp_file;
                         if (!file)
                                 continue;
+                        /*
+                         * Truncation invalidates reads just like writing does.
+                         * TBD: this seems to flush more than it should.  The
+                         * only time we should flush at all is when we're
+                         * shortening (not lengthening) the file, and then only
+                         * from new EOF to old EOF.  The same problem exists in
+                         * ra_truncate.
+                         */
                         flush_region (frame, file, 0,
-                                      file->pages.prev->offset + 1);
+                                      file->pages.prev->offset + 1, 1);
                 }
         }
         UNLOCK (&inode->lock);
