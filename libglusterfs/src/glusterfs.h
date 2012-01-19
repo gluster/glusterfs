@@ -93,6 +93,13 @@
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 
+/* replace-brick and pump related internal xattrs */
+#define RB_PUMP_CMD_START       "glusterfs.pump.start"
+#define RB_PUMP_CMD_PAUSE       "glusterfs.pump.pause"
+#define RB_PUMP_CMD_COMMIT      "glusterfs.pump.commit"
+#define RB_PUMP_CMD_ABORT       "glusterfs.pump.abort"
+#define RB_PUMP_CMD_STATUS      "glusterfs.pump.status"
+
 #define GLUSTERFS_RDMA_INLINE_THRESHOLD       (2048)
 #define GLUSTERFS_RDMA_MAX_HEADER_SIZE        (228) /* (sizeof (rdma_header_t)                 \
                                                        + RDMA_MAX_SEGMENTS \

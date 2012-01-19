@@ -26,12 +26,6 @@
 #define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
 
-#define PUMP_CMD_START  "trusted.glusterfs.pump.start"
-#define PUMP_CMD_COMMIT "trusted.glusterfs.pump.commit"
-#define PUMP_CMD_ABORT  "trusted.glusterfs.pump.abort"
-#define PUMP_CMD_PAUSE  "trusted.glusterfs.pump.pause"
-#define PUMP_CMD_STATUS "trusted.glusterfs.pump.status"
-
 #define PUMP_SOURCE_COMPLETE "trusted.glusterfs.pump-source-complete"
 #define PUMP_SINK_COMPLETE "trusted.glusterfs.pump-sink-complete"
 

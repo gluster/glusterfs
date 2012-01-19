@@ -29,6 +29,7 @@
 
 #include "afr-common.c"
 #include "defaults.c"
+#include "glusterfs.h"
 
 static uint64_t pump_pid = 0;
 static int
@@ -796,7 +797,7 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 
         afr_build_root_loc (priv->root_inode, &loc);
 
-        data = data_ref (dict_get (local->dict, PUMP_CMD_START));
+        data = data_ref (dict_get (local->dict, RB_PUMP_CMD_START));
         if (!data) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -972,7 +973,7 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 
         dict = dict_new ();
 
-        ret = dict_set_dynstr (dict, PUMP_CMD_STATUS, dict_str);
+        ret = dict_set_dynstr (dict, RB_PUMP_CMD_STATUS, dict_str);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "dict_set_dynstr returned negative value");
@@ -1151,7 +1152,7 @@ pump_command_status (xlator_t *this, dict_t *dict)
         int dict_ret = -1;
         int ret = _gf_true;
 
-        dict_ret = dict_get_str (dict, PUMP_CMD_STATUS, &cmd);
+        dict_ret = dict_get_str (dict, RB_PUMP_CMD_STATUS, &cmd);
         if (dict_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Not a pump status command");
@@ -1175,7 +1176,7 @@ pump_command_pause (xlator_t *this, dict_t *dict)
         int dict_ret = -1;
         int ret = _gf_true;
 
-        dict_ret = dict_get_str (dict, PUMP_CMD_PAUSE, &cmd);
+        dict_ret = dict_get_str (dict, RB_PUMP_CMD_PAUSE, &cmd);
         if (dict_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Not a pump pause command");
@@ -1199,7 +1200,7 @@ pump_command_commit (xlator_t *this, dict_t *dict)
         int dict_ret = -1;
         int ret = _gf_true;
 
-        dict_ret = dict_get_str (dict, PUMP_CMD_COMMIT, &cmd);
+        dict_ret = dict_get_str (dict, RB_PUMP_CMD_COMMIT, &cmd);
         if (dict_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Not a pump commit command");
@@ -1223,7 +1224,7 @@ pump_command_abort (xlator_t *this, dict_t *dict)
         int dict_ret = -1;
         int ret = _gf_true;
 
-        dict_ret = dict_get_str (dict, PUMP_CMD_ABORT, &cmd);
+        dict_ret = dict_get_str (dict, RB_PUMP_CMD_ABORT, &cmd);
         if (dict_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Not a pump abort command");
@@ -1247,7 +1248,7 @@ pump_command_start (xlator_t *this, dict_t *dict)
         int dict_ret = -1;
         int ret = _gf_true;
 
-        dict_ret = dict_get_str (dict, PUMP_CMD_START, &cmd);
+        dict_ret = dict_get_str (dict, RB_PUMP_CMD_START, &cmd);
         if (dict_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Not a pump start command");
@@ -1409,7 +1410,7 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                if (!strcmp (name, PUMP_CMD_STATUS)) {
+                if (!strcmp (name, RB_PUMP_CMD_STATUS)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Hit pump command - status");
                         pump_execute_status (frame, this);
