@@ -871,7 +871,7 @@ struct volume_options options[] = {
 
         },
         { .key  = {"nfs3.*.export-dir"},
-          .type = GF_OPTION_TYPE_STR,
+          .type = GF_OPTION_TYPE_PATH,
           .description = "By default, all subvolumes of nfs are exported as "
                          "individual exports. There are cases where a "
                          "subdirectory or subdirectories in the volume need to "
