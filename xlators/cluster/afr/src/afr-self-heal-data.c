@@ -594,15 +594,9 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        afr_build_pending_matrix (priv->pending_key, sh->pending_matrix,
-                                  sh->xattr, AFR_DATA_TRANSACTION,
-                                  priv->child_count);
-
-        afr_sh_print_pending_matrix (sh->pending_matrix, this);
-
-        nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
-                                     priv->child_count, AFR_SELF_HEAL_DATA,
-                                     sh->child_success, this->name, NULL);
+         nsources = afr_build_sources (this, sh->xattr, sh->buf, sh->pending_matrix,
+                                       sh->sources, sh->child_success,
+                                       AFR_DATA_TRANSACTION, NULL, _gf_false);
 
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -711,7 +705,7 @@ static int
 afr_select_read_child_from_policy (int32_t *sources, int32_t child_count,
                                    int32_t prev_read_child,
                                    int32_t config_read_child,
-                                   int32_t *valid_children)
+                                   int32_t *success_children)
 {
         int32_t                  read_child = -1;
         int                      i          = 0;
@@ -729,7 +723,7 @@ afr_select_read_child_from_policy (int32_t *sources, int32_t child_count,
                 goto out;
 
         for (i = 0; i < child_count; i++) {
-                read_child = valid_children[i];
+                read_child = success_children[i];
                 if (read_child < 0)
                         break;
                 if (_gf_true == afr_is_fresh_read_child (sources, child_count,
@@ -796,17 +790,17 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         int                      ret        = -1;
         int32_t                  **pending_matrix = NULL;
         int32_t                  *sources         = NULL;
-        int32_t                  *valid_children  = NULL;
+        int32_t                  *success_children  = NULL;
         struct iatt              *bufs            = NULL;
         int32_t                  nsources         = 0;
         int32_t                  prev_read_child  = -1;
         int32_t                  config_read_child = -1;
+        int32_t                  subvol_status = 0;
         afr_self_heal_t          *sh = NULL;
-        afr_self_heal_type       sh_type = AFR_SELF_HEAL_INVALID;
 
         priv = this->private;
         bufs = local->cont.lookup.bufs;
-        valid_children = local->cont.lookup.child_success;
+        success_children = local->cont.lookup.child_success;
         sh = &local->self_heal;
 
         pending_matrix = afr_create_pending_matrix (priv->child_count);
@@ -815,16 +809,12 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
 
         sources = local->cont.lookup.sources;
         memset (sources, 0, sizeof (*sources) * priv->child_count);
-        afr_build_pending_matrix (priv->pending_key, pending_matrix,
-                                  xattr, txn_type, priv->child_count);
-
-        sh_type = afr_self_heal_type_for_transaction (txn_type);
-        if (AFR_SELF_HEAL_INVALID == sh_type)
-                goto out;
-
-        nsources = afr_mark_sources (sources, pending_matrix, bufs,
-                                     priv->child_count, sh_type,
-                                     valid_children, this->name, NULL);
+        nsources = afr_build_sources (this, xattr, bufs, pending_matrix,
+                                      sources, success_children, txn_type,
+                                      &subvol_status, _gf_false);
+        if (subvol_status & SPLIT_BRAIN)
+                gf_log (this->name, GF_LOG_WARNING, "%s: Possible split-brain",
+                        local->loc.path);
         if (nsources < 0) {
                 ret = -1;
                 goto out;
@@ -836,7 +826,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                                         priv->child_count,
                                                         prev_read_child,
                                                         config_read_child,
-                                                        valid_children);
+                                                        success_children);
         ret = 0;
 out:
         afr_destroy_pending_matrix (pending_matrix, priv->child_count);

@@ -221,6 +221,10 @@ typedef struct {
         call_frame_t *sh_frame;
 } afr_self_heal_t;
 
+typedef enum {
+        SPLIT_BRAIN = 1,
+        ALL_FOOLS = 2
+} afr_subvol_status_t;
 
 typedef enum {
         AFR_DATA_TRANSACTION,          /* truncate, write, ... */

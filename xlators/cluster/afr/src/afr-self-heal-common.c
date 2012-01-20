@@ -157,6 +157,7 @@ afr_mark_ignorant_subvols_as_pending (int32_t **pending_matrix,
 
 int
 afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
+                          unsigned char *ignorant_subvols,
                           dict_t *xattr[], afr_transaction_type type,
                           size_t child_count)
 {
@@ -167,12 +168,6 @@ afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
         int            i                = 0;
         int            j                = 0;
         int            k                = 0;
-        unsigned char *ignorant_subvols = NULL;
-
-        ignorant_subvols = GF_CALLOC (sizeof (*ignorant_subvols), child_count,
-                                      gf_afr_mt_char);
-        if (NULL == ignorant_subvols)
-                goto out;
 
         afr_init_pending_matrix (pending_matrix, child_count);
 
@@ -190,7 +185,8 @@ afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
                                  * subvolume.
                                  */
 
-                                ignorant_subvols[i] = 1;
+                                if (ignorant_subvols)
+                                        ignorant_subvols[i] = 1;
                                 continue;
                         }
 
@@ -201,19 +197,14 @@ afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
                 }
         }
 
-        afr_mark_ignorant_subvols_as_pending (pending_matrix,
-                                              ignorant_subvols,
-                                              child_count);
-        GF_FREE (ignorant_subvols);
-out:
         return ret;
 }
 
 typedef enum {
+        AFR_NODE_INVALID,
         AFR_NODE_INNOCENT,
         AFR_NODE_FOOL,
         AFR_NODE_WISE,
-        AFR_NODE_INVALID = -1,
 } afr_node_type;
 
 typedef struct {
@@ -467,23 +458,18 @@ out:
 
 int
 afr_mark_child_as_source_by_uid (int32_t *sources, struct iatt *bufs,
-                                 int32_t *valid_children, int child_count,
-                                 uint32_t uid)
+                                 int32_t *success_children,
+                                 unsigned int child_count, uint32_t uid)
 {
         int     i        = 0;
         int     nsources = 0;
         int     child    = 0;
 
-        GF_ASSERT (bufs);
-        GF_ASSERT (valid_children);
-        GF_ASSERT (sources);
-        GF_ASSERT (child_count > 0);
-
         for (i = 0; i < child_count; i++) {
-                if (-1 == valid_children[i])
-                        continue;
+                if (-1 == success_children[i])
+                        break;
 
-                child = valid_children[i];
+                child = success_children[i];
                 if (uid == bufs[child].ia_uid) {
                         sources[child] = 1;
                         nsources++;
@@ -493,21 +479,17 @@ afr_mark_child_as_source_by_uid (int32_t *sources, struct iatt *bufs,
 }
 
 int
-afr_get_child_with_lowest_uid (struct iatt *bufs, int32_t *valid_children,
-                               int child_count)
+afr_get_child_with_lowest_uid (struct iatt *bufs, int32_t *success_children,
+                               unsigned int child_count)
 {
         int     i        = 0;
         int     smallest = -1;
         int     child    = 0;
 
-        GF_ASSERT (bufs);
-        GF_ASSERT (valid_children);
-        GF_ASSERT (child_count > 0);
-
         for (i = 0; i < child_count; i++) {
-                if (-1 == valid_children[i])
-                        continue;
-                child = valid_children[i];
+                if (-1 == success_children[i])
+                        break;
+                child = success_children[i];
                 if ((smallest == -1) ||
                     (bufs[child].ia_uid < bufs[smallest].ia_uid)) {
                         smallest = child;
@@ -517,20 +499,20 @@ afr_get_child_with_lowest_uid (struct iatt *bufs, int32_t *valid_children,
 }
 
 static int
-afr_sh_mark_lowest_uid_as_source (struct iatt *bufs, int32_t *valid_children,
+afr_sh_mark_lowest_uid_as_source (struct iatt *bufs, int32_t *success_children,
                                   int child_count, int32_t *sources)
 {
         int   nsources              = 0;
         int   smallest              = 0;
 
-        smallest = afr_get_child_with_lowest_uid (bufs, valid_children,
+        smallest = afr_get_child_with_lowest_uid (bufs, success_children,
                                                   child_count);
         if (smallest < 0) {
                 nsources = -1;
                 goto out;
         }
         nsources = afr_mark_child_as_source_by_uid (sources, bufs,
-                                                    valid_children, child_count,
+                                                    success_children, child_count,
                                                     bufs[smallest].ia_uid);
 out:
         return nsources;
@@ -560,7 +542,7 @@ afr_get_character_str (afr_node_type type)
 
 afr_node_type
 afr_find_child_character_type (int32_t *pending_row, int32_t child,
-                               int32_t child_count, const char *xlator_name)
+                               unsigned int child_count)
 {
         afr_node_type type = AFR_NODE_INVALID;
 
@@ -574,11 +556,6 @@ afr_find_child_character_type (int32_t *pending_row, int32_t child,
                 type = AFR_NODE_FOOL;
         else if (afr_sh_is_wise (pending_row, child, child_count))
                 type = AFR_NODE_WISE;
-        else
-                GF_ASSERT (0);
-
-        gf_log (xlator_name, GF_LOG_DEBUG, "child %d character %s",
-                child, afr_get_character_str (type));
         return type;
 }
 
@@ -586,43 +563,76 @@ int
 afr_build_sources (xlator_t *this, dict_t **xattr, struct iatt *bufs,
                    int32_t **pending_matrix, int32_t *sources,
                    int32_t *success_children, afr_transaction_type type,
-                   afr_source_flags_t *flags)
+                   int32_t *subvol_status, gf_boolean_t ignore_ignorant)
 {
         afr_private_t           *priv = NULL;
         afr_self_heal_type      sh_type    = AFR_SELF_HEAL_INVALID;
         int                     nsources   = -1;
+        unsigned char           *ignorant_subvols = NULL;
+        unsigned int            child_count = 0;
 
         priv = this->private;
+        child_count = priv->child_count;
 
         if (afr_get_children_count (success_children, priv->child_count) == 0)
                 goto out;
 
-        afr_build_pending_matrix (priv->pending_key, pending_matrix,
-                                  xattr, type, priv->child_count);
+        if (!ignore_ignorant) {
+                ignorant_subvols = GF_CALLOC (sizeof (*ignorant_subvols),
+                                              child_count, gf_afr_mt_char);
+                if (NULL == ignorant_subvols)
+                        goto out;
+        }
 
+        afr_build_pending_matrix (priv->pending_key, pending_matrix,
+                                  ignorant_subvols, xattr, type,
+                                  priv->child_count);
+
+        if (!ignore_ignorant)
+                afr_mark_ignorant_subvols_as_pending (pending_matrix,
+                                                      ignorant_subvols,
+                                                      priv->child_count);
         sh_type = afr_self_heal_type_for_transaction (type);
         if (AFR_SELF_HEAL_INVALID == sh_type)
                 goto out;
 
         afr_sh_print_pending_matrix (pending_matrix, this);
 
-        nsources = afr_mark_sources (sources, pending_matrix, bufs,
-                                     priv->child_count, sh_type,
-                                     success_children, this->name, flags);
+        nsources = afr_mark_sources (this, sources, pending_matrix, bufs,
+                                     sh_type, success_children, subvol_status);
 out:
+        GF_FREE (ignorant_subvols);
         return nsources;
 }
 
 void
-afr_mark_valid_children_sources (int32_t *sources, int32_t *valid_children,
-                                 unsigned int child_count)
+afr_find_character_types (afr_node_character *characters,
+                          int32_t **pending_matrix, int32_t *success_children,
+                          unsigned int child_count)
+{
+        afr_node_type type  = AFR_NODE_INVALID;
+        int           child = 0;
+        int           i     = 0;
+
+        for (i = 0; i < child_count; i++) {
+                child = success_children[i];
+                if (child == -1)
+                        break;
+                type = afr_find_child_character_type (pending_matrix[child],
+                                                      child, child_count);
+                characters[child].type = type;
+        }
+}
+
+void
+afr_mark_success_children_sources (int32_t *sources, int32_t *success_children,
+                                   unsigned int child_count)
 {
         int i = 0;
-        memset (sources, 0, sizeof (*sources) * child_count);
         for (i = 0; i < child_count; i++) {
-                if (valid_children[i] == -1)
+                if (success_children[i] == -1)
                         break;
-                sources[valid_children[i]] = 1;
+                sources[success_children[i]] = 1;
         }
 }
 
@@ -646,23 +656,23 @@ afr_mark_valid_children_sources (int32_t *sources, int32_t *valid_children,
  * a split-brain. If one wise node refers to the other but the other doesn't
  * refer back, the referrer is a source.
  *
- * All fools are sinks, unless there are no 'wise' nodes. if 'allfools' is NULL,
- * biggest fool(s) is/are marked as source.
+ * All fools are sinks, unless there are no 'wise' nodes. In that case,
+ * one of the fools is made a source.
  */
 
 int
-afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
-                  int32_t child_count, afr_self_heal_type type,
-                  int32_t *valid_children, const char *xlator_name,
-                  afr_source_flags_t *flags)
+afr_mark_sources (xlator_t *this, int32_t *sources, int32_t **pending_matrix,
+                  struct iatt *bufs, afr_self_heal_type type,
+                  int32_t *success_children, int32_t *subvol_status)
 {
         /* stores the 'characters' (innocent, fool, wise) of the nodes */
-
         afr_node_character *characters =  NULL;
-        int            i              = 0;
-        int            nsources       = -1;
-        xlator_t      *this           = NULL;
+        int                nsources    = -1;
+        unsigned int       child_count = 0;
+        afr_private_t      *priv       = NULL;
 
+        priv = this->private;
+        child_count = priv->child_count;
         characters = GF_CALLOC (sizeof (afr_node_character),
                                 child_count, gf_afr_mt_afr_node_character);
         if (!characters)
@@ -671,26 +681,14 @@ afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
         this = THIS;
 
         /* start clean */
-        for (i = 0; i < child_count; i++) {
-                sources[i] = 0;
-        }
-
+        memset (sources, 0, sizeof (*sources) * child_count);
         nsources = 0;
-        for (i = 0; i < child_count; i++) {
-                characters[i].type =
-                        afr_find_child_character_type (pending_matrix[i], i,
-                                                       child_count,
-                                                       xlator_name);
-                if (AFR_NODE_INVALID == characters[i].type)
-                        gf_log (xlator_name, GF_LOG_WARNING,
-                                "child %d had invalid xattrs", i);
-        }
-
-        if ((type == AFR_SELF_HEAL_METADATA)
-            && afr_sh_all_nodes_innocent (characters, child_count)) {
-
-                nsources = afr_sh_mark_lowest_uid_as_source (bufs,
-                                                             valid_children,
+        afr_find_character_types (characters, pending_matrix, success_children,
+                                  child_count);
+        if (afr_sh_all_nodes_innocent (characters, child_count)) {
+                if (type == AFR_SELF_HEAL_METADATA)
+                        nsources = afr_sh_mark_lowest_uid_as_source (bufs,
+                                                             success_children,
                                                              child_count,
                                                              sources);
                 goto out;
@@ -700,24 +698,17 @@ afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
                 afr_sh_compute_wisdom (pending_matrix, characters, child_count);
 
                 if (afr_sh_wise_nodes_conflict (characters, child_count)) {
-                        /* split-brain */
-                        gf_log (this->name, GF_LOG_INFO,
-                                "split-brain possible, no source detected");
-                        if (flags)
-                                *flags |= AFR_SPLIT_BRAIN;
+                        if (subvol_status)
+                                *subvol_status |= SPLIT_BRAIN;
                         nsources = -1;
-
                 } else {
                         nsources = afr_sh_mark_wisest_as_sources (sources,
                                                                   characters,
                                                                   child_count);
                 }
         } else {
-                if (flags) {
-                        *flags |= AFR_ALL_FOOLS;
-                        nsources = -1;
-                        goto out;
-                }
+                if (subvol_status)
+                        *subvol_status |= ALL_FOOLS;
                 nsources = afr_mark_biggest_of_fools_as_source (sources,
                                                                 pending_matrix,
                                                                 characters,
@@ -726,10 +717,9 @@ afr_mark_sources (int32_t *sources, int32_t **pending_matrix, struct iatt *bufs,
 
 out:
         if (nsources == 0)
-                afr_mark_valid_children_sources (sources, valid_children,
-                                                 child_count);
-        if (characters)
-                GF_FREE (characters);
+                afr_mark_success_children_sources (sources, success_children,
+                                                   child_count);
+        GF_FREE (characters);
 
         gf_log (this->name, GF_LOG_DEBUG, "Number of sources: %d", nsources);
         return nsources;
@@ -1261,7 +1251,8 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
                                       sh->child_success,
-                                      afr_transaction_type_get (ia_type), NULL);
+                                      afr_transaction_type_get (ia_type),
+                                      NULL, _gf_false);
         if (nsources < 0) {
                 gf_log (this->name, GF_LOG_INFO, "No sources for dir of %s,"
                         " in missing entry self-heal, continuing with the rest"
@@ -1686,13 +1677,13 @@ static void
 afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
                            int32_t op_ret, int32_t op_errno)
 {
-        afr_self_heal_t    *sh  = NULL;
-        afr_private_t      *priv = NULL;
-        afr_local_t        *local = NULL;
-        int                enoent_count = 0;
-        int                nsources = 0;
-        int                source  = -1;
-        afr_source_flags_t flags = 0;
+        afr_self_heal_t *sh  = NULL;
+        afr_private_t   *priv = NULL;
+        afr_local_t     *local = NULL;
+        int             enoent_count = 0;
+        int             nsources = 0;
+        int             source  = -1;
+        int32_t         subvol_status = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -1722,20 +1713,20 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
                                       sh->child_success,
-                                      AFR_ENTRY_TRANSACTION, &flags);
-        if ((nsources < 0) && !flags) {
-                gf_log (this->name, GF_LOG_ERROR, "No sources for dir of %s,"
-                        " in missing entry self-heal, aborting self-heal",
-                        local->loc.path);
+                                      AFR_ENTRY_TRANSACTION, &subvol_status,
+                                      _gf_true);
+        if ((subvol_status & ALL_FOOLS) ||
+            (subvol_status & SPLIT_BRAIN)) {
+                gf_log (this->name, GF_LOG_INFO, "%s: Performing conservative "
+                        "merge", sh->parent_loc.path);
+                afr_mark_success_children_sources (sh->sources,
+                                                   sh->child_success,
+                                                   priv->child_count);
+        } else if (nsources < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "No sources for dir "
+                        "of %s, in missing entry self-heal, aborting "
+                        "self-heal", local->loc.path);
                 goto out;
-        }
-
-        //if allfools/split-brain give the behavior of missing entry creation
-        if (flags) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s: All subvols pending so "
-                        "do missing entry creation", local->loc.path);
-                afr_mark_valid_children_sources (sh->sources, sh->child_success,
-                                                 priv->child_count);
         }
 
         source = afr_sh_select_source (sh->sources, priv->child_count);

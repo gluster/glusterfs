@@ -1602,7 +1602,7 @@ afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
 }
 
 gf_boolean_t
-afr_sh_need_recreate (afr_self_heal_t *impunge_sh, int *sources,
+afr_sh_need_recreate (afr_self_heal_t *impunge_sh,
                       unsigned int child, unsigned int child_count)
 {
         int32_t         *success_children = NULL;
@@ -1610,7 +1610,6 @@ afr_sh_need_recreate (afr_self_heal_t *impunge_sh, int *sources,
 
         GF_ASSERT (impunge_sh->impunging_entry_mode);
         GF_ASSERT (impunge_sh->child_errno);
-        GF_ASSERT (sources);
 
         success_children = impunge_sh->child_success;
         if (child == impunge_sh->active_source) {
@@ -1638,7 +1637,7 @@ afr_sh_recreate_count (afr_self_heal_t *impunge_sh, int *sources,
         int             i = 0;
 
         for (i = 0; i < child_count; i++) {
-                if (afr_sh_need_recreate (impunge_sh, sources, i, child_count))
+                if (afr_sh_need_recreate (impunge_sh, i, child_count))
                         count++;
         }
 
@@ -1673,8 +1672,7 @@ afr_sh_entry_call_impunge_recreate (call_frame_t *impunge_frame,
         GF_ASSERT (recreate_count);
         impunge_local->call_count = recreate_count;
         for (i = 0; i < priv->child_count; i++) {
-                if (afr_sh_need_recreate (impunge_sh, sh->sources, i,
-                                          priv->child_count)) {
+                if (afr_sh_need_recreate (impunge_sh, i, priv->child_count)) {
                         (void)afr_sh_entry_impunge_create (impunge_frame, this,
                                                            i, buf,
                                                            postparent);
@@ -2135,12 +2133,12 @@ void
 afr_sh_entry_fix (call_frame_t *frame, xlator_t *this,
                   int32_t op_ret, int32_t op_errno)
 {
-        afr_local_t        *local = NULL;
-        afr_self_heal_t    *sh = NULL;
-        afr_private_t      *priv = NULL;
-        afr_source_flags_t flags = 0;
-
-        int nsources = 0;
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_private_t   *priv = NULL;
+        int              source = 0;
+        int              nsources = 0;
+        int32_t          subvol_status = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -2158,26 +2156,30 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this,
                 goto heal;
         }
 
-        afr_build_pending_matrix (priv->pending_key, sh->pending_matrix,
-                                  sh->xattr, AFR_ENTRY_TRANSACTION,
-                                  priv->child_count);
-
-        afr_sh_print_pending_matrix (sh->pending_matrix, this);
-
-        nsources = afr_mark_sources (sh->sources, sh->pending_matrix, sh->buf,
-                                     priv->child_count, AFR_SELF_HEAL_ENTRY,
-                                     sh->child_success, this->name, &flags);
-
-        if (nsources == 0) {
+        nsources = afr_build_sources (this, sh->xattr, sh->buf,
+                                      sh->pending_matrix, sh->sources,
+                                      sh->child_success,
+                                      AFR_ENTRY_TRANSACTION, &subvol_status,
+                                      _gf_true);
+        if ((subvol_status & ALL_FOOLS) ||
+            (subvol_status & SPLIT_BRAIN)) {
+                gf_log (this->name, GF_LOG_INFO, "%s: Performing conservative "
+                        "merge", local->loc.path);
+                source = -1;
+                memset (sh->sources, 0,
+                        sizeof (*sh->sources) * priv->child_count);
+        } else if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "No self-heal needed for %s",
                         local->loc.path);
 
                 afr_sh_entry_finish (frame, this);
                 return;
+        } else {
+                source = afr_sh_select_source (sh->sources, priv->child_count);
         }
 
-        sh->source = afr_sh_select_source (sh->sources, priv->child_count);
+        sh->source = source;
 
 heal:
         afr_sh_entry_sync_prepare (frame, this);
