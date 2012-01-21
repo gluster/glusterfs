@@ -1636,6 +1636,35 @@ io_stats_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int
+io_stats_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno)
+{
+        UPDATE_PROFILE_STATS (frame, FSETXATTR);
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+io_stats_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        UPDATE_PROFILE_STATS (frame, FGETXATTR);
+        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
+        return 0;
+}
+
+
+int
+io_stats_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno)
+{
+        UPDATE_PROFILE_STATS (frame, FREMOVEXATTR);
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
 
 int
 io_stats_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2205,6 +2234,50 @@ io_stats_removexattr (call_frame_t *frame, xlator_t *this,
 
 
 int
+io_stats_fsetxattr (call_frame_t *frame, xlator_t *this,
+                    fd_t *fd, dict_t *dict,
+                    int32_t flags)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_fsetxattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsetxattr,
+                    fd, dict, flags);
+        return 0;
+}
+
+
+int
+io_stats_fgetxattr (call_frame_t *frame, xlator_t *this,
+                    fd_t *fd, const char *name)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_fgetxattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fgetxattr,
+                    fd, name);
+        return 0;
+}
+
+
+int
+io_stats_fremovexattr (call_frame_t *frame, xlator_t *this,
+                       fd_t *fd, const char *name)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_fremovexattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fremovexattr,
+                    fd, name);
+
+        return 0;
+}
+
+
+int
 io_stats_opendir (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, fd_t *fd)
 {
@@ -2681,6 +2754,9 @@ struct xlator_fops fops = {
         .setxattr    = io_stats_setxattr,
         .getxattr    = io_stats_getxattr,
         .removexattr = io_stats_removexattr,
+        .fsetxattr    = io_stats_fsetxattr,
+        .fgetxattr    = io_stats_fgetxattr,
+        .fremovexattr = io_stats_fremovexattr,
         .opendir     = io_stats_opendir,
         .readdir     = io_stats_readdir,
         .readdirp    = io_stats_readdirp,

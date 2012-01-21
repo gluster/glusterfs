@@ -1946,6 +1946,67 @@ err:
 }
 
 int
+dht_fgetxattr (call_frame_t *frame, xlator_t *this,
+               fd_t *fd, const char *key)
+{
+        xlator_t     *subvol        = NULL;
+        dht_local_t  *local         = NULL;
+        dht_layout_t *layout        = NULL;
+        int           op_errno      = -1;
+        int           i             = 0;
+        int           cnt           = 0;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+        VALIDATE_OR_GOTO (fd->inode, err);
+        VALIDATE_OR_GOTO (this->private, err);
+
+        local = dht_local_init (frame, NULL, fd, GF_FOP_FGETXATTR);
+        if (!local) {
+                op_errno = ENOMEM;
+
+                goto err;
+        }
+
+        layout = local->layout;
+        if (!layout) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "layout is NULL");
+                op_errno = ENOENT;
+                goto err;
+        }
+
+        if (key) {
+                local->key = gf_strdup (key);
+                if (!local->key) {
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+        }
+
+        if (fd->inode->ia_type == IA_IFDIR) {
+                cnt = local->call_cnt = layout->cnt;
+        } else {
+                cnt = local->call_cnt  = 1;
+        }
+
+        for (i = 0; i < cnt; i++) {
+                subvol = layout->list[i].xlator;
+                STACK_WIND (frame, dht_getxattr_cbk,
+                            subvol, subvol->fops->fgetxattr,
+                            fd, key);
+        }
+        return 0;
+
+err:
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        DHT_STACK_UNWIND (fgetxattr, frame, -1, op_errno, NULL);
+
+        return 0;
+}
+
+int
 dht_fsetxattr (call_frame_t *frame, xlator_t *this,
                fd_t *fd, dict_t *xattr, int flags)
 {

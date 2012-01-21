@@ -113,6 +113,15 @@ sys_error_t error_no_list[] = {
         [GF_FOP_REMOVEXATTR]       = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,ENAMETOOLONG,
                                                  EINTR}},
+        [GF_FOP_FSETXATTR]          = { .error_no_count = 4,
+                                        .error_no = {EACCES,EBADF,EINTR,
+                                                     ENAMETOOLONG}},
+        [GF_FOP_FGETXATTR]          = { .error_no_count = 4,
+                                        .error_no = {EACCES,EBADF,ENAMETOOLONG,
+                                                     EINTR}},
+        [GF_FOP_FREMOVEXATTR]       = { .error_no_count = 4,
+                                        .error_no = {EACCES,EBADF,ENAMETOOLONG,
+                                                     EINTR}},
         [GF_FOP_OPENDIR]           = { .error_no_count = 8,
                                     .error_no = {EACCES,EEXIST,EFAULT,
                                                  EISDIR,EMFILE,
@@ -286,6 +295,12 @@ get_fop_int (char **op_no_str)
                 return GF_FOP_GETXATTR;
         else if (!strcmp ((*op_no_str), "removexattr"))
                 return GF_FOP_REMOVEXATTR;
+        else if (!strcmp ((*op_no_str), "fsetxattr"))
+                return GF_FOP_FSETXATTR;
+        else if (!strcmp ((*op_no_str), "fgetxattr"))
+                return GF_FOP_FGETXATTR;
+        else if (!strcmp ((*op_no_str), "fremovexattr"))
+                return GF_FOP_FREMOVEXATTR;
         else if (!strcmp ((*op_no_str), "opendir"))
                 return GF_FOP_OPENDIR;
         else if (!strcmp ((*op_no_str), "readdir"))
@@ -1410,6 +1425,80 @@ error_gen_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	return 0;
 }
 
+int
+error_gen_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
+
+	return 0;
+}
+
+
+int
+error_gen_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                     dict_t *dict, int32_t flags)
+{
+	int              op_errno = 0;
+        eg_t            *egp = NULL;
+        int              enable = 1;
+
+        egp = this->private;
+        enable = egp->enable[GF_FOP_FSETXATTR];
+
+        if (enable)
+                op_errno = error_gen (this, GF_FOP_FSETXATTR);
+
+	if (op_errno) {
+		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
+		STACK_UNWIND_STRICT (fsetxattr, frame, -1, op_errno);
+		return 0;
+	}
+
+	STACK_WIND (frame, error_gen_fsetxattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->fsetxattr,
+		    fd, dict, flags);
+	return 0;
+}
+
+
+int
+error_gen_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+	STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
+	return 0;
+}
+
+
+int
+error_gen_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                     const char *name)
+{
+	int              op_errno = 0;
+        eg_t            *egp = NULL;
+        int              enable = 1;
+
+        egp = this->private;
+        enable = egp->enable[GF_FOP_FGETXATTR];
+
+        if (enable)
+                op_errno = error_gen (this, GF_FOP_FGETXATTR);
+
+	if (op_errno) {
+		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
+		STACK_UNWIND_STRICT (fgetxattr, frame, -1, op_errno, NULL);
+		return 0;
+	}
+
+	STACK_WIND (frame, error_gen_fgetxattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->fgetxattr,
+		    fd, name);
+	return 0;
+}
+
 
 int
 error_gen_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1521,6 +1610,43 @@ error_gen_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->removexattr,
 		    loc, name);
+	return 0;
+}
+
+int
+error_gen_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			   int32_t op_ret, int32_t op_errno)
+{
+	STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno);
+
+	return 0;
+}
+
+
+int
+error_gen_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                        const char *name)
+{
+	int              op_errno = 0;
+        eg_t            *egp = NULL;
+        int              enable = 1;
+
+        egp = this->private;
+        enable = egp->enable[GF_FOP_FREMOVEXATTR];
+
+        if (enable)
+                op_errno = error_gen (this, GF_FOP_FREMOVEXATTR);
+
+	if (op_errno) {
+		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
+		STACK_UNWIND_STRICT (fremovexattr, frame, -1, op_errno);
+		return 0;
+	}
+
+	STACK_WIND (frame, error_gen_fremovexattr_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->fremovexattr,
+		    fd, name);
 	return 0;
 }
 
@@ -2008,6 +2134,9 @@ struct xlator_fops fops = {
 	.setxattr    = error_gen_setxattr,
 	.getxattr    = error_gen_getxattr,
 	.removexattr = error_gen_removexattr,
+	.fsetxattr    = error_gen_fsetxattr,
+	.fgetxattr    = error_gen_fgetxattr,
+	.fremovexattr = error_gen_fremovexattr,
 	.opendir     = error_gen_opendir,
 	.readdir     = error_gen_readdir,
 	.readdirp    = error_gen_readdirp,
