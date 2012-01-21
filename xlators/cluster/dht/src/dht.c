@@ -478,6 +478,7 @@ struct xlator_fops fops = {
         .access      = dht_access,
         .readlink    = dht_readlink,
         .getxattr    = dht_getxattr,
+        .fgetxattr    = dht_fgetxattr,
         .readv       = dht_readv,
         .flush       = dht_flush,
         .fsync       = dht_fsync,

@@ -868,7 +868,7 @@ afr_launch_openfd_self_heal (call_frame_t *frame, xlator_t *this, fd_t *fd);
                 STACK_UNWIND_STRICT (fop, frame, params);       \
                 afr_local_cleanup (__local, __this);            \
                 GF_FREE (__local);                              \
-        } while (0);
+        } while (0)
 
 #define AFR_STACK_DESTROY(frame)                        \
         do {                                            \

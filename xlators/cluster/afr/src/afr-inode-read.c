@@ -890,6 +890,137 @@ out:
         return 0;
 }
 
+/* {{{ fgetxattr */
+
+
+int32_t
+afr_fgetxattr_cbk (call_frame_t *frame, void *cookie,
+                   xlator_t *this, int32_t op_ret, int32_t op_errno,
+                   dict_t *dict)
+{
+        afr_private_t * priv            = NULL;
+        afr_local_t *   local           = NULL;
+        xlator_t **     children        = NULL;
+        int             unwind          = 1;
+        int32_t         *last_index     = NULL;
+        int32_t         next_call_child = -1;
+        int32_t         read_child      = -1;
+        int32_t         *fresh_children  = NULL;
+
+        priv     = this->private;
+        children = priv->children;
+
+        local = frame->local;
+
+        read_child = (long) cookie;
+
+        if (op_ret == -1) {
+                last_index = &local->cont.getxattr.last_index;
+                fresh_children = local->fresh_children;
+                next_call_child = afr_next_call_child (fresh_children,
+                                                       local->child_up,
+                                                       priv->child_count,
+                                                       last_index, read_child);
+                if (next_call_child < 0)
+                        goto out;
+
+                unwind = 0;
+                STACK_WIND_COOKIE (frame, afr_fgetxattr_cbk,
+                                   (void *) (long) read_child,
+                                   children[next_call_child],
+                                   children[next_call_child]->fops->fgetxattr,
+                                   local->fd,
+                                   local->cont.getxattr.name);
+        }
+
+out:
+        if (unwind) {
+                if (op_ret >= 0 && dict)
+                        __filter_xattrs (dict);
+
+                AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, dict);
+        }
+
+        return 0;
+}
+
+int32_t
+afr_fgetxattr_unwind (call_frame_t *frame,
+                      int op_ret, int op_errno, dict_t *dict)
+
+{
+        AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, dict);
+        return 0;
+}
+
+int32_t
+afr_fgetxattr (call_frame_t *frame, xlator_t *this,
+               fd_t *fd, const char *name)
+{
+        afr_private_t   *priv         = NULL;
+        xlator_t        **children    = NULL;
+        int             call_child    = 0;
+        afr_local_t     *local        = NULL;
+        int32_t         op_ret        = -1;
+        int32_t         op_errno      = 0;
+        int32_t         read_child    = -1;
+
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+
+        priv     = this->private;
+        VALIDATE_OR_GOTO (priv->children, out);
+
+        children = priv->children;
+
+        ALLOC_OR_GOTO (local, afr_local_t, out);
+        frame->local = local;
+
+        op_ret = afr_local_init (local, priv, &op_errno);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto out;
+        }
+
+        local->fd = fd_ref (fd);
+        if (name)
+                local->cont.getxattr.name = gf_strdup (name);
+
+        /* pathinfo gets handled only in getxattr() */
+
+        local->fresh_children = afr_children_create (priv->child_count);
+        if (!local->fresh_children) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        read_child = afr_inode_get_read_ctx (this, fd->inode, local->fresh_children);
+        op_ret = afr_get_call_child (this, local->child_up, read_child,
+                                     local->fresh_children,
+                                     &call_child,
+                                     &local->cont.getxattr.last_index);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
+        }
+
+        STACK_WIND_COOKIE (frame, afr_fgetxattr_cbk,
+                           (void *) (long) call_child,
+                           children[call_child],
+                           children[call_child]->fops->fgetxattr,
+                           fd, name);
+
+        op_ret = 0;
+out:
+        if (op_ret == -1) {
+                AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, NULL);
+        }
+        return 0;
+}
+
 
 /* }}} */
 

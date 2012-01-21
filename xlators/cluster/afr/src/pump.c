@@ -1471,7 +1471,7 @@ afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
 
 	if (main_frame) {
 		AFR_STACK_UNWIND (setxattr, main_frame,
-                                  local->op_ret, local->op_errno)
+                                  local->op_ret, local->op_errno);
 	}
 	return 0;
 }

@@ -44,4 +44,8 @@ int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, const char *name);
 
+int32_t
+afr_fgetxattr (call_frame_t *frame, xlator_t *this,
+               fd_t *fd, const char *name);
+
 #endif /* __INODE_READ_H__ */

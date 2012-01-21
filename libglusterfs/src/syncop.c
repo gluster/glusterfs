@@ -532,6 +532,35 @@ syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags)
 }
 
 int
+syncop_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+
+int
+syncop_fsetxattr (xlator_t *subvol, fd_t *fd, dict_t *dict, int32_t flags)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_fsetxattr_cbk, subvol->fops->fsetxattr,
+                fd, dict, flags);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
 syncop_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, dict_t *dict)
 {
