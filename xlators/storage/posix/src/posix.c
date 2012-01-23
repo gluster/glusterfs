@@ -2445,7 +2445,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         op_ret = -1;
                         goto out;
                 }
-                op_ret = sys_lgetxattr (real_path, key, value, op_ret);
+                op_ret = sys_lgetxattr (real_path, key, value, size);
                 if (op_ret == -1) {
                         op_errno = errno;
                         goto out;
