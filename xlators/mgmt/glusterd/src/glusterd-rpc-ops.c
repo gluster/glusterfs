@@ -58,7 +58,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         char            *free_ptr = NULL;
         glusterd_conf_t *conf = NULL;
 
-        GF_ASSERT (op_ctx);
         GF_ASSERT (THIS);
 
         conf = THIS->private;
