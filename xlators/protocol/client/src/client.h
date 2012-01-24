@@ -35,7 +35,7 @@
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
 #define CLIENT_DUMP_LOCKS     "trusted.glusterfs.clientlk-dump"
 
-#define CLIENT_GET_REMOTE_FD(conf, fd, remote_fd, label)                \
+#define CLIENT_GET_REMOTE_FD(conf, fd, remote_fd, op_errno, label)      \
         do {                                                            \
                 clnt_fd_ctx_t      *fdctx    = NULL;                    \
                 pthread_mutex_lock (&conf->lock);                       \
@@ -47,6 +47,13 @@
                         remote_fd = -2;                                 \
                 } else {                                                \
                         remote_fd = fdctx->remote_fd;                   \
+                }                                                       \
+                if (remote_fd == -1) {                                  \
+                        gf_log (THIS->name, GF_LOG_WARNING, " (%s) "    \
+                                "remote_fd is -1. EBADFD",              \
+                                uuid_utoa (fd->inode->gfid));           \
+                        op_errno = EBADFD;                              \
+                        goto label;                                     \
                 }                                                       \
         } while (0);
 
