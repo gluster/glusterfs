@@ -2638,10 +2638,10 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         req.path          = (char *)args->loc->path;
-	if (args->loc->name)
-	        req.bname         = (char *)args->loc->name;
-	else
-		req.bname = "";
+        if (args->loc->name)
+                req.bname         = (char *)args->loc->name;
+        else
+                req.bname = "";
         req.dict.dict_len = dict_len;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -2804,7 +2804,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.offset = args->offset;
         req.fd     = remote_fd;
@@ -3568,7 +3568,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.size   = args->size;
         req.offset = args->offset;
@@ -3656,7 +3656,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.size   = args->size;
         req.offset = args->offset;
@@ -3703,7 +3703,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         conf = this->private;
 
@@ -3755,7 +3755,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.fd   = remote_fd;
         req.data = args->flags;
@@ -3795,7 +3795,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.fd = remote_fd;
         memcpy (req.gfid, args->fd->inode->gfid, 16);
@@ -3893,7 +3893,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.fd   = remote_fd;
         req.data = args->flags;
@@ -3943,7 +3943,7 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
                 else
                         memcpy (req.gfid, args->loc->gfid, 16);
         } else
-		req.gfid[15] = 1;
+                req.gfid[15] = 1;
 
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
@@ -4055,7 +4055,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.fd    = remote_fd;
         req.flags = args->flags;
@@ -4122,7 +4122,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         local = GF_CALLOC (1, sizeof (*local),
                            gf_client_mt_clnt_local_t);
@@ -4481,7 +4481,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.fd     = remote_fd;
         req.flags  = args->flags;
@@ -4690,7 +4690,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         ret = client_cmd_to_gf_cmd (args->cmd, &gf_cmd);
         if (ret) {
@@ -4838,7 +4838,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         if (args->cmd == F_GETLK || args->cmd == F_GETLK64)
                 gf_cmd = GF_LK_GETLK;
@@ -4963,7 +4963,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.fd  = remote_fd;
         req.cmd = args->cmd_entrylk;
@@ -5011,7 +5011,7 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.len    = args->len;
         req.offset = args->offset;
@@ -5053,7 +5053,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         struct iobuf     *rsp_iobuf  = NULL;
         struct iovec     *rsphdr     = NULL;
         struct iovec      vector[MAX_IOVEC] = {{0}, };
-        int               readdir_rsp_size  = 0; 
+        int               readdir_rsp_size  = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -5061,7 +5061,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         readdir_rsp_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_readdir_rsp, &rsp)
                 + args->size;
@@ -5163,7 +5163,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         readdirp_rsp_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_readdirp_rsp, &rsp)
                 + args->size;
@@ -5317,7 +5317,7 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
         args = data;
         conf = this->private;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         req.fd = remote_fd;
         req.valid = args->valid;
