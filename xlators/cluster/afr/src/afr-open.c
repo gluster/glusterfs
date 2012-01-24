@@ -320,27 +320,30 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv     = this->private;
         local    = frame->local;
+        fop_paused = local->fop_paused;
+
+        if (op_ret >= 0) {
+                gf_log (this->name, GF_LOG_INFO, "fd for %s opened "
+                        "successfully on subvolume %s", local->loc.path,
+                        priv->children[child_index]->name);
+        }
 
         call_count = afr_frame_return (frame);
+        //Note: Do not access any thing using the frame outside call_count 0
 
         //Note: No frame locking needed for this block of code
-        fd_ctx = afr_fd_ctx_get (local->fd, this);
+        fd_ctx = afr_fd_ctx_get (fd, this);
         if (!fd_ctx) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "failed to get fd context, %p", local->fd);
+                        "failed to get fd context, %p", fd);
                 goto out;
         }
 
-        fop_paused = local->fop_paused;
-        LOCK (&local->fd->lock);
+        LOCK (&fd->lock);
         {
                 if (op_ret >= 0) {
                         fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
-                        gf_log (this->name, GF_LOG_INFO, "fd for %s opened "
-                                "successfully on subvolume %s", local->loc.path,
-                                priv->children[child_index]->name);
                 } else {
-                        //Change open status from OPENING to NOT OPENED.
                         fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;
                 }
                 if (call_count == 0) {
@@ -348,7 +351,7 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         afr_get_resumable_calls (this, fd_ctx, &paused_calls);
                 }
         }
-        UNLOCK (&local->fd->lock);
+        UNLOCK (&fd->lock);
 out:
         if (call_count == 0) {
                 afr_resume_calls (this, &paused_calls);
@@ -419,7 +422,7 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                                 "opening fd for dir %s on subvolume %s",
                                 local->loc.path, priv->children[i]->name);
 
-                        STACK_WIND_COOKIE (frame, afr_openfd_fix_open_cbk,
+                        STACK_WIND_COOKIE (open_frame, afr_openfd_fix_open_cbk,
                                            (void*) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->opendir,
@@ -438,6 +441,8 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                 }
 
         }
+        op_errno = 0;
+        ret = 0;
 out:
         if (op_errno)
                 ret = -op_errno;
