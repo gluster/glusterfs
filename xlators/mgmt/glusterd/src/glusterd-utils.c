@@ -3477,7 +3477,7 @@ glusterd_get_all_volnames (dict_t *dict)
         GF_ASSERT (priv);
 
         list_for_each_entry (entry, &priv->volumes, vol_list) {
-                memset (key, sizeof (key), 0);
+                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "vol%d", vol_count);
                 ret = dict_set_str (dict, key, entry->volname);
                 if (ret)
