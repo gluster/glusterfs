@@ -477,7 +477,7 @@ afr_build_root_loc (inode_t *inode, loc_t *loc)
         loc->inode->ia_type = IA_IFDIR;
         memset (loc->inode->gfid, 0, 16);
         loc->inode->gfid[15] = 1;
-
+        uuid_copy (loc->gfid, loc->inode->gfid);
 }
 
 int
