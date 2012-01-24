@@ -2732,6 +2732,11 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int64_t             avail      = -1;
 
 	root_inode = cookie;
+
+        /* This fop will fail mostly in case of client disconnect's,
+         * which is already logged. Hence, not logging here */
+        if (op_ret == -1)
+                goto unwind;
 	/*
 	 * We should never get here unless quota_statfs (below) sent us a
 	 * cookie, and it would only do so if the value was non-NULL.  This
