@@ -113,10 +113,14 @@ void gf_log_globals_init (void);
 int gf_log_init (const char *filename);
 void gf_log_cleanup (void);
 
-int _gf_log (const char *domain, const char *file, const char *function,
-             int32_t line, gf_loglevel_t level, const char *fmt, ...);
-int _gf_log_callingfn (const char *domain, const char *file, const char *function,
-                       int32_t line, gf_loglevel_t level, const char *fmt, ...);
+int _gf_log (const char *domain, const char *file,
+             const char *function, int32_t line, gf_loglevel_t level,
+             const char *fmt, ...)
+             __attribute__ ((__format__ (__printf__, 6, 7)));
+int _gf_log_callingfn (const char *domain, const char *file, 
+                       const char *function, int32_t line, gf_loglevel_t level,
+                       const char *fmt, ...)
+                       __attribute__ ((__format__ (__printf__, 6, 7)));
 
 int _gf_log_nomem (const char *domain, const char *file,
                    const char *function, int line, gf_loglevel_t level,
@@ -143,7 +147,8 @@ void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
 #define GF_ERROR(xl, format, args...)                           \
         gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
 
-int gf_cmd_log (const char *domain, const char *fmt, ...);
+int gf_cmd_log (const char *domain, const char *fmt, ...)
+                __attribute__ ((__format__ (__printf__, 2, 3)));
 
 int gf_cmd_log_init (const char *filename);
 
