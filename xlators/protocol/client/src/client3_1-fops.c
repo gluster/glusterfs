@@ -4639,7 +4639,7 @@ client3_1_fremovexattr (call_frame_t *frame, xlator_t *this,
         if (!(args->fd && args->fd->inode))
                 goto unwind;
 
-        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, unwind);
+        CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
         memcpy (req.gfid,  args->fd->inode->gfid, 16);
         req.name = (char *)args->name;
