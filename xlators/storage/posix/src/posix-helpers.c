@@ -718,6 +718,11 @@ static int
 janitor_walker (const char *fpath, const struct stat *sb,
                 int typeflag, struct FTW *ftwbuf)
 {
+        struct iatt  stbuf        = {0, };
+        xlator_t     *this = NULL;
+
+        this = THIS;
+        posix_pstat (this, NULL, fpath, &stbuf);
         switch (sb->st_mode & S_IFMT) {
         case S_IFREG:
         case S_IFBLK:
@@ -728,6 +733,8 @@ janitor_walker (const char *fpath, const struct stat *sb,
                 gf_log (THIS->name, GF_LOG_TRACE,
                         "unlinking %s", fpath);
                 unlink (fpath);
+                if (stbuf.ia_nlink == 1)
+                        posix_handle_unset (this, stbuf.ia_gfid, NULL);
                 break;
 
         case S_IFDIR:
@@ -736,6 +743,7 @@ janitor_walker (const char *fpath, const struct stat *sb,
                                 "removing directory %s", fpath);
 
                         rmdir (fpath);
+                        posix_handle_unset (this, stbuf.ia_gfid, NULL);
                 }
                 break;
         }
