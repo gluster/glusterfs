@@ -1281,9 +1281,9 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         struct iatt           postnewparent = {0, };
         char                  olddirid[64];
         char                  newdirid[64];
-        uuid_t                victim;
-        int                   was_dir;
-        int                   nlink;
+        uuid_t                victim = {0};
+        int                   was_dir = 0;
+        int                   nlink = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1365,7 +1365,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         if (was_dir)
                 posix_handle_unset (this, victim, NULL);
 
-        if (was_present && !was_dir && nlink == 2)
+        if (was_present && !was_dir && nlink == 1)
                 posix_handle_unset (this, victim, NULL);
 
         if (IA_ISDIR (oldloc->inode->ia_type)) {
