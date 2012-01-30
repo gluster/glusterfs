@@ -3150,11 +3150,6 @@ out:
         return ret;
 }
 
-void*
-cli_profile_info_elem (void *a, int index)
-{
-        return ((cli_profile_info_t *)a) + index;
-}
 
 int
 cli_profile_info_percentage_cmp (void *a, void *b)
@@ -3174,19 +3169,6 @@ cli_profile_info_percentage_cmp (void *a, void *b)
         return ret;
 }
 
-void
-cli_profile_info_swap (void *a, void *b)
-{
-        cli_profile_info_t *ia = NULL;
-        cli_profile_info_t *ib = NULL;
-        cli_profile_info_t tmp = {0};
-
-        ia = a;
-        ib = b;
-        tmp = *ia;
-        *ia = *ib;
-        *ib = tmp;
-}
 
 void
 cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
