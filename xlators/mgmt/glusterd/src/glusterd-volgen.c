@@ -154,6 +154,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC},
 
+        {"performance.read-ahead-page-count",    "performance/read-ahead",  "page-count", NULL, DOC},
+
         {"network.frame-timeout",                "protocol/client",    NULL, NULL, NO_DOC, 0     },
         {"network.ping-timeout",                 "protocol/client",    NULL, NULL, NO_DOC, 0     },
         {"network.inode-lru-limit",              "protocol/server",    NULL, NULL, NO_DOC, 0     },
