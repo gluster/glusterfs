@@ -211,6 +211,10 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
         } while (0);
 #endif
 
+#define GF_UUID_ASSERT(u) \
+        if (uuid_is_null (u))\
+                GF_ASSERT (!"uuid null");
+
 union gf_sock_union {
         struct sockaddr_storage storage;
         struct sockaddr_in6 sin6;

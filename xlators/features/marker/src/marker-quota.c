@@ -179,6 +179,7 @@ mq_loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
         }
 
         newloc->parent = inode_ref (oldloc->inode);
+        uuid_copy (newloc->pargfid, oldloc->inode->gfid);
 
         len = strlen (oldloc->path);
 
@@ -307,6 +308,10 @@ wind:
         if (ret)
                 goto err;
 
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
         STACK_WIND (frame, mq_release_lock_on_dirty_inode,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
@@ -373,6 +378,11 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret)
                 goto err;
 
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
+
         STACK_WIND (frame, mq_mark_inode_undirty, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->loc,
                     GF_XATTROP_ADD_ARRAY64, new_dict);
@@ -433,6 +443,11 @@ mq_get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
         ret = dict_set_int64 (dict, QUOTA_SIZE_KEY, 0);
         if (ret)
                 goto err;
+
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
 
         STACK_WIND (frame, mq_update_size_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, dict);
@@ -748,6 +763,10 @@ mq_check_if_still_dirty (call_frame_t *frame,
 
         local->d_off = 0;
 
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
         STACK_WIND(frame,
                    mq_dirty_inode_readdir,
                    FIRST_CHILD(this),
@@ -793,6 +812,11 @@ mq_get_dirty_xattr (call_frame_t *frame, void *cookie,
         ret = dict_set_int8 (xattr_req, QUOTA_DIRTY_KEY, 0);
         if (ret)
                 goto err;
+
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
 
         STACK_WIND (frame,
                     mq_check_if_still_dirty,
@@ -956,6 +980,9 @@ mq_create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto err;
                 }
 
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+                GF_UUID_ASSERT (local->loc.gfid);
+
                 STACK_WIND (frame, mq_xattr_creation_release_lock,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->setxattr,
@@ -1029,6 +1056,9 @@ mq_create_xattr (xlator_t *this, call_frame_t *frame)
                 if (ret < 0)
                         goto free_value;
         }
+
+        uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        GF_UUID_ASSERT (local->loc.gfid);
 
         STACK_WIND (frame, mq_create_dirty_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->loc,
@@ -1128,6 +1158,11 @@ mq_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "cannot request xattr");
                 goto err;
         }
+
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
 
         STACK_WIND (frame, mq_check_n_set_inode_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, xattr_req);
@@ -1434,6 +1469,9 @@ mq_mark_undirty (call_frame_t *frame,
                 goto err;
         }
 
+        uuid_copy (local->parent_loc.gfid, local->parent_loc.inode->gfid);
+        GF_UUID_ASSERT (local->parent_loc.gfid);
+
         STACK_WIND (frame, mq_release_parent_lock,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
@@ -1515,6 +1553,11 @@ mq_update_parent_size (call_frame_t *frame,
                 op_errno = -ret;
                 goto err;
         }
+
+        if (uuid_is_null (local->parent_loc.gfid))
+                        uuid_copy (local->parent_loc.gfid,
+                                   local->parent_loc.inode->gfid);
+        GF_UUID_ASSERT (local->parent_loc.gfid);
 
         STACK_WIND (frame,
                     mq_mark_undirty,
@@ -1637,6 +1680,11 @@ unlock:
                 goto err;
         }
 
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
+
         STACK_WIND (frame,
                     mq_update_parent_size,
                     FIRST_CHILD(this),
@@ -1728,6 +1776,11 @@ mq_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
 
         mq_set_ctx_updation_status (local->ctx, _gf_false);
 
+        if (uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
+
         STACK_WIND (frame, mq_update_inode_contribution, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, newdict);
 
@@ -1784,6 +1837,10 @@ mq_markdirty (call_frame_t *frame, void *cookie,
         ret = dict_set_int8 (dict, QUOTA_DIRTY_KEY, 1);
         if (ret == -1)
                 goto err;
+
+        uuid_copy (local->parent_loc.gfid,
+                   local->parent_loc.inode->gfid);
+        GF_UUID_ASSERT (local->parent_loc.gfid);
 
         STACK_WIND (frame, mq_fetch_child_size_and_contri,
                     FIRST_CHILD(this),
@@ -2298,6 +2355,9 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie,
         if (ret < 0)
                 goto err;
 
+        uuid_copy (local->parent_loc.gfid,
+                   local->parent_loc.inode->gfid);
+        GF_UUID_ASSERT (local->parent_loc.gfid);
 
         STACK_WIND (frame, mq_inode_remove_done, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->parent_loc,

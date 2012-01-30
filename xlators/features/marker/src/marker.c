@@ -813,6 +813,9 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (ret == -1)
                 goto err;
 
+        if (uuid_is_null (loc->gfid) && loc->inode)
+                uuid_copy (loc->gfid, loc->inode->gfid);
+
         STACK_WIND (frame, marker_unlink_stat_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->stat, loc);
         return 0;
@@ -1104,6 +1107,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (newloc.name)
                         newloc.name++;
                 newloc.parent = inode_ref (local->loc.parent);
+                uuid_copy (newloc.gfid, oplocal->loc.inode->gfid);
 
                 STACK_WIND_COOKIE (frame, marker_rename_release_oldp_lock,
                                    frame->cookie, FIRST_CHILD(this),
@@ -1242,6 +1246,10 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                  * reset them in the callback.
                  */
                 MARKER_SET_UID_GID (frame, local, frame->root);
+                if (uuid_is_null (local->loc.gfid))
+                        uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+                GF_UUID_ASSERT (local->loc.gfid);
 
                 STACK_WIND_COOKIE (frame, marker_do_rename,
                                    frame->cookie, FIRST_CHILD(this),
@@ -1290,6 +1298,12 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
          * reset them in the callback.
          */
         MARKER_SET_UID_GID (frame, local, frame->root);
+
+        if (uuid_is_null (oplocal->loc.gfid))
+                        uuid_copy (oplocal->loc.gfid,
+                                   oplocal->loc.inode->gfid);
+
+        GF_UUID_ASSERT (oplocal->loc.gfid);
 
         STACK_WIND_COOKIE (frame, marker_get_newpath_contribution,
                            frame->cookie, FIRST_CHILD(this),
@@ -2136,6 +2150,9 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
+
+        if (!op_ret && local && uuid_is_null (local->loc.gfid))
+                        uuid_copy (local->loc.gfid, inode->gfid);
 
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
                              dict, postparent);
