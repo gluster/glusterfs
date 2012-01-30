@@ -1009,11 +1009,28 @@ out:
 }
 
 int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        ra_conf_t      *conf = NULL;
+        int             ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("read-ahead", this, out);
+        GF_VALIDATE_OR_GOTO ("read-ahead", this->private, out);
+
+        conf = this->private;
+
+        GF_OPTION_RECONF ("page-count", conf->page_count, options, uint32, out);
+
+        ret = 0;
+ out:
+        return ret;
+}
+
+int
 init (xlator_t *this)
 {
         ra_conf_t *conf              = NULL;
         dict_t    *options           = NULL;
-        char      *page_count_string = NULL;
         int32_t    ret               = -1;
 
         GF_VALIDATE_OR_GOTO ("read-ahead", this, out);
@@ -1037,47 +1054,10 @@ init (xlator_t *this)
         }
 
         conf->page_size = this->ctx->page_size;
-        conf->page_count = 4;
 
-        if (dict_get (options, "page-count")) {
-                page_count_string = data_to_str (dict_get (options,
-                                                           "page-count"));
-        }
+        GF_OPTION_INIT ("page-count", conf->page_count, uint32, out);
 
-        if (page_count_string) {
-                if (gf_string2uint_base10 (page_count_string, &conf->page_count)
-                    != 0) {
-                        gf_log ("read-ahead", GF_LOG_ERROR,
-                                "invalid number format \"%s\" of \"option "
-                                "page-count\"",
-                                page_count_string);
-                        goto out;
-                }
-
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Using conf->page_count = %u", conf->page_count);
-        }
-
-        if (dict_get (options, "force-atime-update")) {
-                char *force_atime_update_str = NULL;
-
-                force_atime_update_str
-                        = data_to_str (dict_get (options,
-                                                 "force-atime-update"));
-
-                if (gf_string2boolean (force_atime_update_str,
-                                       &conf->force_atime_update) == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "'force-atime-update' takes only boolean "
-                                "options");
-                        goto out;
-                }
-
-                if (conf->force_atime_update) {
-                        gf_log (this->name, GF_LOG_WARNING, "Forcing atime "
-                                "updates on cache hit");
-                }
-        }
+        GF_OPTION_INIT ("force-atime-update", conf->force_atime_update, bool, out);
 
         conf->files.next = &conf->files;
         conf->files.prev = &conf->files;
@@ -1141,12 +1121,15 @@ struct xlator_dumpops dumpops = {
 
 struct volume_options options[] = {
         { .key  = {"force-atime-update"},
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false"
         },
         { .key  = {"page-count"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 1,
-          .max  = 16
+          .max  = 16,
+          .default_value = "4",
+          .description = "Number of pages that will be pre-fetched"
         },
         { .key = {NULL} },
 };
