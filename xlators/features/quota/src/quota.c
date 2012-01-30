@@ -597,6 +597,9 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
+        if (local->loc.name == NULL)
+                goto unwind;
+
         ret = quota_inode_ctx_get (local->loc.inode, local->limit, this, dict,
                                    buf, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {

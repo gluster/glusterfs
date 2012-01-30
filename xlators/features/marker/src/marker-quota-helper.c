@@ -168,8 +168,12 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *l
         int32_t ret = 0;
         inode_contribution_t *contribution = NULL;
 
+        if (!loc->parent)
+                goto out;
+
         list_for_each_entry (contribution, &ctx->contribution_head, contri_list) {
-                if (uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
+                if (loc->parent &&
+                     uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
                         goto out;
                 }
         }
@@ -223,6 +227,7 @@ mq_dict_set_contribution (xlator_t *this, dict_t *dict,
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->parent, out);
 
         GET_CONTRI_KEY (contri_key, loc->parent->gfid, ret);
         if (ret < 0) {
