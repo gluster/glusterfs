@@ -157,7 +157,7 @@ typedef struct fuse_private fuse_private_t;
                 frame->root->op    = op_num;                            \
                 frame->op          = op_num;                            \
                                                                         \
-                xl = fuse_state_subvol (state);                         \
+                xl = state->active_subvol;				\
                 if (!xl) {                                              \
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,         \
                                 "xl is NULL");                          \
@@ -217,6 +217,17 @@ typedef struct fuse_private fuse_private_t;
 
 
 
+static inline xlator_t *
+fuse_active_subvol (xlator_t *fuse)
+{
+        fuse_private_t *priv = NULL;
+
+        priv = fuse->private;
+
+        return priv->active_subvol;
+}
+
+
 typedef enum {
         RESOLVE_MUST = 1,
         RESOLVE_NOT,
@@ -225,35 +236,27 @@ typedef enum {
         RESOLVE_EXACT
 } fuse_resolve_type_t;
 
-struct fuse_resolve_comp {
-        char      *basename;
-        ino_t      ino;
-        uint64_t   gen;
-        inode_t   *inode;
-};
 
 typedef struct {
         fuse_resolve_type_t    type;
-        ino_t                  ino;
-        uint64_t               gen;
-        ino_t                  par;
         fd_t                  *fd;
         char                  *path;
         char                  *bname;
         u_char                 gfid[16];
+	inode_t               *hint;
         u_char                 pargfid[16];
+	inode_t               *parhint;
 	char                  *resolved;
         int                    op_ret;
         int                    op_errno;
         loc_t                  resolve_loc;
-        struct fuse_resolve_comp *components;
-        int                    comp_count;
 } fuse_resolve_t;
 
 
 typedef struct {
         void             *pool;
         xlator_t         *this;
+	xlator_t         *active_subvol;
         inode_table_t    *itable;
         loc_t             loc;
         loc_t             loc2;
@@ -306,10 +309,8 @@ fuse_state_t *get_fuse_state (xlator_t *this, fuse_in_header_t *finh);
 void free_fuse_state (fuse_state_t *state);
 void gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa);
 uint64_t inode_to_fuse_nodeid (inode_t *inode);
-xlator_t *fuse_state_subvol (fuse_state_t *state);
 xlator_t *fuse_active_subvol (xlator_t *fuse);
 inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
-int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
 int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);
 int fuse_gfid_set (fuse_state_t *state);
 int fuse_flip_xattr_ns (struct fuse_private *priv, char *okey, char **nkey);
@@ -318,4 +319,11 @@ int fuse_xattr_alloc_default (char *okey, char **nkey);
 fuse_fd_ctx_t * __fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
 fuse_fd_ctx_t * fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
 
+int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
+int fuse_resolve_inode_init (fuse_state_t *state, fuse_resolve_t *resolve,
+			     ino_t ino);
+int fuse_resolve_entry_init (fuse_state_t *state, fuse_resolve_t *resolve,
+			     ino_t par, char *name);
+int fuse_resolve_fd_init (fuse_state_t *state, fuse_resolve_t *resolve,
+			  fd_t *fd);
 #endif /* _GF_FUSE_BRIDGE_H_ */

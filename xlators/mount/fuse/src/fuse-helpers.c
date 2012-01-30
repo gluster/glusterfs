@@ -24,41 +24,10 @@
 #include <sys/sysctl.h>
 #endif
 
-xlator_t *
-fuse_state_subvol (fuse_state_t *state)
-{
-        xlator_t *subvol = NULL;
-
-        if (!state)
-                return NULL;
-
-        if (state->loc.inode)
-                subvol = state->loc.inode->table->xl;
-
-        if (state->fd)
-                subvol = state->fd->inode->table->xl;
-
-        return subvol;
-}
-
-
-xlator_t *
-fuse_active_subvol (xlator_t *fuse)
-{
-        fuse_private_t *priv = NULL;
-
-        priv = fuse->private;
-
-        return priv->active_subvol;
-}
-
-
 
 static void
 fuse_resolve_wipe (fuse_resolve_t *resolve)
 {
-        struct fuse_resolve_comp *comp = NULL;
-
         if (resolve->path)
                 GF_FREE ((void *)resolve->path);
 
@@ -70,21 +39,17 @@ fuse_resolve_wipe (fuse_resolve_t *resolve)
 
         loc_wipe (&resolve->resolve_loc);
 
-        comp = resolve->components;
+	if (resolve->hint) {
+		inode_unref (resolve->hint);
+		resolve->hint = 0;
+	}
 
-        if (comp) {
-                int                  i = 0;
-
-                for (i = 0; comp[i].basename; i++) {
-                        if (comp[i].inode) {
-                                inode_unref (comp[i].inode);
-                                comp[i].inode = NULL;
-                        }
-                }
-
-                GF_FREE ((void *)resolve->components);
-        }
+	if (resolve->parhint) {
+		inode_unref (resolve->parhint);
+		resolve->parhint = 0;
+	}
 }
+
 
 void
 free_fuse_state (fuse_state_t *state)
@@ -125,11 +90,18 @@ fuse_state_t *
 get_fuse_state (xlator_t *this, fuse_in_header_t *finh)
 {
         fuse_state_t *state = NULL;
+	xlator_t     *active_subvol = NULL;
 
         state = (void *)GF_CALLOC (1, sizeof (*state),
                                    gf_fuse_mt_fuse_state_t);
         if (!state)
                 return NULL;
+
+	state->this = THIS;
+        active_subvol = fuse_active_subvol (state->this);
+	state->active_subvol = active_subvol;
+	state->itable = active_subvol->itable;
+
         state->pool = this->ctx->pool;
         state->finh = finh;
         state->this = this;
