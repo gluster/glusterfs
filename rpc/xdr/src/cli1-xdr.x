@@ -106,7 +106,6 @@ enum gf1_cli_top_op {
 /* The unconventional hex numbers help us perform
    bit-wise operations which reduces complexity */
 enum gf_cli_status_type {
-        GF_CLI_STATUS_INVAL        = -1,
         GF_CLI_STATUS_NONE         = 0x000,
         GF_CLI_STATUS_MEM          = 0x001,     /*000000000001*/
         GF_CLI_STATUS_CLIENTS      = 0x002,     /*000000000010*/

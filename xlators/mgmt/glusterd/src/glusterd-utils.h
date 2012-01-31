@@ -349,9 +349,6 @@ int32_t
 glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf);
 
 int
-glusterd_get_brick_root (char *path, char **mount_point);
-
-int
 glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
                                    glusterd_brickinfo_t *brickinfo,
                                    dict_t  *dict, int32_t count);

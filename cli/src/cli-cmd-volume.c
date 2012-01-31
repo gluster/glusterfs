@@ -1431,6 +1431,7 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         if (ret)
                 goto out;
 
+#ifdef GF_LINUX_HOST_OS
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", i);
         ret = dict_get_str (dict, key, &(status->mount_options));
@@ -1442,19 +1443,23 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         ret = dict_get_str (dict, key, &(status->fs_name));
         if (ret)
                 goto out;
+#endif
 
         if (IS_EXT_FS(status->fs_name) ||
             !strcmp (status->fs_name, "xfs")) {
 
+#ifdef GF_LINUX_HOST_OS
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.inode_size", i);
                 ret = dict_get_str (dict, key, &(status->inode_size));
                 if (ret)
                         status->inode_size = NULL;
+#endif
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.total_inodes", i);
-                ret = dict_get_uint64 (dict, key, &(status->total_inodes));
+                ret = dict_get_uint64 (dict, key,
+                                       &(status->total_inodes));
                 if (ret)
                         goto out;
 
@@ -1463,9 +1468,10 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 ret = dict_get_uint64 (dict, key, &(status->free_inodes));
                 if (ret)
                         goto out;
-
         } else {
+#ifdef GF_LINUX_HOST_OS
                 status->inode_size = NULL;
+#endif
                 status->total_inodes = 0;
                 status->free_inodes = 0;
         }
@@ -1481,6 +1487,8 @@ cli_print_detailed_status (cli_volume_status_t *status)
         cli_out ("%-20s : %-20d", "Port", status->port);
         cli_out ("%-20s : %-20c", "Online", (status->online) ? 'Y' : 'N');
         cli_out ("%-20s : %-20s", "Pid", status->pid_str);
+
+#ifdef GF_LINUX_HOST_OS
         cli_out ("%-20s : %-20s", "File System", status->fs_name);
         cli_out ("%-20s : %-20s", "Device", status->device);
 
@@ -1491,15 +1499,15 @@ cli_print_detailed_status (cli_volume_status_t *status)
                 cli_out ("%-20s : %-20s", "Mount Options", "N/A");
         }
 
-        cli_out ("%-20s : %-20s", "Disk Space Free", status->free);
-        cli_out ("%-20s : %-20s", "Total Disk Space", status->total);
-
         if (status->inode_size) {
                 cli_out ("%-20s : %-20s", "Inode Size",
                          status->inode_size);
         } else {
                 cli_out ("%-20s : %-20s", "Inode Size", "N/A");
         }
+#endif
+        cli_out ("%-20s : %-20s", "Disk Space Free", status->free);
+        cli_out ("%-20s : %-20s", "Total Disk Space", status->total);
 
         if (status->total_inodes) {
                 cli_out ("%-20s : %-20ld", "Inode Count",
@@ -1821,10 +1829,10 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_top_cbk,
            "volume top operations"},
 
-        { "volume status [all|{<VOLNAME> [<BRICKNAME>] "
-          "[misc-details|clients|mem|inode|fd|callpool]}]",
+        { "volume status [all | <VOLNAME> [<BRICK>]]"
+          " [detail|clients|mem|inode|fd|callpool]",
           cli_cmd_volume_status_cbk,
-         "display status of specified volume"},
+          "display status of all or specified volume(s)/brick"},
 
         { "volume heal <VOLNAME>",
           cli_cmd_volume_heal_cbk,

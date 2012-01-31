@@ -161,7 +161,6 @@ enum gf1_cli_top_op {
 typedef enum gf1_cli_top_op gf1_cli_top_op;
 
 enum gf_cli_status_type {
-	GF_CLI_STATUS_INVAL = -1,
 	GF_CLI_STATUS_NONE = 0x000,
 	GF_CLI_STATUS_MEM = 0x001,
 	GF_CLI_STATUS_CLIENTS = 0x002,

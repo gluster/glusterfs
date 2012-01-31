@@ -1839,39 +1839,42 @@ out:
         return ret;
 }
 
-gf_boolean_t
-cli_cmd_validate_statusop (const char *arg)
+uint32_t
+cli_cmd_get_statusop (const char *arg)
 {
-        char    *opwords[] = {"misc-details", "mem", "clients", "fd", "inode",
-                              "callpool", NULL};
-        char    *w = NULL;
+        int        i         = 0;
+        uint32_t   ret       = GF_CLI_STATUS_NONE;
+        char      *w         = NULL;
+        char      *opwords[] = {"detail", "mem", "clients", "fd",
+                                "inode", "callpool", NULL};
+        struct {
+                char      *opname;
+                uint32_t   opcode;
+        } optable[] = {
+                { "detail",   GF_CLI_STATUS_DETAIL   },
+                { "mem",      GF_CLI_STATUS_MEM      },
+                { "clients",  GF_CLI_STATUS_CLIENTS  },
+                { "fd",       GF_CLI_STATUS_FD       },
+                { "inode",    GF_CLI_STATUS_INODE    },
+                { "callpool", GF_CLI_STATUS_CALLPOOL },
+                { NULL }
+        };
 
         w = str_getunamb (arg, opwords);
         if (!w) {
-                gf_log ("cli", GF_LOG_ERROR, "Unknown status op  %s",
-                        arg);
-                return _gf_false;
+                gf_log ("cli", GF_LOG_DEBUG,
+                        "Not a status op  %s", arg);
+                goto out;
         }
-        return _gf_true;
-}
 
-int
-cli_cmd_get_statusop (const char *arg)
-{
-        int ret = GF_CLI_STATUS_INVAL;
-        if (!strcmp (arg, "misc-details"))
-                ret = GF_CLI_STATUS_DETAIL;
-        else if (!strcmp (arg, "mem"))
-                ret = GF_CLI_STATUS_MEM;
-        else if (!strcmp (arg, "clients"))
-                ret = GF_CLI_STATUS_CLIENTS;
-        else if (!strcmp (arg, "inode"))
-                ret = GF_CLI_STATUS_INODE;
-        else if (!strcmp (arg, "fd"))
-                ret = GF_CLI_STATUS_FD;
-        else if (!strcmp (arg, "callpool"))
-                ret = GF_CLI_STATUS_CALLPOOL;
+        for (i = 0; optable[i].opname; i++) {
+                if (!strcmp (w, optable[i].opname)) {
+                        ret = optable[i].opcode;
+                        break;
+                }
+        }
 
+ out:
         return ret;
 }
 
@@ -1879,9 +1882,9 @@ int
 cli_cmd_volume_status_parse (const char **words, int wordcount,
                              dict_t **options)
 {
-        dict_t *dict            = NULL;
-        int     ret             = -1;
-        int     cmd             = 0;
+        dict_t    *dict            = NULL;
+        int        ret             = -1;
+        uint32_t   cmd             = 0;
 
         GF_ASSERT (options);
 
@@ -1898,60 +1901,69 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 
         case 3:
                 if (!strcmp (words[2], "all")) {
-
                         cmd = GF_CLI_STATUS_ALL;
                         ret = 0;
+
                 } else {
                         cmd = GF_CLI_STATUS_VOL;
                         ret = dict_set_str (dict, "volname", (char *)words[2]);
                 }
+
                 break;
 
         case 4:
+                cmd = cli_cmd_get_statusop (words[3]);
+
                 if (!strcmp (words[2], "all")) {
-                        cli_out ("Cannot specify brick/status-type for \"all\"");
-                        ret = -1;
-                        goto out;
+                        if (cmd == GF_CLI_STATUS_NONE) {
+                                cli_out ("%s is not a valid status option",
+                                         words[3]);
+                                ret = -1;
+                                goto out;
+                        }
+                        cmd |= GF_CLI_STATUS_ALL;
+                        ret  = 0;
+
                 } else {
-                        cmd = GF_CLI_STATUS_VOL;
-                        ret = dict_set_str (dict, "volname", (char *)words[2]);
+                        ret = dict_set_str (dict, "volname",
+                                            (char *)words[2]);
                         if (ret)
                                 goto out;
+
+                        if (cmd == GF_CLI_STATUS_NONE) {
+                                cmd = GF_CLI_STATUS_BRICK;
+                                ret = dict_set_str (dict, "brick",
+                                                    (char *)words[3]);
+
+                        } else {
+                                cmd |= GF_CLI_STATUS_VOL;
+                                ret  = 0;
+                        }
                 }
 
-                if (cli_cmd_validate_statusop (words[3])) {
-                        ret = cli_cmd_get_statusop (words[3]);
-                        if (GF_CLI_STATUS_INVAL == ret)
-                                goto out;
-                        cmd |= ret;
-                        ret = 0;
-                } else {
-                        cmd = GF_CLI_STATUS_BRICK;
-                        ret = dict_set_str (dict, "brick", (char *)words[3]);
-                }
                 break;
 
         case 5:
-                if (!cli_cmd_validate_statusop (words[4])) {
-                        ret = -1;
-                        goto out;
-                }
-
-                cmd = GF_CLI_STATUS_BRICK;
-                ret = cli_cmd_get_statusop (words[4]);
-                if (GF_CLI_STATUS_INVAL == ret)
-                        goto out;
-                cmd |= ret;
-
                 if (!strcmp (words[2], "all")) {
-                        cli_out ("Cannot specify brick/status-type for \"all\"");
+                        cli_out ("Cannot specify brick for \"all\"");
                         ret = -1;
                         goto out;
-                } else {
-                        ret = dict_set_str (dict, "volname", (char *)words[2]);
-                        if (ret)
-                                goto out;
                 }
+
+                cmd = cli_cmd_get_statusop (words[4]);
+                if (cmd == GF_CLI_STATUS_NONE) {
+                        cli_out ("%s is not a valid status option",
+                                 words[4]);
+                        ret = -1;
+                        goto out;
+                }
+
+                cmd |= GF_CLI_STATUS_BRICK;
+
+                ret = dict_set_str (dict, "volname", (char *)words[2]);
+                if (ret)
+                        goto out;
+
                 ret = dict_set_str (dict, "brick", (char *)words[3]);
                 break;
 
