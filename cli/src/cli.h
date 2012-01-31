@@ -132,12 +132,14 @@ struct cli_volume_status {
         uint64_t       free_inodes;
         char          *brick;
         char          *pid_str;
-        char          *fs_name;
         char          *free;
         char          *total;
+#ifdef GF_LINUX_HOST_OS
+        char          *fs_name;
         char          *mount_options;
         char          *device;
         char          *inode_size;
+#endif
 };
 
 typedef struct cli_volume_status cli_volume_status_t;

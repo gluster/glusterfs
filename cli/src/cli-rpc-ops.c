@@ -4956,7 +4956,7 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
         char                           *volname        = NULL;
         dict_t                         *dict           = NULL;
         gf_cli_rsp                      rsp            = {0,};
-        cli_volume_status_t                 status         = {0};
+        cli_volume_status_t             status         = {0};
 
         if (req->rpc_status == -1)
                 goto out;
@@ -5044,10 +5044,10 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret)
                 goto out;
 
-        cli_out ("\nSTATUS OF VOLUME: %s", volname);
+        cli_out ("\nStatus of volume: %s", volname);
 
         if ((cmd & GF_CLI_STATUS_DETAIL) == 0)
-                cli_out ("BRICK\t\t\t\t\t\t\tPORT\tONLINE\tPID");
+                cli_out ("Brick\t\t\t\t\t\t\tPort\tOnline\tPid");
 
         for (i = 0; i < count; i++) {
 

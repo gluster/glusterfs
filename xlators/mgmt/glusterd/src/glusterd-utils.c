@@ -60,6 +60,9 @@
 #include <fnmatch.h>
 #include <sys/statvfs.h>
 
+#ifdef GF_LINUX_HOST_OS
+#include <mntent.h>
+#endif
 
 #ifdef GF_SOLARIS_HOST_OS
 #include <sys/sockio.h>
@@ -744,9 +747,11 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                 *brickinfo = brickiter;
                         break;
                 }
+
                 if (path_match != GF_PATH_PARTIAL)
                         continue;
 
+#ifdef GF_LINUX_HOST_OS
                 if (!fnmatch (path, brickiter->path, FNM_LEADING_DIR) ||
                     !fnmatch (brickiter->path, path, FNM_LEADING_DIR)) {
                         gf_log (THIS->name, GF_LOG_ERROR,
@@ -756,6 +761,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         ret = 0;
                         break;
                 }
+#endif
         }
 
 out:
@@ -3109,7 +3115,8 @@ out:
         return -1;
 }
 
-int
+#ifdef GF_LINUX_HOST_OS
+static int
 glusterd_get_brick_root (char *path, char **mount_point)
 {
         char           *ptr            = NULL;
@@ -3257,16 +3264,14 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
                                   dict_t *dict, int count)
 {
         int             ret                  = -1;
-        int             fd                   = -1;
         char            key[1024]            = {0};
         char            base_key[1024]       = {0};
-        char            buffer[4096]         = {0};
-        char            cmd_str[1024]        = {0};
         char           *mnt_pt               = NULL;
         char           *fs_name              = NULL;
         char           *mnt_options          = NULL;
         char           *device               = NULL;
-        runner_t        runner               = {0};
+        FILE           *mtab                 = NULL;
+        struct mntent  *entry                = NULL;
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
 
@@ -3274,33 +3279,25 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         if (ret)
                 goto out;
 
-        /* get mount details of brick in back-end */
-        snprintf (cmd_str, sizeof (cmd_str), " %s ", mnt_pt);
+        mtab = setmntent (_PATH_MNTTAB, "r");
+        entry = getmntent (mtab);
 
-        runinit (&runner);
-        runner_add_args (&runner, "grep", cmd_str, "/etc/mtab", NULL);
-        runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
-
-        ret = runner_start (&runner);
-        if (ret)
-                goto out;
-
-        if (!fgets (buffer, sizeof(buffer),
-                    runner_chio (&runner, STDOUT_FILENO))) {
-                ret = -1;
-                goto out;
+        while (1) {
+                if (!entry) {
+                        ret = -1;
+                        goto out;
+                }
+                if (!strcmp (entry->mnt_dir, mnt_pt) &&
+                    strcmp (entry->mnt_type, "rootfs"))
+                        break;
+                entry = getmntent (mtab);
         }
-
-        runner_end (&runner);
 
         /* get device file */
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.device", base_key);
 
-        device = get_nth_word (buffer, 1);
-        if (!device)
-                goto out;
-
+        device = gf_strdup (entry->mnt_fsname);
         ret = dict_set_dynstr (dict, key, device);
         if (ret)
                 goto out;
@@ -3309,10 +3306,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fs_name", base_key);
 
-        fs_name = get_nth_word (buffer, 3);
-        if (!fs_name)
-                goto out;
-
+        fs_name = gf_strdup (entry->mnt_type);
         ret = dict_set_dynstr (dict, key, fs_name);
         if (ret)
                 goto out;
@@ -3321,18 +3315,15 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mnt_options", base_key);
 
-        mnt_options = get_nth_word (buffer, 4);
-        if (!mnt_options)
-                goto out;
+        mnt_options = gf_strdup (entry->mnt_opts);
         ret = dict_set_dynstr (dict, key, mnt_options);
 
  out:
         if (mnt_pt)
                 GF_FREE (mnt_pt);
-        if (fd >= 0)
-                close (fd);
         return ret;
 }
+#endif
 
 int
 glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
@@ -3348,7 +3339,9 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
         char            key[1024]         = {0};
         char            base_key[1024]    = {0};
         struct statvfs  brickstat         = {0};
+        xlator_t       *this              = NULL;
 
+        this = THIS;
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
         GF_ASSERT (dict);
@@ -3357,7 +3350,7 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         ret = statvfs (brickinfo->path, &brickstat);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "statfs error: %s ",
+                gf_log (this->name, GF_LOG_ERROR, "statfs error: %s ",
                         strerror (errno));
                 goto out;
         }
@@ -3404,16 +3397,16 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
         }
-
+#ifdef GF_LINUX_HOST_OS
         ret = glusterd_add_brick_mount_details (brickinfo, dict, count);
         if (ret)
                 goto out;
 
         ret = glusterd_add_inode_size_to_dict (dict, count);
-
+#endif
  out:
         if (ret)
-                gf_log (THIS->name, GF_LOG_DEBUG, "Error adding brick"
+                gf_log (this->name, GF_LOG_DEBUG, "Error adding brick"
                         " detail to dict: %s", strerror (errno));
         return ret;
 }
@@ -3481,7 +3474,7 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
 out:
         if (ret)
-                gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+                gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
