@@ -1976,18 +1976,19 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 }
 
 gf_boolean_t
-cli_cmd_validate_dumpoption (const char *option)
+cli_cmd_validate_dumpoption (const char *arg, char **option)
 {
         char    *opwords[] = {"all", "nfs", "mem", "iobuf", "callpool", "priv",
-			      "fd", "inode", NULL};
+                              "fd", "inode", NULL};
         char    *w = NULL;
 
-        w = str_getunamb (option, opwords);
+        w = str_getunamb (arg, opwords);
         if (!w) {
                 gf_log ("cli", GF_LOG_DEBUG, "Unknown statedump option  %s",
-                        option);
+                        arg);
                 return _gf_false;
         }
+        *option = w;
         return _gf_true;
 }
 
@@ -1999,14 +2000,15 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         int     i = 0;
         dict_t  *dict = NULL;
         int     option_cnt = 0;
+        char    *option = NULL;
         char    option_str[100] = {0,};
 
         for (i = 3; i < wordcount; i++, option_cnt++) {
-                if (!cli_cmd_validate_dumpoption (words[i])) {
+                if (!cli_cmd_validate_dumpoption (words[i], &option)) {
                         ret = -1;
                         goto out;
                 }
-                strncat (option_str, words[i], sizeof (words [i]));
+                strncat (option_str, option, strlen (option));
                 strncat (option_str, " ", 1);
         }
 
@@ -2014,7 +2016,7 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         if (!dict)
                 goto out;
 
-        ret = dict_set_str (dict, "options", gf_strdup (option_str));
+        ret = dict_set_dynstr (dict, "options", gf_strdup (option_str));
         if (ret)
                 goto out;
 
