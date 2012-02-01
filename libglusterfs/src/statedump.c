@@ -529,12 +529,8 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                           "matched key : %s\n", key);
                 ret = write (gf_dump_fd, buf, strlen (buf));
 
-                /* warning suppression */
-                if (ret >= 0) {
-                        ret = -1;
-                        goto out;
-                }
-
+                ret = -1;
+                goto out;
         }
 
         opt_value = (strncasecmp (value, "yes", 3) ?
@@ -618,11 +614,11 @@ gf_proc_dump_info (int signum)
         } else
                 strncpy (brick_name, "glusterdump", sizeof (brick_name));
 
-        ret = gf_proc_dump_options_init (brick_name);
+        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
         if (ret < 0)
                 goto out;
 
-        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
+        ret = gf_proc_dump_options_init (brick_name);
         if (ret < 0)
                 goto out;
 
