@@ -2189,9 +2189,11 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                              this, out);
         GF_VALIDATE_OR_GOTO (this->name, newloc, out);
         GF_VALIDATE_OR_GOTO (this->name, newloc->path, out);
-        GF_VALIDATE_OR_GOTO (this->name, newloc->name, out);
+        if (uuid_is_null (newloc->gfid))
+            GF_VALIDATE_OR_GOTO (this->name, newloc->name, out);
         GF_VALIDATE_OR_GOTO (this->name, newloc->inode, out);
-        GF_VALIDATE_OR_GOTO (this->name, oldloc->name, out);
+        if (uuid_is_null (oldloc->gfid))
+                GF_VALIDATE_OR_GOTO (this->name, oldloc->name, out);
 
         ret = sp_cache_remove_parent_entry (frame, this, newloc->parent->table,
                                             (char *)newloc->path);
@@ -2292,7 +2294,8 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
                              this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
+        if (uuid_is_null (loc->gfid))
+                GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2432,7 +2435,8 @@ sp_setattr (call_frame_t *frame, xlator_t *this,
         GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
                              this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
+        if (uuid_is_null (loc->gfid))
+            GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2531,7 +2535,8 @@ sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
-        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
+        if (uuid_is_null (loc->gfid))
+                GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
