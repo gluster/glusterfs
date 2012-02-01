@@ -192,7 +192,7 @@ check_recursive_mount ()
 
     export PATH;
     # check whether getfattr exists
-    which getfattr > /dev/null;
+    which getfattr > /dev/null 2>&1;
     if [ $? -ne 0 ]; then
         return;
     fi
@@ -204,7 +204,14 @@ check_recursive_mount ()
     fi
 
     # check if the mount point is a brick's parent directory
-    brick_path=(`cat /etc/glusterd/vols/*/bricks/* | grep ^path | cut -d "=" -f 2`);
+    GLUSTERD_WORKDIR="/etc/glusterd";
+
+    ls -L "$GLUSTERD_WORKDIR"/vols/*/bricks/* > /dev/null 2>&1;
+    if [ $? -ne 0 ]; then
+        return;
+    fi
+
+    brick_path=(`grep ^path "$GLUSTERD_WORKDIR"/vols/*/bricks/* | cut -d "=" -f 2`);
     root_inode=`stat -Lc %i /`;
     root_dev=`stat -Lc %d /`;
     mnt_inode=`stat -Lc %i $mnt_dir`;
