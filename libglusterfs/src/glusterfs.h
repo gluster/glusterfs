@@ -95,6 +95,9 @@
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 
+/* Index xlator related */
+#define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
+
 /* replace-brick and pump related internal xattrs */
 #define RB_PUMP_CMD_START       "glusterfs.pump.start"
 #define RB_PUMP_CMD_PAUSE       "glusterfs.pump.pause"
