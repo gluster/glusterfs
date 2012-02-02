@@ -317,6 +317,7 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                    child_index = (long) cookie;
         struct list_head       paused_calls = {0};
         gf_boolean_t           fop_paused = _gf_false;
+        fd_t                   *local_fd  = NULL;
 
         priv     = this->private;
         local    = frame->local;
@@ -328,18 +329,19 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         priv->children[child_index]->name);
         }
 
+        local_fd = fd_ref (local->fd);
         call_count = afr_frame_return (frame);
         //Note: Do not access any thing using the frame outside call_count 0
 
         //Note: No frame locking needed for this block of code
-        fd_ctx = afr_fd_ctx_get (fd, this);
+        fd_ctx = afr_fd_ctx_get (local_fd, this);
         if (!fd_ctx) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "failed to get fd context, %p", fd);
+                        "failed to get fd context, %p", local_fd);
                 goto out;
         }
 
-        LOCK (&fd->lock);
+        LOCK (&local_fd->lock);
         {
                 if (op_ret >= 0) {
                         fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
@@ -351,7 +353,7 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         afr_get_resumable_calls (this, fd_ctx, &paused_calls);
                 }
         }
-        UNLOCK (&fd->lock);
+        UNLOCK (&local_fd->lock);
 out:
         if (call_count == 0) {
                 afr_resume_calls (this, &paused_calls);
@@ -366,6 +368,7 @@ out:
         }
 
 done:
+        fd_unref (local_fd);
         return 0;
 }
 
