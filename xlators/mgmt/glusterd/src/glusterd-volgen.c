@@ -1539,20 +1539,21 @@ static int
 server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        char     *volname               = NULL;
-        char     *path                  = NULL;
-        int       pump                  = 0;
-        xlator_t *xl                    = NULL;
-        xlator_t *txl                   = NULL;
-        xlator_t *rbxl                  = NULL;
-        char      transt[16]            = {0,};
-        char     *ptranst               = NULL;
-        char      volume_id[64]         = {0,};
-        char      tstamp_file[PATH_MAX] = {0,};
-        int       ret                   = 0;
-        char     *xlator                = NULL;
-        char     *loglevel              = NULL;
-        char      key[1024]             = {0};
+        char     *volname                 = NULL;
+        char     *path                    = NULL;
+        int       pump                    = 0;
+        xlator_t *xl                      = NULL;
+        xlator_t *txl                     = NULL;
+        xlator_t *rbxl                    = NULL;
+        char      transt[16]              = {0,};
+        char     *ptranst                 = NULL;
+        char      volume_id[64]           = {0,};
+        char      tstamp_file[PATH_MAX]   = {0,};
+        int       ret                     = 0;
+        char     *xlator                  = NULL;
+        char     *loglevel                = NULL;
+        char     index_basepath[PATH_MAX] = {0};
+        char     key[1024]                = {0};
 
         path = param;
         volname = volinfo->volname;
@@ -1610,6 +1611,24 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = check_and_add_debug_xl (graph, set_dict, volname, "io-threads");
         if (ret)
                 return -1;
+
+        if (glusterd_is_volume_replicate (volinfo)) {
+                xl = volgen_graph_add (graph, "features/index", volname);
+                if (!xl)
+                        return -1;
+
+                snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
+                          path, ".glusterfs/indices");
+                ret = xlator_set_option (xl, "index-base", index_basepath);
+                if (ret)
+                        return -1;
+
+                ret = check_and_add_debug_xl (graph, set_dict, volname,
+                                              "index");
+                if (ret)
+                        return -1;
+
+        }
 
         ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
         if (ret == -ENOENT)
