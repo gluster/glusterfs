@@ -2766,6 +2766,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         dht_layout_t *layout = 0;
         dht_conf_t   *conf   = NULL;
         xlator_t     *subvol = 0;
+        int           ret    = 0;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
@@ -2813,6 +2814,21 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 entry->d_ino  = orig_entry->d_ino;
                 entry->d_type = orig_entry->d_type;
                 entry->d_len  = orig_entry->d_len;
+
+                if (orig_entry->dict)
+                        entry->dict = dict_ref (orig_entry->dict);
+
+                /* making sure we set the inode ctx right with layout,
+                   currently possible only for non-directories, so for
+                   directories don't set entry inodes */
+                if (!IA_ISDIR(entry->d_stat.ia_type)) {
+                        ret = dht_layout_preset (this, prev->this,
+                                                 orig_entry->inode);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "failed to link the layout in inode");
+                        entry->inode = inode_ref (orig_entry->inode);
+                }
 
                 list_add_tail (&entry->list, &entries.list);
                 count++;
