@@ -448,7 +448,8 @@ dht_readv2 (xlator_t *this, call_frame_t *frame, int op_ret)
         subvol = local->cached_subvol;
 
         STACK_WIND (frame, dht_readv_cbk, subvol, subvol->fops->readv,
-                    local->fd, local->rebalance.size, local->rebalance.offset);
+                    local->fd, local->rebalance.size, local->rebalance.offset,
+                    local->rebalance.flags);
 
         return 0;
 
@@ -459,7 +460,7 @@ out:
 
 int
 dht_readv (call_frame_t *frame, xlator_t *this,
-           fd_t *fd, size_t size, off_t off)
+           fd_t *fd, size_t size, off_t off, uint32_t flags)
 {
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -485,11 +486,12 @@ dht_readv (call_frame_t *frame, xlator_t *this,
 
         local->rebalance.offset = off;
         local->rebalance.size   = size;
+        local->rebalance.flags  = flags;
         local->call_cnt = 1;
 
         STACK_WIND (frame, dht_readv_cbk,
                     subvol, subvol->fops->readv,
-                    fd, size, off);
+                    fd, size, off, flags);
 
         return 0;
 

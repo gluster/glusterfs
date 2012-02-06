@@ -195,10 +195,12 @@ int syncop_open (xlator_t *subvol, loc_t *loc, int32_t flags, fd_t *fd);
 int syncop_close (fd_t *fd);
 
 int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
-                  off_t offset, struct iobref *iobref);
+                  off_t offset, struct iobref *iobref, uint32_t flags);
 int syncop_writev (xlator_t *subvol, fd_t *fd, struct iovec *vector,
-                   int32_t count, off_t offset, struct iobref *iobref);
+                   int32_t count, off_t offset, struct iobref *iobref,
+                   uint32_t flags);
 int syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
+                  uint32_t flags,
                   /* out */
                   struct iovec **vector, int *count, struct iobref **iobref);
 

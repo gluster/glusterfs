@@ -157,6 +157,7 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
                                            local->cont.writev.vector,
                                            local->cont.writev.count,
                                            local->cont.writev.offset,
+                                           local->cont.writev.flags,
                                            local->cont.writev.iobref);
 
                         if (!--call_count)
@@ -441,7 +442,7 @@ out:
 int
 afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iovec *vector, int32_t count, off_t offset,
-            struct iobref *iobref)
+            uint32_t flags, struct iobref *iobref)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
@@ -466,6 +467,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->cont.writev.vector     = iov_dup (vector, count);
         local->cont.writev.count      = count;
         local->cont.writev.offset     = offset;
+        local->cont.writev.flags      = flags;
         local->cont.writev.iobref     = iobref_ref (iobref);
 
         local->fd                = fd_ref (fd);

@@ -687,6 +687,8 @@ xdr_gfs3_read_req (XDR *xdrs, gfs3_read_req *objp)
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->size))
 		 return FALSE;
+	 if (!xdr_u_int (xdrs, &objp->flag))
+		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
 		 return FALSE;
 	return TRUE;
@@ -768,6 +770,8 @@ xdr_gfs3_write_req (XDR *xdrs, gfs3_write_req *objp)
 	 if (!xdr_u_quad_t (xdrs, &objp->offset))
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->size))
+		 return FALSE;
+	 if (!xdr_u_int (xdrs, &objp->flag))
 		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
 		 return FALSE;

@@ -690,7 +690,7 @@ trash_truncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->fsize = stbuf->ia_size;
         STACK_WIND (frame, trash_truncate_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
-                    local->newfd, vector, count, local->cur_offset, iobuf);
+                    local->newfd, vector, count, local->cur_offset, 0, iobuf);
 
 out:
         return 0;
@@ -723,7 +723,7 @@ trash_truncate_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND (frame, trash_truncate_readv_cbk,
                             FIRST_CHILD(this), FIRST_CHILD(this)->fops->readv,
                             local->fd, (size_t)GF_BLOCK_READV_SIZE,
-                            local->cur_offset);
+                            local->cur_offset, 0);
                 goto out;
         }
 
@@ -763,7 +763,7 @@ trash_truncate_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         STACK_WIND (frame, trash_truncate_readv_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
-                    local->fd, (size_t)GF_BLOCK_READV_SIZE, local->cur_offset);
+                    local->fd, (size_t)GF_BLOCK_READV_SIZE, local->cur_offset, 0);
 
 out:
         return 0;
@@ -1110,7 +1110,7 @@ trash_ftruncate_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND (frame, trash_ftruncate_readv_cbk,
                             FIRST_CHILD(this), FIRST_CHILD(this)->fops->readv,
                             local->fd, (size_t)GF_BLOCK_READV_SIZE,
-                            local->cur_offset);
+                            local->cur_offset, 0);
                 return 0;
         }
 
@@ -1142,7 +1142,7 @@ trash_ftruncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         STACK_WIND (frame, trash_ftruncate_writev_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev,
-                    local->newfd, vector, count, local->cur_offset, NULL);
+                    local->newfd, vector, count, local->cur_offset, 0, NULL);
 
         return 0;
 }
@@ -1194,7 +1194,7 @@ trash_ftruncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         STACK_WIND (frame, trash_ftruncate_readv_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readv, local->fd,
-                    (size_t)GF_BLOCK_READV_SIZE, local->cur_offset);
+                    (size_t)GF_BLOCK_READV_SIZE, local->cur_offset, 0);
 
         return 0;
 }

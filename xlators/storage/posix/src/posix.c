@@ -1820,7 +1820,7 @@ out:
 
 int
 posix_readv (call_frame_t *frame, xlator_t *this,
-             fd_t *fd, size_t size, off_t offset)
+             fd_t *fd, size_t size, off_t offset, uint32_t flags)
 {
         int32_t                op_ret     = -1;
         int32_t                op_errno   = 0;
@@ -2004,9 +2004,9 @@ err:
 
 
 int32_t
-posix_writev (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, struct iovec *vector, int32_t count, off_t offset,
-              struct iobref *iobref)
+posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+              struct iovec *vector, int32_t count, off_t offset,
+              uint32_t flags, struct iobref *iobref)
 {
         int32_t                op_ret   = -1;
         int32_t                op_errno = 0;

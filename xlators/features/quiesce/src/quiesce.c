@@ -323,7 +323,8 @@ quiesce_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && (op_errno == ENOTCONN)) {
                 /* Re-transmit (by putting in the queue) */
                 stub = fop_readv_stub (frame, default_readv_resume,
-                                       local->fd, local->size, local->offset);
+                                       local->fd, local->size, local->offset,
+                                       local->io_flag);
                 if (!stub) {
                         STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
                                              NULL, 0, NULL, NULL);
@@ -700,7 +701,8 @@ quiesce_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Re-transmit (by putting in the queue) */
                 stub = fop_writev_stub (frame, default_writev_resume,
                                         local->fd, local->vector, local->flag,
-                                        local->offset, local->iobref);
+                                        local->offset, local->io_flags,
+                                        local->iobref);
                 if (!stub) {
                         STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM,
                                              NULL, NULL);
@@ -1786,7 +1788,7 @@ quiesce_writev (call_frame_t *frame,
 		fd_t *fd,
 		struct iovec *vector,
 		int32_t count,
-		off_t off,
+		off_t off, uint32_t flags,
                 struct iobref *iobref)
 {
 	quiesce_priv_t *priv = NULL;
@@ -1802,13 +1804,13 @@ quiesce_writev (call_frame_t *frame,
                             fd,
                             vector,
                             count,
-                            off,
+                            off, flags,
                             iobref);
 	        return 0;
         }
 
         stub = fop_writev_stub (frame, default_writev_resume,
-                                fd, vector, count, off, iobref);
+                                fd, vector, count, off, flags, iobref);
         if (!stub) {
                 STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
@@ -1824,7 +1826,7 @@ quiesce_readv (call_frame_t *frame,
 	       xlator_t *this,
 	       fd_t *fd,
 	       size_t size,
-	       off_t offset)
+	       off_t offset, uint32_t flags)
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
@@ -1837,6 +1839,7 @@ quiesce_readv (call_frame_t *frame,
                 local->fd = fd_ref (fd);
                 local->size = size;
                 local->offset = offset;
+                local->io_flag = flags;
                 frame->local = local;
 
                 STACK_WIND (frame,
@@ -1845,11 +1848,12 @@ quiesce_readv (call_frame_t *frame,
                             FIRST_CHILD(this)->fops->readv,
                             fd,
                             size,
-                            offset);
+                            offset, flags);
 	        return 0;
         }
 
-        stub = fop_readv_stub (frame, default_readv_resume, fd, size, offset);
+        stub = fop_readv_stub (frame, default_readv_resume, fd, size, offset,
+                               flags);
         if (!stub) {
                 STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
                                      NULL, 0, NULL, NULL);

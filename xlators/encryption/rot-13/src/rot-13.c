@@ -84,13 +84,13 @@ rot13_readv (call_frame_t *frame,
              xlator_t *this,
              fd_t *fd,
              size_t size,
-             off_t offset)
+             off_t offset, uint32_t flags)
 {
 	STACK_WIND (frame,
 		    rot13_readv_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->readv,
-		    fd, size, offset);
+		    fd, size, offset, flags);
 	return 0;
 }
 
@@ -112,19 +112,19 @@ rot13_writev (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
               struct iovec *vector,
-              int32_t count, 
-              off_t offset,
+              int32_t count,
+              off_t offset, uint32_t flags,
               struct iobref *iobref)
 {
 	rot_13_private_t *priv = (rot_13_private_t *)this->private;
 	if (priv->encrypt_write)
 		rot13_iovec (vector, count);
 
-	STACK_WIND (frame, 
+	STACK_WIND (frame,
 		    rot13_writev_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->writev,
-		    fd, vector, count, offset,
+		    fd, vector, count, offset, flags,
                     iobref);
 	return 0;
 }

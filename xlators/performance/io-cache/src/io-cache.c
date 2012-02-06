@@ -1087,7 +1087,7 @@ out:
  */
 int32_t
 ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
-           size_t size, off_t offset)
+           size_t size, off_t offset, uint32_t flags)
 {
         uint64_t     tmp_ioc_inode = 0;
         ioc_inode_t *ioc_inode     = NULL;
@@ -1108,7 +1108,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 STACK_WIND (frame, ioc_readv_disabled_cbk,
                             FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->readv, fd, size,
-                            offset);
+                            offset, flags);
                 return 0;
         }
 
@@ -1167,7 +1167,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 STACK_WIND (frame, ioc_readv_disabled_cbk,
                             FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->readv, fd, size,
-                            offset);
+                            offset, flags);
                 return 0;
         }
 
@@ -1251,7 +1251,7 @@ ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iovec *vector, int32_t count, off_t offset,
-            struct iobref *iobref)
+            uint32_t flags, struct iobref *iobref)
 {
         ioc_local_t *local     = NULL;
         uint64_t     ioc_inode = 0;
@@ -1274,7 +1274,7 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         STACK_WIND (frame, ioc_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
-                    iobref);
+                    flags, iobref);
 
         return 0;
 }

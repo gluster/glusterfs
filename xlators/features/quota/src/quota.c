@@ -857,7 +857,7 @@ out:
 int32_t
 quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      struct iovec *vector, int32_t count, off_t off,
-                     struct iobref *iobref)
+                     uint32_t flags, struct iobref *iobref)
 {
         quota_local_t *local    = NULL;
         int32_t        op_errno = EINVAL;
@@ -875,7 +875,7 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         STACK_WIND (frame, quota_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
-                    iobref);
+                    flags, iobref);
         return 0;
 
 unwind:
@@ -887,7 +887,7 @@ unwind:
 int32_t
 quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               struct iovec *vector, int32_t count, off_t off,
-              struct iobref *iobref)
+              uint32_t flags, struct iobref *iobref)
 {
         int32_t            ret     = -1, op_errno = EINVAL;
         int32_t            parents = 0;
@@ -919,7 +919,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
         stub = fop_writev_stub (frame, quota_writev_helper, fd, vector, count,
-                                off, iobref);
+                                off, flags, iobref);
         if (stub == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2295,7 +2295,7 @@ out:
 
 int32_t
 quota_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-             off_t offset)
+             off_t offset, uint32_t flags)
 {
         quota_local_t *local = NULL;
 
@@ -2309,7 +2309,7 @@ quota_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->loc.inode = inode_ref (fd->inode);
 
         STACK_WIND (frame, quota_readv_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readv, fd, size, offset);
+                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags);
         return 0;
 
 unwind:

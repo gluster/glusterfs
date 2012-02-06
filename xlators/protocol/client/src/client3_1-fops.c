@@ -3420,6 +3420,8 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         req.size   = args->size;
         req.offset = args->offset;
         req.fd     = remote_fd;
+        req.flag   = args->flags;
+
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
                         /* TODO: what is the size we should send ? */
@@ -3508,6 +3510,8 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         req.size   = args->size;
         req.offset = args->offset;
         req.fd     = remote_fd;
+        req.flag   = args->flags;
+
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
         ret = client_submit_vec_request (this, &req, frame, conf->fops, GFS3_OP_WRITE,

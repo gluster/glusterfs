@@ -753,7 +753,7 @@ out:
 
 int32_t
 client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-              off_t offset)
+              off_t offset, uint32_t flags)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -767,6 +767,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         args.fd     = fd;
         args.size   = size;
         args.offset = offset;
+        args.flags  = flags;
 
         proc = &conf->fops->proctable[GF_FOP_READ];
         if (!proc) {
@@ -792,7 +793,7 @@ out:
 int32_t
 client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iovec *vector, int32_t count, off_t off,
-               struct iobref *iobref)
+               uint32_t flags, struct iobref *iobref)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -807,6 +808,7 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.vector = vector;
         args.count  = count;
         args.offset = off;
+        args.flags  = flags;
         args.iobref = iobref;
 
         proc = &conf->fops->proctable[GF_FOP_WRITE];

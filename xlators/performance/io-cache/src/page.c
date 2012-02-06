@@ -630,7 +630,7 @@ ioc_page_fault (ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
 
         STACK_WIND (fault_frame, ioc_fault_cbk, FIRST_CHILD(fault_frame->this),
                     FIRST_CHILD(fault_frame->this)->fops->readv, fd,
-                    table->page_size, offset);
+                    table->page_size, offset, 0);
         return;
 
 err:

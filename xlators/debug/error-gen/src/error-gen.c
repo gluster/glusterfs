@@ -1065,7 +1065,7 @@ error_gen_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 error_gen_readv (call_frame_t *frame, xlator_t *this,
-		 fd_t *fd, size_t size, off_t offset)
+		 fd_t *fd, size_t size, off_t offset, uint32_t flags)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -1088,7 +1088,7 @@ error_gen_readv (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, error_gen_readv_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->readv,
-		    fd, size, offset);
+		    fd, size, offset, flags);
 	return 0;
 }
 
@@ -1106,7 +1106,7 @@ error_gen_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 error_gen_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		  struct iovec *vector, int32_t count,
-		  off_t off, struct iobref *iobref)
+		  off_t off, uint32_t flags, struct iobref *iobref)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -1127,7 +1127,7 @@ error_gen_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	STACK_WIND (frame, error_gen_writev_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->writev,
-		    fd, vector, count, off, iobref);
+		    fd, vector, count, off, flags, iobref);
 	return 0;
 }
 

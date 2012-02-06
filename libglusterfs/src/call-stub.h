@@ -268,6 +268,7 @@ typedef struct {
 			fd_t *fd;
 			size_t size;
 			off_t off;
+                        uint32_t flags;
 		} readv;
 		struct {
 			fop_readv_cbk_t fn;
@@ -286,6 +287,7 @@ typedef struct {
 			struct iovec *vector;
 			int32_t count;
 			off_t off;
+                        uint32_t flags;
 			struct iobref *iobref;
 		} writev;
 		struct {
@@ -823,7 +825,7 @@ fop_readv_stub (call_frame_t *frame,
 		fop_readv_t fn,
 		fd_t *fd,
 		size_t size,
-		off_t off);
+		off_t off, uint32_t flags);
 
 call_stub_t *
 fop_readv_cbk_stub (call_frame_t *frame,
@@ -841,7 +843,7 @@ fop_writev_stub (call_frame_t *frame,
 		 fd_t *fd,
 		 struct iovec *vector,
 		 int32_t count,
-		 off_t off,
+		 off_t off, uint32_t flags,
                  struct iobref *iobref);
 
 call_stub_t *

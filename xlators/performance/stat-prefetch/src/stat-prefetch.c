@@ -2793,7 +2793,7 @@ sp_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 int32_t
 sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-          off_t offset)
+          off_t offset, uint32_t flags)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
@@ -2820,7 +2820,7 @@ sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         sp_remove_caches_from_all_fds_opened (this, parent, (char *)name);
 
         STACK_WIND (frame, sp_readv_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readv, fd, size, offset);
+                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags);
         return 0;
 
 unwind:
@@ -2831,7 +2831,7 @@ unwind:
 
 int32_t
 sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
-           int32_t count, off_t off, struct iobref *iobref)
+           int32_t count, off_t off, uint32_t flags, struct iobref *iobref)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
@@ -2859,7 +2859,7 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
         STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
-                    iobref);
+                    flags, iobref);
         return 0;
 
 unwind:

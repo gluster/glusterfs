@@ -222,7 +222,7 @@ ro_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
 int32_t
 ro_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
-           int32_t count, off_t off, struct iobref *iobref)
+           int32_t count, off_t off, uint32_t flags, struct iobref *iobref)
 {
         STACK_UNWIND_STRICT (writev, frame, -1, EROFS, NULL, NULL);
         return 0;

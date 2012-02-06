@@ -598,11 +598,11 @@ __rw_allowable (pl_inode_t *pl_inode, posix_lock_t *region,
 
 int
 pl_readv_cont (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, size_t size, off_t offset)
+               fd_t *fd, size_t size, off_t offset, uint32_t flags)
 {
         STACK_WIND (frame, pl_readv_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
-                    fd, size, offset);
+                    fd, size, offset, flags);
 
         return 0;
 }
@@ -610,7 +610,7 @@ pl_readv_cont (call_frame_t *frame, xlator_t *this,
 
 int
 pl_readv (call_frame_t *frame, xlator_t *this,
-          fd_t *fd, size_t size, off_t offset)
+          fd_t *fd, size_t size, off_t offset, uint32_t flags)
 {
         posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
@@ -657,7 +657,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                         }
 
                         rw->stub = fop_readv_stub (frame, pl_readv_cont,
-                                                   fd, size, offset);
+                                                   fd, size, offset, flags);
                         if (!rw->stub) {
                                 op_errno = ENOMEM;
                                 op_ret = -1;
@@ -677,7 +677,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
         if (wind_needed) {
                 STACK_WIND (frame, pl_readv_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
-                            fd, size, offset);
+                            fd, size, offset, flags);
         }
 
         if (op_ret == -1)
@@ -691,11 +691,11 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 int
 pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iovec *vector, int count, off_t offset,
-                struct iobref *iobref)
+                uint32_t flags, struct iobref *iobref)
 {
         STACK_WIND (frame, pl_writev_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
-                    fd, vector, count, offset, iobref);
+                    fd, vector, count, offset, flags, iobref);
 
         return 0;
 }
@@ -704,7 +704,7 @@ pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int
 pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
            struct iovec *vector, int32_t count, off_t offset,
-           struct iobref *iobref)
+           uint32_t flags, struct iobref *iobref)
 {
         posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
@@ -713,7 +713,6 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int                    op_ret = 0;
         int                    op_errno = 0;
         char                   wind_needed = 1;
-
 
         priv = this->private;
         pl_inode = pl_inode_get (this, fd->inode);
@@ -752,7 +751,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                         rw->stub = fop_writev_stub (frame, pl_writev_cont,
                                                     fd, vector, count, offset,
-                                                    iobref);
+                                                    flags, iobref);
                         if (!rw->stub) {
                                 op_errno = ENOMEM;
                                 op_ret = -1;
@@ -772,7 +771,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (wind_needed)
                 STACK_WIND (frame, pl_writev_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
-                            fd, vector, count, offset, iobref);
+                            fd, vector, count, offset, flags, iobref);
 
         if (op_ret == -1)
                 STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);

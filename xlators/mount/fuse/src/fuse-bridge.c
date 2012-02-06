@@ -1902,7 +1902,7 @@ fuse_readv_resume (fuse_state_t *state)
                 state->finh->unique, state->fd, state->size, state->off);
 
         FUSE_FOP (state, fuse_readv_cbk, GF_FOP_READ,
-                  readv, state->fd, state->size, state->off);
+                  readv, state->fd, state->size, state->off, state->io_flags);
 }
 
 static void
@@ -1930,6 +1930,8 @@ fuse_readv (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->size = fri->size;
         state->off = fri->offset;
+        /* lets ignore 'fri->read_flags', but just consider 'fri->flags' */
+        state->io_flags = fri->flags;
 
         fuse_resolve_and_resume (state, fuse_readv_resume);
 }
@@ -1995,7 +1997,7 @@ fuse_write_resume (fuse_state_t *state)
                 state->finh->unique, state->fd, state->size, state->off);
 
         FUSE_FOP (state, fuse_writev_cbk, GF_FOP_WRITE, writev, state->fd,
-                  &state->vector, 1, state->off, iobref);
+                  &state->vector, 1, state->off, state->io_flags, iobref);
 
         iobref_unref (iobref);
 }
@@ -2020,6 +2022,13 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->fd   = fd;
         state->size = fwi->size;
         state->off  = fwi->offset;
+
+        /* lets ignore 'fwi->write_flags', but just consider 'fwi->flags' */
+        state->io_flags = fwi->flags;
+        /* TODO: may need to handle below flag
+           (fwi->write_flags & FUSE_WRITE_CACHE);
+        */
+
 
 	fuse_resolve_fd_init (state, &state->resolve, fd);
 

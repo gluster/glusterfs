@@ -449,7 +449,7 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
                 STACK_WIND (ra_frame, ra_need_atime_cbk,
                             FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->readv,
-                            file->fd, 1, 1);
+                            file->fd, 1, 1, 0);
         }
 
 out:
@@ -473,7 +473,7 @@ ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-          off_t offset)
+          off_t offset, uint32_t flags)
 {
         ra_file_t   *file            = NULL;
         ra_local_t  *local           = NULL;
@@ -561,7 +561,7 @@ disabled:
         STACK_WIND (frame, ra_readv_disabled_cbk,
                     FIRST_CHILD (frame->this),
                     FIRST_CHILD (frame->this)->fops->readv,
-                    fd, size, offset);
+                    fd, size, offset, flags);
         return 0;
 }
 
@@ -666,7 +666,7 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
-           int32_t count, off_t offset, struct iobref *iobref)
+           int32_t count, off_t offset, uint32_t flags, struct iobref *iobref)
 {
         ra_file_t *file    = NULL;
         uint64_t  tmp_file = 0;
@@ -688,7 +688,7 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         STACK_WIND (frame, ra_writev_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
-                    fd, vector, count, offset, iobref);
+                    fd, vector, count, offset, flags, iobref);
 
         return 0;
 
@@ -1030,12 +1030,10 @@ int
 init (xlator_t *this)
 {
         ra_conf_t *conf              = NULL;
-        dict_t    *options           = NULL;
         int32_t    ret               = -1;
 
         GF_VALIDATE_OR_GOTO ("read-ahead", this, out);
 
-        options = this->options;
         if (!this->children || this->children->next) {
                 gf_log (this->name,  GF_LOG_ERROR,
                         "FATAL: read-ahead not configured with exactly one"

@@ -376,6 +376,7 @@ struct gfs3_read_req {
 	quad_t fd;
 	u_quad_t offset;
 	u_int size;
+	u_int flag;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -433,6 +434,7 @@ struct gfs3_write_req {
 	quad_t fd;
 	u_quad_t offset;
 	u_int size;
+	u_int flag;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;

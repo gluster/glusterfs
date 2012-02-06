@@ -955,7 +955,7 @@ posix_acl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 posix_acl_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 size_t size, off_t offset)
+                 size_t size, off_t offset, uint32_t flags)
 {
         if (__is_fuse_call (frame))
                 goto green;
@@ -968,7 +968,7 @@ posix_acl_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 green:
         STACK_WIND (frame, posix_acl_readv_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->readv,
-                    fd, size, offset);
+                    fd, size, offset, flags);
         return 0;
 red:
         STACK_UNWIND_STRICT (readv, frame, -1, EACCES, NULL, 0, NULL, NULL);
@@ -990,7 +990,7 @@ posix_acl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 posix_acl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   struct iovec *vector, int count, off_t offset,
-                  struct iobref *iobref)
+                  uint32_t flags, struct iobref *iobref)
 {
         if (__is_fuse_call (frame))
                 goto green;
@@ -1003,7 +1003,7 @@ posix_acl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 green:
         STACK_WIND (frame, posix_acl_writev_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev,
-                    fd, vector, count, offset, iobref);
+                    fd, vector, count, offset, flags, iobref);
         return 0;
 red:
         STACK_UNWIND_STRICT (writev, frame, -1, EACCES, NULL, NULL);

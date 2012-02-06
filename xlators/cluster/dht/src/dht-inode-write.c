@@ -112,14 +112,15 @@ dht_writev2 (xlator_t *this, call_frame_t *frame, int op_ret)
         STACK_WIND (frame, dht_writev_cbk,
                     subvol, subvol->fops->writev,
                     local->fd, local->rebalance.vector, local->rebalance.count,
-                    local->rebalance.offset, local->rebalance.iobref);
+                    local->rebalance.offset, local->rebalance.flags,
+                    local->rebalance.iobref);
 
         return 0;
 }
 
 int
-dht_writev (call_frame_t *frame, xlator_t *this,
-            fd_t *fd, struct iovec *vector, int count, off_t off,
+dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+            struct iovec *vector, int count, off_t off, uint32_t flags,
             struct iobref *iobref)
 {
         xlator_t     *subvol = NULL;
@@ -149,12 +150,13 @@ dht_writev (call_frame_t *frame, xlator_t *this,
         local->rebalance.vector = iov_dup (vector, count);
         local->rebalance.offset = off;
         local->rebalance.count = count;
+        local->rebalance.flags = flags;
         local->rebalance.iobref = iobref_ref (iobref);
         local->call_cnt = 1;
 
         STACK_WIND (frame, dht_writev_cbk,
                     subvol, subvol->fops->writev,
-                    fd, vector, count, off, iobref);
+                    fd, vector, count, off, flags, iobref);
 
         return 0;
 

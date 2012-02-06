@@ -55,6 +55,7 @@ typedef struct {
         entrylk_type        type;
         gf_xattrop_flags_t  xattrop_flags;
         int32_t             wbflags;
+        uint32_t            io_flag;
 } quiesce_local_t;
 
 #endif

@@ -112,7 +112,7 @@ ro_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags);
 
 int32_t
 ro_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
-           int32_t count, off_t off, struct iobref *iobref);
+           int32_t count, off_t off, uint32_t flags, struct iobref *iobref);
 
 int32_t
 ro_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,

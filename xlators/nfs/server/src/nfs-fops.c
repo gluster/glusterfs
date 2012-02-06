@@ -1257,8 +1257,8 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 
         iobref_add (nfl->iobref, srciob);
 */
-        STACK_WIND_COOKIE (frame, nfs_fop_writev_cbk, xl, xl,xl->fops->writev
-                           , fd, vector, count, offset, srciobref);
+        STACK_WIND_COOKIE (frame, nfs_fop_writev_cbk, xl, xl,xl->fops->writev,
+                           fd, vector, count, offset, 0, srciobref);
         ret = 0;
 err:
         if (ret < 0) {
@@ -1351,7 +1351,7 @@ nfs_fop_read (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         nfs_fop_save_root_fd_ino (nfl, fd);
 
         STACK_WIND_COOKIE (frame, nfs_fop_readv_cbk, xl, xl, xl->fops->readv,
-                           fd, size, offset);
+                           fd, size, offset, 0);
         ret = 0;
 err:
         if (ret < 0) {

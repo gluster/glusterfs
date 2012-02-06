@@ -627,7 +627,7 @@ marker_writev (call_frame_t *frame,
                fd_t *fd,
                struct iovec *vector,
                int32_t count,
-               off_t offset,
+               off_t offset, uint32_t flags,
                struct iobref *iobref)
 {
         int32_t          ret   = 0;
@@ -650,7 +650,7 @@ marker_writev (call_frame_t *frame,
 wind:
         STACK_WIND (frame, marker_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
-                    iobref);
+                    flags, iobref);
         return 0;
 err:
         STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL);

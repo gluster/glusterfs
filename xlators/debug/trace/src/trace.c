@@ -1813,19 +1813,21 @@ trace_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 trace_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
-             size_t size, off_t offset)
+             size_t size, off_t offset, uint32_t flags)
 {
         if (trace_fop_names[GF_FOP_READ].enabled) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": gfid=%s fd=%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
-                        frame->root->unique, uuid_utoa (fd->inode->gfid), fd, size, offset);
+                        "%"PRId64": gfid=%s fd=%p, size=%"GF_PRI_SIZET", "
+                        "offset=%"PRId64" flags=0%x)",
+                        frame->root->unique, uuid_utoa (fd->inode->gfid),
+                        fd, size, offset, flags);
                 frame->local = fd->inode->gfid;
         }
 
         STACK_WIND (frame, trace_readv_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readv,
-                    fd, size, offset);
+                    fd, size, offset, flags);
         return 0;
 }
 
@@ -1833,20 +1835,21 @@ trace_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int
 trace_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               struct iovec *vector, int32_t count,
-              off_t offset, struct iobref *iobref)
+              off_t offset, uint32_t flags, struct iobref *iobref)
 {
         if (trace_fop_names[GF_FOP_WRITE].enabled) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": gfid=%s fd=%p, count=%d, offset=%"PRId64")",
+                        "%"PRId64": gfid=%s fd=%p, count=%d, offset=%"PRId64
+                        " flag=0%x)",
                         frame->root->unique, uuid_utoa (fd->inode->gfid),
-                        fd, count, offset);
+                        fd, count, offset, flags);
                 frame->local = fd->inode->gfid;
         }
 
         STACK_WIND (frame, trace_writev_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
-                    fd, vector, count, offset, iobref);
+                    fd, vector, count, offset, flags, iobref);
         return 0;
 }
 
