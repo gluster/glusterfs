@@ -936,6 +936,10 @@ init (xlator_t *this)
         strncpy (conf->workdir, dirname, PATH_MAX);
 
         INIT_LIST_HEAD (&conf->xprt_list);
+
+        glusterd_friend_sm_init ();
+        glusterd_op_sm_init ();
+        glusterd_opinfo_init ();
         ret = glusterd_sm_tr_log_init (&conf->op_sm_log,
                                        glusterd_op_sm_state_name_get,
                                        glusterd_op_sm_event_name_get,
@@ -986,10 +990,6 @@ init (xlator_t *this)
         ret = glusterd_restore ();
         if (ret < 0)
                 goto out;
-
-        glusterd_friend_sm_init ();
-        glusterd_op_sm_init ();
-        glusterd_opinfo_init ();
 
         ret = glusterd_handle_upgrade_downgrade (this->options, conf);
         if (ret)

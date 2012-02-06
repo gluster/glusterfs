@@ -2339,7 +2339,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 args.mode = GD_MODE_SWITCH_ON;
                 ret = glusterd_friend_add (hostname, 0, state, &uuid,
-                                           NULL, &peerinfo, 1, &args);
+                                           &peerinfo, 1, &args);
 
                 GF_FREE (hostname);
                 if (ret)

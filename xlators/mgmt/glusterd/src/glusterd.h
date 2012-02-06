@@ -330,10 +330,8 @@ glusterd_friend_find (uuid_t uuid, char *hostname,
 int
 glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
-                     uuid_t *uuid, struct rpc_clnt    *rpc,
-                     glusterd_peerinfo_t **friend,
-                     gf_boolean_t restore,
-                     glusterd_peerctx_args_t *args);
+                     uuid_t *uuid, glusterd_peerinfo_t **friend,
+                     gf_boolean_t restore, glusterd_peerctx_args_t *args);
 
 int
 glusterd_friend_remove (uuid_t uuid, char *hostname);
