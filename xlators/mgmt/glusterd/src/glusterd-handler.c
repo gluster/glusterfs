@@ -1622,7 +1622,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
 
                 ret = glusterd_friend_add (hostname, friend_req.port,
                                            GD_FRIEND_STATE_BEFRIENDED,
-                                           &uuid, NULL, &peerinfo, 0, &args);
+                                           &uuid, &peerinfo, 0, &args);
 
                 i++;
         }
@@ -1694,7 +1694,7 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
                 args.mode = GD_MODE_ON;
                 ret = glusterd_friend_add (remote_hostname, port,
                                            GD_FRIEND_STATE_PROBE_RCVD,
-                                           NULL, NULL, &peerinfo, 0, &args);
+                                           NULL, &peerinfo, 0, &args);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Failed to add peer %s",
                                 remote_hostname);
@@ -2059,17 +2059,15 @@ int
 glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid,
-                     struct rpc_clnt    *rpc,
                      glusterd_peerinfo_t **friend,
                      gf_boolean_t restore,
                      glusterd_peerctx_args_t *args)
 {
-        int                    ret = 0;
+        int                     ret = 0;
         glusterd_conf_t        *conf = NULL;
-        glusterd_peerinfo_t    *peerinfo = NULL;
         glusterd_peerctx_t     *peerctx = NULL;
-        gf_boolean_t           is_allocated = _gf_false;
         dict_t                 *options = NULL;
+        gf_boolean_t            handover = _gf_false;
 
         conf = THIS->private;
         GF_ASSERT (conf)
@@ -2084,55 +2082,31 @@ glusterd_friend_add (const char *hoststr, int port,
         if (args)
                 peerctx->args = *args;
 
-        ret = glusterd_peerinfo_new (&peerinfo, state, uuid, hoststr);
+        ret = glusterd_peerinfo_new (friend, state, uuid, hoststr);
         if (ret)
                 goto out;
-        peerctx->peerinfo = peerinfo;
-        if (friend)
-                *friend = peerinfo;
 
-        if (!rpc) {
-                ret = glusterd_transport_inet_keepalive_options_build (&options,
-                                                                 hoststr, port);
-                if (ret)
-                        goto out;
-                ret = glusterd_rpc_create (&rpc, options,
-                                           glusterd_peer_rpc_notify,
-                                           peerctx);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "failed to create rpc for"
-                                " peer %s", (char*)hoststr);
-                        goto out;
-                }
-                is_allocated = _gf_true;
+        peerctx->peerinfo = *friend;
+
+        ret = glusterd_transport_inet_keepalive_options_build (&options,
+                                                         hoststr, port);
+        if (ret)
+                goto out;
+
+        ret = glusterd_rpc_create (&(*friend)->rpc, options,
+                                   glusterd_peer_rpc_notify,
+                                   peerctx);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "failed to create rpc for"
+                        " peer %s", (char*)hoststr);
+                goto out;
         }
-
-        /* If peer is unreachable when in DEFAULT state, we cleanup peerinfo
-         * via the friend state machine. ie, peerinfo could have been freed.
-         * peer_rpc_notify sets peerctx->peerinfo to NULL to indicate the
-         * same*/
-        peerinfo = peerctx->peerinfo;
-
-        if (peerinfo) {
-                peerinfo->rpc = rpc;
-
-                if (!restore)
-                        ret = glusterd_store_peerinfo (peerinfo);
-
-                list_add_tail (&peerinfo->uuid_list, &conf->peers);
-        }
+        handover = _gf_true;
 
 out:
-        if (ret) {
-                if (peerctx)
-                        GF_FREE (peerctx);
-                if (is_allocated && rpc) {
-                        (void) rpc_clnt_unref (rpc);
-                }
-                if (peerinfo) {
-                        peerinfo->rpc = NULL;
-                        (void) glusterd_friend_cleanup (peerinfo);
-                }
+        if (ret && !handover) {
+                        (void) glusterd_friend_cleanup (*friend);
+                        *friend = NULL;
         }
 
         gf_log ("glusterd", GF_LOG_INFO, "connect returned %d", ret);
@@ -2158,7 +2132,7 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
                 args.req  = req;
                 ret = glusterd_friend_add ((char *)hoststr, port,
                                            GD_FRIEND_STATE_DEFAULT,
-                                           NULL, NULL, &peerinfo, 0, &args);
+                                           NULL, &peerinfo, 0, &args);
                 if ((!ret) && (!peerinfo->connected)) {
                         ret = GLUSTERD_CONNECTION_AWAITED;
                 }
@@ -2725,6 +2699,15 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         {
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
+                ret = glusterd_store_peerinfo (peerinfo);
+                if (ret) {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                                "peerinfo");
+                        break;
+                }
+
+                list_add_tail (&peerinfo->uuid_list, &conf->peers);
 
                 ret = glusterd_peer_handshake (this, rpc, peerctx);
                 if (ret)
@@ -2769,11 +2752,6 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
                 //Inject friend disconnected here
                 if (peerinfo->state.state == GD_FRIEND_STATE_DEFAULT)  {
-                        /* Remove the friend as it was the newly requested
-                           'peer' and connection with this peer didn't
-                           succeed. we have opportunity to notify user
-                        */
-                        peerctx->peerinfo = NULL;
                         glusterd_friend_remove_notify (peerinfo,
                                                        peerctx->args.req);
                 }
