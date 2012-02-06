@@ -60,7 +60,7 @@ dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
                                 ret = syncop_write (to, fd, (buf + tmp_offset),
                                                     (start_idx - tmp_offset),
                                                     (offset + tmp_offset),
-                                                    iobref);
+                                                    iobref, 0);
                                 /* 'path' will be logged in calling function */
                                 if (ret < 0) {
                                         gf_log (THIS->name, GF_LOG_WARNING,
@@ -78,7 +78,7 @@ dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
                         /* This means, last chunk is not yet written.. write it */
                         ret = syncop_write (to, fd, (buf + tmp_offset),
                                             (buf_len - tmp_offset),
-                                            (offset + tmp_offset), iobref);
+                                            (offset + tmp_offset), iobref, 0);
                         if (ret < 0) {
                                 /* 'path' will be logged in calling function */
                                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -263,7 +263,7 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
                 read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE) ?
                              DHT_REBALANCE_BLKSIZE : (ia_size - total));
                 ret = syncop_readv (from, src, read_size,
-                                    offset, &vector, &count, &iobref);
+                                    offset, 0, &vector, &count, &iobref);
                 if (!ret || (ret < 0)) {
                         break;
                 }
@@ -273,7 +273,7 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
                                                     ret, offset, iobref);
                 else
                         ret = syncop_writev (to, dst, vector, count,
-                                             offset, iobref);
+                                             offset, iobref, 0);
                 if (ret < 0) {
                         break;
                 }

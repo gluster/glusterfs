@@ -510,7 +510,8 @@ typedef int32_t (*fop_readv_t) (call_frame_t *frame,
                                 xlator_t *this,
                                 fd_t *fd,
                                 size_t size,
-                                off_t offset);
+                                off_t offset,
+                                uint32_t flags);
 
 typedef int32_t (*fop_writev_t) (call_frame_t *frame,
                                  xlator_t *this,
@@ -518,6 +519,7 @@ typedef int32_t (*fop_writev_t) (call_frame_t *frame,
                                  struct iovec *vector,
                                  int32_t count,
                                  off_t offset,
+                                 uint32_t flags,
                                  struct iobref *iobref);
 
 typedef int32_t (*fop_flush_t) (call_frame_t *frame,

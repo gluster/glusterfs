@@ -2055,7 +2055,7 @@ io_stats_create (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_readv (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, size_t size, off_t offset)
+                fd_t *fd, size_t size, off_t offset, uint32_t flags)
 {
         frame->local = fd;
 
@@ -2064,7 +2064,7 @@ io_stats_readv (call_frame_t *frame, xlator_t *this,
         STACK_WIND (frame, io_stats_readv_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readv,
-                    fd, size, offset);
+                    fd, size, offset, flags);
         return 0;
 }
 
@@ -2073,7 +2073,7 @@ int
 io_stats_writev (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, struct iovec *vector,
                  int32_t count, off_t offset,
-                 struct iobref *iobref)
+                 uint32_t flags, struct iobref *iobref)
 {
         int                 len = 0;
 
@@ -2081,14 +2081,13 @@ io_stats_writev (call_frame_t *frame, xlator_t *this,
                 frame->local = fd->inode;
         len = iov_length (vector, count);
 
-
         BUMP_WRITE (fd, len);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_writev_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
-                    fd, vector, count, offset, iobref);
+                    fd, vector, count, offset, flags, iobref);
         return 0;
 
 }

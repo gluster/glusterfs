@@ -117,7 +117,8 @@ int32_t default_readv (call_frame_t *frame,
                        xlator_t *this,
                        fd_t *fd,
                        size_t size,
-                       off_t offset);
+                       off_t offset,
+                       uint32_t flags);
 
 int32_t default_writev (call_frame_t *frame,
                         xlator_t *this,
@@ -125,6 +126,7 @@ int32_t default_writev (call_frame_t *frame,
                         struct iovec *vector,
                         int32_t count,
                         off_t offset,
+                        uint32_t flags,
                         struct iobref *iobref);
 
 int32_t default_flush (call_frame_t *frame,
@@ -333,18 +335,18 @@ int32_t default_open_resume (call_frame_t *frame,
                       int32_t wbflags);
 
 int32_t default_readv_resume (call_frame_t *frame,
-                       xlator_t *this,
-                       fd_t *fd,
-                       size_t size,
-                       off_t offset);
+                              xlator_t *this,
+                              fd_t *fd,
+                              size_t size,
+                              off_t offset, uint32_t flags);
 
 int32_t default_writev_resume (call_frame_t *frame,
-                        xlator_t *this,
-                        fd_t *fd,
-                        struct iovec *vector,
-                        int32_t count,
-                        off_t offset,
-                        struct iobref *iobref);
+                               xlator_t *this,
+                               fd_t *fd,
+                               struct iovec *vector,
+                               int32_t count,
+                               off_t offset, uint32_t flags,
+                               struct iobref *iobref);
 
 int32_t default_flush_resume (call_frame_t *frame,
                        xlator_t *this,

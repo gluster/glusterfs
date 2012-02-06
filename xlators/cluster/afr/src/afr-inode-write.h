@@ -37,9 +37,9 @@ afr_fchmod (call_frame_t *frame, xlator_t *this,
 	    fd_t *fd, mode_t mode);
 
 int32_t
-afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, 
+afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	    struct iovec *vector, int32_t count, off_t offset,
-            struct iobref *iobref);
+            uint32_t flags, struct iobref *iobref);
 
 int32_t
 afr_truncate (call_frame_t *frame, xlator_t *this,

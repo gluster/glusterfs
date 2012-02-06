@@ -2389,7 +2389,7 @@ server_writev_resume (call_frame_t *frame, xlator_t *bound_xl)
         STACK_WIND (frame, server_writev_cbk,
                     bound_xl, bound_xl->fops->writev,
                     state->fd, state->payload_vector, state->payload_count,
-                    state->offset, state->iobref);
+                    state->offset, state->flags, state->iobref);
 
         return 0;
 err:
@@ -2411,7 +2411,7 @@ server_readv_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         STACK_WIND (frame, server_readv_cbk,
                     bound_xl, bound_xl->fops->readv,
-                    state->fd, state->size, state->offset);
+                    state->fd, state->size, state->offset, state->flags);
 
         return 0;
 err:
@@ -2937,6 +2937,8 @@ server_readv (rpcsvc_request_t *req)
         state->resolve.fd_no  = args.fd;
         state->size           = args.size;
         state->offset         = args.offset;
+        state->flags          = args.flag;
+
         memcpy (state->resolve.gfid, args.gfid, 16);
 
         ret = 0;
@@ -2984,6 +2986,7 @@ server_writev (rpcsvc_request_t *req)
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->offset        = args.offset;
+        state->flags         = args.flag;
         state->iobref        = iobref_ref (req->iobref);
         memcpy (state->resolve.gfid, args.gfid, 16);
 

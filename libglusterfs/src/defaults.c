@@ -517,20 +517,20 @@ default_flush_resume (call_frame_t *frame, xlator_t *this, fd_t *fd)
 int32_t
 default_writev_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
                        struct iovec *vector, int32_t count, off_t off,
-                       struct iobref *iobref)
+                       uint32_t flags, struct iobref *iobref)
 {
         STACK_WIND (frame, default_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
-                    iobref);
+                    flags, iobref);
         return 0;
 }
 
 int32_t
 default_readv_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                      size_t size, off_t offset)
+                      size_t size, off_t offset, uint32_t flags)
 {
         STACK_WIND (frame, default_readv_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readv, fd, size, offset);
+                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags);
         return 0;
 }
 
@@ -898,21 +898,21 @@ default_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 int32_t
 default_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                struct iovec *vector, int32_t count, off_t off,
+                struct iovec *vector, int32_t count, off_t off, uint32_t flags,
                 struct iobref *iobref)
 {
         STACK_WIND (frame, default_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
-                    iobref);
+                    flags, iobref);
         return 0;
 }
 
 int32_t
 default_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-               off_t offset)
+               off_t offset, uint32_t flags)
 {
         STACK_WIND (frame, default_readv_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readv, fd, size, offset);
+                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags);
         return 0;
 }
 

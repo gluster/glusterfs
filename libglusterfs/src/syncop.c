@@ -791,12 +791,13 @@ syncop_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
-              struct iovec **vector, int *count, struct iobref **iobref)
+              uint32_t flags, struct iovec **vector, int *count,
+              struct iobref **iobref)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_readv_cbk, subvol->fops->readv,
-                fd, size, off);
+                fd, size, off, flags);
 
         if (vector)
                 *vector = args.vector;
@@ -836,19 +837,20 @@ syncop_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 syncop_writev (xlator_t *subvol, fd_t *fd, struct iovec *vector,
-               int32_t count, off_t offset, struct iobref *iobref)
+               int32_t count, off_t offset, struct iobref *iobref,
+               uint32_t flags)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_writev_cbk, subvol->fops->writev,
-                fd, vector, count, offset, iobref);
+                fd, vector, count, offset, flags, iobref);
 
         errno = args.op_errno;
         return args.op_ret;
 }
 
 int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
-                  off_t offset, struct iobref *iobref)
+                  off_t offset, struct iobref *iobref, uint32_t flags)
 {
         struct syncargs args = {0,};
         struct iovec    vec  = {0,};
@@ -857,7 +859,7 @@ int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
         vec.iov_base = (void *)buf;
 
         SYNCOP (subvol, (&args), syncop_writev_cbk, subvol->fops->writev,
-                fd, &vec, 1, offset, iobref);
+                fd, &vec, 1, offset, flags, iobref);
 
         errno = args.op_errno;
         return args.op_ret;

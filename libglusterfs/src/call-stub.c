@@ -888,7 +888,7 @@ fop_readv_stub (call_frame_t *frame,
                 fop_readv_t fn,
                 fd_t *fd,
                 size_t size,
-                off_t off)
+                off_t off, uint32_t flags)
 {
         call_stub_t *stub = NULL;
 
@@ -900,8 +900,10 @@ fop_readv_stub (call_frame_t *frame,
         stub->args.readv.fn = fn;
         if (fd)
                 stub->args.readv.fd = fd_ref (fd);
-        stub->args.readv.size = size;
-        stub->args.readv.off = off;
+        stub->args.readv.size  = size;
+        stub->args.readv.off   = off;
+        stub->args.readv.flags = flags;
+
 out:
         return stub;
 }
@@ -945,7 +947,7 @@ fop_writev_stub (call_frame_t *frame,
                  fd_t *fd,
                  struct iovec *vector,
                  int32_t count,
-                 off_t off,
+                 off_t off, uint32_t flags,
                  struct iobref *iobref)
 {
         call_stub_t *stub = NULL;
@@ -960,9 +962,11 @@ fop_writev_stub (call_frame_t *frame,
         if (fd)
                 stub->args.writev.fd = fd_ref (fd);
         stub->args.writev.vector = iov_dup (vector, count);
-        stub->args.writev.count = count;
-        stub->args.writev.off = off;
+        stub->args.writev.count  = count;
+        stub->args.writev.off    = off;
+        stub->args.writev.flags  = flags;
         stub->args.writev.iobref = iobref_ref (iobref);
+
 out:
         return stub;
 }
@@ -2258,7 +2262,8 @@ call_resume_wind (call_stub_t *stub)
                                      stub->frame->this,
                                      stub->args.readv.fd,
                                      stub->args.readv.size,
-                                     stub->args.readv.off);
+                                     stub->args.readv.off,
+                                     stub->args.readv.flags);
                 break;
         }
 
@@ -2270,6 +2275,7 @@ call_resume_wind (call_stub_t *stub)
                                       stub->args.writev.vector,
                                       stub->args.writev.count,
                                       stub->args.writev.off,
+                                      stub->args.writev.flags,
                                       stub->args.writev.iobref);
                 break;
         }

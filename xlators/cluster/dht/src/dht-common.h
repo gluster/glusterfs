@@ -466,7 +466,7 @@ int32_t dht_readv (call_frame_t *frame,
                    xlator_t *this,
                    fd_t     *fd,
                    size_t    size,
-                   off_t     offset);
+                   off_t     offset, uint32_t flags);
 
 int32_t dht_writev (call_frame_t      *frame,
                     xlator_t      *this,
@@ -474,6 +474,7 @@ int32_t dht_writev (call_frame_t      *frame,
                     struct iovec  *vector,
                     int32_t        count,
                     off_t          offset,
+                    uint32_t       flags,
                     struct iobref *iobref);
 
 int32_t dht_flush (call_frame_t *frame,

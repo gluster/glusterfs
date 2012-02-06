@@ -475,6 +475,7 @@ typedef struct _afr_local {
                         size_t size;
                         off_t offset;
                         int last_index;
+                        uint32_t flags;
                 } readv;
 
                 /* dir read */
@@ -508,6 +509,7 @@ typedef struct _afr_local {
                         struct iobref *iobref;
                         int32_t count;
                         off_t offset;
+                        uint32_t flags;
                 } writev;
 
                 struct {

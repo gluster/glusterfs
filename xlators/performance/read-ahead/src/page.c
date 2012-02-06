@@ -278,7 +278,7 @@ ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
         STACK_WIND (fault_frame, ra_fault_cbk,
                     FIRST_CHILD (fault_frame->this),
                     FIRST_CHILD (fault_frame->this)->fops->readv,
-                    file->fd, file->page_size, offset);
+                    file->fd, file->page_size, offset, 0);
 
         return;
 

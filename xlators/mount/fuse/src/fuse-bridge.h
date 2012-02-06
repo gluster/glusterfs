@@ -292,6 +292,7 @@ typedef struct {
         struct iovec   vector;
 
         uuid_t         gfid;
+        uint32_t       io_flags;
 } fuse_state_t;
 
 typedef struct fuse_fd_ctx {

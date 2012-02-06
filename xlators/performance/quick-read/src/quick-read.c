@@ -48,7 +48,7 @@ out:
 
 int32_t
 qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-          off_t offset);
+          off_t offset, uint32_t flags);
 
 
 static void
@@ -1026,7 +1026,7 @@ qr_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 int32_t
 qr_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-                 off_t offset)
+                 off_t offset, uint32_t flags)
 {
         qr_local_t  *local    = NULL;
         int32_t      op_errno = EINVAL, ret = 0;
@@ -1055,7 +1055,7 @@ qr_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
         STACK_WIND (frame, qr_readv_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->readv, fd, size, offset);
+                    FIRST_CHILD (this)->fops->readv, fd, size, offset, flags);
         return 0;
 
 unwind:
@@ -1066,7 +1066,7 @@ unwind:
 
 int32_t
 qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-          off_t offset)
+          off_t offset, uint32_t read_flags)
 {
         qr_inode_t        *qr_inode       = NULL;
         int32_t            ret            = -1, op_ret = -1, op_errno = -1;
@@ -1120,108 +1120,91 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         LOCK (&table->lock);
         {
                 ret = inode_ctx_get (fd->inode, this, &value);
-                if (ret == 0) {
-                        qr_inode = (qr_inode_t *)(long)value;
-                        if (qr_inode) {
-                                if (qr_inode->xattr){
-                                        if (!just_validated
-                                            && qr_need_validation (conf,
-                                                                   qr_inode)) {
-                                                need_validation = 1;
-                                                goto unlock;
-                                        }
+                if (ret)
+                        goto unlock;
 
-                                        content = dict_get (qr_inode->xattr,
-                                                            GF_CONTENT_KEY);
+                qr_inode = (qr_inode_t *)(long)value;
+                if (!qr_inode || !qr_inode->xattr)
+                        goto unlock;
 
-                                        stbuf = qr_inode->stbuf;
-                                        content_cached = 1;
-                                        list_move_tail (&qr_inode->lru,
-                                                        &table->lru[qr_inode->priority]);
+                if (!just_validated
+                    && qr_need_validation (conf, qr_inode)) {
+                        need_validation = 1;
+                        goto unlock;
+                }
 
-                                        if (offset > content->len) {
-                                                op_ret = 0;
-                                                end = content->len;
-                                        } else {
-                                                if ((offset + size)
-                                                    > content->len) {
-                                                        op_ret = content->len
-                                                                - offset;
-                                                        end = content->len;
-                                                } else {
-                                                        op_ret = size;
-                                                        end =  offset + size;
-                                                }
-                                        }
+                content = dict_get (qr_inode->xattr, GF_CONTENT_KEY);
 
-                                        count = (op_ret
-                                                 / iobuf_pool->default_page_size);
-                                        if ((op_ret % iobuf_pool->default_page_size)
-                                            != 0) {
-                                                count++;
-                                        }
+                stbuf = qr_inode->stbuf;
+                content_cached = 1;
+                list_move_tail (&qr_inode->lru,
+                                &table->lru[qr_inode->priority]);
 
-                                        if (count == 0) {
-                                                op_ret = 0;
-                                                goto unlock;
-                                        }
-
-                                        vector = GF_CALLOC (count,
-                                                            sizeof (*vector),
-                                                            gf_qr_mt_iovec);
-                                        if (vector == NULL) {
-                                                op_ret = -1;
-                                                op_errno = ENOMEM;
-                                                need_unwind = 1;
-                                                goto unlock;
-                                        }
-
-                                        iobref = iobref_new ();
-                                        if (iobref == NULL) {
-                                                op_ret = -1;
-                                                op_errno = ENOMEM;
-                                                need_unwind = 1;
-                                                goto unlock;
-                                        }
-
-                                        for (i = 0; i < count; i++) {
-                                                iobuf = iobuf_get (iobuf_pool);
-                                                if (iobuf == NULL) {
-                                                        op_ret = -1;
-                                                        op_errno = ENOMEM;
-                                                        need_unwind = 1;
-                                                        goto unlock;
-                                                }
-
-                                                start = offset
-                                                        +
-                                                        (iobuf_pool->default_page_size
-                                                         * i);
-
-                                                if (start > end) {
-                                                        len = 0;
-                                                } else {
-                                                        len =
-                                                        (iobuf_pool->default_page_size
-                                                               > (end - start))
-                                                                ? (end - start)
-                                                                :
-                                                                iobuf_pool->default_page_size;
-
-                                                        memcpy (iobuf->ptr,
-                                                                content->data
-                                                                + start,
-                                                                len);
-                                                }
-
-                                                iobref_add (iobref, iobuf);
-                                                iobuf_unref (iobuf);
-
-                                                vector[i].iov_base = iobuf->ptr;
-                                                vector[i].iov_len = len;
-                                        }
-                                }
+                if (offset > content->len) {
+                        op_ret = 0;
+                        end = content->len;
+                } else {
+                        if ((offset + size) > content->len) {
+                                op_ret = content->len - offset;
+                                end = content->len;
+                        } else {
+                                op_ret = size;
+                                end =  offset + size;
                         }
+                }
+
+                count = (op_ret  / iobuf_pool->default_page_size);
+                if ((op_ret % iobuf_pool->default_page_size) != 0) {
+                        count++;
+                }
+
+                if (count == 0) {
+                        op_ret = 0;
+                        goto unlock;
+                }
+
+                vector = GF_CALLOC (count, sizeof (*vector), gf_qr_mt_iovec);
+                if (vector == NULL) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        need_unwind = 1;
+                        goto unlock;
+                }
+
+                iobref = iobref_new ();
+                if (iobref == NULL) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        need_unwind = 1;
+                        goto unlock;
+                }
+
+                for (i = 0; i < count; i++) {
+                        iobuf = iobuf_get (iobuf_pool);
+                        if (iobuf == NULL) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                                need_unwind = 1;
+                                goto unlock;
+                        }
+
+                        start = offset + (iobuf_pool->default_page_size * i);
+
+                        if (start > end) {
+                                len = 0;
+                        } else {
+                                len = (iobuf_pool->default_page_size >
+                                       ((end - start)) ? (end - start) :
+                                       iobuf_pool->default_page_size);
+
+                                memcpy (iobuf->ptr, content->data + start, len);
+                        }
+
+                        iobref_add (iobref, iobuf);
+                        iobuf_unref (iobuf);
+
+                        vector[i].iov_base = iobuf->ptr;
+                        vector[i].iov_len = len;
                 }
         }
 unlock:
@@ -1233,7 +1216,8 @@ out:
                                  count, &stbuf, iobref);
 
         } else if (need_validation) {
-                stub = fop_readv_stub (frame, qr_readv, fd, size, offset);
+                stub = fop_readv_stub (frame, qr_readv, fd, size, offset,
+                                       read_flags);
                 if (stub == NULL) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1273,7 +1257,8 @@ out:
                                         stub = fop_readv_stub (frame,
                                                                qr_readv_helper,
                                                                fd, size,
-                                                               offset);
+                                                               offset,
+                                                               read_flags);
                                         if (stub == NULL) {
                                                 op_ret = -1;
                                                 op_errno = ENOMEM;
@@ -1319,9 +1304,8 @@ out:
                 } else if (can_wind) {
                         STACK_WIND (frame, qr_readv_cbk, FIRST_CHILD (this),
                                     FIRST_CHILD (this)->fops->readv, fd, size,
-                                    offset);
+                                    offset, read_flags);
                 }
-
         }
 
 ret:
@@ -1351,7 +1335,7 @@ qr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 qr_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   struct iovec *vector, int32_t count, off_t off,
-                  struct iobref *iobref)
+                  uint32_t flags, struct iobref *iobref)
 {
         qr_local_t  *local    = NULL;
         qr_fd_ctx_t *fdctx    = NULL;
@@ -1382,7 +1366,7 @@ qr_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         STACK_WIND (frame, qr_writev_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->writev, fd, vector, count, off,
-                    iobref);
+                    flags, iobref);
         return 0;
 
 unwind:
@@ -1393,7 +1377,7 @@ unwind:
 
 int32_t
 qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
-           int32_t count, off_t off, struct iobref *iobref)
+           int32_t count, off_t off, uint32_t wr_flags, struct iobref *iobref)
 {
         uint64_t          value      = 0;
         int               flags      = 0;
@@ -1458,7 +1442,7 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
                                 stub = fop_writev_stub (frame, qr_writev_helper,
                                                         fd, vector, count, off,
-                                                        iobref);
+                                                        wr_flags, iobref);
                                 if (stub == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -1482,7 +1466,7 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         } else if (can_wind) {
                 STACK_WIND (frame, qr_writev_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->writev, fd, vector, count,
-                            off, iobref);
+                            off, wr_flags, iobref);
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {

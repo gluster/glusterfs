@@ -230,6 +230,7 @@ struct gfs3_readlink_req {
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
+        unsigned int flag;
         opaque   xdata<>; /* Extra data */
 };
  struct  gfs3_read_rsp {
@@ -265,6 +266,7 @@ struct   gfs3_lookup_req {
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
+        unsigned int flag;
         opaque   xdata<>; /* Extra data */
 };
  struct gfs3_write_rsp {

@@ -3692,7 +3692,7 @@ end:
 
 int32_t
 stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
-              size_t size, off_t offset)
+              size_t size, off_t offset, uint32_t flags)
 {
         int32_t           op_errno = EINVAL;
         int32_t           idx = 0;
@@ -3779,7 +3779,7 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 idx = (index % fctx->stripe_count);
                 STACK_WIND (rframe, stripe_readv_cbk, fctx->xl_array[idx],
                             fctx->xl_array[idx]->fops->readv,
-                            fd, frame_size, frame_offset);
+                            fd, frame_size, frame_offset, flags);
 
                 frame_offset += frame_size;
         }
@@ -3842,7 +3842,7 @@ out:
 int32_t
 stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iovec *vector, int32_t count, off_t offset,
-               struct iobref *iobref)
+               uint32_t flags, struct iobref *iobref)
 {
         struct iovec     *tmp_vec = NULL;
         stripe_local_t   *local = NULL;
@@ -3915,7 +3915,7 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                 STACK_WIND (frame, stripe_writev_cbk, fctx->xl_array[idx],
                             fctx->xl_array[idx]->fops->writev, fd, tmp_vec,
-                            tmp_count, offset + offset_offset, iobref);
+                            tmp_count, offset + offset_offset, flags, iobref);
                 GF_FREE (tmp_vec);
                 offset_offset += fill_size;
                 if (remaining_size == 0)

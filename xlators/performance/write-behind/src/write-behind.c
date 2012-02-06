@@ -550,6 +550,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                                     FIRST_CHILD(sync_frame->this)->fops->writev,
                                     fd, vector, count,
                                     first_request->stub->args.writev.off,
+                                    first_request->stub->args.writev.flags,
                                     iobref);
 
                         iobref_unref (iobref);
@@ -2071,7 +2072,7 @@ wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
-           int32_t count, off_t offset, struct iobref *iobref)
+           int32_t count, off_t offset, uint32_t flags, struct iobref *iobref)
 {
         wb_file_t    *file          = NULL;
         char          wb_disabled   = 0;
@@ -2139,7 +2140,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         if (wb_disabled) {
                 STACK_WIND (frame, wb_writev_cbk, FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->writev,
-                            fd, vector, count, offset, iobref);
+                            fd, vector, count, offset, flags, iobref);
                 return 0;
         }
 
@@ -2159,7 +2160,8 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         frame->local = local;
         local->file = file;
 
-        stub = fop_writev_stub (frame, NULL, fd, vector, count, offset, iobref);
+        stub = fop_writev_stub (frame, NULL, fd, vector, count, offset, flags,
+                                iobref);
         if (stub == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2236,10 +2238,10 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 static int32_t
 wb_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-                 off_t offset)
+                 off_t offset, uint32_t flags)
 {
         STACK_WIND (frame, wb_readv_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readv, fd, size, offset);
+                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags);
 
         return 0;
 }
@@ -2247,7 +2249,7 @@ wb_readv_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 int32_t
 wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-          off_t offset)
+          off_t offset, uint32_t flags)
 {
         wb_file_t    *file     = NULL;
         wb_local_t   *local    = NULL;
@@ -2286,7 +2288,7 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         frame->local = local;
         if (file) {
                 stub = fop_readv_stub (frame, wb_readv_helper, fd, size,
-                                       offset);
+                                       offset, flags);
                 if (stub == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
@@ -2307,7 +2309,7 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         } else {
                 STACK_WIND (frame, wb_readv_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readv,
-                            fd, size, offset);
+                            fd, size, offset, flags);
         }
 
         return 0;

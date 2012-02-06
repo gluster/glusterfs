@@ -904,24 +904,24 @@ iot_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_readv_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-                   off_t offset)
+                   off_t offset, uint32_t flags)
 {
 	STACK_WIND (frame, iot_readv_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->readv,
-		    fd, size, offset);
+		    fd, size, offset, flags);
 	return 0;
 }
 
 
 int
 iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-           off_t offset)
+           off_t offset, uint32_t flags)
 {
 	call_stub_t *stub = NULL;
         int         ret = -1;
 
-	stub = fop_readv_stub (frame, iot_readv_wrapper, fd, size, offset);
+	stub = fop_readv_stub (frame, iot_readv_wrapper, fd, size, offset, flags);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"cannot create readv call stub"
@@ -1056,12 +1056,12 @@ iot_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 iot_writev_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                     struct iovec *vector, int32_t count,
-                    off_t offset, struct iobref *iobref)
+                    off_t offset, uint32_t flags, struct iobref *iobref)
 {
 	STACK_WIND (frame, iot_writev_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->writev,
-		    fd, vector, count, offset, iobref);
+		    fd, vector, count, offset, flags, iobref);
 	return 0;
 }
 
@@ -1069,13 +1069,13 @@ iot_writev_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int
 iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iovec *vector, int32_t count, off_t offset,
-            struct iobref *iobref)
+            uint32_t flags, struct iobref *iobref)
 {
 	call_stub_t *stub = NULL;
         int         ret = -1;
 
 	stub = fop_writev_stub (frame, iot_writev_wrapper,
-				fd, vector, count, offset, iobref);
+				fd, vector, count, offset, flags, iobref);
 
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,

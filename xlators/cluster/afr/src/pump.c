@@ -1987,7 +1987,7 @@ pump_writev (call_frame_t *frame,
              fd_t *fd,
              struct iovec *vector,
              int32_t count,
-             off_t off,
+             off_t off, uint32_t flags,
              struct iobref *iobref)
 {
         afr_private_t *priv  = NULL;
@@ -2000,11 +2000,11 @@ pump_writev (call_frame_t *frame,
                             fd,
                             vector,
                             count,
-                            off,
+                            off, flags,
                             iobref);
                 return 0;
         }
-        afr_writev (frame, this, fd, vector, count, off, iobref);
+        afr_writev (frame, this, fd, vector, count, off, flags, iobref);
         return 0;
 
 }

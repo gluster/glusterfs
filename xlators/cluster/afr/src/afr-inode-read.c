@@ -1083,7 +1083,8 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
                                    children[next_call_child],
                                    children[next_call_child]->fops->readv,
                                    local->fd, local->cont.readv.size,
-                                   local->cont.readv.offset);
+                                   local->cont.readv.offset,
+                                   local->cont.readv.flags);
         }
 
 out:
@@ -1098,7 +1099,7 @@ out:
 
 int32_t
 afr_readv (call_frame_t *frame, xlator_t *this,
-           fd_t *fd, size_t size, off_t offset)
+           fd_t *fd, size_t size, off_t offset, uint32_t flags)
 {
         afr_private_t * priv       = NULL;
         afr_local_t   * local      = NULL;
@@ -1143,6 +1144,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
         local->cont.readv.size       = size;
         local->cont.readv.offset     = offset;
+        local->cont.readv.flags      = flags;
 
         ret = afr_open_fd_fix (frame, this, _gf_false);
         if (ret) {
@@ -1153,7 +1155,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
                            (void *) (long) call_child,
                            children[call_child],
                            children[call_child]->fops->readv,
-                           fd, size, offset);
+                           fd, size, offset, flags);
 
         ret = 0;
 out:

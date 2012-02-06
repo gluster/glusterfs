@@ -519,7 +519,7 @@ sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
                                    priv->children[i],
                                    priv->children[i]->fops->writev,
                                    loop_sh->healing_fd, vector, count,
-                                   loop_sh->offset, iobref);
+                                   loop_sh->offset, 0, iobref);
 
                 if (!--call_count)
                         break;
@@ -546,7 +546,7 @@ sh_loop_read (call_frame_t *loop_frame, xlator_t *this)
                            priv->children[loop_sh->source],
                            priv->children[loop_sh->source]->fops->readv,
                            loop_sh->healing_fd, loop_sh->block_size,
-                           loop_sh->offset);
+                           loop_sh->offset, 0);
 
         return 0;
 }
