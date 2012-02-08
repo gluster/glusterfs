@@ -57,6 +57,15 @@ fuse_resolve_wipe (fuse_resolve_t *resolve)
 void
 free_fuse_state (fuse_state_t *state)
 {
+        xlator_t       *this     = NULL;
+        fuse_private_t *priv     = NULL;
+        uint64_t        winds    = 0;
+        char            switched = 0;
+
+        this = state->this;
+
+        priv = this->private;
+
         loc_wipe (&state->loc);
 
         loc_wipe (&state->loc2);
@@ -81,6 +90,18 @@ free_fuse_state (fuse_state_t *state)
         fuse_resolve_wipe (&state->resolve);
         fuse_resolve_wipe (&state->resolve2);
 
+        pthread_mutex_lock (&priv->sync_mutex);
+        {
+                winds = --state->active_subvol->winds;
+                switched = state->active_subvol->switched;
+        }
+        pthread_mutex_unlock (&priv->sync_mutex);
+
+        if ((winds == 0) && (switched)) {
+                xlator_notify (state->active_subvol, GF_EVENT_PARENT_DOWN,
+                               state->active_subvol, NULL);
+        }
+
 #ifdef DEBUG
         memset (state, 0x90, sizeof (*state));
 #endif
@@ -92,8 +113,9 @@ free_fuse_state (fuse_state_t *state)
 fuse_state_t *
 get_fuse_state (xlator_t *this, fuse_in_header_t *finh)
 {
-        fuse_state_t *state = NULL;
-	xlator_t     *active_subvol = NULL;
+        fuse_state_t   *state         = NULL;
+	xlator_t       *active_subvol = NULL;
+        fuse_private_t *priv          = NULL;
 
         state = (void *)GF_CALLOC (1, sizeof (*state),
                                    gf_fuse_mt_fuse_state_t);
@@ -101,7 +123,15 @@ get_fuse_state (xlator_t *this, fuse_in_header_t *finh)
                 return NULL;
 
 	state->this = THIS;
-        active_subvol = fuse_active_subvol (state->this);
+        priv = this->private;
+
+        pthread_mutex_lock (&priv->sync_mutex);
+        {
+                active_subvol = fuse_active_subvol (state->this);
+                active_subvol->winds++;
+        }
+        pthread_mutex_unlock (&priv->sync_mutex);
+
 	state->active_subvol = active_subvol;
 	state->itable = active_subvol->itable;
 

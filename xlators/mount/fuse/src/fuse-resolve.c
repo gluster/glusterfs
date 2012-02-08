@@ -80,11 +80,13 @@ fuse_resolve_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_DESTROY (frame->root);
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_WARNING),
+                gf_log (this->name, (op_errno == ENOENT)
+                        ? GF_LOG_DEBUG : GF_LOG_WARNING,
                         "%s/%s: failed to resolve (%s)",
                         uuid_utoa (resolve_loc->pargfid), resolve_loc->name,
                         strerror (op_errno));
+                resolve->op_ret = -1;
+                resolve->op_errno = op_errno;
                 goto out;
         }
 
@@ -141,12 +143,14 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_DESTROY (frame->root);
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_WARNING),
+                gf_log (this->name, (op_errno == ENOENT)
+                        ? GF_LOG_DEBUG : GF_LOG_WARNING,
                         "%s: failed to resolve (%s)",
                         uuid_utoa (resolve->resolve_loc.gfid),
 			strerror (op_errno));
                 loc_wipe (&resolve->resolve_loc);
+                resolve->op_ret = -1;
+                resolve->op_errno = op_errno;
                 goto out;
         }
 
@@ -163,6 +167,7 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 
 	loc_now->parent = link_inode;
+        uuid_copy (loc_now->pargfid, link_inode->gfid);
 
 	fuse_resolve_entry (state);
 
@@ -237,13 +242,12 @@ fuse_resolve_parent_simple (fuse_state_t *state)
 
         parent = inode_find (state->itable, resolve->pargfid);
 	if (!parent) {
-		resolve->op_ret   = -1;
-		resolve->op_errno = ENOENT;
 		/* non decisive result - parent missing */
 		return 1;
 	}
 
 	loc->parent = parent;
+        uuid_copy (loc->pargfid, resolve->pargfid);
 
 	inode = inode_grep (state->itable, parent, loc->name);
 	if (inode) {
@@ -261,9 +265,6 @@ int
 fuse_resolve_parent (fuse_state_t *state)
 {
         int    ret = 0;
-        loc_t *loc = NULL;
-
-        loc  = state->loc_now;
 
         ret = fuse_resolve_parent_simple (state);
         if (ret > 0) {
@@ -302,9 +303,6 @@ fuse_resolve_inode_simple (fuse_state_t *state)
         if (inode)
 		goto found;
 
-	resolve->op_ret   = -1;
-	resolve->op_errno = ENOENT;
-
         return 1;
 found:
 	loc->inode = inode;
@@ -316,9 +314,6 @@ int
 fuse_resolve_inode (fuse_state_t *state)
 {
         int                 ret = 0;
-        loc_t              *loc = NULL;
-
-        loc  = state->loc_now;
 
         ret = fuse_resolve_inode_simple (state);
 
@@ -344,7 +339,14 @@ fuse_resolve_fd (fuse_state_t *state)
         fd = resolve->fd;
 	active_subvol = fd->inode->table->xl;
 
-	state->active_subvol = active_subvol;
+        if (state->active_subvol != active_subvol) {
+                resolve->op_ret = -1;
+                resolve->op_errno = EBADF;
+                gf_log ("fuse-resolve", GF_LOG_WARNING, "migration of fd (%p) "
+                        "did not complete, failing fop with EBADF", fd);
+        }
+
+	/* state->active_subvol = active_subvol; */
 
         fuse_resolve_continue (state);
 
@@ -434,10 +436,6 @@ fuse_resolve (fuse_state_t *state)
                 fuse_resolve_inode (state);
 
         } else {
-
-                resolve->op_ret = 0;
-                resolve->op_errno = EINVAL;
-
                 fuse_resolve_all (state);
         }
 

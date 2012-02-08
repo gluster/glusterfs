@@ -154,6 +154,8 @@ fd_list_empty (struct _inode *inode);
 fd_t *
 fd_bind (fd_t *fd);
 
+fd_t *
+__fd_bind (fd_t *fd);
 
 int
 fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value);
@@ -183,5 +185,14 @@ __fd_ref (fd_t *fd);
 
 void
 fd_ctx_dump (fd_t *fd, char *prefix);
+
+fdentry_t *
+gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count);
+
+fdentry_t *
+__gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count);
+
+void
+gf_fdptr_put (fdtable_t *fdtable, fd_t *fd);
 
 #endif /* _FD_H */

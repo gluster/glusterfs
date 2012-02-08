@@ -54,6 +54,7 @@
 
 #include "list.h"
 #include "dict.h"
+#include "syncop.h"
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
 #define FUSE_OP_HIGH (FUSE_POLL + 1)
@@ -109,6 +110,7 @@ struct fuse_private {
         unsigned             uid_map_root;
         gf_boolean_t         acl;
         gf_boolean_t         read_only;
+        fdtable_t           *fdtable;
 
         /* For fuse-reverse-validation */
         int                  revchan_in;
@@ -116,6 +118,16 @@ struct fuse_private {
         gf_boolean_t         reverse_fuse_thread_started;
 };
 typedef struct fuse_private fuse_private_t;
+
+struct fuse_graph_switch_args {
+        xlator_t        *this;
+        xlator_t        *old_subvol;
+        xlator_t        *new_subvol;
+        pthread_cond_t   cond;
+        pthread_mutex_t  lock;
+        char             complete;
+};
+typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
 #define INVAL_BUF_SIZE (sizeof (struct fuse_out_header) +               \
                         max (sizeof (struct fuse_notify_inval_inode_out), \
@@ -131,6 +143,7 @@ typedef struct fuse_private fuse_private_t;
         do {                                                            \
                 call_frame_t *frame = NULL;                             \
                 xlator_t *xl = NULL;                                    \
+                int32_t   op_ret = 0, op_errno = 0;                     \
                                                                         \
                 frame = get_call_frame_for_req (state);                 \
                 if (!frame) {                                           \
@@ -140,7 +153,7 @@ typedef struct fuse_private fuse_private_t;
                           * better than trying to go on with a NULL     \
                           * frame ...                                   \
                           */                                            \
-                        gf_log ("glusterfs-fuse",                       \
+                        gf_log_callingfn ("glusterfs-fuse",             \
                                 GF_LOG_ERROR,                           \
                                 "FUSE message"                          \
                                 " unique %"PRIu64" opcode %d:"          \
@@ -159,9 +172,27 @@ typedef struct fuse_private fuse_private_t;
                                                                         \
                 xl = state->active_subvol;				\
                 if (!xl) {                                              \
-                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,         \
-                                "xl is NULL");                          \
-                        send_fuse_err (state->this, state->finh, ENOENT); \
+                        gf_log_callingfn ("glusterfs-fuse", GF_LOG_ERROR, \
+                                          "xl is NULL");                  \
+                        op_errno = ENOENT;                              \
+                        op_ret = -1;                                    \
+                } else if (state->resolve.op_ret < 0) {                 \
+                        op_errno = state->resolve.op_errno;               \
+                        op_ret = -1;                                      \
+/*                        gf_log_callingfn ("glusterfs-fuse", GF_LOG_WARNING, \
+                                          "resolve failed (%s)",             \
+                                          strerror (op_errno));             */ \
+                } else if (state->resolve2.op_ret < 0) {                     \
+                        op_errno = state->resolve2.op_errno;                 \
+                        op_ret = -1;                                         \
+                        /* gf_log_callingfn ("glusterfs-fuse", GF_LOG_WARNING, \
+                                          "resolve of second entity "        \
+                                          "failed (%s)",                     \
+                                          strerror (op_errno));             */ \
+                }                                                            \
+                                                                             \
+                if (op_ret < 0) {                                            \
+                        send_fuse_err (state->this, state->finh, op_errno);  \
                         free_fuse_state (state);                        \
                         STACK_DESTROY (frame->root);                    \
                 } else {                                                \
@@ -293,6 +324,7 @@ typedef struct {
 
         uuid_t         gfid;
         uint32_t       io_flags;
+        int32_t        fd_no;
 } fuse_state_t;
 
 typedef struct fuse_fd_ctx {
