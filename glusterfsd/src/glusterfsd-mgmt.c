@@ -472,7 +472,7 @@ glusterfs_volume_top_write_perf (void *args)
                 goto out;
         }
 
-        input_fd = open ("/dev/urandom", O_RDONLY);
+        input_fd = open ("/dev/zero", O_RDONLY);
         if (-1 == input_fd) {
                 ret = -1;
                 gf_log ("glusterd",GF_LOG_ERROR, "Unable to open input file");
@@ -564,7 +564,7 @@ glusterfs_volume_top_read_perf (void *args)
                 goto out;
         }
 
-        input_fd = open ("/dev/urandom", O_RDONLY);
+        input_fd = open ("/dev/zero", O_RDONLY);
         if (-1 == input_fd) {
                 ret = -1;
                 gf_log ("glusterd", GF_LOG_ERROR, "Could not open input file");
