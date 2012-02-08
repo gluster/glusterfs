@@ -351,6 +351,7 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 fdctx->inode     = inode_ref (fd->inode);
                 fdctx->flags     = local->flags;
                 fdctx->wbflags   = local->wbflags;
+                fdctx->lk_ctx = fd_lk_ctx_ref (fd->lk_ctx);
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
                 INIT_LIST_HEAD (&fdctx->lock_list);
@@ -2279,16 +2280,29 @@ client3_1_releasedir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 int
 client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
 {
+        clnt_conf_t  *conf = NULL;
         call_frame_t *fr = NULL;
         int32_t       ret = -1;
+        fd_lk_ctx_t  *lk_ctx = NULL;
 
         if (!fdctx)
                 goto out;
+
+        conf = (clnt_conf_t *) this->private;
 
         if (fdctx->remote_fd == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "not a valid fd");
                 goto out;
         }
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                lk_ctx = fdctx->lk_ctx;
+                fdctx->lk_ctx = NULL;
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        fd_lk_ctx_unref (lk_ctx);
 
         fr = create_frame (this, this->ctx->pool);
 
@@ -4466,7 +4480,6 @@ unwind:
         return 0;
 }
 
-
 int32_t
 client3_1_lk (call_frame_t *frame, xlator_t *this,
               void *data)
@@ -4523,6 +4536,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         req.cmd   = gf_cmd;
         req.type  = gf_type;
         gf_proto_flock_from_flock (&req.flock, args->flock);
+
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
         ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_LK,

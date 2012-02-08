@@ -73,6 +73,7 @@ enum gf_handshake_procnum {
         GF_HNDSK_SETVOLUME,
         GF_HNDSK_GETSPEC,
         GF_HNDSK_PING,
+        GF_HNDSK_SET_LK_VER,
         GF_HNDSK_MAXVALUE,
 };
 

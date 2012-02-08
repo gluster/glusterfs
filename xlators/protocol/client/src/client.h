@@ -29,6 +29,7 @@
 #include "client-mem-types.h"
 #include "protocol-common.h"
 #include "glusterfs3.h"
+#include "fd-lk.h"
 
 /* FIXME: Needs to be defined in a common file */
 #define CLIENT_CMD_CONNECT    "trusted.glusterfs.client-connect"
@@ -91,6 +92,12 @@ typedef struct clnt_conf {
         char                   need_different_port; /* flag used to change the
                                                        portmap path in case of
                                                        'tcp,rdma' on server */
+        gf_boolean_t           lk_heal;
+        uint16_t               lk_version; /* this variable is used to distinguish
+                                              client-server transaction while
+                                              performing lock healing */
+        struct timeval         grace_tv;
+        gf_timer_t            *grace_timer;
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
@@ -105,7 +112,7 @@ typedef struct _client_fd_ctx {
         char              released;
         int32_t           flags;
         int32_t           wbflags;
-
+        fd_lk_ctx_t      *lk_ctx;
         pthread_mutex_t   mutex;
         struct list_head  lock_list;     /* List of all granted locks on this fd */
 } clnt_fd_ctx_t;
@@ -211,4 +218,11 @@ int32_t client_dump_locks (char *name, inode_t *inode,
                            dict_t *dict);
 int client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx);
 
+uint32_t client_get_lk_ver (clnt_conf_t *conf);
+
+int32_t client_type_to_gf_type (short l_type);
+
+int client_mark_fd_bad (xlator_t *this);
+
+int client_set_lk_version (xlator_t *this);
 #endif /* !_CLIENT_H */

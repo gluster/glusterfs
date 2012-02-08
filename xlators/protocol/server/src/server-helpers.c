@@ -774,6 +774,7 @@ server_connection_t *
 server_connection_get (xlator_t *this, const char *id)
 {
         server_connection_t *conn = NULL;
+        server_connection_t *trav = NULL;
         server_conf_t       *conf = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
@@ -783,20 +784,29 @@ server_connection_get (xlator_t *this, const char *id)
 
         pthread_mutex_lock (&conf->mutex);
         {
+                list_for_each_entry (trav, &conf->conns, list) {
+                        if (!strncmp (trav->id, id, strlen (id))) {
+                                conn = trav;
+                                conn->ref++;
+                                goto unlock;
+                        }
+                }
+
                 conn = (void *) GF_CALLOC (1, sizeof (*conn),
                                            gf_server_mt_conn_t);
                 if (!conn)
                         goto unlock;
 
                 conn->id = gf_strdup (id);
+                /*'0' denotes uninitialised lock state*/
+                conn->lk_version = 0;
+                conn->ref++;
                 conn->fdtable = gf_fd_fdtable_alloc ();
                 conn->ltable  = gf_lock_table_new ();
                 conn->this    = this;
                 pthread_mutex_init (&conn->lock, NULL);
-
                 list_add (&conn->list, &conf->conns);
 
-                conn->ref++;
         }
 unlock:
         pthread_mutex_unlock (&conf->mutex);
@@ -980,6 +990,17 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         ret = 0;
 out:
         return ret;
+}
+
+void
+put_server_conn_state (xlator_t *this, rpc_transport_t *xprt)
+{
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", xprt, out);
+
+        xprt->xl_private = NULL;
+out:
+        return;
 }
 
 server_connection_t *
@@ -1496,4 +1517,27 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
         }
 
         return 0;
+}
+
+void
+server_cancel_conn_timer (xlator_t *this, server_connection_t *conn)
+{
+        if (!this || !conn) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Invalid arguments to "
+                        "cancel connection timer");
+                return;
+        }
+
+        pthread_mutex_lock (&conn->lock);
+        {
+                if (!conn->timer)
+                        goto unlock;
+
+                gf_timer_call_cancel (this->ctx, conn->timer);
+                conn->timer = NULL;
+        }
+unlock:
+        pthread_mutex_unlock (&conn->lock);
+
+        return;
 }

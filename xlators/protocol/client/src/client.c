@@ -40,6 +40,81 @@ int client_handshake (xlator_t *this, struct rpc_clnt *rpc);
 void client_start_ping (void *data);
 int client_init_rpc (xlator_t *this);
 int client_destroy_rpc (xlator_t *this);
+int client_mark_fd_bad (xlator_t *this);
+
+int32_t
+client_type_to_gf_type (short l_type)
+{
+        int32_t  gf_type;
+
+        switch (l_type) {
+        case F_RDLCK:
+                gf_type = GF_LK_F_RDLCK;
+                break;
+        case F_WRLCK:
+                gf_type = GF_LK_F_WRLCK;
+                break;
+        case F_UNLCK:
+                gf_type = GF_LK_F_UNLCK;
+                break;
+        }
+
+        return gf_type;
+}
+
+uint32_t
+client_get_lk_ver (clnt_conf_t *conf)
+{
+        uint32_t  lk_ver = 0;
+
+        GF_VALIDATE_OR_GOTO ("client", conf, out);
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                lk_ver = conf->lk_version;
+        }
+        pthread_mutex_unlock (&conf->lock);
+out:
+        return lk_ver;
+}
+
+void
+client_grace_timeout (void *data)
+{
+        int               ver  = 0;
+        xlator_t         *this = NULL;
+        struct clnt_conf *conf = NULL;
+        struct rpc_clnt  *rpc  = NULL;
+
+        GF_VALIDATE_OR_GOTO ("client", data, out);
+
+        this = THIS;
+
+        rpc = (struct rpc_clnt *) data;
+
+        conf = (struct clnt_conf *) this->private;
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                ver = ++conf->lk_version;
+                /* ver == 0 is a special value used by server
+                   to notify client that this is a fresh connect.*/
+                if (ver == 0)
+                        ver = ++conf->lk_version;
+
+                gf_timer_call_cancel (this->ctx, conf->grace_timer);
+                conf->grace_timer = NULL;
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        gf_log (this->name, GF_LOG_WARNING,
+                "client grace timer expired, updating "
+                "the lk-version to %d", ver);
+
+        client_mark_fd_bad (this);
+out:
+        return;
+}
 
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
@@ -828,7 +903,6 @@ out:
 }
 
 
-
 int32_t
 client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
@@ -1455,7 +1529,6 @@ out:
 	return 0;
 }
 
-
 int32_t
 client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
            struct gf_flock *lock)
@@ -1841,7 +1914,7 @@ out:
 }
 
 
- int
+int
 client_mark_fd_bad (xlator_t *this)
 {
         clnt_conf_t            *conf = NULL;
@@ -1908,11 +1981,42 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                 conf->last_sent_event = GF_EVENT_CHILD_UP;
                         }
                 }
+
+                /* Cancel grace timer if set */
+                pthread_mutex_lock (&conf->lock);
+                {
+                        if (conf->grace_timer) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Cancelling the grace timer");
+
+                                gf_timer_call_cancel (this->ctx,
+                                                      conf->grace_timer);
+                                conf->grace_timer = NULL;
+                        }
+                }
+                pthread_mutex_unlock (&conf->lock);
+
                 break;
         }
         case RPC_CLNT_DISCONNECT:
+                /* client_mark_fd_bad (this); */
 
-                client_mark_fd_bad (this);
+                pthread_mutex_lock (&conf->lock);
+                {
+                        if (conf->grace_timer) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Client grace timer is already set");
+                        } else {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Registering a grace timer");
+                                conf->grace_timer =
+                                        gf_timer_call_after (this->ctx,
+                                                             conf->grace_tv,
+                                                             client_grace_timeout,
+                                                             conf->rpc);
+                        }
+                }
+                pthread_mutex_unlock (&conf->lock);
 
                 if (!conf->skip_notify) {
                         if (conf->connected)
@@ -2107,6 +2211,40 @@ out:
 
 
 int
+client_init_grace_timer (xlator_t *this, dict_t *options,
+                         clnt_conf_t *conf)
+{
+        char     *lk_heal        = NULL;
+        int32_t   ret            = -1;
+        int32_t   grace_timeout  = -1;
+
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, options, out);
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        conf->lk_heal = _gf_true;
+
+        ret = dict_get_str (options, "lk-heal", &lk_heal);
+        if (!ret)
+                gf_string2boolean (lk_heal, &conf->lk_heal);
+
+        ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
+        if (!ret)
+                conf->grace_tv.tv_sec = grace_timeout;
+        else
+                conf->grace_tv.tv_sec = 10;
+
+        conf->grace_tv.tv_usec  = 0;
+
+        gf_log (this->name, GF_LOG_INFO, "lk-heal = %s",
+                (conf->lk_heal) ? "on" : "off");
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	clnt_conf_t *conf              = NULL;
@@ -2153,6 +2291,10 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
+        ret = client_init_grace_timer (this, options, conf);
+        if (ret)
+                goto out;
+
         ret = 0;
 out:
 	return ret;
@@ -2186,6 +2328,14 @@ init (xlator_t *this)
         pthread_mutex_init (&conf->lock, NULL);
         INIT_LIST_HEAD (&conf->saved_fds);
 
+        /* Initialize parameters for lock self healing*/
+        conf->lk_version  = 1;
+        conf->grace_timer = NULL;
+
+        ret = client_init_grace_timer (this, this->options, conf);
+        if (ret)
+                goto out;
+
         LOCK_INIT (&conf->rec_lock);
 
         conf->last_sent_event = -1; /* To start with we don't have any events */
@@ -2206,7 +2356,6 @@ init (xlator_t *this)
                 ret = 0;
                 goto out;
         }
-
 
         ret = client_init_rpc (this);
 out:
@@ -2408,6 +2557,12 @@ struct volume_options options[] = {
         },
         { .key   = {"client-bind-insecure"},
           .type  = GF_OPTION_TYPE_BOOL
+        },
+        { .key   = {"lk-heal"},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {"grace-timeout"},
+          .type  = GF_OPTION_TYPE_INT
         },
         { .key   = {NULL} },
 };

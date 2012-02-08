@@ -675,3 +675,13 @@ struct gfs3_readdirp_rsp {
         opaque   xdata<>; /* Extra data */
 };
 
+struct gf_set_lk_ver_rsp {
+       int op_ret;
+       int op_errno;
+       int lk_ver;
+};
+
+struct gf_set_lk_ver_req {
+       string uid<>;
+       int lk_ver;
+};
