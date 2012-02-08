@@ -354,6 +354,7 @@ server_setvolume (rpcsvc_request_t *req)
         int32_t              op_errno      = EINVAL;
         int32_t              fop_version   = 0;
         int32_t              mgmt_version  = 0;
+        uint32_t             lk_version    = 0;
         char                *buf           = NULL;
 
         params = dict_new ();
@@ -408,8 +409,33 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
+        /*lk_verion :: [1..2^31-1]*/
+        ret = dict_get_uint32 (params, "clnt-lk-version", &lk_version);
+        if (ret < 0) {
+                ret = dict_set_str (reply, "ERROR",
+                                    "lock state verison not supplied");
+                if (ret < 0)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to set error msg");
+
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto fail;
+        }
 
         conn = server_connection_get (this, process_uuid);
+        if (!conn) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto fail;
+        }
+
+        server_cancel_conn_timer (this, conn);
+        if (conn->lk_version != 0 &&
+            conn->lk_version != lk_version) {
+                (void) server_connection_cleanup (this, conn);
+        }
+
         if (req->trans->xl_private != conn)
                 req->trans->xl_private = conn;
 
@@ -595,6 +621,12 @@ server_setvolume (rpcsvc_request_t *req)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set 'process-uuid'");
 
+        ret = dict_set_uint32 (reply, "clnt-lk-version",
+                               conn->lk_version);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set 'clnt-lk-version'");
+
         ret = dict_set_uint64 (reply, "transport-ptr",
                                ((uint64_t) (long) req->trans));
         if (ret)
@@ -663,12 +695,50 @@ server_ping (rpcsvc_request_t *req)
         return 0;
 }
 
+int
+server_set_lk_version (rpcsvc_request_t *req)
+{
+        int                     op_ret          = -1;
+        int                     op_errno        = EINVAL;
+        gf_set_lk_ver_req       args            = {0, };
+        gf_set_lk_ver_rsp       rsp             = {0,};
+        server_connection_t     *conn           = NULL;
+        xlator_t                *this           = NULL;
+
+        this = req->svc->mydata;
+        //TODO: Decide on an appropriate errno for the error-path
+        //below
+        if (!this)
+                goto fail;
+
+        if (!xdr_to_generic (req->msg[0], &args,
+                             (xdrproc_t)xdr_gf_set_lk_ver_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto fail;
+        }
+
+        conn = server_connection_get (this, args.uid);
+        conn->lk_version = args.lk_ver;
+        server_connection_put (this, conn);
+
+        rsp.lk_ver   = args.lk_ver;
+
+        op_ret = 0;
+fail:
+        rsp.op_ret   = op_ret;
+        rsp.op_errno = op_errno;
+        server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gf_set_lk_ver_rsp);
+        return 0;
+}
 
 rpcsvc_actor_t gluster_handshake_actors[] = {
-        [GF_HNDSK_NULL]      = {"NULL",      GF_HNDSK_NULL,      server_null, NULL, NULL, 0},
-        [GF_HNDSK_SETVOLUME] = {"SETVOLUME", GF_HNDSK_SETVOLUME, server_setvolume, NULL, NULL, 0},
-        [GF_HNDSK_GETSPEC]   = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL, 0},
-        [GF_HNDSK_PING]      = {"PING",      GF_HNDSK_PING,      server_ping, NULL, NULL, 0},
+        [GF_HNDSK_NULL]       = {"NULL",      GF_HNDSK_NULL,      server_null, NULL, NULL, 0},
+        [GF_HNDSK_SETVOLUME]  = {"SETVOLUME", GF_HNDSK_SETVOLUME, server_setvolume, NULL, NULL, 0},
+        [GF_HNDSK_GETSPEC]    = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL, 0},
+        [GF_HNDSK_PING]       = {"PING",      GF_HNDSK_PING,      server_ping, NULL, NULL, 0},
+        [GF_HNDSK_SET_LK_VER] = {"SET_LK_VER", GF_HNDSK_SET_LK_VER, server_set_lk_version, NULL, NULL },
 };
 
 

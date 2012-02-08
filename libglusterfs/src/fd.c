@@ -429,6 +429,7 @@ fd_destroy (fd_t *fd)
         GF_FREE (fd->_ctx);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
+        fd_lk_ctx_unref (fd->lk_ctx);
         mem_put (fd);
 out:
         return;
@@ -505,11 +506,12 @@ __fd_create (inode_t *inode, pid_t pid)
 
         fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) * fd->xl_count),
                               gf_common_mt_fd_ctx);
-        if (!fd->_ctx) {
-                mem_put (fd);
-                fd = NULL;
-                goto out;
-        }
+        if (!fd->_ctx)
+                goto free_fd;
+
+        fd->lk_ctx = fd_lk_ctx_create ();
+        if (!fd->lk_ctx)
+                goto free_fd_ctx;
 
         fd->inode = inode_ref (inode);
         fd->pid = pid;
@@ -518,6 +520,13 @@ __fd_create (inode_t *inode, pid_t pid)
         LOCK_INIT (&fd->lock);
 out:
         return fd;
+
+free_fd_ctx:
+        GF_FREE (fd->_ctx);
+free_fd:
+        mem_put (fd);
+
+        return NULL;
 }
 
 

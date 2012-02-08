@@ -68,6 +68,12 @@ server_print_request (call_frame_t *frame);
 call_frame_t *
 get_frame_from_request (rpcsvc_request_t *req);
 
+void
+server_cancel_conn_timer (xlator_t *this, server_connection_t *conn);
+
+void
+put_server_conn_state (xlator_t *this, rpc_transport_t *xprt);
+
 server_connection_t *
 get_server_conn_state (xlator_t *this, rpc_transport_t *xptr);
 

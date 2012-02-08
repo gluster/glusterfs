@@ -36,6 +36,26 @@
 #include "authenticate.h"
 #include "rpcsvc.h"
 
+void
+grace_time_handler (void *data)
+{
+        server_connection_t     *conn = NULL;
+        xlator_t                *this = NULL;
+
+        conn = data;
+        this = conn->this;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, conn, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+
+        gf_log (this->name, GF_LOG_INFO, "grace timer expired");
+
+        server_cancel_conn_timer (this, conn);
+        server_connection_put (this, conn);
+out:
+        return;
+}
+
 struct iobuf *
 gfs_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
                      xdrproc_t xdrproc)
@@ -554,11 +574,10 @@ int
 server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                    void *data)
 {
-        xlator_t            *this = NULL;
-        rpc_transport_t     *xprt = NULL;
-        server_connection_t *conn = NULL;
-        server_conf_t       *conf = NULL;
-
+        xlator_t            *this       = NULL;
+        rpc_transport_t     *xprt       = NULL;
+        server_connection_t *conn       = NULL;
+        server_conf_t       *conf       = NULL;
 
         if (!xl || !data) {
                 gf_log_callingfn ("server", GF_LOG_WARNING,
@@ -589,20 +608,37 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         }
         case RPCSVC_EVENT_DISCONNECT:
                 conn = get_server_conn_state (this, xprt);
-                if (conn)
-                        server_connection_cleanup (this, conn);
+                if (!conn)
+                        break;
 
-                gf_log (this->name, GF_LOG_INFO,
-                        "disconnected connection from %s",
-                        xprt->peerinfo.identifier);
-
+                put_server_conn_state (this, xprt);
+                gf_log (this->name, GF_LOG_INFO, "disconnecting connection"
+                        "from %s", xprt->peerinfo.identifier);
                 list_del (&xprt->list);
+
+                pthread_mutex_lock (&conn->lock);
+                {
+                        if (conn->timer)
+                                goto unlock;
+
+                        gf_log (this->name, GF_LOG_INFO, "starting a grace "
+                                "timer for %s", xprt->name);
+
+                        conn->timer = gf_timer_call_after (this->ctx,
+                                                           conf->grace_tv,
+                                                           grace_time_handler,
+                                                           conn);
+                }
+        unlock:
+                pthread_mutex_unlock (&conn->lock);
 
                 break;
         case RPCSVC_EVENT_TRANSPORT_DESTROY:
-                conn = get_server_conn_state (this, xprt);
-                if (conn)
-                        server_connection_put (this, conn);
+                /*- conn obj has been disassociated from xprt on first
+                 *  disconnect.
+                 *  conn cleanup and destruction is handed over to
+                 *  grace_time_handler or the subsequent handler that 'owns'
+                 *  the conn. Nothing left to be done here. */
                 break;
         default:
                 break;
@@ -666,6 +702,30 @@ _copy_auth_opt (dict_t *unused,
                 dict_set ((dict_t *)xl_dict, key, (value));
 }
 
+
+int
+server_init_grace_timer (xlator_t *this, dict_t *options,
+                         server_conf_t *conf)
+{
+        int32_t   ret            = -1;
+        int32_t   grace_timeout  = -1;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, options, out);
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
+        if (!ret)
+                conf->grace_tv.tv_sec = grace_timeout;
+        else
+                conf->grace_tv.tv_sec = 10;
+
+        conf->grace_tv.tv_usec  = 0;
+
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -761,6 +821,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                         "Reconfigure not found for transport" );
                 }
         }
+        ret = server_init_grace_timer (this, options, conf);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
@@ -796,6 +857,10 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->conns);
         INIT_LIST_HEAD (&conf->xprt_list);
         pthread_mutex_init (&conf->mutex, NULL);
+
+        ret = server_init_grace_timer (this, this->options, conf);
+        if (ret)
+                goto out;
 
         ret = server_build_config (this, conf);
         if (ret)
@@ -1031,6 +1096,9 @@ struct volume_options options[] = {
         { .key           = {"statedump-path"},
           .type          = GF_OPTION_TYPE_PATH,
           .default_value = "/tmp"
+        },
+        {.key  = {"grace-timeout"},
+         .type = GF_OPTION_TYPE_INT,
         },
         { .key   = {NULL} },
 };

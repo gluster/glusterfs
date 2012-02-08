@@ -30,9 +30,11 @@
 #include <unistd.h>
 #include "glusterfs.h"
 #include "locking.h"
+#include "fd-lk.h"
 
 struct _inode;
 struct _dict;
+struct fd_lk_ctx;
 
 struct _fd_ctx {
         union {
@@ -59,6 +61,7 @@ struct _fd {
                                    'struct _fd_ctx' array (_ctx).*/
 	struct _fd_ctx   *_ctx;
         int               xl_count; /* Number of xl referred in this fd */
+        struct fd_lk_ctx *lk_ctx;
 };
 typedef struct _fd fd_t;
 

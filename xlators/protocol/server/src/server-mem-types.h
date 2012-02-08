@@ -33,6 +33,7 @@ enum gf_server_mem_types_ {
         gf_server_mt_dirent_rsp_t,
         gf_server_mt_rsp_buf_t,
         gf_server_mt_volfile_ctx_t,
+        gf_server_mt_timer_data_t,
         gf_server_mt_end,
 };
 #endif /* __SERVER_MEM_TYPES_H__ */

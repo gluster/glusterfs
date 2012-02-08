@@ -838,7 +838,6 @@ out:
         return;
 }
 
-
 int
 rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                  rpc_transport_event_t event, void *data, ...)

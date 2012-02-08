@@ -3066,13 +3066,19 @@ static int
 fuse_setlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
+        uint32_t      op    = 0;
         fuse_state_t *state = NULL;
 
         state = frame->root->state;
+        op    = state->finh->opcode;
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": ERR => 0", frame->root->unique);
+                fd_lk_insert_and_merge (state->fd,
+                                        (op == FUSE_SETLK) ? F_SETLK : F_SETLKW,
+                                        &state->lk_lock);
+
                 send_fuse_err (this, state->finh, 0);
         } else {
                 if (op_errno == ENOSYS) {

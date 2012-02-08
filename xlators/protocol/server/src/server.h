@@ -28,6 +28,7 @@
 #include "protocol-common.h"
 #include "server-mem-types.h"
 #include "glusterfs3.h"
+#include "timer.h"
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
@@ -60,8 +61,10 @@ struct _server_connection {
         pthread_mutex_t     lock;
         fdtable_t          *fdtable;
         struct _lock_table *ltable;
+        gf_timer_t         *timer;
         xlator_t           *bound_xl;
         xlator_t           *this;
+        uint32_t           lk_version;
 };
 
 typedef struct _server_connection server_connection_t;
@@ -92,7 +95,7 @@ struct server_conf {
         gf_boolean_t            trace;
         char                   *conf_dir;
         struct _volfile_ctx    *volfile;
-
+        struct timeval          grace_tv;
         dict_t                 *auth_modules;
         pthread_mutex_t         mutex;
         struct list_head        conns;

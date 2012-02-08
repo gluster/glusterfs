@@ -1821,3 +1821,31 @@ xdr_gfs3_readdirp_rsp (XDR *xdrs, gfs3_readdirp_rsp *objp)
 		 return FALSE;
 	return TRUE;
 }
+
+bool_t
+xdr_gf_set_lk_ver_rsp (XDR *xdrs, gf_set_lk_ver_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->lk_ver))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf_set_lk_ver_req (XDR *xdrs, gf_set_lk_ver_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_string (xdrs, &objp->uid, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->lk_ver))
+		 return FALSE;
+	return TRUE;
+}
