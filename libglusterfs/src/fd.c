@@ -168,6 +168,50 @@ gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
 }
 
 
+fdentry_t *
+__gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count)
+{
+        fdentry_t *fdentries = NULL;
+        size_t     cpy       = 0;
+
+        if (count == NULL) {
+                gf_log_callingfn ("fd", GF_LOG_WARNING, "!count");
+                goto out;
+        }
+
+        fdentries = GF_CALLOC (fdtable->max_fds, sizeof (fdentry_t),
+                               gf_common_mt_fdentry_t);
+        if (fdentries == NULL) {
+                goto out;
+        }
+
+        *count = fdtable->max_fds;
+
+        cpy = fdtable->max_fds * sizeof (fdentry_t);
+        memcpy ((void *)fdentries, (void *)fdtable->fdentries, cpy);
+
+out:
+        return fdentries;
+}
+
+
+fdentry_t *
+gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count)
+{
+        fdentry_t *entries = NULL;
+
+        if (fdtable) {
+                pthread_mutex_lock (&fdtable->lock);
+                {
+                        entries = __gf_fd_fdtable_copy_all_fds (fdtable, count);
+                }
+                pthread_mutex_unlock (&fdtable->lock);
+        }
+
+        return entries;
+}
+
+
 void
 gf_fd_fdtable_destroy (fdtable_t *fdtable)
 {
@@ -309,6 +353,54 @@ unlock_out:
 }
 
 
+inline void
+gf_fdptr_put (fdtable_t *fdtable, fd_t *fd)
+{
+        fdentry_t *fde   = NULL;
+        int32_t    i     = 0;
+
+        if ((fdtable == NULL) || (fd == NULL)) {
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
+                return;
+        }
+
+        pthread_mutex_lock (&fdtable->lock);
+        {
+                for (i = 0; i < fdtable->max_fds; i++) {
+                        if (fdtable->fdentries[i].fd == fd) {
+                                fde = &fdtable->fdentries[i];
+                                break;
+                        }
+                }
+
+                if (fde == NULL) {
+                        gf_log_callingfn ("fd", GF_LOG_WARNING,
+                                "fd (%p) is not present in fdtable", fd);
+                        goto unlock_out;
+                }
+
+                /* If the entry is not allocated, put operation must return
+                 * without doing anything.
+                 * This has the potential of masking out any bugs in a user of
+                 * fd that ends up calling gf_fd_put twice for the same fd or
+                 * for an unallocated fd, but it is a price we have to pay for
+                 * ensuring sanity of our fd-table.
+                 */
+                if (fde->next_free != GF_FDENTRY_ALLOCATED)
+                        goto unlock_out;
+                fde->fd = NULL;
+                fde->next_free = fdtable->first_free;
+                fdtable->first_free = i;
+        }
+unlock_out:
+        pthread_mutex_unlock (&fdtable->lock);
+
+        if ((fd != NULL) && (fde != NULL)) {
+                fd_unref (fd);
+        }
+}
+
+
 fd_t *
 gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
 {
@@ -401,7 +493,7 @@ fd_destroy (fd_t *fd)
                 goto out;
 
         if (IA_ISDIR (fd->inode->ia_type)) {
-                for (i = 0; i < fd->xl_count; i++) {
+                for (i = 0; i <  fd->xl_count; i++) {
                         if (fd->_ctx[i].key) {
                                 xl = fd->_ctx[i].xl_key;
                                 old_THIS = THIS;
@@ -464,6 +556,7 @@ fd_unref (fd_t *fd)
 fd_t *
 __fd_bind (fd_t *fd)
 {
+        list_del_init (&fd->inode_list);
         list_add (&fd->inode_list, &fd->inode->fd_list);
 
         return fd;
@@ -502,7 +595,7 @@ __fd_create (inode_t *inode, uint64_t pid)
         if (!fd)
                 goto out;
 
-        fd->xl_count = inode->table->xl->graph->xl_count + 1;
+        fd->xl_count = 3 * inode->table->xl->graph->xl_count + 1;
 
         fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) * fd->xl_count),
                               gf_common_mt_fd_ctx);

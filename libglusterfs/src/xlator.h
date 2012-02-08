@@ -828,6 +828,8 @@ struct _xlator {
         char                init_succeeded;
         void               *private;
         struct mem_acct     mem_acct;
+        uint64_t            winds;
+        char                switched;
 };
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
