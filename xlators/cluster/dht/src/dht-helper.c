@@ -466,6 +466,15 @@ out:
                         (a) = (b);              \
         } while (0)
 
+
+#define set_if_greater_time(a, an, b, bn) do {                          \
+                if (((a) < (b)) || (((a) == (b)) && ((an) < (bn)))){    \
+                        (a) = (b);                                      \
+                        (an) = (bn);                                    \
+                }                                                       \
+        } while (0)                                                     \
+
+
 int
 dht_iatt_merge (xlator_t *this, struct iatt *to,
                 struct iatt *from, xlator_t *subvol)
@@ -489,9 +498,12 @@ dht_iatt_merge (xlator_t *this, struct iatt *to,
         set_if_greater (to->ia_uid, from->ia_uid);
         set_if_greater (to->ia_gid, from->ia_gid);
 
-        set_if_greater (to->ia_atime, from->ia_atime);
-        set_if_greater (to->ia_mtime, from->ia_mtime);
-        set_if_greater (to->ia_ctime, from->ia_ctime);
+        set_if_greater_time(to->ia_atime, to->ia_atime_nsec,
+                            from->ia_atime, from->ia_atime_nsec);
+        set_if_greater_time (to->ia_mtime, to->ia_mtime_nsec,
+                             from->ia_mtime, from->ia_mtime_nsec);
+        set_if_greater_time (to->ia_ctime, to->ia_ctime_nsec,
+                             from->ia_ctime, from->ia_ctime_nsec);
 
         return 0;
 }
