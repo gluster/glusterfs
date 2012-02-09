@@ -1506,7 +1506,9 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         ret = 0;
 
 out:
-        iobuf_unref (request_iob);
+        if (request_iob) {
+                iobuf_unref (request_iob);
+        }
 
         if (new_iobref && iobref) {
                 iobref_unref (iobref);
