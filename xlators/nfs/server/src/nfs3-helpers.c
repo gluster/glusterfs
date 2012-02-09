@@ -346,25 +346,15 @@ nfs3_stat_to_fattr3 (struct iatt *buf)
 
         fa.fsid = buf->ia_dev;
         fa.fileid = nfs3_iatt_gfid_to_ino (buf);
-        /* FIXME: Handle time resolutions for sub-second granularity */
-        if (buf->ia_atime == 9669) {
-                fa.mtime.seconds = 0;
-                fa.mtime.nseconds = 0;
-                fa.atime.seconds = 0;
-                fa.atime.nseconds = 0;
-        } else {
-                fa.mtime.seconds = buf->ia_mtime;
-                fa.mtime.nseconds = 0;
-                fa.atime.seconds = buf->ia_atime;
-                fa.atime.seconds = 0;
-                fa.atime.nseconds = 0;
-        }
 
         fa.atime.seconds = buf->ia_atime;
-        fa.atime.nseconds = 0;
+        fa.atime.nseconds = buf->ia_atime_nsec;
 
         fa.ctime.seconds = buf->ia_ctime;
-        fa.ctime.nseconds = 0;
+        fa.ctime.nseconds = buf->ia_ctime_nsec;
+
+        fa.mtime.seconds = buf->ia_mtime;
+        fa.mtime.nseconds = buf->ia_mtime_nsec;
 
         return fa;
 }
@@ -408,11 +398,10 @@ nfs3_stat_to_pre_op_attr (struct iatt *pre)
 
         poa.attributes_follow = TRUE;
         poa.pre_op_attr_u.attributes.size = pre->ia_size;
-        if (pre->ia_atime == 9669)
-                poa.pre_op_attr_u.attributes.mtime.seconds = 0;
-        else
-                poa.pre_op_attr_u.attributes.mtime.seconds = pre->ia_mtime;
+        poa.pre_op_attr_u.attributes.mtime.seconds = pre->ia_mtime;
+        poa.pre_op_attr_u.attributes.mtime.nseconds = pre->ia_mtime_nsec;
         poa.pre_op_attr_u.attributes.ctime.seconds = pre->ia_ctime;
+        poa.pre_op_attr_u.attributes.ctime.nseconds = pre->ia_ctime_nsec;
 
 out:
         return poa;
