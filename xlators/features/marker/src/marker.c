@@ -371,7 +371,7 @@ out:
 int32_t
 marker_start_setxattr (call_frame_t *frame, xlator_t *this)
 {
-        int32_t          ret   = 0;
+        int32_t          ret   = -1;
         dict_t          *dict  = NULL;
         marker_local_t  *local = NULL;
         marker_conf_t   *priv  = NULL;
@@ -380,20 +380,36 @@ marker_start_setxattr (call_frame_t *frame, xlator_t *this)
 
         local = (marker_local_t*) frame->local;
 
+        if (!local)
+                goto out;
+
         dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        if (local->loc.inode && uuid_is_null (local->loc.gfid))
+                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+
+        GF_UUID_ASSERT (local->loc.gfid);
 
         ret = dict_set_static_bin (dict, priv->marker_xattr,
                                    (void *)local->timebuf, 8);
-        if (ret)
+        if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to set marker xattr (%s)", local->loc.path);
+                goto out;
+        }
 
         STACK_WIND (frame, marker_specific_setxattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr, &local->loc, dict, 0);
 
-        dict_unref (dict);
+        ret = 0;
+out:
+        if (dict)
+                dict_unref (dict);
 
-        return 0;
+        return ret;
 }
 
 void
@@ -1128,6 +1144,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (priv->feature_enabled & GF_XTIME) {
                         //update marks on oldpath
+                        uuid_copy (local->loc.gfid, oplocal->loc.inode->gfid);
                         marker_xtime_update_marks (this, oplocal);
                         marker_xtime_update_marks (this, local);
                 }
@@ -1811,8 +1828,8 @@ marker_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
-                        "creating symlinks ", strerror (op_errno));
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred in "
+                        "setxattr ", strerror (op_errno));
         }
 
         local = (marker_local_t *) frame->local;
