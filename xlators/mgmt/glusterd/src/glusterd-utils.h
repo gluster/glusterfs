@@ -295,11 +295,9 @@ gf_boolean_t
 glusterd_is_rb_ongoing (glusterd_volinfo_t *volinfo);
 
 int
-glusterd_is_replace_running (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *brickinfo);
-
-int
 glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *src_brick, glusterd_brickinfo_t *dst_brick);
+
 int
 glusterd_brick_create_path (char *host, char *path, uuid_t uuid, mode_t mode,
                             char **op_errstr);

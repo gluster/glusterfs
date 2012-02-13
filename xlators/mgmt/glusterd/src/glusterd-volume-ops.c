@@ -884,6 +884,17 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                 ret = -1;
                 goto out;
         }
+
+        if (glusterd_is_rb_ongoing (volinfo)) {
+                snprintf (msg, sizeof (msg), "Replace brick is in progress on "
+                          "volume %s. Please retry after replace-brick "
+                          "operation is committed or aborted", volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
         if (glusterd_is_defrag_on (volinfo)) {
                 snprintf (msg, sizeof(msg), "rebalance session is "
                           "in progress for the volume '%s'", volname);
