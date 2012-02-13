@@ -1863,12 +1863,12 @@ glusterd_op_start_rb_timer (dict_t *dict)
                 goto out;
         }
 
-        if (op == GF_REPLACE_OP_START ||
-            op == GF_REPLACE_OP_ABORT)
-                timeout.tv_sec  = 5;
-        else
-                timeout.tv_sec = 1;
+        if (op != GF_REPLACE_OP_START) {
+                ret = glusterd_op_sm_inject_all_acc ();
+                goto out;
+        }
 
+        timeout.tv_sec  = 5;
         timeout.tv_usec = 0;
 
 
