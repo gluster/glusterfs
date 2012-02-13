@@ -836,9 +836,6 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 {
         call_frame_t      *frame    = NULL;
         dict_t            *dict     = NULL;
-        char              *buf      = NULL;
-        int                dict_len = 0;
-        int                op_ret   = 0;
         int                op_errno = EINVAL;
         gfs3_getxattr_rsp  rsp      = {0,};
         int                ret      = 0;
@@ -852,7 +849,7 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame->local = NULL;
 
         if (-1 == req->rpc_status) {
-                op_ret   = -1;
+                rsp.op_ret = -1;
                 op_errno = ENOTCONN;
                 goto out;
         }
@@ -860,35 +857,17 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_getxattr_rsp);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
-                op_ret   = -1;
+                rsp.op_ret = -1;
                 op_errno = EINVAL;
                 goto out;
         }
 
         op_errno = gf_error_to_errno (rsp.op_errno);
-        op_ret = rsp.op_ret;
-        if (-1 != op_ret) {
-                op_ret = -1;
-                dict_len = rsp.dict.dict_len;
-
-                if (dict_len > 0) {
-                        dict = dict_new();
-                        buf = memdup (rsp.dict.dict_val, rsp.dict.dict_len);
-
-                        GF_VALIDATE_OR_GOTO (frame->this->name, dict, out);
-                        GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
-
-                        ret = dict_unserialize (buf, dict_len, &dict);
-                        if (ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_WARNING,
-                                        "failed to unserialize xattr dict");
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-                        dict->extra_free = buf;
-                        buf = NULL;
-                }
-                op_ret = 0;
+        if (-1 != rsp.op_ret) {
+                GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, dict,
+                                              (rsp.dict.dict_val),
+                                              (rsp.dict.dict_len), rsp.op_ret,
+                                              op_errno, out);
         }
 
 out:
@@ -898,7 +877,7 @@ out:
                         strerror (op_errno),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, rsp.op_ret, op_errno, dict);
 
         if (rsp.dict.dict_val) {
                 /* don't use GF_FREE, this memory was allocated by libc
@@ -906,9 +885,6 @@ out:
                 free (rsp.dict.dict_val);
                 rsp.dict.dict_val = NULL;
         }
-
-        if (buf)
-                GF_FREE (buf);
 
         if (dict)
                 dict_unref (dict);
@@ -923,12 +899,9 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                          void *myframe)
 {
         call_frame_t       *frame    = NULL;
-        char               *buf      = NULL;
         dict_t             *dict     = NULL;
         gfs3_fgetxattr_rsp  rsp      = {0,};
         int                 ret      = 0;
-        int                 dict_len = 0;
-        int                 op_ret   = 0;
         int                 op_errno = EINVAL;
         clnt_local_t     *local    = NULL;
         xlator_t         *this       = NULL;
@@ -940,41 +913,24 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame->local = NULL;
 
         if (-1 == req->rpc_status) {
-                op_ret   = -1;
+                rsp.op_ret = -1;
                 op_errno = ENOTCONN;
                 goto out;
         }
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_fgetxattr_rsp);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
-                op_ret   = -1;
+                rsp.op_ret = -1;
                 op_errno = EINVAL;
                 goto out;
         }
 
         op_errno = gf_error_to_errno (rsp.op_errno);
-        op_ret = rsp.op_ret;
-        if (-1 != op_ret) {
-                op_ret = -1;
-                dict_len = rsp.dict.dict_len;
-
-                if (dict_len > 0) {
-                        dict = dict_new();
-                        GF_VALIDATE_OR_GOTO (frame->this->name, dict, out);
-                        buf = memdup (rsp.dict.dict_val, rsp.dict.dict_len);
-                        GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
-
-                        ret = dict_unserialize (buf, dict_len, &dict);
-                        if (ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_WARNING,
-                                        "failed to unserialize xattr dict");
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-                        dict->extra_free = buf;
-                        buf = NULL;
-                }
-                op_ret = 0;
+        if (-1 != rsp.op_ret) {
+                GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, dict,
+                                              (rsp.dict.dict_val),
+                                              (rsp.dict.dict_len), rsp.op_ret,
+                                              op_errno, out);
         }
 out:
         if (rsp.op_ret == -1) {
@@ -982,16 +938,13 @@ out:
                         "remote operation failed: %s",
                         strerror (op_errno));
         }
-        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (fgetxattr, frame, rsp.op_ret, op_errno, dict);
         if (rsp.dict.dict_val) {
                 /* don't use GF_FREE, this memory was allocated by libc
                  */
                 free (rsp.dict.dict_val);
                 rsp.dict.dict_val = NULL;
         }
-
-        if (buf)
-                GF_FREE (buf);
 
         if (dict)
                 dict_unref (dict);
@@ -1399,11 +1352,8 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 {
         call_frame_t     *frame    = NULL;
         dict_t           *dict     = NULL;
-        char             *buf      = NULL;
         gfs3_xattrop_rsp  rsp      = {0,};
         int               ret      = 0;
-        int               op_ret   = 0;
-        int               dict_len = 0;
         int               op_errno = EINVAL;
         clnt_local_t   *local    = NULL;
         xlator_t         *this       = NULL;
@@ -1415,41 +1365,24 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame->local = NULL;
 
         if (-1 == req->rpc_status) {
-                op_ret   = -1;
+                rsp.op_ret = -1;
                 op_errno = ENOTCONN;
                 goto out;
         }
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_xattrop_rsp);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
-                op_ret   = -1;
+                rsp.op_ret = -1;
                 op_errno = EINVAL;
                 goto out;
         }
 
         op_errno = rsp.op_errno;
-        op_ret   = rsp.op_ret;
-        if (-1 != op_ret) {
-                op_ret = -1;
-                dict_len = rsp.dict.dict_len;
-
-                if (dict_len > 0) {
-                        dict = dict_new();
-                        GF_VALIDATE_OR_GOTO (frame->this->name, dict, out);
-
-                        buf = memdup (rsp.dict.dict_val, rsp.dict.dict_len);
-                        GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
-                        op_ret = dict_unserialize (buf, dict_len, &dict);
-                        if (op_ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_WARNING,
-                                        "failed to unserialize xattr dict");
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-                        dict->extra_free = buf;
-                        buf = NULL;
-                }
-                op_ret = 0;
+        if (-1 != rsp.op_ret) {
+                GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, dict,
+                                              (rsp.dict.dict_val),
+                                              (rsp.dict.dict_len), rsp.op_ret,
+                                              op_errno, out);
         }
 
 out:
@@ -1460,7 +1393,7 @@ out:
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (xattrop, frame, op_ret,
+        STACK_UNWIND_STRICT (xattrop, frame, rsp.op_ret,
                              gf_error_to_errno (op_errno), dict);
 
         if (rsp.dict.dict_val) {
@@ -1469,9 +1402,6 @@ out:
                 free (rsp.dict.dict_val);
                 rsp.dict.dict_val = NULL;
         }
-
-        if (buf)
-                GF_FREE (buf);
 
         if (dict)
                 dict_unref (dict);
@@ -1487,11 +1417,8 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 {
         call_frame_t      *frame    = NULL;
         dict_t            *dict     = NULL;
-        char              *buf      = NULL;
         gfs3_fxattrop_rsp  rsp      = {0,};
         int                ret      = 0;
-        int                op_ret   = 0;
-        int                dict_len = 0;
         int                op_errno = 0;
         clnt_local_t    *local    = NULL;
         xlator_t         *this       = NULL;
@@ -1503,41 +1430,24 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame->local = NULL;
 
         if (-1 == req->rpc_status) {
-                op_ret   = -1;
+                rsp.op_ret   = -1;
                 op_errno = ENOTCONN;
                 goto out;
         }
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_fxattrop_rsp);
         if (ret < 0) {
-                op_ret = -1;
+                rsp.op_ret = -1;
                 op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 goto out;
         }
         op_errno = rsp.op_errno;
-        op_ret   = rsp.op_ret;
-        if (-1 != op_ret) {
-                op_ret = -1;
-                dict_len = rsp.dict.dict_len;
-
-                if (dict_len > 0) {
-                        dict = dict_new();
-                        GF_VALIDATE_OR_GOTO (frame->this->name, dict, out);
-
-                        buf = memdup (rsp.dict.dict_val, rsp.dict.dict_len);
-                        GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
-                        op_ret = dict_unserialize (buf, dict_len, &dict);
-                        if (op_ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_WARNING,
-                                        "failed to unserialize xattr dict");
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-                        dict->extra_free = buf;
-                        buf = NULL;
-                }
-                op_ret = 0;
+        if (-1 != rsp.op_ret) {
+                GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, dict,
+                                              (rsp.dict.dict_val),
+                                              (rsp.dict.dict_len), rsp.op_ret,
+                                              op_errno, out);
         }
 
 out:
@@ -1547,7 +1457,7 @@ out:
                         "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fxattrop, frame, op_ret,
+        STACK_UNWIND_STRICT (fxattrop, frame, rsp.op_ret,
                              gf_error_to_errno (op_errno), dict);
 
         if (rsp.dict.dict_val) {
@@ -1556,9 +1466,6 @@ out:
                 free (rsp.dict.dict_val);
                 rsp.dict.dict_val = NULL;
         }
-
-        if (buf)
-                GF_FREE (buf);
 
         if (dict)
                 dict_unref (dict);
@@ -2211,8 +2118,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int              op_errno   = EINVAL;
         dict_t          *xattr      = NULL;
         inode_t         *inode      = NULL;
-        char            *buf        = NULL;
-        xlator_t         *this       = NULL;
+        xlator_t        *this       = NULL;
 
         this = THIS;
 
@@ -2244,25 +2150,9 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         rsp.op_ret = -1;
         gf_stat_to_iatt (&rsp.stat, &stbuf);
 
-        if (rsp.dict.dict_len > 0) {
-                xattr = dict_new();
-                GF_VALIDATE_OR_GOTO (frame->this->name, xattr, out);
-
-                buf = memdup (rsp.dict.dict_val, rsp.dict.dict_len);
-                GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
-
-                ret = dict_unserialize (buf, rsp.dict.dict_len, &xattr);
-                if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_WARNING,
-                                "%s (%s): failed to unserialize dictionary",
-                                local->loc.path, uuid_utoa (inode->gfid));
-                        op_errno = EINVAL;
-                        goto out;
-                }
-
-                xattr->extra_free = buf;
-                buf = NULL;
-        }
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, xattr, (rsp.dict.dict_val),
+                                      (rsp.dict.dict_len), rsp.op_ret,
+                                      op_errno, out);
 
         if ((!uuid_is_null (inode->gfid))
             && (uuid_compare (stbuf.ia_gfid, inode->gfid) != 0)) {
@@ -2301,11 +2191,6 @@ out:
                 /* don't use GF_FREE, this memory was allocated by libc
                  */
                 free (rsp.dict.dict_val);
-                rsp.dict.dict_val = NULL;
-        }
-
-        if (buf) {
-                GF_FREE (buf);
         }
 
         return 0;
@@ -2560,7 +2445,6 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         clnt_args_t     *args              = NULL;
         gfs3_lookup_req  req               = {{0,},};
         int              ret               = 0;
-        size_t           dict_len          = 0;
         int              op_errno          = ESTALE;
         data_t          *content           = NULL;
         struct iovec     vector[MAX_IOVEC] = {{0}, };
@@ -2626,15 +2510,10 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                         rsp_iobref = NULL;
                 }
 
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized length of dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
 
         req.path          = (char *)args->loc->path;
@@ -2642,7 +2521,6 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                 req.bname         = (char *)args->loc->name;
         else
                 req.bname = "";
-        req.dict.dict_len = dict_len;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_LOOKUP, client3_1_lookup_cbk,
@@ -3030,7 +2908,6 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args     = NULL;
         gfs3_symlink_req  req      = {{0,},};
-        size_t            dict_len = 0;
         int               ret      = 0;
         int               op_errno = ESTALE;
 
@@ -3061,18 +2938,9 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         req.path     = (char *)args->loc->path;
         req.linkname = (char *)args->linkname;
         req.bname    = (char *)args->loc->name;
-        if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized length of dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
-        }
-        req.dict.dict_len = dict_len;
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->dict, (&req.dict.dict_val),
+                                    req.dict.dict_len, op_errno, unwind);
 
         conf = this->private;
 
@@ -3237,7 +3105,6 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         clnt_conf_t    *conf     = NULL;
         clnt_args_t    *args     = NULL;
         gfs3_mknod_req  req      = {{0,},};
-        size_t          dict_len = 0;
         int             ret      = 0;
         int             op_errno = ESTALE;
 
@@ -3271,17 +3138,11 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         req.mode   = args->mode;
         req.dev    = args->rdev;
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized length of dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
-        req.dict.dict_len = dict_len;
 
         conf = this->private;
 
@@ -3321,7 +3182,6 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         clnt_conf_t    *conf     = NULL;
         clnt_args_t    *args     = NULL;
         gfs3_mkdir_req  req      = {{0,},};
-        size_t          dict_len = 0;
         int             ret      = 0;
         int             op_errno = ESTALE;
 
@@ -3354,17 +3214,11 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized length of dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
-        req.dict.dict_len = dict_len;
 
         conf = this->private;
 
@@ -3403,7 +3257,6 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         clnt_conf_t     *conf     = NULL;
         clnt_args_t     *args     = NULL;
         gfs3_create_req  req      = {{0,},};
-        size_t           dict_len = 0;
         int              ret      = 0;
         int              op_errno = ESTALE;
 
@@ -3439,17 +3292,11 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         req.mode  = args->mode;
         req.flags = gf_flags_from_flags (args->flags);
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized length of dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
-        req.dict.dict_len = dict_len;
 
         conf = this->private;
 
@@ -3977,7 +3824,6 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
         clnt_args_t       *args     = NULL;
         gfs3_setxattr_req  req      = {{0,},};
         int                ret      = 0;
-        size_t             dict_len = 0;
         int                op_errno = ESTALE;
 
         if (!frame || !this || !data)
@@ -3997,17 +3843,12 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
-                req.dict.dict_len = dict_len;
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
+
         req.flags = args->flags;
         req.path  = (char *)args->loc->path;
 
@@ -4047,7 +3888,6 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         gfs3_fsetxattr_req  req      = {{0,},};
         int                 op_errno = ESTALE;
         int                 ret      = 0;
-        size_t              dict_len = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -4062,15 +3902,10 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized dict");
-                        goto unwind;
-                }
-                req.dict.dict_len = dict_len;
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -4207,7 +4042,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         gfs3_getxattr_req  req        = {{0,},};
         dict_t            *dict       = NULL;
         int                ret        = 0;
-        int32_t            op_ret     = 0;
+        int32_t            op_ret     = -1;
         int                op_errno   = ESTALE;
         int                count      = 0;
         clnt_local_t      *local      = NULL;
@@ -4217,14 +4052,12 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         struct iovec       vector[MAX_IOVEC] = {{0}, };
 
         if (!frame || !this || !data) {
-                op_ret   = -1;
                 op_errno = 0;
                 goto unwind;
         }
         args = data;
 
         if (!(args->loc && args->loc->inode)) {
-                op_ret   = -1;
                 op_errno = EINVAL;
                 goto unwind;
         }
@@ -4232,7 +4065,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         local = GF_CALLOC (1, sizeof (*local),
                            gf_client_mt_clnt_local_t);
         if (!local) {
-                op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4240,7 +4072,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         rsp_iobref = iobref_new ();
         if (rsp_iobref == NULL) {
-                op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4248,7 +4079,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                         /* TODO: what is the size we should send ? */
         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (rsp_iobuf == NULL) {
-                op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4290,7 +4120,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "Client dump locks failed");
-                                op_ret = -1;
                                 op_errno = EINVAL;
                         }
 
@@ -4308,14 +4137,14 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_getxattr_req);
         if (ret) {
-                op_ret   = -1;
                 op_errno = ENOTCONN;
                 goto unwind;
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s",
+                strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
         client_local_wipe (local);
@@ -4343,7 +4172,6 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         clnt_args_t      *args       = NULL;
         gfs3_xattrop_req  req        = {{0,},};
         int               ret        = 0;
-        size_t            dict_len   = 0;
         int               op_errno   = ESTALE;
         int               count      = 0;
         clnt_local_t   *local      = NULL;
@@ -4400,17 +4228,12 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
-                req.dict.dict_len = dict_len;
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
+
         req.flags = args->flags;
         req.path  = (char *)args->loc->path;
 
@@ -4467,7 +4290,6 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         gfs3_fxattrop_req  req        = {{0,},};
         int                op_errno   = ESTALE;
         int                ret        = 0;
-        size_t             dict_len   = 0;
         int                count      = 0;
         clnt_local_t    *local      = NULL;
         struct iobref     *rsp_iobref = NULL;
@@ -4519,15 +4341,10 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         rsp_iobref = NULL;
 
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized dict");
-                        goto unwind;
-                }
-                req.dict.dict_len = dict_len;
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -5155,7 +4972,6 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         struct iovec     *rsphdr            = NULL;
         struct iovec      vector[MAX_IOVEC] = {{0}, };
         clnt_local_t     *local             = NULL;
-        size_t            dict_len          = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -5209,16 +5025,10 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
         if (args->dict) {
-                ret = dict_allocate_and_serialize (args->dict,
-                                                   &req.dict.dict_val,
-                                                   &dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to get serialized dict");
-                        op_errno = EINVAL;
-                        goto unwind;
-                }
-                req.dict.dict_len = dict_len;
+                GF_PROTOCOL_DICT_SERIALIZE (this, args->dict,
+                                            (&req.dict.dict_val),
+                                            req.dict.dict_len,
+                                            op_errno, unwind);
         }
 
         ret = client_submit_request (this, &req, frame, conf->fops,
