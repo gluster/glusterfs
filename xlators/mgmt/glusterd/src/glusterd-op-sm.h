@@ -218,9 +218,6 @@ glusterd_check_option_exists(char *optstring, char **completion);
 int
 set_xlator_option (dict_t *dict, char *key, char *value);
 
-char *
-glusterd_check_brick_rb_part (char *bricks, int count, glusterd_volinfo_t *volinfo);
-
 void
 glusterd_do_replace_brick (void *data);
 int

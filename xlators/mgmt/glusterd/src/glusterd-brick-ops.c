@@ -1024,6 +1024,16 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (glusterd_is_rb_ongoing (volinfo)) {
+                snprintf (msg, sizeof (msg), "Replace brick is in progress on "
+                          "volume %s. Please retry after replace-brick "
+                          "operation is committed or aborted", volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
         if (glusterd_is_defrag_on(volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
                           "progress. Please retry after completion", volname);
@@ -1048,17 +1058,6 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 brick_list = gf_strdup (bricks);
                 all_bricks = gf_strdup (bricks);
                 free_ptr = brick_list;
-        }
-
-        /* Check whether any of the bricks given is the destination brick of the
-           replace brick running */
-
-        str_ret = glusterd_check_brick_rb_part (all_bricks, count, volinfo);
-        if (str_ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", str_ret);
-                *op_errstr = gf_strdup (str_ret);
-                ret = -1;
-                goto out;
         }
 
         if (count)
@@ -1158,6 +1157,16 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Volume %s does not exist", volname);
+                goto out;
+        }
+
+        if (glusterd_is_rb_ongoing (volinfo)) {
+                snprintf (msg, sizeof (msg), "Replace brick is in progress on "
+                          "volume %s. Please retry after replace-brick "
+                          "operation is committed or aborted", volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
                 goto out;
         }
 
