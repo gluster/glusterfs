@@ -72,7 +72,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_t          *link_inode = NULL;
         loc_t             fresh_loc  = {0,};
         gfs3_lookup_rsp   rsp        = {0,};
-        int32_t           ret        = -1;
         uuid_t            rootgfid   = {0,};
 
         state = CALL_STATE(frame);
@@ -94,36 +93,10 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if ((op_ret >= 0) && dict) {
-                rsp.dict.dict_len = dict_serialized_length (dict);
-                if (rsp.dict.dict_len < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to get serialized "
-                                "length of reply dict",
-                                state->loc.path, uuid_utoa (state->loc.inode->gfid));
-                        op_ret   = -1;
-                        op_errno = EINVAL;
-                        rsp.dict.dict_len = 0;
-                        goto out;
-                }
-
-                rsp.dict.dict_val = GF_CALLOC (1, rsp.dict.dict_len,
-                                               gf_server_mt_rsp_buf_t);
-                if (!rsp.dict.dict_val) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        rsp.dict.dict_len = 0;
-                        goto out;
-                }
-                ret = dict_serialize (dict, rsp.dict.dict_val);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to serialize reply dict",
-                                state->loc.path, uuid_utoa (state->loc.inode->gfid));
-                        op_ret = -1;
-                        op_errno = -ret;
-                        rsp.dict.dict_len = 0;
-                        goto out;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
+                                            (&rsp.dict.dict_val),
+                                            rsp.dict.dict_len,
+                                            op_errno, out);
         }
 
         gf_stat_from_iatt (&rsp.postparent, postparent);
@@ -723,50 +696,23 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         gfs3_getxattr_rsp  rsp   = {0,};
-        int32_t            len   = 0;
-        int32_t            ret   = -1;
         rpcsvc_request_t  *req   = NULL;
         server_state_t    *state = NULL;
 
         state = CALL_STATE (frame);
 
         if (op_ret >= 0) {
-                len = dict_serialized_length (dict);
-                if (len < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to get serialized length of "
-                                "reply dict", state->loc.path,
-                                uuid_utoa (state->resolve.gfid));
-                        op_ret   = -1;
-                        op_errno = EINVAL;
-                        len = 0;
-                        goto out;
-                }
-
-                rsp.dict.dict_val = GF_CALLOC (len, sizeof (char),
-                                               gf_server_mt_rsp_buf_t);
-                if (!rsp.dict.dict_val) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        len = 0;
-                        goto out;
-                }
-                ret = dict_serialize (dict, rsp.dict.dict_val);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to serialize reply dict",
-                                state->loc.path, uuid_utoa (state->resolve.gfid));
-                        op_ret   = -1;
-                        op_errno = EINVAL;
-                        len = 0;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
+                                            (&rsp.dict.dict_val),
+                                            rsp.dict.dict_len,
+                                            op_errno, out);
         }
 out:
         req               = frame->local;
 
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-        rsp.dict.dict_len = len;
+
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": GETXATTR %s (%s) ==> %"PRId32" (%s)",
@@ -788,41 +734,16 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         gfs3_fgetxattr_rsp  rsp   = {0,};
-        int32_t             len   = 0;
-        int32_t             ret   = -1;
         server_state_t     *state = NULL;
         rpcsvc_request_t   *req   = NULL;
 
         state = CALL_STATE (frame);
 
         if (op_ret >= 0) {
-                len = dict_serialized_length (dict);
-                if (len < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to get serialized "
-                                "length of reply dict",
-                                state->loc.path, uuid_utoa (state->resolve.gfid));
-                        op_ret   = -1;
-                        op_errno = EINVAL;
-                        len = 0;
-                        goto out;
-                }
-                rsp.dict.dict_val = GF_CALLOC (1, len, gf_server_mt_rsp_buf_t);
-                if (!rsp.dict.dict_val) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        len = 0;
-                        goto out;
-                }
-                ret = dict_serialize (dict, rsp.dict.dict_val);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to serialize reply dict",
-                                state->loc.path, uuid_utoa (state->resolve.gfid));
-                        op_ret = -1;
-                        op_errno = -ret;
-                        len = 0;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
+                                            (&rsp.dict.dict_val),
+                                            rsp.dict.dict_len,
+                                            op_errno, out);
         }
 
 out:
@@ -830,7 +751,7 @@ out:
 
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-        rsp.dict.dict_len = len;
+
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FGETXATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
@@ -1600,8 +1521,6 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         gfs3_xattrop_rsp  rsp   = {0,};
-        int32_t           len   = 0;
-        int32_t           ret   = -1;
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
 
@@ -1617,42 +1536,17 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if ((op_ret >= 0) && dict) {
-                len = dict_serialized_length (dict);
-                if (len < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to get serialized length"
-                                " for reply dict",
-                                state->loc.path,
-                                uuid_utoa (state->loc.inode->gfid));
-                        op_ret = -1;
-                        op_errno = EINVAL;
-                        len = 0;
-                        goto out;
-                }
-                rsp.dict.dict_val = GF_CALLOC (1, len, gf_server_mt_rsp_buf_t);
-                if (!rsp.dict.dict_val) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        len = 0;
-                        goto out;
-                }
-                ret = dict_serialize (dict, rsp.dict.dict_val);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s (%s): failed to serialize reply dict",
-                                state->loc.path,
-                                uuid_utoa (state->loc.inode->gfid));
-                        op_ret = -1;
-                        op_errno = -ret;
-                        len = 0;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
+                                            (&rsp.dict.dict_val),
+                                            rsp.dict.dict_len,
+                                            op_errno, out);
         }
 out:
         req               = frame->local;
 
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-        rsp.dict.dict_len = len;
+
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": XATTROP %s (%s) ==> %"PRId32" (%s)",
@@ -1675,8 +1569,6 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
         gfs3_xattrop_rsp  rsp   = {0,};
-        int32_t           len   = 0;
-        int32_t           ret   = -1;
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
 
@@ -1692,42 +1584,17 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if ((op_ret >= 0) && dict) {
-                len = dict_serialized_length (dict);
-                if (len < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%s): failed to get "
-                                "serialized length for reply dict",
-                                state->resolve.fd_no,
-                                uuid_utoa (state->fd->inode->gfid));
-                        op_ret = -1;
-                        op_errno = EINVAL;
-                        len = 0;
-                        goto out;
-                }
-                rsp.dict.dict_val = GF_CALLOC (1, len, gf_server_mt_rsp_buf_t);
-                if (!rsp.dict.dict_val) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        len = 0;
-                        goto out;
-                }
-                ret = dict_serialize (dict, rsp.dict.dict_val);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%s): failed to serialize "
-                                "reply dict", state->resolve.fd_no,
-                                uuid_utoa (state->fd->inode->gfid));
-                        op_ret = -1;
-                        op_errno = -ret;
-                        len = 0;
-                }
+                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
+                                            (&rsp.dict.dict_val),
+                                            rsp.dict.dict_len,
+                                            op_errno, out);
         }
 out:
         req               = frame->local;
 
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-        rsp.dict.dict_len = len;
+
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FXATTROP %"PRId64" (%s) ==> %"PRId32" (%s)",
@@ -2913,12 +2780,12 @@ out:
 int
 server_create (rpcsvc_request_t *req)
 {
-        server_state_t      *state                  = NULL;
-        call_frame_t        *frame                  = NULL;
-        dict_t              *params                 = NULL;
-        char                *buf                    = NULL;
-        gfs3_create_req      args                   = {{0,},};
-        int                  ret                    = -1;
+        server_state_t  *state    = NULL;
+        call_frame_t    *frame    = NULL;
+        dict_t          *params   = NULL;
+        gfs3_create_req  args     = {{0,},};
+        int              ret      = -1;
+        int              op_errno = 0;
 
         if (!req)
                 return ret;
@@ -2945,32 +2812,14 @@ server_create (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                params = dict_new ();
 
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                if (buf == NULL) {
-                        goto out;
-                }
+        /* Unserialize the dictionary */
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, params,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                ret = dict_unserialize (buf, args.dict.dict_len,
-                                        &params);
-                if (ret < 0) {
-                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%s): failed to "
-                                "unserialize req-buffer to dictionary",
-                                frame->root->unique, state->resolve.path,
-                                uuid_utoa (state->resolve.gfid));
-                        goto out;
-                }
-
-                state->params = params;
-
-                params->extra_free = buf;
-
-                buf = NULL;
-        }
+        state->params = params;
 
         state->resolve.bname  = gf_strdup (args.bname);
         state->mode           = args.mode;
@@ -2993,12 +2842,11 @@ server_create (rpcsvc_request_t *req)
 
         return ret;
 out:
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
         if (params)
                 dict_unref (params);
-
-        if (buf) {
-                GF_FREE (buf);
-        }
 
         /* memory allocated by libc, don't use GF_FREE */
         if (args.dict.dict_val != NULL) {
@@ -3516,9 +3364,9 @@ server_setxattr (rpcsvc_request_t *req)
         dict_t              *dict                  = NULL;
         call_frame_t        *frame                 = NULL;
         server_connection_t *conn                  = NULL;
-        char                *buf                   = NULL;
         gfs3_setxattr_req    args                  = {{0,},};
         int32_t              ret                   = -1;
+        int                  op_errno = 0;
 
         if (!req)
                 return ret;
@@ -3552,26 +3400,12 @@ server_setxattr (rpcsvc_request_t *req)
         state->flags            = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        if (args.dict.dict_len) {
-                dict = dict_new ();
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                GF_VALIDATE_OR_GOTO (conn->bound_xl->name, buf, out);
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                ret = dict_unserialize (buf, args.dict.dict_len, &dict);
-                if (ret < 0) {
-                        gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%s): failed to "
-                                "unserialize request buffer to dictionary",
-                                frame->root->unique, state->loc.path,
-                                uuid_utoa (state->resolve.gfid));
-                        goto err;
-                }
-
-                dict->extra_free = buf;
-                buf = NULL;
-
-                state->dict = dict;
-        }
+        state->dict = dict;
 
         /* There can be some commands hidden in key, check and proceed */
         gf_server_check_setxattr_cmd (frame, dict);
@@ -3580,17 +3414,14 @@ server_setxattr (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_setxattr_resume);
 
         return ret;
-err:
+out:
         if (dict)
                 dict_unref (dict);
 
-        server_setxattr_cbk (frame, NULL, frame->this, -1, EINVAL);
-        ret = 0;
-out:
-        if (buf)
-                GF_FREE (buf);
-        return ret;
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
 
+        return ret;
 }
 
 
@@ -3602,9 +3433,9 @@ server_fsetxattr (rpcsvc_request_t *req)
         dict_t              *dict                 = NULL;
         server_connection_t *conn                 = NULL;
         call_frame_t        *frame                = NULL;
-        char                *buf                  = NULL;
         gfs3_fsetxattr_req   args                 = {{0,},};
         int32_t              ret                  = -1;
+        int                  op_errno = 0;
 
         if (!req)
                 return ret;
@@ -3638,38 +3469,22 @@ server_fsetxattr (rpcsvc_request_t *req)
         state->flags             = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        if (args.dict.dict_len) {
-                dict = dict_new ();
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                GF_VALIDATE_OR_GOTO (conn->bound_xl->name, buf, out);
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                ret = dict_unserialize (buf, args.dict.dict_len, &dict);
-                if (ret < 0) {
-                        gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%s): failed to "
-                                "unserialize request buffer to dictionary",
-                                frame->root->unique, state->loc.path,
-                                uuid_utoa (state->resolve.gfid));
-                        goto err;
-                }
-                dict->extra_free = buf;
-                buf = NULL;
-                state->dict = dict;
-        }
+        state->dict = dict;
 
         ret = 0;
         resolve_and_resume (frame, server_fsetxattr_resume);
 
         return ret;
-err:
+out:
         if (dict)
                 dict_unref (dict);
-
-        server_setxattr_cbk (frame, NULL, frame->this, -1, EINVAL);
-        ret = 0;
-out:
-        if (buf)
-                GF_FREE (buf);
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
         return ret;
 }
 
@@ -3682,9 +3497,9 @@ server_fxattrop (rpcsvc_request_t *req)
         server_state_t      *state                = NULL;
         server_connection_t *conn                 = NULL;
         call_frame_t        *frame                = NULL;
-        char                *buf                   = NULL;
         gfs3_fxattrop_req    args                 = {{0,},};
         int32_t              ret                  = -1;
+        int              op_errno = 0;
 
         if (!req)
                 return ret;
@@ -3718,40 +3533,24 @@ server_fxattrop (rpcsvc_request_t *req)
         state->flags           = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                dict = dict_new ();
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                GF_VALIDATE_OR_GOTO (conn->bound_xl->name, buf, out);
-
-                ret = dict_unserialize (buf, args.dict.dict_len, &dict);
-                if (ret < 0) {
-                        gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%s): failed to unserialize "
-                                "request buffer to dictionary",
-                                state->resolve.fd_no,
-                                uuid_utoa (state->fd->inode->gfid));
-                        goto fail;
-                }
-                dict->extra_free = buf;
-                buf = NULL;
-
-                state->dict = dict;
-        }
+        state->dict = dict;
 
         ret = 0;
         resolve_and_resume (frame, server_fxattrop_resume);
 
         return ret;
 
-fail:
+out:
         if (dict)
                 dict_unref (dict);
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
 
-        server_fxattrop_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-        ret = 0;
-out:
         return ret;
 }
 
@@ -3764,9 +3563,9 @@ server_xattrop (rpcsvc_request_t *req)
         server_state_t      *state                 = NULL;
         server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
-        char                *buf                   = NULL;
         gfs3_xattrop_req     args                  = {{0,},};
         int32_t              ret                   = -1;
+        int              op_errno = 0;
 
         if (!req)
                 return ret;
@@ -3800,39 +3599,24 @@ server_xattrop (rpcsvc_request_t *req)
         state->flags           = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                dict = dict_new ();
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                GF_VALIDATE_OR_GOTO (conn->bound_xl->name, buf, out);
-
-                ret = dict_unserialize (buf, args.dict.dict_len, &dict);
-                if (ret < 0) {
-                        gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%s): failed to unserialize "
-                                "request buffer to dictionary",
-                                state->resolve.fd_no,
-                                uuid_utoa (state->fd->inode->gfid));
-                        goto fail;
-                }
-                dict->extra_free = buf;
-                buf = NULL;
-
-                state->dict = dict;
-        }
+        state->dict = dict;
 
         ret = 0;
         resolve_and_resume (frame, server_xattrop_resume);
 
         return ret;
-fail:
+out:
         if (dict)
                 dict_unref (dict);
 
-        server_xattrop_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-        ret = 0;
-out:
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
         return ret;
 }
 
@@ -4075,10 +3859,11 @@ server_readdirp (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
-        char                *buf          = NULL;
         gfs3_readdirp_req    args         = {{0,},};
         size_t               headers_size = 0;
         int                  ret          = -1;
+        int              op_errno = 0;
+
         if (!req)
                 return ret;
 
@@ -4119,32 +3904,18 @@ server_readdirp (rpcsvc_request_t *req)
         state->offset = args.offset;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                state->dict = dict_new ();
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->dict,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                if (buf == NULL) {
-                        goto out;
-                }
-
-                ret = dict_unserialize (buf, args.dict.dict_len,
-                                        &state->dict);
-                if (ret < 0) {
-                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": failed to unserialize req-buffer "
-                                " to dictionary", frame->root->unique);
-                        goto out;
-                }
-
-                state->dict->extra_free = buf;
-
-                buf = NULL;
-        }
 
         ret = 0;
         resolve_and_resume (frame, server_readdirp_resume);
 out:
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
         return ret;
 }
 
@@ -4254,9 +4025,9 @@ server_mknod (rpcsvc_request_t *req)
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
         dict_t              *params                 = NULL;
-        char                *buf                    = NULL;
         gfs3_mknod_req       args                   = {{0,},};
         int                  ret                    = -1;
+        int              op_errno = 0;
 
         if (!req)
                 return ret;
@@ -4284,32 +4055,12 @@ server_mknod (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                params = dict_new ();
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, params,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                if (buf == NULL) {
-                        goto out;
-                }
-
-                ret = dict_unserialize (buf, args.dict.dict_len,
-                                        &params);
-                if (ret < 0) {
-                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%s): failed to "
-                                "unserialize req-buffer to dictionary",
-                                frame->root->unique, state->resolve.path,
-                                uuid_utoa (state->resolve.gfid));
-                        goto out;
-                }
-
-                state->params = params;
-
-                params->extra_free = buf;
-
-                buf = NULL;
-        }
+        state->params = params;
 
         state->resolve.type    = RESOLVE_NOT;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
@@ -4328,12 +4079,11 @@ server_mknod (rpcsvc_request_t *req)
 
         return ret;
 out:
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
         if (params)
                 dict_unref (params);
-
-        if (buf) {
-                GF_FREE (buf);
-        }
 
         /* memory allocated by libc, don't use GF_FREE */
         if (args.dict.dict_val != NULL) {
@@ -4351,9 +4101,9 @@ server_mkdir (rpcsvc_request_t *req)
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
         dict_t              *params                 = NULL;
-        char                *buf                    = NULL;
         gfs3_mkdir_req       args                   = {{0,},};
         int                  ret                    = -1;
+        int              op_errno = 0;
 
         if (!req)
                 return ret;
@@ -4380,32 +4130,12 @@ server_mkdir (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                params = dict_new ();
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, params,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                if (buf == NULL) {
-                        goto out;
-                }
-
-                ret = dict_unserialize (buf, args.dict.dict_len,
-                                        &params);
-                if (ret < 0) {
-                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%s): failed to "
-                                "unserialize req-buffer to dictionary",
-                                frame->root->unique, state->resolve.path,
-                                uuid_utoa (state->resolve.gfid));
-                        goto out;
-                }
-
-                state->params = params;
-
-                params->extra_free = buf;
-
-                buf = NULL;
-        }
+        state->params = params;
 
         state->resolve.type    = RESOLVE_NOT;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
@@ -4423,12 +4153,11 @@ server_mkdir (rpcsvc_request_t *req)
 
         return ret;
 out:
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
         if (params)
                 dict_unref (params);
-
-        if (buf) {
-                GF_FREE (buf);
-        }
 
         if (args.dict.dict_val != NULL) {
                 /* memory allocated by libc, don't use GF_FREE */
@@ -4787,9 +4516,9 @@ server_symlink (rpcsvc_request_t *req)
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
         dict_t              *params                = NULL;
-        char                *buf                   = NULL;
         gfs3_symlink_req     args                  = {{0,},};
         int                  ret                   = -1;
+        int              op_errno = 0;
 
         if (!req)
                 return ret;
@@ -4818,32 +4547,12 @@ server_symlink (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                params = dict_new ();
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, params,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
 
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                if (buf == NULL) {
-                        goto out;
-                }
-
-                ret = dict_unserialize (buf, args.dict.dict_len,
-                                        &params);
-                if (ret < 0) {
-                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%s): failed to "
-                                "unserialize req-buffer to dictionary",
-                                frame->root->unique, state->resolve.path,
-                                uuid_utoa (state->resolve.gfid));
-                        goto out;
-                }
-
-                state->params = params;
-
-                params->extra_free = buf;
-
-                buf = NULL;
-        }
+        state->params = params;
 
         state->resolve.type   = RESOLVE_NOT;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
@@ -4859,12 +4568,11 @@ server_symlink (rpcsvc_request_t *req)
         }
         return ret;
 out:
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
         if (params)
                 dict_unref (params);
-
-        if (buf) {
-                GF_FREE (buf);
-        }
 
         /* memory allocated by libc, don't use GF_FREE */
         if (args.dict.dict_val != NULL) {
@@ -5139,9 +4847,9 @@ server_lookup (rpcsvc_request_t *req)
         server_connection_t *conn                   = NULL;
         server_state_t      *state                  = NULL;
         dict_t              *xattr_req              = NULL;
-        char                *buf                    = NULL;
         gfs3_lookup_req      args                   = {{0,},};
         int                  ret                    = -1;
+        int              op_errno = 0;
 
         GF_VALIDATE_OR_GOTO ("server", req, err);
 
@@ -5184,32 +4892,11 @@ server_lookup (rpcsvc_request_t *req)
                 memcpy (state->resolve.gfid, args.gfid, 16);
         }
 
-        if (args.dict.dict_len) {
-                /* Unserialize the dictionary */
-                xattr_req = dict_new ();
-
-                buf = memdup (args.dict.dict_val, args.dict.dict_len);
-                if (buf == NULL) {
-                        goto out;
-                }
-
-                ret = dict_unserialize (buf, args.dict.dict_len,
-                                        &xattr_req);
-                if (ret < 0) {
-                        gf_log (conn->bound_xl->name, GF_LOG_ERROR,
-                                "%"PRId64": %s (%s): failed to "
-                                "unserialize req-buffer to dictionary",
-                                frame->root->unique, state->resolve.path,
-                                uuid_utoa (state->resolve.gfid));
-                        goto out;
-                }
-
-                state->dict = xattr_req;
-
-                xattr_req->extra_free = buf;
-
-                buf = NULL;
-        }
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, xattr_req,
+                                      (args.dict.dict_val),
+                                      (args.dict.dict_len), ret,
+                                      op_errno, out);
+        state->dict = xattr_req;
 
         ret = 0;
         resolve_and_resume (frame, server_lookup_resume);
@@ -5218,10 +4905,6 @@ server_lookup (rpcsvc_request_t *req)
 out:
         if (xattr_req)
                 dict_unref (xattr_req);
-
-        if (buf) {
-                GF_FREE (buf);
-        }
 
         server_lookup_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
                            NULL, NULL);

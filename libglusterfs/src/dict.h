@@ -35,6 +35,51 @@ typedef struct _data data_t;
 typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
 
+
+#define GF_PROTOCOL_DICT_SERIALIZE(this,from_dict,to,len,ope,labl) do { \
+                int    ret     = 0;                                     \
+                size_t dictlen = 0;                                     \
+                                                                        \
+                if (!from_dict)                                         \
+                        break;                                          \
+                                                                        \
+                ret = dict_allocate_and_serialize (from_dict, to,       \
+                                                   &dictlen);           \
+                if (ret < 0) {                                          \
+                        gf_log (this->name, GF_LOG_WARNING,             \
+                                "failed to get serialized dict (%s)",   \
+                                (#from_dict));                          \
+                        ope = EINVAL;                                   \
+                        goto labl;                                      \
+                }                                                       \
+                len = dictlen;                                          \
+        } while (0)
+
+
+#define GF_PROTOCOL_DICT_UNSERIALIZE(xl,to,buff,len,ret,ope,labl) do {  \
+                char *buf = NULL;                                       \
+                if (!len)                                               \
+                        break;                                          \
+                to = dict_new();                                        \
+                GF_VALIDATE_OR_GOTO (xl->name, to, labl);               \
+                                                                        \
+                buf = memdup (buff, len);                               \
+                GF_VALIDATE_OR_GOTO (xl->name, buf, labl);              \
+                                                                        \
+                ret = dict_unserialize (buf, len, &to);                 \
+                if (ret < 0) {                                          \
+                        gf_log (xl->name, GF_LOG_WARNING,               \
+                                "failed to unserialize dictionary (%s)", \
+                                (#to));                                 \
+                                                                        \
+                        ope = EINVAL;                                   \
+                        GF_FREE (buf);                                  \
+                        goto labl;                                      \
+                }                                                       \
+                                                                        \
+                to->extra_free = buf;                                   \
+        } while (0)
+
 struct _data {
         unsigned char  is_static:1;
         unsigned char  is_const:1;
