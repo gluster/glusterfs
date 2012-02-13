@@ -404,7 +404,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 GLUSTERD_GET_BRICK_PIDFILE (pidfile, voldir,
                                             src_brickinfo->hostname,
                                             src_brickinfo->path);
-                if (!glusterd_is_service_running (pidfile, NULL)) {
+                if ((replace_op != GF_REPLACE_OP_COMMIT_FORCE) &&
+                    !glusterd_is_service_running (pidfile, NULL)) {
                         snprintf(msg, sizeof(msg), "Source brick %s:%s "
                                  "is not online.", src_brickinfo->hostname,
                                  src_brickinfo->path);
@@ -441,7 +442,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         if ((volinfo->rb_status ==GF_RB_STATUS_NONE) &&
-            (replace_op == GF_REPLACE_OP_START)) {
+            (replace_op == GF_REPLACE_OP_START ||
+             replace_op == GF_REPLACE_OP_COMMIT_FORCE)) {
                 ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
                 volinfo->src_brick = src_brickinfo;
                 volinfo->dst_brick = dst_brickinfo;
@@ -1494,7 +1496,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 	}
 
         case GF_REPLACE_OP_COMMIT:
-        case GF_REPLACE_OP_COMMIT_FORCE:
         {
                 ctx = glusterd_op_get_ctx ();
                 if (ctx) {
@@ -1507,41 +1508,36 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 goto out;
                         }
                 }
-
+        }
+                /* fall through */
+        case GF_REPLACE_OP_COMMIT_FORCE:
+        {
                 ret = dict_set_int32 (volinfo->dict, "enable-pump", 0);
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (THIS->name, GF_LOG_DEBUG,
                         "Received commit - will be adding dst brick and "
                         "removing src brick");
 
-                if (!glusterd_is_local_addr (dst_brickinfo->hostname) &&
-                    replace_op != GF_REPLACE_OP_COMMIT_FORCE) {
-                        gf_log ("", GF_LOG_INFO,
+                if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
                                 "I AM THE DESTINATION HOST");
                         ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
                         if (ret) {
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "Failed to kill destination brick");
+                                gf_log (THIS->name, GF_LOG_CRITICAL,
+                                        "Unable to cleanup dst brick");
                                 goto out;
                         }
                 }
 
-                if (ret) {
-                        gf_log ("", GF_LOG_CRITICAL,
-                                "Unable to cleanup dst brick");
-                        goto out;
-                }
-
-
                 ret = glusterd_nodesvcs_stop (volinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (THIS->name, GF_LOG_ERROR,
                                 "Unable to stop nfs server, ret: %d", ret);
                 }
 
 		ret = glusterd_op_perform_replace_brick (volinfo, src_brick,
 							 dst_brick);
 		if (ret) {
-			gf_log ("", GF_LOG_CRITICAL, "Unable to add "
+			gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to add "
 				"dst-brick: %s to volume: %s",
 				dst_brick, volinfo->volname);
 		        (void) glusterd_nodesvcs_handle_graph_change (volinfo);
@@ -1552,7 +1548,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
 		ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 		if (ret) {
-                        gf_log ("", GF_LOG_CRITICAL,
+                        gf_log (THIS->name, GF_LOG_CRITICAL,
                                 "Failed to generate nfs volume file");
 		}
 
