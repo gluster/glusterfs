@@ -362,7 +362,7 @@ destroy_client_lock (client_posix_lock_t *lock)
 int32_t
 delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
 {
-        clnt_fd_ctx_t     *fdctx = NULL;
+        clnt_fd_ctx_t       *fdctx = NULL;
         client_posix_lock_t *lock  = NULL;
         client_posix_lock_t *tmp   = NULL;
         xlator_t            *this  = NULL;
@@ -375,8 +375,9 @@ delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
         this = THIS;
         fdctx = this_fd_get_ctx (fd, this);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "fdctx not valid");
+                if (!fd_is_anonymous (fd))
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "fdctx not valid");
                 ret = -1;
                 goto out;
         }
