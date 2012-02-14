@@ -135,8 +135,12 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
         }
 
         ret = dict_get_str (dict, "brick", &brick);
-        if (ret)
+        /* If no brick is specified, do log-rotate for
+           all the bricks in the volume */
+        if (ret) {
+                ret = 0;
                 goto out;
+        }
 
         if (strchr (brick, ':')) {
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL,
@@ -193,8 +197,10 @@ glusterd_op_log_rotate (dict_t *dict)
         }
 
         ret = dict_get_str (dict, "brick", &brick);
+        /* If no brick is specified, do log-rotate for
+           all the bricks in the volume */
         if (ret)
-                goto out;
+                goto cont;
 
         if (!strchr (brick, ':'))
                 brick = NULL;
@@ -207,6 +213,7 @@ glusterd_op_log_rotate (dict_t *dict)
                 }
         }
 
+cont:
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret)
                 goto out;
