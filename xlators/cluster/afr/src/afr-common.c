@@ -3448,6 +3448,8 @@ afr_notify (xlator_t *this, int32_t event,
                         priv->child_up[idx] = 1;
                         priv->up_count++;
 
+                        call_psh = 1;
+                        up_child = idx;
                         for (i = 0; i < priv->child_count; i++)
                                 if (priv->child_up[i] == 1)
                                         up_children++;
@@ -3457,12 +3459,6 @@ afr_notify (xlator_t *this, int32_t event,
                                         "going online.", ((xlator_t *)data)->name);
                         } else {
                                 event = GF_EVENT_CHILD_MODIFIED;
-                                gf_log (this->name, GF_LOG_INFO, "subvol %d came up, "
-                                        "start crawl", idx);
-                                if (had_heard_from_all) {
-                                        call_psh = 1;
-                                        up_child = idx;
-                                }
                         }
 
                         priv->last_event[idx] = event;
@@ -3551,18 +3547,15 @@ afr_notify (xlator_t *this, int32_t event,
                         }
                 }
                 UNLOCK (&priv->lock);
-                if (up_children > 1) {
-                        gf_log (this->name, GF_LOG_INFO, "All subvolumes came "
-                                "up, start crawl");
-                        call_psh = 1;
-                }
         }
 
         ret = 0;
         if (propagate)
                 ret = default_notify (this, event, data);
-        if (call_psh)
-                afr_proactive_self_heal (this, up_child);
+        if (call_psh) {
+                gf_log (this->name, GF_LOG_DEBUG, "start crawl: %d", up_child);
+                afr_do_poll_self_heal ((void*) (long) up_child);
+        }
 
 out:
         return ret;

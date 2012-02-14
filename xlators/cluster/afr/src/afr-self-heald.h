@@ -26,18 +26,26 @@
 #define IS_ENTRY_PARENT(entry) (!strcmp (entry, ".."))
 #define AFR_ALL_CHILDREN -1
 
+typedef enum {
+        INDEX,
+        FULL,
+} afr_crawl_type_t;
 typedef struct afr_crawl_data_ {
-        int     child;
-        pid_t   pid;
+        int              child;
+        pid_t            pid;
+        afr_crawl_type_t crawl;
+        xlator_t         *readdir_xl;
 } afr_crawl_data_t;
 
 void afr_proactive_self_heal (xlator_t *this, int idx);
 
-void afr_build_root_loc (inode_t *inode, loc_t *loc);
+void afr_build_root_loc (xlator_t *this, loc_t *loc);
 
 int afr_set_root_gfid (dict_t *dict);
 
 inline void
 afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent);
 
+void
+afr_do_poll_self_heal (void *data);
 #endif /* __AFR_SELF_HEALD_H__ */

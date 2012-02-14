@@ -32,6 +32,7 @@
 #include "afr-self-heal-algorithm.h"
 
 #include "libxlator.h"
+#include "timer.h"
 
 #define AFR_XATTR_PREFIX "trusted.afr"
 #define AFR_PATHINFO_HEADER "REPLICATE:"
@@ -89,9 +90,10 @@ typedef struct afr_inode_ctx_ {
 
 typedef struct afr_self_heald_ {
         gf_boolean_t    enabled;
-        gf_boolean_t    pending;
-        gf_boolean_t    inprogress;
+        gf_boolean_t    *pending;
+        gf_boolean_t    *inprogress;
         afr_child_pos_t *pos;
+        gf_timer_t      **timer;
 } afr_self_heald_t;
 
 typedef struct _afr_private {

@@ -30,6 +30,8 @@
 #endif
 #include "afr-common.c"
 
+#define SHD_INODE_LRU_LIMIT     100
+
 struct volume_options options[];
 
 int32_t
@@ -347,6 +349,33 @@ init (xlator_t *this)
                 goto out;
         }
 
+        priv->shd.pending = GF_CALLOC (sizeof (*priv->shd.pending), child_count,
+                                       gf_afr_mt_afr_shd_bool_t);
+        if (!priv->shd.pending) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        priv->shd.inprogress = GF_CALLOC (sizeof (*priv->shd.inprogress),
+                                          child_count,
+                                          gf_afr_mt_afr_shd_bool_t);
+        if (!priv->shd.inprogress) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        priv->shd.timer = GF_CALLOC (sizeof (*priv->shd.timer), child_count,
+                                     gf_afr_mt_afr_shd_timer_t);
+        if (!priv->shd.timer) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        if (priv->shd.enabled) {
+                this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
+                if (!this->itable) {
+                        ret = -ENOMEM;
+                        goto out;
+                }
+        }
         priv->first_lookup = 1;
         priv->root_inode = NULL;
 

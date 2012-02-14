@@ -46,6 +46,8 @@ enum gf_afr_mem_types_ {
         gf_afr_fd_paused_call_t,
         gf_afr_mt_afr_crawl_data_t,
         gf_afr_mt_afr_brick_pos_t,
+        gf_afr_mt_afr_shd_bool_t,
+        gf_afr_mt_afr_shd_timer_t,
         gf_afr_mt_end
 };
 #endif

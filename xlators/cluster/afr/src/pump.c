@@ -167,7 +167,7 @@ pump_save_path (xlator_t *this, const char *path)
 
         GF_ASSERT (priv->root_inode);
 
-        afr_build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (this, &loc);
 
         dict = dict_new ();
         dict_ret = dict_set_str (dict, PUMP_PATH, (char *)path);
@@ -187,6 +187,7 @@ pump_save_path (xlator_t *this, const char *path)
 
         dict_unref (dict);
 
+        loc_wipe (&loc);
         return 0;
 }
 
@@ -384,8 +385,7 @@ gf_pump_traverse_directory (loc_t *loc)
                         }
                         loc_wipe (&entry_loc);
                         ret = afr_build_child_loc (this, &entry_loc, loc,
-                                                   entry->d_name,
-                                                   entry->d_stat.ia_gfid);
+                                                   entry->d_name);
                         if (ret)
                                 goto out;
 
@@ -491,7 +491,7 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv      = this->private;
 
-        afr_build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (this, &loc);
 
         ret = syncop_removexattr (priv->children[source], &loc,
                                           PUMP_PATH);
@@ -507,6 +507,7 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
                                 "failed with %s", strerror (errno));
         }
 
+        loc_wipe (&loc);
         return pump_command_reply (frame, this);
 }
 
@@ -526,7 +527,7 @@ pump_complete_migration (xlator_t *this)
 
         GF_ASSERT (priv->root_inode);
 
-        afr_build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (this, &loc);
 
         dict = dict_new ();
 
@@ -568,6 +569,7 @@ pump_complete_migration (xlator_t *this)
                 call_resume (pump_priv->cleaner);
         }
 
+        loc_wipe (&loc);
         return 0;
 }
 
@@ -623,7 +625,7 @@ pump_task (void *data)
 
         GF_ASSERT (priv->root_inode);
 
-        afr_build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (this, &loc);
         xattr_req = dict_new ();
         if (!xattr_req) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -661,6 +663,7 @@ out:
         if (xattr_req)
                 dict_unref (xattr_req);
 
+        loc_wipe (&loc);
 	return 0;
 }
 
@@ -795,7 +798,7 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 
         GF_ASSERT (priv->root_inode);
 
-        afr_build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (this, &loc);
 
         data = data_ref (dict_get (local->dict, RB_PUMP_CMD_START));
         if (!data) {
@@ -850,6 +853,7 @@ out:
         if (ret && clnt_cmd)
                 GF_FREE (clnt_cmd);
 
+        loc_wipe (&loc);
         return ret;
 }
 
@@ -1033,7 +1037,7 @@ pump_execute_start (call_frame_t *frame, xlator_t *this)
 
         GF_ASSERT (priv->root_inode);
 
-        afr_build_root_loc (priv->root_inode, &loc);
+        afr_build_root_loc (this, &loc);
 
 	STACK_WIND (frame,
 		    pump_cmd_start_getxattr_cbk,
@@ -1050,6 +1054,7 @@ out:
                 pump_command_reply (frame, this);
         }
 
+        loc_wipe (&loc);
 	return 0;
 }
 

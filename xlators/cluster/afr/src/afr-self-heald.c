@@ -26,8 +26,53 @@
 #include "afr-self-heald.h"
 #include "afr-self-heal-common.h"
 
+#define AFR_POLL_TIMEOUT 600
+
+void
+afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl);
+
+void
+afr_do_poll_self_heal (void *data)
+{
+        afr_private_t    *priv = NULL;
+        afr_self_heald_t *shd = NULL;
+        struct timeval   timeout = {0};
+        xlator_t         *this = NULL;
+        long             child = (long)data;
+        int              i = 0;
+
+        this = THIS;
+        priv = this->private;
+        shd = &priv->shd;
+
+        if (child == AFR_ALL_CHILDREN) { //done by command
+                for (i = 0; i < priv->child_count; i++)
+                        afr_start_crawl (this, i, INDEX);
+                goto out;
+        } else {
+                afr_start_crawl (this, child, INDEX);
+                if (shd->pos[child] == AFR_POS_REMOTE)
+                        goto out;
+        }
+        timeout.tv_sec = AFR_POLL_TIMEOUT;
+        timeout.tv_usec = 0;
+        if (shd->timer[child])
+                gf_timer_call_cancel (this->ctx, shd->timer[child]);
+        shd->timer[child] = gf_timer_call_after (this->ctx, timeout,
+                                                 afr_do_poll_self_heal, data);
+
+        if (shd->timer[child] == NULL) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Cannot create pending self-heal polling timer for %s",
+                        priv->children[child]->name);
+        }
+out:
+        return;
+}
+
 static int
-_crawl_directory (loc_t *loc, pid_t pid);
+_crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data,
+                  xlator_t *readdir_xl);
 static int
 get_pathinfo_host (char *pathinfo, char *hostname, size_t size)
 {
@@ -84,30 +129,215 @@ out:
         return ret;
 }
 
-inline void
-afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
+
+int
+afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
+                           loc_t *dirloc, xlator_t *readdir_xl)
 {
-        afr_update_loc_gfids (loc, iatt, parent);
-        uuid_copy (loc->inode->gfid, iatt->ia_gfid);
+        afr_private_t *priv = NULL;
+        dict_t        *xattr = NULL;
+        void          *index_gfid = NULL;
+        loc_t         rootloc = {0};
+        struct iatt   iatt = {0};
+        struct iatt   parent = {0};
+        int           ret = 0;
+
+        priv = this->private;
+        if (crawl_data->crawl == FULL) {
+                afr_build_root_loc (this, dirloc);
+        } else {
+                afr_build_root_loc (this, &rootloc);
+                ret = syncop_getxattr (readdir_xl, &rootloc, &xattr,
+                                       GF_XATTROP_INDEX_GFID);
+                if (ret < 0)
+                        goto out;
+                ret = dict_get_ptr (xattr, GF_XATTROP_INDEX_GFID, &index_gfid);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to get index "
+                                "dir gfid on %s", readdir_xl->name);
+                        goto out;
+                }
+                if (!index_gfid) {
+                        gf_log (this->name, GF_LOG_ERROR, "index gfid empty "
+                                "on %s", readdir_xl->name);
+                        ret = -1;
+                        goto out;
+                }
+                uuid_copy (dirloc->gfid, index_gfid);
+                dirloc->path = "";
+                dirloc->inode = inode_new (priv->root_inode->table);
+                ret = syncop_lookup (readdir_xl, dirloc, NULL,
+                                     &iatt, NULL, &parent);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "lookup failed on "
+                                "index dir on %s", readdir_xl->name);
+                        goto out;
+                }
+                inode_link (dirloc->inode, NULL, NULL, &iatt);
+        }
+        ret = 0;
+out:
+        if (xattr)
+                dict_unref (xattr);
+        loc_wipe (&rootloc);
+        return ret;
+}
+
+int
+afr_crawl_opendir (xlator_t *this, afr_crawl_data_t *crawl_data, fd_t **dirfd,
+                   loc_t *dirloc, xlator_t *readdir_xl)
+{
+        fd_t          *fd   = NULL;
+        int           ret = 0;
+
+        if (crawl_data->crawl == FULL) {
+                fd = fd_create (dirloc->inode, crawl_data->pid);
+                if (!fd) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to create fd for %s", dirloc->path);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = syncop_opendir (readdir_xl, dirloc, fd);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "opendir failed on %s", dirloc->path);
+                        goto out;
+                }
+        } else {
+                fd = fd_anonymous (dirloc->inode);
+        }
+        ret = 0;
+out:
+        if (!ret)
+                *dirfd = fd;
+        return ret;
+}
+
+xlator_t*
+afr_crawl_readdir_xl_get (xlator_t *this, afr_crawl_data_t *crawl_data)
+{
+        afr_private_t *priv = this->private;
+
+        if (crawl_data->crawl == FULL) {
+                return this;
+        } else {
+                return priv->children[crawl_data->child];
+        }
+        return NULL;
+}
+
+int
+afr_crawl_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent,
+                           gf_dirent_t *entry, afr_crawl_data_t *crawl_data)
+{
+        int           ret = 0;
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+        if (crawl_data->crawl == FULL) {
+                ret = afr_build_child_loc (this, child, parent, entry->d_name);
+        } else {
+                child->path = "";
+                child->inode = inode_new (priv->root_inode->table);
+                uuid_parse (entry->d_name, child->gfid);
+        }
+        return ret;
+}
+
+gf_boolean_t
+_crawl_proceed (xlator_t *this, int child)
+{
+        afr_private_t *priv = this->private;
+        gf_boolean_t proceed = _gf_false;
+
+        if (!priv->child_up[child]) {
+                gf_log (this->name, GF_LOG_ERROR, "Stopping crawl for %s "
+                        ", subvol went down", priv->children[child]->name);
+                goto out;
+        }
+
+        if (afr_up_children_count (priv->child_up,
+                                   priv->child_count) < 2) {
+                gf_log (this->name, GF_LOG_ERROR, "Stopping crawl as "
+                        "< 2 children are up");
+                goto out;
+        }
+        proceed = _gf_true;
+out:
+        return proceed;
+}
+
+static int
+_build_index_loc (xlator_t *this, loc_t *loc, char *name, loc_t *parent)
+{
+        int             ret = 0;
+
+        uuid_copy (loc->pargfid, parent->inode->gfid);
+        loc->path = "";
+        loc->name = name;
+        loc->parent = inode_ref (parent->inode);
+        if (!loc->parent) {
+                loc->path = NULL;
+                loc_wipe (loc);
+                ret = -1;
+        }
+        return ret;
+}
+
+void
+_index_crawl_post_lookup_fop (xlator_t *this, loc_t *parentloc,
+                              gf_dirent_t *entry, int op_ret, int op_errno,
+                              xlator_t *readdir_xl)
+{
+        loc_t            index_loc = {0};
+        int              ret = 0;
+
+        if (op_ret && (op_errno == ENOENT)) {
+                ret = _build_index_loc (this, &index_loc, entry->d_name,
+                                        parentloc);
+                if (ret)
+                        goto out;
+                gf_log (this->name, GF_LOG_INFO, "Removing stale index "
+                        "for %s on %s", index_loc.name, readdir_xl->name);
+                ret = syncop_unlink (readdir_xl, &index_loc);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "%s: Failed to remove"
+                                " index on %s - %s", index_loc.name,
+                                readdir_xl->name, strerror (errno));
+                }
+                index_loc.path = NULL;
+                loc_wipe (&index_loc);
+        }
+out:
+        return;
 }
 
 static int
 _perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
-                    off_t *offset, pid_t pid)
+                    off_t *offset, afr_crawl_data_t *crawl_data,
+                    xlator_t *readdir_xl)
 {
         gf_dirent_t      *entry = NULL;
         gf_dirent_t      *tmp = NULL;
         struct iatt      iatt = {0};
-        struct iatt      parent = {0};;
+        struct iatt      parent = {0};
         int              ret = 0;
         loc_t            entry_loc = {0};
+        fd_t             *fd = NULL;
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+                if (!_crawl_proceed (this, crawl_data->child)) {
+                        ret = -1;
+                        goto out;
+                }
                 *offset = entry->d_off;
                 if (IS_ENTRY_CWD (entry->d_name) ||
                     IS_ENTRY_PARENT (entry->d_name))
                         continue;
-                if (uuid_is_null (entry->d_stat.ia_gfid)) {
+                if ((crawl_data->crawl == FULL) &&
+                     uuid_is_null (entry->d_stat.ia_gfid)) {
                         gf_log (this->name, GF_LOG_WARNING, "%s/%s: No "
                                 "gfid present skipping",
                                 parentloc->path, entry->d_name);
@@ -115,21 +345,44 @@ _perform_self_heal (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                 }
 
                 loc_wipe (&entry_loc);
-                ret = afr_build_child_loc (this, &entry_loc, parentloc,
-                                           entry->d_name, entry->d_stat.ia_gfid);
+                ret = afr_crawl_build_child_loc (this, &entry_loc, parentloc,
+                                                 entry, crawl_data);
                 if (ret)
                         goto out;
 
-                gf_log (this->name, GF_LOG_DEBUG, "lookup %s", entry_loc.path);
+                if (uuid_is_null (entry_loc.gfid)) {
+                        gf_log (this->name, GF_LOG_WARNING, "failed to build "
+                                "location for %s", entry->d_name);
+                        continue;
+                }
+                if (entry_loc.path)
+                        gf_log (this->name, GF_LOG_DEBUG, "lookup %s",
+                                entry_loc.path);
+                else
+                        gf_log (this->name, GF_LOG_DEBUG, "lookup %s",
+                                uuid_utoa (entry_loc.gfid));
 
                 ret = syncop_lookup (this, &entry_loc, NULL,
                                      &iatt, NULL, &parent);
+                if (crawl_data->crawl == INDEX) {
+                        _index_crawl_post_lookup_fop (this, parentloc, entry,
+                                                      ret, errno, readdir_xl);
+                        entry_loc.path = NULL;
+                        loc_wipe (&entry_loc);
+                        continue;
+                }
+
                 //Don't fail the crawl if lookup fails as it
                 //could be because of split-brain
                 if (ret || (!IA_ISDIR (iatt.ia_type)))
                         continue;
-                afr_fill_loc_info (&entry_loc, &iatt, &parent);
-                ret = _crawl_directory (&entry_loc, pid);
+                inode_link (entry_loc.inode, parentloc->inode, NULL, &iatt);
+                ret = afr_crawl_opendir (this, crawl_data, &fd, &entry_loc,
+                                         readdir_xl);
+                if (ret)
+                        continue;
+                ret = _crawl_directory (fd, &entry_loc, crawl_data, readdir_xl);
+                fd_unref (fd);
         }
         ret = 0;
 out:
@@ -139,69 +392,69 @@ out:
 }
 
 static int
-_crawl_directory (loc_t *loc, pid_t pid)
+_crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data,
+                  xlator_t *readdir_xl)
 {
         xlator_t        *this = NULL;
-        afr_private_t   *priv = NULL;
-        fd_t            *fd   = NULL;
         off_t           offset   = 0;
         gf_dirent_t     entries;
-        struct iatt     iatt = {0};
-        struct iatt     parent = {0};;
         int             ret = 0;
         gf_boolean_t    free_entries = _gf_false;
 
         INIT_LIST_HEAD (&entries.list);
         this = THIS;
-        priv = this->private;
 
         GF_ASSERT (loc->inode);
 
-        gf_log (this->name, GF_LOG_DEBUG, "crawling %s", loc->path);
-        fd = fd_create (loc->inode, pid);
-        if (!fd) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to create fd for %s", loc->path);
-                goto out;
-        }
+        if (loc->path)
+                gf_log (this->name, GF_LOG_DEBUG, "crawling %s", loc->path);
+        else
+                gf_log (this->name, GF_LOG_DEBUG, "crawling %s",
+                        uuid_utoa (loc->gfid));
 
-        if (!loc->parent) {
-                ret = syncop_lookup (this, loc, NULL,
-                                     &iatt, NULL, &parent);
-        }
-
-        ret = syncop_opendir (this, loc, fd);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "opendir failed on %s", loc->path);
-                goto out;
-        }
-
-        while (syncop_readdirp (this, fd, 131072, offset, NULL, &entries)) {
+        while (1) {
+                if (crawl_data->crawl == FULL)
+                        ret = syncop_readdirp (readdir_xl, fd, 131072, offset,
+                                               NULL, &entries);
+                else
+                        ret = syncop_readdir (readdir_xl, fd, 131072, offset,
+                                              &entries);
+                if (ret <= 0)
+                        break;
                 ret = 0;
                 free_entries = _gf_true;
-                if (afr_up_children_count (priv->child_up,
-                                           priv->child_count) < 2) {
-                        gf_log (this->name, GF_LOG_ERROR, "Stopping crawl as "
-                                "< 2 children are up");
+
+                if (!_crawl_proceed (this, crawl_data->child)) {
                         ret = -1;
                         goto out;
                 }
-
                 if (list_empty (&entries.list))
                         goto out;
 
-                ret = _perform_self_heal (this, loc, &entries, &offset, pid);
+                ret = _perform_self_heal (this, loc, &entries, &offset,
+                                          crawl_data, readdir_xl);
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
         }
-        if (fd)
-                fd_unref (fd);
         ret = 0;
 out:
         if (free_entries)
                 gf_dirent_free (&entries);
         return ret;
+}
+
+static char*
+position_str_get (afr_child_pos_t pos)
+{
+        switch (pos) {
+        case AFR_POS_UNKNOWN:
+                return "unknown";
+        case AFR_POS_LOCAL:
+                return "local";
+        case AFR_POS_REMOTE:
+                return "remote";
+        }
+        return NULL;
 }
 
 int
@@ -214,35 +467,21 @@ afr_find_child_position (xlator_t *this, int child)
         gf_boolean_t     local = _gf_false;
         char             *pathinfo = NULL;
         afr_child_pos_t  *pos = NULL;
-        inode_table_t    *itable = NULL;
 
         priv = this->private;
         pos = &priv->shd.pos[child];
 
-        if (*pos != AFR_POS_UNKNOWN) {
-                goto out;
-        }
-
-        //TODO: Hack to make the root_loc hack work
-        LOCK (&priv->lock);
-        {
-                if (!priv->root_inode) {
-                        itable = inode_table_new (0, this);
-                        if (!itable)
-                                goto unlock;
-                        priv->root_inode = inode_new (itable);
-                        if (!priv->root_inode)
-                                goto unlock;
-                }
-        }
-unlock:
-        UNLOCK (&priv->lock);
-
         if (!priv->root_inode) {
-                ret = -1;
-                goto out;
+                LOCK (&priv->lock);
+                {
+                        if (!priv->root_inode)
+                                priv->root_inode = inode_ref
+                                                       (this->itable->root);
+                }
+                UNLOCK (&priv->lock);
         }
-        afr_build_root_loc (priv->root_inode, &loc);
+
+        afr_build_root_loc (this, &loc);
 
         ret = syncop_getxattr (priv->children[child], &loc, &xattr_rsp,
                                GF_XATTR_PATHINFO_KEY);
@@ -267,8 +506,12 @@ unlock:
         else
                 *pos = AFR_POS_REMOTE;
 
-        gf_log (this->name, GF_LOG_INFO, "child %d is %d", child, *pos);
+        gf_log (this->name, GF_LOG_INFO, "child %s is %s",
+                priv->children[child]->name, position_str_get (*pos));
 out:
+        if (ret)
+                *pos = AFR_POS_UNKNOWN;
+        loc_wipe (&loc);
         return ret;
 }
 
@@ -280,93 +523,34 @@ afr_crawl_done  (int ret, call_frame_t *sync_frame, void *data)
         return 0;
 }
 
-static int
-afr_find_all_children_postions (xlator_t *this)
-{
-        int              ret = -1;
-        int              i = 0;
-        gf_boolean_t     succeeded = _gf_false;
-        afr_private_t    *priv = NULL;
-
-        priv = this->private;
-        for (i = 0; i < priv->child_count; i++) {
-                if (priv->child_up[i] != 1)
-                        continue;
-                ret = afr_find_child_position (this, i);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to determine if the "
-                                "child %s is local.",
-                                priv->children[i]->name);
-                        continue;
-                }
-                succeeded = _gf_true;
-        }
-        if (succeeded)
-                ret = 0;
-        return ret;
-}
-
-static gf_boolean_t
-afr_local_child_exists (afr_child_pos_t *pos, unsigned int child_count)
-{
-        int             i = 0;
-        gf_boolean_t    local = _gf_false;
-
-        for (i = 0; i < child_count; i++, pos++) {
-                if (*pos == AFR_POS_LOCAL) {
-                        local = _gf_true;
-                        break;
-                }
-        }
-        return local;
-}
-
-int
-afr_init_child_position (xlator_t *this, int child)
-{
-        int     ret = 0;
-
-        if (child == AFR_ALL_CHILDREN) {
-                ret = afr_find_all_children_postions (this);
-        } else {
-                ret = afr_find_child_position (this, child);
-        }
-        return ret;
-}
-
-int
+static inline int
 afr_is_local_child (afr_self_heald_t *shd, int child, unsigned int child_count)
 {
-        gf_boolean_t local = _gf_false;
-
-        if (child == AFR_ALL_CHILDREN)
-                local = afr_local_child_exists (shd->pos, child_count);
-        else
-                local = (shd->pos[child] == AFR_POS_LOCAL);
-
-        return local;
+        return (shd->pos[child] == AFR_POS_LOCAL);
 }
 
 static int
-afr_crawl_directory (xlator_t *this, pid_t pid)
+afr_crawl_directory (xlator_t *this, afr_crawl_data_t *crawl_data)
 {
         afr_private_t    *priv = NULL;
         afr_self_heald_t *shd = NULL;
-        loc_t            loc = {0};
+        loc_t            dirloc = {0};
         gf_boolean_t     crawl = _gf_false;
-        int             ret = 0;
+        int              ret = 0;
+        xlator_t         *readdir_xl = NULL;
+        fd_t             *fd = NULL;
+        int              child = -1;
 
         priv = this->private;
         shd = &priv->shd;
-
+        child = crawl_data->child;
 
         LOCK (&priv->lock);
         {
-                if (shd->inprogress) {
-                        shd->pending = _gf_true;
+                if (shd->inprogress[child]) {
+                        shd->pending[child] = _gf_true;
                 } else {
-                        shd->inprogress = _gf_true;
+                        shd->inprogress[child] = _gf_true;
                         crawl = _gf_true;
                 }
         }
@@ -377,28 +561,56 @@ afr_crawl_directory (xlator_t *this, pid_t pid)
                 goto out;
         }
 
-        if (!crawl)
+        if (!crawl) {
+                gf_log (this->name, GF_LOG_INFO, "Another crawl is in progress "
+                        "for %s", priv->children[child]->name);
                 goto out;
+        }
 
-        afr_build_root_loc (priv->root_inode, &loc);
-        while (crawl) {
-                ret = _crawl_directory (&loc, pid);
+        do {
+                readdir_xl = afr_crawl_readdir_xl_get (this, crawl_data);
+                if (!readdir_xl)
+                        goto done;
+                ret = afr_crawl_build_start_loc (this, crawl_data, &dirloc,
+                                                 readdir_xl);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Crawl failed");
+                        goto done;
+                ret = afr_crawl_opendir (this, crawl_data, &fd, &dirloc,
+                                         readdir_xl);
+                if (ret)
+                        goto done;
+                ret = _crawl_directory (fd, &dirloc, crawl_data, readdir_xl);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Crawl failed on %s",
+                                readdir_xl->name);
                 else
-                        gf_log (this->name, GF_LOG_INFO, "Crawl completed");
+                        gf_log (this->name, GF_LOG_INFO, "Crawl completed "
+                                "on %s", readdir_xl->name);
+                fd_unref (fd);
+                fd = NULL;
+done:
                 LOCK (&priv->lock);
                 {
-                        if (shd->pending) {
-                                shd->pending = _gf_false;
+                        if (shd->pending[child]) {
+                                shd->pending[child] = _gf_false;
                         } else {
-                                shd->inprogress = _gf_false;
+                                shd->inprogress[child] = _gf_false;
                                 crawl = _gf_false;
                         }
                 }
                 UNLOCK (&priv->lock);
-        }
+                if (crawl_data->crawl == INDEX) {
+                        dirloc.path = NULL;
+                        loc_wipe (&dirloc);
+                }
+        } while (crawl);
 out:
+        if (fd)
+                fd_unref (fd);
+        if (crawl_data->crawl == INDEX) {
+                dirloc.path = NULL;
+                loc_wipe (&dirloc);
+        }
         return ret;
 }
 
@@ -415,20 +627,22 @@ afr_crawl (void *data)
         priv = this->private;
         shd = &priv->shd;
 
-        ret = afr_init_child_position (this, crawl_data->child);
+        if (!_crawl_proceed (this, crawl_data->child))
+                goto out;
+        ret = afr_find_child_position (this, crawl_data->child);
         if (ret)
                 goto out;
 
         if (!afr_is_local_child (shd, crawl_data->child, priv->child_count))
                 goto out;
 
-        ret = afr_crawl_directory (this, crawl_data->pid);
+        ret = afr_crawl_directory (this, crawl_data);
 out:
         return ret;
 }
 
 void
-afr_proactive_self_heal (xlator_t *this, int idx)
+afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl)
 {
         afr_private_t              *priv = NULL;
         afr_self_heald_t           *shd = NULL;
@@ -439,10 +653,6 @@ afr_proactive_self_heal (xlator_t *this, int idx)
         priv = this->private;
         shd = &priv->shd;
         if (!shd->enabled)
-                goto out;
-
-        if ((idx != AFR_ALL_CHILDREN) &&
-            (shd->pos[idx] == AFR_POS_REMOTE))
                 goto out;
 
         frame = create_frame (this, this->ctx->pool);
@@ -457,7 +667,9 @@ afr_proactive_self_heal (xlator_t *this, int idx)
                 goto out;
         crawl_data->child = idx;
         crawl_data->pid = frame->root->pid;
-        gf_log (this->name, GF_LOG_INFO, "starting crawl for %d", idx);
+        crawl_data->crawl = crawl;
+        gf_log (this->name, GF_LOG_INFO, "starting crawl for %s",
+                priv->children[idx]->name);
         ret = synctask_new (this->ctx->env, afr_crawl,
                             afr_crawl_done, frame, crawl_data);
         if (ret)
@@ -467,16 +679,25 @@ out:
         return;
 }
 
-//TODO: This is a hack
+//void
+//afr_full_self_heal (xlator_t *this)
+//{
+//        int     i = 0;
+//        afr_private_t *priv = this->private;
+//
+//        for (i = 0; i < priv->child_count; i++)
+//                afr_start_crawl (this, i, FULL);
+//}
+
 void
-afr_build_root_loc (inode_t *inode, loc_t *loc)
+afr_build_root_loc (xlator_t *this, loc_t *loc)
 {
-        loc->path = "/";
+        afr_private_t   *priv = NULL;
+
+        priv = this->private;
+        loc->path = gf_strdup ("/");
         loc->name = "";
-        loc->inode = inode;
-        loc->inode->ia_type = IA_IFDIR;
-        memset (loc->inode->gfid, 0, 16);
-        loc->inode->gfid[15] = 1;
+        loc->inode = inode_ref (priv->root_inode);
         uuid_copy (loc->gfid, loc->inode->gfid);
 }
 
