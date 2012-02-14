@@ -3372,7 +3372,8 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 vec[count].iov_len  =
                                         (local->replies[i].requested_size -
                                          local->replies[i].op_ret);
-                                iobuf = iobuf_get (this->ctx->iobuf_pool);
+                                iobuf = iobuf_get2 (this->ctx->iobuf_pool,
+                                                    vec[count].iov_len);
                                 if (!iobuf) {
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "Out of memory.");

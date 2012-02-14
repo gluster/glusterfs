@@ -2493,6 +2493,8 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                         }
 
                         /* TODO: what is the size we should send ? */
+                        /* This change very much depends on quick-read
+                           changes */
                         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
                         if (rsp_iobuf == NULL) {
                                 goto unwind;
@@ -3409,8 +3411,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
 
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
-                        /* TODO: what is the size we should send ? */
-        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+        rsp_iobuf = iobuf_get2 (this->ctx->iobuf_pool, args->size);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3959,8 +3960,8 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-                        /* TODO: what is the size we should send ? */
-        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+        /* TODO: what is the size we should send ? */
+        rsp_iobuf = iobuf_get2 (this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4062,8 +4063,8 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-                        /* TODO: what is the size we should send ? */
-        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+        /* TODO: what is the size we should send ? */
+        rsp_iobuf = iobuf_get2 (this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4188,8 +4189,8 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-                        /* TODO: what is the size we should send ? */
-        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+        /* TODO: what is the size we should send ? */
+        rsp_iobuf = iobuf_get2 (this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4308,8 +4309,8 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-                        /* TODO: what is the size we should send ? */
-        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+        /* TODO: what is the size we should send ? */
+        rsp_iobuf = iobuf_get2 (this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4880,7 +4881,9 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
                         goto unwind;
                 }
 
-                        /* TODO: what is the size we should send ? */
+                /* TODO: what is the size we should send ? */
+                /* This iobuf will live for only receiving the response,
+                   so not harmful */
                 rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
                 if (rsp_iobuf == NULL) {
                         goto unwind;
@@ -4890,8 +4893,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
                 iobuf_unref (rsp_iobuf);
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
-                rsphdr->iov_len
-                        = iobuf_pagesize (rsp_iobuf);
+                rsphdr->iov_len  = iobuf_pagesize (rsp_iobuf);
                 count = 1;
                 rsp_iobuf = NULL;
                 local->iobref = rsp_iobref;
@@ -4983,6 +4985,8 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
                 }
 
                 /* TODO: what is the size we should send ? */
+                /* This iobuf will live for only receiving the response,
+                   so not harmful */
                 rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
                 if (rsp_iobuf == NULL) {
                         goto unwind;

@@ -3474,7 +3474,12 @@ fuse_thread_proc (void *data)
                 if (priv->init_recvd)
                         fuse_graph_sync (this);
 
+                /* TODO: This place should always get maximum supported buffer
+                   size from 'fuse', which is as of today 128KB. If we bring in
+                   support for higher block sizes support, then we should be
+                   changing this one too */
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
+
                 /* Add extra 128 byte to the first iov so that it can
                  * accommodate "ordinary" non-write requests. It's not
                  * guaranteed to be big enough, as SETXATTR and namespace

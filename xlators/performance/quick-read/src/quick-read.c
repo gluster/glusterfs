@@ -1180,6 +1180,9 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 }
 
                 for (i = 0; i < count; i++) {
+                        /* TODO: Now that we have support for variable
+                           io-buf-sizes, i guess we need to get rid of
+                           default size here */
                         iobuf = iobuf_get (iobuf_pool);
                         if (iobuf == NULL) {
                                 op_ret = -1;

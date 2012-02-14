@@ -1117,7 +1117,7 @@ ret:
 
 
 int
-rpc_clnt_fill_request (int prognum, int progver, int procnum, int payload,
+rpc_clnt_fill_request (int prognum, int progver, int procnum,
                        uint64_t xid, struct auth_glusterfs_parms_v2 *au,
                        struct rpc_msg *request, char *auth_data)
 {
@@ -1197,7 +1197,7 @@ out:
 
 struct iobuf *
 rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
-                              int procnum, size_t payload, uint64_t xid,
+                              int procnum, size_t hdrsize, uint64_t xid,
                               struct auth_glusterfs_parms_v2 *au,
                               struct iovec *recbuf)
 {
@@ -1207,16 +1207,19 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         struct iovec    recordhdr                    = {0, };
         size_t          pagesize                     = 0;
         int             ret                          = -1;
+        size_t          xdr_size                     = 0;
         char            auth_data[GF_MAX_AUTH_BYTES] = {0, };
 
         if ((!clnt) || (!recbuf) || (!au)) {
                 goto out;
         }
 
+        xdr_size = xdr_sizeof ((xdrproc_t)xdr_callmsg, &request);
+
         /* First, try to get a pointer into the buffer which the RPC
          * layer can use.
          */
-        request_iob = iobuf_get (clnt->ctx->iobuf_pool);
+        request_iob = iobuf_get2 (clnt->ctx->iobuf_pool, (xdr_size + hdrsize));
         if (!request_iob) {
                 goto out;
         }
@@ -1226,7 +1229,7 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         record = iobuf_ptr (request_iob);  /* Now we have it. */
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
-        ret = rpc_clnt_fill_request (prognum, progver, procnum, payload, xid,
+        ret = rpc_clnt_fill_request (prognum, progver, procnum, xid,
                                      au, &request, auth_data);
         if (ret == -1) {
                 gf_log (clnt->conn.trans->name, GF_LOG_WARNING,
@@ -1235,7 +1238,7 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         }
 
         recordhdr = rpc_clnt_record_build_header (record, pagesize, &request,
-                                                  payload);
+                                                  hdrsize);
 
         if (!recordhdr.iov_base) {
                 gf_log (clnt->conn.trans->name, GF_LOG_ERROR,
@@ -1256,7 +1259,7 @@ out:
 
 struct iobuf *
 rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
-                 rpc_clnt_prog_t *prog,int procnum, size_t payload_len,
+                 rpc_clnt_prog_t *prog, int procnum, size_t hdrlen,
                  struct iovec *rpchdr, uint64_t callid)
 {
         struct auth_glusterfs_parms_v2  au          = {0, };
@@ -1292,12 +1295,9 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
                 ", gid: %d, owner: %s", au.pid, au.uid, au.gid,
                 lkowner_utoa (&call_frame->root->lk_owner));
 
-        /* Assuming the client program would like to speak to the same version of
-         * program on server.
-         */
         request_iob = rpc_clnt_record_build_record (clnt, prog->prognum,
                                                     prog->progver,
-                                                    procnum, payload_len,
+                                                    procnum, hdrlen,
                                                     callid, &au,
                                                     rpchdr);
         if (!request_iob) {
@@ -1430,11 +1430,6 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
 
         if (proghdr) {
                 proglen += iov_length (proghdr, proghdrcount);
-        }
-
-        if (progpayload) {
-                proglen += iov_length (progpayload,
-                                       progpayloadcount);
         }
 
         request_iob = rpc_clnt_record (rpc, frame, prog,

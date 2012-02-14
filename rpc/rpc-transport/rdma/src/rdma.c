@@ -1992,7 +1992,7 @@ gf_rdma_receive (rpc_transport_t *this, char **hdr_p, size_t *hdrlen_p,
         *hdrlen_p = size1;
 
         if (size2) {
-                iobuf = iobuf_get (this->ctx->iobuf_pool);
+                iobuf = iobuf_get2 (this->ctx->iobuf_pool, size2);
                 if (!iobuf) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "unable to allocate IO buffer for peer %s",
@@ -2716,7 +2716,7 @@ gf_rdma_decode_error_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                         ntoh32 (header->rm_body.rm_error.rm_version.gf_rdma_vers_high);
         }
 
-        iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
+        iobuf = iobuf_get2 (peer->trans->ctx->iobuf_pool, bytes_in_post);
         if (iobuf == NULL) {
                 ret = -1;
                 goto out;
@@ -2822,15 +2822,17 @@ gf_rdma_decode_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
         /* skip terminator of reply chunk */
         ptr = ptr + sizeof (uint32_t);
         if (header->rm_type != GF_RDMA_NOMSG) {
-                post->ctx.hdr_iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
+                header_len = (long)ptr - (long)post->buf;
+                post->ctx.vector[0].iov_len = (bytes_in_post - header_len);
+
+                post->ctx.hdr_iobuf = iobuf_get2 (peer->trans->ctx->iobuf_pool,
+                                                  (bytes_in_post - header_len));
                 if (post->ctx.hdr_iobuf == NULL) {
                         ret = -1;
                         goto out;
                 }
 
-                header_len = (long)ptr - (long)post->buf;
                 post->ctx.vector[0].iov_base = iobuf_ptr (post->ctx.hdr_iobuf);
-                post->ctx.vector[0].iov_len = bytes_in_post - header_len;
                 memcpy (post->ctx.vector[0].iov_base, ptr,
                         post->ctx.vector[0].iov_len);
                 post->ctx.count = 1;
@@ -2965,16 +2967,7 @@ gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
 
         post->ctx.gf_rdma_reads = i;
 
-        if (size > peer->trans->ctx->page_size) {
-                gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
-                        "total size of rdma-read (%lu) is greater than "
-                        "page-size (%lu). This is not supported till variable "
-                        "sized iobufs are implemented", (unsigned long)size,
-                        (unsigned long)peer->trans->ctx->page_size);
-                goto out;
-        }
-
-        iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
+        iobuf = iobuf_get2 (peer->trans->ctx->iobuf_pool, size);
         if (iobuf == NULL) {
                 goto out;
         }

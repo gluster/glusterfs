@@ -1901,6 +1901,7 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
         int            ret    = -1;
 
         if (holder->flags.write_request.virgin) {
+                /* TODO: check the required size */
                 iobuf = iobuf_get (request->file->this->ctx->iobuf_pool);
                 if (iobuf == NULL) {
                         goto out;

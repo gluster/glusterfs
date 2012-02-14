@@ -70,6 +70,7 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
+        /* TODO: use 'xdrproc_t' instead of 'sfunc' to get the xdr-size */
         iob = iobuf_get (ms->iobpool);
         if (!iob) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get iobuf");
