@@ -31,6 +31,14 @@
 #define LOCKED_YES      0x1        /* for DATA, METADATA, ENTRY and higher_path */
 #define LOCKED_LOWER    0x2        /* for lower path */
 
+static inline void
+afr_unset_lk_owner_and_call_cbk (call_frame_t *frame, xlator_t *this,
+                                afr_internal_lock_t *int_lock)
+{
+         afr_unset_lk_owner (frame, this, int_lock);
+         int_lock->lock_cbk (frame, this);
+}
+
 int
 afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index);
 
@@ -56,14 +64,58 @@ afr_set_lock_number (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-void
-afr_set_lk_owner (call_frame_t *frame, xlator_t *this)
+static void
+afr_lkowner_trace_log (xlator_t *this, gf_lkowner_t *from, gf_lkowner_t *to)
 {
-        gf_log (this->name, GF_LOG_TRACE,
-                "Setting lk-owner=%llu",
-                (unsigned long long) (unsigned long)frame->root);
+        char            from_lkowner[1024]      = {0, };
+        char            to_lkowner[1024]        = {0, };
+        afr_private_t   *priv                   = NULL;
+
+        priv = this->private;
+
+        if (!priv->entrylk_trace && !priv->inodelk_trace)
+                return;
+
+        lkowner_utoa_r (from, from_lkowner, sizeof (from_lkowner));
+        lkowner_utoa_r (to, to_lkowner, sizeof (to_lkowner));
+
+        gf_log (this->name, GF_LOG_INFO, "Changing lk-owner from %s to %s",
+                from_lkowner, to_lkowner);
+}
+
+void
+afr_set_lk_owner (call_frame_t *frame, xlator_t *this,
+                  afr_internal_lock_t *int_lock)
+{
+
+        if (int_lock)
+                memcpy (&int_lock->fop_lkowner, &frame->root->lk_owner,
+                        sizeof (int_lock->fop_lkowner));
 
         set_lk_owner_from_ptr (&frame->root->lk_owner, frame->root);
+
+        afr_lkowner_trace_log (this, &int_lock->fop_lkowner,
+                               &frame->root->lk_owner);
+}
+
+void
+afr_unset_lk_owner (call_frame_t *frame, xlator_t *this,
+                    afr_internal_lock_t *int_lock)
+{
+        if (!int_lock) {
+                gf_log (this->name, GF_LOG_CRITICAL, "Attempting to unset "
+                        "lk_owner without saved fop lk_owner");
+                goto out;
+        }
+
+        memcpy (&frame->root->lk_owner, &int_lock->fop_lkowner,
+                sizeof (int_lock->fop_lkowner));
+
+        afr_lkowner_trace_log (this, &int_lock->fop_lkowner,
+                               &frame->root->lk_owner);
+
+out:
+        return;
 }
 
 static int
@@ -463,6 +515,8 @@ initialize_entrylk_variables (call_frame_t *frame, xlator_t *this)
                 int_lock->entry_locked_nodes[i] = 0;
         }
 
+        afr_set_lk_owner (frame, this, int_lock);
+
         return 0;
 }
 
@@ -485,6 +539,8 @@ initialize_inodelk_variables (call_frame_t *frame, xlator_t *this)
         for (i = 0; i < priv->child_count; i++) {
                 int_lock->inode_locked_nodes[i] = 0;
         }
+
+        afr_set_lk_owner (frame, this, int_lock);
 
         return 0;
 }
@@ -541,7 +597,7 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (call_count == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "All internal locks unlocked");
-                int_lock->lock_cbk (frame, this);
+                afr_unset_lk_owner_and_call_cbk (frame, this, int_lock);
         }
 
         return 0;
@@ -614,7 +670,7 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         if (!call_count) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "No internal locks unlocked");
-                int_lock->lock_cbk (frame, this);
+                afr_unset_lk_owner_and_call_cbk (frame, this, int_lock);
                 goto out;
         }
 
@@ -734,7 +790,7 @@ afr_unlock_entrylk (call_frame_t *frame, xlator_t *this)
         if (!call_count){
                 gf_log (this->name, GF_LOG_TRACE,
                         "No internal locks unlocked");
-                int_lock->lock_cbk (frame, this);
+                afr_unset_lk_owner_and_call_cbk (frame, this, int_lock);
                 goto out;
         }
 
@@ -792,6 +848,7 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if ((op_ret == -1) &&
             (op_errno == ENOSYS)) {
+                afr_unset_lk_owner (frame, this, int_lock);
                 afr_unlock (frame, this);
         } else {
                 if (op_ret == 0) {
@@ -852,6 +909,7 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (op_ret != 0) {
+                afr_unset_lk_owner (frame, this, int_lock);
                 afr_unlock (frame, this);
                 goto out;
         } else {
@@ -967,6 +1025,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 
                         afr_copy_locked_nodes (frame, this);
 
+                        afr_unset_lk_owner (frame, this, int_lock);
                         afr_unlock (frame, this);
 
                         return 0;
@@ -998,6 +1057,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 
                 afr_copy_locked_nodes (frame, this);
 
+                afr_unset_lk_owner (frame, this, int_lock);
                 afr_unlock(frame, this);
 
                 return 0;
@@ -1015,7 +1075,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
                 afr_copy_locked_nodes (frame, this);
 
                 int_lock->lock_op_ret = 0;
-                int_lock->lock_cbk (frame, this);
+                afr_unset_lk_owner_and_call_cbk (frame, this, int_lock);
                 return 0;
         }
 
@@ -1190,7 +1250,7 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_TRACE,
                                 "All servers locked. Calling the cbk");
                         int_lock->lock_op_ret = 0;
-                        int_lock->lock_cbk (frame, this);
+                        afr_unset_lk_owner_and_call_cbk (frame, this, int_lock);
                 }
                 /* Not all locks were successful. Unlock and try locking
                    again, this time with serially blocking locks */
@@ -1199,6 +1259,7 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 "%d servers locked. Trying again with blocking calls",
                                 int_lock->lock_count);
 
+                        afr_unset_lk_owner (frame, this, int_lock);
                         afr_unlock(frame, this);
                 }
         }
@@ -1265,6 +1326,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                 if (!call_count) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "fd not open on any subvolumes. aborting.");
+                        afr_unset_lk_owner (frame, this, int_lock);
                         afr_unlock (frame, this);
                         goto out;
                 }
@@ -1383,7 +1445,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_TRACE,
                                 "All servers locked. Calling the cbk");
                         int_lock->lock_op_ret = 0;
-                        int_lock->lock_cbk (frame, this);
+                        afr_unset_lk_owner_and_call_cbk (frame, this, int_lock);
                 }
                 /* Not all locks were successful. Unlock and try locking
                    again, this time with serially blocking locks */
@@ -1392,6 +1454,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 "%d servers locked. Trying again with blocking calls",
                                 int_lock->lock_count);
 
+                        afr_unset_lk_owner (frame, this, int_lock);
                         afr_unlock(frame, this);
                 }
         }
@@ -1454,6 +1517,7 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                 if (!call_count) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "fd not open on any subvolumes. aborting.");
+                        afr_unset_lk_owner (frame, this, int_lock);
                         afr_unlock (frame, this);
                         goto out;
                 }
@@ -1647,6 +1711,7 @@ afr_post_unlock_lower_cbk (call_frame_t *frame, xlator_t *this)
 
         local    = frame->local;
         int_lock = &local->internal_lock;
+        afr_set_lk_owner (frame, this, int_lock);
 
         lower = lower_path (&local->transaction.parent_loc,
                             local->transaction.basename,
@@ -1724,9 +1789,13 @@ afr_rename_transaction (call_frame_t *frame, xlator_t *this)
 int32_t
 afr_unlock (call_frame_t *frame, xlator_t *this)
 {
-        afr_local_t *local = NULL;
+        afr_local_t             *local = NULL;
+        afr_internal_lock_t     *int_lock = NULL;
 
         local = frame->local;
+        int_lock = &local->internal_lock;
+
+        afr_set_lk_owner (frame, this, int_lock);
 
         if (transaction_lk_op (local)) {
                 if (is_afr_lock_transaction (local))

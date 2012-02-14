@@ -2070,7 +2070,6 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         sh_frame        = copy_frame (frame);
         if (!sh_frame)
                 goto out;
-        afr_set_lk_owner (sh_frame, this);
         afr_set_low_priority (sh_frame);
 
         sh_local        = afr_local_copy (local, this);
