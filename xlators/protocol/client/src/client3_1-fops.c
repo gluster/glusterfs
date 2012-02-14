@@ -2516,7 +2516,6 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                                             op_errno, unwind);
         }
 
-        req.path          = (char *)args->loc->path;
         if (args->loc->name)
                 req.bname         = (char *)args->loc->name;
         else
@@ -2595,7 +2594,6 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -2642,7 +2640,6 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
         req.offset = args->offset;
 
         conf = this->private;
@@ -2732,7 +2729,6 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
         req.mask = args->mask;
 
         conf = this->private;
@@ -2780,7 +2776,6 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
         req.size = args->size;
         conf = this->private;
 
@@ -2830,7 +2825,6 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.pargfid)),
                                        unwind, op_errno, EINVAL);
-        req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         conf = this->private;
 
@@ -2878,7 +2872,6 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.pargfid)),
                                        unwind, op_errno, EINVAL);
-        req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.flags = args->flags;
         conf = this->private;
@@ -2935,7 +2928,6 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.pargfid)),
                                        unwind, op_errno, EINVAL);
-        req.path     = (char *)args->loc->path;
         req.linkname = (char *)args->linkname;
         req.bname    = (char *)args->loc->name;
 
@@ -3133,7 +3125,6 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.pargfid)),
                                        unwind, op_errno, EINVAL);
-        req.path   = (char *)args->loc->path;
         req.bname  = (char *)args->loc->name;
         req.mode   = args->mode;
         req.dev    = args->rdev;
@@ -3210,7 +3201,7 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.pargfid)),
                                        unwind, op_errno, EINVAL);
-        req.path  = (char *)args->loc->path;
+
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
         if (args->dict) {
@@ -3287,7 +3278,6 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.pargfid)),
                                        unwind, op_errno, EINVAL);
-        req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
         req.flags = gf_flags_from_flags (args->flags);
@@ -3368,7 +3358,6 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
                                        unwind, op_errno, EINVAL);
         req.flags = gf_flags_from_flags (args->flags);
         req.wbflags = args->wbflags;
-        req.path = (char *)args->loc->path;
 
         conf = this->private;
 
@@ -3704,7 +3693,6 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
 
         conf = this->private;
 
@@ -3799,7 +3787,6 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
 
         conf = this->private;
 
@@ -3854,7 +3841,6 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
         }
 
         req.flags = args->flags;
-        req.path  = (char *)args->loc->path;
 
         conf = this->private;
 
@@ -4106,7 +4092,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
         req.namelen = 1; /* Use it as a flag */
-        req.path = (char *)args->loc->path;
+
         req.name = (char *)args->name;
         if (!req.name) {
                 req.name = "";
@@ -4239,7 +4225,6 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         }
 
         req.flags = args->flags;
-        req.path  = (char *)args->loc->path;
 
         conf = this->private;
 
@@ -4419,7 +4404,6 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
         req.name = (char *)args->name;
 
         conf = this->private;
@@ -4613,7 +4597,6 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
                 break;
         }
 
-        req.path   = (char *)args->loc->path;
         req.volume = (char *)args->volume;
         req.cmd    = gf_cmd;
         req.type   = gf_type;
@@ -4736,7 +4719,6 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
         req.cmd = args->cmd_entrylk;
         req.type = args->type;
         req.volume = (char *)args->volume;
@@ -5092,7 +5074,6 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.gfid)),
                                        unwind, op_errno, EINVAL);
-        req.path = (char *)args->loc->path;
         req.valid = args->valid;
         gf_stat_from_iatt (&req.stbuf, args->stbuf);
 
