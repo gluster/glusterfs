@@ -2224,13 +2224,21 @@ afr_self_heal_type_for_transaction (afr_transaction_type type)
 }
 
 int
-afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name, uuid_t gfid)
+afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 {
         int   ret = -1;
+        uuid_t pargfid = {0};
 
-        if (!child) {
+        if (!child)
                 goto out;
-        }
+
+        if (!uuid_is_null (parent->inode->gfid))
+                uuid_copy (pargfid, parent->inode->gfid);
+        else if (!uuid_is_null (parent->gfid))
+                uuid_copy (pargfid, parent->gfid);
+
+        if (uuid_is_null (pargfid))
+                goto out;
 
         if (strcmp (parent->path, "/") == 0)
                 ret = gf_asprintf ((char **)&child->path, "/%s", name);
@@ -2243,26 +2251,22 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name, uu
                         "asprintf failed while setting child path");
         }
 
-        if (!child->path) {
-                goto out;
-        }
-
         child->name = strrchr (child->path, '/');
         if (child->name)
                 child->name++;
 
         child->parent = inode_ref (parent->inode);
         child->inode = inode_new (parent->inode->table);
+        uuid_copy (child->pargfid, pargfid);
 
         if (!child->inode) {
                 ret = -1;
                 goto out;
         }
-        uuid_copy (child->gfid, gfid);
 
         ret = 0;
 out:
-        if (ret == -1)
+        if ((ret == -1) && child)
                 loc_wipe (child);
 
         return ret;

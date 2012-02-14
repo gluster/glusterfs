@@ -733,7 +733,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         expunge_sh->entrybuf = entry->d_stat;
 
         ret = afr_build_child_loc (this, &expunge_local->loc, &local->loc,
-                                   name, entry->d_stat.ia_gfid);
+                                   name);
         if (ret != 0) {
                 op_errno = EINVAL;
                 goto out;
@@ -1819,7 +1819,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
         ret = afr_build_child_loc (this, &impunge_local->loc, &local->loc,
-                                   entry->d_name, entry->d_stat.ia_gfid);
+                                   entry->d_name);
         loc_copy (&impunge_sh->parent_loc, &local->loc);
         if (ret != 0) {
                 op_errno = ENOMEM;

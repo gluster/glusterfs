@@ -548,6 +548,65 @@ syncop_readdirp (xlator_t *subvol,
 }
 
 int32_t
+syncop_readdir_cbk (call_frame_t *frame,
+                    void *cookie,
+                    xlator_t *this,
+                    int32_t op_ret,
+                    int32_t op_errno,
+                    gf_dirent_t *entries)
+{
+        struct syncargs *args = NULL;
+        gf_dirent_t *entry = NULL;
+        gf_dirent_t  *tmp = NULL;
+
+        int count = 0;
+
+        args = cookie;
+
+        INIT_LIST_HEAD (&args->entries.list);
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        if (op_ret >= 0) {
+                list_for_each_entry (entry, &entries->list, list) {
+                        tmp = entry_copy (entry);
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "adding entry=%s, count=%d",
+                                tmp->d_name, count);
+                        list_add_tail (&tmp->list, &(args->entries.list));
+                        count++;
+                }
+        }
+
+        __wake (args);
+
+        return 0;
+
+}
+
+int
+syncop_readdir (xlator_t *subvol,
+                fd_t *fd,
+                size_t size,
+                off_t off,
+                gf_dirent_t *entries)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_readdir_cbk, subvol->fops->readdir,
+                fd, size, off);
+
+        if (entries)
+                list_splice_init (&args.entries.list, &entries->list);
+        /* TODO: need to free all the 'args.entries' in 'else' case */
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}
+
+int32_t
 syncop_opendir_cbk (call_frame_t *frame,
                     void *cookie,
                     xlator_t *this,

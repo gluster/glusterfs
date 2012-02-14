@@ -182,6 +182,9 @@ int syncop_readdirp (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
                      /* out */
                      gf_dirent_t *entries);
 
+int syncop_readdir (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
+                    gf_dirent_t *entries);
+
 int syncop_opendir (xlator_t *subvol, loc_t *loc, fd_t *fd);
 
 int syncop_setattr (xlator_t *subvol, loc_t *loc, struct iatt *iatt, int valid,
