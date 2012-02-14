@@ -93,7 +93,6 @@ typedef struct gf_iatt gf_iatt;
 
 struct gfs3_stat_req {
 	char gfid[16];
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -115,7 +114,6 @@ typedef struct gfs3_stat_rsp gfs3_stat_rsp;
 struct gfs3_readlink_req {
 	char gfid[16];
 	u_int size;
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -139,7 +137,6 @@ struct gfs3_mknod_req {
 	char pargfid[16];
 	u_quad_t dev;
 	u_int mode;
-	char *path;
 	char *bname;
 	struct {
 		u_int dict_len;
@@ -168,7 +165,6 @@ typedef struct gfs3_mknod_rsp gfs3_mknod_rsp;
 struct gfs3_mkdir_req {
 	char pargfid[16];
 	u_int mode;
-	char *path;
 	char *bname;
 	struct {
 		u_int dict_len;
@@ -196,7 +192,6 @@ typedef struct gfs3_mkdir_rsp gfs3_mkdir_rsp;
 
 struct gfs3_unlink_req {
 	char pargfid[16];
-	char *path;
 	char *bname;
 	struct {
 		u_int xdata_len;
@@ -220,7 +215,6 @@ typedef struct gfs3_unlink_rsp gfs3_unlink_rsp;
 struct gfs3_rmdir_req {
 	char pargfid[16];
 	int flags;
-	char *path;
 	char *bname;
 	struct {
 		u_int xdata_len;
@@ -243,7 +237,6 @@ typedef struct gfs3_rmdir_rsp gfs3_rmdir_rsp;
 
 struct gfs3_symlink_req {
 	char pargfid[16];
-	char *path;
 	char *bname;
 	char *linkname;
 	struct {
@@ -328,7 +321,6 @@ typedef struct gfs3_link_rsp gfs3_link_rsp;
 struct gfs3_truncate_req {
 	char gfid[16];
 	u_quad_t offset;
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -352,7 +344,6 @@ struct gfs3_open_req {
 	char gfid[16];
 	u_int flags;
 	u_int wbflags;
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -400,7 +391,6 @@ struct gfs3_lookup_req {
 	char gfid[16];
 	char pargfid[16];
 	u_int flags;
-	char *path;
 	char *bname;
 	struct {
 		u_int dict_len;
@@ -456,7 +446,6 @@ typedef struct gfs3_write_rsp gfs3_write_rsp;
 
 struct gfs3_statfs_req {
 	char gfid[16];
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -504,7 +493,6 @@ struct gfs3_inodelk_req {
 	u_int cmd;
 	u_int type;
 	struct gf_proto_flock flock;
-	char *path;
 	char *volume;
 	struct {
 		u_int xdata_len;
@@ -567,7 +555,6 @@ struct gfs3_setxattr_req {
 		u_int dict_len;
 		char *dict_val;
 	} dict;
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -597,7 +584,6 @@ struct gfs3_xattrop_req {
 		u_int dict_len;
 		char *dict_val;
 	} dict;
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -651,7 +637,6 @@ typedef struct gfs3_fxattrop_rsp gfs3_fxattrop_rsp;
 struct gfs3_getxattr_req {
 	char gfid[16];
 	u_int namelen;
-	char *path;
 	char *name;
 	struct {
 		u_int xdata_len;
@@ -702,7 +687,6 @@ typedef struct gfs3_fgetxattr_rsp gfs3_fgetxattr_rsp;
 
 struct gfs3_removexattr_req {
 	char gfid[16];
-	char *path;
 	char *name;
 	struct {
 		u_int xdata_len;
@@ -724,7 +708,6 @@ typedef struct gfs3_fremovexattr_req gfs3_fremovexattr_req;
 
 struct gfs3_opendir_req {
 	char gfid[16];
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -799,7 +782,6 @@ typedef struct gf_setvolume_rsp gf_setvolume_rsp;
 struct gfs3_access_req {
 	char gfid[16];
 	u_int mask;
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -811,7 +793,6 @@ struct gfs3_create_req {
 	char pargfid[16];
 	u_int flags;
 	u_int mode;
-	char *path;
 	char *bname;
 	struct {
 		u_int dict_len;
@@ -887,7 +868,6 @@ struct gfs3_entrylk_req {
 	u_int cmd;
 	u_int type;
 	u_quad_t namelen;
-	char *path;
 	char *name;
 	char *volume;
 	struct {
@@ -916,7 +896,6 @@ struct gfs3_setattr_req {
 	char gfid[16];
 	struct gf_iatt stbuf;
 	int valid;
-	char *path;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
