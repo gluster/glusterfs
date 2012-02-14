@@ -696,15 +696,14 @@ pump_task_completion (int ret, call_frame_t *sync_frame, void *data)
 int
 pump_start (call_frame_t *pump_frame, xlator_t *this)
 {
-	afr_private_t *priv = NULL;
-	pump_private_t *pump_priv = NULL;
+        afr_private_t           *priv           = NULL;
+        pump_private_t          *pump_priv      = NULL;
+        int ret = -1;
 
-	int ret = -1;
-
-	priv = this->private;
+        priv = this->private;
         pump_priv = priv->pump_private;
 
-        afr_set_lk_owner (pump_frame, this);
+        afr_set_lk_owner (pump_frame, this, NULL);
 	pump_pid = (uint64_t) (unsigned long)pump_frame->root;
 
 	ret = synctask_new (pump_priv->env, pump_task,
