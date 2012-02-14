@@ -39,6 +39,7 @@
 #include "mount3.h"
 #include "nfs3.h"
 #include "nfs-mem-types.h"
+#include "statedump.h"
 
 /* Every NFS version must call this function with the init function
  * for its particular version.
@@ -701,6 +702,8 @@ init (xlator_t *this) {
                 goto err;
         }
 
+        LOCK_INIT (&nfs->lock);
+
         gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
 err:
 
@@ -750,8 +753,58 @@ fini (xlator_t *this)
         return 0;
 }
 
+int
+nfs_priv_dump (xlator_t *this)
+{
+
+        char             key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        struct nfs_state *nfs = NULL;
+        int64_t          ino_cnt = 0;
+        int64_t          entry_cnt = 0;
+        int64_t          intvl_ino_cnt = 0;
+        int64_t          intvl_entry_cnt = 0;
+
+        if (!this || !this->private)
+                goto out;
+
+        nfs = this->private;
+
+        gf_proc_dump_build_key (key_prefix, "xlator.nfs",
+                                "priv");
+        gf_proc_dump_add_section (key_prefix);
+
+        LOCK (&nfs->lock);
+        {
+                intvl_ino_cnt   = nfs->res_stat.intvl_ino_cnt;
+                intvl_entry_cnt = nfs->res_stat.intvl_entry_cnt;
+                ino_cnt         = nfs->res_stat.ino_cnt;
+                entry_cnt       = nfs->res_stat.entry_cnt;
+
+                nfs->res_stat.intvl_ino_cnt     = 0;
+                nfs->res_stat.intvl_entry_cnt   = 0;
+        }
+        UNLOCK (&nfs->lock);
+
+        gf_proc_dump_write ("Interval hard resolution (inode)", "%ld",
+                             intvl_ino_cnt);
+        gf_proc_dump_write ("Interval hard resolution (entry)", "%ld",
+                             intvl_entry_cnt);
+        gf_proc_dump_write ("Aggregate hard resolution (inode)", "%ld",
+                             ino_cnt);
+        gf_proc_dump_write ("Aggregate hard resoluton (entry)", "%ld",
+                             entry_cnt);
+
+out:
+        return 0;
+}
+
 struct xlator_cbks cbks = { };
 struct xlator_fops fops = { };
+
+struct xlator_dumpops dumpops = {
+        .priv        = nfs_priv_dump,
+};
+
 
 /* TODO: If needed, per-volume options below can be extended to be export
 + * specific also because after export-dir is introduced, a volume is not

@@ -58,6 +58,12 @@ struct nfs_initer_list {
         rpcsvc_program_t        *program;
 };
 
+typedef struct nfs_hard_res_stats {
+        int64_t                 ino_cnt;
+        int64_t                 entry_cnt;
+        int64_t                 intvl_ino_cnt;
+        int64_t                 intvl_entry_cnt;
+} nfs_hard_res_stats_t;
 
 struct nfs_state {
         rpcsvc_t                *rpcsvc;
@@ -74,6 +80,8 @@ struct nfs_state {
         int                     dynamicvolumes;
         int                     enable_ino32;
         unsigned int            override_portnum;
+        gf_lock_t               lock;
+        nfs_hard_res_stats_t    res_stat;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)

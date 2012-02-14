@@ -2909,8 +2909,9 @@ err:
 int
 nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
 {
-        int             ret = -EFAULT;
-        nfs_user_t      nfu = {0, };
+        int                     ret = -EFAULT;
+        nfs_user_t              nfu = {0, };
+        struct nfs_state        *nfs = NULL;
 
         if (!cs)
                 return ret;
@@ -2929,6 +2930,16 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
                 ", hashcount: %d, current hashidx %d",
                 uuid_utoa (cs->resolvefh.gfid),
                 cs->resolvefh.hashcount, cs->hashidx);
+
+        nfs = THIS->private;
+
+        LOCK (&nfs->lock);
+        {
+                nfs->res_stat.ino_cnt++;
+                nfs->res_stat.intvl_ino_cnt++;
+        }
+        UNLOCK (&nfs->lock);
+
         ret = nfs_root_loc_fill (cs->vol->itable, &cs->resolvedloc);
 
         if (ret == 0) {
@@ -2951,8 +2962,9 @@ out:
 int
 nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 {
-        int             ret = -EFAULT;
-        nfs_user_t      nfu = {0, };
+        int                     ret = -EFAULT;
+        nfs_user_t              nfu = {0, };
+        struct nfs_state        *nfs = NULL;
 
         if (!cs)
                 return ret;
@@ -2962,6 +2974,14 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
         gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution: gfid: %s "
                 ", entry: %s, hashidx: %d", uuid_utoa (cs->resolvefh.gfid),
                 cs->resolventry, cs->hashidx);
+        nfs = THIS->private;
+
+        LOCK (&nfs->lock);
+        {
+                nfs->res_stat.entry_cnt++;
+                nfs->res_stat.intvl_entry_cnt++;
+        }
+        UNLOCK (&nfs->lock);
 
         ret = nfs_entry_loc_fill (cs->vol->itable, cs->resolvefh.gfid,
                                   cs->resolventry, &cs->resolvedloc,
