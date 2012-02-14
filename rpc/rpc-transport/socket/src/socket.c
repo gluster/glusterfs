@@ -823,6 +823,7 @@ __socket_read_vectored_request (rpc_transport_t *this, rpcsvc_vector_sizer vecto
         struct iobuf     *iobuf                  = NULL;
         uint32_t          remaining_size         = 0;
         ssize_t           readsize               = 0;
+        size_t            size = 0;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -907,7 +908,10 @@ sp_state_reading_proghdr:
 
         case SP_STATE_READ_PROGHDR:
                 if (priv->incoming.payload_vector.iov_base == NULL) {
-                        iobuf = iobuf_get (this->ctx->iobuf_pool);
+
+                        size = RPC_FRAGSIZE (priv->incoming.fraghdr) -
+                                priv->incoming.frag.bytes_read;
+                        iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
                         if (!iobuf) {
                                 ret = -1;
                                 break;
@@ -1048,6 +1052,7 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
         struct iobuf     *iobuf                    = NULL;
         uint32_t          gluster_read_rsp_hdr_len = 0;
         gfs3_read_rsp     read_rsp                 = {0, };
+        size_t            size                     = 0;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -1080,7 +1085,11 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
                         = SP_STATE_READ_PROC_HEADER;
 
                 if (priv->incoming.payload_vector.iov_base == NULL) {
-                        iobuf = iobuf_get (this->ctx->iobuf_pool);
+
+                        size = (RPC_FRAGSIZE (priv->incoming.fraghdr) -
+                                priv->incoming.frag.bytes_read);
+
+                        iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
                         if (iobuf == NULL) {
                                 ret = -1;
                                 goto out;
@@ -1100,6 +1109,8 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
 
                         priv->incoming.payload_vector.iov_base
                                 = iobuf_ptr (iobuf);
+
+                        priv->incoming.payload_vector.iov_len = size;
                 }
 
                 priv->incoming.frag.fragcurrent

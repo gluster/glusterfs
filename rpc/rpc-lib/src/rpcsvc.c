@@ -768,23 +768,12 @@ rpcsvc_callback_build_record (rpcsvc_t *rpc, int prognum, int progver,
         char                    *record      = NULL;
         struct iovec             recordhdr   = {0, };
         size_t                   pagesize    = 0;
+        size_t                   xdr_size    = 0;
         int                      ret         = -1;
 
         if ((!rpc) || (!recbuf)) {
                 goto out;
         }
-
-        /* First, try to get a pointer into the buffer which the RPC
-         * layer can use.
-         */
-        request_iob = iobuf_get (rpc->ctx->iobuf_pool);
-        if (!request_iob) {
-                goto out;
-        }
-
-        pagesize = iobuf_pagesize (request_iob);
-
-        record = iobuf_ptr (request_iob);  /* Now we have it. */
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
         ret = rpcsvc_fill_callback (prognum, progver, procnum, payload, xid,
@@ -794,6 +783,20 @@ rpcsvc_callback_build_record (rpcsvc_t *rpc, int prognum, int progver,
                         "xid (%"PRIu64")", xid);
                 goto out;
         }
+
+        /* First, try to get a pointer into the buffer which the RPC
+         * layer can use.
+         */
+        xdr_size = xdr_sizeof ((xdrproc_t)xdr_callmsg, &request);
+
+        request_iob = iobuf_get2 (rpc->ctx->iobuf_pool, (xdr_size + payload));
+        if (!request_iob) {
+                goto out;
+        }
+
+        pagesize = iobuf_pagesize (request_iob);
+
+        record = iobuf_ptr (request_iob);  /* Now we have it. */
 
         recordhdr = rpcsvc_callback_build_header (record, pagesize, &request,
                                                   payload);
@@ -938,13 +941,14 @@ out:
  */
 struct iobuf *
 rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
-                            struct iovec *recbuf)
+                            size_t hdrlen, struct iovec *recbuf)
 {
         struct rpc_msg          reply;
         struct iobuf            *replyiob = NULL;
         char                    *record = NULL;
         struct iovec            recordhdr = {0, };
         size_t                  pagesize = 0;
+        size_t                  xdr_size = 0;
         rpcsvc_t                *svc = NULL;
         int                     ret = -1;
 
@@ -952,18 +956,24 @@ rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
                 return NULL;
 
         svc = req->svc;
-        replyiob = iobuf_get (svc->ctx->iobuf_pool);
-        pagesize = iobuf_pagesize (replyiob);
-        if (!replyiob) {
-                goto err_exit;
-        }
-
-        record = iobuf_ptr (replyiob);  /* Now we have it. */
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
         ret = rpcsvc_fill_reply (req, &reply);
         if (ret)
                 goto err_exit;
+
+        xdr_size = xdr_sizeof ((xdrproc_t)xdr_replymsg, &reply);
+
+        /* Payload would include 'readv' size etc too, where as
+           that comes as another payload iobuf */
+        replyiob = iobuf_get2 (svc->ctx->iobuf_pool, (xdr_size + hdrlen));
+        if (!replyiob) {
+                goto err_exit;
+        }
+
+        pagesize = iobuf_pagesize (replyiob);
+
+        record = iobuf_ptr (replyiob);  /* Now we have it. */
 
         recordhdr = rpcsvc_record_build_header (record, pagesize, reply,
                                                 payload);
@@ -1019,6 +1029,7 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
         struct iovec            recordhdr  = {0, };
         rpc_transport_t        *trans      = NULL;
         size_t                  msglen     = 0;
+        size_t                  hdrlen     = 0;
         char                    new_iobref = 0;
 
         if ((!req) || (!req->trans))
@@ -1037,7 +1048,7 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx message: %zu", msglen);
 
         /* Build the buffer containing the encoded RPC reply. */
-        replyiob = rpcsvc_record_build_record (req, msglen, &recordhdr);
+        replyiob = rpcsvc_record_build_record (req, msglen, hdrlen, &recordhdr);
         if (!replyiob) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,"Reply record creation failed");
                 goto disconnect_exit;

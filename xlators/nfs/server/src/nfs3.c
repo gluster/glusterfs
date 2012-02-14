@@ -487,6 +487,8 @@ nfs3_serialize_reply (rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc,
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
+        /* TODO: get rid of 'sfunc' and use 'xdrproc_t' so we
+           can have 'xdr_sizeof' */
         iob = iobuf_get (nfs3->iobpool);
         if (!iob) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to get iobuf");
