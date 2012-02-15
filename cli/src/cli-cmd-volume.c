@@ -1653,6 +1653,33 @@ out:
         return ret;
 }
 
+int
+cli_cmd_volume_list_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                         const char **words, int wordcount)
+{
+        int                     ret = -1;
+        call_frame_t            *frame = NULL;
+        rpc_clnt_procedure_t    *proc = NULL;
+        int                     sent = 0;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LIST_VOLUME];
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, NULL);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if (sent == 0)
+                        cli_out ("Volume list failed");
+        }
+
+        return ret;
+}
 
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
@@ -1753,6 +1780,10 @@ struct cli_cmd volume_cmds[] = {
          "inode]...",
          cli_cmd_volume_statedump_cbk,
          "perform statedump on bricks"},
+
+        {"volume list",
+         cli_cmd_volume_list_cbk,
+         "list all volumes in cluster"},
 
         { NULL, NULL, NULL }
 };
