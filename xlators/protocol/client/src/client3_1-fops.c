@@ -2999,9 +2999,7 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.newgfid)),
                                        unwind, op_errno, EINVAL);
-        req.oldpath = (char *)args->oldloc->path;
         req.oldbname =  (char *)args->oldloc->name;
-        req.newpath = (char *)args->newloc->path;
         req.newbname = (char *)args->newloc->name;
         conf = this->private;
 
@@ -3067,8 +3065,6 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         loc_copy (&local->loc, args->oldloc);
         frame->local = local;
 
-        req.oldpath = (char *)args->oldloc->path;
-        req.newpath = (char *)args->newloc->path;
         req.newbname = (char *)args->newloc->name;
         conf = this->private;
 

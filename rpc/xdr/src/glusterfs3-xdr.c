@@ -507,11 +507,7 @@ xdr_gfs3_rename_req (XDR *xdrs, gfs3_rename_req *objp)
 		 return FALSE;
 	 if (!xdr_opaque (xdrs, objp->newgfid, 16))
 		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->oldpath, ~0))
-		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->oldbname, ~0))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->newpath, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->newbname, ~0))
 		 return FALSE;
@@ -554,10 +550,6 @@ xdr_gfs3_link_req (XDR *xdrs, gfs3_link_req *objp)
 	 if (!xdr_opaque (xdrs, objp->oldgfid, 16))
 		 return FALSE;
 	 if (!xdr_opaque (xdrs, objp->newgfid, 16))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->oldpath, ~0))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->newpath, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->newbname, ~0))
 		 return FALSE;
