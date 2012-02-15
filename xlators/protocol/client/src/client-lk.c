@@ -375,9 +375,8 @@ delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
         this = THIS;
         fdctx = this_fd_get_ctx (fd, this);
         if (!fdctx) {
-                if (!fd_is_anonymous (fd))
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "fdctx not valid");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "fdctx not valid");
                 ret = -1;
                 goto out;
         }
