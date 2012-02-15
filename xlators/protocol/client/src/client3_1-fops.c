@@ -723,7 +723,7 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        if (rsp.op_ret >= 0) {
+        if (rsp.op_ret >= 0 && !fd_is_anonymous (local->fd)) {
                 /* Delete all saved locks of the owner issuing flush */
                 ret = delete_granted_locks_owner (local->fd, &local->owner);
                 gf_log (this->name, GF_LOG_TRACE,
