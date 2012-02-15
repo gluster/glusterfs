@@ -84,6 +84,8 @@
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"
 
+#define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
+
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
 #define ZR_FILE_CONTENT_STRLEN 15
 
