@@ -970,6 +970,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (priv->feature_enabled & GF_XTIME) {
                 //update marks on oldpath
+                uuid_copy (local->loc.gfid, oplocal->loc.inode->gfid);
                 marker_xtime_update_marks (this, oplocal);
                 marker_xtime_update_marks (this, local);
         }
