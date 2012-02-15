@@ -74,6 +74,11 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                                 "%s: gfid set failed", loc->path);
         }
 
+        ret = dict_set_str (dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
+        if (ret)
+                gf_log ("dht-linkfile", GF_LOG_INFO,
+                        "%s: internal-fop set failed", loc->path);
+
         ret = dict_set_str (dict, "trusted.glusterfs.dht.linkto",
                                    tovol->name);
 

@@ -722,6 +722,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         gid_t                 gid         = 0;
         struct iatt           preparent = {0,};
         struct iatt           postparent = {0,};
+        void *                uuid_req  = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -751,6 +752,24 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                 gid = preparent.ia_gid;
         }
 
+        /* Check if the 'gfid' already exists, because this mknod may be an
+           internal call from distribute for creating 'linkfile', and that
+           linkfile may be for a hardlinked file */
+        if (dict_get (params, GLUSTERFS_INTERNAL_FOP_KEY)) {
+                op_ret = dict_get_ptr (params, "gfid-req", &uuid_req);
+                if (op_ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to get the gfid from dict for %s",
+                                loc->path);
+                        goto real_op;
+                }
+                op_ret = posix_create_link_if_gfid_exists (this, uuid_req,
+                                                           real_path);
+                if (!op_ret)
+                        goto post_op;
+        }
+
+real_op:
 #ifdef __NetBSD__
 	if (S_ISFIFO(mode))
 		op_ret = mkfifo (real_path, mode);
@@ -797,6 +816,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
+post_op:
         op_ret = posix_acl_xattr_set (this, real_path, params);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
