@@ -266,9 +266,7 @@ typedef struct gfs3_symlink_rsp gfs3_symlink_rsp;
 struct gfs3_rename_req {
 	char oldgfid[16];
 	char newgfid[16];
-	char *oldpath;
 	char *oldbname;
-	char *newpath;
 	char *newbname;
 	struct {
 		u_int xdata_len;
@@ -295,8 +293,6 @@ typedef struct gfs3_rename_rsp gfs3_rename_rsp;
 struct gfs3_link_req {
 	char oldgfid[16];
 	char newgfid[16];
-	char *oldpath;
-	char *newpath;
 	char *newbname;
 	struct {
 		u_int xdata_len;

@@ -4598,8 +4598,6 @@ server_link (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.oldpath  = alloca (req->msg[0].iov_len);
-        args.newpath  = alloca (req->msg[0].iov_len);
         args.newbname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_link_req)) {
@@ -4624,11 +4622,9 @@ server_link (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_MUST;
-        state->resolve.path    = gf_strdup (args.oldpath);
         memcpy (state->resolve.gfid, args.oldgfid, 16);
 
         state->resolve2.type   = RESOLVE_NOT;
-        state->resolve2.path   = gf_strdup (args.newpath);
         state->resolve2.bname  = gf_strdup (args.newbname);
         memcpy (state->resolve2.pargfid, args.newgfid, 16);
 
@@ -4650,9 +4646,7 @@ server_rename (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.oldpath  = alloca (req->msg[0].iov_len);
         args.oldbname = alloca (req->msg[0].iov_len);
-        args.newpath  = alloca (req->msg[0].iov_len);
         args.newbname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_rename_req)) {
@@ -4677,12 +4671,10 @@ server_rename (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.path   = gf_strdup (args.oldpath);
         state->resolve.bname  = gf_strdup (args.oldbname);
         memcpy (state->resolve.pargfid, args.oldgfid, 16);
 
         state->resolve2.type  = RESOLVE_MAY;
-        state->resolve2.path  = gf_strdup (args.newpath);
         state->resolve2.bname = gf_strdup (args.newbname);
         memcpy (state->resolve2.pargfid, args.newgfid, 16);
 

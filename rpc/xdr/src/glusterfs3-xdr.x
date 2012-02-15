@@ -153,9 +153,7 @@ struct gfs3_readlink_req {
  struct   gfs3_rename_req {
         opaque  oldgfid[16];
         opaque  newgfid[16];
-	string       oldpath<>;
 	string       oldbname<>; /* NULL terminated */
-	string       newpath<>;
 	string       newbname<>; /* NULL terminated */
         opaque   xdata<>; /* Extra data */
 };
@@ -174,8 +172,6 @@ struct gfs3_readlink_req {
  struct  gfs3_link_req {
         opaque  oldgfid[16];
         opaque  newgfid[16];
-	string       oldpath<>;
-	string       newpath<>;
 	string       newbname<>;
         opaque   xdata<>; /* Extra data */
 };
