@@ -327,6 +327,11 @@ cli_opt_parse (char *opt, struct cli_state *state)
                 exit (0);
         }
 
+        if (strcmp (opt, "xml") == 0) {
+                state->mode |= GLUSTER_MODE_XML;
+                return 0;
+        }
+
         oarg = strtail (opt, "mode=");
         if (oarg) {
                 if (strcmp (oarg, "script") == 0) {

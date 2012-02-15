@@ -883,6 +883,64 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
+{
+        int                     ret = -1;
+        dict_t                  *dict = NULL;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        int                     count = 0;
+        char                    key[1024] = {0,};
+        gf_cli_rsp              rsp = {0,};
+
+        GF_ASSERT (req);
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d", count);
+                ret = dict_set_str (dict, key, volinfo->volname);
+                if (ret)
+                        goto out;
+                count++;
+        }
+
+        ret = dict_set_int32 (dict, "count", count);
+        if (ret)
+                goto out;
+
+        ret = dict_allocate_and_serialize (dict, &rsp.dict.dict_val,
+                                           (size_t *)&rsp.dict.dict_len);
+        if (ret)
+                goto out;
+
+        ret = 0;
+
+out:
+        rsp.op_ret = ret;
+        if (ret)
+                rsp.op_errstr = "Error listing volumes";
+        else
+                rsp.op_errstr = "";
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gf_cli_rsp);
+
+        if (dict)
+                dict_unref (dict);
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+        return ret;
+}
+
 int32_t
 glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx)
 {
@@ -2839,6 +2897,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_UMOUNT]        = { "UMOUNT", GLUSTER_CLI_UMOUNT, glusterd_handle_umount, NULL, NULL, 1},
         [GLUSTER_CLI_HEAL_VOLUME]  = { "HEAL_VOLUME", GLUSTER_CLI_HEAL_VOLUME, glusterd_handle_cli_heal_volume, NULL, NULL, 0},
         [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", GLUSTER_CLI_STATEDUMP_VOLUME, glusterd_handle_cli_statedump_volume, NULL, NULL, 0},
+        [GLUSTER_CLI_LIST_VOLUME] = {"LIST_VOLUME", GLUSTER_CLI_LIST_VOLUME, glusterd_handle_cli_list_volume, NULL, NULL, 0},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

@@ -46,7 +46,7 @@ enum argp_option_keys {
 
 #define GLUSTER_MODE_SCRIPT    (1 << 0)
 #define GLUSTER_MODE_ERR_FATAL (1 << 1)
-
+#define GLUSTER_MODE_XML       (1 << 2)
 struct cli_state;
 struct cli_cmd_word;
 struct cli_cmd_tree;
@@ -264,4 +264,28 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status);
 
 void
 cli_print_line (int len);
+
+#if (HAVE_LIB_XML)
+int
+cli_xml_output_str (char *op, char *str, int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_dict (char *op, dict_t *dict, int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_status (dict_t *dict, int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_list (dict_t *dict, int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_info (dict_t *dict, int op_ret, int op_errno, char *op_errstr);
+#endif
+
 #endif /* __CLI_H__ */

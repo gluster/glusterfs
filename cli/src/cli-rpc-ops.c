@@ -91,13 +91,13 @@ rpc_clnt_prog_t cli_pmap_prog = {
         .progver    = GLUSTER_PMAP_VERSION,
 };
 
-
 int
 gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
-        gf1_cli_probe_rsp    rsp   = {0,};
+        gf1_cli_probe_rsp     rsp   = {0,};
         int                   ret   = -1;
+        char                  msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -115,18 +115,23 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
          if (!rsp.op_ret) {
                 switch (rsp.op_errno) {
                         case GF_PROBE_SUCCESS:
-                                cli_out ("Probe successful");
+                                snprintf (msg, sizeof (msg),
+                                          "Probe successful");
                                 break;
                         case GF_PROBE_LOCALHOST:
-                                cli_out ("Probe on localhost not needed");
+                                snprintf (msg, sizeof (msg),
+                                          "Probe on localhost not needed");
                                 break;
                         case GF_PROBE_FRIEND:
-                                cli_out ("Probe on host %s port %d already"
-                                         " in peer list", rsp.hostname, rsp.port);
+                                snprintf (msg, sizeof (msg),
+                                          "Probe on host %s port %d already"
+                                          " in peer list", rsp.hostname,
+                                          rsp.port);
                                 break;
                         default:
-                                cli_out ("Probe returned with unknown errno %d",
-                                        rsp.op_errno);
+                                snprintf (msg, sizeof (msg),
+                                          "Probe returned with unknown errno %d",
+                                           rsp.op_errno);
                                 break;
                 }
          }
@@ -134,33 +139,52 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         if (rsp.op_ret) {
                 switch (rsp.op_errno) {
                         case GF_PROBE_ANOTHER_CLUSTER:
-                                cli_out ("%s is already part of "
-                                         "another cluster", rsp.hostname);
+                                snprintf (msg, sizeof (msg),
+                                          "%s is already part of another"
+                                          " cluster", rsp.hostname);
                                 break;
                         case GF_PROBE_VOLUME_CONFLICT:
-                                cli_out ("Atleast one volume on %s conflicts "
-                                         "with existing volumes in the "
-                                         "cluster", rsp.hostname);
+                                snprintf (msg, sizeof (msg),
+                                          "Atleast one volume on %s conflicts "
+                                          "with existing volumes in the "
+                                          "cluster", rsp.hostname);
                                 break;
                         case GF_PROBE_UNKNOWN_PEER:
-                                cli_out ("%s responded with 'unknown peer' error, "
-                                         "this could happen if %s doesn't have"
-                                         " localhost in its peer database",
-                                         rsp.hostname, rsp.hostname);
+                                snprintf (msg, sizeof (msg),
+                                          "%s responded with 'unknown peer'"
+                                          " error, this could happen if %s "
+                                          "doesn't have localhost in its peer"
+                                          " database", rsp.hostname,
+                                          rsp.hostname);
                                 break;
                         case GF_PROBE_ADD_FAILED:
-                                cli_out ("Failed to add peer information "
-                                         "on %s" , rsp.hostname);
+                                snprintf (msg, sizeof (msg),
+                                          "Failed to add peer information "
+                                          "on %s" , rsp.hostname);
                                 break;
 
                         default:
-                                cli_out ("Probe unsuccessful\nProbe returned "
-                                         "with unknown errno %d", rsp.op_errno);
+                                snprintf (msg, sizeof (msg),
+                                          "Probe unsuccessful\nProbe returned "
+                                          "with unknown errno %d",
+                                          rsp.op_errno);
                                 break;
                 }
                 gf_log ("glusterd",GF_LOG_ERROR,"Probe failed with op_ret %d"
                         " and op_errno %d", rsp.op_ret, rsp.op_errno);
         }
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("peerProbe", msg, rsp.op_ret,
+                                          rsp.op_errno, NULL);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -174,6 +198,7 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf1_cli_deprobe_rsp    rsp   = {0,};
         int                   ret   = -1;
+        char                  msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -191,34 +216,48 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
         if (rsp.op_ret) {
                 switch (rsp.op_errno) {
                         case GF_DEPROBE_LOCALHOST:
-                                cli_out ("%s is localhost",
-                                         rsp.hostname);
+                                snprintf (msg, sizeof (msg),
+                                          "%s is localhost", rsp.hostname);
                                 break;
                         case GF_DEPROBE_NOT_FRIEND:
-                                cli_out ("%s is not part of cluster",
-                                         rsp.hostname);
+                                snprintf (msg, sizeof (msg),
+                                          "%s is not part of cluster",
+                                          rsp.hostname);
                                 break;
                         case GF_DEPROBE_BRICK_EXIST:
-                                cli_out ("Brick(s) with the peer %s exist in "
-                                         "cluster", rsp.hostname);
+                                snprintf (msg, sizeof (msg),
+                                          "Brick(s) with the peer %s exist in "
+                                          "cluster", rsp.hostname);
                                 break;
                         case GF_DEPROBE_FRIEND_DOWN:
-                                cli_out ("One of the peers is probably down."
-                                         " Check with 'peer status'.");
+                                snprintf (msg, sizeof (msg),
+                                          "One of the peers is probably down."
+                                          " Check with 'peer status'.");
                                 break;
                         default:
-                                cli_out ("Detach unsuccessful\nDetach returned "
-                                         "with unknown errno %d",
-                                         rsp.op_errno);
+                                snprintf (msg, sizeof (msg),
+                                          "Detach unsuccessful\nDetach returned"
+                                          " with unknown errno %d",
+                                          rsp.op_errno);
                                 break;
                 }
                 gf_log ("glusterd",GF_LOG_ERROR,"Detach failed with op_ret %d"
                         " and op_errno %d", rsp.op_ret, rsp.op_errno);
         } else {
-                cli_out ("Detach successful");
+                snprintf (msg, sizeof (msg), "Detach successful");
         }
 
-
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("peerDetach", msg, rsp.op_ret,
+                                          rsp.op_errno, NULL);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -254,7 +293,6 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-
         gf_log ("cli", GF_LOG_INFO, "Received resp to list: %d",
                 rsp.op_ret);
 
@@ -285,6 +323,17 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
+#if (HAVE_LIB_XML)
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        ret = cli_xml_output_dict ("peerStatus", dict,
+                                                   rsp.op_ret, rsp.op_errno,
+                                                   NULL);
+                        if (ret)
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error ouputting to xml");
+                        goto out;
+                }
+#endif
                 ret = dict_get_int32 (dict, "count", &count);
 
                 if (ret) {
@@ -475,6 +524,18 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_info (dict, rsp.op_ret,
+                                               rsp.op_errno, rsp.op_errstr);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                }
+                goto out;
+        }
+#endif
+
         while ( i < count) {
                 cli_out (" ");
                 snprintf (key, 256, "volume%d.name", i);
@@ -660,6 +721,18 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_str (dict, "volname", &volname);
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to create volume");
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("volCreate", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
         else
@@ -718,6 +791,17 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to delete volume");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("volDelete", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
         else
@@ -775,6 +859,17 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to start volume");
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("volStart", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
@@ -835,6 +930,17 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to stop volume");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("volStop", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
         else
@@ -869,6 +975,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         uint64_t                 files   = 0;
         uint64_t                 size    = 0;
         uint64_t                 lookup  = 0;
+        char                     msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -937,24 +1044,29 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (cmd == GF_DEFRAG_CMD_STOP) {
                 if (rsp.op_ret == -1) {
                         if (strcmp (rsp.op_errstr, ""))
-                                cli_out ("%s", rsp.op_errstr);
+                                snprintf (msg, sizeof (msg),
+                                          "%s", rsp.op_errstr);
                         else
-                                cli_out ("rebalance volume %s stop failed",
-                                         volname);
+                                snprintf (msg, sizeof (msg),
+                                          "rebalance volume %s stop failed",
+                                          volname);
                 } else {
-                        cli_out ("stopped rebalance process of volume %s \n"
-                                 "(after rebalancing %"PRId64" files totaling "
-                                 "%"PRId64" bytes)", volname, files, size);
+                        snprintf (msg, sizeof (msg),
+                                  "stopped rebalance process of volume %s \n"
+                                  "(after rebalancing %"PRId64" files totaling"
+                                  " %"PRId64" bytes)", volname, files, size);
                 }
                 goto done;
         }
         if (cmd == GF_DEFRAG_CMD_STATUS) {
                 if (rsp.op_ret == -1) {
                         if (strcmp (rsp.op_errstr, ""))
-                                cli_out ("%s", rsp.op_errstr);
+                                snprintf (msg, sizeof (msg),
+                                          "%s", rsp.op_errstr);
                         else
-                                cli_out ("failed to get the status of "
-                                         "rebalance process");
+                                snprintf (msg, sizeof (msg),
+                                          "failed to get the status of "
+                                          "rebalance process");
                         goto done;
                 }
 
@@ -988,36 +1100,51 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         break;
                 }
                 if (files && (rsp.op_errno == 1)) {
-                        cli_out ("rebalance %s: fixed layout %"PRId64,
-                                 status, files);
+                        snprintf (msg, sizeof (msg),
+                                  "rebalance %s: fixed layout %"PRId64,
+                                  status, files);
                         goto done;
                 }
                 if (files && (rsp.op_errno == 6)) {
-                        cli_out ("rebalance %s: fixed layout %"PRId64,
-                                 status, files);
+                        snprintf (msg, sizeof (msg),
+                                  "rebalance %s: fixed layout %"PRId64,
+                                  status, files);
                         goto done;
                 }
                 if (files) {
-                        cli_out ("rebalance %s: rebalanced %"PRId64
-                                 " files of size %"PRId64" (total files"
-                                 " scanned %"PRId64")", status,
-                                 files, size, lookup);
+                        snprintf (msg, sizeof (msg),
+                                  "rebalance %s: rebalanced %"PRId64
+                                  " files of size %"PRId64" (total files"
+                                  " scanned %"PRId64")", status,
+                                  files, size, lookup);
                         goto done;
                 }
 
-                cli_out ("rebalance %s", status);
+                snprintf (msg, sizeof (msg), "rebalance %s", status);
                 goto done;
         }
 
         /* All other possibility is about starting a volume */
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
-                cli_out ("starting rebalance on volume %s has been %s",
-                         volname, (rsp.op_ret) ? "unsuccessful":
-                         "successful");
+                snprintf (msg, sizeof (msg),
+                          "starting rebalance on volume %s has been %s",
+                          volname, (rsp.op_ret) ? "unsuccessful":
+                          "successful");
 
 done:
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volRebalance", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1041,6 +1168,7 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp              rsp   = {0,};
         int                     ret   = -1;
+        char                    msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1054,9 +1182,21 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to probe");
-        cli_out ("Rename volume %s", (rsp.op_ret) ? "unsuccessful":
-                                        "successful");
+        snprintf (msg, sizeof (msg), "Rename volume %s",
+                  (rsp.op_ret) ? "unsuccessful": "successful");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volRename", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1070,6 +1210,7 @@ gf_cli3_1_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp           rsp   = {0,};
         int                  ret   = -1;
+        char                 msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1084,11 +1225,23 @@ gf_cli3_1_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to reset");
 
         if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
-                cli_out ("reset volume %s", (rsp.op_ret) ? "unsuccessful":
-                                "successful");
+                snprintf (msg, sizeof (msg), "reset volume %s",
+                          (rsp.op_ret) ? "unsuccessful": "successful");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volReset", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1104,6 +1257,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int                  ret   = -1;
         dict_t               *dict = NULL;
         char                 *help_str = NULL;
+        char                 msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1118,7 +1272,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to set");
 
         if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
 
         dict = dict_new ();
 
@@ -1133,11 +1287,23 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
 
         if (dict_get_str (dict, "help-str", &help_str))
-                cli_out ("Set volume %s", (rsp.op_ret) ? "unsuccessful":
-                                                         "successful");
+                snprintf (msg, sizeof (msg), "Set volume %s",
+                          (rsp.op_ret) ? "unsuccessful": "successful");
         else
-                cli_out ("%s", help_str);
+                snprintf (msg, sizeof (msg), "%s", help_str);
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volSet", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1151,6 +1317,7 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp                  rsp   = {0,};
         int                         ret   = -1;
+        char                        msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1166,10 +1333,23 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to add brick");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
-                cli_out ("Add Brick %s", (rsp.op_ret) ? "unsuccessful":
-                                                        "successful");
+                snprintf (msg, sizeof (msg), "Add Brick %s",
+                          (rsp.op_ret) ? "unsuccessful": "successful");
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volAddBrick", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1191,6 +1371,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         uint64_t                 files   = 0;
         uint64_t                 size    = 0;
         dict_t                  *dict    = NULL;
+        char                     msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1263,24 +1444,39 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                         "failed to get size of xfer");
 
         if (files && (rsp.op_errno == 1)) {
-                cli_out ("remove-brick %s: fixed layout %"PRId64,
-                         status,files);
+                snprintf (msg, sizeof (msg),
+                          "remove-brick %s: fixed layout %"PRId64,
+                          status,files);
                 goto out;
         }
         if (files && (rsp.op_errno == 6)) {
-                cli_out ("remove-brick %s: fixed layout %"PRId64,
-                         status, files);
+                snprintf (msg, sizeof (msg),
+                          "remove-brick %s: fixed layout %"PRId64,
+                          status, files);
                 goto out;
         }
         if (files) {
-                cli_out ("remove-brick %s: decommissioned %"PRId64
-                         " files of size %"PRId64, status,
-                         files, size);
+                snprintf (msg, sizeof (msg),
+                          "remove-brick %s: decommissioned %"PRId64
+                          " files of size %"PRId64, status,
+                          files, size);
                 goto out;
         }
 
-        cli_out ("remove-brick %s", status);
+        snprintf (msg, sizeof (msg), "remove-brick %s", status);
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volRemoveBrick", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
 out:
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val); //malloced by xdr
@@ -1297,6 +1493,7 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp                      rsp   = {0,};
         int                             ret   = -1;
+        char                            msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1311,11 +1508,22 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to remove brick");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
-                cli_out ("Remove Brick %s", (rsp.op_ret) ? "unsuccessful":
-                                                           "successful");
+                snprintf (msg, sizeof (msg), "Remove Brick %s",
+                          (rsp.op_ret) ? "unsuccessful": "successful");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volRemoveBrick", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1344,6 +1552,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         gf1_cli_replace_op               replace_op       = 0;
         char                            *rb_operation_str = NULL;
         dict_t                          *rsp_dict         = NULL;
+        char                             msg[1024]         = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1457,9 +1666,21 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to replace brick");
-        cli_out ("%s",
-                 rb_operation_str ? rb_operation_str : "Unknown operation");
+        snprintf (msg,sizeof (msg), "%s",
+                  rb_operation_str ? rb_operation_str : "Unknown operation");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volReplaceBrick", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1484,6 +1705,7 @@ gf_cli3_1_log_rotate_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp             rsp   = {0,};
         int                    ret   = -1;
+        char                   msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1498,11 +1720,23 @@ gf_cli3_1_log_rotate_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to log rotate");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
-                cli_out ("log rotate %s", (rsp.op_ret) ? "unsuccessful":
-                                                         "successful");
+                snprintf (msg, sizeof (msg), "log rotate %s",
+                          (rsp.op_ret) ? "unsuccessful": "successful");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volLogRotate", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -1519,6 +1753,7 @@ gf_cli3_1_sync_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp                     rsp   = {0,};
         int                            ret   = -1;
+        char                           msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1533,10 +1768,23 @@ gf_cli3_1_sync_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to sync");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
-                cli_out ("volume sync: %s",
+                snprintf (msg, sizeof (msg), "volume sync: %s",
                          (rsp.op_ret) ? "unsuccessful": "successful");
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volSync", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -3063,6 +3311,17 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret)
                 goto out;
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("volGeoRep", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
         if (rsp.op_ret) {
                 cli_out ("%s", rsp.op_errstr ? rsp.op_errstr :
                          GEOREP" command unsuccessful");
@@ -3388,6 +3647,18 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 dict->extra_stdfree = rsp.dict.dict_val;
         }
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_profile (dict, rsp.op_ret,
+                                                  rsp.op_errno,
+                                                  rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
                 goto out;
@@ -3573,6 +3844,20 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = 0;
                 goto out;
         }
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_top (dict, rsp.op_ret,
+                                              rsp.op_errno,
+                                              rsp.op_errstr);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                }
+                goto out;
+        }
+#endif
+
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret)
                 goto out;
@@ -4708,7 +4993,6 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = 0;
                 goto out;
         }
-
         ret = dict_get_int32 (dict, "count", &count);
         if (ret)
                 goto out;
@@ -4716,6 +5000,18 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = -1;
                 goto out;
         }
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_status (dict, rsp.op_ret,
+                                                 rsp.op_errno, rsp.op_errstr);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                }
+                goto out;
+        }
+#endif
 
         status.brick = GF_CALLOC (1, PATH_MAX + 256, gf_common_mt_strdup);
 
@@ -5086,6 +5382,17 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (local)
                 dict = local->dict;
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("volHeal", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
@@ -5167,6 +5474,7 @@ gf_cli3_1_statedump_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp                      rsp = {0,};
         int                             ret = -1;
+        char                            msg[1024] = {0,};
 
         if (-1 == req->rpc_status)
                 goto out;
@@ -5178,10 +5486,22 @@ gf_cli3_1_statedump_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
         gf_log ("cli", GF_LOG_DEBUG, "Recieved response to statedump");
         if (rsp.op_ret)
-                cli_out ("%s", rsp.op_errstr);
+                snprintf (msg, sizeof(msg), "%s", rsp.op_errstr);
         else
-                cli_out ("Volume statedump sucessful");
+                snprintf (msg, sizeof (msg), "Volume statedump sucessful");
 
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volStatedump", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+
+        cli_out ("%s", msg);
         ret = rsp.op_ret;
 
 out:
@@ -5227,6 +5547,99 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_list_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                                int count, void *myframe)
+{
+        int             ret = -1;
+        gf_cli_rsp      rsp = {0,};
+        dict_t          *dict = NULL;
+        int             vol_count = 0;;
+        char            *volname = NULL;
+        char            key[1024] = {0,};
+        int             i = 0;
+
+        if (-1 == req->rpc_status)
+                goto out;
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_list (dict, rsp.op_ret, rsp.op_errno,
+                                               rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
+        if (rsp.op_ret)
+                cli_out ("%s", rsp.op_errstr);
+        else {
+                ret = dict_get_int32 (dict, "count", &vol_count);
+                if (ret)
+                        goto out;
+
+                if (vol_count == 0) {
+                        cli_out ("No volumes present in cluster");
+                        goto out;
+                }
+                cli_out ("%d %s present in cluster", vol_count,
+                         ((vol_count == 1) ? "volume" : "volumes"));
+
+                for (i = 0; i < vol_count; i++) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "volume%d", i);
+                        ret = dict_get_str (dict, key, &volname);
+                        if (ret)
+                                goto out;
+                        cli_out ("\t%d. %s", i+1, volname);
+                }
+        }
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_list_volume (call_frame_t *frame, xlator_t *this, void *data)
+{
+        int             ret = -1;
+        gf_cli_req      req = {{0,}};
+
+        if (!frame || !this)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_LIST_VOLUME, NULL,
+                              this, gf_cli3_1_list_volume_cbk,
+                              (xdrproc_t)xdr_gf_cli_req);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
         [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli3_1_probe},
@@ -5261,6 +5674,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_UMOUNT]           = {"UMOUNT", gf_cli3_1_umount},
         [GLUSTER_CLI_HEAL_VOLUME]      = {"HEAL_VOLUME", gf_cli3_1_heal_volume},
         [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", gf_cli3_1_statedump_volume},
+        [GLUSTER_CLI_LIST_VOLUME]      = {"LIST_VOLUME", gf_cli3_1_list_volume},
 };
 
 struct rpc_clnt_program cli_prog = {
