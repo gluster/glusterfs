@@ -565,6 +565,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
+        op_ret = -1;
         dir = opendir (real_path);
 
         if (dir == NULL) {
@@ -1762,6 +1763,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         MAKE_INODE_HANDLE (real_path, this, loc, &stbuf);
 
+        op_ret = -1;
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
         if (priv->o_direct)
@@ -2323,6 +2325,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
+        op_ret = -1;
         dict_del (dict, GFID_XATTR_KEY);
 
         trav = dict->members_list;
@@ -2379,6 +2382,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
+        op_ret = -1;
         priv = this->private;
 
         if (loc->inode && IA_ISDIR(loc->inode->ia_type) && name &&
@@ -2761,6 +2765,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
         if (!strcmp (GFID_XATTR_KEY, name)) {
                 gf_log (this->name, GF_LOG_WARNING, "Remove xattr called"
                         " on gfid for file %s", real_path);
+                op_ret = -1;
                 goto out;
         }
 
