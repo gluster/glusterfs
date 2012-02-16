@@ -4450,6 +4450,35 @@ stripe_getxattr_unwind (call_frame_t *frame,
         return 0;
 }
 
+int
+stripe_internal_getxattr_cbk (call_frame_t *frame, void *cookie,  xlator_t *this,
+                              int op_ret, int op_errno, dict_t *xattr)
+{
+
+        char        size_key[256]  = {0,};
+        char        index_key[256] = {0,};
+        char        count_key[256] = {0,};
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (frame->local, out);
+
+        if (!xattr || (op_ret == -1))
+            goto out;
+
+        sprintf (size_key, "trusted.%s.stripe-size", this->name);
+        sprintf (count_key, "trusted.%s.stripe-count", this->name);
+        sprintf (index_key, "trusted.%s.stripe-index", this->name);
+
+        dict_del (xattr, size_key);
+        dict_del (xattr, count_key);
+        dict_del (xattr, index_key);
+
+out:
+        STRIPE_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr);
+
+        return 0;
+
+}
 
 int
 stripe_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -4770,7 +4799,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
 
-        STACK_WIND (frame, default_getxattr_cbk, FIRST_CHILD(this),
+        STACK_WIND (frame, stripe_internal_getxattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr, loc, name);
 
         return 0;
