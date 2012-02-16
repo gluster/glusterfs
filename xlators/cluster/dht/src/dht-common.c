@@ -1333,8 +1333,16 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (!hashed_subvol)
+        if (!hashed_subvol) {
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
+                if (!hashed_subvol) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get hashed subvol for %s",
+                                loc->path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+        }
         local->hashed_subvol = hashed_subvol;
 
         if (is_revalidate (loc)) {
@@ -1846,6 +1854,14 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (key && (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)) {
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
+                if (!hashed_subvol) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get hashed_subvol for %s",
+                                loc->path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
                 cached_subvol = local->cached_subvol;
 
                 local->call_cnt = 1;
@@ -1861,7 +1877,21 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         }
         if (key && (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0)) {
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
+                if (!hashed_subvol) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get"
+                                "hashed subvol for %s", loc->path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
                 cached_subvol = dht_subvol_get_cached (this, loc->inode);
+                if (!cached_subvol) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get"
+                                "cached subvol for %s", loc->path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
                 if (hashed_subvol == cached_subvol) {
                         op_errno = ENODATA;
                         goto err;
@@ -2187,6 +2217,13 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         forced_rebalance = 1;
 
                 local->rebalance.target_node = dht_subvol_get_hashed (this, loc);
+                if (!local->rebalance.target_node) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "hashed subvol for %s", loc->path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
                 local->rebalance.from_subvol = local->cached_subvol;
 
                 if (local->rebalance.target_node == local->rebalance.from_subvol) {

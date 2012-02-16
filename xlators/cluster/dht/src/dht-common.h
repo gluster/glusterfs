@@ -265,8 +265,6 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
-#define is_fs_root(loc) (strcmp (loc->path, "/") == 0)
-
 #define is_revalidate(loc) (inode_ctx_get (loc->inode, this, NULL) == 0)
 
 #define is_last_call(cnt) (cnt == 0)
