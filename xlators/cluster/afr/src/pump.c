@@ -2334,7 +2334,7 @@ notify (xlator_t *this, int32_t event,
 
         child_xl = (xlator_t *) data;
 
-        ret = afr_notify (this, event, data);
+        ret = afr_notify (this, event, data, NULL);
 
 	switch (event) {
 	case GF_EVENT_CHILD_DOWN:

@@ -111,6 +111,11 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 }
                 break;
         }
+        case GD_OP_HEAL_VOLUME:
+        {
+                glusterd_add_bricks_hname_path_to_dict (ctx);
+                break;
+        }
         case GD_OP_PROFILE_VOLUME:
         {
                 if (ctx && dict_get_int32 (ctx, "count", &count)) {
@@ -142,7 +147,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_ADD_BRICK:
         case GD_OP_LOG_ROTATE:
         case GD_OP_SYNC_VOLUME:
-        case GD_OP_HEAL_VOLUME:
         case GD_OP_STATEDUMP_VOLUME:
         case GD_OP_REPLACE_BRICK:
         case GD_OP_STATUS_VOLUME:
@@ -1107,6 +1111,48 @@ out:
         return ret;
 }
 
+void
+_heal_volume_add_peer_rsp (dict_t *peer_dict, char *key, data_t *value,
+                           void *data)
+{
+        int                             max_brick = 0;
+        int                             peer_max_brick = 0;
+        int                             ret = 0;
+        dict_t                          *ctx_dict = data;
+
+
+
+        ret = dict_get_int32 (ctx_dict, "count", &max_brick);
+        ret = dict_get_int32 (peer_dict, "count", &peer_max_brick);
+        if (peer_max_brick > max_brick)
+                ret = dict_set_int32 (ctx_dict, "count", peer_max_brick);
+        else
+                ret = dict_set_int32 (ctx_dict, "count", max_brick);
+        dict_del (peer_dict, "count");
+        dict_copy (peer_dict, ctx_dict);
+        return;
+}
+
+int
+glusterd_volume_heal_use_rsp_dict (dict_t *rsp_dict)
+{
+        int            ret      = 0;
+        dict_t        *ctx_dict = NULL;
+        glusterd_op_t  op       = GD_OP_NONE;
+
+        GF_ASSERT (rsp_dict);
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_HEAL_VOLUME == op);
+
+        ctx_dict = glusterd_op_get_ctx (op);
+
+        if (!ctx_dict)
+                goto out;
+        dict_foreach (rsp_dict, _heal_volume_add_peer_rsp, ctx_dict);
+out:
+        return ret;
+}
 
 int32_t
 glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
@@ -1227,6 +1273,13 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
                 case GD_OP_REBALANCE:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
+                break;
+
+                case GD_OP_HEAL_VOLUME:
+                        ret = glusterd_volume_heal_use_rsp_dict (dict);
+                        if (ret)
+                                goto out;
+
                 break;
 
                 default:
@@ -1723,7 +1776,7 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
         char                            *op_errstr = NULL;
         int                             pending_bricks = 0;
         glusterd_pending_node_t         *pending_node;
-        glusterd_req_ctx_t               *req_ctx = NULL;
+        glusterd_req_ctx_t              *req_ctx = NULL;
         struct rpc_clnt                 *rpc = NULL;
 
         if (!this) {

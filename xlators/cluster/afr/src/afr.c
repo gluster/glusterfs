@@ -30,7 +30,10 @@
 #endif
 #include "afr-common.c"
 
-#define SHD_INODE_LRU_LIMIT     100
+#define SHD_INODE_LRU_LIMIT          100
+#define AFR_EH_HEALED_LIMIT          1024
+#define AFR_EH_HEAL_FAIL_LIMIT       1024
+#define AFR_EH_SPLIT_BRAIN_LIMIT     1024
 
 struct volume_options options[];
 
@@ -39,8 +42,13 @@ notify (xlator_t *this, int32_t event,
         void *data, ...)
 {
         int ret = -1;
+        va_list         ap;
+        void *data2 = NULL;
 
-        ret = afr_notify (this, event, data);
+        va_start (ap, data);
+        data2 = va_arg (ap, dict_t*);
+        va_end (ap);
+        ret = afr_notify (this, event, data, data2);
 
         return ret;
 }
@@ -342,42 +350,55 @@ init (xlator_t *this)
                 goto out;
         }
 
-        priv->shd.pos = GF_CALLOC (sizeof (*priv->shd.pos), child_count,
-                                   gf_afr_mt_afr_brick_pos_t);
-        if (!priv->shd.pos) {
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        priv->shd.pending = GF_CALLOC (sizeof (*priv->shd.pending), child_count,
-                                       gf_afr_mt_afr_shd_bool_t);
-        if (!priv->shd.pending) {
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        priv->shd.inprogress = GF_CALLOC (sizeof (*priv->shd.inprogress),
-                                          child_count,
-                                          gf_afr_mt_afr_shd_bool_t);
-        if (!priv->shd.inprogress) {
-                ret = -ENOMEM;
-                goto out;
-        }
-        priv->shd.timer = GF_CALLOC (sizeof (*priv->shd.timer), child_count,
-                                     gf_afr_mt_afr_shd_timer_t);
-        if (!priv->shd.timer) {
-                ret = -ENOMEM;
-                goto out;
-        }
-        if (priv->shd.enabled) {
-                this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
-                if (!this->itable) {
-                        ret = -ENOMEM;
-                        goto out;
-                }
-        }
         priv->first_lookup = 1;
         priv->root_inode = NULL;
+
+        if (!priv->shd.enabled) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = -ENOMEM;
+        priv->shd.pos = GF_CALLOC (sizeof (*priv->shd.pos), child_count,
+                                   gf_afr_mt_brick_pos_t);
+        if (!priv->shd.pos)
+                goto out;
+
+        priv->shd.pending = GF_CALLOC (sizeof (*priv->shd.pending), child_count,
+                                       gf_afr_mt_int32_t);
+        if (!priv->shd.pending)
+                goto out;
+
+        priv->shd.inprogress = GF_CALLOC (sizeof (*priv->shd.inprogress),
+                                          child_count, gf_afr_mt_shd_bool_t);
+        if (!priv->shd.inprogress)
+                goto out;
+        priv->shd.timer = GF_CALLOC (sizeof (*priv->shd.timer), child_count,
+                                     gf_afr_mt_shd_timer_t);
+        if (!priv->shd.timer)
+                goto out;
+
+        priv->shd.healed = eh_new (AFR_EH_HEALED_LIMIT, _gf_false);
+        if (!priv->shd.healed)
+                goto out;
+
+        priv->shd.heal_failed = eh_new (AFR_EH_HEAL_FAIL_LIMIT, _gf_false);
+        if (!priv->shd.heal_failed)
+                goto out;
+
+        priv->shd.split_brain = eh_new (AFR_EH_SPLIT_BRAIN_LIMIT, _gf_false);
+        if (!priv->shd.split_brain)
+                goto out;
+
+        priv->shd.sh_times = GF_CALLOC (priv->child_count,
+                                        sizeof (*priv->shd.sh_times),
+                                        gf_afr_mt_time_t);
+        if (!priv->shd.sh_times)
+                goto out;
+
+        this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
+        if (!this->itable)
+                goto out;
 
         ret = 0;
 out:
@@ -393,6 +414,8 @@ fini (xlator_t *this)
         priv = this->private;
         this->private = NULL;
         afr_priv_destroy (priv);
+        if (this->itable);//I dont see any destroy func
+
         return 0;
 }
 

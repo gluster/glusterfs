@@ -410,4 +410,7 @@ glusterd_get_trusted_client_filepath (char *filepath,
                                       gf_transport_type type);
 int
 glusterd_restart_rebalance (glusterd_conf_t *conf);
+
+int32_t
+glusterd_add_bricks_hname_path_to_dict (dict_t *dict);
 #endif

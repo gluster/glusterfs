@@ -2108,3 +2108,75 @@ out:
 
        return ret;
 }
+
+int
+cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
+                                   dict_t **options)
+{
+        int     ret = 0;
+        dict_t  *dict = NULL;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_str (dict, "volname", (char *) words[2]);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to set volname");
+                goto out;
+        }
+
+        if (wordcount == 3) {
+                ret = dict_set_int32 (dict, "heal-op", GF_AFR_OP_HEAL_INDEX);
+                goto done;
+        }
+
+        if (wordcount == 4) {
+                if (!strcmp (words[3], "full")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_HEAL_FULL);
+                        goto done;
+                } else if (!strcmp (words[3], "info")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_INDEX_SUMMARY);
+                        goto done;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        }
+        if (wordcount == 5) {
+                if (strcmp (words[3], "info")) {
+                        ret = -1;
+                        goto out;
+                }
+                if (!strcmp (words[4], "healed")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_HEALED_FILES);
+                        goto done;
+                }
+                if (!strcmp (words[4], "heal-failed")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_HEAL_FAILED_FILES);
+                        goto done;
+                }
+                if (!strcmp (words[4], "split-brain")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_SPLIT_BRAIN_FILES);
+                        goto done;
+                }
+                ret = -1;
+                goto out;
+        }
+        ret = -1;
+        goto out;
+done:
+        *options = dict;
+out:
+        if (ret && dict) {
+                dict_unref (dict);
+                *options = NULL;
+        }
+
+        return ret;
+}

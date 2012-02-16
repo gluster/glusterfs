@@ -470,6 +470,8 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
                 }
         }
 
@@ -489,8 +491,6 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -999,6 +999,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         char                                    msg[2048];
         glusterd_conf_t                         *priv = NULL;
         dict_t                                  *opt_dict = NULL;
+        gf_xl_afr_op_t                          heal_op = GF_AFR_OP_INVALID;
 
         priv = THIS->private;
         if (!priv) {
@@ -1063,6 +1064,15 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 ret = -1;
                 snprintf (msg, sizeof (msg), "Self-heal daemon is not "
                           "running. Check self-heal daemon log file.");
+                *op_errstr = gf_strdup (msg);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
+        if (ret || (heal_op == GF_AFR_OP_INVALID)) {
+                ret = -1;
+                snprintf (msg, sizeof (msg), "Invalid heal-op");
                 *op_errstr = gf_strdup (msg);
                 gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 goto out;

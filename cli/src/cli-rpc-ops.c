@@ -5320,6 +5320,38 @@ gf_cli3_1_umount (call_frame_t *frame, xlator_t *this, void *data)
         return ret;
 }
 
+void
+cmd_heal_volume_brick_out (dict_t *dict, int brick)
+{
+        uint64_t        num_entries = 0;
+        int             ret = 0;
+        char            key[256] = {0};
+        char            *hostname = NULL;
+        char            *path = NULL;
+        uint64_t        i = 0;
+
+        snprintf (key, sizeof (key), "%d-hostname", brick);
+        ret = dict_get_str (dict, key, &hostname);
+        if (ret)
+                goto out;
+        snprintf (key, sizeof (key), "%d-path", brick);
+        ret = dict_get_str (dict, key, &path);
+        if (ret)
+                goto out;
+        snprintf (key, sizeof (key), "%d-count", brick);
+        ret = dict_get_uint64 (dict, key, &num_entries);
+        cli_out ("\nEntries on %s:%s %"PRIu64, hostname, path, num_entries);
+        for (i = 0; i < num_entries; i++) {
+                snprintf (key, sizeof (key), "%d-%"PRIu64, brick, i);
+                ret = dict_get_str (dict, key, &path);
+                if (ret)
+                        continue;
+                cli_out (path);
+        }
+out:
+        return;
+}
+
 int
 gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
@@ -5329,7 +5361,11 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         cli_local_t             *local = NULL;
         char                    *volname = NULL;
         call_frame_t            *frame = NULL;
+        dict_t                  *input_dict = NULL;
         dict_t                  *dict = NULL;
+        int                     brick_count = 0;
+        int                     i = 0;
+        gf_xl_afr_op_t          heal_op = GF_AFR_OP_INVALID;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -5348,21 +5384,24 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 frame->local = NULL;
         }
 
-        if (local)
-                dict = local->dict;
-
-#if (HAVE_LIB_XML)
-        if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_dict ("volHeal", dict, rsp.op_ret,
-                                           rsp.op_errno, rsp.op_errstr);
-                if (ret)
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "Error outputting to xml");
-                goto out;
+        if (local) {
+                input_dict = local->dict;
+                ret = dict_get_int32 (input_dict, "heal-op",
+                                      (int32_t*)&heal_op);
         }
-#endif
 
-        ret = dict_get_str (dict, "volname", &volname);
+//#if (HAVE_LIB_XML)
+//        if (global_state->mode & GLUSTER_MODE_XML) {
+//                ret = cli_xml_output_dict ("volHeal", dict, rsp.op_ret,
+//                                           rsp.op_errno, rsp.op_errstr);
+//                if (ret)
+//                        gf_log ("cli", GF_LOG_ERROR,
+//                                "Error outputting to xml");
+//                goto out;
+//        }
+//#endif
+
+        ret = dict_get_str (input_dict, "volname", &volname);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
                 goto out;
@@ -5376,14 +5415,51 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 cli_out ("Starting heal on volume %s has been %s", volname,
                         (rsp.op_ret) ? "unsuccessful": "successful");
 
+        if (rsp.op_ret) {
+                ret = rsp.op_ret;
+                goto out;
+        }
+
+        if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
+            (heal_op == GF_AFR_OP_HEAL_INDEX)) {
+                ret = 0;
+                goto out;
+        }
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val,
+                                rsp.dict.dict_len,
+                                &dict);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                                "Unable to allocate memory");
+                goto out;
+        } else {
+                dict->extra_stdfree = rsp.dict.dict_val;
+        }
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+
+        if (!brick_count) {
+                cli_out ("All bricks of volume %s are down.", volname);
+                goto out;
+        }
+
+        for (i = 0; i < brick_count; i++)
+                cmd_heal_volume_brick_out (dict, i);
         ret = rsp.op_ret;
 
 out:
         cli_cmd_broadcast_response (ret);
         if (local)
                 cli_local_wipe (local);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
         if (dict)

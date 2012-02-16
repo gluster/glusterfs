@@ -182,13 +182,22 @@ enum glusterd_brick_procnum {
         GLUSTERD_BRICK_NULL,    /* 0 */
         GLUSTERD_BRICK_TERMINATE,
         GLUSTERD_BRICK_XLATOR_INFO,
-        GLUSTERD_BRICK_XLATOR_HEAL,
+        GLUSTERD_BRICK_XLATOR_OP,
         GLUSTERD_BRICK_STATUS,
         GLUSTERD_BRICK_OP,
         GLUSTERD_BRICK_XLATOR_DEFRAG,
         GLUSTERD_BRICK_MAXVALUE,
 };
 
+typedef enum {
+        GF_AFR_OP_INVALID,
+        GF_AFR_OP_HEAL_INDEX,
+        GF_AFR_OP_HEAL_FULL,
+        GF_AFR_OP_INDEX_SUMMARY,
+        GF_AFR_OP_HEALED_FILES,
+        GF_AFR_OP_HEAL_FAILED_FILES,
+        GF_AFR_OP_SPLIT_BRAIN_FILES
+} gf_xl_afr_op_t ;
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION    1   /* 0.0.1 */
 
