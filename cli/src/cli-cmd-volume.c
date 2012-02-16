@@ -1560,32 +1560,29 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
-        dict_t                  *dict = NULL;
+        dict_t                  *options = NULL;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
-        if (wordcount != 3) {
+        if (wordcount < 3) {
                cli_usage_out (word->pattern);
-                parse_error = 1;
+               parse_error = 1;
                goto out;
         }
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_set_str (dict, "volname", (char *) words[2]);
+        ret = cli_cmd_volume_heal_options_parse (words, wordcount, &options);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to set volname");
+                cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, dict);
+                ret = proc->fn (frame, THIS, options);
         }
 
 out:
@@ -1595,8 +1592,8 @@ out:
                         cli_out ("Volume heal failed");
         }
 
-        if (dict)
-                dict_unref (dict);
+        if (options)
+                dict_unref (options);
 
         return ret;
 }
@@ -1826,9 +1823,9 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_status_cbk,
           "display status of all or specified volume(s)/brick"},
 
-        { "volume heal <VOLNAME>",
+        { "volume heal <VOLNAME> [{full | info {healed | heal-failed | split-brain}}]",
           cli_cmd_volume_heal_cbk,
-          "Start healing of volume specified by <VOLNAME>"},
+          "self-heal commands on volume specified by <VOLNAME>"},
 
         {"volume statedump <VOLNAME> [nfs] [all|mem|iobuf|callpool|priv|fd|"
          "inode|history]...",

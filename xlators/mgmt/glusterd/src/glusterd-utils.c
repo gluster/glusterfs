@@ -1476,6 +1476,36 @@ _add_volinfo_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
 }
 
 int32_t
+glusterd_add_bricks_hname_path_to_dict (dict_t *dict)
+{
+        char                    *volname = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        int                     ret = 0;
+        char                    key[256] = {0};
+        int                     index = 0;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                snprintf (key, sizeof (key), "%d-hostname", index);
+                ret = dict_set_str (dict, key, brickinfo->hostname);
+                snprintf (key, sizeof (key), "%d-path", index);
+                ret = dict_set_str (dict, key, brickinfo->path);
+                index++;
+        }
+out:
+        return ret;
+}
+
+int32_t
 glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                              dict_t  *dict, int32_t count)
 {

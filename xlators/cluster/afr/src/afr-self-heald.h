@@ -26,16 +26,21 @@
 #define IS_ENTRY_PARENT(entry) (!strcmp (entry, ".."))
 #define AFR_ALL_CHILDREN -1
 
-typedef enum {
-        INDEX,
-        FULL,
-} afr_crawl_type_t;
 typedef struct afr_crawl_data_ {
-        int              child;
-        pid_t            pid;
-        afr_crawl_type_t crawl;
-        xlator_t         *readdir_xl;
+        int                 child;
+        pid_t               pid;
+        afr_crawl_type_t    crawl;
+        xlator_t            *readdir_xl;
+        void                *op_data;
+        int                 crawl_flags;
+        int (*process_entry) (xlator_t *this, struct afr_crawl_data_ *crawl_data,
+                              gf_dirent_t *entry, loc_t *child, loc_t *parent,
+                              struct iatt *iattr);
 } afr_crawl_data_t;
+
+typedef int (*process_entry_cbk_t) (xlator_t *this, afr_crawl_data_t *crawl_data,
+                              gf_dirent_t *entry, loc_t *child, loc_t *parent,
+                              struct iatt *iattr);
 
 void afr_proactive_self_heal (xlator_t *this, int idx);
 
@@ -48,4 +53,7 @@ afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent);
 
 void
 afr_do_poll_self_heal (void *data);
+
+int
+afr_xl_op (xlator_t *this, dict_t *input, dict_t *output);
 #endif /* __AFR_SELF_HEALD_H__ */

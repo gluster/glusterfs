@@ -3399,7 +3399,7 @@ find_child_index (xlator_t *this, xlator_t *child)
 
 int32_t
 afr_notify (xlator_t *this, int32_t event,
-            void *data, ...)
+            void *data, void *data2)
 {
         afr_private_t   *priv               = NULL;
         int             i                   = -1;
@@ -3412,6 +3412,8 @@ afr_notify (xlator_t *this, int32_t event,
         int             ret                 = -1;
         int             call_psh            = 0;
         int             up_child            = AFR_ALL_CHILDREN;
+        dict_t          *input              = NULL;
+        dict_t          *output             = NULL;
 
         priv = this->private;
 
@@ -3499,10 +3501,11 @@ afr_notify (xlator_t *this, int32_t event,
 
                 break;
 
-        case GF_EVENT_TRIGGER_HEAL:
-                gf_log (this->name, GF_LOG_INFO, "Self-heal was triggered"
-                        " manually. Start crawling");
-                call_psh = 1;
+        case GF_EVENT_TRANSLATOR_OP:
+                input = data;
+                output = data2;
+                ret = afr_xl_op (this, input, output);
+                goto out;
                 break;
 
         default:
@@ -3552,7 +3555,7 @@ afr_notify (xlator_t *this, int32_t event,
         ret = 0;
         if (propagate)
                 ret = default_notify (this, event, data);
-        if (call_psh) {
+        if (call_psh && priv->shd.enabled) {
                 gf_log (this->name, GF_LOG_DEBUG, "start crawl: %d", up_child);
                 afr_do_poll_self_heal ((void*) (long) up_child);
         }
@@ -3925,6 +3928,23 @@ afr_priv_destroy (afr_private_t *priv)
                 goto out;
         inode_unref (priv->root_inode);
         GF_FREE (priv->shd.pos);
+        GF_FREE (priv->shd.pending);
+        GF_FREE (priv->shd.inprogress);
+        GF_FREE (priv->shd.sh_times);
+//        for (i = 0; i < priv->child_count; i++)
+//                if (priv->shd.timer && priv->shd.timer[i])
+//                        gf_timer_call_cancel (this->ctx, priv->shd.timer[i]);
+        GF_FREE (priv->shd.timer);
+
+        if (priv->shd.healed)
+                eh_destroy (priv->shd.healed);
+
+        if (priv->shd.heal_failed)
+                eh_destroy (priv->shd.heal_failed);
+
+        if (priv->shd.split_brain)
+                eh_destroy (priv->shd.split_brain);
+
         GF_FREE (priv->last_event);
         if (priv->pending_key) {
                 for (i = 0; i < priv->child_count; i++)

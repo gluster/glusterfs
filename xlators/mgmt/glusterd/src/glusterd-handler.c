@@ -651,6 +651,7 @@ out:
         glusterd_op_sm ();
         return ret;
 }
+
 int
 glusterd_handle_cli_probe (rpcsvc_request_t *req)
 {

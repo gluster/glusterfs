@@ -832,6 +832,18 @@ struct _xlator {
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
 
+#define XLATOR_NOTIFY(_xl, params ...)          \
+        do {                                    \
+                xlator_t *_old_THIS = NULL;     \
+                                                \
+                _old_THIS = THIS;               \
+                THIS = _xl;                     \
+                                                \
+                ret = _xl->notify (_xl, params);\
+                                                \
+                THIS = _old_THIS;               \
+        } while (0);
+
 int32_t xlator_set_type_virtual (xlator_t *xl, const char *type);
 
 int32_t xlator_set_type (xlator_t *xl, const char *type);

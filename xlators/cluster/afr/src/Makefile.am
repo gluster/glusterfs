@@ -15,7 +15,7 @@ noinst_HEADERS = afr.h afr-transaction.h afr-inode-write.h afr-inode-read.h afr-
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 	    -I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/contrib/md5 -shared -nostartfiles $(GF_CFLAGS) \
-	    -I$(top_srcdir)/xlators/lib/src
+	    -I$(top_srcdir)/xlators/lib/src -I$(top_srcdir)/rpc/rpc-lib/src
 
 CLEANFILES =
 

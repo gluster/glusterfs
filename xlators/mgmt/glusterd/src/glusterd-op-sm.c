@@ -152,6 +152,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
         gd1_mgmt_brick_op_req   *brick_req = NULL;
         char                    *volname = NULL;
         char                    name[1024] = {0,};
+        gf_xl_afr_op_t          heal_op = GF_AFR_OP_INVALID;
 
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
@@ -190,8 +191,12 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 if (!brick_req)
                         goto out;
 
-                brick_req->op = GLUSTERD_BRICK_XLATOR_HEAL;
+                brick_req->op = GLUSTERD_BRICK_XLATOR_OP;
                 brick_req->name = "";
+                ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
+                if (ret)
+                        goto out;
+                ret = dict_set_int32 (dict, "xl-op", heal_op);
         }
                 break;
         case GD_OP_STATUS_VOLUME:
@@ -2190,6 +2195,7 @@ glusterd_need_brick_op (glusterd_op_t op)
         case GD_OP_PROFILE_VOLUME:
         case GD_OP_STATUS_VOLUME:
         case GD_OP_DEFRAG_BRICK_VOLUME:
+        case GD_OP_HEAL_VOLUME:
                 ret = _gf_true;
                 break;
         default:
@@ -2578,6 +2584,94 @@ _status_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
         return;
 }
 
+//input-key: <replica-id>:<child-id>-*
+//output-key: <brick-id>-*
+void
+_heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
+{
+        char                            new_key[256] = {0,};
+        char                            int_str[16] = {0};
+        data_t                          *new_value = NULL;
+        char                            *rxl_end = NULL;
+        char                            *rxl_child_end = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+        int                             rxl_id = 0;
+        int                             rxl_child_id = 0;
+        int                             brick_id = 0;
+        int                             int_len = 0;
+        int                             brick_count = 0;
+        int                             ret = 0;
+        glusterd_heal_rsp_conv_t        *rsp_ctx = NULL;
+
+        rsp_ctx = data;
+        rxl_end = strchr (key, '-');
+        if (!rxl_end)
+                goto out;
+
+        int_len = strlen (key) - strlen (rxl_end);
+        strncpy (int_str, key, int_len);
+        int_str[int_len] = '\0';
+        ret = gf_string2int (int_str, &rxl_id);
+        if (ret)
+                goto out;
+
+        rxl_child_end = strchr (rxl_end + 1, '-');
+        if (!rxl_child_end)
+                goto out;
+
+        int_len = strlen (rxl_end) - strlen (rxl_child_end) - 1;
+        strncpy (int_str, rxl_end + 1, int_len);
+        int_str[int_len] = '\0';
+        ret = gf_string2int (int_str, &rxl_child_id);
+        if (ret)
+                goto out;
+
+        volinfo = rsp_ctx->volinfo;
+        brick_id = rxl_id * volinfo->replica_count + rxl_child_id;
+
+        new_value = data_copy (value);
+        snprintf (new_key, sizeof (new_key), "%d%s", brick_id, rxl_child_end);
+        dict_set (rsp_ctx->dict, new_key, new_value);
+
+        ret = dict_get_int32 (rsp_ctx->dict, "count", &brick_count);
+        if (brick_id >= brick_count)
+                ret = dict_set_int32 (rsp_ctx->dict, "count", brick_id + 1);
+out:
+        return;
+}
+
+int
+glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
+                                dict_t *op_ctx, char **op_errstr)
+{
+        int                             ret = 0;
+        glusterd_heal_rsp_conv_t        rsp_ctx = {0};
+        char                            *volname = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_ctx);
+        GF_ASSERT (op_errstr);
+
+        ret = dict_get_str (req_dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        rsp_ctx.dict = op_ctx;
+        rsp_ctx.volinfo = volinfo;
+        dict_foreach (rsp_dict, _heal_volume_add_shd_rsp, &rsp_ctx);
+
+out:
+        return ret;
+}
+
 int
 glusterd_status_volume_brick_rsp (glusterd_brickinfo_t *brickinfo,
                                   dict_t *rsp_dict, dict_t *op_ctx,
@@ -2607,27 +2701,29 @@ glusterd_status_volume_brick_rsp (glusterd_brickinfo_t *brickinfo,
         rsp_ctx.count = index;
         rsp_ctx.dict = op_ctx;
         dict_foreach (rsp_dict, _status_volume_add_brick_rsp, &rsp_ctx);
-        ret = dict_set_int32 (op_ctx, "count", count);
 
 out:
         return ret;
 }
 
 int32_t
-glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
-                           glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
-                           char **op_errstr)
+glusterd_handle_node_rsp (glusterd_req_ctx_t *req_ctx, void *pending_entry,
+                          glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
+                          char **op_errstr)
 {
-        int     ret = 0;
+        int                     ret = 0;
+        glusterd_brickinfo_t    *brickinfo = NULL;
 
         GF_ASSERT (op_errstr);
 
         switch (op) {
         case GD_OP_PROFILE_VOLUME:
+                brickinfo = pending_entry;
                 ret = glusterd_profile_volume_brick_rsp (brickinfo, rsp_dict,
                                                          op_ctx, op_errstr);
                 break;
         case GD_OP_STATUS_VOLUME:
+                brickinfo = pending_entry;
                 ret = glusterd_status_volume_brick_rsp (brickinfo, rsp_dict,
                                                         op_ctx, op_errstr);
                 break;
@@ -2636,6 +2732,10 @@ glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
                 dict_copy (rsp_dict, op_ctx);
         break;
 
+        case GD_OP_HEAL_VOLUME:
+                ret = glusterd_heal_volume_brick_rsp (req_ctx->dict, rsp_dict,
+                                                      op_ctx, op_errstr);
+                break;
         default:
                 break;
         }
@@ -2892,14 +2992,89 @@ _add_rxlator_to_dict (dict_t *dict, char *volname, int index, int count)
         char    key[128]        = {0,};
         char    *xname          = NULL;
 
-        snprintf (key, sizeof (key), "heal-%d", count);
+        snprintf (key, sizeof (key), "xl-%d", count);
         ret = gf_asprintf (&xname, "%s-replicate-%d", volname, index);
         if (ret == -1)
                 goto out;
 
         ret = dict_set_dynstr (dict, key, xname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, xname, index);
 out:
         return ret;
+}
+
+int
+_select_rxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
+                                    dict_t *dict)
+{
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_conf_t         *priv   = NULL;
+        int                     index = 1;
+        int                     rxlator_count = 0;
+        int                     replica_count = 0;
+        gf_boolean_t            add     = _gf_false;
+
+        priv = this->private;
+        replica_count = volinfo->replica_count;
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_is_null (brickinfo->uuid))
+                        (void)glusterd_resolve_brick (brickinfo);
+
+                if (!uuid_compare (priv->uuid, brickinfo->uuid))
+                        add = _gf_true;
+                if (index % replica_count == 0) {
+                        if (add) {
+                                _add_rxlator_to_dict (dict, volinfo->volname,
+                                                      (index-1)/replica_count,
+                                                      rxlator_count);
+                                rxlator_count++;
+                        }
+                        add = _gf_false;
+                }
+
+                index++;
+        }
+        return rxlator_count;
+}
+
+int
+_select_rxlators_for_full_self_heal (xlator_t *this,
+                                     glusterd_volinfo_t *volinfo,
+                                     dict_t *dict)
+{
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_conf_t         *priv   = NULL;
+        int                     index = 1;
+        int                     rxlator_count = 0;
+        int                     replica_count = 0;
+        uuid_t                  candidate = {0};
+
+        priv = this->private;
+        replica_count = volinfo->replica_count;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_is_null (brickinfo->uuid))
+                        (void)glusterd_resolve_brick (brickinfo);
+
+                if (uuid_compare (brickinfo->uuid, candidate) > 0)
+                        uuid_copy (candidate, brickinfo->uuid);
+
+                if (index % replica_count == 0) {
+                        if (!uuid_compare (priv->uuid, candidate)) {
+                                _add_rxlator_to_dict (dict, volinfo->volname,
+                                                      (index-1)/replica_count,
+                                                      rxlator_count);
+                                rxlator_count++;
+                        }
+                        uuid_clear (candidate);
+                }
+
+                index++;
+        }
+        return rxlator_count;
 }
 
 static int
@@ -2909,14 +3084,11 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr)
         char                                    *volname = NULL;
         glusterd_conf_t                         *priv = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
-        glusterd_brickinfo_t                    *brickinfo = NULL;
         xlator_t                                *this = NULL;
         char                                    msg[2048] = {0,};
-        int                                     replica_count = 0;
-        int                                     index = 1;
-        int                                     rxlator_count = 0;
-        uuid_t                                  candidate = {0};
         glusterd_pending_node_t                 *pending_node = NULL;
+        gf_xl_afr_op_t                          heal_op = GF_AFR_OP_INVALID;
+        int                                     rxlator_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2939,47 +3111,42 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        replica_count = volinfo->replica_count;
-
-        index = 1;
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_is_null (brickinfo->uuid))
-                        (void)glusterd_resolve_brick (brickinfo);
-
-                if (uuid_compare (brickinfo->uuid, candidate) > 0)
-                        uuid_copy (candidate, brickinfo->uuid);
-
-                if (index % replica_count == 0) {
-                        if (!uuid_compare (priv->uuid, candidate)) {
-                                _add_rxlator_to_dict (dict, volname,
-                                                      (index-1)/replica_count,
-                                                      rxlator_count);
-                                rxlator_count++;
-                        }
-                        uuid_clear (candidate);
-                }
-
-                index++;
+        ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
+        if (ret || (heal_op == GF_AFR_OP_INVALID)) {
+                gf_log ("glusterd", GF_LOG_ERROR, "heal op invalid");
+                goto out;
         }
+
+        switch (heal_op) {
+        case GF_AFR_OP_HEAL_FULL:
+                rxlator_count = _select_rxlators_for_full_self_heal (this,
+                                                                     volinfo,
+                                                                     dict);
+                break;
+        default:
+                rxlator_count = _select_rxlators_with_local_bricks (this,
+                                                                    volinfo,
+                                                                    dict);
+                break;
+        }
+        if (!rxlator_count)
+                goto out;
         ret = dict_set_int32 (dict, "count", rxlator_count);
         if (ret)
                 goto out;
 
-        if (rxlator_count) {
-                pending_node = GF_CALLOC (1, sizeof (*pending_node),
-                                          gf_gld_mt_pending_node_t);
-                if (!pending_node) {
-                        ret = -1;
-                        goto out;
-                } else {
-                        pending_node->node = priv->shd;
-                        pending_node->type = GD_NODE_SHD;
-                        list_add_tail (&pending_node->list,
-                                       &opinfo.pending_bricks);
-                        pending_node = NULL;
-                }
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
+                goto out;
+        } else {
+                pending_node->node = priv->shd;
+                pending_node->type = GD_NODE_SHD;
+                list_add_tail (&pending_node->list,
+                               &opinfo.pending_bricks);
+                pending_node = NULL;
         }
-
 
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning ret %d", ret);
@@ -3222,8 +3389,8 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.brick_pending_count > 0)
                 opinfo.brick_pending_count--;
 
-        glusterd_handle_brick_rsp (pending_entry, op, ev_ctx->rsp_dict,
-                                   op_ctx, &op_errstr);
+        glusterd_handle_node_rsp (req_ctx, pending_entry, op, ev_ctx->rsp_dict,
+                                  op_ctx, &op_errstr);
 
         if (opinfo.brick_pending_count > 0)
                 goto out;

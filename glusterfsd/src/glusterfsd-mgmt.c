@@ -46,6 +46,7 @@
 #include "rpcsvc.h"
 #include "cli1-xdr.h"
 #include "statedump.h"
+#include "syncop.h"
 
 static char is_mgmt_rpc_reconnect;
 
@@ -317,8 +318,8 @@ out:
 }
 
 int
-glusterfs_translator_heal_response_send (rpcsvc_request_t *req, int op_ret,
-                                         char *msg, dict_t *output)
+glusterfs_xlator_op_response_send (rpcsvc_request_t *req, int op_ret,
+                                   char *msg, dict_t *output)
 {
         gd1_mgmt_brick_op_rsp    rsp = {0,};
         int                      ret = -1;
@@ -651,15 +652,14 @@ out:
 }
 
 int
-glusterfs_handle_translator_heal (rpcsvc_request_t *req)
+glusterfs_handle_translator_op (void *data)
 {
         int32_t                  ret     = -1;
         gd1_mgmt_brick_op_req    xlator_req = {0,};
-        dict_t                   *dict    = NULL;
+        dict_t                   *input    = NULL;
         xlator_t                 *xlator = NULL;
         xlator_t                 *any = NULL;
         dict_t                   *output = NULL;
-        char                     msg[2048] = {0};
         char                     key[2048] = {0};
         char                    *xname = NULL;
         glusterfs_ctx_t          *ctx = NULL;
@@ -667,73 +667,76 @@ glusterfs_handle_translator_heal (rpcsvc_request_t *req)
         xlator_t                 *this = NULL;
         int                      i = 0;
         int                      count = 0;
+        rpcsvc_request_t         *req = data;
 
         GF_ASSERT (req);
         this = THIS;
         GF_ASSERT (this);
 
-        ctx = glusterfs_ctx_get ();
-        GF_ASSERT (ctx);
-
-        active = ctx->active;
-        any = active->first;
         if (!xdr_to_generic (req->msg[0], &xlator_req,
                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        dict = dict_new ();
 
+        ctx = glusterfs_ctx_get ();
+        active = ctx->active;
+        any = active->first;
+        input = dict_new ();
         ret = dict_unserialize (xlator_req.input.input_val,
                                 xlator_req.input.input_len,
-                                &dict);
+                                &input);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to "
                         "unserialize req-buffer to dictionary");
                 goto out;
+        } else {
+                input->extra_stdfree = xlator_req.input.input_val;
         }
 
-        ret = dict_get_int32 (dict, "count", &count);
-        i = 0;
-        while (i < count)  {
-                snprintf (key, sizeof (key), "heal-%d", i);
-                ret = dict_get_str (dict, key, &xname);
+        ret = dict_get_int32 (input, "count", &count);
+
+        output = dict_new ();
+        if (!output) {
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 0; i < count; i++)  {
+                snprintf (key, sizeof (key), "xl-%d", i);
+                ret = dict_get_str (input, key, &xname);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Couldn't get "
-                                "replicate xlator %s to trigger "
-                                "self-heal", xname);
+                                "xlator %s ", key);
                         goto out;
                 }
                 xlator = xlator_search_by_name (any, xname);
                 if (!xlator) {
-                        snprintf (msg, sizeof (msg), "xlator %s is not loaded",
-                                  xlator_req.name);
-                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR, "xlator %s is not "
+                                "loaded", xname);
                         goto out;
                 }
-
-                ret = xlator_notify (xlator, GF_EVENT_TRIGGER_HEAL, dict, NULL);
-                i++;
         }
-        output = dict_new ();
-        if (!output)
-                goto out;
-
-        /* output dict is not used currently, could be used later. */
-        ret = glusterfs_translator_heal_response_send (req, ret, msg, output);
+        for (i = 0; i < count; i++)  {
+                snprintf (key, sizeof (key), "xl-%d", i);
+                ret = dict_get_str (input, key, &xname);
+                xlator = xlator_search_by_name (any, xname);
+                XLATOR_NOTIFY (xlator, GF_EVENT_TRANSLATOR_OP, input, output);
+                if (ret)
+                        break;
+        }
 out:
-        if (dict)
-                dict_unref (dict);
-        if (xlator_req.input.input_val)
-                free (xlator_req.input.input_val); // malloced by xdr
+        glusterfs_xlator_op_response_send (req, ret, "", output);
+        if (input)
+                dict_unref (input);
         if (output)
                 dict_unref (output);
         if (xlator_req.name)
                 free (xlator_req.name); //malloced by xdr
 
-        return ret;
+        return 0;
 }
 
 
@@ -941,11 +944,20 @@ out:
         return ret;
 }
 
+static int
+glusterfs_command_done  (int ret, call_frame_t *sync_frame, void *data)
+{
+        STACK_DESTROY (sync_frame->root);
+        return 0;
+}
+
 int
 glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
 {
-        int     ret = -1;
-        xlator_t *this = THIS;
+        int             ret = -1;
+        xlator_t        *this = THIS;
+        call_frame_t    *frame = NULL;
+
         GF_ASSERT (this);
         switch (req->procnum) {
         case GLUSTERD_BRICK_TERMINATE:
@@ -954,8 +966,13 @@ glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
         case GLUSTERD_BRICK_XLATOR_INFO:
                 ret = glusterfs_handle_translator_info_get (req);
                 break;
-        case GLUSTERD_BRICK_XLATOR_HEAL:
-                ret = glusterfs_handle_translator_heal (req);
+        case GLUSTERD_BRICK_XLATOR_OP:
+                frame = create_frame (this, this->ctx->pool);
+                if (!frame)
+                        goto out;
+                ret = synctask_new (this->ctx->env,
+                                    glusterfs_handle_translator_op,
+                                    glusterfs_command_done, frame, req);
                 break;
         case GLUSTERD_BRICK_STATUS:
                 ret = glusterfs_handle_brick_status (req);
@@ -966,7 +983,7 @@ glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
         default:
                 break;
         }
-
+out:
         return ret;
 }
 
@@ -1018,7 +1035,7 @@ rpcsvc_actor_t glusterfs_actors[] = {
         [GLUSTERD_BRICK_NULL]        = { "NULL",    GLUSTERD_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, NULL, 0},
         [GLUSTERD_BRICK_TERMINATE] = { "TERMINATE", GLUSTERD_BRICK_TERMINATE, glusterfs_handle_rpc_msg, NULL, NULL, 0},
         [GLUSTERD_BRICK_XLATOR_INFO] = { "TRANSLATOR INFO", GLUSTERD_BRICK_XLATOR_INFO, glusterfs_handle_rpc_msg, NULL, NULL, 0},
-        [GLUSTERD_BRICK_XLATOR_HEAL] = { "TRANSLATOR HEAL", GLUSTERD_BRICK_XLATOR_HEAL, glusterfs_handle_rpc_msg, NULL, NULL, 0},
+        [GLUSTERD_BRICK_XLATOR_OP] = { "TRANSLATOR OP", GLUSTERD_BRICK_XLATOR_OP, glusterfs_handle_rpc_msg, NULL, NULL, 0},
         [GLUSTERD_BRICK_STATUS] = {"STATUS", GLUSTERD_BRICK_STATUS, glusterfs_handle_rpc_msg, NULL, NULL, 0},
         [GLUSTERD_BRICK_XLATOR_DEFRAG] = { "TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_rpc_msg, NULL, NULL, 0}
 };

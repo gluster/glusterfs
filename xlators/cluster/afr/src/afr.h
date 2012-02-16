@@ -88,12 +88,22 @@ typedef struct afr_inode_ctx_ {
         int32_t  *fresh_children;//increasing order of latency
 } afr_inode_ctx_t;
 
+typedef enum {
+        NONE,
+        INDEX,
+        FULL,
+} afr_crawl_type_t;
+
 typedef struct afr_self_heald_ {
-        gf_boolean_t    enabled;
-        gf_boolean_t    *pending;
-        gf_boolean_t    *inprogress;
-        afr_child_pos_t *pos;
-        gf_timer_t      **timer;
+        gf_boolean_t     enabled;
+        afr_crawl_type_t *pending;
+        gf_boolean_t     *inprogress;
+        afr_child_pos_t  *pos;
+        time_t           *sh_times;
+        gf_timer_t       **timer;
+        eh_t             *healed;
+        eh_t             *heal_failed;
+        eh_t             *split_brain;
 } afr_self_heald_t;
 
 typedef struct _afr_private {
@@ -747,8 +757,7 @@ int
 pump_command_reply (call_frame_t *frame, xlator_t *this);
 
 int32_t
-afr_notify (xlator_t *this, int32_t event,
-            void *data, ...);
+afr_notify (xlator_t *this, int32_t event, void *data, void *data2);
 
 int
 afr_attempt_lock_recovery (xlator_t *this, int32_t child_index);
