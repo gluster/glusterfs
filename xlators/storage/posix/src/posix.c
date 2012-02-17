@@ -756,6 +756,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
            internal call from distribute for creating 'linkfile', and that
            linkfile may be for a hardlinked file */
         if (dict_get (params, GLUSTERFS_INTERNAL_FOP_KEY)) {
+                dict_del (params, GLUSTERFS_INTERNAL_FOP_KEY);
                 op_ret = dict_get_ptr (params, "gfid-req", &uuid_req);
                 if (op_ret) {
                         gf_log (this->name, GF_LOG_DEBUG,

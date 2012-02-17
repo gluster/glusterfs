@@ -28,7 +28,6 @@
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
 #define DHT_REBALANCE_BLKSIZE           (128 * 1024)
-#define DHT_MIGRATE_EVEN_IF_LINK_EXISTS 1
 
 static int
 dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
@@ -99,8 +98,114 @@ out:
 
 }
 
+int32_t
+gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
+                           struct iatt *stbuf)
+{
+        int32_t                 ret             = -1;
+        xlator_t               *cached_subvol   = NULL;
+        xlator_t               *hashed_subvol   = NULL;
+        xlator_t               *linkto_subvol   = NULL;
+        data_t                 *data            = NULL;
+        struct iatt             iatt            = {0,};
+        int32_t                 op_errno        = 0;
+
+        GF_VALIDATE_OR_GOTO ("defrag", loc, out);
+        GF_VALIDATE_OR_GOTO ("defrag", loc->name, out);
+        GF_VALIDATE_OR_GOTO ("defrag", stbuf, out);
+        GF_VALIDATE_OR_GOTO ("defrag", this, out);
+        GF_VALIDATE_OR_GOTO ("defrag", xattrs, out);
+
+        if (uuid_is_null (loc->pargfid)) {
+                gf_log ("", GF_LOG_ERROR, "loc->pargfid is NULL for "
+                        "%s", loc->path);
+                goto out;
+        }
+
+        if (uuid_is_null (loc->gfid)) {
+                gf_log ("", GF_LOG_ERROR, "loc->gfid is NULL for "
+                        "%s", loc->path);
+                goto out;
+        }
+
+        cached_subvol = dht_subvol_get_cached (this, loc->inode);
+        if (!cached_subvol) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get cached subvol"
+                        " for %s on %s", loc->name, this->name);
+                goto out;
+        }
+
+        hashed_subvol = dht_subvol_get_hashed (this, loc);
+        if (!hashed_subvol) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get hashed subvol"
+                        " for %s on %s", loc->name, this->name);
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_INFO, "Attempting to migrate hardlink %s "
+                "with gfid %s from %s -> %s", loc->name, uuid_utoa (loc->gfid),
+                cached_subvol->name, hashed_subvol->name);
+        data = dict_get (xattrs, DHT_LINKFILE_KEY);
+        /* set linkto on cached -> hashed if not present, else link it */
+        if (!data) {
+                ret = dict_set_str (xattrs, DHT_LINKFILE_KEY,
+                                    hashed_subvol->name);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                                "linkto xattr in dict for %s", loc->name);
+                        goto out;
+                }
+
+                ret = syncop_setxattr (cached_subvol, loc, xattrs, 0);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Linkto setxattr "
+                                "failed %s -> %s (%s)", cached_subvol->name,
+                                loc->name, strerror (errno));
+                        goto out;
+                }
+                goto out;
+        } else {
+                linkto_subvol = dht_linkfile_subvol (this, NULL, NULL, xattrs);
+                if (!linkto_subvol) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "linkto subvol for %s", loc->name);
+                } else {
+                        hashed_subvol = linkto_subvol;
+                }
+
+                ret = syncop_link (hashed_subvol, loc, loc);
+                if  (ret) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "link of %s -> %s"
+                                " failed on  subvol %s (%s)", loc->name,
+                                uuid_utoa(loc->gfid),
+                                hashed_subvol->name, strerror (op_errno));
+                        if (op_errno != EEXIST)
+                                goto out;
+                }
+        }
+        ret = syncop_lookup (hashed_subvol, loc, NULL, &iatt, NULL, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed lookup %s on %s (%s)"
+                        , loc->name, hashed_subvol->name, strerror (errno));
+                goto out;
+        }
+
+        if (iatt.ia_nlink == stbuf->ia_nlink) {
+                ret = dht_migrate_file (this, loc, cached_subvol, hashed_subvol,
+                                        GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS);
+                if (ret)
+                        goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+
 static inline int
-__is_file_migratable (xlator_t *this, loc_t *loc, struct iatt *stbuf)
+__is_file_migratable (xlator_t *this, loc_t *loc,
+                      struct iatt *stbuf, dict_t *xattrs, int flags)
 {
         int ret = -1;
 
@@ -111,11 +216,25 @@ __is_file_migratable (xlator_t *this, loc_t *loc, struct iatt *stbuf)
                 goto out;
         }
 
+        if (flags == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS) {
+                ret = 0;
+                goto out;
+        }
         if (stbuf->ia_nlink > 1) {
-                /* TODO : support migrating hardlinks */
-                gf_log (this->name, GF_LOG_WARNING, "%s: file has hardlinks",
-                        loc->path);
-                ret = -ENOTSUP;
+                /* support for decomission */
+                if (flags == GF_DHT_MIGRATE_HARDLINK) {
+                        ret = gf_defrag_handle_hardlink (this, loc,
+                                                         xattrs, stbuf);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "%s: failed to migrate file with link",
+                                        loc->path);
+                        }
+                } else {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: file has hardlinks", loc->path);
+                }
+                ret = ENOTSUP;
                 goto out;
         }
 
@@ -504,6 +623,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         fd_t           *dst_fd         = NULL;
         dict_t         *dict           = NULL;
         dict_t         *xattr          = NULL;
+        dict_t         *xattr_rsp      = NULL;
         int             file_has_holes = 0;
 
         gf_log (this->name, GF_LOG_INFO, "%s: attempting to move from %s to %s",
@@ -513,19 +633,29 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         if (!dict)
                 goto out;
 
+        ret = dict_set_int32 (dict, DHT_LINKFILE_KEY, 256);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s: failed to set 'linkto' key in dict", loc->path);
+                goto out;
+        }
+
         /* Phase 1 - Data migration is in progress from now on */
-        ret = syncop_lookup (from, loc, NULL, &stbuf, NULL, NULL);
+        ret = syncop_lookup (from, loc, dict, &stbuf, &xattr_rsp, NULL);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "%s: lookup failed on %s (%s)",
                         loc->path, from->name, strerror (errno));
                 goto out;
         }
 
+        /* we no more require this key */
+        dict_del (dict, DHT_LINKFILE_KEY);
+
         /* preserve source mode, so set the same to the destination */
         src_ia_prot = stbuf.ia_prot;
 
         /* Check if file can be migrated */
-        ret = __is_file_migratable (this, loc, &stbuf);
+        ret = __is_file_migratable (this, loc, &stbuf, xattr_rsp, flag);
         if (ret)
                 goto out;
 
@@ -543,7 +673,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
 
         /* Should happen on all files when 'force' option is not given */
-        if (flag != DHT_MIGRATE_EVEN_IF_LINK_EXISTS) {
+        if (flag == GF_DHT_MIGRATE_DATA) {
                 ret = __dht_check_free_space (to, from, loc, &stbuf);
                 if (ret) {
                         goto out;
@@ -714,6 +844,8 @@ out:
 
         if (xattr)
                 dict_unref (xattr);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
 
         if (dst_fd)
                 syncop_close (dst_fd);
@@ -909,6 +1041,8 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         struct iatt              iatt           = {0,};
         int32_t                  op_errno       = 0;
 
+        gf_log (this->name, GF_LOG_INFO, "migate data called on %s",
+                loc->path);
         fd = fd_create (loc->inode, defrag->pid);
         if (!fd) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to create fd");
@@ -950,8 +1084,6 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 continue;
 
                         defrag->num_files_lookedup++;
-                        if (entry->d_stat.ia_nlink > 1)
-                                continue;
 
                         loc_wipe (&entry_loc);
                         ret =dht_build_child_loc (this, &entry_loc, loc,
@@ -1223,7 +1355,6 @@ gf_defrag_start_crawl (void *data)
         defrag = conf->defrag;
         if (!defrag)
                 goto out;
-
         dht_build_root_inode (this, &defrag->root_inode);
         if (!defrag->root_inode)
                 goto out;

@@ -284,6 +284,7 @@ dht_parse_decommissioned_bricks (xlator_t *this, dht_conf_t *conf,
         }
 
         ret = 0;
+        conf->decommission_in_progress = 1;
 out:
         if (dup_brick)
                 GF_FREE (dup_brick);

@@ -245,6 +245,7 @@ struct dht_conf {
 
         /* to keep track of nodes which are decomissioned */
         xlator_t     **decommissioned_bricks;
+        int            decommission_in_progress;
 
         /* defrag related */
         gf_defrag_info_t *defrag;
@@ -262,6 +263,12 @@ struct dht_disk_layout {
 };
 typedef struct dht_disk_layout dht_disk_layout_t;
 
+typedef enum {
+        GF_DHT_MIGRATE_DATA,
+        GF_DHT_MIGRATE_DATA_EVEN_IF_LINK_EXISTS,
+        GF_DHT_MIGRATE_HARDLINK,
+        GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS
+} gf_dht_migrate_data_type_t;
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
@@ -655,4 +662,10 @@ gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output);
 void*
 gf_defrag_start (void *this);
 
+int32_t
+gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
+                           struct iatt *stbuf);
+int
+dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
+                 int flag);
 #endif/* _DHT_H */

@@ -567,7 +567,8 @@ loc_copy (loc_t *dst, loc_t *src)
         if (src->parent)
                 dst->parent = inode_ref (src->parent);
 
-        dst->path = gf_strdup (src->path);
+        if (src->path)
+                dst->path = gf_strdup (src->path);
 
         if (!dst->path)
                 goto out;
