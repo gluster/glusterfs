@@ -2712,10 +2712,10 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
-
-                if (check_is_linkfile_wo_dict (NULL, (&orig_entry->d_stat))
-                    || (check_is_dir (NULL, (&orig_entry->d_stat), NULL)
-                        && (prev->this != dht_first_up_subvol (this)))) {
+                if ((check_is_dir (NULL, (&orig_entry->d_stat), NULL) &&
+                     (prev->this != dht_first_up_subvol (this))) ||
+                    check_is_linkfile (NULL, (&orig_entry->d_stat),
+                                       orig_entry->dict)) {
                         continue;
                 }
 
@@ -2896,7 +2896,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         int           op_errno = -1;
         xlator_t     *xvol = NULL;
         off_t         xoff = 0;
-
+        int           ret = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -2913,6 +2913,14 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->xattr_req = (dict)? dict_ref (dict) : NULL;
 
         dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
+
+        if (dict) {
+                ret = dict_set_uint32 (dict, "trusted.glusterfs.dht.linkto",
+                                       256);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to set 'glusterfs.dht.linkto' key");
+        }
 
         /* TODO: do proper readdir */
         if (whichop == GF_FOP_READDIR)
@@ -4014,7 +4022,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                         continue;
                 if (strcmp (trav->d_name, "..") == 0)
                         continue;
-                if (check_is_linkfile (NULL, (&trav->d_stat), NULL) == 1) {
+                if (check_is_linkfile (NULL, (&trav->d_stat), trav->dict)) {
                         ret++;
                         continue;
                 }
@@ -4132,7 +4140,8 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         int           this_call_cnt = -1;
         call_frame_t *prev = NULL;
-
+        dict_t       *dict = NULL;
+        int           ret = 0;
 
         local = frame->local;
         prev  = cookie;
@@ -4147,9 +4156,26 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
+        dict = dict_new ();
+        if (!dict) {
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                goto err;
+        }
+
+        ret = dict_set_uint32 (dict,
+                               "trusted.glusterfs.dht.linkto", 256);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to set 'trusted.glusterfs.dht.linkto' key",
+                        local->loc.path);
+
         STACK_WIND (frame, dht_rmdir_readdirp_cbk,
                     prev->this, prev->this->fops->readdirp,
-                    local->fd, 4096, 0, NULL);
+                    local->fd, 4096, 0, dict);
+
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 
