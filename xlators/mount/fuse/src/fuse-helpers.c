@@ -37,6 +37,9 @@ fuse_resolve_wipe (fuse_resolve_t *resolve)
         if (resolve->resolved)
                 GF_FREE ((void *)resolve->resolved);
 
+        if (resolve->fd)
+                fd_unref (resolve->fd);
+
         loc_wipe (&resolve->resolve_loc);
 
 	if (resolve->hint) {
