@@ -2145,7 +2145,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         data_t       *tmp      = NULL;
         uint32_t      dir_spread = 0;
         char          value[4096] = {0,};
-        int           forced_rebalance = 0;
+        gf_dht_migrate_data_type_t forced_rebalance = GF_DHT_MIGRATE_DATA;
         int           call_cnt = 0;
         data_pair_t  *trav     = NULL;
 
@@ -2214,7 +2214,11 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                    (ie, 'target' subvolume given there, etc) */
                 memcpy (value, tmp->data, tmp->len);
                 if (strcmp (value, "force") == 0)
-                        forced_rebalance = 1;
+                       forced_rebalance =
+                                GF_DHT_MIGRATE_DATA_EVEN_IF_LINK_EXISTS;
+
+                if (conf->decommission_in_progress)
+                        forced_rebalance = GF_DHT_MIGRATE_HARDLINK;
 
                 local->rebalance.target_node = dht_subvol_get_hashed (this, loc);
                 if (!local->rebalance.target_node) {
