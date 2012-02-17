@@ -287,10 +287,6 @@ typedef enum {
                  == DHT_LINKFILE_MODE) &&                               \
                 dict_get (x, DHT_LINKFILE_KEY))
 
-#define check_is_linkfile_wo_dict(i,s) (                                \
-                ((st_mode_from_ia ((s)->ia_prot, (s)->ia_type) & ~S_IFMT) \
-                 == DHT_LINKFILE_MODE))
-
 #define IS_DHT_MIGRATION_PHASE2(buf)  (                                 \
                 IA_ISREG ((buf)->ia_type) &&                            \
                 ((st_mode_from_ia ((buf)->ia_prot, (buf)->ia_type) &    \
