@@ -85,8 +85,8 @@ enum argp_option_keys {
 struct _gfd_vol_top_priv_t {
         rpcsvc_request_t        *req;
         gd1_mgmt_brick_op_req   xlator_req;
-        int32_t                 blk_count;
-        int32_t                 blk_size;
+        uint32_t                blk_count;
+        uint32_t                blk_size;
         double                  throughput;
         double                  time;
         int32_t                 ret;

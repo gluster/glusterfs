@@ -1692,8 +1692,8 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         int32_t  list_cnt       = -1;
         int      index          = 0;
         int      perf           = 0;
-        int32_t  blk_size       = 0;
-        int32_t  count          = 0;
+        uint32_t  blk_size      = 0;
+        uint32_t  count         = 0;
         char    *delimiter      = NULL;
         char    *opwords[]      = { "open", "read", "write", "opendir",
                                     "readdir", "read-perf", "write-perf",
@@ -1759,7 +1759,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                 }
                 if (!strcmp (key, "brick")) {
                         delimiter = strchr (value, ':');
-                        if (!delimiter || delimiter == value 
+                        if (!delimiter || delimiter == value
                             || *(delimiter+1) != '/') {
                                 cli_out ("wrong brick type: %s, use <HOSTNAME>:"
                                          "<export-dir-abs-path>", value);
@@ -1794,7 +1794,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 ret = -1;
                                 goto out;
                         }
-                        ret = dict_set_int32 (dict, "blk-size", blk_size);
+                        ret = dict_set_uint32 (dict, "blk-size", blk_size);
                 } else if (perf && !strcmp (key, "count")) {
                         ret = gf_is_str_int (value);
                         if (!ret)
@@ -1802,14 +1802,14 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         if (ret || (count <= 0)) {
                                 if (count < 0)
                                         cli_out ("count is an invalid number");
-                                else 
+                                else
                                         cli_out ("count should be an integer "
                                                  "greater than zero");
 
                                 ret = -1;
                                 goto out;
                         }
-                        ret = dict_set_int32 (dict, "blk-cnt", count);
+                        ret = dict_set_uint32 (dict, "blk-cnt", count);
                 } else {
                         ret = -1;
                         goto out;

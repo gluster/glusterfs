@@ -359,9 +359,9 @@ glusterfs_handle_translator_info_get (rpcsvc_request_t *req)
         gd1_mgmt_brick_op_req    xlator_req = {0,};
         dict_t                   *dict    = NULL;
         xlator_t                 *this = NULL;
-        gf1_cli_top_op            top_op = 0;
-        int32_t                  blk_size = 0;
-        int32_t                  blk_count = 0;
+        gf1_cli_top_op           top_op = 0;
+        uint32_t                 blk_size = 0;
+        uint32_t                 blk_count = 0;
         gfd_vol_top_priv_t       *priv = NULL;
         pthread_t                tid = -1;
 
@@ -398,10 +398,10 @@ glusterfs_handle_translator_info_get (rpcsvc_request_t *req)
         ret = dict_get_int32 (dict, "top-op", (int32_t *)&top_op);
         if ((!ret) && (GF_CLI_TOP_READ_PERF == top_op ||
             GF_CLI_TOP_WRITE_PERF == top_op)) {
-                ret = dict_get_int32 (dict, "blk-size", &blk_size);
+                ret = dict_get_uint32 (dict, "blk-size", &blk_size);
                 if (ret)
                         goto cont;
-                ret = dict_get_int32 (dict, "blk-cnt", &blk_count);
+                ret = dict_get_uint32 (dict, "blk-cnt", &blk_count);
                 if (ret)
                         goto cont;
                 priv->blk_size = blk_size;
@@ -441,11 +441,11 @@ glusterfs_volume_top_write_perf (void *args)
         int32_t                 input_fd = -1;
         char                    export_path[PATH_MAX];
         char                    *buf = NULL;
-        int32_t                 blk_size = 0;
-        int32_t                 blk_count = 0;
+        uint32_t                blk_size = 0;
+        uint32_t                blk_count = 0;
         int32_t                 iter = 0;
         int32_t                 ret = -1;
-        int64_t                 total_blks = 0;
+        uint64_t                total_blks = 0;
         struct timeval          begin, end = {0,};
         double                  throughput = 0;
         double                  time = 0;
@@ -495,7 +495,7 @@ glusterfs_volume_top_write_perf (void *args)
                 total_blks += ret;
         }
         ret = 0;
-        if (total_blks != (blk_size * blk_count)) {
+        if (total_blks != ((uint64_t)blk_size * blk_count)) {
                 gf_log ("glusterd", GF_LOG_WARNING, "Error in write");
                 ret = -1;
                 goto out;
@@ -533,11 +533,11 @@ glusterfs_volume_top_read_perf (void *args)
         int32_t                 output_fd = -1;
         char                    export_path[PATH_MAX];
         char                    *buf = NULL;
-        int32_t                 blk_size = 0;
-        int32_t                 blk_count = 0;
+        uint32_t                blk_size = 0;
+        uint32_t                blk_count = 0;
         int32_t                 iter = 0;
         int32_t                 ret = -1;
-        int64_t                 total_blks = 0;
+        uint64_t                total_blks = 0;
         struct timeval          begin, end = {0,};
         double                  throughput = 0;
         double                  time = 0;
@@ -619,9 +619,9 @@ glusterfs_volume_top_read_perf (void *args)
                 total_blks += ret;
         }
         ret = 0;
-        if ((blk_size * blk_count) != total_blks) {
+        if (total_blks != ((uint64_t)blk_size * blk_count)) {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_WARNING, "Error in write");
+                gf_log ("glusterd", GF_LOG_WARNING, "Error in read");
                 goto out;
         }
 
