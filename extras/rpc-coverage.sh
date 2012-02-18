@@ -398,8 +398,7 @@ function test_getxattr()
 function test_removexattr()
 {
     setfattr -x trusted.testing $PFX/dir/file || fail "setfattr remove"
-    getfattr -n trusted.testing $PFX/dir/file 2>&1 | grep -q 'No such attribute' \
-	|| fail "getfattr"
+    getfattr -n trusted.testing $PFXf/dir/file 2>&1 | grep -q "No such attribute"
 }
 
 
