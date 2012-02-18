@@ -105,6 +105,7 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
 	call_frame_t  *statfs_frame = NULL;
 	dht_local_t   *statfs_local = NULL;
 	call_pool_t   *pool         = NULL;
+	loc_t          tmp_loc      = {0,};
 
 	conf = this->private;
 	pool = this->ctx->pool;
@@ -121,9 +122,8 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
 		goto err;
 	}
 
-	loc_t tmp_loc = { .inode = NULL,
-			  .path = "/",
-	};
+        /* make it root gfid, should be enough to get the proper info back */
+        tmp_loc.gfid[15] = 1;
 
 	statfs_local->call_cnt = 1;
 	STACK_WIND (statfs_frame, dht_du_info_cbk,
@@ -142,15 +142,21 @@ err:
 int
 dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-	int            i = 0;
+	int            i            = 0;
 	dht_conf_t    *conf         = NULL;
 	call_frame_t  *statfs_frame = NULL;
 	dht_local_t   *statfs_local = NULL;
-	struct timeval tv = {0,};
+	struct timeval tv           = {0,};
+        loc_t          tmp_loc      = {0,};
 
 	conf  = this->private;
 
 	gettimeofday (&tv, NULL);
+
+        /* make it root gfid, should be enough to get the proper
+           info back */
+        tmp_loc.gfid[15] = 1;
+
 	if (tv.tv_sec > (conf->refresh_interval
 			 + conf->last_stat_fetch.tv_sec)) {
 
@@ -165,10 +171,6 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		if (!statfs_local) {
 			goto err;
 		}
-
-		loc_t tmp_loc = { .inode = NULL,
-				  .path = "/",
-		};
 
 		statfs_local->call_cnt = conf->subvolume_cnt;
 		for (i = 0; i < conf->subvolume_cnt; i++) {
