@@ -474,4 +474,59 @@ xdr_serialize_nfsstat3 (struct iovec outmsg, nfsstat3 *s)
                                           (xdrproc_t)xdr_nfsstat3);
 }
 
+ssize_t
+xdr_to_nlm4_testargs (struct iovec inmsg, nlm4_testargs *args)
+{
+        return xdr_to_generic (inmsg, (void*)args,
+                               (xdrproc_t)xdr_nlm4_testargs);
+}
+
+ssize_t
+xdr_serialize_nlm4_testres (struct iovec outmsg, nlm4_testres *res)
+{
+        return xdr_serialize_generic (outmsg, (void*)res,
+                                      (xdrproc_t)xdr_nlm4_testres);
+}
+
+ssize_t
+xdr_to_nlm4_lockargs (struct iovec inmsg, nlm4_lockargs *args)
+{
+        return xdr_to_generic (inmsg, (void*)args,
+                               (xdrproc_t)xdr_nlm4_lockargs);
+}
+
+ssize_t
+xdr_serialize_nlm4_res (struct iovec outmsg, nlm4_res *res)
+{
+        return xdr_serialize_generic (outmsg, (void*)res,
+                                      (xdrproc_t)xdr_nlm4_res);
+}
+
+ssize_t
+xdr_to_nlm4_cancelargs (struct iovec inmsg, nlm4_cancargs *args)
+{
+        return xdr_to_generic (inmsg, (void*)args,
+                               (xdrproc_t)xdr_nlm4_cancargs);
+}
+
+ssize_t
+xdr_to_nlm4_unlockargs (struct iovec inmsg, nlm4_unlockargs *args)
+{
+        return xdr_to_generic (inmsg, (void*)args,
+                               (xdrproc_t)xdr_nlm4_unlockargs);
+}
+
+ssize_t
+xdr_serialize_nlm4_testargs (struct iovec outmsg, nlm4_testargs *args)
+{
+        return xdr_serialize_generic (outmsg, (void*)args,
+                                      (xdrproc_t)xdr_nlm4_testargs);
+}
+
+ssize_t
+xdr_to_nlm4_res (struct iovec inmsg, nlm4_res *args)
+{
+        return xdr_to_generic (inmsg, (void*)args,
+                               (xdrproc_t)xdr_nlm4_res);
+}
 

@@ -284,6 +284,27 @@ unwind:
         return 0;
 }
 
+int
+pl_locks_by_fd (pl_inode_t *pl_inode, fd_t *fd)
+{
+       posix_lock_t *l = NULL;
+       int found = 0;
+
+       pthread_mutex_lock (&pl_inode->mutex);
+       {
+
+               list_for_each_entry (l, &pl_inode->ext_list, list) {
+                       if ((l->fd_num == fd_to_fdnum(fd))) {
+                               found = 1;
+                               break;
+                       }
+               }
+
+       }
+       pthread_mutex_unlock (&pl_inode->mutex);
+       return found;
+}
+
 static void
 delete_locks_of_fd (xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
 {
@@ -1219,6 +1240,12 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 unwind:
         pl_trace_out (this, frame, fd, NULL, cmd, flock, op_ret, op_errno, NULL);
         pl_update_refkeeper (this, fd->inode);
+
+        if (pl_locks_by_fd(pl_inode, fd))
+                flock->l_type = F_RDLCK;
+        else
+                flock->l_type = F_UNLCK;
+
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock);
 out:
         return 0;

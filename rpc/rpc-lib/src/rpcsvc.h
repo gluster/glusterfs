@@ -265,6 +265,7 @@ struct rpcsvc_request {
 #define rpcsvc_request_set_vecstate(req, state)  ((req)->vecstate = state)
 #define rpcsvc_request_vecstate(req) ((req)->vecstate)
 #define rpcsvc_request_transport(req) ((req)->trans)
+#define rpcsvc_request_transport_ref(req) (rpc_transport_ref((req)->trans))
 
 
 #define RPCSVC_ACTOR_SUCCESS    0

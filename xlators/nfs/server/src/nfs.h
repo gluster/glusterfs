@@ -28,6 +28,7 @@
 #include "rpcsvc.h"
 #include "dict.h"
 #include "xlator.h"
+#include "lkowner.h"
 
 #define GF_NFS                  "nfs"
 
@@ -69,6 +70,8 @@ struct nfs_state {
         rpcsvc_t                *rpcsvc;
         struct list_head        versions;
         struct mount3_state     *mstate;
+        struct nfs3_state       *nfs3state;
+        struct nlm4_state       *nlm4state;
         struct mem_pool         *foppool;
         unsigned int            memfactor;
         xlator_list_t           *subvols;
@@ -82,6 +85,7 @@ struct nfs_state {
         int                     enable_ino32;
         unsigned int            override_portnum;
         int                     allow_insecure;
+        struct rpc_clnt         *rpc_clnt;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)
@@ -102,6 +106,7 @@ typedef struct nfs_user_info {
         uid_t   uid;
         gid_t   gids[NFS_NGROUPS];
         int     ngrps;
+        gf_lkowner_t lk_owner;
 } nfs_user_t;
 
 extern int

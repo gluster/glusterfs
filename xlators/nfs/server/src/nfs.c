@@ -40,6 +40,7 @@
 #include "nfs3.h"
 #include "nfs-mem-types.h"
 #include "nfs3-helpers.h"
+#include "nlm4.h"
 
 /* Every NFS version must call this function with the init function
  * for its particular version.
@@ -166,6 +167,13 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         }
 
         ret = nfs_add_initer (&nfs->versions, nfs3svc_init);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
+                        " initializer");
+                goto ret;
+        }
+
+        ret = nfs_add_initer (&nfs->versions, nlm4svc_init);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
                         " initializer");
@@ -743,6 +751,13 @@ init (xlator_t *this) {
         ret = mount_init_state (this);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init Mount"
+                        "state");
+                goto err;
+        }
+
+        ret = nlm4_init_state (this);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NLM"
                         "state");
                 goto err;
         }

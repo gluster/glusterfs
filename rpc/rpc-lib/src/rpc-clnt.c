@@ -1056,6 +1056,8 @@ rpc_clnt_new (dict_t *options,
                 goto out;
         }
 
+        rpc->auth_null = dict_get_str_boolean (options, "auth-null", 0);
+
         rpc = rpc_clnt_ref (rpc);
         INIT_LIST_HEAD (&rpc->programs);
 
@@ -1136,19 +1138,26 @@ rpc_clnt_fill_request (int prognum, int progver, int procnum,
         request->rm_call.cb_vers = progver;
         request->rm_call.cb_proc = procnum;
 
-        /* TODO: Using AUTH_GLUSTERFS for time-being. Make it modular in
-         * future so it is easy to plug-in new authentication schemes.
+        /* TODO: Using AUTH_(GLUSTERFS/NULL) in a kludgy way for time-being.
+         * Make it modular in future so it is easy to plug-in new
+         * authentication schemes.
          */
-        ret = xdr_serialize_glusterfs_auth (auth_data, au);
-        if (ret == -1) {
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "cannot encode credentials");
-                goto out;
+        if (auth_data) {
+                ret = xdr_serialize_glusterfs_auth (auth_data, au);
+                if (ret == -1) {
+                        gf_log ("rpc-clnt", GF_LOG_DEBUG,
+                                "cannot encode credentials");
+                        goto out;
+                }
+
+                request->rm_call.cb_cred.oa_flavor = AUTH_GLUSTERFS_v2;
+                request->rm_call.cb_cred.oa_base   = auth_data;
+                request->rm_call.cb_cred.oa_length = ret;
+        } else {
+                request->rm_call.cb_cred.oa_flavor = AUTH_NULL;
+                request->rm_call.cb_cred.oa_base   = NULL;
+                request->rm_call.cb_cred.oa_length = 0;
         }
-
-        request->rm_call.cb_cred.oa_flavor = AUTH_GLUSTERFS_v2;
-        request->rm_call.cb_cred.oa_base   = auth_data;
-        request->rm_call.cb_cred.oa_length = ret;
-
         request->rm_call.cb_verf.oa_flavor = AUTH_NONE;
         request->rm_call.cb_verf.oa_base = NULL;
         request->rm_call.cb_verf.oa_length = 0;
@@ -1228,8 +1237,13 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         record = iobuf_ptr (request_iob);  /* Now we have it. */
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
-        ret = rpc_clnt_fill_request (prognum, progver, procnum, xid,
-                                     au, &request, auth_data);
+        if (clnt->auth_null)
+                ret = rpc_clnt_fill_request (prognum, progver, procnum,
+                                             xid, NULL, &request, NULL);
+        else
+                ret = rpc_clnt_fill_request (prognum, progver, procnum,
+                                             xid, au, &request, auth_data);
+
         if (ret == -1) {
                 gf_log (clnt->conn.trans->name, GF_LOG_WARNING,
                         "cannot build a rpc-request xid (%"PRIu64")", xid);

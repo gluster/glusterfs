@@ -489,7 +489,7 @@ fd_bind (fd_t *fd)
 
 
 static fd_t *
-__fd_create (inode_t *inode, pid_t pid)
+__fd_create (inode_t *inode, uint64_t pid)
 {
         fd_t *fd = NULL;
 
@@ -535,6 +535,21 @@ fd_create (inode_t *inode, pid_t pid)
 {
         fd_t *fd = NULL;
 
+        fd = __fd_create (inode, (uint64_t)pid);
+        if (!fd)
+                goto out;
+
+        fd = fd_ref (fd);
+
+out:
+        return fd;
+}
+
+fd_t *
+fd_create_uint64 (inode_t *inode, uint64_t pid)
+{
+        fd_t *fd = NULL;
+
         fd = __fd_create (inode, pid);
         if (!fd)
                 goto out;
@@ -547,7 +562,7 @@ out:
 
 
 static fd_t *
-__fd_lookup (inode_t *inode, pid_t pid)
+__fd_lookup (inode_t *inode, uint64_t pid)
 {
         fd_t *iter_fd = NULL;
         fd_t *fd = NULL;
@@ -579,6 +594,25 @@ fd_lookup (inode_t *inode, pid_t pid)
 
         LOCK (&inode->lock);
         {
+                fd = __fd_lookup (inode, (uint64_t)pid);
+        }
+        UNLOCK (&inode->lock);
+
+        return fd;
+}
+
+fd_t *
+fd_lookup_uint64 (inode_t *inode, uint64_t pid)
+{
+        fd_t *fd = NULL;
+
+        if (!inode) {
+                gf_log_callingfn ("fd", GF_LOG_WARNING, "!inode");
+                return NULL;
+        }
+
+        LOCK (&inode->lock);
+        {
                 fd = __fd_lookup (inode, pid);
         }
         UNLOCK (&inode->lock);
@@ -587,16 +621,15 @@ fd_lookup (inode_t *inode, pid_t pid)
 }
 
 
-
 fd_t *
 __fd_anonymous (inode_t *inode)
 {
         fd_t *fd = NULL;
 
-        fd = __fd_lookup (inode, -1);
+        fd = __fd_lookup (inode, (uint64_t)-1);
 
         if (!fd) {
-                fd = __fd_create (inode, -1);
+                fd = __fd_create (inode, (uint64_t)-1);
 
                 if (!fd)
                         return NULL;
@@ -806,7 +839,7 @@ fd_dump (fd_t *fd, char *prefix)
                 return;
 
         memset(key, 0, sizeof(key));
-        gf_proc_dump_write("pid", "%d", fd->pid);
+        gf_proc_dump_write("pid", "%llu", fd->pid);
         gf_proc_dump_write("refcount", "%d", fd->refcount);
         gf_proc_dump_write("flags", "%d", fd->flags);
 }
