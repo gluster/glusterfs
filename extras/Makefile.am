@@ -3,7 +3,7 @@ docdir = $(datadir)/doc/glusterfs/
 EditorModedir = $(docdir)/
 EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
-SUBDIRS = init.d benchmarking hook-scripts
+SUBDIRS = init.d benchmarking hook-scripts ocf
 
 confdir = $(sysconfdir)/glusterfs
 conf_DATA = glusterfs-logrotate
