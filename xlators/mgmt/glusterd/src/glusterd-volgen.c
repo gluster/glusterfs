@@ -174,6 +174,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.client-io-threads",        "performance/io-threads",    "!perf", "off", NO_DOC, 0},
         {VKEY_MARKER_XTIME,                      "features/marker",           "xtime", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_MARKER_XTIME,                      "features/marker",           "!xtime", "off", NO_DOC, OPT_FLAG_FORCE},
+        {"debug.trace",                          "debug/trace",               "!debug","off", NO_DOC, 0},
+        {"debug.error-gen",                      "debug/error-gen",           "!debug","off", NO_DOC, 0},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC, 0},
         {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC, 0},
@@ -749,6 +751,42 @@ optget_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                 vme2->value = vme->value;
 
         return 0;
+}
+
+int
+check_and_add_debug_xl (volgen_graph_t *graph, dict_t *set_dict, char *volname,
+                        char *xlname)
+{
+        int       ret       = 0;
+        xlator_t *xl        = NULL;
+        char     *value_str = NULL;
+
+        ret = dict_get_str (set_dict, "debug.trace", &value_str);
+        if (!ret) {
+                if (strcmp (xlname, value_str) == 0) {
+                        xl = volgen_graph_add (graph, "debug/trace", volname);
+                        if (!xl) {
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        }
+
+        ret = dict_get_str (set_dict, "debug.error-gen", &value_str);
+        if (!ret) {
+                if (strcmp (xlname, value_str) == 0) {
+                        xl = volgen_graph_add (graph, "debug/error-gen", volname);
+                        if (!xl) {
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
 }
 
 /* This getter considers defaults also. */
@@ -1542,16 +1580,32 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
+        ret = check_and_add_debug_xl (graph, set_dict, volname, "posix");
+        if (ret)
+                return -1;
+
         xl = volgen_graph_add (graph, "features/access-control", volname);
         if (!xl)
+                return -1;
+
+        ret = check_and_add_debug_xl (graph, set_dict, volname, "acl");
+        if (ret)
                 return -1;
 
         xl = volgen_graph_add (graph, "features/locks", volname);
         if (!xl)
                 return -1;
 
+        ret = check_and_add_debug_xl (graph, set_dict, volname, "locks");
+        if (ret)
+                return -1;
+
         xl = volgen_graph_add (graph, "performance/io-threads", volname);
         if (!xl)
+                return -1;
+
+        ret = check_and_add_debug_xl (graph, set_dict, volname, "io-threads");
+        if (ret)
                 return -1;
 
         ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
@@ -1601,12 +1655,17 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         xl = volgen_graph_add (graph, "features/marker", volname);
         if (!xl)
                 return -1;
+
         uuid_unparse (volinfo->volume_id, volume_id);
         ret = xlator_set_option (xl, "volume-uuid", volume_id);
         if (ret)
                 return -1;
         get_vol_tstamp_file (tstamp_file, volinfo);
         ret = xlator_set_option (xl, "timestamp-file", tstamp_file);
+        if (ret)
+                return -1;
+
+        ret = check_and_add_debug_xl (graph, set_dict, volname, "marker");
         if (ret)
                 return -1;
 
@@ -2081,6 +2140,7 @@ volgen_graph_build_clusters (volgen_graph_t *graph,
 
                 if (trav == txl)
                         break;
+
                 i++;
         }
 
@@ -3247,8 +3307,8 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
         }
 
         ret = 0;
-out:
 
+out:
         return ret;
 }
 
@@ -3292,10 +3352,9 @@ glusterd_validate_globalopts (glusterd_volinfo_t *volinfo,
 
         ret = validate_nfsopts (volinfo, val_dict, op_errstr);
 
-
 out:
-                gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-                return ret;
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
 }
 
 static void
@@ -3340,6 +3399,6 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
 
 
 out:
-                gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-                return ret;
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
 }
