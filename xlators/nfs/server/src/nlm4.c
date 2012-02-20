@@ -925,13 +925,11 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
         nlm4_testargs testargs;
         struct iobuf *iobuf = NULL;
         struct iobref *iobref = NULL;
-        struct nfs_state *nfs = NULL;
         char peerip[INET6_ADDRSTRLEN+1];
         pthread_t thr;
         struct sockaddr_storage sa;
         struct sockaddr *sockaddr = NULL;
 
-        nfs = cs->nfsx->private;
 
         rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sa, sizeof (sa));
         sockaddr = (struct sockaddr*) &sa;
@@ -1202,7 +1200,6 @@ nlm4_lock_fd_resume (void *carg)
         nfs_user_t                      nfu = {0, };
         nfs3_call_state_t               *cs = NULL;
         struct gf_flock                 flock = {0, };
-        nlm_client_t                    *nlmclnt = NULL;
 
         if (!carg)
                 return ret;
@@ -1210,8 +1207,8 @@ nlm4_lock_fd_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
 
-        nlmclnt = nlm_search_and_add (cs->fd,
-                                      cs->args.nlm4_lockargs.alock.caller_name);
+        (void) nlm_search_and_add (cs->fd,
+                                   cs->args.nlm4_lockargs.alock.caller_name);
         nfs_request_user_init (&nfu, cs->req);
         nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_lockargs.alock,
                                cs->args.nlm4_lockargs.exclusive);
