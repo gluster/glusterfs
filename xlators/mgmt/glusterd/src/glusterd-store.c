@@ -96,7 +96,7 @@ glusterd_store_mkstemp (glusterd_store_handle_t *shandle)
         GF_ASSERT (shandle->path);
 
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
-        fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC, 0644);
+        fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC, 0600);
         if (fd <= 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Failed to open %s, "
                         "error: %s", tmppath, strerror (errno));
@@ -628,6 +628,16 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         snprintf (buf, sizeof (buf), "%d", volinfo->defrag_cmd);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG,
                                         buf);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_USERNAME,
+                                         glusterd_auth_get_username (volinfo));
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_PASSWORD,
+                                         glusterd_auth_get_password (volinfo));
         if (ret)
                 goto out;
 
@@ -1174,7 +1184,7 @@ glusterd_store_handle_new (char *path, glusterd_store_handle_t **handle)
         if (!spath)
                 goto out;
 
-        fd = open (path, O_RDWR | O_CREAT | O_APPEND, 0644);
+        fd = open (path, O_RDWR | O_CREAT | O_APPEND, 0600);
         if (fd <= 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Failed to open file: %s, "
                         "error: %s", path, strerror (errno));
@@ -1269,7 +1279,7 @@ glusterd_store_uuid ()
                 handle = priv->handle;
         }
 
-        handle->fd = open (handle->path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+        handle->fd = open (handle->path, O_RDWR | O_CREAT | O_TRUNC, 0600);
         if (handle->fd <= 0) {
                 ret = -1;
                 goto out;
@@ -1858,6 +1868,16 @@ glusterd_store_retrieve_volume (char    *volname)
                         if (ret)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
+
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_USERNAME,
+                                     strlen (GLUSTERD_STORE_KEY_USERNAME))) {
+
+                        glusterd_auth_set_username (volinfo, value);
+
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_PASSWORD,
+                                     strlen (GLUSTERD_STORE_KEY_PASSWORD))) {
+
+                        glusterd_auth_set_password (volinfo, value);
 
                 } else if (strstr (key, "slave")) {
                         ret = dict_set_dynstr (volinfo->gsync_slaves, key,

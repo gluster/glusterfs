@@ -918,39 +918,38 @@ glusterd_op_set_volume (dict_t *dict)
 
         ret = dict_get_int32 (dict, "count", &dict_count);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
+                gf_log (this->name, GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
                 goto out;
         }
 
-        if ( dict_count == 0 ) {
+        if (dict_count == 0) {
                 ret = glusterd_volset_help (dict);
                 if (ret)
-                        gf_log ("glusterd", GF_LOG_ERROR, "Volume set help"
-                                                        "internal error");
+                        gf_log (this->name, GF_LOG_ERROR, "Volume set"
+                                " help internal error");
                 goto out;
         }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
         }
 
-        for ( count = 1; ret != -1 ; count++ ) {
+        for (count = 1; ret != -1 ; count++) {
 
                 global_opt = _gf_false;
                 sprintf (str, "key%d", count);
                 ret = dict_get_str (dict, str, &key);
 
-                if (ret) {
+                if (ret)
                         break;
-                }
 
                 if (!ret) {
                         ret = glusterd_check_option_exists (key, &key_fixed);
@@ -969,7 +968,7 @@ glusterd_op_set_volume (dict_t *dict)
                 sprintf (str, "value%d", count);
                 ret = dict_get_str (dict, str, &value);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "invalid key,value pair in 'volume set'");
                         ret = -1;
                         goto out;
@@ -979,7 +978,7 @@ glusterd_op_set_volume (dict_t *dict)
                         value = gf_strdup (value);
 
                 if (!value) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to set the options in 'volume set'");
                         ret = -1;
                         goto out;
@@ -995,8 +994,7 @@ glusterd_op_set_volume (dict_t *dict)
                                if (ret)
                                        goto out;
                        }
-                }
-                else {
+                } else {
                         ret = dict_set_dynstr (volinfo->dict, key, value);
                         if (ret)
                                 goto out;
@@ -1004,13 +1002,12 @@ glusterd_op_set_volume (dict_t *dict)
 
                 if (key_fixed) {
                         GF_FREE (key_fixed);
-
                         key_fixed = NULL;
                 }
         }
 
         if ( count == 1 ) {
-                gf_log ("", GF_LOG_ERROR, "No options received ");
+                gf_log (this->name, GF_LOG_ERROR, "No options received ");
                 ret = -1;
                 goto out;
         }
@@ -1018,7 +1015,8 @@ glusterd_op_set_volume (dict_t *dict)
         if (!global_opt) {
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to create volfile for"
                                 " 'volume set'");
                         ret = -1;
                         goto out;
@@ -1031,19 +1029,19 @@ glusterd_op_set_volume (dict_t *dict)
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                         ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
                         if (ret) {
-                                gf_log ("", GF_LOG_WARNING,
+                                gf_log (this->name, GF_LOG_WARNING,
                                          "Unable to restart NFS-Server");
                                 goto out;
                         }
                 }
 
-        }
-        else {
+        } else {
                 list_for_each_entry (voliter, &priv->volumes, vol_list) {
                         volinfo = voliter;
                         ret = glusterd_create_volfiles_and_notify_services (volinfo);
                         if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to create volfile for"
                                         " 'volume set'");
                                 ret = -1;
                                 goto out;
@@ -1057,7 +1055,7 @@ glusterd_op_set_volume (dict_t *dict)
                         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                                 ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
                                 if (ret) {
-                                        gf_log ("", GF_LOG_WARNING,
+                                        gf_log (this->name, GF_LOG_WARNING,
                                                 "Unable to restart NFS-Server");
                                         goto out;
                                 }
@@ -1069,7 +1067,7 @@ glusterd_op_set_volume (dict_t *dict)
  out:
         if (key_fixed)
                 GF_FREE (key_fixed);
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 

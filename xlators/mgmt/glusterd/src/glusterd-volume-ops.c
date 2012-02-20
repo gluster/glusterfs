@@ -46,9 +46,9 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         char                   *brick       = NULL;
         char                   *bricks      = NULL;
         char                   *volname     = NULL;
-        int                    brick_count = 0;
+        int                    brick_count  = 0;
         char                   *tmpptr      = NULL;
-        int                    i           = 0;
+        int                    i            = 0;
         char                   *brick_list  = NULL;
         void                   *cli_rsp     = NULL;
         char                    err_str[2048] = {0,};
@@ -57,9 +57,12 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         char                   *free_ptr    = NULL;
         char                   *trans_type  = NULL;
         uuid_t                  volume_id   = {0,};
+        uuid_t                  tmp_uuid    = {0};
         glusterd_brickinfo_t    *tmpbrkinfo = NULL;
-        glusterd_volinfo_t      tmpvolinfo = {{0},};
-        int32_t                 type       = 0;
+        glusterd_volinfo_t      tmpvolinfo  = {{0},};
+        int32_t                 type        = 0;
+        char                   *username    = NULL;
+        char                   *password    = NULL;
 
         GF_ASSERT (req);
 
@@ -196,6 +199,20 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
                 brickinfo = NULL;
         }
+
+        /* generate internal username and password */
+
+        uuid_generate (tmp_uuid);
+        username = gf_strdup (uuid_utoa (tmp_uuid));
+        ret = dict_set_dynstr (dict, "internal-username", username);
+        if (ret)
+                goto out;
+
+        uuid_generate (tmp_uuid);
+        password = gf_strdup (uuid_utoa (tmp_uuid));
+        ret = dict_set_dynstr (dict, "internal-password", password);
+        if (ret)
+                goto out;
 
         ret = glusterd_op_begin (req, GD_OP_CREATE_VOLUME, dict);
         gf_cmd_log ("Volume create", "on volname: %s %s", volname,
@@ -1184,6 +1201,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         char                 *saveptr    = NULL;
         char                 *trans_type = NULL;
         char                 *str        = NULL;
+        char                 *username   = NULL;
+        char                 *password   = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1194,14 +1213,16 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         ret = glusterd_volinfo_new (&volinfo);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to allocate memory");
                 goto out;
         }
 
         ret = dict_get_str (dict, "volname", &volname);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to get volume name");
                 goto out;
         }
 
@@ -1210,19 +1231,19 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_int32 (dict, "type", &volinfo->type);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get type");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get type");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "count", &volinfo->brick_count);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get count");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "port", &volinfo->port);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get port");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get port");
                 goto out;
         }
 
@@ -1230,7 +1251,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "bricks", &bricks);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get bricks");
                 goto out;
         }
 
@@ -1272,20 +1293,39 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "transport", &trans_type);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get transport");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to get transport");
                 goto out;
         }
 
         ret = dict_get_str (dict, "volume-id", &str);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume-id");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to get volume-id");
                 goto out;
         }
         ret = uuid_parse (str, volinfo->volume_id);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "unable to parse uuid %s", str);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unable to parse uuid %s", str);
                 goto out;
         }
+
+        ret = dict_get_str (dict, "internal-username", &username);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unable to get internal username");
+                goto out;
+        }
+        glusterd_auth_set_username (volinfo, username);
+
+        ret = dict_get_str (dict, "internal-password", &password);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unable to get internal password");
+                goto out;
+        }
+        glusterd_auth_set_password (volinfo, password);
 
         if (strcasecmp (trans_type, "rdma") == 0) {
                 volinfo->transport_type = GF_TRANSPORT_RDMA;

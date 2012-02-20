@@ -194,11 +194,13 @@ glusterd_is_local_addr (char *hostname)
         int32_t         found = 0;
         int             sd = -1;
         char            *ip = NULL;
+        xlator_t        *this = NULL;
 
+        this = THIS;
         ret = getaddrinfo (hostname, NULL, NULL, &result);
 
         if (ret != 0) {
-                gf_log ("", GF_LOG_ERROR, "error in getaddrinfo: %s\n",
+                gf_log (this->name, GF_LOG_ERROR, "error in getaddrinfo: %s\n",
                         gai_strerror(ret));
                 goto out;
         }
@@ -210,7 +212,8 @@ glusterd_is_local_addr (char *hostname)
         }
 
         for (res = result; res != NULL; res = res->ai_next) {
-                gf_log ("glusterd", GF_LOG_DEBUG, "%s ", get_ip_from_addrinfo (res, &ip));
+                gf_log (this->name, GF_LOG_DEBUG, "%s ",
+                        get_ip_from_addrinfo (res, &ip));
                 sd = socket (res->ai_family, SOCK_DGRAM, 0);
                 if (sd == -1)
                         goto out;
@@ -218,7 +221,8 @@ glusterd_is_local_addr (char *hostname)
                 ret = bind (sd, res->ai_addr, res->ai_addrlen);
                 if (ret == 0) {
                         found = _gf_true;
-                        gf_log ("glusterd", GF_LOG_INFO, "%s is local", get_ip_from_addrinfo (res, &ip));
+                        gf_log (this->name, GF_LOG_DEBUG, "%s is local",
+                                get_ip_from_addrinfo (res, &ip));
                         close (sd);
                         break;
                 }
@@ -229,10 +233,8 @@ out:
         if (result)
                 freeaddrinfo (result);
 
-        if (found)
-                gf_log ("glusterd", GF_LOG_DEBUG, "%s is local", hostname);
-        else
-                gf_log ("glusterd", GF_LOG_DEBUG, "%s is not local", hostname);
+        if (!found)
+                gf_log (this->name, GF_LOG_DEBUG, "%s is not local", hostname);
 
         return !found;
 }
@@ -566,6 +568,56 @@ out:
         return ret;
 }
 
+void
+glusterd_auth_cleanup (glusterd_volinfo_t *volinfo) {
+
+        GF_ASSERT (volinfo);
+
+        if (volinfo->auth.username)
+                GF_FREE (volinfo->auth.username);
+
+        if (volinfo->auth.password)
+                GF_FREE (volinfo->auth.password);
+}
+
+char *
+glusterd_auth_get_username (glusterd_volinfo_t *volinfo) {
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (volinfo->auth.username);
+
+        return volinfo->auth.username;
+}
+
+char *
+glusterd_auth_get_password (glusterd_volinfo_t *volinfo) {
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (volinfo->auth.password);
+
+        return volinfo->auth.password;
+}
+
+int32_t
+glusterd_auth_set_username (glusterd_volinfo_t *volinfo, char *username) {
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (username);
+
+        volinfo->auth.username = gf_strdup (username);
+        return 0;
+}
+
+int32_t
+glusterd_auth_set_password (glusterd_volinfo_t *volinfo, char *password) {
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (password);
+
+        volinfo->auth.password = gf_strdup (password);
+        return 0;
+}
+
 int32_t
 glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo)
 {
@@ -623,6 +675,8 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
                 dict_unref (volinfo->gsync_slaves);
         if (volinfo->logdir)
                 GF_FREE (volinfo->logdir);
+
+        glusterd_auth_cleanup (volinfo);
 
         GF_FREE (volinfo);
         ret = 0;
@@ -1328,7 +1382,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         snprintf (cksum_path, sizeof (cksum_path), "%s/%s",
                   path, GLUSTERD_CKSUM_FILE);
 
-        fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0644);
+        fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0600);
 
         if (-1 == fd) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Unable to open %s, errno: %d",
@@ -1432,6 +1486,7 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         char                    *volume_id_str  = NULL;
         char                    *src_brick      = NULL;
         char                    *dst_brick      = NULL;
+        char                    *str            = NULL;
         glusterd_voldict_ctx_t   ctx            = {0};
 
         GF_ASSERT (dict);
@@ -1509,6 +1564,28 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.volume_id", count);
         ret = dict_set_dynstr (dict, key, volume_id_str);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.username", count);
+        str = glusterd_auth_get_username (volinfo);
+        if (!str) {
+                ret = -1;
+                goto out;
+        }
+        ret = dict_set_dynstr (dict, key, gf_strdup (str));
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.password", count);
+        str = glusterd_auth_get_password (volinfo);
+        if (!str) {
+                ret = -1;
+                goto out;
+        }
+        ret = dict_set_dynstr (dict, key, gf_strdup (str));
         if (ret)
                 goto out;
 
@@ -1899,6 +1976,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
         char               msg[2048]         = {0};
         char               *src_brick        = NULL;
         char               *dst_brick        = NULL;
+        char               *str              = NULL;
         int                rb_status         = 0;
 
         GF_ASSERT (vols);
@@ -2006,6 +2084,32 @@ glusterd_import_volinfo (dict_t *vols, int count,
                           key, volname);
                 goto out;
         }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.username", count);
+        ret = dict_get_str (vols, key, &str);
+        if (ret) {
+                snprintf (msg, sizeof (msg),
+                          "%s missing in payload for %s",
+                          key, volname);
+                goto out;
+        }
+        ret = glusterd_auth_set_username (new_volinfo, str);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.password", count);
+        ret = dict_get_str (vols, key, &str);
+        if (ret) {
+                snprintf (msg, sizeof (msg),
+                          "%s missing in payload for %s",
+                          key, volname);
+                goto out;
+        }
+        ret = glusterd_auth_set_password (new_volinfo, str);
+        if (ret)
+                goto out;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.transport_type", count);
@@ -2524,16 +2628,16 @@ out:
 int32_t
 glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
 {
-        int32_t                 ret = -1;
-        xlator_t                *this = NULL;
-        glusterd_conf_t         *priv = NULL;
-        runner_t                runner = {0,};
-        char                    pidfile[PATH_MAX] = {0,};
-        char                    logfile[PATH_MAX] = {0,};
-        char                    volfile[PATH_MAX] = {0,};
-        char                    rundir[PATH_MAX] = {0,};
-        char                    shd_sockfpath[PATH_MAX] = {0,};
-        char                    volfileid[256]   = {0};
+        int32_t                 ret                        = -1;
+        xlator_t               *this                       = NULL;
+        glusterd_conf_t        *priv                       = NULL;
+        runner_t                runner                     = {0,};
+        char                    pidfile[PATH_MAX]          = {0,};
+        char                    logfile[PATH_MAX]          = {0,};
+        char                    volfile[PATH_MAX]          = {0,};
+        char                    rundir[PATH_MAX]           = {0,};
+        char                    shd_sockfpath[PATH_MAX]    = {0,};
+        char                    volfileid[256]             = {0};
 #ifdef DEBUG
         char                    valgrind_logfile[PATH_MAX] = {0};
 #endif
@@ -2544,7 +2648,7 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
         priv = this->private;
 
         glusterd_get_nodesvc_rundir (server, priv->workdir,
-                                           rundir, sizeof (rundir));
+                                     rundir, sizeof (rundir));
         ret = mkdir (rundir, 0777);
 
         if ((ret == -1) && (EEXIST != errno)) {
@@ -2554,9 +2658,9 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
         }
 
         glusterd_get_nodesvc_pidfile (server, priv->workdir,
-                                            pidfile, sizeof (pidfile));
+                                      pidfile, sizeof (pidfile));
         glusterd_get_nodesvc_volfile (server, priv->workdir,
-                                            volfile, sizeof (volfile));
+                                      volfile, sizeof (volfile));
         ret = access (volfile, F_OK);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "%s Volfile %s is not present",
@@ -2592,17 +2696,21 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
 #endif
 
         if (pmap_signin) {
-                runner_add_args (&runner, SBIN_DIR"/glusterfs", "-s",
-                                 "localhost", "--volfile-id", volfileid,
-                                 "-p", pidfile, "-l", logfile,
+                runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                                 "-s", "localhost",
+                                 "--volfile-id", volfileid,
+                                 "-p", pidfile,
+                                 "-l", logfile,
                                  "-S", shd_sockfpath, NULL);
         } else {
-                runner_add_args (&runner, SBIN_DIR"/glusterfs", "-f", volfile,
-                                 "-p", pidfile, "-l", logfile, NULL);
+                runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                                 "-f", volfile,
+                                 "-p", pidfile,
+                                 "-l", logfile, NULL);
         }
 
-        runner_log (&runner, "", GF_LOG_DEBUG, "Starting the nfs/glustershd "
-                    "services");
+        runner_log (&runner, "", GF_LOG_DEBUG,
+                    "Starting the nfs/glustershd services");
 
         ret = runner_run (&runner);
         if (ret == 0) {
@@ -2816,8 +2924,8 @@ int
 glusterd_nodesvcs_start (glusterd_volinfo_t *volinfo)
 {
         return glusterd_nodesvcs_batch_op (volinfo,
-                                            glusterd_nfs_server_start,
-                                            glusterd_shd_start);
+                                           glusterd_nfs_server_start,
+                                           glusterd_shd_start);
 }
 
 int
@@ -3603,12 +3711,15 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         struct sockaddr_in      *s4 = NULL;
         struct in_addr          *in_addr = NULL;
         char                    hname[1024] = {0,};
+        xlator_t                *this  = NULL;
 
+
+        this = THIS;
         GF_ASSERT (hoststr);
         GF_ASSERT (peerinfo);
 
         *peerinfo = NULL;
-        priv    = THIS->private;
+        priv    = this->private;
 
         GF_ASSERT (priv);
 
@@ -3616,7 +3727,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                 if (!strncasecmp (entry->hostname, hoststr,
                                   1024)) {
 
-                        gf_log ("glusterd", GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                  "Friend %s found.. state: %d", hoststr,
                                   entry->state.state);
                         *peerinfo = entry;
@@ -3624,9 +3735,10 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                 }
         }
 
-        ret = getaddrinfo(hoststr, NULL, NULL, &addr);
+        ret = getaddrinfo (hoststr, NULL, NULL, &addr);
         if (ret != 0) {
-                gf_log ("", GF_LOG_ERROR, "error in getaddrinfo: %s\n",
+                gf_log (this->name, GF_LOG_ERROR,
+                        "error in getaddrinfo: %s\n",
                         gai_strerror(ret));
                 goto out;
         }
@@ -3655,7 +3767,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                         if (!strncasecmp (entry->hostname, host,
                             1024) || !strncasecmp (entry->hostname,hname,
                             1024)) {
-                                gf_log ("glusterd", GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "Friend %s found.. state: %d",
                                         hoststr, entry->state.state);
                                 *peerinfo = entry;
@@ -3666,7 +3778,7 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         }
 
 out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Unable to find friend: %s", hoststr);
+        gf_log (this->name, GF_LOG_DEBUG, "Unable to find friend: %s", hoststr);
         if (addr)
                 freeaddrinfo (addr);
         return -1;
@@ -4824,6 +4936,29 @@ glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
                           path, volinfo->volname);
         else
                 snprintf (filepath, PATH_MAX, "%s/%s-fuse.vol",
+                          path, volinfo->volname);
+}
+
+void
+glusterd_get_trusted_client_filepath (char *filepath,
+                                      glusterd_volinfo_t *volinfo,
+                                      gf_transport_type type)
+{
+        char  path[PATH_MAX] = {0,};
+        glusterd_conf_t *priv = NULL;
+
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+
+        if ((volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) &&
+            (type == GF_TRANSPORT_RDMA))
+                snprintf (filepath, PATH_MAX,
+                          "%s/trusted-%s.rdma-fuse.vol",
+                          path, volinfo->volname);
+        else
+                snprintf (filepath, PATH_MAX,
+                          "%s/trusted-%s-fuse.vol",
                           path, volinfo->volname);
 }
 

@@ -243,7 +243,7 @@ out:
         return ret;
 }
 
-/* defined in usterd-utils.c -- no
+/* defined in glusterd-utils.c -- no
  * glusterd header where it would be
  * appropriate to put to, and too
  * accidental routine to place in

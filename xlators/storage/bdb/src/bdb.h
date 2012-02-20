@@ -192,7 +192,7 @@
 
 /* file permissions, again macros are more readable */
 #define RWXRWXRWX         0777
-#define DEFAULT_FILE_MODE 0644
+#define DEFAULT_FILE_MODE 0600
 #define DEFAULT_DIR_MODE  0755
 
 /* see, if have a valid file permissions specification in @mode */

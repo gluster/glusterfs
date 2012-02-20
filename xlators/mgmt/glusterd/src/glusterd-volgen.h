@@ -36,6 +36,11 @@
 #define VKEY_FEATURES_QUOTA       "features.quota"
 #define VKEY_PERF_STAT_PREFETCH   "performance.stat-prefetch"
 
+typedef enum {
+        GF_CLIENT_TRUSTED,
+        GF_CLIENT_OTHER
+} glusterd_client_type_t;
+
 #define COMPLETE_OPTION(key, completion, ret)                           \
         do {                                                            \
                 if (!strchr (key, '.')) {                               \

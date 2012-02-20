@@ -37,7 +37,7 @@
 #define NFS_PATH_MAX    4096
 #define NFS_NAME_MAX    NAME_MAX
 
-#define NFS_DEFAULT_CREATE_MODE 0644
+#define NFS_DEFAULT_CREATE_MODE 0600
 
 extern xlator_t *
 nfs_xlid_to_xlator (xlator_list_t *cl, uint8_t xlid);
