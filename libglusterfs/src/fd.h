@@ -52,7 +52,7 @@ struct _fd_ctx {
  * See the comment there to know why.
  */
 struct _fd {
-        pid_t             pid;
+        uint64_t             pid;
 	int32_t           flags;
         int32_t           refcount;
         struct list_head  inode_list;
@@ -130,10 +130,14 @@ fd_unref (fd_t *fd);
 fd_t *
 fd_create (struct _inode *inode, pid_t pid);
 
+fd_t *
+fd_create_uint64 (struct _inode *inode, uint64_t pid);
 
 fd_t *
 fd_lookup (struct _inode *inode, pid_t pid);
 
+fd_t *
+fd_lookup_uint64 (struct _inode *inode, uint64_t pid);
 
 fd_t *
 fd_anonymous (inode_t *inode);

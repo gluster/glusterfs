@@ -151,7 +151,6 @@ nfs_truncate (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         return ret;
 }
 
-
 int
 nfs_read (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd, size_t size,
           off_t offset, fop_readv_cbk_t cbk, void *local)
@@ -159,6 +158,12 @@ nfs_read (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd, size_t size,
         return nfs_fop_read (nfsx, xl, nfu, fd, size, offset, cbk, local);
 }
 
+int
+nfs_lk (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+        int cmd, struct gf_flock *flock, fop_lk_cbk_t cbk, void *local)
+{
+        return nfs_fop_lk ( nfsx, xl, nfu, fd, cmd, flock, cbk, local);
+}
 
 int
 nfs_fsync (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
@@ -330,3 +335,4 @@ nfs_opendir (xlator_t *nfsx, xlator_t *fopxl, nfs_user_t *nfu, loc_t *pathloc,
 
         return nfs_inode_opendir (nfsx, fopxl, nfu, pathloc, cbk, local);
 }
+

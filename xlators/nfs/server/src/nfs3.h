@@ -34,6 +34,7 @@
 #include "nfs-common.h"
 #include "xdr-nfs3.h"
 #include "mem-pool.h"
+#include "nlm4.h"
 
 #include <sys/statvfs.h>
 
@@ -94,7 +95,7 @@ struct nfs3_export {
 #define GF_NFS3_DEFAULT_VOLACCESS       (GF_NFS3_VOLACCESS_RW)
 
 /* The NFSv3 protocol state */
-struct nfs3_state {
+typedef struct nfs3_state {
 
         /* The NFS xlator pointer. The NFS xlator can be running
          * multiple versions of the NFS protocol.
@@ -133,12 +134,29 @@ struct nfs3_state {
         struct list_head        fdlru;
         gf_lock_t               fdlrulock;
         int                     fdcount;
-};
+} nfs3_state_t;
 
 typedef enum nfs3_lookup_type {
         GF_NFS3_REVALIDATE = 1,
         GF_NFS3_FRESH,
 } nfs3_lookup_type_t;
+
+typedef union args_ {
+        nlm4_stat nlm4_stat;
+        nlm4_holder nlm4_holder;
+        nlm4_lock nlm4_lock;
+        nlm4_share nlm4_share;
+        nlm4_testrply nlm4_testrply;
+        nlm4_testres nlm4_testres;
+        nlm4_testargs nlm4_testargs;
+        nlm4_res nlm4_res;
+        nlm4_lockargs nlm4_lockargs;
+        nlm4_cancargs nlm4_cancargs;
+        nlm4_unlockargs nlm4_unlockargs;
+        nlm4_shareargs nlm4_shareargs;
+        nlm4_shareres nlm4_shareres;
+} args;
+
 
 typedef int (*nfs3_resume_fn_t) (void *cs);
 /* Structure used to communicate state between a fop and its callback.
@@ -208,6 +226,13 @@ struct nfs3_local {
         gf_dirent_t             *hashmatch;
         gf_dirent_t             *entrymatch;
         off_t                   lastentryoffset;
+        struct flock            flock;
+        args                    args;
+        nlm4_lkowner_t          lkowner;
+        char                    cookiebytes[1024];
+        struct nfs3_fh          lockfh;
+        rpc_transport_t         *trans;
+        call_frame_t            *frame;
 };
 
 #define nfs3_is_revalidate_lookup(cst) ((cst)->lookuptype == GF_NFS3_REVALIDATE)

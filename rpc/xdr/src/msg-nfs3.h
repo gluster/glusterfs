@@ -26,7 +26,7 @@
 #endif
 
 #include "xdr-nfs3.h"
-
+#include "nlm4-xdr.h"
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -183,4 +183,29 @@ xdr_serialize_mountstat3 (struct iovec outmsg, mountstat3 *m);
 
 extern ssize_t
 xdr_serialize_nfsstat3 (struct iovec outmsg, nfsstat3 *s);
+
+extern ssize_t
+xdr_to_nlm4_testargs (struct iovec inmsg, nlm4_testargs *args);
+
+extern ssize_t
+xdr_serialize_nlm4_testres (struct iovec outmsg, nlm4_testres *res);
+
+extern ssize_t
+xdr_to_nlm4_lockargs (struct iovec inmsg, nlm4_lockargs *args);
+
+extern ssize_t
+xdr_serialize_nlm4_res (struct iovec outmsg, nlm4_res *res);
+
+extern ssize_t
+xdr_to_nlm4_cancelargs (struct iovec inmsg, nlm4_cancargs *args);
+
+extern ssize_t
+xdr_to_nlm4_unlockargs (struct iovec inmsg, nlm4_unlockargs *args);
+
+extern ssize_t
+xdr_serialize_nlm4_testargs (struct iovec outmsg, nlm4_testargs *args);
+
+extern ssize_t
+xdr_to_nlm4_res (struct iovec inmsg, nlm4_res *args);
+
 #endif

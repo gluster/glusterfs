@@ -161,4 +161,7 @@ nfs_opendir (xlator_t *nfsx, xlator_t *fopxl, nfs_user_t *nfu, loc_t *pathloc,
 extern int
 nfs_access (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
             int32_t accesstest, fop_access_cbk_t cbk, void *local);
+extern int
+nfs_lk (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+        int cmd, struct gf_flock *flock, fop_lk_cbk_t cbk, void *local);
 #endif

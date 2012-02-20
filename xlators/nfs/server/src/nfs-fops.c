@@ -121,6 +121,7 @@ nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
         frame->root->pid = NFS_PID;
         frame->root->uid = nfu->uid;
         frame->root->gid = nfu->gids[NFS_PRIMGID_IDX];
+        frame->root->lk_owner = nfu->lk_owner;
         if (nfu->ngrps == 1)
                 goto err;       /* Done, we only got primary gid */
 
@@ -133,15 +134,13 @@ nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
                 frame->root->groups[y] = nfu->gids[x];
         }
 
-        set_lk_owner_from_uint64 (&frame->root->lk_owner, nfs_frame_getctr ());
-
 err:
         return frame;
 }
 
 #define nfs_fop_handle_frame_create(fram, xla, nfuser, retval, errlabel)      \
         do {                                                                  \
-                fram = nfs_create_frame (xla, (nfuser));                      \
+                fram = nfs_create_frame (xla, (nfuser));                \
                 if (!fram) {                                                  \
                         retval = (-ENOMEM);                                   \
                         gf_log (GF_NFS, GF_LOG_ERROR,"Frame creation failed");\
@@ -1352,6 +1351,49 @@ nfs_fop_read (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 
         STACK_WIND_COOKIE (frame, nfs_fop_readv_cbk, xl, xl, xl->fops->readv,
                            fd, size, offset, 0);
+        ret = 0;
+err:
+        if (ret < 0) {
+                if (frame)
+                        nfs_stack_destroy (nfl, frame);
+        }
+
+        return ret;
+}
+
+int32_t
+nfs_fop_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct gf_flock *flock)
+{
+        struct nfs_fop_local    *nfl = NULL;
+        fop_lk_cbk_t         progcbk = NULL;
+
+        nfl_to_prog_data (nfl, progcbk, frame);
+
+        if (progcbk)
+                progcbk (frame, cookie, this, op_ret, op_errno, flock);
+
+        nfs_stack_destroy (nfl, frame);
+        return 0;
+}
+
+
+int
+nfs_fop_lk (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+            int cmd, struct gf_flock *flock, fop_lk_cbk_t cbk, void *local)
+{
+        call_frame_t            *frame = NULL;
+        int                     ret = -EFAULT;
+        struct nfs_fop_local    *nfl = NULL;
+
+        if ((!xl) || (!fd) || (!nfu))
+                return ret;
+
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
+        nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
+
+        STACK_WIND_COOKIE (frame, nfs_fop_lk_cbk, xl, xl, xl->fops->lk,
+                           fd, cmd, flock);
         ret = 0;
 err:
         if (ret < 0) {
