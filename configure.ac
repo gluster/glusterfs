@@ -125,6 +125,9 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-SuSE
 		extras/benchmarking/Makefile
                 extras/hook-scripts/Makefile
+		extras/ocf/Makefile
+		extras/ocf/glusterd
+		extras/ocf/volume
 		contrib/fuse-util/Makefile
 		contrib/uuid/uuid_types.h
                 xlators/nfs/Makefile
@@ -167,6 +170,12 @@ AC_ARG_WITH(launchddir,
             [launchddir=$withval],
             [launchddir='/Library/LaunchDaemons'])
 AC_SUBST(launchddir)
+
+AC_ARG_WITH([ocf],
+            [AS_HELP_STRING([--with-ocf], [build OCF-compliant cluster resource agents])],
+            ,
+            [with_ocf=no])
+AM_CONDITIONAL(WITH_OCF, [ test "$with_ocf" = "yes" ])
 
 # LEX needs a check
 AC_PROG_LEX

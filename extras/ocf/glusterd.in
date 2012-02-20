@@ -1,0 +1,212 @@
+#!/bin/sh
+#
+# glusterd
+#
+# Description:  Manages a glusterd server as a (typically cloned)
+#               HA resource
+#
+# Authors:      Florian Haas (hastexo Professional Services GmbH)
+#
+# License:      GNU General Public License (GPL)
+
+#######################################################################
+# Initialization:
+
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+# Convenience variables
+# When sysconfdir and localstatedir aren't passed in as
+# configure flags, they're defined in terms of prefix
+prefix=@prefix@
+#######################################################################
+
+
+OCF_RESKEY_binary_default="glusterd"
+OCF_RESKEY_pid_default="@localstatedir@/run/glusterd.pid"
+OCF_RESKEY_socket_default=""
+OCF_RESKEY_additional_parameters_default=""
+
+: ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
+: ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
+
+glusterd_meta_data() {
+    cat <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="glusterd" version="0.1">
+  <version>0.1</version>
+  <longdesc lang="en">
+  </longdesc>
+  <shortdesc lang="en">Manages a Gluster server</shortdesc>
+  <parameters>
+    <parameter name="binary">
+      <longdesc lang="en">
+      Name of the glusterd executable. Specify a full absolute
+      path if the binary is not in your \$PATH.
+      </longdesc>
+      <shortdesc lang="en">glusterd executable</shortdesc>
+      <content type="string" default="$OCF_RESKEY_binary_default"/>
+    </parameter>
+    <parameter name="pid">
+      <longdesc lang="en">
+      Path to the glusterd PID file.
+      </longdesc>
+      <shortdesc lang="en">PID file</shortdesc>
+      <content type="string" default="$OCF_RESKEY_pid_default"/>
+    </parameter>
+    <parameter name="socket">
+      <longdesc lang="en">
+      Path to the glusterd UNIX socket file. If unspecified,
+      glusterd will not listen on any socket.
+      </longdesc>
+      <shortdesc lang="en">Socket file</shortdesc>
+      <content type="string"/>
+    </parameter>
+  </parameters>
+  <actions>
+    <action name="start"        timeout="20" />
+    <action name="stop"         timeout="20" />
+    <action name="monitor"      timeout="20" interval="10" />
+    <action name="reload"       timeout="20" />
+    <action name="meta-data"    timeout="5" />
+    <action name="validate-all"   timeout="20" />
+  </actions>
+</resource-agent>
+EOF
+
+}
+
+glusterd_start() {
+    local glusterd_options
+    # exit immediately if configuration is not valid
+    glusterd_validate_all || exit $?
+
+    # if resource is already running, bail out early
+    if glusterd_monitor; then
+        ocf_log info "Resource is already running"
+        return $OCF_SUCCESS
+    fi
+
+    # actually start up the resource here (make sure to immediately
+    # exit with an $OCF_ERR_ error code if anything goes seriously
+    # wrong)
+    glusterd_options="-p $OCF_RESKEY_pid"
+    if [ -n "$OCF_RESKEY_socket" ]; then
+	glusterd_options="$glusterd_options -S $OCF_RESKEY_socket"
+    fi
+    if [ -n "$OCF_RESKEY_additional_parameters" ]; then
+	glusterd_options="$glusterd_options $OCF_RESKEY_additional_parameters"
+    fi
+
+    ocf_run $OCF_RESKEY_binary $glusterd_options || exit $OCF_ERR_GENERIC
+
+    # After the resource has been started, check whether it started up
+    # correctly. If the resource starts asynchronously, the agent may
+    # spin on the monitor function here -- if the resource does not
+    # start up within the defined timeout, the cluster manager will
+    # consider the start action failed
+    while ! glusterd_monitor; do
+        ocf_log debug "Resource has not started yet, waiting"
+        sleep 1
+    done
+
+    # only return $OCF_SUCCESS if _everything_ succeeded as expected
+    return $OCF_SUCCESS
+}
+
+glusterd_stop() {
+    local rc
+    local pid
+
+    # exit immediately if configuration is not valid
+    glusterd_validate_all || exit $?
+
+    glusterd_monitor
+    rc=$?
+    case "$rc" in
+        "$OCF_SUCCESS")
+            # Currently running. Normal, expected behavior.
+            ocf_log debug "Resource is currently running"
+            ;;
+        "$OCF_NOT_RUNNING")
+            # Currently not running. Nothing to do.
+            ocf_log info "Resource is already stopped"
+            return $OCF_SUCCESS
+            ;;
+    esac
+
+    # actually shut down the resource here (make sure to immediately
+    # exit with an $OCF_ERR_ error code if anything goes seriously
+    # wrong)
+    pid=`cat $OCF_RESKEY_pid`
+    ocf_run kill -s TERM $pid || exit OCF_ERR_GENERIC
+
+    # After the resource has been stopped, check whether it shut down
+    # correctly. If the resource stops asynchronously, the agent may
+    # spin on the monitor function here -- if the resource does not
+    # shut down within the defined timeout, the cluster manager will
+    # consider the stop action failed
+    while glusterd_monitor; do
+        ocf_log debug "Resource has not stopped yet, waiting"
+        sleep 1
+    done
+
+    # only return $OCF_SUCCESS if _everything_ succeeded as expected
+    return $OCF_SUCCESS
+
+}
+
+glusterd_monitor() {
+    local pid
+
+    [ -e $OCF_RESKEY_pid ] || return $OCF_NOT_RUNNING
+
+    pid=`cat $OCF_RESKEY_pid`
+    ocf_run kill -s 0 $pid || return $OCF_NOT_RUNNING
+
+    ocf_log debug "$OCF_RESKEY_binary running with PID $pid"
+    return $OCF_SUCCESS
+}
+
+glusterd_validate_all() {
+    # Test for required binaries
+    check_binary $OCF_RESKEY_binary
+
+    return $OCF_SUCCESS
+}
+
+
+
+# Make sure meta-data and usage always succeed
+case $__OCF_ACTION in
+meta-data)      glusterd_meta_data
+                exit $OCF_SUCCESS
+                ;;
+usage|help)     glusterd_usage
+                exit $OCF_SUCCESS
+                ;;
+esac
+
+# Anything other than meta-data and usage must pass validation
+glusterd_validate_all || exit $?
+
+# Translate each action into the appropriate function call
+case $__OCF_ACTION in
+start)          glusterd_start;;
+stop)           glusterd_stop;;
+status|monitor) glusterd_monitor;;
+reload)         ocf_log info "Reloading..."
+                glusterd_start
+                ;;
+validate-all)   ;;
+notify)		exit $OCF_SUCCESS;;
+*)              glusterd_usage
+                exit $OCF_ERR_UNIMPLEMENTED
+                ;;
+esac
+rc=$?
+
+# The resource agent may optionally log a debug message
+ocf_log debug "${OCF_RESOURCE_INSTANCE} $__OCF_ACTION returned $rc"
+exit $rc
