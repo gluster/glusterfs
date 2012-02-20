@@ -108,7 +108,8 @@ extern char gf_log_xl_log_set;
 
 
 void gf_log_logrotate (int signum);
-
+int
+gf_log_eh (void *data);
 void gf_log_globals_init (void);
 int gf_log_init (const char *filename);
 void gf_log_cleanup (void);

@@ -1991,7 +1991,7 @@ gf_boolean_t
 cli_cmd_validate_dumpoption (const char *arg, char **option)
 {
         char    *opwords[] = {"all", "nfs", "mem", "iobuf", "callpool", "priv",
-                              "fd", "inode", NULL};
+                              "fd", "inode", "history", NULL};
         char    *w = NULL;
 
         w = str_getunamb (arg, opwords);

@@ -108,6 +108,9 @@ enum gf_common_mem_types_ {
         gf_common_mt_run_logbuf           = 83,
         gf_common_mt_fd_lk_ctx_t          = 84,
         gf_common_mt_fd_lk_ctx_node_t     = 85,
-        gf_common_mt_end                  = 86,
+        gf_common_mt_buffer_t             = 86,
+        gf_common_mt_circular_buffer_t    = 87,
+        gf_common_mt_eh_t                 = 88,
+        gf_common_mt_end                  = 89
 };
 #endif

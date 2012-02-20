@@ -410,6 +410,10 @@ gf_proc_dump_xlator_info (xlator_t *top)
                     GF_PROC_DUMP_IS_XL_OPTION_ENABLED (fd))
                         trav->dumpops->fd (trav);
 
+                if (trav->dumpops->history &&
+                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (history))
+                        trav->dumpops->history (trav);
+
                 trav = trav->next;
         }
 
@@ -472,6 +476,8 @@ gf_proc_dump_enable_all_options ()
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_inodectx,
                                  _gf_true);
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fdctx, _gf_true);
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_history,
+                                 _gf_true);
 
         return 0;
 }
@@ -490,7 +496,8 @@ gf_proc_dump_disable_all_options ()
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_inodectx,
                                  _gf_false);
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fdctx, _gf_false);
-
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_history,
+                                 _gf_false);
         return 0;
 }
 
@@ -521,6 +528,8 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                 opt_key = &dump_options.xl_options.dump_inodectx;
         } else if (!strncasecmp (key, "fdctx", strlen ("fdctx"))) {
                 opt_key = &dump_options.xl_options.dump_fdctx;
+        } else if (!strncasecmp (key, "history", strlen ("history"))) {
+                opt_key = &dump_options.xl_options.dump_history;
         }
 
         if (!opt_key) {
@@ -529,8 +538,12 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                           "matched key : %s\n", key);
                 ret = write (gf_dump_fd, buf, strlen (buf));
 
-                ret = -1;
-                goto out;
+                /* warning suppression */
+                if (ret >= 0) {
+                        ret = -1;
+                        goto out;
+                }
+
         }
 
         opt_value = (strncasecmp (value, "yes", 3) ?
@@ -614,11 +627,11 @@ gf_proc_dump_info (int signum)
         } else
                 strncpy (brick_name, "glusterdump", sizeof (brick_name));
 
-        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
+        ret = gf_proc_dump_options_init (brick_name);
         if (ret < 0)
                 goto out;
 
-        ret = gf_proc_dump_options_init (brick_name);
+        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
         if (ret < 0)
                 goto out;
 
