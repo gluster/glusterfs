@@ -1719,14 +1719,15 @@ glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave
         uuid_t           uuid = {0, };
         glusterd_conf_t *priv = NULL;
         int              ret  = 0;
-        char errmsg[1024] = {0,};
+        char             errmsg[1024] = {0,};
+        xlator_t        *this    = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
         GF_ASSERT (THIS);
-        GF_ASSERT (THIS->private);
-
-        priv = THIS->private;
+        this = THIS;
+        GF_ASSERT (this->private);
+        priv = this->private;
 
         ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
         if ((ret == 0) && (uuid_compare (priv->uuid, uuid) != 0))
@@ -1735,7 +1736,7 @@ glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave
         if (ret) {
                 snprintf(errmsg, sizeof(errmsg), "geo-replication session b/w %s %s not active",
                          volinfo->volname, slave);
-                gf_log ("", GF_LOG_WARNING, errmsg);
+                gf_log (this->name, GF_LOG_WARNING, "%s", errmsg);
                 if (op_errstr)
                         *op_errstr = gf_strdup(errmsg);
                 goto out;
@@ -1744,7 +1745,7 @@ glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave
         ret = glusterd_do_gsync_log_rotate (volinfo->volname, slave, &uuid, op_errstr);
 
  out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
@@ -1827,7 +1828,7 @@ glusterd_rotate_gsync_logs (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if ((ret) || (!exists)) {
                 snprintf (errmsg, sizeof(errmsg), "Volume %s does not"
                           " exist", volname);
-                gf_log ("", GF_LOG_WARNING, errmsg);
+                gf_log ("", GF_LOG_WARNING, "%s", errmsg);
                 *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;

@@ -87,6 +87,21 @@ glusterd_submit_request (struct rpc_clnt *rpc, void *req,
 int32_t
 glusterd_volinfo_new (glusterd_volinfo_t **volinfo);
 
+char *
+glusterd_auth_get_username (glusterd_volinfo_t *volinfo);
+
+char *
+glusterd_auth_get_password (glusterd_volinfo_t *volinfo);
+
+int32_t
+glusterd_auth_set_username (glusterd_volinfo_t *volinfo, char *username);
+
+int32_t
+glusterd_auth_set_password (glusterd_volinfo_t *volinfo, char *password);
+
+void
+glusterd_auth_cleanup (glusterd_volinfo_t *volinfo);
+
 gf_boolean_t
 glusterd_check_volume_exists (char *volname);
 
@@ -274,6 +289,7 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                              char *op_errstr, size_t len);
 int32_t
 glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo);
+
 int32_t
 glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                glusterd_volinfo_t *volinfo,
@@ -383,9 +399,15 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid);
 
 gf_boolean_t
 glusterd_chk_peers_connected_befriended (uuid_t skip_uuid);
+
 void
-glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
+glusterd_get_client_filepath (char *filepath,
+                              glusterd_volinfo_t *volinfo,
                               gf_transport_type type);
+void
+glusterd_get_trusted_client_filepath (char *filepath,
+                                      glusterd_volinfo_t *volinfo,
+                                      gf_transport_type type);
 int
 glusterd_restart_rebalance (glusterd_conf_t *conf);
 #endif

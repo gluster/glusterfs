@@ -131,6 +131,8 @@ gf_log_globals_init (void)
 int
 gf_log_init (const char *file)
 {
+        int     fd = -1;
+
         if (!file){
                 fprintf (stderr, "ERROR: no filename specified\n");
                 return -1;
@@ -148,6 +150,14 @@ gf_log_init (const char *file)
                          strerror (errno));
                 return -1;
         }
+
+        fd = open (file, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+        if (fd < 0) {
+                fprintf (stderr, "ERROR: failed to create logfile \"%s\" (%s)\n",
+                         file, strerror (errno));
+                return -1;
+        }
+        close (fd);
 
         logfile = fopen (file, "a");
         if (!logfile){
@@ -475,6 +485,7 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         char        *msg  = NULL;
         size_t       len  = 0;
         int          ret  = 0;
+        int          fd   = -1;
         xlator_t    *this = NULL;
 
         this = THIS;
@@ -508,6 +519,14 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
 
         if (logrotate) {
                 logrotate = 0;
+
+                fd = open (filename, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+                if (fd < 0) {
+                        gf_log ("logrotate", GF_LOG_ERROR,
+                                "%s", strerror (errno));
+                        return -1;
+                }
+                close (fd);
 
                 new_logfile = fopen (filename, "a");
                 if (!new_logfile) {
@@ -601,16 +620,21 @@ out:
 int
 gf_cmd_log_init (const char *filename)
 {
+        int         fd   = -1;
+        xlator_t   *this = NULL;
+
+        this = THIS;
+
         if (!filename){
-                gf_log ("glusterd", GF_LOG_CRITICAL, "gf_cmd_log_init: no "
+                gf_log (this->name, GF_LOG_CRITICAL, "gf_cmd_log_init: no "
                         "filename specified\n");
                 return -1;
         }
 
         cmd_log_filename = gf_strdup (filename);
         if (!cmd_log_filename) {
-                gf_log ("glusterd", GF_LOG_CRITICAL, "gf_cmd_log_init: strdup"
-                        " error\n");
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "gf_cmd_log_init: strdup error\n");
                 return -1;
         }
         /* close and reopen cmdlogfile for log rotate*/
@@ -618,9 +642,18 @@ gf_cmd_log_init (const char *filename)
                 fclose (cmdlogfile);
                 cmdlogfile = NULL;
         }
+
+        fd = open (cmd_log_filename, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+        if (fd < 0) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "%s", strerror (errno));
+                return -1;
+        }
+        close (fd);
+
         cmdlogfile = fopen (cmd_log_filename, "a");
         if (!cmdlogfile){
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_log (this->name, GF_LOG_CRITICAL,
                         "gf_cmd_log_init: failed to open logfile \"%s\" "
                         "(%s)\n", cmd_log_filename, strerror (errno));
                 return -1;

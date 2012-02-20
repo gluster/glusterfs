@@ -711,6 +711,8 @@ static const char *client_volfile_str =  "volume mnt-client\n"
         " option remote-subvolume %s\n"
         " option remote-port %d\n"
         " option transport-type %s\n"
+        " option username %s\n"
+        " option password %s\n"
         "end-volume\n"
         "volume mnt-wb\n"
         " type performance/write-behind\n"
@@ -722,23 +724,33 @@ rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
                             glusterd_brickinfo_t *src_brickinfo)
 {
         glusterd_conf_t  *priv                  = NULL;
+        xlator_t         *this                  = NULL;
         FILE             *file                  = NULL;
         char              filename[PATH_MAX]    = {0, };
         int               ret                   = -1;
+        int               fd                    = -1;
         char             *ttype                 = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
-        gf_log ("", GF_LOG_DEBUG,
-                "Creating volfile");
+        gf_log (this->name, GF_LOG_DEBUG, "Creating volfile");
 
         snprintf (filename, PATH_MAX, "%s/vols/%s/%s",
                   priv->workdir, volinfo->volname,
                   RB_CLIENTVOL_FILENAME);
 
+        fd = open (filename, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+        if (fd < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s", strerror (errno));
+                goto out;
+        }
+        close (fd);
+
         file = fopen (filename, "w+");
         if (!file) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Open of volfile failed");
                 ret = -1;
                 goto out;
@@ -753,7 +765,10 @@ rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
 	}
 
         fprintf (file, client_volfile_str, src_brickinfo->hostname,
-                 src_brickinfo->path, src_brickinfo->port, ttype);
+                 src_brickinfo->path,
+                 src_brickinfo->port, ttype,
+                 glusterd_auth_get_username (volinfo),
+                 glusterd_auth_get_password (volinfo));
 
         fclose (file);
         GF_FREE (ttype);
@@ -775,6 +790,8 @@ static const char *dst_brick_volfile_str = "volume src-posix\n"
         "end-volume\n"
         "volume src-server\n"
         " type protocol/server\n"
+        " option auth.login.%s.allow %s\n"
+        " option auth.login.%s.password %s\n"
         " option auth.addr.%s.allow *\n"
         " option transport-type %s\n"
         " subvolumes %s\n"
@@ -785,23 +802,34 @@ rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
                                glusterd_brickinfo_t *dst_brickinfo)
 {
         glusterd_conf_t    *priv                = NULL;
+        xlator_t           *this                = NULL;
         FILE               *file                = NULL;
         char                filename[PATH_MAX]  = {0, };
         int                 ret                 = -1;
+        int                 fd                  = -1;
         char               *trans_type          = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
-        gf_log ("", GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Creating volfile");
 
         snprintf (filename, PATH_MAX, "%s/vols/%s/%s",
                   priv->workdir, volinfo->volname,
                   RB_DSTBRICKVOL_FILENAME);
 
+        fd = creat (filename, S_IRUSR | S_IWUSR);
+        if (fd < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s", strerror (errno));
+                goto out;
+        }
+        close (fd);
+
         file = fopen (filename, "w+");
         if (!file) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Open of volfile failed");
                 ret = -1;
                 goto out;
@@ -813,10 +841,17 @@ rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
 		goto out;
 	}
 
-        fprintf (file, dst_brick_volfile_str, dst_brickinfo->path,
+        fprintf (file, dst_brick_volfile_str,
+                 dst_brickinfo->path,
                  uuid_utoa (volinfo->volume_id),
-                 dst_brickinfo->path, dst_brickinfo->path,
-                 trans_type, dst_brickinfo->path);
+                 dst_brickinfo->path,
+                 dst_brickinfo->path,
+                 glusterd_auth_get_username (volinfo),
+                 glusterd_auth_get_username (volinfo),
+                 glusterd_auth_get_password (volinfo),
+                 dst_brickinfo->path,
+                 trans_type,
+                 dst_brickinfo->path);
 
 	GF_FREE (trans_type);
 

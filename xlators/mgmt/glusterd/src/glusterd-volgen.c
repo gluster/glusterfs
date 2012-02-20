@@ -1117,14 +1117,27 @@ free_fp:
 static int
 volgen_write_volfile (volgen_graph_t *graph, char *filename)
 {
-        char *ftmp = NULL;
-        FILE *f = NULL;
+        char        *ftmp = NULL;
+        FILE        *f = NULL;
+        int          fd   = 0;
+        xlator_t    *this = NULL;
+
+        this = THIS;
 
         if (gf_asprintf (&ftmp, "%s.tmp", filename) == -1) {
                 ftmp = NULL;
 
                 goto error;
         }
+
+        fd = creat (ftmp, S_IRUSR | S_IWUSR);
+        if (fd < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "%s",
+                        strerror (errno));
+                goto error;
+        }
+
+        close (fd);
 
         f = fopen (ftmp, "w");
         if (!f)
@@ -1153,7 +1166,8 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
         if (f)
                 fclose (f);
 
-        gf_log ("", GF_LOG_ERROR, "failed to create volfile %s", filename);
+        gf_log (this->name, GF_LOG_ERROR,
+                "failed to create volfile %s", filename);
 
         return -1;
 }
@@ -1497,6 +1511,7 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         int       ret                   = 0;
         char     *xlator                = NULL;
         char     *loglevel              = NULL;
+        char      key[1024]             = {0};
 
         path = param;
         volname = volinfo->volname;
@@ -1556,6 +1571,16 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 		if (NULL == ptranst)
 			return -1;
 
+                ret = xlator_set_option (rbxl, "username",
+                                         glusterd_auth_get_username (volinfo));
+                if (ret)
+                        return -1;
+
+                ret = xlator_set_option (rbxl, "password",
+                                         glusterd_auth_get_password (volinfo));
+                if (ret)
+                        return -1;
+
                 ret = xlator_set_option (rbxl, "transport-type", ptranst);
                 GF_FREE (ptranst);
                 if (ret)
@@ -1593,6 +1618,22 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 return -1;
         ret = xlator_set_option (xl, "transport-type", transt);
+        if (ret)
+                return -1;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "auth.login.%s.allow", path);
+        ret = xlator_set_option (xl, key,
+                                 glusterd_auth_get_username (volinfo));
+        if (ret)
+                return -1;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "auth.login.%s.password",
+                  glusterd_auth_get_username (volinfo));
+
+        ret = xlator_set_option (xl, key,
+                                 glusterd_auth_get_password (volinfo));
         if (ret)
                 return -1;
 
@@ -1922,10 +1963,12 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
         int                      i                  = 0;
         int                      ret                = -1;
+        uint32_t                 client_type        = GF_CLIENT_OTHER;
         char                     transt[16]         = {0,};
         char                    *volname            = NULL;
-        glusterd_brickinfo_t    *brick = NULL;
-        xlator_t                *xl                = NULL;
+        char                    *str                = NULL;
+        glusterd_brickinfo_t    *brick              = NULL;
+        xlator_t                *xl                 = NULL;
 
         volname = volinfo->volname;
 
@@ -1968,8 +2011,26 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 ret = xlator_set_option (xl, "transport-type", transt);
                 if (ret)
                         goto out;
+
+                ret = dict_get_uint32 (set_dict, "trusted-client",
+                                       &client_type);
+
+                if (!ret && client_type == GF_CLIENT_TRUSTED) {
+
+                        str = glusterd_auth_get_username (volinfo);
+                        ret = xlator_set_option (xl, "username", str);
+                        if (ret)
+                                goto out;
+
+                        str = glusterd_auth_get_password (volinfo);
+                        ret = xlator_set_option (xl, "password", str);
+                        if (ret)
+                                goto out;
+                }
+
                 i++;
         }
+
         if (i != volinfo->brick_count) {
                 gf_log ("", GF_LOG_ERROR,
                         "volume inconsistency: actual number of bricks (%d) "
@@ -2501,7 +2562,7 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         int                ret            = 0;
         gf_boolean_t       valid_config   = _gf_false;
         xlator_t           *iostxl        = NULL;
-        int                rclusters       = 0;
+        int                rclusters      = 0;
         int                replica_count  = 0;
 
         this = THIS;
@@ -2531,6 +2592,11 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 valid_config = _gf_true;
 
                 ret = dict_set_str (set_dict, "cluster.self-heal-daemon", "on");
+                if (ret)
+                        goto out;
+
+                ret = dict_set_uint32 (set_dict, "trusted-client",
+                                       GF_CLIENT_TRUSTED);
                 if (ret)
                         goto out;
 
@@ -2650,12 +2716,21 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (ret)
                         goto out;
 
-                ret = dict_set_str (set_dict, "performance.client-io-threads", "off");
+                ret = dict_set_str (set_dict, "performance.client-io-threads",
+                                    "off");
                 if (ret)
                         goto out;
 
                 ret = dict_set_str (set_dict, "client-transport-type",
                                     nfs_xprt);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_uint32 (set_dict, "trusted-client",
+                                       GF_CLIENT_TRUSTED);
+                if (ret)
+                        goto out;
+
                 ret = build_client_graph (&cgraph, voliter, set_dict);
                 if (ret)
                         goto out;
@@ -2814,7 +2889,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         get_vol_tstamp_file (tstamp_file, volinfo);
 
         if (ret) {
-                ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0644);
+                ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0600);
                 if (ret == -1 && errno == EEXIST) {
                         gf_log ("", GF_LOG_DEBUG, "timestamp file exist");
                         ret = -2;
@@ -2889,7 +2964,8 @@ enumerate_transport_reqs (gf_transport_type type, char **types)
 }
 
 static int
-generate_client_volfiles (glusterd_volinfo_t *volinfo)
+generate_client_volfiles (glusterd_volinfo_t *volinfo,
+                          glusterd_client_type_t client_type)
 {
         char               filepath[PATH_MAX] = {0,};
         int                ret = -1;
@@ -2908,7 +2984,21 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo)
                 if (ret)
                         goto out;
                 type = transport_str_to_type (types[i]);
-                glusterd_get_client_filepath (filepath, volinfo, type);
+
+                ret = dict_set_uint32 (dict, "trusted-client", client_type);
+                if (ret)
+                        goto out;
+
+                if (client_type == GF_CLIENT_TRUSTED) {
+                        glusterd_get_trusted_client_filepath (filepath,
+                                                              volinfo,
+                                                              type);
+                } else {
+                        glusterd_get_client_filepath (filepath,
+                                                      volinfo,
+                                                      type);
+                }
+
                 ret = generate_single_transport_client_volfile (volinfo,
                                                                 filepath,
                                                                 dict);
@@ -2929,7 +3019,7 @@ glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
 
         ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
         if (!ret)
-                ret = generate_client_volfiles (volinfo);
+                ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
         if (!ret)
                 ret = glusterd_fetchspec_notify (THIS);
 
@@ -2939,23 +3029,33 @@ glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
 int
 glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
 {
-        int ret = -1;
+        int        ret  = -1;
+        xlator_t  *this = NULL;
+
+        this = THIS;
 
         ret = generate_brick_volfiles (volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Could not generate volfiles for bricks");
                 goto out;
         }
 
-        ret = generate_client_volfiles (volinfo);
+        ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Could not generate volfile for client");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not generate trusted client volfiles");
                 goto out;
         }
 
-        ret = glusterd_fetchspec_notify (THIS);
+        ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not generate client volfiles");
+                goto out;
+        }
+
+        ret = glusterd_fetchspec_notify (this);
 
 out:
         return ret;
@@ -3085,11 +3185,11 @@ out:
 
 int
 validate_clientopts (glusterd_volinfo_t *volinfo,
-                    dict_t *val_dict,
-                    char **op_errstr)
+                     dict_t *val_dict,
+                     char **op_errstr)
 {
         volgen_graph_t graph = {0,};
-        int     ret = -1;
+        int            ret   = -1;
 
         GF_ASSERT (volinfo);
 
@@ -3112,7 +3212,7 @@ validate_brickopts (glusterd_volinfo_t *volinfo,
                     char **op_errstr)
 {
         volgen_graph_t graph = {0,};
-        int     ret = -1;
+        int            ret   = -1;
 
         GF_ASSERT (volinfo);
 

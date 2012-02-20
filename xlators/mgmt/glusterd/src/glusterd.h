@@ -192,6 +192,13 @@ typedef enum gf_rb_status_ {
         GF_RB_STATUS_PAUSED,
 } gf_rb_status_t;
 
+struct _auth {
+        char       *username;
+        char       *password;
+};
+
+typedef struct _auth auth_t;
+
 struct glusterd_volinfo_ {
         char                    volname[GLUSTERD_MAX_VOLUME_NAME];
         int                     type;
@@ -229,6 +236,7 @@ struct glusterd_volinfo_ {
         dict_t                  *dict;
 
         uuid_t                  volume_id;
+        auth_t                  auth;
         char                    *logdir;
 
         dict_t                  *gsync_slaves;
