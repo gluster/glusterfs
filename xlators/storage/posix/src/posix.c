@@ -2393,6 +2393,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         dict_t * dict           = NULL;
         char *   file_contents  = NULL;
         int      ret            = -1;
+        char *   path           = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2448,6 +2449,24 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 size = strlen (host_buf) + 1;
                 ret = dict_set_str (dict, GF_XATTR_PATHINFO_KEY,
                                     host_buf);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "could not set value (%s) in dictionary",
+                                host_buf);
+                }
+                goto done;
+        }
+
+        if (loc->inode && name &&
+            (strcmp (name, GFID_TO_PATH_KEY) == 0)) {
+                ret = inode_path (loc->inode, NULL, &path);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING, "%s: could not get "
+                                "inode path", uuid_utoa (loc->inode->gfid));
+                        goto done;
+                }
+
+                ret = dict_set_dynstr (dict, GFID_TO_PATH_KEY, path);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "could not set value (%s) in dictionary",

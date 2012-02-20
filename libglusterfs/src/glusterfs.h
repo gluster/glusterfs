@@ -94,6 +94,7 @@
 #define GLUSTERFS_ENTRYLK_COUNT "glusterfs.entrylk-count"
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
+#define GFID_TO_PATH_KEY "glusterfs.gfid2path"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
