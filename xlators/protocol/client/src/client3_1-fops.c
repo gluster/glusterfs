@@ -3614,8 +3614,15 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
                                          client3_1_writev_cbk,
                                          args->vector, args->count,
                                          args->iobref, xdr_from_writev_req);
-        if (ret)
-                goto unwind;
+        if (ret) {
+                /*
+                 * If the lower layers fail to submit a request, they'll also
+                 * do the unwind for us (see rpc_clnt_submit), so don't unwind
+                 * here in such cases.
+                 */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to send the fop: %s", strerror (op_errno));
+        }
 
         return 0;
 unwind:
