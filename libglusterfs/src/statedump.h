@@ -32,6 +32,7 @@ typedef struct gf_dump_xl_options_ {
         gf_boolean_t    dump_fd;
         gf_boolean_t    dump_inodectx;
         gf_boolean_t    dump_fdctx;
+        gf_boolean_t    dump_history;
 } gf_dump_xl_options_t;
 
 typedef struct gf_dump_options_ {

@@ -616,6 +616,15 @@ out:
         return (0);
 }
 
+int
+gf_log_eh (void *data)
+{
+        int    ret = -1;
+
+        ret = eh_save_history (THIS->history, data);
+
+        return ret;
+}
 
 int
 gf_cmd_log_init (const char *filename)

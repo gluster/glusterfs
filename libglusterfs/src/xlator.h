@@ -29,7 +29,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-
+#include "event-history.h"
 #include "logging.h"
 #include "common-utils.h"
 #include "dict.h"
@@ -770,6 +770,8 @@ typedef int32_t (*dumpop_inodectx_to_dict_t) (xlator_t *this, inode_t *ino,
 typedef int32_t (*dumpop_fdctx_to_dict_t) (xlator_t *this, fd_t *fd,
                                            dict_t *dict);
 
+typedef int32_t (*dumpop_eh_t) (xlator_t *this);
+
 struct xlator_dumpops {
         dumpop_priv_t                   priv;
         dumpop_inode_t                  inode;
@@ -781,6 +783,7 @@ struct xlator_dumpops {
         dumpop_fd_to_dict_t             fd_to_dict;
         dumpop_inodectx_to_dict_t       inodectx_to_dict;
         dumpop_fdctx_to_dict_t          fdctx_to_dict;
+        dumpop_eh_t                     history;
 };
 
 typedef struct xlator_list {
@@ -818,6 +821,7 @@ struct _xlator {
         fop_latency_t latencies[GF_FOP_MAXVALUE];
 
         /* Misc */
+        eh_t               *history; /* event history context */
         glusterfs_ctx_t    *ctx;
         glusterfs_graph_t  *graph; /* not set for fuse */
         inode_table_t      *itable;
