@@ -40,7 +40,7 @@ Group: System Environment/Base
 Vendor: Gluster Inc
 Packager: @PACKAGE_BUGREPORT@
 URL: http://www.gluster.org/docs/index.php/GlusterFS
-Source0: @PACKAGE_TARNAME@
+Source0: @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
