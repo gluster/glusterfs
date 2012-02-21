@@ -98,6 +98,8 @@ typedef struct clnt_conf {
                                               performing lock healing */
         struct timeval         grace_tv;
         gf_timer_t            *grace_timer;
+
+        char                   parent_down;
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
