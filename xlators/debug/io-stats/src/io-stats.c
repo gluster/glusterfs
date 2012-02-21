@@ -1519,6 +1519,10 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 unwind:
+        /* local is assigned with path */
+        if (frame->local)
+                GF_FREE (frame->local);
+        frame->local = NULL;
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
         return 0;

@@ -225,7 +225,7 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -394,7 +394,7 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                         ret = -ENOMEM;
                         goto out;
                 }
-                ALLOC_OR_GOTO (open_frame->local, afr_local_t, out);
+                AFR_LOCAL_ALLOC_OR_GOTO (open_frame->local, out);
                 open_local = open_frame->local;
                 ret = afr_local_init (open_local, priv, &op_errno);
                 if (ret < 0)

@@ -233,7 +233,7 @@ unlock:
 
         fd_unref (local->fd);
 
-        GF_FREE (frame->local);
+        mem_put (frame->local);
         frame->local = NULL;
 
 out:
@@ -261,7 +261,7 @@ ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
                 goto err;
         }
 
-        fault_local = GF_CALLOC (1, sizeof (ra_local_t), gf_ra_mt_ra_local_t);
+        fault_local = mem_get0 (THIS->local_pool);
         if (fault_local == NULL) {
                 STACK_DESTROY (fault_frame->root);
                 op_ret = -1;
@@ -451,7 +451,7 @@ ra_frame_unwind (call_frame_t *frame)
 
         iobref_unref (iobref);
         pthread_mutex_destroy (&local->local_lock);
-        GF_FREE (local);
+        mem_put (local);
         GF_FREE (vector);
 
 out:

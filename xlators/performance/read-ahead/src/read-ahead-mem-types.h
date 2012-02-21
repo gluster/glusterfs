@@ -25,7 +25,6 @@
 
 enum gf_ra_mem_types_ {
         gf_ra_mt_ra_file_t   = gf_common_mt_end + 1,
-        gf_ra_mt_ra_local_t,
         gf_ra_mt_ra_conf_t,
         gf_ra_mt_ra_page_t,
         gf_ra_mt_ra_waitq_t,

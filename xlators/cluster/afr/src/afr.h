@@ -728,15 +728,14 @@ typedef struct {
 
 
 /* try alloc and if it fails, goto label */
-#define ALLOC_OR_GOTO(var, type, label) do {                    \
-                var = GF_CALLOC (sizeof (type), 1,              \
-                                 gf_afr_mt_##type);             \
-                if (!var) {                                     \
-                        gf_log (this->name, GF_LOG_ERROR,       \
-                                "out of memory :(");            \
-                        op_errno = ENOMEM;                      \
-                        goto label;                             \
-                }                                               \
+#define AFR_LOCAL_ALLOC_OR_GOTO(var, label) do {                    \
+                var = mem_get0 (THIS->local_pool);                  \
+                if (!var) {                                         \
+                        gf_log (this->name, GF_LOG_ERROR,           \
+                                "out of memory :(");                \
+                        op_errno = ENOMEM;                          \
+                        goto label;                                 \
+                }                                                   \
         } while (0);
 
 
@@ -876,20 +875,24 @@ afr_launch_openfd_self_heal (call_frame_t *frame, xlator_t *this, fd_t *fd);
                         frame->local = NULL;                    \
                 }                                               \
                 STACK_UNWIND_STRICT (fop, frame, params);       \
-                afr_local_cleanup (__local, __this);            \
-                GF_FREE (__local);                              \
+                if (__local) {                                  \
+                        afr_local_cleanup (__local, __this);    \
+                        mem_put (__local);                      \
+                }                                               \
         } while (0)
 
-#define AFR_STACK_DESTROY(frame)                        \
-        do {                                            \
-                afr_local_t *__local = NULL;            \
-                xlator_t    *__this = NULL;             \
-                __local = frame->local;                 \
-                __this = frame->this;                   \
-                frame->local = NULL;                    \
-                STACK_DESTROY (frame->root);            \
-                afr_local_cleanup (__local, __this);    \
-                GF_FREE (__local);                      \
+#define AFR_STACK_DESTROY(frame)                                \
+        do {                                                    \
+                afr_local_t *__local = NULL;                    \
+                xlator_t    *__this = NULL;                     \
+                __local = frame->local;                         \
+                __this = frame->this;                           \
+                frame->local = NULL;                            \
+                STACK_DESTROY (frame->root);                    \
+                if (__local) {                                  \
+                        afr_local_cleanup (__local, __this);    \
+                        mem_put (__local);                      \
+                }                                               \
         } while (0);
 
 #define AFR_NUM_CHANGE_LOGS            3 /*data + metadata + entry*/

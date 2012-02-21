@@ -830,6 +830,9 @@ struct _xlator {
         struct mem_acct     mem_acct;
         uint64_t            winds;
         char                switched;
+
+        /* for the memory pool of 'frame->local' */
+        struct mem_pool    *local_pool;
 };
 
 #define xlator_has_parent(xl) (xl->parents != NULL)

@@ -2187,7 +2187,7 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
                 goto out;
         }
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
         ret = afr_local_init (local, priv, &op_errno);
         if (ret < 0) {

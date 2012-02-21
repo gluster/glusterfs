@@ -104,7 +104,7 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Getting Volume information failed!");
         }
-
+        frame->local = NULL;
         if (frame)
                 FRAME_DESTROY (frame);
 

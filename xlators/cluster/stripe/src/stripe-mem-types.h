@@ -25,8 +25,7 @@
 #include "mem-types.h"
 
 enum gf_stripe_mem_types_ {
-        gf_stripe_mt_stripe_local_t = gf_common_mt_end + 1,
-        gf_stripe_mt_iovec,
+        gf_stripe_mt_iovec = gf_common_mt_end + 1,
         gf_stripe_mt_readv_replies,
         gf_stripe_mt_stripe_fd_ctx_t,
         gf_stripe_mt_char,

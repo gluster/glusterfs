@@ -63,7 +63,7 @@ trash_local_wipe (trash_local_t *local)
         if (local->newfd)
                 fd_unref (local->newfd);
 
-        GF_FREE (local);
+        mem_put (local);
 out:
         return;
 }
@@ -533,8 +533,7 @@ trash_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 return 0;
         }
 
-        local = GF_CALLOC (1, sizeof (trash_local_t), 
-                           gf_trash_mt_trash_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 TRASH_STACK_UNWIND (rename, frame, -1, ENOMEM,
@@ -610,8 +609,7 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 return 0;
         }
 
-        local = GF_CALLOC (1, sizeof (trash_local_t),
-                           gf_trash_mt_trash_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 TRASH_STACK_UNWIND (unlink, frame, -1, ENOMEM, NULL, NULL);
@@ -1044,8 +1042,7 @@ trash_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         LOCK_INIT (&frame->lock);
 
-        local = GF_CALLOC (1, sizeof (trash_local_t), 
-                           gf_trash_mt_trash_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 TRASH_STACK_UNWIND (truncate, frame, -1, ENOMEM, NULL, NULL);
@@ -1385,8 +1382,7 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 return 0;
         }
 
-        local = GF_CALLOC (1, sizeof (trash_local_t), 
-                           gf_trash_mt_trash_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 TRASH_STACK_UNWIND (ftruncate, frame, -1, ENOMEM, NULL, NULL);
@@ -1521,6 +1517,14 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_DEBUG, "%"GF_PRI_SIZET" max-size",
                         _priv->max_trash_file_size);
         }
+
+        this->local_pool = mem_pool_new (trash_local_t, 1024);
+        if (!this->local_pool) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                return -1;
+        }
+
 
         this->private = (void *)_priv;
         return 0;

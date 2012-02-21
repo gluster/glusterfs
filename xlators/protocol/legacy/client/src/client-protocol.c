@@ -180,7 +180,7 @@ client_local_wipe (client_local_t *local)
                 if (local->fd)
                         fd_unref (local->fd);
 
-                GF_FREE (local);
+                mem_put (local);
         }
 
         return 0;

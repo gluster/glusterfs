@@ -317,7 +317,7 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 
         child_count = priv->child_count;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -649,7 +649,7 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
         priv     = this->private;
         children = priv->children;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);

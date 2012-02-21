@@ -141,14 +141,13 @@ out:
 }
 
 
-quota_local_t *
+static inline quota_local_t *
 quota_local_new ()
 {
-        quota_local_t     *local  = NULL;
-        GF_UNUSED int32_t  ret    = 0;
-
-        QUOTA_LOCAL_ALLOC_OR_GOTO (local, quota_local_t, err);
-err:
+        quota_local_t *local = NULL;
+        local = mem_get0 (THIS->local_pool);
+        if (local)
+                LOCK_INIT (&local->lock);
         return local;
 }
 
@@ -3000,6 +2999,14 @@ init (xlator_t *this)
         }
 
         GF_OPTION_INIT ("timeout", priv->timeout, int64, err);
+
+        this->local_pool = mem_pool_new (quota_local_t, 1024);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto err;
+        }
 
         ret = 0;
 err:

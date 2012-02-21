@@ -724,7 +724,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (expunge_local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (expunge_local, out);
 
         expunge_frame->local = expunge_local;
         expunge_sh = &expunge_local->self_heal;
@@ -1009,7 +1009,7 @@ afr_sh_entry_impunge_setattr (call_frame_t *impunge_frame, xlator_t *this)
                 op_errno = ENOMEM;
                 goto out;
         }
-        ALLOC_OR_GOTO (setattr_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (setattr_frame->local, out);
         setattr_local = setattr_frame->local;
         call_count = afr_errno_count (NULL, impunge_sh->child_errno,
                                       priv->child_count, 0);

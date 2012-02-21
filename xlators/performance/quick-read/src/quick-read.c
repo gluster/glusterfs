@@ -39,7 +39,7 @@ qr_local_free (qr_local_t *local)
                 GF_FREE (local->path);
         }
 
-        GF_FREE (local);
+        mem_put (local);
 
 out:
         return;
@@ -450,7 +450,7 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         }
 
         table = &priv->table;
-        local = GF_CALLOC (1, sizeof (*local), gf_qr_mt_qr_local_t);
+        local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind, op_errno,
                                         ENOMEM);
 
@@ -683,7 +683,7 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         tmp_fd_ctx = NULL;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_qr_mt_qr_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -915,7 +915,7 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
         GF_VALIDATE_OR_GOTO (frame->this->name, stub, out);
 
         if (frame->local == NULL) {
-                local = GF_CALLOC (1, sizeof (*local), gf_qr_mt_qr_local_t);
+                local = mem_get0 (this->local_pool);
                 if (local == NULL) {
                         goto out;
                 }
@@ -1245,9 +1245,7 @@ out:
                                         can_wind = 1;
                                 } else {
                                         if (frame->local == NULL) {
-                                                frame->local = GF_CALLOC (1,
-                                                                          sizeof (qr_local_t),
-                                                                          gf_qr_mt_qr_local_t);
+                                                frame->local = mem_get0 (this->local_pool);
                                                 if (frame->local == NULL) {
                                                         op_ret = -1;
                                                         op_errno = ENOMEM;
@@ -1432,9 +1430,7 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -1587,9 +1583,7 @@ qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -1746,9 +1740,7 @@ qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -1906,9 +1898,7 @@ qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -2070,9 +2060,7 @@ qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -2213,9 +2201,7 @@ qr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else if (qr_fd_ctx->open_in_transit) {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -2355,9 +2341,7 @@ qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -2516,9 +2500,7 @@ qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -2673,9 +2655,7 @@ qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -2871,7 +2851,7 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 qr_fd_ctx = (qr_fd_ctx_t *)(long)value;
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_qr_mt_qr_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -3046,9 +3026,7 @@ qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                         if (qr_fd_ctx->opened) {
                                 can_wind = 1;
                         } else {
-                                frame->local = GF_CALLOC (1,
-                                                          sizeof (qr_local_t),
-                                                          gf_qr_mt_qr_local_t);
+                                frame->local = mem_get0 (this->local_pool);
                                 if (frame->local == NULL) {
                                         op_ret = -1;
                                         op_errno = ENOMEM;
@@ -3572,6 +3550,14 @@ init (xlator_t *this)
 
         for (i = 0; i < conf->max_pri; i++) {
                 INIT_LIST_HEAD (&priv->table.lru[i]);
+        }
+
+        this->local_pool = mem_pool_new (qr_local_t, 1024);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto out;
         }
 
         ret = 0;

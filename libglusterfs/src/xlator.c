@@ -430,6 +430,9 @@ xlator_fini_rec (xlator_t *xl)
 
                         xl->fini (xl);
 
+                        if (xl->local_pool)
+                                mem_pool_destroy (xl->local_pool);
+
                         THIS = old_THIS;
                 } else {
                         gf_log (xl->name, GF_LOG_DEBUG, "No fini() found");

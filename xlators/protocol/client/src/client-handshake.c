@@ -534,7 +534,7 @@ clnt_fd_lk_local_unref (xlator_t *this, clnt_fd_lk_local_t *local)
 
         if (ref == 0) {
                 LOCK_DESTROY (&local->lock);
-                GF_FREE (local);
+                mem_put (local);
         }
         ref = 0;
 out:
@@ -1022,7 +1022,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 ret = -1;
                 goto out;
@@ -1108,7 +1108,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 ret = -1;
                 goto out;

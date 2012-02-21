@@ -28,7 +28,6 @@ enum gf_dht_mem_types_ {
         gf_dht_mt_dht_conf_t,
         gf_dht_mt_char,
         gf_dht_mt_int32_t,
-        gf_dht_mt_dht_local_t,
         gf_dht_mt_xlator_t,
         gf_dht_mt_dht_layout_t,
         gf_switch_mt_dht_conf_t,

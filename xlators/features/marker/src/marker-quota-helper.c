@@ -328,20 +328,14 @@ mq_inode_ctx_new (inode_t * inode, xlator_t *this)
 quota_local_t *
 mq_local_new ()
 {
-        int32_t         ret     = -1;
         quota_local_t  *local   = NULL;
 
-        QUOTA_ALLOC (local, quota_local_t, ret);
-        if (ret < 0)
+        local = mem_get0 (THIS->local_pool);
+        if (!local)
                 goto out;
 
         local->ref = 1;
-        local->delta = 0;
-        local->err = 0;
         LOCK_INIT (&local->lock);
-
-        memset (&local->loc, 0, sizeof (loc_t));
-        memset (&local->parent_loc, 0, sizeof (loc_t));
 
         local->ctx = NULL;
         local->contri = NULL;
@@ -384,7 +378,7 @@ mq_local_unref (xlator_t *this, quota_local_t *local)
 
         LOCK_DESTROY (&local->lock);
 
-        GF_FREE (local);
+        mem_put (local);
 out:
         return 0;
 }

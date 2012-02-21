@@ -229,7 +229,7 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
         if (local->rebalance.iobref)
                 iobref_unref (local->rebalance.iobref);
 
-        GF_FREE (local);
+        mem_put (local);
 }
 
 
@@ -240,8 +240,7 @@ dht_local_init (call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
         inode_t     *inode = NULL;
         int          ret   = 0;
 
-        /* TODO: use mem-pool */
-        local = GF_CALLOC (1, sizeof (*local), gf_dht_mt_dht_local_t);
+        local = mem_get0 (THIS->local_pool);
         if (!local)
                 goto out;
 
@@ -274,7 +273,7 @@ dht_local_init (call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
 out:
         if (ret) {
                 if (local)
-                        GF_FREE (local);
+                        mem_put (local);
                 local = NULL;
         }
         return local;

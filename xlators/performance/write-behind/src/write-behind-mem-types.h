@@ -25,7 +25,6 @@
 
 enum gf_wb_mem_types_ {
         gf_wb_mt_wb_file_t   = gf_common_mt_end + 1,
-        gf_wb_mt_wb_local_t,
         gf_wb_mt_wb_request_t,
         gf_wb_mt_iovec,
         gf_wb_mt_wb_conf_t,

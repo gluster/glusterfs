@@ -177,7 +177,7 @@ marker_local_unref (marker_local_t *local)
                 marker_local_unref (local->oplocal);
                 local->oplocal = NULL;
         }
-        GF_FREE (local);
+        mem_put (local);
 out:
         return 0;
 }
@@ -509,7 +509,7 @@ marker_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -580,7 +580,7 @@ marker_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -655,7 +655,7 @@ marker_writev (call_frame_t *frame,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -723,7 +723,7 @@ marker_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -820,7 +820,7 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (priv->feature_enabled == 0)
                 goto unlink_wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -897,7 +897,7 @@ marker_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -1412,11 +1412,11 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         if (priv->feature_enabled == 0)
                 goto rename_wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ALLOCATE_OR_GOTO (oplocal, marker_local_t, err);
+        oplocal = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, oplocal);
 
@@ -1533,7 +1533,7 @@ marker_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -1600,7 +1600,7 @@ marker_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -1669,7 +1669,7 @@ marker_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -1739,7 +1739,7 @@ marker_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -1869,7 +1869,7 @@ marker_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         if (ret == 0)
                 return 0;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -1936,7 +1936,7 @@ marker_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         if (ret == 0)
                 return 0;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -2002,7 +2002,7 @@ marker_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -2070,7 +2070,7 @@ marker_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -2133,7 +2133,7 @@ marker_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -2203,7 +2203,7 @@ marker_lookup (call_frame_t *frame, xlator_t *this,
         if (priv->feature_enabled == 0)
                 goto wind;
 
-        ALLOCATE_OR_GOTO (local, marker_local_t, err);
+        local = mem_get0 (this->local_pool);
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -2241,6 +2241,7 @@ unwind:
 
         return 0;
 }
+
 int
 marker_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t offset, dict_t *dict)
@@ -2501,6 +2502,13 @@ init (xlator_t *this)
 
                         priv->feature_enabled |= GF_XTIME;
                 }
+        }
+
+        this->local_pool = mem_pool_new (marker_local_t, 1024);
+        if (!this->local_pool) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto err;
         }
 
         return 0;
