@@ -1267,6 +1267,63 @@ gf_string2bytesize (const char *str, uint64_t *n)
         return 0;
 }
 
+int
+gf_string2percent_or_bytesize (const char *str,
+			       uint64_t *n,
+			       gf_boolean_t *is_percent)
+{
+        uint64_t value = 0ULL;
+        char *tail = NULL;
+        int old_errno = 0;
+        const char *s = NULL;
+
+        if (str == NULL || n == NULL) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+				  "argument invalid");
+                errno = EINVAL;
+                return -1;
+        }
+
+        for (s = str; *s != '\0'; s++) {
+                if (isspace (*s))
+                        continue;
+                if (*s == '-')
+                        return -1;
+                break;
+        }
+
+        old_errno = errno;
+        errno = 0;
+        value = strtoull (str, &tail, 10);
+
+        if (errno == ERANGE || errno == EINVAL)
+                return -1;
+
+        if (errno == 0)
+                errno = old_errno;
+
+        if (tail[0] != '\0') {
+                if (strcasecmp (tail, GF_UNIT_KB_STRING) == 0)
+                        value *= GF_UNIT_KB;
+                else if (strcasecmp (tail, GF_UNIT_MB_STRING) == 0)
+                        value *= GF_UNIT_MB;
+                else if (strcasecmp (tail, GF_UNIT_GB_STRING) == 0)
+                        value *= GF_UNIT_GB;
+                else if (strcasecmp (tail, GF_UNIT_TB_STRING) == 0)
+                        value *= GF_UNIT_TB;
+                else if (strcasecmp (tail, GF_UNIT_PB_STRING) == 0)
+                        value *= GF_UNIT_PB;
+		else if (strcasecmp (tail, GF_UNIT_PERCENT_STRING) == 0)
+			*is_percent = _gf_true;
+                else
+                        return -1;
+        }
+
+        *n = value;
+
+        return 0;
+}
+
 int64_t
 gf_str_to_long_long (const char *number)
 {
