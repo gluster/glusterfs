@@ -466,7 +466,9 @@ afr_locked_nodes_get (afr_transaction_type type, afr_internal_lock_t *int_lock)
 
         case AFR_ENTRY_TRANSACTION:
         case AFR_ENTRY_RENAME_TRANSACTION:
-                locked_nodes = int_lock->entry_locked_nodes;
+                /*Because same set of subvols participate in all lockee
+                 * entities*/
+                locked_nodes = int_lock->lockee[0].locked_nodes;
         break;
         }
         return locked_nodes;
@@ -1211,8 +1213,8 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
 
         case AFR_ENTRY_RENAME_TRANSACTION:
 
-                int_lock->lock_cbk = afr_post_blocking_rename_cbk;
-                afr_blocking_lock (frame, this);
+                int_lock->lock_cbk = afr_post_nonblocking_entrylk_cbk;
+                afr_nonblocking_entrylk (frame, this);
                 break;
 
         case AFR_ENTRY_TRANSACTION:

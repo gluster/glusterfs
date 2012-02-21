@@ -418,11 +418,12 @@ afr_create (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int32_t flags, mode_t mode,
             mode_t umask, fd_t *fd, dict_t *params)
 {
-        afr_private_t  *priv  = NULL;
-        afr_local_t    *local = NULL;
-        call_frame_t   *transaction_frame = NULL;
-        int             ret = -1;
-        int             op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -473,7 +474,17 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
+        int_lock = &local->internal_lock;
 
+        int_lock->lockee_count = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[0], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        int_lock->lockee_count++;
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
         if (ret < 0) {
             op_errno = -ret;
@@ -612,11 +623,12 @@ int
 afr_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
            dev_t dev, mode_t umask, dict_t *params)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -666,7 +678,17 @@ afr_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
+        int_lock = &local->internal_lock;
 
+        int_lock->lockee_count = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[0], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        int_lock->lockee_count++;
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
         if (ret < 0) {
             op_errno = -ret;
@@ -802,16 +824,16 @@ afr_mkdir_done (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-
 int
 afr_mkdir (call_frame_t *frame, xlator_t *this,
            loc_t *loc, mode_t mode, mode_t umask, dict_t *params)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -859,7 +881,17 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
+        int_lock = &local->internal_lock;
 
+        int_lock->lockee_count = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[0], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        int_lock->lockee_count++;
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
         if (ret < 0) {
             op_errno = -ret;
@@ -966,7 +998,8 @@ afr_link_wind (call_frame_t *frame, xlator_t *this)
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i]) {
-                        STACK_WIND_COOKIE (frame, afr_link_wind_cbk, (void *) (long) i,
+                        STACK_WIND_COOKIE (frame, afr_link_wind_cbk,
+                                           (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->link,
                                            &local->loc,
@@ -998,11 +1031,12 @@ int
 afr_link (call_frame_t *frame, xlator_t *this,
           loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1048,13 +1082,22 @@ afr_link (call_frame_t *frame, xlator_t *this,
 
         local->transaction.main_frame   = frame;
         local->transaction.basename     = AFR_BASENAME (newloc->path);
+        int_lock = &local->internal_lock;
 
+        int_lock->lockee_count = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[0], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        int_lock->lockee_count++;
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
         if (ret < 0) {
             op_errno = -ret;
             goto out;
         }
-
         ret = 0;
 out:
         if (ret < 0) {
@@ -1190,11 +1233,12 @@ int
 afr_symlink (call_frame_t *frame, xlator_t *this,
              const char *linkpath, loc_t *loc, mode_t umask, dict_t *params)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1242,7 +1286,17 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
 
         local->transaction.main_frame   = frame;
         local->transaction.basename     = AFR_BASENAME (loc->path);
+        int_lock = &local->internal_lock;
 
+        int_lock->lockee_count = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[0], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        int_lock->lockee_count++;
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
         if (ret < 0) {
             op_errno = -ret;
@@ -1391,11 +1445,13 @@ int
 afr_rename (call_frame_t *frame, xlator_t *this,
             loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
+        int                     nlockee                 = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1439,6 +1495,38 @@ afr_rename (call_frame_t *frame, xlator_t *this,
         local->transaction.main_frame   = frame;
         local->transaction.basename     = AFR_BASENAME (oldloc->path);
         local->transaction.new_basename = AFR_BASENAME (newloc->path);
+        int_lock = &local->internal_lock;
+
+        int_lock->lockee_count = nlockee = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[nlockee], local,
+                                     &local->transaction.new_parent_loc,
+                                     local->transaction.new_basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        nlockee++;
+        ret = afr_init_entry_lockee (&int_lock->lockee[nlockee], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        nlockee++;
+        if (local->newloc.inode && IA_ISDIR (local->newloc.inode->ia_type)) {
+                ret = afr_init_entry_lockee (&int_lock->lockee[nlockee], local,
+                                             &local->newloc,
+                                             NULL,
+                                             priv->child_count);
+                if (ret)
+                        goto out;
+
+                nlockee++;
+        }
+        qsort (int_lock->lockee, nlockee, sizeof (*int_lock->lockee),
+               afr_entry_lockee_cmp);
+        int_lock->lockee_count = nlockee;
 
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_RENAME_TRANSACTION);
         if (ret < 0) {
@@ -1578,11 +1666,12 @@ int32_t
 afr_unlink (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int xflag, dict_t *xdata)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1621,7 +1710,17 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
+        int_lock = &local->internal_lock;
 
+        int_lock->lockee_count = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[0], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        int_lock->lockee_count++;
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
         if (ret < 0) {
             op_errno = -ret;
@@ -1768,11 +1867,13 @@ int
 afr_rmdir (call_frame_t *frame, xlator_t *this,
            loc_t *loc, int flags, dict_t *xdata)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t  * transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t           *priv                   = NULL;
+        afr_local_t             *local                  = NULL;
+        afr_internal_lock_t     *int_lock               = NULL;
+        call_frame_t            *transaction_frame      = NULL;
+        int                     ret                     = -1;
+        int                     op_errno                = 0;
+        int                     nlockee                 = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1809,6 +1910,28 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
+        int_lock = &local->internal_lock;
+
+        int_lock->lockee_count = nlockee = 0;
+        ret = afr_init_entry_lockee (&int_lock->lockee[nlockee], local,
+                                     &local->transaction.parent_loc,
+                                     local->transaction.basename,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        nlockee++;
+        ret = afr_init_entry_lockee (&int_lock->lockee[nlockee], local,
+                                     &local->loc,
+                                     NULL,
+                                     priv->child_count);
+        if (ret)
+                goto out;
+
+        nlockee++;
+        qsort (int_lock->lockee, nlockee, sizeof (*int_lock->lockee),
+               afr_entry_lockee_cmp);
+        int_lock->lockee_count = nlockee;
 
         ret = afr_transaction (transaction_frame, this, AFR_ENTRY_TRANSACTION);
         if (ret < 0) {
