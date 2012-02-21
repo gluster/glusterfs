@@ -96,6 +96,7 @@ typedef enum {
 
 typedef struct afr_self_heald_ {
         gf_boolean_t     enabled;
+        gf_boolean_t     iamshd;
         afr_crawl_type_t *pending;
         gf_boolean_t     *inprogress;
         afr_child_pos_t  *pos;

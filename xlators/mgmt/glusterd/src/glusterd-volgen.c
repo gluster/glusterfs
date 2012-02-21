@@ -2465,7 +2465,7 @@ build_client_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
 static int
 shd_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
-                           void *param)
+                    void *param)
 {
         int                     ret = 0;
         struct volopt_map_entry new_vme = {0};
@@ -2660,6 +2660,23 @@ nfs_option_handler (volgen_graph_t *graph,
 }
 
 static int
+volgen_graph_set_iam_shd (volgen_graph_t *graph)
+{
+        xlator_t        *trav;
+        int             ret = 0;
+
+        for (trav = first_of (graph); trav; trav = trav->next) {
+                if (strcmp (trav->type, "cluster/replicate") != 0)
+                        continue;
+
+                ret = xlator_set_option (trav, "iam-self-heal-daemon", "yes");
+                if (ret)
+                        break;
+        }
+        return ret;
+}
+
+static int
 build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
 {
         volgen_graph_t     cgraph         = {0};
@@ -2730,6 +2747,10 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
                 ret = volgen_graph_set_options_generic (&cgraph, set_dict, voliter,
                                                         shd_option_handler);
+                if (ret)
+                        goto out;
+
+                ret = volgen_graph_set_iam_shd (&cgraph);
                 if (ret)
                         goto out;
 
