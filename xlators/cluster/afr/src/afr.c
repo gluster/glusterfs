@@ -276,6 +276,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("self-heal-daemon", priv->shd.enabled, bool, out);
 
+        GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
+
         GF_OPTION_INIT ("data-change-log", priv->data_change_log, bool, out);
 
         GF_OPTION_INIT ("metadata-change-log", priv->metadata_change_log, bool,
@@ -365,7 +367,7 @@ init (xlator_t *this)
         priv->first_lookup = 1;
         priv->root_inode = NULL;
 
-        if (!priv->shd.enabled) {
+        if (!priv->shd.iamshd) {
                 ret = 0;
                 goto out;
         }
@@ -571,6 +573,10 @@ struct volume_options options[] = {
           .default_value = "off",
         },
         { .key = {"self-heal-daemon"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+        { .key = {"iam-self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },

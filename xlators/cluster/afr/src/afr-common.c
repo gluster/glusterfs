@@ -3555,10 +3555,8 @@ afr_notify (xlator_t *this, int32_t event,
         ret = 0;
         if (propagate)
                 ret = default_notify (this, event, data);
-        if (call_psh && priv->shd.enabled) {
-                gf_log (this->name, GF_LOG_DEBUG, "start crawl: %d", up_child);
+        if (call_psh && priv->shd.iamshd)
                 afr_do_poll_self_heal ((void*) (long) up_child);
-        }
 
 out:
         return ret;

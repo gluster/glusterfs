@@ -486,7 +486,8 @@ afr_do_poll_self_heal (void *data)
         priv = this->private;
         shd = &priv->shd;
 
-        _do_self_heal_on_subvol (this, child, INDEX);
+        if (shd->enabled)
+                _do_self_heal_on_subvol (this, child, INDEX);
         if (shd->pos[child] == AFR_POS_REMOTE)
                 goto out;
         timeout.tv_sec = AFR_POLL_TIMEOUT;
