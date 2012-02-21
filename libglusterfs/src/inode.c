@@ -1254,7 +1254,9 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         if (!new->name_hash)
                 goto out;
 
-        new->fd_mem_pool = mem_pool_new (fd_t, 16384);
+        /* if number of fd open in one process is more than this,
+           we may hit perf issues */
+        new->fd_mem_pool = mem_pool_new (fd_t, 1024);
 
         if (!new->fd_mem_pool)
                 goto out;

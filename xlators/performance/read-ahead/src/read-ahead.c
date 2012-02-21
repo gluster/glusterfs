@@ -1062,7 +1062,7 @@ init (xlator_t *this)
 
         pthread_mutex_init (&conf->conf_lock, NULL);
 
-        this->local_pool = mem_pool_new (ra_local_t, 1024);
+        this->local_pool = mem_pool_new (ra_local_t, 64);
         if (!this->local_pool) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,

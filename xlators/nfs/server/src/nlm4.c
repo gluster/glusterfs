@@ -885,7 +885,8 @@ nlm4_establish_callback (void *csarg)
                 goto err;
         }
 
-        rpc_clnt = rpc_clnt_new (options, cs->nfsx->ctx, "NLM-client");
+        /* TODO: is 32 frames in transit enough ? */
+        rpc_clnt = rpc_clnt_new (options, cs->nfsx->ctx, "NLM-client", 32);
         if (rpc_clnt == NULL) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "rpc_clnt NULL");
                 goto err;

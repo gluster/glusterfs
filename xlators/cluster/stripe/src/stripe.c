@@ -4433,7 +4433,7 @@ init (xlator_t *this)
         /* notify related */
         priv->nodes_down = priv->child_count;
 
-        this->local_pool = mem_pool_new (stripe_local_t, 1024);
+        this->local_pool = mem_pool_new (stripe_local_t, 128);
         if (!this->local_pool) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,

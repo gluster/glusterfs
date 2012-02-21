@@ -2955,7 +2955,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("enable-trickling-writes", conf->enable_trickling_writes,
                         bool, out);
 
-        this->local_pool = mem_pool_new (wb_local_t, 1024);
+        this->local_pool = mem_pool_new (wb_local_t, 64);
         if (!this->local_pool) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,

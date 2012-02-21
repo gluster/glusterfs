@@ -52,9 +52,9 @@
 
 #define RPCSVC_FRAGHDR_SIZE  4       /* 4-byte RPC fragment header size */
 #define RPCSVC_DEFAULT_LISTEN_PORT      GF_DEFAULT_BASE_PORT
-#define RPCSVC_DEFAULT_MEMFACTOR        15
+#define RPCSVC_DEFAULT_MEMFACTOR        8
 #define RPCSVC_EVENTPOOL_SIZE_MULT      1024
-#define RPCSVC_POOLCOUNT_MULT           35
+#define RPCSVC_POOLCOUNT_MULT           64
 #define RPCSVC_CONN_READ        (128 * GF_UNIT_KB)
 #define RPCSVC_PAGE_SIZE        (128 * GF_UNIT_KB)
 
@@ -420,7 +420,8 @@ rpcsvc_register_portmap_enabled (rpcsvc_t *svc);
  * Called in main.
  */
 extern rpcsvc_t *
-rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options);
+rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
+             uint32_t poolcount);
 
 int
 rpcsvc_register_notify (rpcsvc_t *svc, rpcsvc_notify_t notify, void *mydata);

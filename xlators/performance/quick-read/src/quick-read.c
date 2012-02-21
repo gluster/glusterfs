@@ -3552,7 +3552,7 @@ init (xlator_t *this)
                 INIT_LIST_HEAD (&priv->table.lru[i]);
         }
 
-        this->local_pool = mem_pool_new (qr_local_t, 1024);
+        this->local_pool = mem_pool_new (qr_local_t, 64);
         if (!this->local_pool) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,

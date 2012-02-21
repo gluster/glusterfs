@@ -692,7 +692,7 @@ nfs_init_state (xlator_t *this)
                 }
         }
 
-        nfs->rpcsvc =  rpcsvc_init (this, this->ctx, this->options);
+        nfs->rpcsvc =  rpcsvc_init (this, this->ctx, this->options, 0);
         if (!nfs->rpcsvc) {
                 ret = -1;
                 gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");

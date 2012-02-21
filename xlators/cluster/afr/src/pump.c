@@ -2526,7 +2526,7 @@ init (xlator_t *this)
         }
 
         /* keep more local here as we may need them for self-heal etc */
-        this->local_pool = mem_pool_new (afr_local_t, 4096);
+        this->local_pool = mem_pool_new (afr_local_t, 128);
         if (!this->local_pool) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,

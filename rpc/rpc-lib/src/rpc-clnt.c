@@ -23,7 +23,7 @@
 #include "config.h"
 #endif
 
-#define RPC_CLNT_DEFAULT_REQUEST_COUNT 4096
+#define RPC_CLNT_DEFAULT_REQUEST_COUNT 512
 
 #include "rpc-clnt.h"
 #include "byte-order.h"
@@ -1018,8 +1018,8 @@ out:
 }
 
 struct rpc_clnt *
-rpc_clnt_new (dict_t *options,
-              glusterfs_ctx_t *ctx, char *name)
+rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx, char *name,
+              uint32_t reqpool_size)
 {
         int                    ret  = -1;
         struct rpc_clnt       *rpc  = NULL;
@@ -1032,8 +1032,10 @@ rpc_clnt_new (dict_t *options,
         pthread_mutex_init (&rpc->lock, NULL);
         rpc->ctx = ctx;
 
-        rpc->reqpool = mem_pool_new (struct rpc_req,
-                                     RPC_CLNT_DEFAULT_REQUEST_COUNT);
+        if (!reqpool_size)
+                reqpool_size = RPC_CLNT_DEFAULT_REQUEST_COUNT;
+
+        rpc->reqpool = mem_pool_new (struct rpc_req, reqpool_size);
         if (rpc->reqpool == NULL) {
                 pthread_mutex_destroy (&rpc->lock);
                 GF_FREE (rpc);
@@ -1042,7 +1044,7 @@ rpc_clnt_new (dict_t *options,
         }
 
         rpc->saved_frames_pool = mem_pool_new (struct saved_frame,
-                                              RPC_CLNT_DEFAULT_REQUEST_COUNT);
+                                               reqpool_size);
         if (rpc->saved_frames_pool == NULL) {
                 pthread_mutex_destroy (&rpc->lock);
                 mem_pool_destroy (rpc->reqpool);

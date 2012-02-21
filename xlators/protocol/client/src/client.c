@@ -2194,7 +2194,7 @@ client_init_rpc (xlator_t *this)
                 goto out;
         }
 
-        conf->rpc = rpc_clnt_new (this->options, this->ctx, this->name);
+        conf->rpc = rpc_clnt_new (this->options, this->ctx, this->name, 0);
         if (!conf->rpc) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to initialize RPC");
                 goto out;
@@ -2371,7 +2371,7 @@ init (xlator_t *this)
                 goto out;
         }
 
-        this->local_pool = mem_pool_new (clnt_local_t, 1024);
+        this->local_pool = mem_pool_new (clnt_local_t, 64);
         if (!this->local_pool) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
