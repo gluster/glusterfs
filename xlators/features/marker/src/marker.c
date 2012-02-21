@@ -2504,7 +2504,7 @@ init (xlator_t *this)
                 }
         }
 
-        this->local_pool = mem_pool_new (marker_local_t, 1024);
+        this->local_pool = mem_pool_new (marker_local_t, 128);
         if (!this->local_pool) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to create local_t's memory pool");

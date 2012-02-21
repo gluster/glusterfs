@@ -25,7 +25,7 @@
 #include "xlator.h"
 #include "timer.h"
 
-#define GF_FOPS_EXPECTED_IN_PARALLEL 4096
+#define GF_FOPS_EXPECTED_IN_PARALLEL 512
 
 typedef struct {
         gf_timer_t       *timer;

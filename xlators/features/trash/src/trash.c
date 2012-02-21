@@ -1518,7 +1518,7 @@ init (xlator_t *this)
                         _priv->max_trash_file_size);
         }
 
-        this->local_pool = mem_pool_new (trash_local_t, 1024);
+        this->local_pool = mem_pool_new (trash_local_t, 64);
         if (!this->local_pool) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to create local_t's memory pool");

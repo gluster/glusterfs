@@ -1804,10 +1804,11 @@ out:
 /* The global RPC service initializer.
  */
 rpcsvc_t *
-rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options)
+rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
+             uint32_t poolcount)
 {
         rpcsvc_t          *svc              = NULL;
-        int                ret              = -1, poolcount = 0;
+        int                ret              = -1;
 
         if ((!ctx) || (!options))
                 return NULL;
@@ -1828,7 +1829,8 @@ rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options)
                 goto free_svc;
         }
 
-        poolcount   = RPCSVC_POOLCOUNT_MULT * svc->memfactor;
+        if (!poolcount)
+                poolcount = RPCSVC_POOLCOUNT_MULT * svc->memfactor;
 
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "rx pool: %d", poolcount);
         svc->rxpool = mem_pool_new (rpcsvc_request_t, poolcount);

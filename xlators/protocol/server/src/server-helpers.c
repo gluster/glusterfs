@@ -931,7 +931,7 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         ret = dict_get_int32 (this->options, "inode-lru-limit",
                               &conf->inode_lru_limit);
         if (ret < 0) {
-                conf->inode_lru_limit = 1024;
+                conf->inode_lru_limit = 16384;
         }
 
         conf->verify_volfile = 1;

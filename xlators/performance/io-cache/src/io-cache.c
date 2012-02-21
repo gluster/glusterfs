@@ -1747,7 +1747,7 @@ init (xlator_t *this)
         for (index = 0; index < (table->max_pri); index++)
                 INIT_LIST_HEAD (&table->inode_lru[index]);
 
-        this->local_pool = mem_pool_new (ioc_local_t, 1024);
+        this->local_pool = mem_pool_new (ioc_local_t, 64);
         if (!this->local_pool) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,

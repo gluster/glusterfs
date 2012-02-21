@@ -1009,17 +1009,15 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
                 return -1;
         }
 
-        /* frame_mem_pool size 112 * 16k */
-        pool->frame_mem_pool = mem_pool_new (call_frame_t, 16384);
-
+        /* frame_mem_pool size 112 * 4k */
+        pool->frame_mem_pool = mem_pool_new (call_frame_t, 4096);
         if (!pool->frame_mem_pool) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs frame pool creation failed");
                 return -1;
         }
-        /* stack_mem_pool size 256 * 8k */
-        pool->stack_mem_pool = mem_pool_new (call_stack_t, 8192);
-
+        /* stack_mem_pool size 256 * 1024 */
+        pool->stack_mem_pool = mem_pool_new (call_stack_t, 1024);
         if (!pool->stack_mem_pool) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs stack pool creation failed");

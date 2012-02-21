@@ -860,7 +860,7 @@ init (xlator_t *this)
         ret = glusterd_rpcsvc_options_build (this->options);
         if (ret)
                 goto out;
-        rpc = rpcsvc_init (this, this->ctx, this->options);
+        rpc = rpcsvc_init (this, this->ctx, this->options, 64);
         if (rpc == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to init rpc");

@@ -904,8 +904,7 @@ init (xlator_t *this)
         }
 
         /* RPC related */
-        //conf->rpc = rpc_svc_init (&conf->rpc_conf);
-        conf->rpc = rpcsvc_init (this, this->ctx, this->options);
+        conf->rpc = rpcsvc_init (this, this->ctx, this->options, 0);
         if (conf->rpc == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "creation of rpcsvc failed");
@@ -1078,7 +1077,8 @@ struct volume_options options[] = {
         { .key   = {"inode-lru-limit"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 0,
-          .max   = (1 * GF_UNIT_MB)
+          .max   = (1 * GF_UNIT_MB),
+          .default_value = "16384",
         },
         { .key   = {"verify-volfile-checksum"},
           .type  = GF_OPTION_TYPE_BOOL
