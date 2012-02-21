@@ -1692,6 +1692,14 @@ out:
 	return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        ret = xlator_mem_acct_init (this, gf_mdc_mt_end + 1);
+        return ret;
+}
 
 int
 init (xlator_t *this)
