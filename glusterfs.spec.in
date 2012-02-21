@@ -210,9 +210,9 @@ find %{buildroot}%{_libdir} -name '*.la' -delete
 %{__rm} -rf %{buildroot}%{_datadir}/doc/glusterfs/
 
 # Rename the samples, so we can include them as %%config
-for file in %{buildroot}%{_sysconfdir}/glusterfs/*.sample; do
-  %{__mv} ${file} `dirname ${file}`/`basename ${file} .sample`
-done
+#for file in %{buildroot}%{_sysconfdir}/glusterfs/*.sample; do
+#  %{__mv} ${file} `dirname ${file}`/`basename ${file} .sample`
+#done
 
 # Create working directory
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd
