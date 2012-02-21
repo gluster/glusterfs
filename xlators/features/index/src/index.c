@@ -392,6 +392,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
 
         fd = creat (index_path, 0);
         if ((fd < 0) && (errno != EEXIST)) {
+                ret = -1;
                 gf_log (this->name, GF_LOG_ERROR, "%s: Not able to "
                         "create index (%s)", uuid_utoa (gfid),
                         strerror (errno));
@@ -409,6 +410,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
                 goto out;
         }
 
+        ret = 0;
 out:
         return ret;
 }
