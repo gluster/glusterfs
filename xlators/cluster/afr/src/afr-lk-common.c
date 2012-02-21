@@ -55,7 +55,30 @@
         } while (0);
 
 int
-afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index);
+afr_entry_lockee_cmp (const void *l1, const void *l2)
+{
+       const afr_entry_lockee_t       *r1 = l1;
+       const afr_entry_lockee_t       *r2 = l2;
+       int                            ret = 0;
+
+        ret = uuid_compare (r1->loc.gfid, r2->loc.gfid);
+        /*Entrylks with NULL basename are the 'smallest'*/
+        if (ret == 0) {
+                if (!r1->basename)
+                        return -1;
+                if (!r2->basename)
+                        return 1;
+                ret = strcmp (r1->basename, r2->basename);
+        }
+
+        if (ret <= 0)
+                return -1;
+        else
+                return 1;
+
+}
+
+int afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index);
 
 static int
 afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this);
@@ -332,10 +355,13 @@ static void
 afr_trace_entrylk_in (call_frame_t *frame, xlator_t *this,
                       afr_lock_call_type_t lock_call_type,
                       afr_lock_op_type_t lk_op_type, const char *basename,
-                      int32_t child_index)
+                      int32_t cookie)
 {
         afr_local_t         *local    = NULL;
         afr_internal_lock_t *int_lock = NULL;
+        afr_private_t       *priv     = NULL;
+        int                 child_index = 0;
+        int                 lockee_no = 0;
 
         char lock[256];
         char lockee[256];
@@ -343,28 +369,40 @@ afr_trace_entrylk_in (call_frame_t *frame, xlator_t *this,
 
         local    = frame->local;
         int_lock = &local->internal_lock;
+        priv     = this->private;
+
+        if (!priv->entrylk_trace) {
+                return;
+        }
+        lockee_no = cookie / priv->child_count;
+        child_index = cookie % priv->child_count;
 
         afr_print_entrylk (lock, 256, basename, &frame->root->lk_owner);
-        afr_print_lockee (lockee, 256, &local->loc, local->fd, child_index);
+        afr_print_lockee (lockee, 256, &int_lock->lockee[lockee_no].loc, local->fd,
+                          child_index);
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
 
         gf_log (this->name, GF_LOG_INFO,
-                "[%s %s] Lock={%s} Lockee={%s} Number={%llu}",
+                "[%s %s] Lock={%s} Lockee={%s} Number={%llu}, Cookie={%d}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REQUEST" : "UNLOCK REQUEST",
                 lock, lockee,
-                (unsigned long long) int_lock->lock_number);
+                (unsigned long long) int_lock->lock_number,
+                cookie);
 }
 
 static void
 afr_trace_entrylk_out (call_frame_t *frame, xlator_t *this,
                        afr_lock_call_type_t lock_call_type,
                        afr_lock_op_type_t lk_op_type, const char *basename,
-                       int op_ret, int op_errno, int32_t child_index)
+                       int op_ret, int op_errno, int32_t cookie)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
+        afr_private_t       *priv     = NULL;
+        int                 lockee_no = 0;
+        int                 child_index = 0;
 
         char lock[256];
         char lockee[256];
@@ -373,20 +411,30 @@ afr_trace_entrylk_out (call_frame_t *frame, xlator_t *this,
 
         local    = frame->local;
         int_lock = &local->internal_lock;
+        priv     = this->private;
 
-        afr_print_lockee (lockee, 256, &local->loc, local->fd, child_index);
+        if (!priv->entrylk_trace) {
+                return;
+        }
+        lockee_no = cookie / priv->child_count;
+        child_index = cookie % priv->child_count;
+
+        afr_print_entrylk (lock, 256, basename, &frame->root->lk_owner);
+        afr_print_lockee (lockee, 256, &int_lock->lockee[lockee_no].loc, local->fd,
+                          child_index);
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
 
         afr_print_verdict (op_ret, op_errno, verdict);
 
         gf_log (this->name, GF_LOG_INFO,
-                "[%s %s] [%s] Lock={%s} Lockee={%s} Number={%llu}",
+                "[%s %s] [%s] Lock={%s} Lockee={%s} Number={%llu} Cookie={%d}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REPLY" : "UNLOCK REPLY",
                 verdict,
                 lock, lockee,
-                (unsigned long long) int_lock->lock_number);
+                (unsigned long long) int_lock->lock_number,
+                cookie);
 
 }
 
@@ -439,6 +487,47 @@ is_afr_lock_transaction (afr_local_t *local)
         return ret;
 }
 
+int
+afr_init_entry_lockee (afr_entry_lockee_t *lockee, afr_local_t *local,
+                       loc_t *loc, char *basename, int child_count)
+{
+        int     ret     = -1;
+
+        loc_copy (&lockee->loc, loc);
+        lockee->basename        = (basename)? gf_strdup (basename): NULL;
+        if (basename && !lockee->basename)
+                goto out;
+
+        lockee->locked_count    = 0;
+        lockee->locked_nodes    = GF_CALLOC (child_count,
+                                             sizeof (*lockee->locked_nodes),
+                                             gf_afr_mt_afr_node_character);
+
+        if (!lockee->locked_nodes)
+                goto out;
+
+        ret = 0;
+out:
+        return ret;
+
+}
+
+void
+afr_entry_lockee_cleanup (afr_internal_lock_t *int_lock)
+{
+        int     i   = 0;
+
+        for (i = 0; i < int_lock->lockee_count; i++) {
+                loc_wipe (&int_lock->lockee[i].loc);
+                if (int_lock->lockee[i].basename)
+                        GF_FREE (int_lock->lockee[i].basename);
+                if (int_lock->lockee[i].locked_nodes)
+                       GF_FREE (int_lock->lockee[i].locked_nodes);
+        }
+
+        return;
+}
+
 static int
 initialize_entrylk_variables (call_frame_t *frame, xlator_t *this)
 {
@@ -456,8 +545,13 @@ initialize_entrylk_variables (call_frame_t *frame, xlator_t *this)
         int_lock->lock_op_ret        = -1;
         int_lock->lock_op_errno      = 0;
 
-        for (i = 0; i < priv->child_count; i++) {
-                int_lock->entry_locked_nodes[i] = 0;
+        for (i = 0; i < AFR_LOCKEE_COUNT_MAX; i++) {
+                if (!int_lock->lockee[i].locked_nodes)
+                        break;
+                int_lock->lockee[i].locked_count = 0;
+                memset (int_lock->lockee[i].locked_nodes, 0,
+                        sizeof (*int_lock->lockee[i].locked_nodes) *
+                        priv->child_count);
         }
 
         return 0;
@@ -500,6 +594,18 @@ lower_path (loc_t *l1, const char *b1, loc_t *l2, const char *b2)
                 return l1;
         else
                 return l2;
+}
+
+int
+afr_lockee_locked_nodes_count (afr_internal_lock_t *int_lock)
+{
+        int call_count  = 0;
+        int i           = 0;
+
+        for (i = 0; i < int_lock->lockee_count; i++)
+                call_count += int_lock->lockee[i].locked_count;
+
+        return call_count;
 }
 
 int
@@ -689,13 +795,22 @@ afr_unlock_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t         *local = NULL;
-        int32_t             child_index = (long)cookie;
+        afr_private_t       *priv  = NULL;
+        afr_internal_lock_t *int_lock = NULL;
+        int32_t             child_index = 0;
+        int                 lockee_no   = 0;
+
+        priv = this->private;
+        lockee_no = (int)((long) cookie) / priv->child_count;
+        child_index = (int) ((long) cookie) % priv->child_count;
 
         local = frame->local;
+        int_lock = &local->internal_lock;
 
         AFR_TRACE_ENTRYLK_OUT (frame, this, AFR_ENTRYLK_TRANSACTION,
-                               AFR_UNLOCK_OP, NULL, op_ret,
-                               op_errno, child_index);
+                               AFR_UNLOCK_OP,
+                               int_lock->lockee[lockee_no].basename, op_ret,
+                               op_errno, (int) ((long)cookie));
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -703,6 +818,7 @@ afr_unlock_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->loc.path, child_index, strerror (op_errno));
         }
 
+        int_lock->lockee[lockee_no].locked_nodes[child_index] &= LOCKED_NO;
         afr_unlock_common_cbk (frame, cookie, this, op_ret, op_errno, NULL);
 
         return 0;
@@ -711,24 +827,22 @@ afr_unlock_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 static int
 afr_unlock_entrylk (call_frame_t *frame, xlator_t *this)
 {
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
-        const char          *basename = NULL;
-        loc_t               *loc      = NULL;
-        int call_count = 0;
-        int i = -1;
+        afr_internal_lock_t     *int_lock       = NULL;
+        afr_local_t             *local          = NULL;
+        afr_private_t           *priv           = NULL;
+        int                     call_count      = 0;
+        int                     index           = 0;
+        int                     lockee_no       = 0;
+        int                     copies          = 0;
+        int                     i               = -1;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
         priv     = this->private;
+        copies   = priv->child_count;
 
-        basename = int_lock->lk_basename;
-        if (int_lock->lk_loc)
-                loc = int_lock->lk_loc;
+        call_count = afr_lockee_locked_nodes_count (int_lock);
 
-        call_count = afr_locked_nodes_count (int_lock->entry_locked_nodes,
-                                             priv->child_count);
         int_lock->lk_call_count = call_count;
 
         if (!call_count){
@@ -738,18 +852,22 @@ afr_unlock_entrylk (call_frame_t *frame, xlator_t *this)
                 goto out;
         }
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (int_lock->entry_locked_nodes[i] & LOCKED_YES) {
-                        AFR_TRACE_ENTRYLK_IN (frame, this,
-                                              AFR_ENTRYLK_NB_TRANSACTION,
-                                              AFR_UNLOCK_OP, basename, i);
+        for (i = 0; i < int_lock->lockee_count * priv->child_count; i++) {
+                lockee_no = i / copies;
+                index     = i % copies;
+                if (int_lock->lockee[lockee_no].locked_nodes[index] & LOCKED_YES) {
+                        AFR_TRACE_ENTRYLK_IN (frame, this, AFR_ENTRYLK_NB_TRANSACTION,
+                                              AFR_UNLOCK_OP,
+                                              int_lock->lockee[lockee_no].basename,
+                                              i);
 
                         STACK_WIND_COOKIE (frame, afr_unlock_entrylk_cbk,
                                            (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->entrylk,
+                                           priv->children[index],
+                                           priv->children[index]->fops->entrylk,
                                            this->name,
-                                           loc, basename,
+                                           &int_lock->lockee[lockee_no].loc,
+                                           int_lock->lockee[lockee_no].basename,
                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
 
                         if (!--call_count)
@@ -766,12 +884,19 @@ static int32_t
 afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-        int child_index = (long) cookie;
+        afr_internal_lock_t     *int_lock       = NULL;
+        afr_local_t             *local          = NULL;
+        afr_private_t           *priv           = NULL;
+        int                     cky             = (long) cookie;
+        int                     child_index     = 0;
+        int                     lockee_no       = 0;
 
+        priv     = this->private;
         local    = frame->local;
         int_lock = &local->internal_lock;
+
+        child_index = ((int)cky) % priv->child_count;
+        lockee_no   = ((int)cky) / priv->child_count;
 
         LOCK (&frame->lock);
         {
@@ -796,10 +921,17 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 afr_unlock (frame, this);
         } else {
                 if (op_ret == 0) {
-                        int_lock->locked_nodes[child_index] |= LOCKED_YES;
-                        int_lock->lock_count++;
+                        if (local->transaction.type == AFR_ENTRY_TRANSACTION ||
+                            local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+                                int_lock->lockee[lockee_no].locked_nodes[child_index] |= LOCKED_YES;
+                                int_lock->lockee[lockee_no].locked_count++;
+                                int_lock->entrylk_lock_count++;
+                        } else {
+                                int_lock->locked_nodes[child_index] |= LOCKED_YES;
+                                int_lock->lock_count++;
+                        }
                 }
-                afr_lock_blocking (frame, this, child_index + 1);
+                afr_lock_blocking (frame, this, cky + 1);
         }
 
         return 0;
@@ -816,79 +948,6 @@ afr_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_lock_cbk (frame, cookie, this, op_ret, op_errno, xdata);
         return 0;
 
-}
-
-static int32_t
-afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-        afr_internal_lock_t *int_lock    = NULL;
-        afr_private_t       *priv        = NULL;
-        afr_local_t         *local       = NULL;
-        loc_t               *lower       = NULL;
-        loc_t               *higher      = NULL;
-        const char          *higher_name = NULL;
-        int child_index = (long) cookie;
-
-        priv     = this->private;
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == -1) {
-                        if (op_errno == ENOSYS) {
-                                /* return ENOTSUP */
-
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "subvolume does not support locking. "
-                                        "please load features/locks xlator on server");
-
-                                local->op_ret   = op_ret;
-                        }
-
-                        local->op_errno = op_errno;
-                }
-        }
-        UNLOCK (&frame->lock);
-
-        if (op_ret != 0) {
-                afr_copy_locked_nodes (frame, this);
-                afr_unlock (frame, this);
-                goto out;
-        } else {
-                int_lock->lower_locked_nodes[child_index] |= LOCKED_LOWER;
-                int_lock->lock_count++;
-        }
-
-        /* The lower path has been locked. Now lock the higher path */
-
-        lower = lower_path (&local->transaction.parent_loc,
-                            local->transaction.basename,
-                            &local->transaction.new_parent_loc,
-                            local->transaction.new_basename);
-
-        higher = (lower == &local->transaction.parent_loc ?
-                  &local->transaction.new_parent_loc :
-                  &local->transaction.parent_loc);
-
-        higher_name = (higher == &local->transaction.parent_loc ?
-                       local->transaction.basename :
-                       local->transaction.new_basename);
-
-        AFR_TRACE_ENTRYLK_IN (frame, this, AFR_ENTRYLK_TRANSACTION,
-                              AFR_LOCK_OP, higher_name, child_index);
-
-
-        STACK_WIND_COOKIE (frame, afr_lock_cbk,
-                           (void *) (long) child_index,
-                           priv->children[child_index],
-                           priv->children[child_index]->fops->entrylk,
-                           this->name, higher, higher_name,
-                           ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
-
-out:
-        return 0;
 }
 
 static int32_t
@@ -925,10 +984,8 @@ afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this)
 
         case AFR_ENTRY_RENAME_TRANSACTION:
         case AFR_ENTRY_TRANSACTION:
-                memcpy (int_lock->entry_locked_nodes,
-                        int_lock->locked_nodes,
-                        priv->child_count);
-                int_lock->entrylk_lock_count = int_lock->lock_count;
+                /*entrylk_count is being used in both non-blocking and blocking
+                 * modes */
                 break;
         }
 
@@ -936,21 +993,47 @@ afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this)
 
 }
 
+static inline gf_boolean_t
+afr_is_entrylk (afr_internal_lock_t *int_lock,
+                afr_transaction_type trans_type)
+{
+        gf_boolean_t is_entrylk = _gf_false;
+
+        if ((int_lock->transaction_lk_type == AFR_SELFHEAL_LK) &&
+            int_lock->selfheal_lk_type == AFR_ENTRY_SELF_HEAL_LK) {
+
+                is_entrylk = _gf_true;
+
+        } else if ((int_lock->transaction_lk_type == AFR_TRANSACTION_LK) &&
+                 (trans_type == AFR_ENTRY_TRANSACTION ||
+                  trans_type == AFR_ENTRY_RENAME_TRANSACTION)) {
+
+                is_entrylk = _gf_true;
+
+        } else {
+                is_entrylk = _gf_false;
+        }
+
+        return is_entrylk;
+}
+
 int
-afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
+afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 {
         afr_internal_lock_t *int_lock    = NULL;
         afr_local_t         *local       = NULL;
         afr_private_t       *priv        = NULL;
-        loc_t               *lower       = NULL;
-        const char          *lower_name  = NULL;
         struct gf_flock flock = {0,};
         uint64_t ctx = 0;
         int ret = 0;
+        int child_index = 0;
+        int lockee_no   = 0;
 
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-        priv     = this->private;
+        local         = frame->local;
+        int_lock      = &local->internal_lock;
+        priv          = this->private;
+        child_index   = cookie % priv->child_count;
+        lockee_no     = cookie / priv->child_count;
 
         flock.l_start = int_lock->lk_flock.l_start;
         flock.l_len   = int_lock->lk_flock.l_len;
@@ -990,7 +1073,9 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
         }
 
         if ((child_index == priv->child_count) &&
-            int_lock->lock_count == 0) {
+            ((afr_is_entrylk (int_lock, local->transaction.type) &&
+              int_lock->entrylk_lock_count == 0) ||
+             (int_lock->lock_count == 0))){
 
                 gf_log (this->name, GF_LOG_INFO,
                         "unable to lock on even one child");
@@ -1006,8 +1091,9 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 
         }
 
-        if ((child_index == priv->child_count)
-            || (int_lock->lock_count == int_lock->lk_expected_count)) {
+        if ((child_index == priv->child_count) ||
+            (int_lock->entrylk_lock_count == int_lock->lk_expected_count) ||
+            (int_lock->lock_count == int_lock->lk_expected_count)) {
 
                 /* we're done locking */
 
@@ -1055,43 +1141,23 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
                 break;
 
         case AFR_ENTRY_RENAME_TRANSACTION:
-        {
-                lower = lower_path (&local->transaction.parent_loc,
-                                    local->transaction.basename,
-                                    &local->transaction.new_parent_loc,
-                                    local->transaction.new_basename);
-
-                lower_name = (lower == &local->transaction.parent_loc ?
-                              local->transaction.basename :
-                              local->transaction.new_basename);
-
-                AFR_TRACE_ENTRYLK_IN (frame, this, AFR_ENTRYLK_TRANSACTION,
-                                      AFR_LOCK_OP, lower_name, child_index);
-
-
-                STACK_WIND_COOKIE (frame, afr_lock_lower_cbk,
-                                   (void *) (long) child_index,
-                                   priv->children[child_index],
-                                   priv->children[child_index]->fops->entrylk,
-                                   this->name, lower, lower_name,
-                                   ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
-
-                break;
-        }
-
         case AFR_ENTRY_TRANSACTION:
+                /*Accounting for child_index increments on 'down'
+                 *and 'fd-less' children */
+                cookie = lockee_no * priv->child_count + child_index;
+
                 if (local->fd) {
-                        AFR_TRACE_ENTRYLK_IN (frame, this,
-                                              AFR_ENTRYLK_TRANSACTION,
-                                              AFR_LOCK_OP, local->transaction.basename,
-                                              child_index);
+                        AFR_TRACE_ENTRYLK_IN (frame, this, AFR_ENTRYLK_TRANSACTION,
+                                              AFR_LOCK_OP,
+                                              int_lock->lockee[lockee_no].basename,
+                                              cookie);
 
                         STACK_WIND_COOKIE (frame, afr_blocking_entrylk_cbk,
-                                           (void *) (long) child_index,
+                                           (void *) (long) cookie,
                                            priv->children[child_index],
                                            priv->children[child_index]->fops->fentrylk,
                                            this->name, local->fd,
-                                           local->transaction.basename,
+                                           int_lock->lockee[lockee_no].basename,
                                            ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
                 } else {
                         AFR_TRACE_ENTRYLK_IN (frame, this,
@@ -1100,12 +1166,12 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
                                               child_index);
 
                         STACK_WIND_COOKIE (frame, afr_blocking_entrylk_cbk,
-                                           (void *) (long) child_index,
+                                           (void *) (long) cookie,
                                            priv->children[child_index],
                                            priv->children[child_index]->fops->entrylk,
                                            this->name,
-                                           &local->transaction.parent_loc,
-                                           local->transaction.basename,
+                                           &int_lock->lockee[lockee_no].loc,
+                                           int_lock->lockee[lockee_no].basename,
                                            ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
                 }
 
@@ -1134,11 +1200,12 @@ afr_blocking_lock (call_frame_t *frame, xlator_t *this)
                 break;
 
         case AFR_ENTRY_RENAME_TRANSACTION:
+        case AFR_ENTRY_TRANSACTION:
                 up_count = afr_up_children_count (local->child_up,
                                                   priv->child_count);
-                int_lock->lk_expected_count = 2 * up_count;
-                //fallthrough
-        case AFR_ENTRY_TRANSACTION:
+                int_lock->lk_call_count = int_lock->lk_expected_count
+                                        = (int_lock->lockee_count *
+                                           up_count);
                 initialize_entrylk_variables (frame, this);
                 break;
         }
@@ -1154,14 +1221,25 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        int                 call_count  = 0;
-        int                 child_index = (long) cookie;
+        int call_count          = 0;
+        int child_index         = (long) cookie;
+        int copies              = 0;
+        int index               = 0;
+        int lockee_no           = 0;
+        afr_private_t       *priv = NULL;
+
+        priv = this->private;
+
+        copies = priv->child_count;
+        index = child_index % copies;
+        lockee_no = child_index / copies;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
 
         AFR_TRACE_ENTRYLK_OUT (frame, this, AFR_ENTRYLK_TRANSACTION,
-                               AFR_LOCK_OP, NULL, op_ret,
+                               AFR_LOCK_OP,
+                               int_lock->lockee[lockee_no].basename, op_ret,
                                op_errno, (long) cookie);
 
         if (op_ret < 0 ) {
@@ -1177,7 +1255,8 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno              = op_errno;
                 }
         } else if (op_ret == 0) {
-                int_lock->entry_locked_nodes[child_index] |= LOCKED_YES;
+                int_lock->lockee[lockee_no].locked_nodes[index] |= LOCKED_YES;
+                int_lock->lockee[lockee_no].locked_count++;
                 int_lock->entrylk_lock_count++;
         }
 
@@ -1229,24 +1308,22 @@ afr_mark_fd_open_on (afr_local_t *local, afr_fd_ctx_t *fd_ctx,
 int
 afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
 {
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
-        afr_fd_ctx_t        *fd_ctx   = NULL;
-        const char          *basename = NULL;
-        loc_t               *loc      = NULL;
-        int32_t call_count = 0;
+        afr_internal_lock_t *int_lock   = NULL;
+        afr_local_t         *local      = NULL;
+        afr_private_t       *priv       = NULL;
+        afr_fd_ctx_t        *fd_ctx     = NULL;
+        int                 copies      = 0;
+        int                 index       = 0;
+        int                 lockee_no   = 0;
+        int32_t             call_count  = 0;
         int i = 0;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
         priv     = this->private;
 
+        copies = priv->child_count;
         initialize_entrylk_variables (frame, this);
-
-        basename = int_lock->lk_basename;
-        if (int_lock->lk_loc)
-                loc = int_lock->lk_loc;
 
         if (local->fd) {
                 fd_ctx = afr_fd_ctx_get (local->fd, this);
@@ -1264,7 +1341,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                 }
 
                 afr_mark_fd_open_on (local, fd_ctx, priv->child_count);
-                call_count = internal_lock_count (frame, this);
+                call_count = int_lock->lockee_count * internal_lock_count (frame, this);
                 int_lock->lk_call_count = call_count;
                 int_lock->lk_expected_count = call_count;
 
@@ -1277,46 +1354,52 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
 
                 /* Send non-blocking entrylk calls only on up children
                    and where the fd has been opened */
-                for (i = 0; i < priv->child_count; i++) {
-                        if (local->child_up[i] && local->fd_open_on[i]) {
-                                AFR_TRACE_ENTRYLK_IN (frame, this,
-                                                      AFR_ENTRYLK_NB_TRANSACTION,
-                                                      AFR_LOCK_OP, basename, i);
+                for (i = 0; i < int_lock->lockee_count*priv->child_count; i++) {
+                        index = i%copies;
+                        lockee_no = i/copies;
+                        if (local->child_up[index] && local->fd_open_on[index]) {
+                                AFR_TRACE_ENTRYLK_IN (frame, this, AFR_ENTRYLK_NB_TRANSACTION,
+                                                      AFR_LOCK_OP,
+                                                      int_lock->lockee[lockee_no].basename,
+                                                      i);
 
                                 STACK_WIND_COOKIE (frame, afr_nonblocking_entrylk_cbk,
                                                    (void *) (long) i,
-                                                   priv->children[i],
-                                                   priv->children[i]->fops->fentrylk,
+                                                   priv->children[index],
+                                                   priv->children[index]->fops->fentrylk,
                                                    this->name, local->fd,
-                                                   basename,
+                                                   int_lock->lockee[lockee_no].basename,
                                                    ENTRYLK_LOCK_NB, ENTRYLK_WRLCK,
                                                    NULL);
+                                if (!--call_count)
+                                        break;
                         }
                 }
         } else {
-                GF_ASSERT (loc);
-
-                call_count = internal_lock_count (frame, this);
+                call_count = int_lock->lockee_count * internal_lock_count (frame, this);
                 int_lock->lk_call_count = call_count;
                 int_lock->lk_expected_count = call_count;
 
-                for (i = 0; i < priv->child_count; i++) {
-                        if (local->child_up[i]) {
-                                AFR_TRACE_ENTRYLK_IN (frame, this,
-                                                      AFR_ENTRYLK_NB_TRANSACTION,
-                                                      AFR_LOCK_OP, basename, i);
+                for (i = 0; i < int_lock->lockee_count*priv->child_count; i++) {
+                        index = i%copies;
+                        lockee_no = i/copies;
+                        if (local->child_up[index]) {
+                                AFR_TRACE_ENTRYLK_IN (frame, this, AFR_ENTRYLK_NB_TRANSACTION,
+                                                      AFR_LOCK_OP,
+                                                      int_lock->lockee[lockee_no].basename,
+                                                      i);
 
                                 STACK_WIND_COOKIE (frame, afr_nonblocking_entrylk_cbk,
                                                    (void *) (long) i,
-                                                   priv->children[i],
-                                                   priv->children[i]->fops->entrylk,
-                                                   this->name, loc, basename,
+                                                   priv->children[index],
+                                                   priv->children[index]->fops->entrylk,
+                                                   this->name, &int_lock->lockee[lockee_no].loc,
+                                                   int_lock->lockee[lockee_no].basename,
                                                    ENTRYLK_LOCK_NB, ENTRYLK_WRLCK,
                                                    NULL);
 
                                 if (!--call_count)
                                         break;
-
                         }
                 }
         }
@@ -1539,201 +1622,6 @@ out:
         return ret;
 }
 
-static int
-__is_lower_locked (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_private_t       *priv     = NULL;
-        afr_local_t         *local    = NULL;
-        int count = 0;
-        int i     = 0;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-        priv     = this->private;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (int_lock->lower_locked_nodes[i] & LOCKED_LOWER)
-                        count++;
-        }
-
-        return count;
-
-}
-
-static int
-__is_higher_locked (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_private_t       *priv     = NULL;
-        afr_local_t         *local    = NULL;
-        int count = 0;
-        int i = 0;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-        priv     = this->private;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (int_lock->locked_nodes[i] & LOCKED_YES)
-                        count++;
-        }
-
-        return count;
-
-}
-
-static int
-afr_unlock_lower_entrylk (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
-        const char          *basename = NULL;
-        loc_t               *loc      = NULL;
-        int call_count = 0;
-        int i = -1;
-
-        local = frame->local;
-        int_lock = &local->internal_lock;
-        priv  = this->private;
-
-        basename = int_lock->lk_basename;
-        if (int_lock->lk_loc)
-                loc = int_lock->lk_loc;
-
-        call_count = __is_lower_locked (frame, this);
-        int_lock->lk_call_count = call_count;
-
-        if (!call_count){
-                gf_log (this->name, GF_LOG_TRACE,
-                        "No internal locks unlocked");
-                int_lock->lock_cbk (frame, this);
-                goto out;
-        }
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (int_lock->lower_locked_nodes[i] & LOCKED_LOWER) {
-                        AFR_TRACE_ENTRYLK_IN (frame, this,
-                                              AFR_ENTRYLK_NB_TRANSACTION,
-                                              AFR_UNLOCK_OP, basename, i);
-
-                        STACK_WIND_COOKIE (frame, afr_unlock_entrylk_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->entrylk,
-                                           this->name,
-                                           loc, basename,
-                                           ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
-
-                        if (!--call_count)
-                                break;
-
-                }
-        }
-
-out:
-        return 0;
-
-}
-
-
-static int
-afr_post_unlock_higher_cbk (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t *local = NULL;
-
-        local = frame->local;
-
-        local->transaction.done (frame, this);
-        return 0;
-}
-
-static int
-afr_post_unlock_lower_cbk (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock    = NULL;
-        afr_local_t         *local       = NULL;
-        loc_t               *lower       = NULL;
-        loc_t               *higher      = NULL;
-        const char          *higher_name = NULL;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        lower = lower_path (&local->transaction.parent_loc,
-                            local->transaction.basename,
-                            &local->transaction.new_parent_loc,
-                            local->transaction.new_basename);
-
-        higher = (lower == &local->transaction.parent_loc ?
-                  &local->transaction.new_parent_loc :
-                  &local->transaction.parent_loc);
-
-        higher_name = (higher == &local->transaction.parent_loc ?
-                       local->transaction.basename :
-                       local->transaction.new_basename);
-
-        if (__is_higher_locked (frame, this)) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "unlocking higher");
-                int_lock->lk_basename = higher_name;
-                int_lock->lk_loc      = higher;
-                int_lock->lock_cbk    = afr_post_unlock_higher_cbk;
-
-                afr_unlock_entrylk (frame, this);
-        } else
-                local->transaction.done (frame, this);
-
-        return 0;
-}
-
-static int
-afr_rename_unlock (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock    = NULL;
-        afr_local_t         *local       = NULL;
-        loc_t               *lower       = NULL;
-        const char          *lower_name  = NULL;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        lower = lower_path (&local->transaction.parent_loc,
-                            local->transaction.basename,
-                            &local->transaction.new_parent_loc,
-                            local->transaction.new_basename);
-
-        lower_name = (lower == &local->transaction.parent_loc ?
-                      local->transaction.basename :
-                      local->transaction.new_basename);
-
-        if (__is_lower_locked (frame, this)) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "unlocking lower");
-                int_lock->lk_basename = lower_name;
-                int_lock->lk_loc      = lower;
-                int_lock->lock_cbk    = afr_post_unlock_lower_cbk;
-
-                afr_unlock_lower_entrylk (frame, this);
-        } else
-                afr_post_unlock_lower_cbk (frame, this);
-
-        return 0;
-}
-
-static int
-afr_rename_transaction (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t *local = NULL;
-
-        local = frame->local;
-
-        return (local->transaction.type ==
-                AFR_ENTRY_RENAME_TRANSACTION);
-
-}
-
 int32_t
 afr_unlock (call_frame_t *frame, xlator_t *this)
 {
@@ -1745,10 +1633,8 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
                 if (is_afr_lock_transaction (local))
                         afr_unlock_inodelk (frame, this);
                 else
-                        if (!afr_rename_transaction (frame, this))
-                                afr_unlock_entrylk (frame, this);
-                        else
-                                afr_rename_unlock (frame, this);
+                        afr_unlock_entrylk (frame, this);
+
         } else {
                 if (is_afr_lock_selfheal (local))
                         afr_unlock_inodelk (frame, this);

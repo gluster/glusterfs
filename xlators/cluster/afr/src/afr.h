@@ -29,6 +29,8 @@
 #define AFR_PATHINFO_HEADER "REPLICATE:"
 #define AFR_SH_READDIR_SIZE_KEY "self-heal-readdir-size"
 
+#define AFR_LOCKEE_COUNT_MAX    3
+
 struct _pump_private;
 
 typedef int (*afr_expunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
@@ -342,10 +344,23 @@ afr_index_for_transaction_type (afr_transaction_type type)
         return -1;  /* make gcc happy */
 }
 
+typedef struct {
+        loc_t                   loc;
+        char                    *basename;
+        unsigned char           *locked_nodes;
+        int                     locked_count;
+
+} afr_entry_lockee_t;
+
+int
+afr_entry_lockee_cmp (const void *l1, const void *l2);
 
 typedef struct {
         loc_t *lk_loc;
         struct gf_flock lk_flock;
+
+        int                     lockee_count;
+        afr_entry_lockee_t      lockee[AFR_LOCKEE_COUNT_MAX];
 
         const char *lk_basename;
         const char *lower_basename;
@@ -356,7 +371,6 @@ typedef struct {
         unsigned char *locked_nodes;
         unsigned char *lower_locked_nodes;
         unsigned char *inode_locked_nodes;
-        unsigned char *entry_locked_nodes;
 
         selfheal_lk_type_t selfheal_lk_type;
         transaction_lk_type_t transaction_lk_type;
@@ -750,6 +764,13 @@ pump_command_reply (call_frame_t *frame, xlator_t *this);
 
 int32_t
 afr_notify (xlator_t *this, int32_t event, void *data, void *data2);
+
+int
+afr_init_entry_lockee (afr_entry_lockee_t *lockee, afr_local_t *local,
+                       loc_t *loc, char *basename, int child_count);
+
+void
+afr_entry_lockee_cleanup (afr_internal_lock_t *int_lock);
 
 int
 afr_attempt_lock_recovery (xlator_t *this, int32_t child_index);
