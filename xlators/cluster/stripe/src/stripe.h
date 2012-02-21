@@ -66,8 +66,8 @@
 
 typedef struct stripe_xattr_sort {
         int32_t  pos;
-        int32_t  pathinfo_len;
-        char    *pathinfo;
+        int32_t  xattr_len;
+        char    *xattr_value;
 } stripe_xattr_sort_t;
 
 /**
@@ -178,6 +178,7 @@ struct stripe_local {
         stripe_xattr_sort_t *xattr_list;
         int32_t              xattr_total_len;
         int32_t              nallocs;
+        char xsel[256];
 
         struct marker_str    marker;
 

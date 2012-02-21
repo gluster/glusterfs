@@ -2379,21 +2379,23 @@ int32_t
 posix_getxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, const char *name)
 {
-        struct posix_private *priv  = NULL;
-        int32_t  op_ret         = -1;
-        int32_t  op_errno       = 0;
-        int32_t  list_offset    = 0;
-        size_t   size           = 0;
-        size_t   remaining_size = 0;
-        char     key[4096]      = {0,};
-        char     host_buf[1024] = {0,};
-        char *   value          = NULL;
-        char *   list           = NULL;
-        char *   real_path      = NULL;
-        dict_t * dict           = NULL;
-        char *   file_contents  = NULL;
-        int      ret            = -1;
-        char *   path           = NULL;
+        struct posix_private *priv           = NULL;
+        int32_t               op_ret         = -1;
+        int32_t               op_errno       = 0;
+        int32_t               list_offset    = 0;
+        size_t                size           = 0;
+        size_t                remaining_size = 0;
+        char     key[4096]                   = {0,};
+        char     host_buf[1024]              = {0,};
+        char                 *value          = NULL;
+        char                 *list           = NULL;
+        char                 *real_path      = NULL;
+        dict_t               *dict           = NULL;
+        char                 *file_contents  = NULL;
+        int                   ret            = -1;
+        char                 *path           = NULL;
+        char                 *rpath          = NULL;
+        char                 *dyn_rpath      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2444,15 +2446,50 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
         if (loc->inode && name &&
             (strcmp (name, GF_XATTR_PATHINFO_KEY) == 0)) {
-                snprintf (host_buf, 1024, "<POSIX:%s:%s>", priv->hostname,
-                          real_path);
-                size = strlen (host_buf) + 1;
-                ret = dict_set_str (dict, GF_XATTR_PATHINFO_KEY,
-                                    host_buf);
+                if (LOC_HAS_ABSPATH (loc))
+                        MAKE_REAL_PATH (rpath, this, loc->path);
+                else
+                        rpath = real_path;
+
+                (void) snprintf (host_buf, 1024, "<POSIX(%s):%s:%s>",
+                                 priv->base_path, priv->hostname, rpath);
+
+                dyn_rpath = gf_strdup (host_buf);
+                if (!dyn_rpath) {
+                        ret = -1;
+                        goto done;
+                }
+                size = strlen (dyn_rpath) + 1;
+                ret = dict_set_dynstr (dict, GF_XATTR_PATHINFO_KEY,
+                                       dyn_rpath);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "could not set value (%s) in dictionary",
-                                host_buf);
+                                dyn_rpath);
+                }
+
+                goto done;
+        }
+
+        if (loc->inode && name &&
+            (strcmp (name, GF_XATTR_NODE_UUID_KEY) == 0)
+            && !uuid_is_null (priv->glusterd_uuid)) {
+                (void) snprintf (host_buf, 1024, "<%s>",
+                                 uuid_utoa (priv->glusterd_uuid));
+
+                dyn_rpath = gf_strdup (host_buf);
+                if (!dyn_rpath) {
+                        ret = -1;
+                        goto done;
+                }
+
+                size = strlen (dyn_rpath) + 1;
+                ret = dict_set_dynstr (dict, GF_XATTR_NODE_UUID_KEY,
+                                       dyn_rpath);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "could not set value (%s) in dictionary",
+                                dyn_rpath);
                 }
                 goto done;
         }
@@ -3762,19 +3799,20 @@ mem_acct_init (xlator_t *this)
 int
 init (xlator_t *this)
 {
-        struct posix_private  *_private      = NULL;
-        data_t                *dir_data      = NULL;
-        data_t                *tmp_data      = NULL;
-        struct stat            buf           = {0,};
-        gf_boolean_t           tmp_bool      = 0;
-        int                    dict_ret      = 0;
-        int                    ret           = 0;
-        int                    op_ret        = -1;
-        int32_t                janitor_sleep = 0;
-        uuid_t                 old_uuid      = {0,};
-        uuid_t                 dict_uuid     = {0,};
-        uuid_t                 gfid          = {0,};
-        uuid_t                 rootgfid = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
+        struct posix_private *_private      = NULL;
+        data_t               *dir_data      = NULL;
+        data_t               *tmp_data      = NULL;
+        struct stat           buf           = {0,};
+        gf_boolean_t          tmp_bool      = 0;
+        int                   dict_ret      = 0;
+        int                   ret           = 0;
+        int                   op_ret        = -1;
+        int32_t               janitor_sleep = 0;
+        uuid_t                old_uuid      = {0,};
+        uuid_t                dict_uuid     = {0,};
+        uuid_t                gfid          = {0,};
+        uuid_t                rootgfid      = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
+        char                 *guuid         = NULL;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -4022,6 +4060,19 @@ init (xlator_t *this)
                                 "for every open)");
         }
 
+        ret = dict_get_str (this->options, "glusterd-uuid", &guuid);
+        if (!ret) {
+                if (uuid_parse (guuid, _private->glusterd_uuid))
+                        gf_log (this->name, GF_LOG_WARNING, "Cannot parse "
+                                "glusterd (node) UUID, node-uuid xattr "
+                                "request would return - \"No such attribute\"");
+        } else {
+                gf_log (this->name, GF_LOG_DEBUG, "No glusterd (node) UUID "
+                        "passed - node-uuid xattr request will return "
+                        "\"No such attribute\"");
+        }
+        ret = 0;
+
         _private->janitor_sleep_duration = 600;
 
         dict_ret = dict_get_int32 (this->options, "janitor-sleep-duration",
@@ -4175,5 +4226,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT },
         { .key  = {"volume-id"},
           .type = GF_OPTION_TYPE_ANY },
+        { .key  = {"glusterd-uuid"},
+          .type = GF_OPTION_TYPE_STR },
         { .key  = {NULL} }
 };

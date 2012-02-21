@@ -1629,8 +1629,27 @@ fill_layout_info (dht_layout_t *layout, char *buf)
         }
 }
 
+void
+dht_fill_pathinfo_xattr (xlator_t *this, dht_local_t *local,
+                         char *xattr_buf, int32_t alloc_len,
+                         int flag, char *layout_buf)
+{
+        if (flag && local->xattr_val)
+                snprintf (xattr_buf, alloc_len,
+                          "((<"DHT_PATHINFO_HEADER"%s> %s) (%s-layout %s))",
+                          this->name, local->xattr_val, this->name,
+                          layout_buf);
+        else if (local->xattr_val)
+                snprintf (xattr_buf, alloc_len,
+                          "(<"DHT_PATHINFO_HEADER"%s> %s)",
+                          this->name, local->xattr_val);
+        else if (flag)
+                snprintf (xattr_buf, alloc_len, "(%s-layout %s)",
+                          this->name, layout_buf);
+}
+
 int
-dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int op_ret, int op_errno, dict_t *xattr)
 {
         dht_local_t *local         = NULL;
@@ -1647,31 +1666,36 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if (op_ret != -1) {
-                ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &value_got);
+                ret = dict_get_str (xattr, local->xsel, &value_got);
                 if (!ret) {
                         alloc_len = strlen (value_got);
 
                         /**
-                         * allocate the buffer:- we allocate 10 bytes extra in case we need to
-                         * append ' Link: ' in the buffer for another STACK_WIND
+                         * allocate the buffer:- we allocate 10 bytes extra in
+                         * case we need to append ' Link: ' in the buffer for
+                         * another STACK_WIND
                          */
-                        if (!local->pathinfo) {
+                        if (!local->xattr_val) {
                                 alloc_len += (strlen (DHT_PATHINFO_HEADER) + 10);
-                                local->pathinfo = GF_CALLOC (alloc_len, sizeof (char), gf_common_mt_char);
+                                local->xattr_val =
+                                        GF_CALLOC (alloc_len,
+                                                   sizeof (char),
+                                                   gf_common_mt_char);
                         }
 
-                        if (local->pathinfo) {
-                                plen = strlen (local->pathinfo);
+                        if (local->xattr_val) {
+                                plen = strlen (local->xattr_val);
                                 if (plen) {
                                         /* extra byte(s) for \0 to be safe */
                                         alloc_len += (plen + 2);
-                                        local->pathinfo = GF_REALLOC (local->pathinfo,
-                                                                      alloc_len);
-                                        if (!local->pathinfo)
+                                        local->xattr_val =
+                                                GF_REALLOC (local->xattr_val,
+                                                            alloc_len);
+                                        if (!local->xattr_val)
                                                 goto out;
                                 }
 
-                                strcat (local->pathinfo, value_got);
+                                strcat (local->xattr_val, value_got);
                         }
                 }
         }
@@ -1687,26 +1711,28 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 dict = dict_new ();
 
-                /* we would need max-to-max this many bytes to create pathinfo string */
-                alloc_len += (2 * strlen (this->name)) + strlen (layout_buf) + 40;
-                xattr_buf = GF_CALLOC (alloc_len, sizeof (char), gf_common_mt_char);
+                /* we would need max this many bytes to create xattr string */
+                alloc_len += (2 * strlen (this->name))
+                          + strlen (layout_buf)
+                          + 40;
+                xattr_buf = GF_CALLOC (alloc_len,
+                                       sizeof (char), gf_common_mt_char);
 
-                if (flag && local->pathinfo)
-                        snprintf (xattr_buf, alloc_len, "((<"DHT_PATHINFO_HEADER"%s> %s) (%s-layout %s))",
-                                  this->name, local->pathinfo, this->name,
-                                  layout_buf);
-                else if (local->pathinfo)
-                        snprintf (xattr_buf, alloc_len, "(<"DHT_PATHINFO_HEADER"%s> %s)",
-                                  this->name, local->pathinfo);
-                else if (flag)
-                        snprintf (xattr_buf, alloc_len, "(%s-layout %s)",
-                                  this->name, layout_buf);
+                if (XATTR_IS_PATHINFO (local->xsel)) {
+                        (void) dht_fill_pathinfo_xattr (this, local, xattr_buf,
+                                                        alloc_len, flag,
+                                                        layout_buf);
+                } else if (XATTR_IS_NODE_UUID (local->xsel)) {
+                        (void) snprintf (xattr_buf, alloc_len, "%s",
+                                         local->xattr_val);
+                } else
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Unknown local->xsel (%s)", local->xsel);
 
-                ret = dict_set_dynstr (dict, GF_XATTR_PATHINFO_KEY,
-                                       xattr_buf);
+                ret = dict_set_dynstr (dict, local->xsel, xattr_buf);
 
-                if (local->pathinfo)
-                        GF_FREE (local->pathinfo);
+                if (local->xattr_val)
+                        GF_FREE (local->xattr_val);
 
                 DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
 
@@ -1716,19 +1742,24 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 return 0;
         }
 
-        if (local->pathinfo)
-                strcat (local->pathinfo, " Link: ");
+        /**
+         * XXX: We will never reach here as call_cnt will always be 1.
+         * But code is kept untouched as we may need it when hashed_subvol
+         * bug is fixed.
+         */
+        if (local->xattr_val)
+                strcat (local->xattr_val, " Link: ");
         if (local->hashed_subvol) {
                 /* This will happen if there pending */
-                STACK_WIND (frame, dht_pathinfo_getxattr_cbk, local->hashed_subvol,
+                STACK_WIND (frame, dht_vgetxattr_cbk, local->hashed_subvol,
                             local->hashed_subvol->fops->getxattr,
                             &local->loc, local->key);
 
                 return 0;
         }
 
-        gf_log ("this->name", GF_LOG_ERROR, "Unable to find hashed_subvol for path"
-                " %s", local->pathinfo);
+        gf_log ("this->name", GF_LOG_ERROR, "Unable to find hashed_subvol"
+                " for path %s", local->xattr_val);
 
         DHT_STACK_UNWIND (getxattr, frame, -1, op_errno, dict);
         return 0;
@@ -1852,25 +1883,13 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        if (key && (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)) {
-                hashed_subvol = dht_subvol_get_hashed (this, loc);
-                if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to get hashed_subvol for %s",
-                                loc->path);
-                        op_errno = EINVAL;
-                        goto err;
-                }
-
+        if (key && ((strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)
+                    || strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)) {
                 cached_subvol = local->cached_subvol;
+                (void) strncpy (local->xsel, key, 256);
 
                 local->call_cnt = 1;
-                if (hashed_subvol != cached_subvol) {
-                        local->call_cnt = 2;
-                        local->hashed_subvol = hashed_subvol;
-                }
-
-                STACK_WIND (frame, dht_pathinfo_getxattr_cbk, cached_subvol,
+                STACK_WIND (frame, dht_vgetxattr_cbk, cached_subvol,
                             cached_subvol->fops->getxattr, loc, key);
 
                 return 0;
