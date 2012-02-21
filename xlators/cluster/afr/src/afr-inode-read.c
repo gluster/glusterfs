@@ -726,24 +726,73 @@ unlock:
         return ret;
 }
 
+/**
+ * node-uuid cbk uses next child querying mechanism
+ */
+int32_t
+afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int32_t op_ret, int32_t op_errno,
+                            dict_t *dict)
+{
+        afr_private_t  *priv            = NULL;
+        afr_local_t    *local           = NULL;
+        xlator_t      **children        = NULL;
+        int             unwind          = 1;
+        int             curr_call_child = 0;
+
+        priv = this->private;
+        children = priv->children;
+
+        local = frame->local;
+
+        if (op_ret == -1) { /** query the _next_ child */
+
+                /**
+                 * _current_ becomes _next_
+                 * If done with all childs and yet no success; give up !
+                 */
+                curr_call_child = (int) ((long)cookie);
+                if (++curr_call_child == priv->child_count)
+                        goto unwind;
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "op_ret (-1): Re-querying afr-child (%d/%d)",
+                        curr_call_child, priv->child_count);
+
+                unwind = 0;
+                STACK_WIND_COOKIE (frame, afr_getxattr_node_uuid_cbk,
+                                   (void *) (long) curr_call_child,
+                                   children[curr_call_child],
+                                   children[curr_call_child]->fops->getxattr,
+                                   &local->loc,
+                                   local->cont.getxattr.name);
+        }
+
+ unwind:
+        if (unwind)
+                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
+
+        return 0;
+}
+
 int32_t
 afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                            xlator_t *this, int32_t op_ret, int32_t op_errno,
                            dict_t *dict)
 {
-        afr_local_t *local             = NULL;
-        int32_t      callcnt           = 0;
-        int          ret               = 0;
-        char        *pathinfo          = NULL;
-        char        *pathinfo_serz     = NULL;
-        char        pathinfo_cky[1024] = {0,};
-        dict_t      *xattr             = NULL;
-        long         cky               = 0;
-        int32_t      padding           = 0;
-        int32_t      tlen              = 0;
+        afr_local_t *local          = NULL;
+        int32_t      callcnt        = 0;
+        int          ret            = 0;
+        char        *xattr          = NULL;
+        char        *xattr_serz     = NULL;
+        char        xattr_cky[1024] = {0,};
+        dict_t      *nxattr         = NULL;
+        long         cky            = 0;
+        int32_t      padding        = 0;
+        int32_t      tlen           = 0;
 
         if (!frame || !frame->local || !this) {
-                gf_log (this->name, GF_LOG_ERROR, "possible NULL deref");
+                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
                 goto out;
         }
 
@@ -761,70 +810,80 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                                 local->dict = dict_new ();
 
                         if (local->dict) {
-                                ret = dict_get_str (dict, GF_XATTR_PATHINFO_KEY, &pathinfo);
+                                ret = dict_get_str (dict,
+                                                    local->cont.getxattr.name,
+                                                    &xattr);
                                 if (ret)
                                         goto out;
 
-                                pathinfo = gf_strdup (pathinfo);
+                                xattr = gf_strdup (xattr);
 
-                                snprintf (pathinfo_cky, 1024, "%s-%ld", GF_XATTR_PATHINFO_KEY, cky);
-                                ret = dict_set_dynstr (local->dict, pathinfo_cky, pathinfo);
+                                (void)snprintf (xattr_cky, 1024, "%s-%ld",
+                                                local->cont.getxattr.name, cky);
+                                ret = dict_set_dynstr (local->dict,
+                                                       xattr_cky, xattr);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo cookie key");
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Cannot set xattr cookie key");
                                         goto out;
                                 }
 
-                                local->cont.getxattr.pathinfo_len += strlen (pathinfo) + 1;
+                                local->cont.getxattr.xattr_len += strlen (xattr) + 1;
                         }
                 }
  out:
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
-                if (!local->cont.getxattr.pathinfo_len)
+                if (!local->cont.getxattr.xattr_len)
                         goto unwind;
 
-                xattr = dict_new ();
-                if (!xattr)
+                nxattr = dict_new ();
+                if (!nxattr)
                         goto unwind;
 
                 /* extra bytes for decorations (brackets and <>'s) */
-                padding = strlen (this->name) + strlen (AFR_PATHINFO_HEADER) + 4;
-                local->cont.getxattr.pathinfo_len += (padding + 2);
+                padding += strlen (this->name) + strlen (AFR_PATHINFO_HEADER) + 4;
+                local->cont.getxattr.xattr_len += (padding + 2);
 
-                pathinfo_serz = GF_CALLOC (local->cont.getxattr.pathinfo_len, sizeof (char),
-                                           gf_common_mt_char);
+                xattr_serz = GF_CALLOC (local->cont.getxattr.xattr_len,
+                                        sizeof (char), gf_common_mt_char);
 
-                if (!pathinfo_serz)
+                if (!xattr_serz)
                         goto unwind;
 
                 /* the xlator info */
-                sprintf (pathinfo_serz, "(<"AFR_PATHINFO_HEADER"%s> ", this->name);
+                (void) sprintf (xattr_serz, "(<"AFR_PATHINFO_HEADER"%s> ",
+                                this->name);
 
                 /* actual series of pathinfo */
-                ret = dict_serialize_value_with_delim (local->dict, pathinfo_serz + strlen (pathinfo_serz),
+                ret = dict_serialize_value_with_delim (local->dict,
+                                                       xattr_serz + strlen (xattr_serz),
                                                        &tlen, ' ');
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Error serializing dictionary");
+                        gf_log (this->name, GF_LOG_ERROR, "Error serializing"
+                                " dictionary");
                         goto unwind;
                 }
 
                 /* closing part */
-                *(pathinfo_serz + padding + tlen) = ')';
-                *(pathinfo_serz + padding + tlen + 1) = '\0';
+                *(xattr_serz + padding + tlen) = ')';
+                *(xattr_serz + padding + tlen + 1) = '\0';
 
-                ret = dict_set_dynstr (xattr, GF_XATTR_PATHINFO_KEY, pathinfo_serz);
+                ret = dict_set_dynstr (nxattr, local->cont.getxattr.name,
+                                       xattr_serz);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo key in dict");
+                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo"
+                                " key in dict");
 
         unwind:
-                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr);
+                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, nxattr);
 
                 if (local->dict)
                         dict_unref (local->dict);
 
-                if (xattr)
-                        dict_unref (xattr);
+                if (nxattr)
+                        dict_unref (nxattr);
         }
 
         return ret;
@@ -961,6 +1020,16 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 if (afr_is_special_xattr (name, &cbk)) {
                         afr_getxattr_frm_all_children (this, frame, name,
                                                        loc, cbk);
+                        return 0;
+                }
+
+                if (XATTR_IS_NODE_UUID (name)) {
+                        i = 0;
+                        STACK_WIND_COOKIE (frame, afr_getxattr_node_uuid_cbk,
+                                           (void *) (long) i,
+                                           children[i],
+                                           children[i]->fops->getxattr,
+                                           loc, name);
                         return 0;
                 }
 

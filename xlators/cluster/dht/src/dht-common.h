@@ -144,8 +144,11 @@ struct dht_local {
         dev_t   rdev;
 
         /* need for file-info */
-        char   *pathinfo;
+        char   *xattr_val;
         char   *key;
+
+        /* which xattr request? */
+        char xsel[256];
 
         char   *newpath;
 

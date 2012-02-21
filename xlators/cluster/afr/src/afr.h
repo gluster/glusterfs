@@ -480,7 +480,7 @@ typedef struct _afr_local {
                 struct {
                         char *name;
                         int last_index;
-                        long pathinfo_len;
+                        long xattr_len;
                 } getxattr;
 
                 struct {

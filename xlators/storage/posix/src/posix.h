@@ -122,6 +122,9 @@ struct posix_private {
 
         struct stat     handledir;
 
+/* uuid of glusterd that swapned the brick process */
+        uuid_t glusterd_uuid;
+
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
