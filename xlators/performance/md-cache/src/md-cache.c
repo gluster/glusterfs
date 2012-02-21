@@ -1056,7 +1056,7 @@ mdc_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 
         loc_copy (&local->loc, loc);
 
-        local->linkname = strdup (linkname);
+        local->linkname = gf_strdup (linkname);
 
         STACK_WIND (frame, mdc_symlink_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->symlink,
