@@ -1094,6 +1094,43 @@ index_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
+int32_t
+index_releasedir (xlator_t *this, fd_t *fd)
+{
+        index_fd_ctx_t *fctx = NULL;
+        uint64_t        ctx = 0;
+        int             ret = 0;
+
+        ret = fd_ctx_del (fd, this, &ctx);
+        if (ret < 0)
+                goto out;
+
+        fctx = (index_fd_ctx_t*) (long) ctx;
+        if (fctx->dir)
+                closedir (fctx->dir);
+
+        GF_FREE (fctx);
+out:
+        return 0;
+}
+
+int32_t
+index_release (xlator_t *this, fd_t *fd)
+{
+        index_fd_ctx_t *fctx = NULL;
+        uint64_t        ctx = 0;
+        int             ret = 0;
+
+        ret = fd_ctx_del (fd, this, &ctx);
+        if (ret < 0)
+                goto out;
+
+        fctx = (index_fd_ctx_t*) (long) ctx;
+        GF_FREE (fctx);
+out:
+        return 0;
+}
+
 int
 notify (xlator_t *this, int event, void *data, ...)
 {
@@ -1117,7 +1154,9 @@ struct xlator_dumpops dumpops = {
 };
 
 struct xlator_cbks cbks = {
-        .forget = index_forget,
+        .forget         = index_forget,
+        .release        = index_release,
+        .releasedir     = index_releasedir
 };
 
 struct volume_options options[] = {
