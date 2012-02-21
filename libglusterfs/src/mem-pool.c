@@ -385,7 +385,7 @@ mem_get0 (struct mem_pool *mem_pool)
         void             *ptr = NULL;
 
         if (!mem_pool) {
-                gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
@@ -406,7 +406,7 @@ mem_get (struct mem_pool *mem_pool)
         struct mem_pool **pool_ptr = NULL;
 
         if (!mem_pool) {
-                gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
@@ -500,7 +500,7 @@ mem_put (void *ptr)
         struct mem_pool *pool = NULL;
 
         if (!ptr) {
-                gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
                 return;
         }
 

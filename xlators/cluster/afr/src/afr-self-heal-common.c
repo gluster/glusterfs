@@ -1040,7 +1040,7 @@ afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (impunge_local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (impunge_local, out);
 
         local = frame->local;
         new_frame->local = impunge_local;
@@ -1350,7 +1350,7 @@ afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (expunge_local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (expunge_local, out);
 
         local = frame->local;
         sh = &local->self_heal;
@@ -1926,8 +1926,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 
         sh = &l->self_heal;
 
-        lc = GF_CALLOC (1, sizeof (afr_local_t),
-                        gf_afr_mt_afr_local_t);
+        lc = mem_get0 (this->local_pool);
         if (!lc)
                 goto out;
 

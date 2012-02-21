@@ -4050,8 +4050,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                lookup_local = GF_CALLOC (sizeof (*local), 1,
-                                          gf_dht_mt_dht_local_t);
+                lookup_local = mem_get0 (this->local_pool);
                 if (!lookup_local) {
                         goto err;
                 }

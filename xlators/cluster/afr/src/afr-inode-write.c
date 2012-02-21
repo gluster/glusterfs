@@ -457,7 +457,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         QUORUM_CHECK(writev,out);
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -659,7 +659,7 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -899,7 +899,7 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 
         QUORUM_CHECK(ftruncate,out);
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1100,7 +1100,7 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1302,7 +1302,7 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1493,7 +1493,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1675,7 +1675,7 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         QUORUM_CHECK(fsetxattr,out);
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (local, out);
 
         ret = afr_local_init (local, priv, &op_errno);
         if (ret < 0)
@@ -1865,7 +1865,7 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2040,7 +2040,7 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (local, out);
 
         ret = afr_local_init (local, priv, &op_errno);
         if (ret < 0) {

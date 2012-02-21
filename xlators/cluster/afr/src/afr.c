@@ -214,7 +214,10 @@ init (xlator_t *this)
                         "Volume is dangling.");
         }
 
-        ALLOC_OR_GOTO (this->private, afr_private_t, out);
+	this->private = GF_CALLOC (1, sizeof (afr_private_t),
+                                   gf_afr_mt_afr_private_t);
+        if (!this->private)
+                goto out;
 
         priv = this->private;
         LOCK_INIT (&priv->lock);
@@ -347,6 +350,15 @@ init (xlator_t *this)
                                       gf_afr_mt_int32_t);
         if (!priv->last_event) {
                 ret = -ENOMEM;
+                goto out;
+        }
+
+        /* keep more local here as we may need them for self-heal etc */
+        this->local_pool = mem_pool_new (afr_local_t, 4096);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
                 goto out;
         }
 

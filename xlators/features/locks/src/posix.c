@@ -49,13 +49,6 @@
 void do_blocked_rw (pl_inode_t *);
 static int __rw_allowable (pl_inode_t *, posix_lock_t *, glusterfs_fop_t);
 
-struct _truncate_ops {
-        loc_t  loc;
-        fd_t  *fd;
-        off_t  offset;
-        enum {TRUNCATE, FTRUNCATE} op;
-};
-
 static pl_fdctx_t *
 pl_new_fdctx ()
 {
@@ -111,7 +104,7 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf)
 {
-        struct _truncate_ops *local = NULL;
+        pl_local_t *local = NULL;
 
         local = frame->local;
 
@@ -163,7 +156,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         posix_locks_private_t *priv = NULL;
-        struct _truncate_ops  *local = NULL;
+        pl_local_t            *local = NULL;
         inode_t               *inode = NULL;
         pl_inode_t            *pl_inode = NULL;
 
@@ -230,10 +223,9 @@ int
 pl_truncate (call_frame_t *frame, xlator_t *this,
              loc_t *loc, off_t offset)
 {
-        struct _truncate_ops *local = NULL;
+        pl_local_t *local = NULL;
 
-        local = GF_CALLOC (1, sizeof (struct _truncate_ops),
-                           gf_locks_mt_truncate_ops);
+        local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         local->op         = TRUNCATE;
@@ -260,10 +252,9 @@ int
 pl_ftruncate (call_frame_t *frame, xlator_t *this,
               fd_t *fd, off_t offset)
 {
-        struct _truncate_ops *local = NULL;
+        pl_local_t *local = NULL;
 
-        local = GF_CALLOC (1, sizeof (struct _truncate_ops),
-                           gf_locks_mt_truncate_ops);
+        local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         local->op         = FTRUNCATE;
@@ -1576,7 +1567,7 @@ pl_lookup_cbk (call_frame_t *frame,
         frame->local = NULL;
 
         if (local != NULL)
-                GF_FREE (local);
+                mem_put (local);
 
 out:
         STACK_UNWIND_STRICT (
@@ -1604,7 +1595,7 @@ pl_lookup (call_frame_t *frame,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
-        local = GF_CALLOC (1, sizeof (*local), gf_locks_mt_pl_local_t);
+        local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
         if (xattr_req) {
@@ -1657,7 +1648,7 @@ unwind:
         STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
 
         if (local)
-                GF_FREE (local);
+                mem_put (local);
 
         return 0;
 }
@@ -1668,7 +1659,7 @@ pl_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 {
         pl_local_t *local  = NULL;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_locks_mt_pl_local_t);
+        local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
         if (dict) {
@@ -2054,6 +2045,14 @@ init (xlator_t *this)
                                 "'trace' takes on only boolean values.");
                         goto out;
                 }
+        }
+
+        this->local_pool = mem_pool_new (pl_local_t, 1024);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto out;
         }
 
         this->private = priv;

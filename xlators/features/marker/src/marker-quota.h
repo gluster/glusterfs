@@ -24,7 +24,6 @@
 #include "config.h"
 #endif
 
-#include "marker.h"
 #include "xlator.h"
 #include "marker-mem-types.h"
 
@@ -103,28 +102,6 @@ struct inode_contribution {
   gf_lock_t lock;
 };
 typedef struct inode_contribution inode_contribution_t;
-
-struct quota_local {
-        int64_t delta;
-        int64_t d_off;
-        int32_t err;
-        int32_t ref;
-        int64_t sum;
-        int64_t size;
-        int32_t hl_count;
-        int32_t dentry_child_count;
-
-        fd_t         *fd;
-        call_frame_t *frame;
-        gf_lock_t     lock;
-
-        loc_t loc;
-        loc_t parent_loc;
-
-        quota_inode_ctx_t    *ctx;
-        inode_contribution_t *contri;
-};
-typedef struct quota_local quota_local_t;
 
 int32_t
 mq_get_lock_on_parent (call_frame_t *, xlator_t *);

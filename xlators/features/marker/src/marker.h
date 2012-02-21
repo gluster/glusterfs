@@ -103,8 +103,24 @@ struct marker_local{
         call_stub_t    *stub;
         int64_t         contribution;
         struct marker_local *oplocal;
+
+        /* marker quota specific */
+        int64_t delta;
+        int64_t d_off;
+        int64_t sum;
+        int64_t size;
+        int32_t hl_count;
+        int32_t dentry_child_count;
+
+        fd_t         *fd;
+        call_frame_t *frame;
+
+        quota_inode_ctx_t    *ctx;
+        inode_contribution_t *contri;
 };
 typedef struct marker_local marker_local_t;
+
+#define quota_local_t marker_local_t
 
 struct marker_inode_ctx {
         struct quota_inode_ctx *quota_ctx;

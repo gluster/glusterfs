@@ -522,7 +522,7 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 flush_region (frame, file, 0, file->pages.prev->offset + 1, 0);
         }
 
-        local = (void *) GF_CALLOC (1, sizeof (*local), gf_ra_mt_ra_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1061,6 +1061,15 @@ init (xlator_t *this)
         conf->files.prev = &conf->files;
 
         pthread_mutex_init (&conf->conf_lock, NULL);
+
+        this->local_pool = mem_pool_new (ra_local_t, 1024);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto out;
+        }
+
         this->private = conf;
         ret = 0;
 

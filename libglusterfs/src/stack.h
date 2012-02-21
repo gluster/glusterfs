@@ -155,7 +155,7 @@ FRAME_DESTROY (call_frame_t *frame)
         mem_put (frame);
 
         if (local)
-                GF_FREE (local);
+                mem_put (local);
 }
 
 
@@ -184,7 +184,7 @@ STACK_DESTROY (call_stack_t *stack)
         mem_put (stack);
 
         if (local)
-                GF_FREE (local);
+                mem_put (local);
 }
 
 

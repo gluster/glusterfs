@@ -124,7 +124,7 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -239,7 +239,7 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -354,7 +354,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
         VALIDATE_OR_GOTO (fd->inode, out);
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -475,7 +475,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -904,7 +904,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1111,7 +1111,7 @@ afr_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (local, out);
         frame->local = local;
 
         op_ret = afr_local_init (local, priv, &op_errno);
@@ -1253,7 +1253,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         priv     = this->private;
         children = priv->children;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);

@@ -602,8 +602,7 @@ ioc_page_fault (ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
                 goto err;
         }
 
-        fault_local = GF_CALLOC (1, sizeof (ioc_local_t),
-                                 gf_ioc_mt_ioc_local_t);
+        fault_local = mem_get0 (THIS->local_pool);
         if (fault_local == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -881,7 +880,7 @@ unwind:
         }
 
         pthread_mutex_destroy (&local->local_lock);
-        GF_FREE (local);
+        mem_put (local);
 
         return;
 }

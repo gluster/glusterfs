@@ -275,8 +275,7 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ioc_local_t *local    = NULL;
         int32_t      op_errno = -1, ret = -1;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_ioc_mt_ioc_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -455,8 +454,7 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
         int32_t       ret            = 0;
 
         local = frame->local;
-        validate_local = GF_CALLOC (1, sizeof (ioc_local_t),
-                                    gf_ioc_mt_ioc_local_t);
+        validate_local = mem_get0 (THIS->local_pool);
         if (validate_local == NULL) {
                 ret = -1;
                 local->op_ret = -1;
@@ -471,7 +469,7 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                 ret = -1;
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
-                GF_FREE (validate_local);
+                mem_put (validate_local);
                 gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
                         "out of memory");
                 goto out;
@@ -589,7 +587,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 
 out:
-        GF_FREE (local);
+        mem_put (local);
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
@@ -686,7 +684,7 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         frame->local = NULL;
-        GF_FREE (local);
+        mem_put (local);
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
@@ -739,7 +737,7 @@ out:
         frame->local = NULL;
 
         loc_wipe (&local->file_loc);
-        GF_FREE (local);
+        mem_put (local);
 
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -754,8 +752,7 @@ ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         ioc_local_t *local    = NULL;
         int32_t      op_errno = -1, ret = -1;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_ioc_mt_ioc_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -780,7 +777,7 @@ ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 unwind:
         if (local != NULL) {
                 loc_wipe (&local->file_loc);
-                GF_FREE (local);
+                mem_put (local);
         }
 
         STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL,
@@ -805,7 +802,7 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         ioc_local_t *local = NULL;
 
-        local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL);
@@ -841,7 +838,7 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 {
         ioc_local_t *local = NULL;
 
-        local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 STACK_UNWIND_STRICT (create, frame, -1, ENOMEM, NULL, NULL,
@@ -1171,8 +1168,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 return 0;
         }
 
-        local = (ioc_local_t *) GF_CALLOC (1, sizeof (ioc_local_t),
-                                           gf_ioc_mt_ioc_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -1256,7 +1252,7 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ioc_local_t *local     = NULL;
         uint64_t     ioc_inode = 0;
 
-        local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
 
@@ -1750,6 +1746,14 @@ init (xlator_t *this)
 
         for (index = 0; index < (table->max_pri); index++)
                 INIT_LIST_HEAD (&table->inode_lru[index]);
+
+        this->local_pool = mem_pool_new (ioc_local_t, 1024);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto out;
+        }
 
         pthread_mutex_init (&table->table_lock, NULL);
         this->private = table;

@@ -60,12 +60,6 @@
                 UNLOCK (lock);                  \
         } while (0)
 
-#define QUOTA_LOCAL_ALLOC_OR_GOTO(local, type, label)           \
-        do {                                                    \
-                QUOTA_ALLOC_OR_GOTO (local, type, label);       \
-                LOCK_INIT (&local->lock);                       \
-        } while (0)
-
 #define QUOTA_ALLOC_OR_GOTO(var, type, label)           \
         do {                                            \
                 var = GF_CALLOC (sizeof (type), 1,      \
@@ -89,7 +83,7 @@
                 }                                                       \
                 STACK_UNWIND_STRICT (fop, frame, params);               \
                 quota_local_cleanup (_this, _local);                    \
-                GF_FREE (_local);                                       \
+                mem_put (_local);                                       \
         } while (0)
 
 #define QUOTA_FREE_CONTRIBUTION_NODE(_contribution)     \

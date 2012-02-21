@@ -1400,7 +1400,7 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
 
-	ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+	AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
 	local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1670,7 +1670,7 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
         }
 
 
-	ALLOC_OR_GOTO (local, afr_local_t, out);
+	AFR_LOCAL_ALLOC_OR_GOTO (local, out);
 
 	ret = afr_local_init (local, priv, &op_errno);
 	if (ret < 0) {
@@ -2385,7 +2385,10 @@ init (xlator_t *this)
 			"Volume is dangling.");
 	}
 
-	ALLOC_OR_GOTO (this->private, afr_private_t, out);
+	this->private = GF_CALLOC (1, sizeof (afr_private_t),
+                                   gf_afr_mt_afr_private_t);
+        if (!this->private)
+                goto out;
 
 	priv = this->private;
         LOCK_INIT (&priv->lock);
@@ -2512,6 +2515,15 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not create new sync-environment");
                 ret = -1;
+                goto out;
+        }
+
+        /* keep more local here as we may need them for self-heal etc */
+        this->local_pool = mem_pool_new (afr_local_t, 4096);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
                 goto out;
         }
 

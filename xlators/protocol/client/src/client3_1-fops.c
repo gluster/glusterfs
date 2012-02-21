@@ -2510,7 +2510,7 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
         args = data;
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2960,7 +2960,7 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
                 goto unwind;
 
         args = data;
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3108,7 +3108,7 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !uuid_is_null (*((uuid_t*)req.newgfid)),
                                        unwind, op_errno, EINVAL);
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3153,7 +3153,7 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3229,7 +3229,7 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3304,7 +3304,7 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3382,7 +3382,7 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3489,7 +3489,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3594,7 +3594,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 STACK_UNWIND (frame, -1, ENOMEM);
                 return 0;
@@ -3721,7 +3721,7 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3997,8 +3997,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         CLIENT_GET_REMOTE_FD(conf, args->fd, remote_fd, op_errno, unwind);
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4100,8 +4099,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4226,8 +4224,7 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         if (!(args->loc && args->loc->inode))
                 goto unwind;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4346,8 +4343,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         req.flags  = args->flags;
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4536,7 +4532,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
 
         args = data;
         conf = this->private;
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -4919,8 +4915,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
 
         if ((readdir_rsp_size + GLUSTERFS_RPC_REPLY_SIZE + GLUSTERFS_RDMA_MAX_HEADER_SIZE)
             > (GLUSTERFS_RDMA_INLINE_THRESHOLD)) {
-                local = GF_CALLOC (1, sizeof (*local),
-                                   gf_client_mt_clnt_local_t);
+                local = mem_get0 (this->local_pool);
                 if (!local) {
                         op_errno = ENOMEM;
                         goto unwind;
@@ -5022,8 +5017,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         readdirp_rsp_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_readdirp_rsp, &rsp)
                 + args->size;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
                 goto unwind;

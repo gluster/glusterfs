@@ -1968,7 +1968,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (local, out);
 
         local->op_ret = -1;
 
@@ -2306,7 +2306,7 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2491,7 +2491,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2570,7 +2570,7 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2647,7 +2647,7 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2725,7 +2725,7 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2801,7 +2801,7 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2876,7 +2876,7 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -2952,7 +2952,7 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -3029,7 +3029,7 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -3116,7 +3116,7 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         child_count = priv->child_count;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -3286,7 +3286,7 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ALLOC_OR_GOTO (frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);

@@ -286,7 +286,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -508,7 +508,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -731,7 +731,7 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -953,7 +953,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1173,7 +1173,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1388,7 +1388,7 @@ afr_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1584,7 +1584,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1777,7 +1777,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ALLOC_OR_GOTO (transaction_frame->local, afr_local_t, out);
+        AFR_LOCAL_ALLOC_OR_GOTO (transaction_frame->local, out);
         local = transaction_frame->local;
 
         ret = afr_local_init (local, priv, &op_errno);

@@ -864,7 +864,7 @@ client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx)
         struct gf_flock reserve_flock;
         int ret = 0;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        local = mem_get0 (this->local_pool);
         if (!local) {
                 ret = -ENOMEM;
                 goto out;

@@ -42,26 +42,26 @@
 
 #define STRIPE_STACK_UNWIND(fop, frame, params ...) do {           \
                 stripe_local_t *__local = NULL;                    \
-                if (frame) {                                    \
-                        __local = frame->local;                 \
-                        frame->local = NULL;                    \
-                }                                               \
-                STACK_UNWIND_STRICT (fop, frame, params);       \
-                if (__local) {                                  \
-                        stripe_local_wipe(__local);             \
-                        GF_FREE (__local);                      \
-                }                                               \
+                if (frame) {                                       \
+                        __local = frame->local;                    \
+                        frame->local = NULL;                       \
+                }                                                  \
+                STACK_UNWIND_STRICT (fop, frame, params);          \
+                if (__local) {                                     \
+                        stripe_local_wipe(__local);                \
+                        mem_put (__local);       \
+                }                                                  \
         } while (0)
 
-#define STRIPE_STACK_DESTROY(frame) do {                  \
-                stripe_local_t *__local = NULL;           \
-                __local = frame->local;                   \
-                frame->local = NULL;                      \
-                STACK_DESTROY (frame->root);              \
-                if (__local) {                            \
-                        stripe_local_wipe (__local);      \
-                        GF_FREE (__local);                \
-                }                                         \
+#define STRIPE_STACK_DESTROY(frame) do {                        \
+                stripe_local_t *__local = NULL;                 \
+                __local = frame->local;                         \
+                frame->local = NULL;                            \
+                STACK_DESTROY (frame->root);                    \
+                if (__local) {                                  \
+                        stripe_local_wipe (__local);            \
+                        mem_put (__local);    \
+                }                                               \
         } while (0)
 
 typedef struct stripe_xattr_sort {

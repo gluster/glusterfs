@@ -483,8 +483,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                                 goto out;
                         }
 
-                        local = GF_CALLOC (1, sizeof (*local),
-                                           gf_wb_mt_wb_local_t);
+                        local = mem_get0 (THIS->local_pool);
                         if (local == NULL) {
                                 bytes = -1;
                                 op_errno = ENOMEM;
@@ -579,7 +578,7 @@ out:
                         wb_request_unref (request);
                 }
 
-                GF_FREE (local);
+                mem_put (local);
                 local = NULL;
         }
 
@@ -722,7 +721,7 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 }
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -847,8 +846,7 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 }
         }
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1007,8 +1005,7 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 }
         }
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1133,7 +1130,7 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 }
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1275,7 +1272,7 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
 
-        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1431,7 +1428,7 @@ wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         wb_local_t *local    = NULL;
         int32_t     op_errno = EINVAL;
 
-        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2177,8 +2174,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 goto unwind;
         }
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2304,7 +2300,7 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 }
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2493,7 +2489,7 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         }
 
         if (file != NULL) {
-                local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
+                local = mem_get0 (this->local_pool);
                 if (local == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
@@ -2637,7 +2633,7 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
                 }
         }
 
-        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
+        local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2958,6 +2954,14 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("enable-trickling-writes", conf->enable_trickling_writes,
                         bool, out);
+
+        this->local_pool = mem_pool_new (wb_local_t, 1024);
+        if (!this->local_pool) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto out;
+        }
 
         this->private = conf;
         ret = 0;
