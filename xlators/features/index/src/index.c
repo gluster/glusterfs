@@ -356,6 +356,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
         uuid_t            index = {0};
         index_priv_t      *priv = NULL;
         struct stat       st = {0};
+        int               fd = 0;
 
         priv = this->private;
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !uuid_is_null (gfid),
@@ -389,14 +390,16 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
                 goto out;
         }
 
-        ret = creat (index_path, 0);
-        if (ret && (errno != EEXIST)) {
+        fd = creat (index_path, 0);
+        if ((fd < 0) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_ERROR, "%s: Not able to "
                         "create index (%s)", uuid_utoa (gfid),
                         strerror (errno));
                 goto out;
         }
 
+        if (fd >= 0)
+                close (fd);
 
         ret = link (index_path, gfid_path);
         if (ret && (errno != EEXIST)) {
