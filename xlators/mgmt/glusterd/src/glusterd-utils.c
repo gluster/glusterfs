@@ -584,7 +584,6 @@ char *
 glusterd_auth_get_username (glusterd_volinfo_t *volinfo) {
 
         GF_ASSERT (volinfo);
-        GF_ASSERT (volinfo->auth.username);
 
         return volinfo->auth.username;
 }
@@ -593,7 +592,6 @@ char *
 glusterd_auth_get_password (glusterd_volinfo_t *volinfo) {
 
         GF_ASSERT (volinfo);
-        GF_ASSERT (volinfo->auth.password);
 
         return volinfo->auth.password;
 }
@@ -2118,28 +2116,20 @@ glusterd_import_volinfo (dict_t *vols, int count,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.username", count);
         ret = dict_get_str (vols, key, &str);
-        if (ret) {
-                snprintf (msg, sizeof (msg),
-                          "%s missing in payload for %s",
-                          key, volname);
-                goto out;
+        if (!ret) {
+                ret = glusterd_auth_set_username (new_volinfo, str);
+                if (ret)
+                        goto out;
         }
-        ret = glusterd_auth_set_username (new_volinfo, str);
-        if (ret)
-                goto out;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.password", count);
         ret = dict_get_str (vols, key, &str);
-        if (ret) {
-                snprintf (msg, sizeof (msg),
-                          "%s missing in payload for %s",
-                          key, volname);
-                goto out;
+        if (!ret) {
+                ret = glusterd_auth_set_password (new_volinfo, str);
+                if (ret)
+                        goto out;
         }
-        ret = glusterd_auth_set_password (new_volinfo, str);
-        if (ret)
-                goto out;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.transport_type", count);

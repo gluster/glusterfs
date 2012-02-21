@@ -89,6 +89,9 @@ build_volfile_path (const char *volname, char *path,
                         goto out;
         }
 
+        if (!glusterd_auth_get_username (volinfo))
+                trusted_str = NULL;
+
         ret = snprintf (path, path_len, "%s/vols/%s/%s.vol",
                         priv->workdir, volinfo->volname, volname);
         if (ret == -1)
