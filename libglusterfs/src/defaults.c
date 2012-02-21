@@ -1235,6 +1235,7 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
         switch (event)
         {
         case GF_EVENT_PARENT_UP:
+        case GF_EVENT_PARENT_DOWN:
         {
                 xlator_list_t *list = this->children;
 

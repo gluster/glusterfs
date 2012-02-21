@@ -187,6 +187,7 @@ typedef struct rpc_clnt {
         glusterfs_ctx_t       *ctx;
         int                   refcount;
         int                   auth_null;
+        char                  disabled;
 } rpc_clnt_t;
 
 
@@ -242,4 +243,8 @@ int rpcclnt_cbk_program_register (struct rpc_clnt *svc,
 
 int
 rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath);
+
+void
+rpc_clnt_disable (struct rpc_clnt *rpc);
+
 #endif /* !_RPC_CLNT_H */

@@ -31,6 +31,7 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
 void client_start_ping (void *data);
 rpc_clnt_prog_t clnt3_1_fop_prog;
 
+
 int
 client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                            rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
@@ -1838,8 +1839,9 @@ client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)));
+                        "remote operation failed: %s remote_fd = %d",
+                        strerror (gf_error_to_errno (rsp.op_errno)),
+                                  local->cmd);
         }
         STACK_UNWIND_STRICT (readdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &entries);
@@ -2343,12 +2345,13 @@ int32_t
 client3_1_releasedir (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
-        clnt_conf_t         *conf = NULL;
-        clnt_fd_ctx_t       *fdctx = NULL;
-        clnt_args_t         *args = NULL;
-        gfs3_releasedir_req  req = {{0,},};
-        int64_t              remote_fd = -1;
-        int                  ret = 0;
+        clnt_conf_t         *conf        = NULL;
+        clnt_fd_ctx_t       *fdctx       = NULL;
+        clnt_args_t         *args        = NULL;
+        gfs3_releasedir_req  req         = {{0,},};
+        int64_t              remote_fd   = -1;
+        int                  ret         = 0;
+        char                 parent_down = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -2376,12 +2379,29 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (remote_fd != -1) {
-                req.fd = remote_fd;
-                ret = client_submit_request (this, &req, frame, conf->fops,
-                                             GFS3_OP_RELEASEDIR,
-                                             client3_1_releasedir_cbk,
-                                             NULL, NULL, 0, NULL, 0, NULL,
-                                             (xdrproc_t)xdr_gfs3_releasedir_req);
+                pthread_mutex_lock (&conf->lock);
+                {
+                        parent_down = conf->parent_down;
+                        if (!parent_down) {
+                                rpc_clnt_ref (conf->rpc);
+                        }
+                }
+                pthread_mutex_unlock (&conf->lock);
+
+                if (!parent_down) {
+                        req.fd = remote_fd;
+
+                        ret = client_submit_request (this, &req, frame,
+                                                     conf->fops,
+                                                     GFS3_OP_RELEASEDIR,
+                                                     client3_1_releasedir_cbk,
+                                                     NULL, NULL, 0, NULL, 0,
+                                                     NULL,
+                                                     (xdrproc_t)xdr_gfs3_releasedir_req);
+
+                        rpc_clnt_unref (conf->rpc);
+                }
+
                 inode_unref (fdctx->inode);
                 GF_FREE (fdctx);
         }
@@ -2397,12 +2417,13 @@ int32_t
 client3_1_release (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
-        int64_t           remote_fd = -1;
-        clnt_conf_t      *conf      = NULL;
-        clnt_fd_ctx_t    *fdctx     = NULL;
-        clnt_args_t      *args      = NULL;
-        gfs3_release_req  req       = {{0,},};
-        int               ret       = 0;
+        int64_t           remote_fd   = -1;
+        clnt_conf_t      *conf        = NULL;
+        clnt_fd_ctx_t    *fdctx       = NULL;
+        clnt_args_t      *args        = NULL;
+        gfs3_release_req  req         = {{0,},};
+        int               ret         = 0;
+        char              parent_down = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -2434,11 +2455,26 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
 
                 delete_granted_locks_fd (fdctx);
 
-                ret = client_submit_request (this, &req, frame, conf->fops,
-                                             GFS3_OP_RELEASE,
-                                             client3_1_release_cbk, NULL, NULL,
-                                             0, NULL, 0, NULL,
-                                             (xdrproc_t)xdr_gfs3_release_req);
+                pthread_mutex_lock (&conf->lock);
+                {
+                        parent_down = conf->parent_down;
+                        if (!parent_down) {
+                                rpc_clnt_ref (conf->rpc);
+                        }
+                }
+                pthread_mutex_unlock (&conf->lock);
+
+                if (!parent_down) {
+                        ret = client_submit_request (this, &req, frame,
+                                                     conf->fops,
+                                                     GFS3_OP_RELEASE,
+                                                     client3_1_release_cbk,
+                                                     NULL, NULL,
+                                                     0, NULL, 0, NULL,
+                                                     (xdrproc_t)xdr_gfs3_release_req);
+                        rpc_clnt_unref (conf->rpc);
+                }
+
                 inode_unref (fdctx->inode);
                 GF_FREE (fdctx);
         }
@@ -3611,6 +3647,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         req.fd   = remote_fd;
         req.data = args->flags;
         memcpy (req.gfid, args->fd->inode->gfid, 16);
+
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FSYNC, client3_1_fsync_cbk, NULL,
@@ -4916,6 +4953,9 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         req.size = args->size;
         req.offset = args->offset;
         req.fd = remote_fd;
+
+        local->cmd = remote_fd;
+
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
         ret = client_submit_request (this, &req, frame, conf->fops,

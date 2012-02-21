@@ -354,12 +354,11 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         char         *name      = msg;
         fuse_state_t *state     = NULL;
-        int32_t       ret       = -1;
 
         GET_STATE (this, finh, state);
 
-        ret = fuse_resolve_entry_init (state, &state->resolve,
-				       finh->nodeid, name);
+        (void) fuse_resolve_entry_init (state, &state->resolve,
+                                        finh->nodeid, name);
 
         fuse_resolve_and_resume (state, fuse_lookup_resume);
 }

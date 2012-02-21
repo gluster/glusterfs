@@ -520,6 +520,20 @@ out:
         return ret;
 }
 
+
+inline int
+rpc_transport_unregister_notify (rpc_transport_t *trans)
+{
+        GF_VALIDATE_OR_GOTO ("rpc-transport", trans, out);
+
+        trans->notify = NULL;
+        trans->mydata = NULL;
+
+out:
+        return 0;
+}
+
+
 //give negative values to skip setting that value
 //this function asserts if both the values are negative.
 //why call it if you dont set it.
