@@ -30,8 +30,11 @@
 #include <pthread.h>
 #include <ucontext.h>
 
+#define SYNCENV_PROC_MAX 16
+#define SYNCENV_PROC_MIN 2
 
 struct synctask;
+struct syncproc;
 struct syncenv;
 
 
@@ -39,6 +42,13 @@ typedef int (*synctask_cbk_t) (int ret, call_frame_t *frame, void *opaque);
 
 typedef int (*synctask_fn_t) (void *opaque);
 
+
+typedef enum {
+	SYNCTASK_INIT = 0,
+	SYNCTASK_RUN,
+	SYNCTASK_WAIT,
+	SYNCTASK_DONE,
+} synctask_state_t;
 
 /* for one sequential execution of @syncfn */
 struct synctask {
@@ -48,25 +58,43 @@ struct synctask {
         call_frame_t       *frame;
         synctask_cbk_t      synccbk;
         synctask_fn_t       syncfn;
+	synctask_state_t    state;
         void               *opaque;
         void               *stack;
+        int                 woken;
+        int                 slept;
         int                 complete;
+	int                 ret;
 
         ucontext_t          ctx;
+	struct syncproc    *proc;
+
+	pthread_mutex_t     mutex; /* for synchronous spawning of synctask */
+	pthread_cond_t      cond;
+	int                 done;
+};
+
+
+struct syncproc {
+        pthread_t           processor;
+        ucontext_t          sched;
+        struct syncenv     *env;
+        struct synctask    *current;
 };
 
 /* hosts the scheduler thread and framework for executing synctasks */
 struct syncenv {
-        pthread_t           processor;
-        struct synctask    *current;
+        struct syncproc     proc[SYNCENV_PROC_MAX];
+        int                 procs;
 
         struct list_head    runq;
+        int                 runcount;
         struct list_head    waitq;
+        int                 waitcount;
 
         pthread_mutex_t     mutex;
         pthread_cond_t      cond;
 
-        ucontext_t          sched;
         size_t              stacksize;
 };
 
@@ -90,20 +118,6 @@ struct syncargs {
         pthread_cond_t      cond;
         struct synctask    *task;
 };
-
-
-#define __yawn(args) do {                                               \
-                struct synctask *task = NULL;                           \
-                                                                        \
-                task = synctask_get ();                                 \
-                if (task) {                                             \
-                        args->task = task;                              \
-                        synctask_yawn (task);                           \
-                } else {                                                \
-                        pthread_mutex_init (&args->mutex, NULL);        \
-                        pthread_cond_init (&args->cond, NULL);          \
-                }                                                       \
-        } while (0)
 
 
 #define __yield(args) do {                                              \
@@ -143,7 +157,6 @@ struct syncargs {
                                                                         \
                 frame = syncop_create_frame ();                         \
                                                                         \
-                __yawn (stb);                                           \
                 STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol, op, params); \
                 __yield (stb);                                          \
         } while (0)
@@ -153,10 +166,10 @@ struct syncargs {
 
 struct syncenv * syncenv_new ();
 void syncenv_destroy (struct syncenv *);
+void syncenv_scale (struct syncenv *env);
 
 int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, call_frame_t* frame, void *);
 void synctask_zzzz (struct synctask *task);
-void synctask_yawn (struct synctask *task);
 void synctask_wake (struct synctask *task);
 void synctask_yield (struct synctask *task);
 
