@@ -566,6 +566,8 @@ void _storeopts (dict_t *this, char *key, data_t *value, void *data)
 int32_t
 glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
 {
+        char      *str   = NULL;
+
         GF_ASSERT (fd > 0);
         GF_ASSERT (volinfo);
 
@@ -631,15 +633,23 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_USERNAME,
-                                         glusterd_auth_get_username (volinfo));
-        if (ret)
+        str = glusterd_auth_get_username (volinfo);
+        if (str) {
+                ret = glusterd_store_save_value (fd,
+                                                 GLUSTERD_STORE_KEY_USERNAME,
+                                                 str);
+                if (ret)
                 goto out;
+        }
 
-        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_PASSWORD,
-                                         glusterd_auth_get_password (volinfo));
-        if (ret)
-                goto out;
+        str = glusterd_auth_get_password (volinfo);
+        if (str) {
+                ret = glusterd_store_save_value (fd,
+                                                 GLUSTERD_STORE_KEY_PASSWORD,
+                                                 str);
+                if (ret)
+                        goto out;
+        }
 
 out:
         if (ret)

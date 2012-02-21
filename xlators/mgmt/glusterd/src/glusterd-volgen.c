@@ -1552,6 +1552,8 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         int       ret                     = 0;
         char     *xlator                  = NULL;
         char     *loglevel                = NULL;
+        char     *username                = NULL;
+        char     *password                = NULL;
         char     index_basepath[PATH_MAX] = {0};
         char     key[1024]                = {0};
 
@@ -1635,6 +1637,10 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 ret = pump = 0;
         if (ret)
                 return -1;
+
+        username = glusterd_auth_get_username (volinfo);
+        password = glusterd_auth_get_password (volinfo);
+
         if (pump) {
                 txl = first_of (graph);
 
@@ -1647,15 +1653,17 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 		if (NULL == ptranst)
 			return -1;
 
-                ret = xlator_set_option (rbxl, "username",
-                                         glusterd_auth_get_username (volinfo));
-                if (ret)
-                        return -1;
+                if (username) {
+                        ret = xlator_set_option (rbxl, "username", username);
+                        if (ret)
+                                return -1;
+                }
 
-                ret = xlator_set_option (rbxl, "password",
-                                         glusterd_auth_get_password (volinfo));
-                if (ret)
-                        return -1;
+                if (password) {
+                        ret = xlator_set_option (rbxl, "password", password);
+                        if (ret)
+                                return -1;
+                }
 
                 ret = xlator_set_option (rbxl, "transport-type", ptranst);
                 GF_FREE (ptranst);
@@ -1702,21 +1710,24 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "auth.login.%s.allow", path);
-        ret = xlator_set_option (xl, key,
-                                 glusterd_auth_get_username (volinfo));
-        if (ret)
-                return -1;
+        if (username) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "auth.login.%s.allow", path);
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "auth.login.%s.password",
-                  glusterd_auth_get_username (volinfo));
+                ret = xlator_set_option (xl, key, username);
+                if (ret)
+                        return -1;
+        }
 
-        ret = xlator_set_option (xl, key,
-                                 glusterd_auth_get_password (volinfo));
-        if (ret)
-                return -1;
+        if (password) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "auth.login.%s.password",
+                          username);
+
+                ret = xlator_set_option (xl, key, password);
+                if (ret)
+                        return -1;
+        }
 
         ret = volgen_graph_set_options_generic (graph, set_dict,
                                                 (xlator && loglevel) ? (void *)set_dict : volinfo,
@@ -2099,14 +2110,20 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (!ret && client_type == GF_CLIENT_TRUSTED) {
 
                         str = glusterd_auth_get_username (volinfo);
-                        ret = xlator_set_option (xl, "username", str);
-                        if (ret)
-                                goto out;
+                        if (str) {
+                                ret = xlator_set_option (xl, "username",
+                                                         str);
+                                if (ret)
+                                        goto out;
+                        }
 
                         str = glusterd_auth_get_password (volinfo);
-                        ret = xlator_set_option (xl, "password", str);
-                        if (ret)
-                                goto out;
+                        if (str) {
+                                ret = xlator_set_option (xl, "password",
+                                                         str);
+                                if (ret)
+                                        goto out;
+                        }
                 }
 
                 i++;
