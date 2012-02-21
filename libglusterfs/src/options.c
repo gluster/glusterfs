@@ -319,8 +319,6 @@ out:
         return ret;
 }
 
-
-/* TODO: clean this up */
 static int
 xlator_option_validate_percent_or_sizet (xlator_t *xl, const char *key,
                                          const char *value,
@@ -328,88 +326,44 @@ xlator_option_validate_percent_or_sizet (xlator_t *xl, const char *key,
 {
         int          ret = -1;
         char         errstr[256];
-        uint32_t     percent = 0;
         uint64_t     size = 0;
+	gf_boolean_t is_percent = _gf_false;
 
-        /* Check if the value is valid percentage */
-        if (gf_string2percent (value, &percent) == 0) {
-                if (percent > 100) {
-                        gf_log (xl->name, GF_LOG_DEBUG,
-                                "value given was greater than 100, "
-                                "assuming this is actually a size");
-                        if (gf_string2bytesize (value, &size) == 0) {
-                                        /* Check the range */
-                                if ((opt->min == 0) && (opt->max == 0)) {
-                                        gf_log (xl->name, GF_LOG_DEBUG,
-                                                "no range check rquired for "
-                                                "'option %s %s'",
-                                                key, value);
-                                                // It is a size
-                                                ret = 0;
-                                                goto out;
-                                }
-                                if ((size < opt->min) || (size > opt->max)) {
-                                        snprintf (errstr, 256,
-                                                  "'%"PRId64"' in 'option %s %s' "
-                                                  "is out of range [%"PRId64" - "
-                                                  "%"PRId64"]",
-                                                  size, key, value,
-                                                  opt->min, opt->max);
-                                        gf_log (xl->name, GF_LOG_ERROR, "%s",
-                                                errstr);
-                                        goto out;
-                                }
-                                // It is a size
-                                ret = 0;
-                                goto out;
-                        } else {
-                                // It's not a percent or size
-                                snprintf (errstr, 256,
-                                          "invalid number format \"%s\" "
-                                          "in \"option %s\"",
-                                          value, key);
-                                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
-                                goto out;
-                        }
-                }
-                // It is a percent
-                ret = 0;
-                goto out;
-        } else {
-                if (gf_string2bytesize (value, &size) == 0) {
-                        /* Check the range */
-                        if ((opt->min == 0) && (opt->max == 0)) {
-                                gf_log (xl->name, GF_LOG_DEBUG,
-                                        "no range check required for "
-                                        "'option %s %s'",
-                                        key, value);
-                                // It is a size
-                                ret = 0;
-                                goto out;
-                        }
-                        if ((size < opt->min) || (size > opt->max)) {
-                                snprintf (errstr, 256,
-                                          "'%"PRId64"' in 'option %s %s'"
-                                          " is out of range [%"PRId64" -"
-                                          " %"PRId64"]",
-                                          size, key, value, opt->min, opt->max);
-                                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
-                                goto out;
-                        }
-                } else {
-                        // It's not a percent or size
-                        snprintf (errstr, 256,
-                                  "invalid number format \"%s\" in \"option %s\"",
-                                  value, key);
-                        gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
-                        goto out;
-                }
-                //It is a size
-                ret = 0;
-                goto out;
-        }
+	if (gf_string2percent_or_bytesize (value, &size, &is_percent) == 0) {
+		if (is_percent) {
+			ret = 0;
+			goto out;
+		}
+		/* Check the range */
+		if ((opt->min == 0) && (opt->max == 0)) {
+			gf_log (xl->name, GF_LOG_DEBUG,
+				"no range check required for "
+				"'option %s %s'",
+				key, value);
+			ret = 0;
+			goto out;
+		}
+		if ((size < opt->min) || (size > opt->max)) {
+			snprintf (errstr, 256,
+				  "'%"PRId64"' in 'option %s %s'"
+				  " is out of range [%"PRId64" -"
+				  " %"PRId64"]",
+				  size, key, value, opt->min, opt->max);
+			gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+			goto out;
+		}
+		ret = 0;
+		goto out;
+	}
 
-        ret = 0;
+	/* If control reaches here, invalid argument */
+
+	snprintf (errstr, 256,
+		  "invalid number format \"%s\" in \"option %s\"",
+		  value, key);
+	gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+
+
 out:
         if (ret && op_errstr)
                 *op_errstr = gf_strdup (errstr);
@@ -425,7 +379,7 @@ xlator_option_validate_time (xlator_t *xl, const char *key, const char *value,
         char         errstr[256];
         uint32_t     input_time = 0;
 
-                /* Check if the value is valid percentage */
+	/* Check if the value is valid time */
         if (gf_string2time (value, &input_time) != 0) {
                 snprintf (errstr, 256,
                           "invalid time format \"%s\" in "

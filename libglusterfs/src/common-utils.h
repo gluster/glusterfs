@@ -69,6 +69,8 @@ void trap (void);
 #define GF_UNIT_TB_STRING    "TB"
 #define GF_UNIT_PB_STRING    "PB"
 
+#define GF_UNIT_PERCENT_STRING      "%"
+
 #define GEOREP "geo-replication"
 #define GHADOOP "glusterfs-hadoop"
 
@@ -421,6 +423,8 @@ int gf_string2uint32_base10 (const char *str, uint32_t *n);
 int gf_string2uint64_base10 (const char *str, uint64_t *n);
 
 int gf_string2bytesize (const char *str, uint64_t *n);
+int gf_string2percent_or_bytesize (const char *str, uint64_t *n,
+				   gf_boolean_t *is_percent);
 
 int gf_string2boolean (const char *str, gf_boolean_t *b);
 int gf_string2percent (const char *str, uint32_t *n);
