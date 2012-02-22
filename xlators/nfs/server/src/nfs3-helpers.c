@@ -2503,6 +2503,14 @@ nfs3_fh_resolve_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno,
                              gf_dirent_t *entries);
 
+void
+nfs3_fh_resolve_not_found (nfs3_call_state_t *cs)
+{
+        cs->resolve_ret = -1;
+        cs->resolve_errno = ENOENT;
+        nfs3_call_resume (cs);
+}
+
 int
 nfs3_fh_resolve_found_entry (nfs3_call_state_t *cs, gf_dirent_t *candidate)
 {
@@ -2813,7 +2821,6 @@ int
 nfs3_fh_resolve_check_response (nfs3_call_state_t *cs)
 {
         int             ret = -EFAULT;
-        nfs_user_t      nfu = {0, };
         int             response = GF_NFS3_FHRESOLVE_NOTFOUND;
 
         if (!cs)
@@ -2834,10 +2841,7 @@ nfs3_fh_resolve_check_response (nfs3_call_state_t *cs)
                 break;
 
         case GF_NFS3_FHRESOLVE_NOTFOUND:
-                nfs_user_root_create (&nfu);
-                nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->resolve_dir_fd,
-                              GF_NFS3_DTPREF, cs->lastentryoffset,
-                              nfs3_fh_resolve_readdir_cbk, cs);
+                nfs3_fh_resolve_not_found (cs);
                 break;
         }
 
