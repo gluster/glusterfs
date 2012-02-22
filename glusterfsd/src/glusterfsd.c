@@ -142,11 +142,12 @@ static struct argp_option gf_options[] = {
         {"debug", ARGP_DEBUG_KEY, 0, 0,
          "Run in debug mode.  This option sets --no-daemon, --log-level "
          "to DEBUG and --log-file to console"},
-        {"volume-name", ARGP_VOLUME_NAME_KEY, "VOLUME-NAME", 0,
-         "Volume name to be used for MOUNT-POINT [default: top most volume "
-         "in VOLFILE]"},
-        {"xlator-option", ARGP_XLATOR_OPTION_KEY,"VOLUME-NAME.OPTION=VALUE", 0,
-         "Add/override a translator option for a volume with specified value"},
+        {"volume-name", ARGP_VOLUME_NAME_KEY, "XLATOR-NAME", 0,
+         "Translator name to be used for MOUNT-POINT [default: top most volume "
+         "definition in VOLFILE]"},
+        {"xlator-option", ARGP_XLATOR_OPTION_KEY,"XLATOR-NAME.OPTION=VALUE", 0,
+         "Add/override an option for a translator in volume file with specified"
+         " value"},
         {"read-only", ARGP_READ_ONLY_KEY, 0, 0,
          "Mount the filesystem in 'read-only' mode"},
         {"acl", ARGP_ACL_KEY, 0, 0,
