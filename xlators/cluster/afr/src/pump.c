@@ -32,6 +32,13 @@
 #include "glusterfs.h"
 
 static uint64_t pump_pid = 0;
+static inline void
+pump_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
+{
+        afr_update_loc_gfids (loc, iatt, parent);
+        uuid_copy (loc->inode->gfid, iatt->ia_gfid);
+}
+
 static int
 pump_mark_start_pending (xlator_t *this)
 {
@@ -407,7 +414,7 @@ gf_pump_traverse_directory (loc_t *loc)
                                                     entry_loc.path);
                                             continue;
                                     }
-                                    afr_fill_loc_info (&entry_loc, &iatt,
+                                    pump_fill_loc_info (&entry_loc, &iatt,
                                                        &parent);
 
                                     pump_update_resume_state (this, entry_loc.path);

@@ -48,9 +48,6 @@ void afr_build_root_loc (xlator_t *this, loc_t *loc);
 
 int afr_set_root_gfid (dict_t *dict);
 
-inline void
-afr_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent);
-
 void
 afr_do_poll_self_heal (void *data);
 
