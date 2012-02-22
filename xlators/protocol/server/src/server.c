@@ -1100,5 +1100,10 @@ struct volume_options options[] = {
         {.key  = {"grace-timeout"},
          .type = GF_OPTION_TYPE_INT,
         },
+        {.key  = {"tcp-window-size"},
+         .type = GF_OPTION_TYPE_SIZET,
+         .min  = GF_MIN_SOCKET_WINDOW_SIZE,
+         .max  = GF_MAX_SOCKET_WINDOW_SIZE
+        },
         { .key   = {NULL} },
 };

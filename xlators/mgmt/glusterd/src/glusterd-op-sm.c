@@ -252,7 +252,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         int                                      ret           = 0;
         char                                    *volname       = NULL;
         int                                      exists        = 0;
-        char                                    *key               = NULL;
+        char                                    *key           = NULL;
         char                                    *key_fixed     = NULL;
         char                                    *value         = NULL;
         char                                     str[100]      = {0, };
@@ -279,7 +279,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         ret = dict_get_int32 (dict, "count", &dict_count);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Count(dict),not set in Volume-Set");
                 goto out;
         }
 
@@ -297,14 +298,14 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
 #else
                         ret  = -1;
-                        gf_log ("", GF_LOG_ERROR, "libxml not present in the"
-                                   "system");
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "libxml not present in the system");
                         *op_errstr = gf_strdup ("Error: xml libraries not "
                                                 "present to produce xml-output");
                         goto out;
 #endif
                 }
-                gf_log ("", GF_LOG_ERROR, "No options received ");
+                gf_log (this->name, GF_LOG_ERROR, "No options received ");
                 *op_errstr = gf_strdup ("Options not specified");
                 ret = -1;
                 goto out;
@@ -312,7 +313,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
         }
 
@@ -320,7 +321,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         if (!exists) {
                 snprintf (errstr, sizeof (errstr), "Volume %s does not exist",
                           volname);
-                gf_log ("", GF_LOG_ERROR, "%s", errstr);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                 goto out;
@@ -328,7 +329,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to allocate memory");
                 goto out;
         }
 
@@ -347,7 +349,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
                 if (!exists) {
-                        gf_log ("", GF_LOG_ERROR, "Option with name: %s "
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Option with name: %s "
                                 "does not exist", key);
                         ret = snprintf (errstr, 2048,
                                        "option : %s does not exist",
@@ -364,7 +367,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 ret = dict_get_str (dict, str, &value);
 
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "invalid key,value pair in 'volume set'");
                         ret = -1;
                         goto out;
@@ -380,7 +383,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 ret = dict_set_str (val_dict, key, value);
 
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to set the options in 'volume set'");
                         ret = -1;
                         goto out;
@@ -399,7 +402,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
 
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_DEBUG, "Could not create temp "
+                        gf_log (this->name, GF_LOG_DEBUG, "Could not create temp "
                                 "volfile, some option failed: %s", *op_errstr);
                         goto out;
                 }
@@ -424,11 +427,11 @@ out:
         if (ret) {
                 if (!(*op_errstr)) {
                         *op_errstr = gf_strdup ("Error, Validation Failed");
-                        gf_log ("glsuterd", GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "Error, Cannot Validate option :%s",
                                 *op_errstr);
                 } else {
-                        gf_log ("glsuterd", GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "Error, Cannot Validate option");
                 }
         }

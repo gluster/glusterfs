@@ -32,6 +32,8 @@
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
+#define GF_MAX_SOCKET_WINDOW_SIZE  (1 * GF_UNIT_MB)
+#define GF_MIN_SOCKET_WINDOW_SIZE  (0)
 
 typedef struct _server_state server_state_t;
 

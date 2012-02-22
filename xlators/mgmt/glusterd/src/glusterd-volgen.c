@@ -109,30 +109,30 @@ struct volopt_map_entry {
 
 static struct volopt_map_entry glusterd_volopt_map[] = {
 
-        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
-        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0    },
-	{"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
+        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0},
+        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0},
+	{"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0},
 
-        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
-        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
-        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
-        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
-        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
-        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
-        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, NO_DOC, 0     },
-        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
-        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC, 0},
-        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
-        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
-        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm", NULL,DOC, 0},
+        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon", NULL, NO_DOC, 0},
+        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.self-heal-window-size",        "cluster/replicate",  "data-self-heal-window-size", NULL, DOC, 0},
+        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0},
+        {"cluster.data-self-heal-algorithm",     "cluster/replicate",  "data-self-heal-algorithm", NULL,DOC, 0},
         {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, NO_DOC, 0},
         {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, NO_DOC, 0},
 
-        {"cluster.stripe-block-size",            "cluster/stripe",            "block-size", NULL, DOC, 0},
+        {"cluster.stripe-block-size",            "cluster/stripe",     "block-size", NULL, DOC, 0},
 
-        {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", NO_DOC, 0      },
-        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0     },
-        {VKEY_DIAG_CNT_FOP_HITS,                 "debug/io-stats",     "count-fop-hits", "off", NO_DOC, 0     },
+        {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", NO_DOC, 0},
+        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0},
+        {VKEY_DIAG_CNT_FOP_HITS,                 "debug/io-stats",     "count-fop-hits", "off", NO_DOC, 0},
 
         {"diagnostics.brick-log-level",          "debug/io-stats",     "!brick-log-level", NULL, DOC, 0},
         {"diagnostics.client-log-level",         "debug/io-stats",     "!client-log-level", NULL, DOC, 0},
@@ -143,28 +143,26 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size", NULL, DOC, 0},
         {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout", NULL, DOC, 0},
         {"performance.cache-priority",           "performance/io-cache",      "priority", NULL, DOC, 0},
-        {"performance.cache-size",               "performance/io-cache",   NULL, NULL, NO_DOC, 0 },
-        {"performance.cache-size",               "performance/quick-read", NULL, NULL, NO_DOC, 0 },
-        {"performance.flush-behind",             "performance/write-behind",      "flush-behind", NULL, DOC, 0},
+        {"performance.cache-size",               "performance/io-cache",      NULL, NULL, NO_DOC, 0 },
+        {"performance.cache-size",               "performance/quick-read",    NULL, NULL, NO_DOC, 0 },
+        {"performance.flush-behind",             "performance/write-behind",  "flush-behind", NULL, DOC, 0},
 
         {"performance.io-thread-count",          "performance/io-threads",    "thread-count", DOC, 0},
-
-        {"performance.disk-usage-limit",         "performance/quota",   NULL, NULL, NO_DOC, 0    },
-        {"performance.min-free-disk-limit",      "performance/quota",   NULL, NULL, NO_DOC, 0    },
-
+        {"performance.disk-usage-limit",         "performance/quota",         NULL, NULL, NO_DOC, 0},
+        {"performance.min-free-disk-limit",      "performance/quota",         NULL, NULL, NO_DOC, 0},
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC},
+        {"performance.read-ahead-page-count",    "performance/read-ahead",    "page-count", NULL, DOC},
 
-        {"performance.read-ahead-page-count",    "performance/read-ahead",  "page-count", NULL, DOC},
+        {"network.frame-timeout",                "protocol/client",           NULL, NULL, NO_DOC, 0},
+        {"network.ping-timeout",                 "protocol/client",           NULL, NULL, NO_DOC, 0},
+        {"network.tcp-window-size",              "protocol/client",           NULL, NULL, NO_DOC, 0},
 
-        {"network.frame-timeout",                "protocol/client",    NULL, NULL, NO_DOC, 0     },
-        {"network.ping-timeout",                 "protocol/client",    NULL, NULL, NO_DOC, 0     },
-        {"network.inode-lru-limit",              "protocol/server",    NULL, NULL, NO_DOC, 0     },
-
+        {"network.tcp-window-size",              "protocol/server",           NULL, NULL, NO_DOC, 0},
+        {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, NO_DOC, 0},
         {"auth.allow",                           "protocol/server",           "!server-auth", "*", DOC, 0},
         {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC, 0},
-
-        {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0},
-        {"server.allow-insecure",                 "protocol/server",          "rpc-auth-allow-insecure", NULL, NO_DOC, 0},
+        {"transport.keepalive",                  "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0},
+        {"server.allow-insecure",                "protocol/server",           "rpc-auth-allow-insecure", NULL, NO_DOC, 0},
 
         {"performance.write-behind",             "performance/write-behind",  "!perf", "on", NO_DOC, 0},
         {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC, 0},
@@ -2108,7 +2106,7 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                        &client_type);
 
                 if (!ret && client_type == GF_CLIENT_TRUSTED) {
-
+                        str = NULL;
                         str = glusterd_auth_get_username (volinfo);
                         if (str) {
                                 ret = xlator_set_option (xl, "username",
