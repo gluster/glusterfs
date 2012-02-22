@@ -147,14 +147,15 @@ start_glusterfs ()
         err=1;
         if [ -n "$cmd_line1" ]; then
             cmd_line1=$(echo "$cmd_line1 $mount_point");
-            $cmd_line1
+            $cmd_line1;
+            err=0;
 
             inode=$(stat -c %i $mount_point 2>/dev/null);
             # this is required if the stat returns error
             if [ -z "$inode" ]; then
                 inode="0";
             fi
-            if [ $inode -ne 1]; then
+            if [ $inode -ne 1 ]; then
                 err=1;
             fi
         fi
