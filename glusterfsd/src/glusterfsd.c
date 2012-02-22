@@ -1136,6 +1136,19 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                         cmd_args->volfile = gf_strdup (DEFAULT_GLUSTERD_VOLFILE);
                 else
                         cmd_args->volfile = gf_strdup (DEFAULT_CLIENT_VOLFILE);
+
+                /* Check if the volfile exists, if not give usage output
+                   and exit */
+                ret = stat (cmd_args->volfile, &stbuf);
+                if (ret) {
+                        gf_log ("glusterfs", GF_LOG_CRITICAL,
+                                "ERROR: parsing the volfile failed (%s)\n",
+                                strerror (errno));
+                        /* argp_usage (argp.) */
+                        fprintf (stderr, "USAGE: %s [options] [mountpoint]\n",
+                                 argv[0]);
+                        goto out;
+                }
         }
 
         if (cmd_args->run_id) {
