@@ -1652,7 +1652,7 @@ inode_dump_to_dict (inode_t *inode, char *prefix, dict_t *dict)
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.gfid", prefix);
-        ret = dict_set_str (dict, key, gf_strdup (uuid_utoa (inode->gfid)));
+        ret = dict_set_dynstr (dict, key, gf_strdup (uuid_utoa (inode->gfid)));
         if (ret)
                 goto out;
 
