@@ -4360,6 +4360,7 @@ cli_print_volume_status_inode_entry (dict_t *dict, char *prefix)
         uint64_t        nlookup = 0;
         uint32_t        ref = 0;
         int             ia_type = 0;
+        char            inode_type;
 
         GF_ASSERT (dict);
         GF_ASSERT (prefix);
@@ -4388,8 +4389,35 @@ cli_print_volume_status_inode_entry (dict_t *dict, char *prefix)
         if (ret)
                 goto out;
 
-        cli_out ("%-40s %14"PRIu64" %14"PRIu32" %9d",
-                 gfid, nlookup, ref, ia_type);
+        switch (ia_type) {
+        case IA_IFREG:
+                inode_type = 'R';
+                break;
+        case IA_IFDIR:
+                inode_type = 'D';
+                break;
+        case IA_IFLNK:
+                inode_type = 'L';
+                break;
+        case IA_IFBLK:
+                inode_type = 'B';
+                break;
+        case IA_IFCHR:
+                inode_type = 'C';
+                break;
+        case IA_IFIFO:
+                inode_type = 'F';
+                break;
+        case IA_IFSOCK:
+                inode_type = 'S';
+                break;
+        default:
+                inode_type = 'I';
+                break;
+        }
+
+        cli_out ("%-40s %14"PRIu64" %14"PRIu32" %9c",
+                 gfid, nlookup, ref, inode_type);
 
 out:
         return;
@@ -5346,7 +5374,7 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
                         continue;
-                cli_out (path);
+                cli_out ("%s", path);
         }
 out:
         return;
