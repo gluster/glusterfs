@@ -126,8 +126,17 @@ marker_trav_parent (marker_local_t *local)
 {
         int32_t ret = 0;
         loc_t   loc = {0, };
+        inode_t *parent = NULL;
+        int8_t  need_unref = 0;
 
-        ret = marker_inode_loc_fill (local->loc.parent, &loc);
+        if (!local->loc.parent) {
+                parent = inode_parent (local->loc.inode, NULL, NULL);
+                if (parent)
+                        need_unref = 1;
+        } else
+                parent = local->loc.parent;
+
+        ret = marker_inode_loc_fill (parent, &loc);
 
         if (ret < 0) {
                 ret = -1;
@@ -138,6 +147,9 @@ marker_trav_parent (marker_local_t *local)
 
         local->loc = loc;
 out:
+        if (need_unref)
+                inode_unref (parent);
+
         return ret;
 }
 
