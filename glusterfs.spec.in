@@ -2,7 +2,7 @@
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
 %global release 1%{?dist}
-%global _sharedstatedir %{_prefix}/var/lib
+%global _sharedstatedir /var/lib
 
 
 # if you wish to compile an rpm without rdma support, compile like this...
@@ -46,7 +46,7 @@ Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
 Requires(postun): /sbin/service
 
-BuildRequires: bison flex 
+BuildRequires: bison flex
 BuildRequires: gcc make automake libtool
 BuildRequires: ncurses-devel readline-devel
 BuildRequires: python-ctypes
@@ -117,9 +117,8 @@ This package provides support to geo-replication.
 %package fuse
 Summary: GlusterFS Fuse client
 Group: Applications/File
-BuildRequires: fuse-devel
 
-Requires: glusterfs-core >= %{version}-%{release}
+Requires: %{name} >= %{version}-%{release}
 
 Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
@@ -246,6 +245,10 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %endif
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
+%exclude %{_libdir}/glusterfs/%{version}/xlator/storage*
+%exclude %{_libdir}/glusterfs/%{version}/xlator/features/posix*
+%exclude %{_libdir}/glusterfs/%{version}/xlator/mgmt*
+%exclude %{_libdir}/glusterfs/%{version}/xlator/nfs*
 
 %if 0%{!?_without_rdma:1}
 %files rdma
@@ -289,8 +292,8 @@ fi
 if [ -d /var/lib/glusterd/vols ]; then
     #for each dir under vols, backup non-fuse .vol files  as .Vol.old
     for file in `find /var/lib/glusterd/vols -type f ! -name *-fuse.vol `; do
-        grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old 
-    done 
+        grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old
+    done
 fi
 
 pidof -c -o %PPID -x glusterd &> /dev/null
@@ -332,6 +335,10 @@ fi
 %{_sysconfdir}/init.d/glusterd
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
+%{_libdir}/glusterfs/%{version}/xlator/storage*
+%{_libdir}/glusterfs/%{version}/xlator/features/posix*
+%{_libdir}/glusterfs/%{version}/xlator/mgmt*
+%{_libdir}/glusterfs/%{version}/xlator/nfs*
 
 %files devel
 %defattr(-,root,root,-)
