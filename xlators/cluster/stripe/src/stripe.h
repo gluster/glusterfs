@@ -194,6 +194,7 @@ struct stripe_local {
         void                *value;
         struct iobref       *iobref;
         gf_dirent_t          entries;
+        gf_dirent_t         *dirent;
         dict_t              *xattr;
         uuid_t               ia_gfid;
 };

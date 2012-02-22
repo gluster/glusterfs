@@ -3727,6 +3727,13 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         frame->local = local;
         local->stripe_size = stripe_size;
 
+        if (!stripe_size) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Wrong stripe size for the file");
+                op_errno = EINVAL;
+                goto err;
+        }
+
         while (1) {
                 /* Send striped chunk of the vector to child
                    nodes appropriately. */
@@ -3966,50 +3973,6 @@ stripe_iatt_merge (struct iatt *from, struct iatt *to)
         return 0;
 }
 
-int32_t
-stripe_readdirp_entry_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                                int32_t op_ret, int32_t op_errno, struct iatt *buf)
-{
-        gf_dirent_t    *entry = NULL;
-        stripe_local_t *local = NULL;
-        int32_t        done = 0;
-
-        if (!this || !frame || !frame->local || !cookie) {
-                gf_log (this->name, GF_LOG_DEBUG, "possible NULL deref");
-                goto out;
-        }
-        entry = cookie;
-        local = frame->local;
-        LOCK (&frame->lock);
-        {
-
-                local->wind_count--;
-                if (!local->wind_count)
-                        done = 1;
-                if (op_ret == -1) {
-                        local->op_errno = op_errno;
-                        local->op_ret = op_ret;
-                        goto unlock;
-                }
-                stripe_iatt_merge (buf, &entry->d_stat);
-        }
-unlock:
-        UNLOCK(&frame->lock);
-
-        if (done) {
-                frame->local = NULL;
-                STRIPE_STACK_UNWIND (readdir, frame, local->op_ret,
-                                     local->op_errno, &local->entries);
-
-                gf_dirent_free (&local->entries);
-                stripe_local_wipe (local);
-                mem_put (local);
-        }
-out:
-        return 0;
-
-}
-
 int
 stripe_setxattr_cbk (call_frame_t *frame, void *cookie,
                      xlator_t *this, int op_ret, int op_errno)
@@ -4077,6 +4040,77 @@ stripe_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 }
 
 int32_t
+stripe_readdirp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno, inode_t *inode,
+                      struct iatt *stbuf, dict_t *xattr, struct iatt *parent)
+{
+        stripe_local_t          *local          = NULL;
+        call_frame_t            *main_frame     = NULL;
+        stripe_local_t          *main_local     = NULL;
+        gf_dirent_t             *entry          = NULL;
+        call_frame_t            *prev           = NULL;
+        int                      done           = 0;
+
+        local = frame->local;
+        prev = cookie;
+
+        entry = local->dirent;
+
+        main_frame = local->orig_frame;
+        main_local = main_frame->local;
+        LOCK (&frame->lock);
+        {
+
+                local->call_count--;
+                if (!local->call_count)
+                        done = 1;
+                if (op_ret == -1) {
+                        local->op_errno = op_errno;
+                        local->op_ret = op_ret;
+                        goto unlock;
+                }
+                stripe_iatt_merge (stbuf, &entry->d_stat);
+                stripe_ctx_handle (this, prev, local, xattr);
+        }
+unlock:
+        UNLOCK(&frame->lock);
+
+        if (done) {
+                inode_ctx_put (entry->inode, this,
+                               (uint64_t) (long)local->fctx);
+
+                done = 0;
+                LOCK (&main_frame->lock);
+                {
+                        main_local->wind_count--;
+                        if (!main_local->wind_count)
+                                done = 1;
+                        if (local->op_ret == -1) {
+                                main_local->op_errno = local->op_errno;
+                                main_local->op_ret = local->op_ret;
+                        }
+                }
+                UNLOCK (&main_frame->lock);
+                if (done) {
+                        main_frame->local = NULL;
+                        STRIPE_STACK_UNWIND (readdir, main_frame,
+                                             main_local->op_ret,
+                                             main_local->op_errno,
+                                             &main_local->entries);
+                        gf_dirent_free (&main_local->entries);
+                        stripe_local_wipe (main_local);
+                        mem_put (main_local);
+                }
+                frame->local = NULL;
+                stripe_local_wipe (local);
+                mem_put (local);
+                STRIPE_STACK_DESTROY (frame);
+        }
+
+        return 0;
+}
+
+int32_t
 stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, gf_dirent_t *orig_entries)
 {
@@ -4092,6 +4126,9 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t        count = 0;
         stripe_private_t *priv = NULL;
         int32_t        subvols = 0;
+        dict_t         *xattrs = NULL;
+        call_frame_t   *local_frame = NULL;
+        stripe_local_t *local_ent = NULL;
 
         if (!this || !frame || !frame->local || !cookie) {
                 gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
@@ -4117,8 +4154,9 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_ret = op_ret;
                         list_splice_init (&orig_entries->list,
                                           &local->entries.list);
-                        local->wind_count = op_ret * subvols;
+                        local->wind_count = op_ret;
                 }
+
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -4126,6 +4164,9 @@ unlock:
         if (op_ret == -1)
                 goto out;
 
+        xattrs = dict_new ();
+        if (xattrs)
+                (void) stripe_xattr_request_build (this, xattrs, 0, 0, 0);
         count = op_ret;
         ret = 0;
         list_for_each_entry_safe (local_entry, tmp_entry,
@@ -4136,7 +4177,7 @@ unlock:
                 if (!IA_ISREG (local_entry->d_stat.ia_type)) {
                         LOCK (&frame->lock);
                         {
-                                local->wind_count -= subvols;
+                                local->wind_count--;
                                 count = local->wind_count;
                         }
                         UNLOCK (&frame->lock);
@@ -4165,11 +4206,34 @@ unlock:
                 loc.name++;
                 uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
 
+                local_frame = copy_frame (frame);
+
+                if (!local_frame) {
+                        op_errno = ENOMEM;
+                        op_ret = -1;
+                        goto out;
+                }
+
+                local_ent = mem_get0 (this->local_pool);
+                if (!local_ent) {
+                        op_errno = ENOMEM;
+                        op_ret = -1;
+                        goto out;
+                }
+
+                local_ent->orig_frame = frame;
+
+                local_ent->call_count = subvols;
+
+                local_ent->dirent = local_entry;
+
+                local_frame->local = local_ent;
+
                 trav = this->children;
                 while (trav) {
-                        STACK_WIND_COOKIE (frame, stripe_readdirp_entry_stat_cbk,
-                                           local_entry, trav->xlator,
-                                           trav->xlator->fops->stat, &loc);
+                        STACK_WIND (local_frame, stripe_readdirp_lookup_cbk,
+                                    trav->xlator, trav->xlator->fops->lookup,
+                                    &loc, xattrs);
                         trav = trav->next;
                 }
                 inode_unref (loc.inode);
@@ -4184,7 +4248,8 @@ out:
                 stripe_local_wipe (local);
                 mem_put (local);
         }
-
+        if (xattrs)
+                dict_unref (xattrs);
         return 0;
 
 }
