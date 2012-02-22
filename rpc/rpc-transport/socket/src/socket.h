@@ -41,19 +41,17 @@
 
 #define RPC_MAX_FRAGMENT_SIZE 0x7fffffff
 
-/* This is the size set through setsockopt for
- * both the TCP receive window size and the
- * send buffer size.
- * Till the time iobuf size becomes configurable, this size is set to include
- * two iobufs + the GlusterFS protocol headers.
+/* The default window size will be 0, indicating not to set
+ * it to any size. Default size of Linux is found to be
+ * performance friendly.
  * Linux allows us to over-ride the max values for the system.
  * Should we over-ride them? Because if we set a value larger than the default
  * setsockopt will fail. Having larger values might be beneficial for
  * IB links.
  */
-#define GF_DEFAULT_SOCKET_WINDOW_SIZE   (512 * GF_UNIT_KB)
+#define GF_DEFAULT_SOCKET_WINDOW_SIZE   (0)
 #define GF_MAX_SOCKET_WINDOW_SIZE       (1 * GF_UNIT_MB)
-#define GF_MIN_SOCKET_WINDOW_SIZE       (128 * GF_UNIT_KB)
+#define GF_MIN_SOCKET_WINDOW_SIZE       (0)
 #define GF_USE_DEFAULT_KEEPALIVE        (-1)
 
 typedef enum {

@@ -952,12 +952,12 @@ init (xlator_t *this)
         conf->valgrind = _gf_false;
         ret = dict_get_str (this->options, "brick-with-valgrind", &valgrind_str);
         if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "cannot get brick-with-valgrind value");
         }
         if (valgrind_str) {
                 if (gf_string2boolean (valgrind_str, &(conf->valgrind))) {
-                        gf_log (THIS->name, GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "brick-with-valgrind value not a boolean string");
                 }
         }
@@ -1126,8 +1126,10 @@ struct volume_options options[] = {
         { .key = {GEOREP"-log-group"},
           .type = GF_OPTION_TYPE_ANY,
         },
+#ifdef DEBUG
         { .key = {"brick-with-valgrind"},
           .type = GF_OPTION_TYPE_BOOL,
         },
+#endif
         { .key   = {NULL} },
 };
