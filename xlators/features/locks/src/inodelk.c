@@ -421,9 +421,6 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                         if (l->transport != trans)
                                 continue;
 
-                        __delete_inode_lock (l);
-                        __destroy_inode_lock (l);
-
                         inode_path (inode, NULL, &path);
                         if (path)
                                 file = path;
@@ -435,10 +432,14 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                                 "{transport=%p, pid=%"PRId64" lk-owner=%s}",
                                 file, trans, (uint64_t) l->client_pid,
                                 lkowner_utoa (&l->owner));
+
                         if (path) {
                                 GF_FREE (path);
                                 path = NULL;
                         }
+
+                        __delete_inode_lock (l);
+                        __destroy_inode_lock (l);
                 }
         }
         if (path)
