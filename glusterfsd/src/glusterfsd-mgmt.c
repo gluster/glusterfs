@@ -932,6 +932,8 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
 out:
         if (dict)
                 dict_unref (dict);
+        if (output)
+                dict_unref (output);
         if (brick_req.input.input_val)
                 free (brick_req.input.input_val);
         if (xname)
