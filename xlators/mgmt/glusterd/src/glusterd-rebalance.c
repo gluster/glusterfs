@@ -313,6 +313,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         struct stat            buf = {0,};
         char                   sockfile[PATH_MAX] = {0,};
         char                   pidfile[PATH_MAX] = {0,};
+        char                   logfile[PATH_MAX] = {0,};
         dict_t                 *options = NULL;
 
         priv    = THIS->private;
@@ -357,7 +358,8 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo, priv);
         GLUSTERD_GET_DEFRAG_PID_FILE (pidfile, volinfo, priv);
-
+        snprintf (logfile, PATH_MAX, "%s/%s-rebalance.log",
+                    DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname);
         runinit (&runner);
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
                          "-s", "localhost", "--volfile-id", volinfo->volname,
@@ -371,6 +373,8 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_argprintf (&runner, "%s",sockfile);
         runner_add_arg (&runner, "--pid-file");
         runner_argprintf (&runner, "%s",pidfile);
+        runner_add_arg (&runner, "-l");
+        runner_argprintf (&runner, logfile);
 
         ret = runner_run_reuse (&runner);
         if (ret) {
