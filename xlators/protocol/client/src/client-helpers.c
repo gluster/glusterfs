@@ -190,6 +190,8 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
                         if (!buf)
                                 goto out;
 
+                        entry->dict = dict_new ();
+
                         ret = dict_unserialize (buf, trav->dict.dict_len,
                                                 &entry->dict);
                         if (ret < 0) {
