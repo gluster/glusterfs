@@ -704,7 +704,7 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
 	priv = this->private;
         pump_priv = priv->pump_private;
 
-        afr_set_lk_owner (pump_frame, this);
+        afr_set_lk_owner (pump_frame, this, pump_frame->root);
 	pump_pid = (uint64_t) (unsigned long)pump_frame->root;
 
 	ret = synctask_new (pump_priv->env, pump_task,

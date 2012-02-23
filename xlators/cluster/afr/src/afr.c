@@ -168,6 +168,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 priv->read_child = index;
         }
 
+        GF_OPTION_RECONF ("eager-lock", priv->eager_lock, options, bool, out);
         GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
                           uint32, out);
@@ -294,6 +295,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("strict-readdir", priv->strict_readdir, bool, out);
 
+        GF_OPTION_INIT ("eager-lock", priv->eager_lock, bool, out);
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
         fix_quorum_options(this,priv,qtype);
@@ -569,6 +571,10 @@ struct volume_options options[] = {
           .default_value = "off",
         },
         { .key = {"entrylk-trace"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+        { .key = {"eager-lock"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },

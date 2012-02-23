@@ -109,22 +109,23 @@ struct volopt_map_entry {
 
 static struct volopt_map_entry glusterd_volopt_map[] = {
 
-        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0},
-        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0},
-	{"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0},
+        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
+        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0    },
+        {"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
 
-        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon", NULL, NO_DOC, 0},
-        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.self-heal-window-size",        "cluster/replicate",  "data-self-heal-window-size", NULL, DOC, 0},
-        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.data-self-heal-algorithm",     "cluster/replicate",  "data-self-heal-algorithm", NULL,DOC, 0},
+        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
+        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
+        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, NO_DOC, 0     },
+        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC, 0},
+        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm", NULL,DOC, 0},
+        {"cluster.eager-lock",                   "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, NO_DOC, 0},
         {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, NO_DOC, 0},
 
@@ -1962,7 +1963,6 @@ get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
         return ret;
 }
 
-
 int
 glusterd_get_volopt_content (gf_boolean_t xml_out)
 {
@@ -3322,6 +3322,57 @@ out:
 }
 
 int
+validate_wb_eagerlock (glusterd_volinfo_t *volinfo, dict_t *val_dict,
+                       char **op_errstr)
+{
+        int          ret = -1;
+        gf_boolean_t wb_val = _gf_false;
+        gf_boolean_t el_val = _gf_false;
+        char         msg[2048] = {0};
+        char         *wb_key = NULL;
+        char         *el_key = NULL;
+
+        wb_key = "performance.write-behind";
+        el_key = "cluster.eager-lock";
+        ret = dict_get_str_boolean (val_dict, wb_key, -1);
+        if (ret < 0)
+                goto check_eager_lock;
+        wb_val = ret;
+        ret = glusterd_volinfo_get_boolean (volinfo, el_key);
+        if (ret < 0)
+                goto out;
+        el_val = ret;
+        goto done;
+
+check_eager_lock:
+        ret = dict_get_str_boolean (val_dict, el_key, -1);
+        if (ret < 0) {
+                ret = 0; //Keys of intereset to this fn are not present.
+                goto out;
+        }
+        el_val = ret;
+        ret = glusterd_volinfo_get_boolean (volinfo, wb_key);
+        if (ret < 0)
+                goto out;
+        wb_val = ret;
+        goto done;
+
+done:
+        ret = 0;
+        if (!wb_val && el_val) {
+                ret = -1;
+                snprintf (msg, sizeof (msg), "%s off and %s on is not "
+                          "valid configuration", wb_key, el_key);
+                gf_log ("glusterd", GF_LOG_ERROR, msg);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+out:
+        return ret;
+}
+
+int
 validate_clientopts (glusterd_volinfo_t *volinfo,
                      dict_t *val_dict,
                      char **op_errstr)
@@ -3465,6 +3516,10 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
                         "Could not Validate  bricks");
                 goto out;
         }
+
+        ret = validate_wb_eagerlock (volinfo, val_dict, op_errstr);
+        if (ret)
+                goto out;
 
         ret = validate_clientopts (volinfo, val_dict, op_errstr);
         if (ret) {

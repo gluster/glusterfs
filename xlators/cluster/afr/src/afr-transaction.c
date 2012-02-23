@@ -1001,6 +1001,7 @@ afr_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Non blocking inodelks failed. Proceeding to blocking");
                 int_lock->lock_cbk = afr_post_blocking_inodelk_cbk;
+                afr_set_lk_owner (frame, this, frame->root);
                 afr_blocking_lock (frame, this);
         } else {
 
@@ -1168,7 +1169,7 @@ afr_lock (call_frame_t *frame, xlator_t *this)
 
         frame->root->pid = (long) frame->root;
 
-        afr_set_lk_owner (frame, this);
+        afr_set_lk_owner (frame, this, frame->root);
 
         afr_set_lock_number (frame, this);
 
