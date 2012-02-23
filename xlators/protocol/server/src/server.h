@@ -75,8 +75,11 @@ typedef struct _server_connection server_connection_t;
 server_connection_t *
 server_connection_get (xlator_t *this, const char *id);
 
-void
-server_connection_put (xlator_t *this, server_connection_t *conn);
+server_connection_t*
+server_conn_unref (server_connection_t *conn);
+
+server_connection_t*
+server_conn_ref (server_connection_t *conn);
 
 int
 server_connection_cleanup (xlator_t *this, server_connection_t *conn);

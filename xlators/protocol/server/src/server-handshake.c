@@ -356,6 +356,7 @@ server_setvolume (rpcsvc_request_t *req)
         int32_t              mgmt_version  = 0;
         uint32_t             lk_version    = 0;
         char                *buf           = NULL;
+        gf_boolean_t        cancelled      = _gf_false;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -430,7 +431,9 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        server_cancel_conn_timer (this, conn);
+        cancelled = server_cancel_conn_timer (this, conn);
+        if (cancelled)
+                server_conn_unref (conn);
         if (conn->lk_version != 0 &&
             conn->lk_version != lk_version) {
                 (void) server_connection_cleanup (this, conn);
@@ -720,7 +723,7 @@ server_set_lk_version (rpcsvc_request_t *req)
 
         conn = server_connection_get (this, args.uid);
         conn->lk_version = args.lk_ver;
-        server_connection_put (this, conn);
+        server_conn_unref (conn);
 
         rsp.lk_ver   = args.lk_ver;
 
