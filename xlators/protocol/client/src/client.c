@@ -1792,7 +1792,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.fd = fd;
         args.size = size;
         args.offset = off;
-        args.xattr_req = dict;
+        args.dict = dict;
 
         proc = &conf->fops->proctable[GF_FOP_READDIRP];
         if (!proc) {
