@@ -147,7 +147,10 @@ struct mem_pool {
         void             *pool_end;
         int               real_sizeof_type;
         uint64_t          alloc_count;
+        uint64_t          pool_misses;
         int               max_alloc;
+        int               curr_stdalloc;
+        int               max_stdalloc;
         char             *name;
         struct list_head  global_list;
 };

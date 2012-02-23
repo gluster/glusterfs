@@ -305,6 +305,9 @@ gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
                                     pool->padded_sizeof_type);
                 gf_proc_dump_write ("alloc-count", "%"PRIu64, pool->alloc_count);
                 gf_proc_dump_write ("max-alloc", "%d", pool->max_alloc);
+
+                gf_proc_dump_write ("pool-misses", "%"PRIu64, pool->pool_misses);
+                gf_proc_dump_write ("max-stdalloc", "%d", pool->max_stdalloc);
         }
 }
 
@@ -356,6 +359,17 @@ gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict)
                 if (ret)
                         return;
 
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.max-stdalloc", count);
+                ret = dict_set_int32 (dict, key, pool->max_stdalloc);
+                if (ret)
+                        return;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "pool%d.pool-misses", count);
+                ret = dict_set_uint64 (dict, key, pool->pool_misses);
+                if (ret)
+                        return;
                 count++;
         }
         ret = dict_set_int32 (dict, "mempool-count", count);
