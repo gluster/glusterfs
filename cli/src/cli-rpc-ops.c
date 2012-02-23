@@ -1318,7 +1318,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret)
                 goto out;
 
-        if (dict_get_str (dict, "help-str", &help_str))
+        if (dict_get_str (dict, "help-str", &help_str) && !msg[0])
                 snprintf (msg, sizeof (msg), "Set volume %s",
                           (rsp.op_ret) ? "unsuccessful": "successful");
 

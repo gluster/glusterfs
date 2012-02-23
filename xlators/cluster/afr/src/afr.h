@@ -778,7 +778,7 @@ afr_mark_locked_nodes (xlator_t *this, fd_t *fd,
                        unsigned char *locked_nodes);
 
 void
-afr_set_lk_owner (call_frame_t *frame, xlator_t *this);
+afr_set_lk_owner (call_frame_t *frame, xlator_t *this, void *lk_owner);
 
 int
 afr_set_lock_number (call_frame_t *frame, xlator_t *this);
