@@ -441,6 +441,27 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%d", maxalloc);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.pool-misses", prefix, i);
+                ret = dict_get_uint64 (dict, key, &alloccount);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"poolMisses",
+                                                       "%"PRIu64, alloccount);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.max-stdalloc", prefix, i);
+                ret = dict_get_int32 (dict, key, &maxalloc);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"maxStdAlloc",
+                                                       "%d", maxalloc);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+
                 /* </pool> */
                 ret = xmlTextWriterEndElement (writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);

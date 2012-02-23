@@ -451,6 +451,10 @@ mem_get (struct mem_pool *mem_pool)
                  * because it is too much work knowing that a better slab
                  * allocator is coming RSN.
                  */
+                mem_pool->pool_misses++;
+                mem_pool->curr_stdalloc++;
+                if (mem_pool->max_stdalloc < mem_pool->curr_stdalloc)
+                        mem_pool->max_stdalloc = mem_pool->curr_stdalloc;
                 ptr = GF_CALLOC (1, mem_pool->padded_sizeof_type,
                                  gf_common_mt_mem_pool);
                 gf_log_callingfn ("mem-pool", GF_LOG_DEBUG, "Mem pool is full. "
@@ -553,6 +557,7 @@ mem_put (void *ptr)
                          * not have enough info to distinguish between the two
                          * situations.
                          */
+                        pool->curr_stdalloc--;
                         GF_FREE (list);
                         break;
                 default:

@@ -4058,6 +4058,8 @@ cli_print_volume_status_mempool (dict_t *dict, char *prefix)
         uint64_t        paddedsizeof = 0;
         uint64_t        alloccount = 0;
         int32_t         maxalloc = 0;
+        uint64_t        pool_misses = 0;
+        int32_t         maxstdalloc = 0;
         char            key[1024] = {0,};
         int             i = 0;
 
@@ -4071,10 +4073,12 @@ cli_print_volume_status_mempool (dict_t *dict, char *prefix)
                 goto out;
 
         cli_out ("Mempool Stats\n-------------");
-        cli_out ("%-30s %9s %9s %12s %10s %8s", "Name", "HotCount","ColdCount",
-                 "PaddedSizeof", "AllocCount", "MaxAlloc");
-        cli_out ("%-30s %9s %9s %12s %10s %8s", "----", "--------", "---------",
-                 "------------", "----------", "--------");
+        cli_out ("%-30s %9s %9s %12s %10s %8s %8s %12s", "Name", "HotCount",
+                 "ColdCount", "PaddedSizeof", "AllocCount", "MaxAlloc",
+                 "Misses", "Max-StdAlloc");
+        cli_out ("%-30s %9s %9s %12s %10s %8s %8s %12s", "----", "--------",
+                 "---------", "------------", "----------",
+                 "--------", "--------", "------------");
 
         for (i = 0; i < mempool_count; i++) {
                 memset (key, 0, sizeof (key));
@@ -4114,9 +4118,21 @@ cli_print_volume_status_mempool (dict_t *dict, char *prefix)
                 if (ret)
                         goto out;
 
-                cli_out ("%-30s %9d %9d %12"PRIu64" %10"PRIu64" %8d", name,
-                         hotcount, coldcount, paddedsizeof, alloccount,
-                         maxalloc);
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.max-stdalloc", prefix, i);
+                ret = dict_get_int32 (dict, key, &maxstdalloc);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.pool%d.pool-misses", prefix, i);
+                ret = dict_get_uint64 (dict, key, &pool_misses);
+                if (ret)
+                        goto out;
+
+                cli_out ("%-30s %9d %9d %12"PRIu64" %10"PRIu64" %8d %8"PRIu64
+                         " %12d", name, hotcount, coldcount, paddedsizeof,
+                         alloccount, maxalloc, pool_misses, maxstdalloc);
         }
 
 out:
