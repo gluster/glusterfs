@@ -1456,6 +1456,8 @@ readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
         prev = trav;
         while (trav) {
                 trav = trav->nextentry;
+                if (prev->dict.dict_val)
+                        GF_FREE (prev->dict.dict_val);
                 GF_FREE (prev);
                 prev = trav;
         }
