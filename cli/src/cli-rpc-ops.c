@@ -5576,7 +5576,7 @@ gf_cli3_1_statedump_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (rsp.op_ret)
                 snprintf (msg, sizeof(msg), "%s", rsp.op_errstr);
         else
-                snprintf (msg, sizeof (msg), "Volume statedump sucessful");
+                snprintf (msg, sizeof (msg), "Volume statedump successful");
 
 #if (HAVE_LIB_XML)
         if (global_state->mode & GLUSTER_MODE_XML) {
