@@ -41,6 +41,7 @@ grace_time_handler (void *data)
 {
         server_connection_t     *conn = NULL;
         xlator_t                *this = NULL;
+        gf_boolean_t            cancelled = _gf_false;
 
         conn = data;
         this = conn->this;
@@ -50,8 +51,11 @@ grace_time_handler (void *data)
 
         gf_log (this->name, GF_LOG_INFO, "grace timer expired");
 
-        server_cancel_conn_timer (this, conn);
-        server_connection_put (this, conn);
+        cancelled = server_cancel_conn_timer (this, conn);
+        if (cancelled) {
+                server_connection_cleanup (this, conn);
+                server_conn_unref (conn);
+        }
 out:
         return;
 }
@@ -172,6 +176,8 @@ ret:
         }
 
         if (frame) {
+                if (frame->root->trans)
+                        server_conn_unref (frame->root->trans);
                 STACK_DESTROY (frame->root);
         }
 

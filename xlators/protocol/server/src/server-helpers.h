@@ -68,7 +68,7 @@ server_print_request (call_frame_t *frame);
 call_frame_t *
 get_frame_from_request (rpcsvc_request_t *req);
 
-void
+gf_boolean_t
 server_cancel_conn_timer (xlator_t *this, server_connection_t *conn);
 
 void

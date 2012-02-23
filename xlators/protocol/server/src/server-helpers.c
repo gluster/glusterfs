@@ -257,6 +257,8 @@ server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_VALIDATE_OR_GOTO ("server", cookie, out);
         GF_VALIDATE_OR_GOTO ("server", this, out);
 
+        if (frame->root->trans)
+                server_conn_unref (frame->root->trans);
         state = CALL_STATE(frame);
 
         if (state)
@@ -298,6 +300,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         }
         UNLOCK (&ltable->lock);
 
+        LOCK_DESTROY (&ltable->lock);
         GF_FREE (ltable);
 
         flock.l_type  = F_UNLCK;
@@ -314,7 +317,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                   to release all locks from this transport
                 */
                 tmp_frame->root->pid         = 0;
-                tmp_frame->root->trans       = conn;
+                tmp_frame->root->trans       = server_conn_ref (conn);
                 memset (&tmp_frame->root->lk_owner, 0, sizeof (gf_lkowner_t));
 
                 if (locker->fd) {
@@ -361,7 +364,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                 tmp_frame = copy_frame (frame);
 
                 tmp_frame->root->pid         = 0;
-                tmp_frame->root->trans       = conn;
+                tmp_frame->root->trans       = server_conn_ref (conn);
                 memset (&tmp_frame->root->lk_owner, 0, sizeof (gf_lkowner_t));
 
                 if (locker->fd) {
@@ -427,6 +430,8 @@ server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
         fd_unref (fd);
         frame->local = NULL;
 
+        if (frame->root->trans)
+                server_conn_unref (frame->root->trans);
         STACK_DESTROY (frame->root);
 
         ret = 0;
@@ -478,7 +483,7 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                         tmp_frame->local = fd;
 
                         tmp_frame->root->pid = 0;
-                        tmp_frame->root->trans = conn;
+                        tmp_frame->root->trans = server_conn_ref (conn);
                         memset (&tmp_frame->root->lk_owner, 0,
                                 sizeof (gf_lkowner_t));
 
@@ -571,20 +576,12 @@ out:
 int
 server_connection_destroy (xlator_t *this, server_connection_t *conn)
 {
-        call_frame_t       *frame = NULL, *tmp_frame = NULL;
         xlator_t           *bound_xl = NULL;
         int32_t             ret = -1;
-        server_state_t     *state = NULL;
         struct list_head    inodelk_lockers;
         struct list_head    entrylk_lockers;
         struct _lock_table *ltable = NULL;
-        struct _locker     *locker = NULL, *tmp = NULL;
-        struct gf_flock        flock = {0,};
-        fd_t               *fd = NULL;
-        int32_t             i = 0;
-        fdentry_t          *fdentries = NULL;
-        uint32_t             fd_count = 0;
-        char               *path      = NULL;
+        fdtable_t          *fdtable = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO ("server", conn, out);
@@ -592,16 +589,15 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         bound_xl = (xlator_t *) (conn->bound_xl);
 
         if (bound_xl) {
-                /* trans will have ref_count = 1 after this call, but its
-                   ok since this function is called in
-                   GF_EVENT_TRANSPORT_CLEANUP */
-                frame = create_frame (this, this->ctx->pool);
-
                 pthread_mutex_lock (&(conn->lock));
                 {
                         if (conn->ltable) {
                                 ltable = conn->ltable;
                                 conn->ltable = NULL;
+                        }
+                        if (conn->fdtable) {
+                                fdtable = conn->fdtable;
+                                conn->fdtable = NULL;
                         }
                 }
                 pthread_mutex_unlock (&conn->lock);
@@ -615,160 +611,68 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                 list_splice_init (&ltable->inodelk_lockers,
                                                   &inodelk_lockers);
 
-                                list_splice_init (&ltable->entrylk_lockers, &entrylk_lockers);
+                                list_splice_init (&ltable->entrylk_lockers,
+                                                  &entrylk_lockers);
                         }
                         UNLOCK (&ltable->lock);
+                        LOCK_DESTROY (&ltable->lock);
                         GF_FREE (ltable);
                 }
 
-                flock.l_type  = F_UNLCK;
-                flock.l_start = 0;
-                flock.l_len   = 0;
-                list_for_each_entry_safe (locker,
-                                          tmp, &inodelk_lockers, lockers) {
-                        tmp_frame = copy_frame (frame);
-                        /*
-                          lock_owner = 0 is a special case that tells posix-locks
-                          to release all locks from this transport
-                        */
-                        tmp_frame->root->trans = conn;
-                        memset (&tmp_frame->root->lk_owner, 0,
-                                sizeof (gf_lkowner_t));
+                GF_ASSERT (list_empty (&inodelk_lockers));
+                GF_ASSERT (list_empty (&entrylk_lockers));
 
-                        if (locker->fd) {
-                                GF_ASSERT (locker->fd->inode);
-
-                                ret = inode_path (locker->fd->inode, NULL, &path);
-
-                                if (ret > 0) {
-                                        gf_log (this->name, GF_LOG_INFO, "finodelk "
-                                                "released on %s", path);
-                                        GF_FREE (path);
-                                } else {
-
-                                        gf_log (this->name, GF_LOG_INFO, "finodelk "
-                                                "released on inode with gfid %s",
-                                                uuid_utoa (locker->fd->inode->gfid));
-                                }
-
-                                STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
-                                            bound_xl->fops->finodelk,
-                                            locker->volume,
-                                            locker->fd, F_SETLK, &flock);
-                                fd_unref (locker->fd);
-                        } else {
-                                gf_log (this->name, GF_LOG_INFO, "inodelk "
-                                        "released on %s", locker->loc.path);
-
-                                STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
-                                            bound_xl->fops->inodelk,
-                                            locker->volume,
-                                            &(locker->loc), F_SETLK, &flock);
-                                loc_wipe (&locker->loc);
-                        }
-
-                        GF_FREE (locker->volume);
-
-                        list_del_init (&locker->lockers);
-                        GF_FREE (locker);
-                }
-
-                tmp = NULL;
-                locker = NULL;
-                list_for_each_entry_safe (locker, tmp, &entrylk_lockers, lockers) {
-                        tmp_frame = copy_frame (frame);
-
-                        tmp_frame->root->trans = conn;
-                        memset (&tmp_frame->root->lk_owner, 0,
-                                sizeof (gf_lkowner_t));
-
-                        if (locker->fd) {
-                                GF_ASSERT (locker->fd->inode);
-
-                                ret = inode_path (locker->fd->inode, NULL, &path);
-
-                                if (ret > 0) {
-                                        gf_log (this->name, GF_LOG_INFO, "fentrylk "
-                                                "released on %s", path);
-
-                                        GF_FREE (path);
-                                } else {
-
-                                        gf_log (this->name, GF_LOG_INFO, "fentrylk "
-                                                "released on inode with gfid %s",
-                                                uuid_utoa (locker->fd->inode->gfid));
-                                }
-
-                                STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
-                                            bound_xl->fops->fentrylk,
-                                            locker->volume,
-                                            locker->fd, NULL,
-                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-                                fd_unref (locker->fd);
-                        } else {
-                                gf_log (this->name, GF_LOG_INFO, "entrylk "
-                                        "released on %s", locker->loc.path);
-
-                                STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
-                                            bound_xl->fops->entrylk,
-                                            locker->volume,
-                                            &(locker->loc), NULL,
-                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-                                loc_wipe (&locker->loc);
-                        }
-
-                        GF_FREE (locker->volume);
-
-                        list_del_init (&locker->lockers);
-                        GF_FREE (locker);
-                }
-
-                pthread_mutex_lock (&(conn->lock));
-                {
-                        if (conn->fdtable) {
-                                fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
-                                                                       &fd_count);
-                                gf_fd_fdtable_destroy (conn->fdtable);
-                                conn->fdtable = NULL;
-                        }
-                }
-                pthread_mutex_unlock (&conn->lock);
-
-                if (fdentries != NULL) {
-                        for (i = 0; i < fd_count; i++) {
-                                fd = fdentries[i].fd;
-                                if (fd != NULL) {
-                                        tmp_frame = copy_frame (frame);
-                                        tmp_frame->local = fd;
-
-                                        STACK_WIND (tmp_frame,
-                                                    server_connection_cleanup_flush_cbk,
-                                                    bound_xl,
-                                                    bound_xl->fops->flush,
-                                                    fd);
-                                }
-                        }
-                        GF_FREE (fdentries);
-                }
-        }
-
-        if (frame) {
-                state = CALL_STATE (frame);
-                if (state)
-                        GF_FREE (state);
-                STACK_DESTROY (frame->root);
+                if (fdtable)
+                        gf_fd_fdtable_destroy (fdtable);
         }
 
         gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",
                 conn->id);
 
+        pthread_mutex_destroy (&conn->lock);
         GF_FREE (conn->id);
         GF_FREE (conn);
-
+        ret = 0;
 out:
         return ret;
 }
 
+server_connection_t*
+server_conn_unref (server_connection_t *conn)
+{
+        server_connection_t *todel = NULL;
+        xlator_t            *this = NULL;
+
+        pthread_mutex_lock (&conn->lock);
+        {
+                conn->ref--;
+
+                if (!conn->ref) {
+                        list_del_init (&conn->list);
+                        todel = conn;
+                }
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+        if (todel) {
+                this = THIS;
+                server_connection_destroy (this, todel);
+                conn = NULL;
+        }
+        return conn;
+}
+
+server_connection_t*
+server_conn_ref (server_connection_t *conn)
+{
+        pthread_mutex_lock (&conn->lock);
+        {
+                conn->ref++;
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+        return conn;
+}
 
 server_connection_t *
 server_connection_get (xlator_t *this, const char *id)
@@ -787,7 +691,6 @@ server_connection_get (xlator_t *this, const char *id)
                 list_for_each_entry (trav, &conf->conns, list) {
                         if (!strncmp (trav->id, id, strlen (id))) {
                                 conn = trav;
-                                conn->ref++;
                                 goto unlock;
                         }
                 }
@@ -800,7 +703,6 @@ server_connection_get (xlator_t *this, const char *id)
                 conn->id = gf_strdup (id);
                 /*'0' denotes uninitialised lock state*/
                 conn->lk_version = 0;
-                conn->ref++;
                 conn->fdtable = gf_fd_fdtable_alloc ();
                 conn->ltable  = gf_lock_table_new ();
                 conn->this    = this;
@@ -811,40 +713,11 @@ server_connection_get (xlator_t *this, const char *id)
 unlock:
         pthread_mutex_unlock (&conf->mutex);
 out:
+        if (conn)
+                server_conn_ref (conn);
         return conn;
 }
 
-
-void
-server_connection_put (xlator_t *this, server_connection_t *conn)
-{
-        server_conf_t       *conf = NULL;
-        server_connection_t *todel = NULL;
-
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", conn, out);
-
-        conf = this->private;
-        GF_VALIDATE_OR_GOTO ("server", conf, out);
-
-        pthread_mutex_lock (&conf->mutex);
-        {
-                conn->ref--;
-
-                if (!conn->ref) {
-                        list_del_init (&conn->list);
-                        todel = conn;
-                }
-        }
-        pthread_mutex_unlock (&conf->mutex);
-
-        if (todel) {
-                server_connection_destroy (this, todel);
-        }
-
-out:
-        return;
-}
 
 static call_frame_t *
 server_alloc_frame (rpcsvc_request_t *req)
@@ -907,7 +780,7 @@ get_frame_from_request (rpcsvc_request_t *req)
         frame->root->uid      = req->uid;
         frame->root->gid      = req->gid;
         frame->root->pid      = req->pid;
-        frame->root->trans    = req->trans->xl_private;
+        frame->root->trans    = server_conn_ref (req->trans->xl_private);
         frame->root->lk_owner = req->lk_owner;
 
         server_decode_groups (frame, req);
@@ -1521,13 +1394,16 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
         return 0;
 }
 
-void
+gf_boolean_t
 server_cancel_conn_timer (xlator_t *this, server_connection_t *conn)
 {
+        gf_timer_t      *timer = NULL;
+        gf_boolean_t    cancelled = _gf_false;
+
         if (!this || !conn) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Invalid arguments to "
                         "cancel connection timer");
-                return;
+                return cancelled;
         }
 
         pthread_mutex_lock (&conn->lock);
@@ -1535,11 +1411,15 @@ server_cancel_conn_timer (xlator_t *this, server_connection_t *conn)
                 if (!conn->timer)
                         goto unlock;
 
-                gf_timer_call_cancel (this->ctx, conn->timer);
+                timer = conn->timer;
                 conn->timer = NULL;
         }
 unlock:
         pthread_mutex_unlock (&conn->lock);
 
-        return;
+        if (timer) {
+                gf_timer_call_cancel (this->ctx, timer);
+                cancelled = _gf_true;
+        }
+        return cancelled;
 }
