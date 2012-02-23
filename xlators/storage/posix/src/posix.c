@@ -3622,6 +3622,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                                 posix_entry_xattr_fill (this, tmp_entry->inode,
                                                         fd, tmp_entry->d_name,
                                                         dict, &stbuf);
+                        dict_ref (tmp_entry->dict);
                 }
 
                 tmp_entry->d_stat = stbuf;
