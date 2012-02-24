@@ -570,6 +570,14 @@ typedef struct _afr_local {
                         char *name;
                 } removexattr;
 
+                struct {
+                        dict_t *xattr;
+                } xattrop;
+
+                struct {
+                        dict_t *xattr;
+                } fxattrop;
+
                 /* dir write */
 
                 struct {
