@@ -1556,10 +1556,12 @@ glusterd_clearlocks_send_cmd (glusterd_volinfo_t *volinfo, char *cmd,
 {
         int               ret                   = -1;
         glusterd_conf_t  *priv                  = NULL;
+        char             abspath[PATH_MAX]      = {0, };
 
         priv = THIS->private;
 
-        ret = sys_lgetxattr (mntpt, cmd, result, PATH_MAX);
+        snprintf (abspath, sizeof (abspath), "%s/%s", mntpt, path);
+        ret = sys_lgetxattr (abspath, cmd, result, PATH_MAX);
         if (ret < 0) {
                 snprintf (errstr, err_len, "clear-locks getxattr command "
                           "failed. Reason: %s", strerror (errno));
