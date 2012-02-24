@@ -931,7 +931,14 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         { /* removexattr */
                 GF_FREE (local->cont.removexattr.name);
         }
-
+        { /* xattrop */
+                if (local->cont.xattrop.xattr)
+                        dict_unref (local->cont.xattrop.xattr);
+        }
+        { /* fxattrop */
+                if (local->cont.fxattrop.xattr)
+                        dict_unref (local->cont.fxattrop.xattr);
+        }
         { /* symlink */
                 GF_FREE (local->cont.symlink.linkpath);
         }
@@ -2636,8 +2643,11 @@ afr_xattrop_cbk (call_frame_t *frame, void *cookie,
 
         LOCK (&frame->lock);
         {
-                if (op_ret == 0)
+                if (op_ret == 0) {
+                        if (!local->cont.xattrop.xattr)
+                                local->cont.xattrop.xattr = dict_ref (xattr);
                         local->op_ret = 0;
+                }
 
                 local->op_errno = op_errno;
         }
@@ -2647,7 +2657,7 @@ afr_xattrop_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (xattrop, frame, local->op_ret, local->op_errno,
-                                  xattr);
+                                  local->cont.xattrop.xattr);
 
         return 0;
 }
@@ -2714,8 +2724,12 @@ afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
 
         LOCK (&frame->lock);
         {
-                if (op_ret == 0)
+                if (op_ret == 0) {
+                        if (!local->cont.fxattrop.xattr)
+                                local->cont.fxattrop.xattr = dict_ref (xattr);
+
                         local->op_ret = 0;
+                }
 
                 local->op_errno = op_errno;
         }
@@ -2725,7 +2739,7 @@ afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (fxattrop, frame, local->op_ret, local->op_errno,
-                                  xattr);
+                                  local->cont.fxattrop.xattr);
 
         return 0;
 }
