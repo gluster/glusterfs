@@ -1628,6 +1628,11 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.rebalance", count);
+        ret = dict_set_int32 (dict, key, volinfo->defrag_cmd);
+        if (ret)
+                goto out;
         if (volinfo->rb_status > GF_RB_STATUS_NONE) {
 
                 memset (key, 0, sizeof (key));
