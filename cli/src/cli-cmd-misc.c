@@ -80,6 +80,10 @@ struct cli_cmd cli_misc_cmds[] = {
            cli_cmd_display_help,
            "display command options"},
 
+        { "exit",
+          cli_cmd_quit_cbk,
+          "exit"},
+
         { NULL, NULL, NULL }
 };
 
