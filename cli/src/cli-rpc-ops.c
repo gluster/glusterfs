@@ -1265,11 +1265,9 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (dict_get_str (dict, "help-str", &help_str))
                 snprintf (msg, sizeof (msg), "Set volume %s",
                           (rsp.op_ret) ? "unsuccessful": "successful");
-        else
-                snprintf (msg, sizeof (msg), "%s", help_str);
 
 #if (HAVE_LIB_XML)
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if ((global_state->mode & GLUSTER_MODE_XML) && (help_str == NULL)) {
                 ret = cli_xml_output_str ("volSet", msg, rsp.op_ret,
                                           rsp.op_errno, rsp.op_errstr);
                 if (ret)
@@ -1279,7 +1277,8 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 #endif
 
-        cli_out ("%s", msg);
+        cli_out ("%s", ((help_str == NULL) ? msg : help_str));
+
         ret = rsp.op_ret;
 
 out:
