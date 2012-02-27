@@ -2536,32 +2536,45 @@ glusterd_get_nodesvc_volfile (char *server, char *workdir,
 }
 
 void
-glusterd_shd_set_running (gf_boolean_t status)
+glusterd_nodesvc_set_running (char *server, gf_boolean_t status)
 {
         glusterd_conf_t *priv = NULL;
 
+        GF_ASSERT (server);
         priv = THIS->private;
         GF_ASSERT (priv);
         GF_ASSERT (priv->shd);
+        GF_ASSERT (priv->nfs);
 
-        priv->shd->running = status;
+        if (!strcmp("glustershd", server))
+                priv->shd->running = status;
+        else if (!strcmp ("nfs", server))
+                priv->nfs->running = status;
 }
 
 gf_boolean_t
-glusterd_shd_is_running ()
+glusterd_nodesvc_is_running (char *server)
 {
         glusterd_conf_t *conf = NULL;
+        gf_boolean_t    running = _gf_false;
 
+        GF_ASSERT (server);
         conf = THIS->private;
         GF_ASSERT (conf);
         GF_ASSERT (conf->shd);
+        GF_ASSERT (conf->nfs);
 
-        return conf->shd->running;
+        if (!strcmp (server, "glustershd"))
+                running = conf->shd->running;
+        else if (!strcmp (server, "nfs"))
+                running = conf->nfs->running;
+
+        return running;
 }
 
 int32_t
-glusterd_shd_set_socket_filepath (char *rundir, uuid_t uuid,
-                                  char *socketpath, int len)
+glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
+                                      char *socketpath, int len)
 {
         char                    sockfilepath[PATH_MAX] = {0,};
         char                    md5_str[PATH_MAX] = {0,};
@@ -2582,6 +2595,8 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
         glusterd_brickinfo_t    *brickinfo = NULL;
         nodesrv_t               *shd       = NULL;
         glusterd_volinfo_t      *volinfo   = NULL;
+        nodesrv_t               *nfs       = NULL;
+
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node, out);
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node->node, out);
 
@@ -2598,6 +2613,10 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
                 if (volinfo->defrag)
                         rpc = volinfo->defrag->rpc;
 
+        } else if (pending_node->type == GD_NODE_NFS) {
+                nfs = pending_node->node;
+                rpc = nfs->rpc;
+
         } else {
                 GF_ASSERT (0);
         }
@@ -2607,19 +2626,27 @@ out:
 }
 
 struct rpc_clnt*
-glusterd_shd_get_rpc (void)
+glusterd_nodesvc_get_rpc (char *server)
 {
         glusterd_conf_t *priv   = NULL;
+        struct rpc_clnt *rpc    = NULL;
 
+        GF_ASSERT (server);
         priv = THIS->private;
         GF_ASSERT (priv);
         GF_ASSERT (priv->shd);
+        GF_ASSERT (priv->nfs);
 
-        return priv->shd->rpc;
+        if (!strcmp (server, "glustershd"))
+                rpc = priv->shd->rpc;
+        else if (!strcmp (server, "nfs"))
+                rpc = priv->nfs->rpc;
+
+        return rpc;
 }
 
 int32_t
-glusterd_shd_set_rpc (struct rpc_clnt *rpc)
+glusterd_nodesvc_set_rpc (char *server, struct rpc_clnt *rpc)
 {
         int             ret   = 0;
         xlator_t        *this = NULL;
@@ -2630,14 +2657,18 @@ glusterd_shd_set_rpc (struct rpc_clnt *rpc)
         priv = this->private;
         GF_ASSERT (priv);
         GF_ASSERT (priv->shd);
+        GF_ASSERT (priv->nfs);
 
-        priv->shd->rpc = rpc;
+        if (!strcmp ("glustershd", server))
+                priv->shd->rpc = rpc;
+        else if (!strcmp ("nfs", server))
+                priv->nfs->rpc = rpc;
 
         return ret;
 }
 
 int32_t
-glusterd_shd_connect (char *socketpath) {
+glusterd_nodesvc_connect (char *server, char *socketpath) {
         int                     ret = 0;
         dict_t                  *options = NULL;
         struct rpc_clnt         *rpc = NULL;
@@ -2646,17 +2677,17 @@ glusterd_shd_connect (char *socketpath) {
         if (ret)
                 goto out;
         ret = glusterd_rpc_create (&rpc, options,
-                                   glusterd_shd_rpc_notify,
-                                   NULL);
+                                   glusterd_nodesvc_rpc_notify,
+                                   server);
         if (ret)
                 goto out;
-        (void) glusterd_shd_set_rpc (rpc);
+        (void) glusterd_nodesvc_set_rpc (server, rpc);
 out:
         return ret;
 }
 
 int32_t
-glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
+glusterd_nodesvc_start (char *server)
 {
         int32_t                 ret                        = -1;
         xlator_t               *this                       = NULL;
@@ -2666,7 +2697,7 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
         char                    logfile[PATH_MAX]          = {0,};
         char                    volfile[PATH_MAX]          = {0,};
         char                    rundir[PATH_MAX]           = {0,};
-        char                    shd_sockfpath[PATH_MAX]    = {0,};
+        char                    sockfpath[PATH_MAX] = {0,};
         char                    volfileid[256]             = {0};
 #ifdef DEBUG
         char                    valgrind_logfile[PATH_MAX] = {0};
@@ -2702,16 +2733,11 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
                   server);
         snprintf (volfileid, sizeof (volfileid), "gluster/%s", server);
 
-        if (!strcmp (server, "glustershd")) {
-                glusterd_shd_set_socket_filepath (rundir,
-                                                  priv->uuid,
-                                                  shd_sockfpath,
-                                                  sizeof (shd_sockfpath));
-        }
+        glusterd_nodesvc_set_socket_filepath (rundir, priv->uuid,
+                                              sockfpath, sizeof (sockfpath));
 
         runinit (&runner);
-        //TODO: kp:change the assumption that shd is the one which signs in
-        // use runner_add_args?
+
 #ifdef DEBUG
         if (priv->valgrind) {
                 snprintf (valgrind_logfile, PATH_MAX,
@@ -2725,27 +2751,19 @@ glusterd_nodesvc_start (char *server, gf_boolean_t pmap_signin)
         }
 #endif
 
-        if (pmap_signin) {
-                runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                                 "-s", "localhost",
-                                 "--volfile-id", volfileid,
-                                 "-p", pidfile,
-                                 "-l", logfile,
-                                 "-S", shd_sockfpath, NULL);
-        } else {
-                runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                                 "-f", volfile,
-                                 "-p", pidfile,
-                                 "-l", logfile, NULL);
-        }
+        runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                         "-s", "localhost",
+                         "--volfile-id", volfileid,
+                         "-p", pidfile,
+                         "-l", logfile,
+                         "-S", sockfpath, NULL);
 
         runner_log (&runner, "", GF_LOG_DEBUG,
                     "Starting the nfs/glustershd services");
 
         ret = runner_run (&runner);
         if (ret == 0) {
-                if (pmap_signin)
-                        glusterd_shd_connect (shd_sockfpath);
+                glusterd_nodesvc_connect (server, sockfpath);
         }
 out:
         return ret;
@@ -2754,13 +2772,13 @@ out:
 int
 glusterd_nfs_server_start ()
 {
-        return glusterd_nodesvc_start ("nfs", _gf_false);
+        return glusterd_nodesvc_start ("nfs");
 }
 
 int
 glusterd_shd_start ()
 {
-        return glusterd_nodesvc_start ("glustershd", _gf_true);
+        return glusterd_nodesvc_start ("glustershd");
 }
 
 gf_boolean_t
@@ -2831,6 +2849,65 @@ int
 glusterd_shd_stop ()
 {
         return glusterd_nodesvc_stop ("glustershd", SIGTERM);
+}
+
+/* Only NFS server for now */
+int
+glusterd_add_node_to_dict (char *server, dict_t *dict, int count)
+{
+        int                     ret = -1;
+        glusterd_conf_t         *priv = THIS->private;
+        char                    pidfile[PATH_MAX] = {0,};
+        gf_boolean_t            running = _gf_false;
+        int                     pid = -1;
+        char                    key[1024] = {0,};
+
+        glusterd_get_nodesvc_pidfile (server, priv->workdir, pidfile,
+                                      sizeof (pidfile));
+        running = glusterd_is_service_running (pidfile, &pid);
+
+        /* For nfs servers setting
+         * brick<n>.hostname = "NFS server"
+         * brick<n>.path = uuid
+         * brick<n>.port = 0
+         *
+         * This might be confusing, but cli display's the name of
+         * the brick as hostname+path, so this will make more sense
+         * when output.
+         */
+        snprintf (key, sizeof (key), "brick%d.hostname", count);
+        ret = dict_set_str (dict, key, "NFS Server");
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.path", count);
+        ret = dict_set_dynstr (dict, key, gf_strdup (uuid_utoa (priv->uuid)));
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.port", count);
+        ret = dict_set_int32 (dict, key, 0);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.pid", count);
+        ret = dict_set_int32 (dict, key, pid);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.status", count);
+        ret = dict_set_int32 (dict, key, running);
+        if (ret)
+                goto out;
+
+
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
 }
 
 int
@@ -5030,3 +5107,32 @@ glusterd_restart_rebalance (glusterd_conf_t *conf)
         }
         return ret;
 }
+
+/* Return hostname for given uuid if it exists
+ * else return NULL
+ */
+char *
+glusterd_uuid_to_hostname (uuid_t uuid)
+{
+        char                    *hostname = NULL;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_peerinfo_t     *entry = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        if (!uuid_compare (priv->uuid, uuid)) {
+                hostname = gf_strdup ("localhost");
+        }
+        if (!list_empty (&priv->peers)) {
+                list_for_each_entry (entry, &priv->peers, uuid_list) {
+                        if (!uuid_compare (entry->uuid, uuid)) {
+                                hostname = gf_strdup (entry->hostname);
+                                break;
+                        }
+                }
+        }
+
+        return hostname;
+}
+

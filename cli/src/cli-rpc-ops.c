@@ -3506,7 +3506,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         uint64_t                sec = 0;
         uint64_t                r_count = 0;
         uint64_t                w_count = 0;
-        char                    *brick = NULL;
         uint64_t                rb_counts[32] = {0};
         uint64_t                wb_counts[32] = {0};
         cli_profile_info_t      profile_info[GF_FOP_MAXVALUE] = {{0}};
@@ -3519,9 +3518,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         int                     ret = 0;
         double                  total_percentage_latency = 0;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "%d-brick", count);
-        ret = dict_get_str (dict, key, &brick);
         for (i = 0; i < 32; i++) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-read-%d", count,
@@ -3584,7 +3580,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         ret = dict_get_uint64 (dict, key, &w_count);
 
         if (ret == 0) {
-                cli_out ("Brick: %s", brick);
         }
 
         if (interval == -1)
@@ -3681,6 +3676,9 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int                               i = 1;
         int32_t                           brick_count = 0;
         char                              *volname = NULL;
+        char                              *brick = NULL;
+        char                              str[1024] = {0,};
+
         if (-1 == req->rpc_status) {
                 goto out;
         }
@@ -3775,6 +3773,23 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         while (i <= brick_count) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-brick", i);
+                ret = dict_get_str (dict, key, &brick);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Couldn't get brick name");
+                        goto out;
+                }
+
+                ret = dict_get_str_boolean (dict, "nfs", _gf_false);
+                if (ret)
+                        snprintf (str, sizeof (str), "NFS Server : %s", brick);
+                else
+                        snprintf (str, sizeof (str), "Brick: %s", brick);
+                cli_out (str);
+                memset (str, '-', strlen (str));
+                cli_out (str);
+
                 snprintf (key, sizeof (key), "%d-cumulative", i);
                 ret = dict_get_int32 (dict, key, &interval);
                 if (ret == 0) {
@@ -3935,7 +3950,12 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = dict_get_str (dict, brick, &bricks);
                 if (ret)
                         goto out;
-                cli_out ("Brick: %s", bricks);
+                ret = dict_get_str_boolean (dict, "nfs", _gf_false);
+                if (ret)
+                        cli_out ("NFS Server : %s", bricks);
+                else
+                        cli_out ("Brick: %s", bricks);
+
                 snprintf(key, sizeof (key), "%d-members", i);
                 ret = dict_get_int32 (dict, key, &members);
 
@@ -4237,7 +4257,7 @@ out:
 }
 
 void
-cli_print_volume_status_mem (dict_t *dict)
+cli_print_volume_status_mem (dict_t *dict, gf_boolean_t nfs)
 {
         int             ret = -1;
         char            *volname = NULL;
@@ -4273,7 +4293,10 @@ cli_print_volume_status_mem (dict_t *dict)
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
                         goto out;
-                cli_out ("Brick : %s:%s", hostname, path);
+                if (nfs)
+                        cli_out ("%s : %s", hostname, path);
+                else
+                        cli_out ("Brick : %s:%s", hostname, path);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
@@ -4368,7 +4391,7 @@ out:
 }
 
 void
-cli_print_volume_status_clients (dict_t *dict)
+cli_print_volume_status_clients (dict_t *dict, gf_boolean_t nfs)
 {
         int             ret = -1;
         char            *volname = NULL;
@@ -4408,7 +4431,11 @@ cli_print_volume_status_clients (dict_t *dict)
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
                         goto out;
-                cli_out ("Brick : %s:%s", hostname, path);
+
+                if (nfs)
+                        cli_out ("%s : %s", hostname, path);
+                else
+                        cli_out ("Brick : %s:%s", hostname, path);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
@@ -4609,7 +4636,7 @@ out:
 }
 
 void
-cli_print_volume_status_inode (dict_t *dict)
+cli_print_volume_status_inode (dict_t *dict, gf_boolean_t nfs)
 {
         int             ret = -1;
         char            *volname = NULL;
@@ -4646,7 +4673,10 @@ cli_print_volume_status_inode (dict_t *dict)
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
                         goto out;
-                cli_out ("Brick : %s:%s", hostname, path);
+                if (nfs)
+                        cli_out ("%s : %s", hostname, path);
+                else
+                        cli_out ("Brick : %s:%s", hostname, path);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
@@ -4762,7 +4792,7 @@ out:
 }
 
 void
-cli_print_volume_status_fd (dict_t *dict)
+cli_print_volume_status_fd (dict_t *dict, gf_boolean_t nfs)
 {
         int             ret = -1;
         char            *volname = NULL;
@@ -4799,7 +4829,11 @@ cli_print_volume_status_fd (dict_t *dict)
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
                         goto out;
-                cli_out ("Brick : %s:%s", hostname, path);
+
+                if (nfs)
+                        cli_out ("%s : %s", hostname, path);
+                else
+                        cli_out ("Brick : %s:%s", hostname, path);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
@@ -4976,7 +5010,7 @@ cli_print_volume_status_call_stack (dict_t *dict, char *prefix)
 }
 
 void
-cli_print_volume_status_callpool (dict_t *dict)
+cli_print_volume_status_callpool (dict_t *dict, gf_boolean_t nfs)
 {
         int             ret = -1;
         char            *volname = NULL;
@@ -5013,7 +5047,11 @@ cli_print_volume_status_callpool (dict_t *dict)
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
                         goto out;
-                cli_out ("Brick : %s:%s", hostname, path);
+
+                if (nfs)
+                        cli_out ("%s : %s", hostname, path);
+                else
+                        cli_out ("Brick : %s:%s", hostname, path);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
@@ -5058,6 +5096,7 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
         int                             i              = 0;
         int                             pid            = -1;
         uint32_t                        cmd            = 0;
+        gf_boolean_t                    nfs            = _gf_false;
         char                            key[1024]      = {0,};
         char                           *hostname       = NULL;
         char                           *path           = NULL;
@@ -5101,6 +5140,10 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = 0;
                 goto out;
         }
+
+        if (cmd & GF_CLI_STATUS_NFS)
+                nfs = _gf_true;
+
         ret = dict_get_int32 (dict, "count", &count);
         if (ret)
                 goto out;
@@ -5125,23 +5168,23 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
 
         switch (cmd & GF_CLI_STATUS_MASK) {
                 case GF_CLI_STATUS_MEM:
-                        cli_print_volume_status_mem (dict);
+                        cli_print_volume_status_mem (dict, nfs);
                         goto cont;
                         break;
                 case GF_CLI_STATUS_CLIENTS:
-                        cli_print_volume_status_clients (dict);
+                        cli_print_volume_status_clients (dict, nfs);
                         goto cont;
                         break;
                 case GF_CLI_STATUS_INODE:
-                        cli_print_volume_status_inode (dict);
+                        cli_print_volume_status_inode (dict, nfs);
                         goto cont;
                         break;
                 case GF_CLI_STATUS_FD:
-                        cli_print_volume_status_fd (dict);
+                        cli_print_volume_status_fd (dict, nfs);
                         goto cont;
                         break;
                 case GF_CLI_STATUS_CALLPOOL:
-                        cli_print_volume_status_callpool (dict);
+                        cli_print_volume_status_callpool (dict, nfs);
                         goto cont;
                         break;
                 default:

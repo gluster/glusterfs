@@ -110,7 +110,8 @@ enum gf_cli_status_type {
         GF_CLI_STATUS_MASK         = 0x0FF,     /*000011111111 Used to get the op*/
         GF_CLI_STATUS_VOL          = 0x100,     /*000100000000*/
         GF_CLI_STATUS_ALL          = 0x200,     /*001000000000*/
-        GF_CLI_STATUS_BRICK        = 0x400      /*010000000000*/
+        GF_CLI_STATUS_BRICK        = 0x400,     /*010000000000*/
+        GF_CLI_STATUS_NFS          = 0x800      /*100000000000*/
 };
 
  struct gf_cli_req {

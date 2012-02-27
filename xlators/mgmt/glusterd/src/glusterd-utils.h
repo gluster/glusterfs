@@ -193,26 +193,26 @@ int32_t
 glusterd_shd_stop ();
 
 int32_t
-glusterd_shd_set_socket_filepath (char *rundir, uuid_t uuid,
-                                  char *socketpath, int len);
+glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
+                                      char *socketpath, int len);
 
 struct rpc_clnt*
 glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node);
 
 struct rpc_clnt*
-glusterd_shd_get_rpc (void);
+glusterd_nodesvc_get_rpc (char *server);
 
 int32_t
-glusterd_shd_set_rpc (struct rpc_clnt *rpc);
+glusterd_nodesvc_set_rpc (char *server, struct rpc_clnt *rpc);
 
 int32_t
-glusterd_shd_connect (char *socketpath);
+glusterd_nodesvc_connect (char *server, char *socketpath);
 
 void
-glusterd_shd_set_running (gf_boolean_t status);
+glusterd_nodesvc_set_running (char *server, gf_boolean_t status);
 
 gf_boolean_t
-glusterd_shd_is_running ();
+glusterd_nodesvc_is_running (char *server);
 
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
@@ -413,4 +413,10 @@ glusterd_restart_rebalance (glusterd_conf_t *conf);
 
 int32_t
 glusterd_add_bricks_hname_path_to_dict (dict_t *dict);
+
+int
+glusterd_add_node_to_dict (char *server, dict_t *dict, int count);
+
+char *
+glusterd_uuid_to_hostname (uuid_t uuid);
 #endif

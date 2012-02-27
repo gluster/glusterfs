@@ -1648,7 +1648,7 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
         if (!dict)
                 goto out;
 
-        if (wordcount != 4)
+        if (wordcount < 4 || wordcount >5)
                 goto out;
 
         volname = (char *)words[2];
@@ -1670,7 +1670,19 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
                 op = GF_CLI_STATS_INFO;
         } else
                 GF_ASSERT (!"opword mismatch");
+
         ret = dict_set_int32 (dict, "op", (int32_t)op);
+        if (ret)
+                goto out;
+
+        if (wordcount == 5) {
+                if (!strcmp (words[4], "nfs")) {
+                        ret = dict_set_int32 (dict, "nfs", _gf_true);
+                        if (ret)
+                                goto out;
+                }
+        }
+
         *options = dict;
 out:
         if (ret && dict)
@@ -1694,6 +1706,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         int      perf           = 0;
         uint32_t  blk_size      = 0;
         uint32_t  count         = 0;
+        gf_boolean_t nfs        = _gf_false;
         char    *delimiter      = NULL;
         char    *opwords[]      = { "open", "read", "write", "opendir",
                                     "readdir", "read-perf", "write-perf",
@@ -1748,7 +1761,17 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
-        for (index = 4; index < wordcount; index+=2) {
+        if ((wordcount > 4) && !strcmp (words[4], "nfs")) {
+                nfs = _gf_true;
+                ret = dict_set_int32 (dict, "nfs", nfs);
+                if (ret)
+                        goto out;
+                index = 5;
+        } else {
+                index = 4;
+        }
+
+        for (; index < wordcount; index+=2) {
 
                 key = (char *) words[index];
                 value = (char *) words[index+1];
@@ -1781,7 +1804,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 ret = -1;
                                 goto out;
                         }
-                } else if (perf && !strcmp (key, "bs")) {
+                } else if (perf && !nfs && !strcmp (key, "bs")) {
                         ret = gf_is_str_int (value);
                         if (!ret)
                                 blk_size = atoi (value);
@@ -1795,7 +1818,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 goto out;
                         }
                         ret = dict_set_uint32 (dict, "blk-size", blk_size);
-                } else if (perf && !strcmp (key, "count")) {
+                } else if (perf && !nfs && !strcmp (key, "count")) {
                         ret = gf_is_str_int (value);
                         if (!ret)
                                 count = atoi(value);
@@ -1931,9 +1954,13 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                                 goto out;
 
                         if (cmd == GF_CLI_STATUS_NONE) {
-                                cmd = GF_CLI_STATUS_BRICK;
-                                ret = dict_set_str (dict, "brick",
-                                                    (char *)words[3]);
+                                if (!strcmp (words[3], "nfs")) {
+                                        cmd |= GF_CLI_STATUS_NFS;
+                                } else {
+                                        cmd = GF_CLI_STATUS_BRICK;
+                                        ret = dict_set_str (dict, "brick",
+                                                            (char *)words[3]);
+                                }
 
                         } else {
                                 cmd |= GF_CLI_STATUS_VOL;
@@ -1945,7 +1972,7 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 
         case 5:
                 if (!strcmp (words[2], "all")) {
-                        cli_out ("Cannot specify brick for \"all\"");
+                        cli_out ("Cannot specify brick/nfs for \"all\"");
                         ret = -1;
                         goto out;
                 }
@@ -1958,13 +1985,22 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                         goto out;
                 }
 
-                cmd |= GF_CLI_STATUS_BRICK;
 
                 ret = dict_set_str (dict, "volname", (char *)words[2]);
                 if (ret)
                         goto out;
 
-                ret = dict_set_str (dict, "brick", (char *)words[3]);
+                if (!strcmp (words[3], "nfs")) {
+                        if (cmd == GF_CLI_STATUS_FD) {
+                                cli_out ("FD status not available for NFS");
+                                ret = -1;
+                                goto out;
+                        }
+                        cmd |= GF_CLI_STATUS_NFS;
+                } else {
+                        cmd |= GF_CLI_STATUS_BRICK;
+                        ret = dict_set_str (dict, "brick", (char *)words[3]);
+                }
                 break;
 
         default:

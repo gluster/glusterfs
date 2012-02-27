@@ -827,11 +827,100 @@ nfs_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
+gf_boolean_t
+_nfs_export_is_for_vol (char *exname, char *volname)
+{
+        gf_boolean_t    ret = _gf_false;
+        char            *tmp = NULL;
+
+        tmp = exname;
+        if (tmp[0] == '/')
+                tmp++;
+
+        if (!strcmp (tmp, volname))
+                ret = _gf_true;
+
+        return ret;
+}
+
+int
+nfs_priv_to_dict (xlator_t *this, dict_t *dict)
+{
+        int                     ret = -1;
+        struct nfs_state        *priv = NULL;
+        struct mountentry       *mentry = NULL;
+        char                    *volname = NULL;
+        char                    key[1024] = {0,};
+        int                     count = 0;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, dict, out);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not get volname");
+                goto out;
+        }
+
+        list_for_each_entry (mentry, &priv->mstate->mountlist, mlist) {
+                if (!_nfs_export_is_for_vol (mentry->exname, volname))
+                        continue;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.hostname", count);
+                ret = dict_set_str (dict, key, mentry->hostname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Error writing hostname to dict");
+                        goto out;
+                }
+
+                /* No connection data available yet in nfs server.
+                 * Hence, setting to 0 to prevent cli failing
+                 */
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.bytesread", count);
+                ret = dict_set_uint64 (dict, key, 0);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Error writing bytes read to dict");
+                        goto out;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.byteswrite", count);
+                ret = dict_set_uint64 (dict, key, 0);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Error writing bytes write to dict");
+                        goto out;
+                }
+
+                count++;
+        }
+
+        ret = dict_set_int32 (dict, "clientcount", count);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error writing client count to dict");
+
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 struct xlator_cbks cbks = {
         .forget      = nfs_forget,
 };
 
 struct xlator_fops fops = { };
+
+struct xlator_dumpops dumpops = {
+        .priv_to_dict   = nfs_priv_to_dict,
+};
 
 /* TODO: If needed, per-volume options below can be extended to be export
 + * specific also because after export-dir is introduced, a volume is not

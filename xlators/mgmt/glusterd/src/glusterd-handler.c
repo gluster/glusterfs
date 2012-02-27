@@ -2755,12 +2755,13 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
-glusterd_shd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                         rpc_clnt_event_t event,
-                         void *data)
+glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                             rpc_clnt_event_t event,
+                             void *data)
 {
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
+        char                    *server = NULL;
         int                     ret = 0;
 
         this = THIS;
@@ -2768,17 +2769,21 @@ glusterd_shd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         conf = this->private;
         GF_ASSERT (conf);
 
+        server = mydata;
+        if (!server)
+                return 0;
+
         switch (event) {
         case RPC_CLNT_CONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
-                (void) glusterd_shd_set_running (_gf_true);
+                (void) glusterd_nodesvc_set_running (server, _gf_true);
                 ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
                 break;
 
         case RPC_CLNT_DISCONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
-                (void) glusterd_shd_set_running (_gf_false);
+                (void) glusterd_nodesvc_set_running (server, _gf_false);
                 break;
 
         default:
