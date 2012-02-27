@@ -162,6 +162,7 @@ typedef struct glusterd_heal_rsp_conv_ {
 typedef struct glusterd_status_rsp_conv_ {
         int count;
         dict_t *dict;
+        gf_boolean_t nfs;
 } glusterd_status_rsp_conv_t;
 
 typedef struct glusterd_gsync_status_temp {
@@ -238,10 +239,13 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr);
 int
 glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickinfo,
                                  gd1_mgmt_brick_op_req **req, dict_t *dict);
+int
+glusterd_nfs_op_build_payload (glusterd_op_t op, gd1_mgmt_brick_op_req **req,
+                               dict_t *dict);
 int32_t
-glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
-                           glusterd_op_t op, dict_t *rsp_dict, dict_t *ctx_dict,
-                           char **op_errstr);
+glusterd_handle_brick_rsp (void *pending_entry, glusterd_op_t op,
+                           dict_t *rsp_dict, dict_t *ctx_dict, char **op_errstr,
+                           gd_node_type type);
 int32_t
 glusterd_op_init_ctx (glusterd_op_t op);
 int32_t

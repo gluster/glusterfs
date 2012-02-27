@@ -111,6 +111,7 @@ typedef struct {
         char              workdir[PATH_MAX];
         rpcsvc_t          *rpc;
         nodesrv_t         *shd;
+        nodesrv_t         *nfs;
         struct pmap_registry *pmap;
         struct list_head  volumes;
         struct list_head  xprt_list;
@@ -250,6 +251,7 @@ typedef enum gd_node_type_ {
         GD_NODE_BRICK,
         GD_NODE_SHD,
         GD_NODE_REBALANCE,
+        GD_NODE_NFS,
 } gd_node_type;
 
 typedef struct glusterd_pending_node_ {
@@ -559,8 +561,8 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event, void *data);
 
 int
-glusterd_shd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                          rpc_clnt_event_t event, void *data);
+glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                             rpc_clnt_event_t event, void *data);
 
 int
 glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,

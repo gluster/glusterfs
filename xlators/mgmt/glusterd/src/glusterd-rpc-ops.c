@@ -1011,16 +1011,25 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
 {
         glusterd_status_rsp_conv_t      *rsp_ctx = NULL;
         data_t                          *new_value = NULL;
+        char                            brick_key[1024] = {0,};
+        char                            new_key[1024] = {0,};
         int32_t                         ret = 0;
 
-        if (strcmp (key, "count") == 0)
+        if (!strcmp (key, "count") || !strcmp (key, "cmd"))
                 return;
 
         rsp_ctx = data;
         new_value = data_copy (value);
         GF_ASSERT (new_value);
 
-        ret = dict_set (rsp_ctx->dict, key, new_value);
+        if (rsp_ctx->nfs) {
+                sscanf (key, "brick%*d.%s", brick_key);
+                snprintf (new_key, sizeof (new_key), "brick%d.%s",
+                          rsp_ctx->count, brick_key);
+        } else
+                strncpy (new_key, key, sizeof (new_key));
+
+        ret = dict_set (rsp_ctx->dict, new_key, new_value);
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "Unable to set key: %s in dict",
                         key);
@@ -1035,6 +1044,7 @@ glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
         glusterd_status_rsp_conv_t      rsp_ctx = {0};
         int32_t                         brick_count = 0;
         int32_t                         count = 0;
+        int32_t                         cmd = 0;
         dict_t                          *ctx_dict = NULL;
         glusterd_op_t                   op = GD_OP_NONE;
 
@@ -1046,6 +1056,10 @@ glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
                 goto out;
         }
 
+        ret = dict_get_int32 (rsp_dict, "cmd", &cmd);
+        if (ret)
+                goto out;
+
         op = glusterd_op_get_op ();
         GF_ASSERT (GD_OP_STATUS_VOLUME == op);
         ctx_dict = glusterd_op_get_ctx (op);
@@ -1053,6 +1067,11 @@ glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
         ret = dict_get_int32 (ctx_dict, "count", &count);
         rsp_ctx.count = count;
         rsp_ctx.dict = ctx_dict;
+        if (cmd & GF_CLI_STATUS_NFS)
+                rsp_ctx.nfs = _gf_true;
+        else
+                rsp_ctx.nfs = _gf_false;
+
         dict_foreach (rsp_dict, glusterd_volume_status_add_peer_rsp, &rsp_ctx);
 
         ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
@@ -1833,10 +1852,17 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                 if (!dummy_frame)
                         continue;
 
-                ret = glusterd_brick_op_build_payload (req_ctx->op,
-                                                       pending_node->node,
-                                                       (gd1_mgmt_brick_op_req **)&req,
-                                                       req_ctx->dict);
+                if (pending_node->type == GD_NODE_BRICK)
+                        ret = glusterd_brick_op_build_payload
+                                (req_ctx->op, pending_node->node,
+                                 (gd1_mgmt_brick_op_req **)&req,
+                                 req_ctx->dict);
+                else if (pending_node->type == GD_NODE_NFS)
+                        ret = glusterd_nfs_op_build_payload
+                                (req_ctx->op,
+                                 (gd1_mgmt_brick_op_req **)&req,
+                                 req_ctx->dict);
+
                 if (ret)
                         goto out;
 

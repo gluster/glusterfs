@@ -166,6 +166,7 @@ enum gf_cli_status_type {
 	GF_CLI_STATUS_VOL = 0x100,
 	GF_CLI_STATUS_ALL = 0x200,
 	GF_CLI_STATUS_BRICK = 0x400,
+	GF_CLI_STATUS_NFS = 0x800,
 };
 typedef enum gf_cli_status_type gf_cli_status_type;
 

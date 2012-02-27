@@ -1060,7 +1060,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if (!glusterd_shd_is_running ()) {
+        if (!glusterd_nodesvc_is_running ("glustershd")) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "Self-heal daemon is not "
                           "running. Check self-heal daemon log file.");
