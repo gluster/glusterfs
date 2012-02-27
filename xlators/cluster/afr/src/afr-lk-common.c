@@ -550,7 +550,7 @@ lower_path (loc_t *l1, const char *b1, loc_t *l2, const char *b2)
 {
         int ret = 0;
 
-        ret = strcmp (l1->path, l2->path);
+        ret = uuid_compare (l1->inode->gfid, l2->inode->gfid);
 
         if (ret == 0)
                 ret = strcmp (b1, b2);

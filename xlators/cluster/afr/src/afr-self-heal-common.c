@@ -1086,6 +1086,7 @@ afr_sh_missing_entry_call_impunge_recreate (call_frame_t *frame, xlator_t *this,
         unsigned int    enoent_count = 0;
         afr_private_t   *priv = NULL;
         int             i = 0;
+        int32_t         op_errno = 0;
 
         local = frame->local;
         sh    = &local->self_heal;
@@ -1106,7 +1107,12 @@ afr_sh_missing_entry_call_impunge_recreate (call_frame_t *frame, xlator_t *this,
         impunge_local = impunge_frame->local;
         impunge_sh    = &impunge_local->self_heal;
         loc_copy (&impunge_local->loc, &local->loc);
-        afr_build_parent_loc (&impunge_sh->parent_loc, &impunge_local->loc);
+        ret = afr_build_parent_loc (&impunge_sh->parent_loc,
+                                    &impunge_local->loc, &op_errno);
+        if (ret) {
+                ret = -op_errno;
+                goto out;
+        }
         impunge_local->call_count = enoent_count;
         impunge_sh->entrybuf = sh->buf[sh->source];
         impunge_sh->parentbuf = sh->parentbufs[sh->source];
@@ -1655,25 +1661,17 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
         sh = &local->self_heal;
         priv = this->private;
 
-        /* If We can't find a fresh parent directory here,
-         * we wont know which subvol is correct without finding a parent dir
-         * upwards which has correct xattrs, for that we may have to
-         * do lookups till root, we dont wanna do that,
-         * instead make sure that if there are conflicting gfid
-         * parent dirs, self-heal thus lookup is failed with EIO.
-         * if there are missing entries we dont know whether to delete or
-         * create so fail with EIO,
-         * If there are conflicting xattr fail with EIO.
-         */
         if (op_ret < 0)
                 goto out;
         enoent_count = afr_errno_count (NULL, sh->child_errno,
                                         priv->child_count, ENOENT);
         if (enoent_count > 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Parent dir missing for %s,"
-                        " in missing entry self-heal, aborting self-heal",
+                gf_log (this->name, GF_LOG_INFO, "Parent dir missing for %s,"
+                        " in missing entry self-heal, aborting missing-entry "
+                        "self-heal",
                         local->loc.path);
-                goto out;
+                afr_sh_missing_entries_finish (frame, this);
+                return;
         }
 
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
@@ -1883,6 +1881,9 @@ afr_self_heal_parent_entrylk (call_frame_t *frame, xlator_t *this,
 {
         afr_local_t         *local    = NULL;
         afr_self_heal_t     *sh       = NULL;
+        afr_internal_lock_t *int_lock = NULL;
+        int                 ret       = -1;
+        int32_t             op_errno  = 0;
 
         local    = frame->local;
         sh       = &local->self_heal;
@@ -1891,11 +1892,17 @@ afr_self_heal_parent_entrylk (call_frame_t *frame, xlator_t *this,
                 "attempting to recreate missing entries for path=%s",
                 local->loc.path);
 
-        GF_ASSERT (local->loc.parent);
-        afr_build_parent_loc (&sh->parent_loc, &local->loc);
+        ret = afr_build_parent_loc (&sh->parent_loc, &local->loc, &op_errno);
+        if (ret)
+                goto out;
 
         afr_sh_entrylk (frame, this, &sh->parent_loc, NULL,
                         lock_cbk);
+        return 0;
+out:
+        int_lock = &local->internal_lock;
+        int_lock->lock_op_ret = -1;
+        lock_cbk (frame, this);
         return 0;
 }
 
@@ -2133,8 +2140,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 UNLOCK (&priv->lock);
         }
 
-        if (!local->loc.name) {
-                /* nameless lookup */
+        if (!local->loc.parent) {
                 sh->do_missing_entry_self_heal = _gf_false;
                 sh->do_gfid_self_heal = _gf_false;
         }

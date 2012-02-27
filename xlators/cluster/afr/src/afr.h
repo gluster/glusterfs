@@ -820,8 +820,8 @@ void
 afr_inode_set_read_ctx (xlator_t *this, inode_t *inode, int32_t read_child,
                         int32_t *fresh_children);
 
-void
-afr_build_parent_loc (loc_t *parent, loc_t *child);
+int
+afr_build_parent_loc (loc_t *parent, loc_t *child, int32_t *op_errno);
 
 unsigned int
 afr_up_children_count (unsigned char *child_up, unsigned int child_count);

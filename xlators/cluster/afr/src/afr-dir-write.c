@@ -47,31 +47,29 @@
 #include "afr.h"
 #include "afr-transaction.h"
 
-void
-afr_build_parent_loc (loc_t *parent, loc_t *child)
+int
+afr_build_parent_loc (loc_t *parent, loc_t *child, int32_t *op_errno)
 {
-        char *tmp = NULL;
+        int     ret = -1;
+        char    *child_path = NULL;
 
         if (!child->parent) {
-                //this should never be called with root as the child
-                GF_ASSERT (0);
-                loc_copy (parent, child);
-                return;
+                if (op_errno)
+                        *op_errno = EINVAL;
+                goto out;
         }
 
-        tmp = gf_strdup (child->path);
-        parent->path   = gf_strdup (dirname (tmp));
-        GF_FREE (tmp);
-
-        parent->name   = strrchr (parent->path, '/');
-        if (parent->name)
-                parent->name++;
-
+        child_path = gf_strdup (child->path);
+        if (!child_path) {
+                if (op_errno)
+                        *op_errno = ENOMEM;
+                goto out;
+        }
+        parent->path = dirname (child_path);
         parent->inode  = inode_ref (child->parent);
-        parent->parent = inode_parent (parent->inode, 0, NULL);
-
-        if (!uuid_is_null (child->pargfid))
-                uuid_copy (parent->gfid, child->pargfid);
+        ret = 0;
+out:
+        return ret;
 }
 
 /* {{{ create */
@@ -312,7 +310,10 @@ afr_create (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_create_done;
         local->transaction.unwind = afr_create_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, loc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
@@ -533,7 +534,10 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_mknod_done;
         local->transaction.unwind = afr_mknod_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, loc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
@@ -755,7 +759,10 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_mkdir_done;
         local->transaction.unwind = afr_mkdir_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, loc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
@@ -974,7 +981,10 @@ afr_link (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_link_done;
         local->transaction.unwind = afr_link_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, newloc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, newloc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame   = frame;
         local->transaction.basename     = AFR_BASENAME (newloc->path);
@@ -1197,7 +1207,10 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_symlink_done;
         local->transaction.unwind = afr_symlink_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, loc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame   = frame;
         local->transaction.basename     = AFR_BASENAME (loc->path);
@@ -1404,8 +1417,14 @@ afr_rename (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_rename_done;
         local->transaction.unwind = afr_rename_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, oldloc);
-        afr_build_parent_loc (&local->transaction.new_parent_loc, newloc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, oldloc,
+                                    &op_errno);
+        if (ret)
+                goto out;
+        ret = afr_build_parent_loc (&local->transaction.new_parent_loc, newloc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame   = frame;
         local->transaction.basename     = AFR_BASENAME (oldloc->path);
@@ -1597,7 +1616,10 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_unlink_done;
         local->transaction.unwind = afr_unlink_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, loc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
@@ -1791,7 +1813,10 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
         local->transaction.done   = afr_rmdir_done;
         local->transaction.unwind = afr_rmdir_unwind;
 
-        afr_build_parent_loc (&local->transaction.parent_loc, loc);
+        ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
+                                    &op_errno);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame = frame;
         local->transaction.basename = AFR_BASENAME (loc->path);
