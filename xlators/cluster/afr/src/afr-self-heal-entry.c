@@ -412,7 +412,6 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
         }
 
         valid = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
-        afr_build_parent_loc (&expunge_sh->parent_loc, &expunge_local->loc);
 
         STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_parent_setattr_cbk,
                            (void *) (long) active_src,
@@ -734,6 +733,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         expunge_sh->sh_frame = frame;
         expunge_sh->active_source = active_src;
         expunge_sh->entrybuf = entry->d_stat;
+        loc_copy (&expunge_sh->parent_loc, &local->loc);
 
         ret = afr_build_child_loc (this, &expunge_local->loc, &local->loc,
                                    name);
