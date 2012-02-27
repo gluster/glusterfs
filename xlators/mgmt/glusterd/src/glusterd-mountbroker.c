@@ -244,12 +244,15 @@ const char *georep_mnt_desc_template =
                 "xlator-option=\\*-dht.assert-no-child-down=true "
                 "volfile-server=localhost "
                 "client-pid=%d "
-                "volfile-id=%s "
                 "user-map-root=%s "
         ")"
         "SUB+("
                 "log-file="DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"*/* "
                 "log-level=* "
+                "volfile-id=* "
+        ")"
+        "MEET("
+                "%s"
         ")";
 
 const char *hadoop_mnt_desc_template =
@@ -265,18 +268,68 @@ const char *hadoop_mnt_desc_template =
         ")";
 
 int
-make_georep_mountspec (gf_mount_spec_t *mspec, const char *volname,
+make_georep_mountspec (gf_mount_spec_t *mspec, const char *volnames,
                        char *user)
 {
         char *georep_mnt_desc = NULL;
+        char *meetspec        = NULL;
+        char *vols            = NULL;
+        char *vol             = NULL;
+        char *p               = NULL;
+        char *fa[3]           = {0,};
+        size_t siz            = 0;
+        int vc                = 0;
+        int i                 = 0;
         int ret               = 0;
 
-        ret = gf_asprintf (&georep_mnt_desc, georep_mnt_desc_template,
-                           GF_CLIENT_PID_GSYNCD, volname, user);
-        if (ret == -1)
-                return ret;
+        vols = gf_strdup ((char *)volnames);
+        if (!vols)
+                goto out;
 
-        return parse_mount_pattern_desc (mspec, georep_mnt_desc);
+        for (vc = 1, p = vols; *p; p++) {
+                if (*p == ',')
+                        vc++;
+        }
+        siz = strlen (volnames) + vc * strlen("volfile-id=");
+        meetspec = GF_CALLOC (1, siz + 1, gf_gld_mt_georep_meet_spec);
+        if (!meetspec)
+                goto out;
+
+        for (p = vols;;) {
+                vol = strtok (p, ",");
+                if (!vol) {
+                        GF_ASSERT (vc == 0);
+                        break;
+                }
+                p = NULL;
+                strcat (meetspec, "volfile-id=");
+                strcat (meetspec, vol);
+                if (--vc > 0)
+                        strcat (meetspec, " ");
+        }
+
+        ret = gf_asprintf (&georep_mnt_desc, georep_mnt_desc_template,
+                           GF_CLIENT_PID_GSYNCD, user, meetspec);
+        if (ret == -1) {
+                georep_mnt_desc = NULL;
+                goto out;
+        }
+
+        ret = parse_mount_pattern_desc (mspec, georep_mnt_desc);
+
+ out:
+        fa[0] = meetspec;
+        fa[1] = vols;
+        fa[2] = georep_mnt_desc;
+
+        for (i = 0; i < 3; i++) {
+                if (fa[i])
+                        GF_FREE (fa[i]);
+                else
+                        ret = -1;
+        }
+
+        return ret;
 }
 
 int
