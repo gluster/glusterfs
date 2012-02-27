@@ -2344,7 +2344,7 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
         gf_log ("glusterd", GF_LOG_INFO,
                 "Responded to %s (%d), ret: %d", hostname, port, ret);
         if (rsp.hostname)
-                GF_FREE (rsp.hostname)
+                GF_FREE (rsp.hostname);
         return ret;
 }
 
