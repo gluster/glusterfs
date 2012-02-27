@@ -1837,8 +1837,7 @@ init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
                 goto out;
         }
 
-        ret = xmlTextWriterStartElement(*writer,
-                                        (xmlChar *)"volumeOptionsDefaults");
+        ret = xmlTextWriterStartElement(*writer, (xmlChar *)"options");
         if (ret < 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
                         "xmlElemetnt");
@@ -1864,7 +1863,7 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
 
         GF_ASSERT (name);
 
-        ret = xmlTextWriterStartElement(writer, (xmlChar *) "volumeOption");
+        ret = xmlTextWriterStartElement(writer, (xmlChar *) "option");
         if (ret < 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
                         "xmlElemetnt");
