@@ -425,6 +425,7 @@ evaluate_mount_request (gf_mount_spec_t *mspec, dict_t *argdict)
                         break;
                 case SET_INTERSECT:
                         match = sd.common;
+                        break;
                 default:
                         GF_ASSERT(!"unreached");
                 }
