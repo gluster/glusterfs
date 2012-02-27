@@ -116,7 +116,7 @@ void* __gf_default_realloc (void *oldptr, size_t size)
 
 #define GF_REALLOC(ptr, size)  __gf_realloc (ptr, size)
 
-#define GF_FREE(free_ptr) __gf_free (free_ptr);
+#define GF_FREE(free_ptr) __gf_free (free_ptr)
 
 static inline
 char * gf_strdup (const char *src)
