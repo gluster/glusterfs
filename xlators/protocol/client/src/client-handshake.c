@@ -1439,8 +1439,13 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                 }
         }
 
-        ret = gf_asprintf (&process_uuid_xl, "%s-%s", this->ctx->process_uuid,
-                           this->name);
+        /* With multiple graphs possible in the same process, we need a
+           field to bring the uniqueness. Graph-ID should be enough to get the
+           job done
+        */
+        ret = gf_asprintf (&process_uuid_xl, "%s-%s-%d",
+                           this->ctx->process_uuid, this->name,
+                           this->graph->id);
         if (-1 == ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "asprintf failed while setting process_uuid");
