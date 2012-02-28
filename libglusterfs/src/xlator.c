@@ -570,25 +570,21 @@ loc_copy (loc_t *dst, loc_t *src)
         if (src->parent)
                 dst->parent = inode_ref (src->parent);
 
-        if (src->path)
+        if (src->path) {
                 dst->path = gf_strdup (src->path);
 
-        if (!dst->path)
-                goto out;
+                if (!dst->path)
+                        goto out;
 
-        dst->name = strrchr (dst->path, '/');
-        if (dst->name)
-                dst->name++;
+                dst->name = strrchr (dst->path, '/');
+                if (dst->name)
+                        dst->name++;
+        }
 
         ret = 0;
 out:
-        if (ret == -1) {
-                if (dst->inode)
-                        inode_unref (dst->inode);
-
-                if (dst->parent)
-                        inode_unref (dst->parent);
-        }
+        if (ret == -1)
+                loc_wipe (dst);
 
 err:
         return ret;
