@@ -159,6 +159,12 @@ out:
         if (xattr)
                 dict_ref (xattr);
 
+        if (!op_ret && uuid_is_null (buf.ia_gfid)) {
+                gf_log (this->name, GF_LOG_ERROR, "buf->ia_gfid is null for "
+                        "%s", (real_path) ? real_path: "");
+                op_ret = -1;
+                op_errno = ENOENT;
+        }
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno,
                              (loc)?loc->inode:NULL, &buf, xattr, &postparent);
 
