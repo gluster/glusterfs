@@ -843,13 +843,13 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_SIZET,
           .description = "Size in which the client should issue read requests"
                          " to the Gluster NFSv3 server. Must be a multiple of"
-                         " 4KiB."
+                         " 4KB."
         },
         { .key  = {"nfs3.write-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .description = "Size in which the client should issue write requests"
                          " to the Gluster NFSv3 server. Must be a multiple of"
-                         " 4KiB."
+                         " 4KB."
         },
         { .key  = {"nfs3.readdir-size"},
           .type = GF_OPTION_TYPE_SIZET,
@@ -927,7 +927,7 @@ struct volume_options options[] = {
         { .key  = {"rpc-auth.auth-unix.*"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "Disable or enable the AUTH_UNIX authentication type "
-                         "for a particular exported volume over-riding defaults"
+                         "for a particular exported volume overriding defaults"
                          " and general setting for AUTH_UNIX scheme. Must "
                          "always be enabled for better interoperability."
                          "However, can be disabled if needed. Enabled by"
@@ -936,7 +936,7 @@ struct volume_options options[] = {
         { .key  = {"rpc-auth.auth-unix.*.allow"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Disable or enable the AUTH_UNIX authentication type "
-                         "for a particular exported volume over-riding defaults"
+                         "for a particular exported volume overriding defaults"
                          " and general setting for AUTH_UNIX scheme. Must "
                          "always be enabled for better interoperability."
                          "However, can be disabled if needed. Enabled by"
@@ -945,7 +945,7 @@ struct volume_options options[] = {
         { .key  = {"rpc-auth.auth-null.*"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "Disable or enable the AUTH_NULL authentication type "
-                         "for a particular exported volume over-riding defaults"
+                         "for a particular exported volume overriding defaults"
                          " and general setting for AUTH_NULL. Must always be "
                          "enabled. This option is here only to avoid "
                          "unrecognized option warnings."
@@ -954,28 +954,28 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
-                         " connections are disallowed. This allows users to "
+                         " connections are allowed. This allows users to "
                          "define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.reject"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
-                         " all connections are disallowed. This allows users to"
+                         " all connections are allowed. This allows users to"
                          "define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.*.allow"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
-                         " connections are disallowed. This allows users to "
+                         " connections are allowed. This allows users to "
                          "define a rule for a specific exported volume."
         },
         { .key  = {"rpc-auth.addr.*.reject"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
-                         " all connections are disallowed. This allows users to"
+                         " all connections are allowed. This allows users to"
                          "define a rule for a specific exported volume."
         },
         { .key  = {"rpc-auth.ports.insecure"},
@@ -989,20 +989,20 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .description = "Allow client connections from unprivileged ports. By "
                          "default only privileged ports are allowed. Use this"
-                         " option to set enable or disable insecure ports for "
-                         "a specific subvolume and to over-ride global setting "
+                         " option to enable or disable insecure ports for "
+                         "a specific subvolume and to override the global setting "
                          " set by the previous option."
         },
         { .key  = {"rpc-auth.addr.namelookup"},
           .type = GF_OPTION_TYPE_BOOL,
-          .description = "Users have the option of turning off name lookup for"
-                  " incoming client connections using this option. In some "
+          .description = "Users have the option of turning on name lookup for"
+                  " incoming client connections using this option. Use this "
+                  "option to turn on name lookups during address-based "
+                  "authentication. Turning this on will enable you to"
+                  " use hostnames in rpc-auth.addr.* filters. In some "
                   "setups, the name server can take too long to reply to DNS "
-                  "queries resulting in timeouts of mount requests. Use this "
-                  "option to turn off name lookups during address "
-                  "authentication. Note, turning this off will prevent you from"
-                  " using hostnames in rpc-auth.addr.* filters. By default, "
-                  " name lookup is on."
+                  "queries resulting in timeouts of mount requests. By default, "
+                  " name lookup is off"
         },
         { .key  = {"nfs.dynamic-volumes"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -1022,8 +1022,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .description = "For nfs clients or apps that do not support 64-bit "
                          "inode numbers, use this option to make NFS return "
-                         "32-bit inode numbers instead. Disabled by default so "
-                         "NFS returns 64-bit inode numbers by default."
+                         "32-bit inode numbers instead. Disabled by default, so "
+                         "NFS returns 64-bit inode numbers."
         },
         { .key  = {"rpc.register-with-portmap"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -1039,7 +1039,7 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs.mem-factor"},
           .type = GF_OPTION_TYPE_INT,
-          .description = "Use this option to make NFS be faster on systems by "
+          .description = "Use this option to make NFS faster on systems by "
                          "using more memory. This option specifies a multiple "
                          "that determines the total amount of memory used. "
                          "Default value is 15. Increase to use more memory in "
