@@ -148,8 +148,17 @@ public class GlusterFSXattr {
                 while ( (s = brInput.readLine()) != null )
                         cmdOut += s;
 
-                Pattern pattern = Pattern.compile("<(.*?):(.*?)>");
+                /**
+                 * TODO: Use a single regex for extracting posix paths as well
+                 * as xlator counts for layout matching.
+                 */
+
+                Pattern pattern = Pattern.compile("<(.*?)[:\\(](.*?)>");
                 Matcher matcher = pattern.matcher(cmdOut);
+
+                Pattern p_px = Pattern.compile(".*?:(.*)");
+                Matcher m_px;
+                String gibberish_path;
 
                 s = null;
                 while (matcher.find()) {
@@ -169,8 +178,14 @@ public class GlusterFSXattr {
                                 if (vol.get(key) == null)
                                         vol.put(key, new ArrayList<String>());
 
-                                vol.get(key).add(matcher.group(2));
+                                gibberish_path = matcher.group(2);
 
+                                /* extract posix path from the gibberish string */
+                                m_px = p_px.matcher(gibberish_path);
+                                if (!m_px.find())
+                                        throw new IOException("Cannot extract posix path");
+
+                                vol.get(key).add(m_px.group(1));
                                 continue;
                         }
 
