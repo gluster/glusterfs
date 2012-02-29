@@ -17,7 +17,7 @@ import repce
 from repce import RepceServer, RepceClient
 from master import GMaster
 import syncdutils
-from syncdutils import GsyncdError, select
+from syncdutils import GsyncdError, select, privileged
 
 UrlRX  = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -204,7 +204,7 @@ class Server(object):
     and classmethods and is used directly, without instantiation.)
     """
 
-    GX_NSPACE = "trusted.glusterfs"
+    GX_NSPACE = (privileged() and "trusted" or "user") + ".glusterfs"
     NTV_FMTSTR = "!" + "B"*19 + "II"
     FRGN_XTRA_FMT = "I"
     FRGN_FMTSTR = NTV_FMTSTR + FRGN_XTRA_FMT
@@ -715,10 +715,8 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         """
 
         label = getattr(gconf, 'mountbroker', None)
-        if not label:
-            uid = os.geteuid()
-            if uid != 0:
-                label = syncdutils.getusername(uid)
+        if not label and not privileged():
+            label = syncdutils.getusername()
         mounter = label and self.MountbrokerMounter or self.DirectMounter
         params = gconf.gluster_params.split() + \
                    (gconf.gluster_log_level and ['log-level=' + gconf.gluster_log_level] or []) + \

@@ -225,6 +225,9 @@ def getusername(uid = None):
         uid = os.geteuid()
     return pwd.getpwuid(uid).pw_name
 
+def privileged():
+    return os.geteuid() == 0
+
 def boolify(s):
     """
     Generic string to boolean converter
