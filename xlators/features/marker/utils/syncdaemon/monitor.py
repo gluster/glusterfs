@@ -75,7 +75,7 @@ class Monitor(object):
             if os.WIFEXITED(s):
                 return os.WEXITSTATUS(s)
             return 1
-        conn_timeout = 60
+        conn_timeout = int(gconf.connection_timeout)
         while ret in (0, 1):
             logging.info('-' * conn_timeout)
             logging.info('starting gsyncd worker')

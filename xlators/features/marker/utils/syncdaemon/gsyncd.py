@@ -162,6 +162,7 @@ def main_i():
     op.add_option('--rsync-command',       metavar='CMD',   default='rsync')
     op.add_option('--rsync-extra',         metavar='ARGS',  default='-S', help=SUPPRESS_HELP)
     op.add_option('--timeout',             metavar='SEC',   type=int, default=120)
+    op.add_option('--connection-timeout',  metavar='SEC',   type=int, default=60, help=SUPPRESS_HELP)
     op.add_option('--sync-jobs',           metavar='N',     type=int, default=3)
     op.add_option('--turns',               metavar='N',     type=int, default=0, help=SUPPRESS_HELP)
     op.add_option('--allow-network',       metavar='IPS',   default='')
