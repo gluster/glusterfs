@@ -4139,6 +4139,8 @@ stripe_readdirp_lookup_cbk (call_frame_t *frame, void *cookie,
                         goto unlock;
                 }
                 stripe_iatt_merge (stbuf, &entry->d_stat);
+                local->stbuf_blocks += stbuf->ia_blocks;
+
                 stripe_ctx_handle (this, prev, local, xattr);
         }
 unlock:
@@ -4158,6 +4160,7 @@ unlock:
                                 main_local->op_errno = local->op_errno;
                                 main_local->op_ret = local->op_ret;
                         }
+                        entry->d_stat.ia_blocks = local->stbuf_blocks;
                 }
                 UNLOCK (&main_frame->lock);
                 if (done) {
