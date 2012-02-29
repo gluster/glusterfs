@@ -438,8 +438,8 @@ int nsm_monitor(char *host)
         struct timeval tout = { 5, 0 };
         int retstat = -1;
 
-        nsm_mon.mon_id.mon_name = strdup(host);
-        nsm_mon.mon_id.my_id.my_name = strdup("localhost");
+        nsm_mon.mon_id.mon_name = gf_strdup(host);
+        nsm_mon.mon_id.my_id.my_name = gf_strdup("localhost");
         nsm_mon.mon_id.my_id.my_prog = NLMCBK_PROGRAM;
         nsm_mon.mon_id.my_id.my_vers = NLMCBK_V1;
         nsm_mon.mon_id.my_id.my_proc = NLMCBK_SM_NOTIFY;
@@ -473,8 +473,8 @@ int nsm_monitor(char *host)
         }
         retstat = 0;
 out:
-        free(nsm_mon.mon_id.mon_name);
-        free(nsm_mon.mon_id.my_id.my_name);
+        GF_FREE(nsm_mon.mon_id.mon_name);
+        GF_FREE(nsm_mon.mon_id.my_id.my_name);
         clnt_destroy(clnt);
         return retstat;
 }
@@ -831,6 +831,7 @@ nlm4_establish_callback (void *csarg)
         char *caller_name = NULL;
 
         cs = (nfs3_call_state_t *) csarg;
+        glusterfs_this_set (cs->nfsx);
 
         caller_name = cs->args.nlm4_lockargs.alock.caller_name;
         nsm_monitor (caller_name);
@@ -847,6 +848,7 @@ nlm4_establish_callback (void *csarg)
                 inet_ntop (AF_INET,
                            &((struct sockaddr_in *)sockaddr)->sin_addr,
                            peerip, INET6_ADDRSTRLEN+1);
+                break;
         default:
                 break;
                 /* FIXME: handle the error */
@@ -863,7 +865,7 @@ nlm4_establish_callback (void *csarg)
                 goto err;
         }
 
-        ret = dict_set_dynstr (options, "remote-host", strdup (peerip));
+        ret = dict_set_dynstr (options, "remote-host", gf_strdup (peerip));
         if (ret == -1) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
                 goto err;
