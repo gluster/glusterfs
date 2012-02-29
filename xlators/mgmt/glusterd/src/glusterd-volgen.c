@@ -1183,10 +1183,21 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
                 goto error;
 
         if (glusterfs_graph_print_file (f, &graph->graph) == -1)
-	goto error;
-
-        if (fclose (f) == -1)
                 goto error;
+
+        if (fclose (f) != 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "fclose on the file %s "
+                        "failed (%s)", ftmp, strerror (errno));
+                /*
+                 * Even though fclose has failed here, we have to set f to NULL.
+                 * Otherwise when the code path goes to error, there again we
+                 * try to close it which might cause undefined behavior such as
+                 * process crash.
+                 */
+                f = NULL;
+                goto error;
+        }
+
         f = NULL;
 
         if (rename (ftmp, filename) == -1)
