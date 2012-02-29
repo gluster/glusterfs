@@ -2135,7 +2135,7 @@ glusterd_friend_add (const char *hoststr, int port,
         gf_boolean_t            handover = _gf_false;
 
         conf = THIS->private;
-        GF_ASSERT (conf)
+        GF_ASSERT (conf);
         GF_ASSERT (hoststr);
 
         peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);

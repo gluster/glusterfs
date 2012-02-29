@@ -2385,8 +2385,12 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 
         int i;
 
-        VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.dht*",
+                                 key, op_errno, err);
+
+        VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
@@ -2444,8 +2448,12 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
 
         int i;
 
-        VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.dht*",
+                                 key, op_errno, err);
+
+        VALIDATE_OR_GOTO (frame, err);
 
         local = dht_local_init (frame, NULL, fd, GF_FOP_FREMOVEXATTR);
         if (!local) {

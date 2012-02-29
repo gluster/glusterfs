@@ -4042,10 +4042,76 @@ stripe_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+int
+stripe_removexattr_cbk (call_frame_t *frame, void *cookie,
+                        xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        STRIPE_STACK_UNWIND (removexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+stripe_removexattr (call_frame_t *frame, xlator_t *this,
+                    loc_t *loc, const char *name)
+{
+        int32_t         op_errno = EINVAL;
+
+        VALIDATE_OR_GOTO (this, err);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.*stripe*",
+                                 name, op_errno, err);
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (loc, err);
+
+        STACK_WIND (frame, stripe_removexattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->removexattr,
+                    loc, name);
+        return 0;
+err:
+        STRIPE_STACK_UNWIND (removexattr, frame, -1,  op_errno);
+        return 0;
+}
+
+
+int
+stripe_fremovexattr_cbk (call_frame_t *frame, void *cookie,
+                         xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        STRIPE_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+stripe_fremovexattr (call_frame_t *frame, xlator_t *this,
+                     fd_t *fd, const char *name)
+{
+        int32_t         op_ret   = -1;
+        int32_t         op_errno = EINVAL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.*stripe*",
+                                 name, op_errno, err);
+
+        STACK_WIND (frame, stripe_fremovexattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fremovexattr,
+                    fd, name);
+        return 0;
+ err:
+        STRIPE_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
 int32_t
-stripe_readdirp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, inode_t *inode,
-                      struct iatt *stbuf, dict_t *xattr, struct iatt *parent)
+stripe_readdirp_lookup_cbk (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int op_ret, int op_errno,
+                            inode_t *inode, struct iatt *stbuf,
+                            dict_t *xattr, struct iatt *parent)
 {
         stripe_local_t          *local          = NULL;
         call_frame_t            *main_frame     = NULL;
@@ -4961,33 +5027,35 @@ out:
 }
 
 struct xlator_fops fops = {
-        .stat        = stripe_stat,
-        .unlink      = stripe_unlink,
-        .rename      = stripe_rename,
-        .link        = stripe_link,
-        .truncate    = stripe_truncate,
-        .create      = stripe_create,
-        .open        = stripe_open,
-        .readv       = stripe_readv,
-        .writev      = stripe_writev,
-        .statfs      = stripe_statfs,
-        .flush       = stripe_flush,
-        .fsync       = stripe_fsync,
-        .ftruncate   = stripe_ftruncate,
-        .fstat       = stripe_fstat,
-        .mkdir       = stripe_mkdir,
-        .rmdir       = stripe_rmdir,
-        .lk          = stripe_lk,
-        .opendir     = stripe_opendir,
-        .fsyncdir    = stripe_fsyncdir,
-        .setattr     = stripe_setattr,
-        .fsetattr    = stripe_fsetattr,
-        .lookup      = stripe_lookup,
-        .mknod       = stripe_mknod,
-        .setxattr    = stripe_setxattr,
-        .fsetxattr   = stripe_fsetxattr,
-        .getxattr    = stripe_getxattr,
-        .readdirp    = stripe_readdirp,
+        .stat           = stripe_stat,
+        .unlink         = stripe_unlink,
+        .rename         = stripe_rename,
+        .link           = stripe_link,
+        .truncate       = stripe_truncate,
+        .create         = stripe_create,
+        .open           = stripe_open,
+        .readv          = stripe_readv,
+        .writev         = stripe_writev,
+        .statfs         = stripe_statfs,
+        .flush          = stripe_flush,
+        .fsync          = stripe_fsync,
+        .ftruncate      = stripe_ftruncate,
+        .fstat          = stripe_fstat,
+        .mkdir          = stripe_mkdir,
+        .rmdir          = stripe_rmdir,
+        .lk             = stripe_lk,
+        .opendir        = stripe_opendir,
+        .fsyncdir       = stripe_fsyncdir,
+        .setattr        = stripe_setattr,
+        .fsetattr       = stripe_fsetattr,
+        .lookup         = stripe_lookup,
+        .mknod          = stripe_mknod,
+        .setxattr       = stripe_setxattr,
+        .fsetxattr      = stripe_fsetxattr,
+        .getxattr       = stripe_getxattr,
+        .removexattr    = stripe_removexattr,
+        .fremovexattr   = stripe_fremovexattr,
+        .readdirp       = stripe_readdirp,
 };
 
 struct xlator_cbks cbks = {

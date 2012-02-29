@@ -45,7 +45,7 @@ int client_mark_fd_bad (xlator_t *this);
 int32_t
 client_type_to_gf_type (short l_type)
 {
-        int32_t  gf_type;
+        int32_t  gf_type = GF_LK_EOL;
 
         switch (l_type) {
         case F_RDLCK:
