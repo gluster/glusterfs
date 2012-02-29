@@ -679,10 +679,11 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
                 label = strtail (key, "mountbroker-"GEOREP".");
                 if (label)
                         georep = _gf_true;
-
-                label = strtail (key, "mountbroker-"GHADOOP".");
-                if (label)
-                        ghadoop = _gf_true;
+                else {
+                        label = strtail (key, "mountbroker-"GHADOOP".");
+                        if (label)
+                                ghadoop = _gf_true;
+                }
         }
 
         if (!label)
