@@ -595,8 +595,11 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         dict_del (xattr_req, GF_CONTENT_KEY);
         }
 
-        /* get stripe-size xattr on lookup for pathinfo string */
-        if (xattr_req && IA_ISREG (loc->inode->ia_type)) {
+        /* get stripe-size xattr on lookup. This would be required for
+         * open/read/write/pathinfo calls. Hence we send down the request
+         * even when type == IA_INVAL */
+        if (xattr_req && (IA_ISREG (loc->inode->ia_type) ||
+            (loc->inode->ia_type == IA_INVAL))) {
                 ret = stripe_xattr_request_build (this, xattr_req, 8, 4, 4);
                 if (ret)
                         gf_log (this->name , GF_LOG_ERROR, "Failed to build"
