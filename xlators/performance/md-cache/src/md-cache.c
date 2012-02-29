@@ -125,15 +125,16 @@ struct md_cache {
         char         *linkname;
 	time_t        ia_time;
 	time_t        xa_time;
+        gf_lock_t     lock;
 };
 
 
 struct mdc_local {
-        loc_t     loc;
-        loc_t     loc2;
-        fd_t     *fd;
-        char     *linkname;
-        dict_t   *xattr;
+        loc_t   loc;
+        loc_t   loc2;
+        fd_t   *fd;
+        char   *linkname;
+        dict_t *xattr;
 };
 
 
@@ -285,6 +286,8 @@ mdc_inode_prep (xlator_t *this, inode_t *inode)
                         goto unlock;
                 }
 
+                LOCK_INIT (&mdc->lock);
+
                 ret = __mdc_inode_ctx_set (this, inode, mdc);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -305,15 +308,19 @@ is_md_cache_iatt_valid (xlator_t *this, struct md_cache *mdc)
 {
 	struct mdc_conf *conf = NULL;
 	time_t           now = 0;
-
+        gf_boolean_t     ret = _gf_true;
 	conf = this->private;
 
 	time (&now);
 
-	if (now > (mdc->ia_time + conf->timeout))
-		return _gf_false;
+        LOCK (&mdc->lock);
+        {
+                if (now > (mdc->ia_time + conf->timeout))
+                        ret = _gf_false;
+        }
+        UNLOCK (&mdc->lock);
 
-	return _gf_true;
+	return ret;
 }
 
 
@@ -322,15 +329,20 @@ is_md_cache_xatt_valid (xlator_t *this, struct md_cache *mdc)
 {
 	struct mdc_conf *conf = NULL;
 	time_t           now = 0;
+        gf_boolean_t     ret = _gf_true;
 
 	conf = this->private;
 
 	time (&now);
 
-	if (now > (mdc->xa_time + conf->timeout))
-		return _gf_false;
+        LOCK (&mdc->lock);
+        {
+                if (now > (mdc->xa_time + conf->timeout))
+                        ret = _gf_false;
+        }
+        UNLOCK (&mdc->lock);
 
-	return _gf_true;
+	return ret;
 }
 
 
@@ -382,15 +394,19 @@ mdc_inode_iatt_set (xlator_t *this, inode_t *inode, struct iatt *iatt)
         if (!mdc)
                 goto out;
 
-        if (!iatt || !iatt->ia_ctime) {
-		mdc->ia_time = 0;
-                return 0;
-	}
+        LOCK (&mdc->lock);
+        {
+                if (!iatt || !iatt->ia_ctime) {
+                        mdc->ia_time = 0;
+                        goto unlock;
+                }
 
-        mdc_from_iatt (mdc, iatt);
+                mdc_from_iatt (mdc, iatt);
 
-	time (&mdc->ia_time);
-
+                time (&mdc->ia_time);
+        }
+unlock:
+        UNLOCK (&mdc->lock);
         ret = 0;
 out:
         return ret;
@@ -409,7 +425,11 @@ mdc_inode_iatt_get (xlator_t *this, inode_t *inode, struct iatt *iatt)
 	if (!is_md_cache_iatt_valid (this, mdc))
 		goto out;
 
-        mdc_to_iatt (mdc, iatt);
+        LOCK (&mdc->lock);
+        {
+                mdc_to_iatt (mdc, iatt);
+        }
+        UNLOCK (&mdc->lock);
 
         uuid_copy (iatt->ia_gfid, inode->gfid);
         iatt->ia_ino    = gfid_to_ino (inode->gfid);
@@ -435,13 +455,16 @@ mdc_inode_xatt_set (xlator_t *this, inode_t *inode, dict_t *dict)
         if (!dict)
                 goto out;
 
-        if (mdc->xattr)
-                dict_unref (mdc->xattr);
+        LOCK (&mdc->lock);
+        {
+                if (mdc->xattr)
+                        dict_unref (mdc->xattr);
 
-        mdc->xattr = dict_ref (dict);
+                mdc->xattr = dict_ref (dict);
 
-	time (&mdc->xa_time);
-
+                time (&mdc->xa_time);
+        }
+        UNLOCK (&mdc->lock);
         ret = 0;
 out:
         return ret;
@@ -461,14 +484,18 @@ mdc_inode_xatt_update (xlator_t *this, inode_t *inode, dict_t *dict)
         if (!dict)
                 goto out;
 
-        if (!mdc->xattr)
+        LOCK (&mdc->lock);
+        {
+                if (!mdc->xattr)
+                        mdc->xattr = dict_ref (dict);
+                else
+                        dict_copy (dict, mdc->xattr);
+
                 mdc->xattr = dict_ref (dict);
-        else
-                dict_copy (dict, mdc->xattr);
 
-        mdc->xattr = dict_ref (dict);
-
-	time (&mdc->xa_time);
+                time (&mdc->xa_time);
+        }
+        UNLOCK (&mdc->lock);
 
         ret = 0;
 out:
@@ -488,13 +515,19 @@ mdc_inode_xatt_get (xlator_t *this, inode_t *inode, dict_t **dict)
 	if (!is_md_cache_xatt_valid (this, mdc))
 		goto out;
 
-        if (!mdc->xattr)
-                goto out;
+        LOCK (&mdc->lock);
+        {
+                if (!mdc->xattr)
+                        goto unlock;
 
-        if (dict)
-                *dict = dict_ref (mdc->xattr);
+                if (dict)
+                        *dict = dict_ref (mdc->xattr);
 
-        ret = 0;
+                ret = 0;
+        }
+unlock:
+        UNLOCK (&mdc->lock);
+
 out:
         return ret;
 }
