@@ -3009,6 +3009,12 @@ fuse_removexattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t       ret = -1;
         char *newkey = NULL;
 
+        if (!strcmp (GFID_XATTR_KEY, name)) {
+                send_fuse_err (this, finh, EPERM);
+                GF_FREE (finh);
+                return;
+        }
+
         priv = this->private;
 
         GET_STATE (this, finh, state);

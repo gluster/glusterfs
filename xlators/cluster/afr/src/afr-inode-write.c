@@ -1474,15 +1474,16 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
         int             ret               = -1;
         int             op_errno          = EINVAL;
 
-        VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (this->private, out);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.afr.*", dict,
                                    trav, op_errno, out);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
                                    trav, op_errno, out);
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
 
@@ -1844,14 +1845,21 @@ int
 afr_removexattr (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, const char *name)
 {
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        call_frame_t   *transaction_frame = NULL;
-        int ret = -1;
-        int op_errno = 0;
+        afr_private_t   *priv              = NULL;
+        afr_local_t     *local             = NULL;
+        call_frame_t    *transaction_frame = NULL;
+        int              ret               = -1;
+        int              op_errno          = 0;
+
+        VALIDATE_OR_GOTO (this, out);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.afr.*",
+                                 name, op_errno, out);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.afr.*",
+                                 name, op_errno, out);
 
         VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (this->private, out);
         VALIDATE_OR_GOTO (loc, out);
 
@@ -2027,8 +2035,15 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this,
         int op_ret   = -1;
         int op_errno = 0;
 
-        VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.afr.*",
+                                 name, op_errno, out);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.afr.*",
+                                 name, op_errno, out);
+
+        VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;

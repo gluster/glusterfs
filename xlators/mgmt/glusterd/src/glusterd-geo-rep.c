@@ -804,7 +804,7 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
                  * assert an uuid mismatch
                  */
                 t = strtail (slaveentry, host_uuid);
-                GF_ASSERT (!t || *t != ':')
+                GF_ASSERT (!t || *t != ':');
 
                 gf_log ("", GF_LOG_ERROR, GEOREP" has already been invoked for "
                                           "the %s (master) and %s (slave) "

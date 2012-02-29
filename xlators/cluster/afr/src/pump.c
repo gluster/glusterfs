@@ -2165,7 +2165,15 @@ pump_removexattr (call_frame_t *frame,
                   loc_t *loc,
                   const char *name)
 {
-        afr_private_t *priv  = NULL;
+        afr_private_t *priv     = NULL;
+        int            op_errno = -1;
+
+        VALIDATE_OR_GOTO (this, out);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.pump*",
+                                 name, op_errno, out);
+
+        op_errno = 0;
 	priv = this->private;
         if (!priv->use_afr_in_pump) {
                 STACK_WIND (frame,
@@ -2177,6 +2185,10 @@ pump_removexattr (call_frame_t *frame,
                 return 0;
         }
         afr_removexattr (frame, this, loc, name);
+
+ out:
+        if (op_errno)
+                AFR_STACK_UNWIND (removexattr, frame, -1, op_errno);
         return 0;
 
 }

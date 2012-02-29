@@ -387,7 +387,7 @@ cli_cmd_register (struct cli_cmd_tree *tree, struct cli_cmd *cmd)
         char **tokens = NULL;
         int    ret = 0;
 
-        GF_ASSERT (cmd)
+        GF_ASSERT (cmd);
 
         if (cmd->reg_cbk)
                 cmd->reg_cbk (cmd);

@@ -2721,6 +2721,71 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 }
 
 
+int
+quota_removexattr_cbk (call_frame_t *frame, void *cookie,
+                       xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        QUOTA_STACK_UNWIND (removexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+quota_removexattr (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, const char *name)
+{
+        int32_t         op_errno = EINVAL;
+
+        VALIDATE_OR_GOTO (this, err);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.quota*",
+                                 name, op_errno, err);
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (loc, err);
+
+        STACK_WIND (frame, quota_removexattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->removexattr,
+                    loc, name);
+        return 0;
+err:
+        QUOTA_STACK_UNWIND (removexattr, frame, -1,  op_errno);
+        return 0;
+}
+
+
+int
+quota_fremovexattr_cbk (call_frame_t *frame, void *cookie,
+                        xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        QUOTA_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+int
+quota_fremovexattr (call_frame_t *frame, xlator_t *this,
+                    fd_t *fd, const char *name)
+{
+        int32_t         op_ret   = -1;
+        int32_t         op_errno = EINVAL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+
+        GF_IF_NATIVE_XATTR_GOTO ("trusted.quota*",
+                                 name, op_errno, err);
+
+        STACK_WIND (frame, quota_fremovexattr_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fremovexattr,
+                    fd, name);
+        return 0;
+ err:
+        QUOTA_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno);
+        return 0;
+}
+
 int32_t
 quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct statvfs *buf)
@@ -3054,30 +3119,32 @@ fini (xlator_t *this)
 
 
 struct xlator_fops fops = {
-	.statfs    = quota_statfs,
-        .lookup    = quota_lookup,
-        .writev    = quota_writev,
-        .create    = quota_create,
-        .mkdir     = quota_mkdir,
-        .truncate  = quota_truncate,
-        .ftruncate = quota_ftruncate,
-        .unlink    = quota_unlink,
-        .symlink   = quota_symlink,
-        .link      = quota_link,
-        .rename    = quota_rename,
-        .getxattr  = quota_getxattr,
-        .fgetxattr = quota_fgetxattr,
-        .stat      = quota_stat,
-        .fstat     = quota_fstat,
-        .readlink  = quota_readlink,
-        .readv     = quota_readv,
-        .fsync     = quota_fsync,
-        .setattr   = quota_setattr,
-        .fsetattr  = quota_fsetattr,
-        .mknod     = quota_mknod,
-        .setxattr  = quota_setxattr,
-        .fsetxattr = quota_fsetxattr,
-        .readdirp  = quota_readdirp,
+        .statfs       = quota_statfs,
+        .lookup       = quota_lookup,
+        .writev       = quota_writev,
+        .create       = quota_create,
+        .mkdir        = quota_mkdir,
+        .truncate     = quota_truncate,
+        .ftruncate    = quota_ftruncate,
+        .unlink       = quota_unlink,
+        .symlink      = quota_symlink,
+        .link         = quota_link,
+        .rename       = quota_rename,
+        .getxattr     = quota_getxattr,
+        .fgetxattr    = quota_fgetxattr,
+        .stat         = quota_stat,
+        .fstat        = quota_fstat,
+        .readlink     = quota_readlink,
+        .readv        = quota_readv,
+        .fsync        = quota_fsync,
+        .setattr      = quota_setattr,
+        .fsetattr     = quota_fsetattr,
+        .mknod        = quota_mknod,
+        .setxattr     = quota_setxattr,
+        .fsetxattr    = quota_fsetxattr,
+        .removexattr  = quota_removexattr,
+        .fremovexattr = quota_fremovexattr,
+        .readdirp     = quota_readdirp,
 };
 
 struct xlator_cbks cbks = {
