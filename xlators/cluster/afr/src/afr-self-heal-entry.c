@@ -59,6 +59,9 @@
         } while (0);
 
 int
+afr_sh_entry_impunge_create_file (call_frame_t *impunge_frame, xlator_t *this,
+                                  int child_index);
+int
 afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
@@ -1194,6 +1197,120 @@ out:
         return 0;
 }
 
+int
+afr_sh_entry_impunge_hardlink_cbk (call_frame_t *impunge_frame, void *cookie,
+                                   xlator_t *this, int32_t op_ret,
+                                   int32_t op_errno, inode_t *inode,
+                                   struct iatt *buf, struct iatt *preparent,
+                                   struct iatt *postparent)
+{
+        int              call_count        = 0;
+        call_frame_t    *frame             = NULL;
+        afr_local_t     *impunge_local     = NULL;
+        afr_local_t     *local             = NULL;
+        afr_self_heal_t *impunge_sh        = NULL;
+        afr_self_heal_t *sh                = NULL;
+
+        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
+                                frame, local, sh);
+
+        call_count = afr_frame_return (impunge_frame);
+        if (call_count == 0)
+                sh->impunge_done (frame, this, op_ret, op_errno);
+
+        return 0;
+}
+
+int
+afr_sh_entry_impunge_hardlink (call_frame_t *impunge_frame, xlator_t *this,
+                               int child_index)
+{
+        afr_private_t   *priv          = NULL;
+        afr_local_t     *impunge_local = NULL;
+        afr_self_heal_t *impunge_sh  = NULL;
+        loc_t           *loc           = NULL;
+        struct iatt     *buf           = NULL;
+        loc_t            oldloc        = {0};
+
+        priv = this->private;
+        impunge_local = impunge_frame->local;
+        impunge_sh = &impunge_local->self_heal;
+        loc = &impunge_local->loc;
+        buf = &impunge_sh->entrybuf;
+
+        oldloc.inode = inode_ref (loc->inode);
+        uuid_copy (oldloc.gfid, buf->ia_gfid);
+        gf_log (this->name, GF_LOG_DEBUG, "linking missing file %s on %s",
+                loc->path, priv->children[child_index]->name);
+
+        STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_hardlink_cbk,
+                           (void *) (long) child_index,
+                           priv->children[child_index],
+                           priv->children[child_index]->fops->link,
+                           &oldloc, loc);
+        loc_wipe (&oldloc);
+
+        return 0;
+}
+
+int
+afr_sh_nameless_lookup_cbk (call_frame_t *impunge_frame, void *cookie,
+                            xlator_t *this,
+                            int32_t op_ret, int32_t op_errno, inode_t *inode,
+                            struct iatt *buf, dict_t *xattr,
+                            struct iatt *postparent)
+{
+        if (op_ret < 0) {
+                 afr_sh_entry_impunge_create_file (impunge_frame, this,
+                                                   (long)cookie);
+        } else {
+                afr_sh_entry_impunge_hardlink (impunge_frame, this,
+                                               (long)cookie);
+        }
+        return 0;
+}
+
+int
+afr_sh_entry_impunge_check_hardlink (call_frame_t *impunge_frame,
+                                     xlator_t *this,
+                                     int child_index, struct iatt *stbuf)
+{
+        afr_private_t   *priv          = NULL;
+        call_frame_t    *frame             = NULL;
+        afr_local_t     *impunge_local     = NULL;
+        afr_local_t     *local             = NULL;
+        afr_self_heal_t *impunge_sh        = NULL;
+        afr_self_heal_t *sh                = NULL;
+        loc_t           *loc           = NULL;
+        dict_t          *xattr_req     = NULL;
+        loc_t            oldloc        = {0};
+        int              ret           = -1;
+
+        priv = this->private;
+        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
+                                frame, local, sh);
+        loc = &impunge_local->loc;
+
+        xattr_req = dict_new ();
+        if (!xattr_req)
+                goto out;
+        oldloc.inode = inode_ref (loc->inode);
+        uuid_copy (oldloc.gfid, stbuf->ia_gfid);
+
+        STACK_WIND_COOKIE (impunge_frame, afr_sh_nameless_lookup_cbk,
+                           (void *) (long) child_index,
+                           priv->children[child_index],
+                           priv->children[child_index]->fops->lookup,
+                           &oldloc, xattr_req);
+        ret = 0;
+out:
+        if (xattr_req)
+                dict_unref (xattr_req);
+        loc_wipe (&oldloc);
+        if (ret)
+                sh->impunge_done (frame, this, -1, ENOMEM);
+        return 0;
+}
 
 int
 afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
@@ -1573,20 +1690,68 @@ int
 afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
                              int child_index)
 {
-        afr_local_t     *impunge_local = NULL;
-        afr_self_heal_t *impunge_sh = NULL;
+        call_frame_t    *frame             = NULL;
+        afr_local_t     *impunge_local     = NULL;
+        afr_local_t     *local             = NULL;
+        afr_self_heal_t *impunge_sh        = NULL;
+        afr_self_heal_t *sh                = NULL;
         afr_private_t   *priv = NULL;
         ia_type_t       type = IA_INVAL;
-        int             ret = 0;
         int             active_src = 0;
         struct iatt     *buf = NULL;
 
-        impunge_local = impunge_frame->local;
-        impunge_sh = &impunge_local->self_heal;
+        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
+                                frame, local, sh);
         active_src = impunge_sh->active_source;
         afr_update_loc_gfids (&impunge_local->loc, &impunge_sh->entrybuf,
                               &impunge_sh->parentbuf);
 
+        buf = &impunge_sh->entrybuf;
+        type = buf->ia_type;
+
+        switch (type) {
+        case IA_IFSOCK:
+        case IA_IFREG:
+        case IA_IFBLK:
+        case IA_IFCHR:
+        case IA_IFIFO:
+        case IA_IFLNK:
+                afr_sh_entry_impunge_check_hardlink (impunge_frame, this,
+                                                     child_index, buf);
+                break;
+        case IA_IFDIR:
+                afr_sh_entry_impunge_mkdir (impunge_frame, this,
+                                            child_index, buf);
+                break;
+        default:
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s has unknown file type on %s: 0%o",
+                        impunge_local->loc.path,
+                        priv->children[active_src]->name, type);
+                sh->impunge_done (frame, this, -1, EINVAL);
+                break;
+        }
+
+        return 0;
+}
+
+int
+afr_sh_entry_impunge_create_file (call_frame_t *impunge_frame, xlator_t *this,
+                                  int child_index)
+{
+        call_frame_t    *frame             = NULL;
+        afr_local_t     *impunge_local     = NULL;
+        afr_local_t     *local             = NULL;
+        afr_self_heal_t *impunge_sh        = NULL;
+        afr_self_heal_t *sh                = NULL;
+        afr_private_t   *priv = NULL;
+        ia_type_t       type = IA_INVAL;
+        int             active_src = 0;
+        struct iatt     *buf = NULL;
+
+        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
+                                frame, local, sh);
+        active_src = impunge_sh->active_source;
         buf = &impunge_sh->entrybuf;
         type = buf->ia_type;
 
@@ -1603,20 +1768,16 @@ afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
                 afr_sh_entry_impunge_readlink (impunge_frame, this,
                                                child_index, buf);
                 break;
-        case IA_IFDIR:
-                afr_sh_entry_impunge_mkdir (impunge_frame, this,
-                                            child_index, buf);
-                break;
         default:
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s has unknown file type on %s: 0%o",
                         impunge_local->loc.path,
                         priv->children[active_src]->name, type);
-                ret = -1;
+                sh->impunge_done (frame, this, -1, EINVAL);
                 break;
         }
 
-        return ret;
+        return 0;
 }
 
 gf_boolean_t
