@@ -36,14 +36,15 @@
 #include "logging.h"
 #include "compat.h"
 #include "byte-order.h"
+#include "globals.h"
 
 data_pair_t *
 get_new_data_pair ()
 {
         data_pair_t *data_pair_ptr = NULL;
 
-        data_pair_ptr = (data_pair_t *) GF_CALLOC (1, sizeof (data_pair_t),
-                                                   gf_common_mt_data_pair_t);
+        data_pair_ptr = mem_get0 (THIS->ctx->dict_pair_pool);
+
         return data_pair_ptr;
 }
 
@@ -52,7 +53,7 @@ get_new_data ()
 {
         data_t *data = NULL;
 
-        data = (data_t *) GF_CALLOC (1, sizeof (data_t), gf_common_mt_data_t);
+        data = mem_get0 (THIS->ctx->dict_data_pool);
         if (!data) {
                 return NULL;
         }
@@ -64,18 +65,17 @@ get_new_data ()
 dict_t *
 get_new_dict_full (int size_hint)
 {
-        dict_t *dict = GF_CALLOC (1, sizeof (dict_t), gf_common_mt_dict_t);
+        dict_t *dict = mem_get0 (THIS->ctx->dict_pool);
 
         if (!dict) {
                 return NULL;
         }
 
         dict->hash_size = size_hint;
-        dict->members = GF_CALLOC (size_hint, sizeof (data_pair_t *),
-                                   gf_common_mt_data_pair_t);
+        dict->members = mem_get0 (THIS->ctx->dict_pair_pool);
 
         if (!dict->members) {
-                GF_FREE (dict);
+                mem_put (dict);
                 return NULL;
         }
 
@@ -149,7 +149,7 @@ data_destroy (data_t *data)
 
                 data->len = 0xbabababa;
                 if (!data->is_const)
-                        GF_FREE (data);
+                        mem_put (data);
         }
 }
 
@@ -162,9 +162,7 @@ data_copy (data_t *old)
                 return NULL;
         }
 
-        data_t *newdata = (data_t *) GF_CALLOC (1, sizeof (*newdata),
-                                                gf_common_mt_data_t);
-
+        data_t *newdata = mem_get0 (THIS->ctx->dict_data_pool);
         if (!newdata) {
                 return NULL;
         }
@@ -193,7 +191,7 @@ err_out:
                 FREE (newdata->data);
         if (newdata->vec)
                 FREE (newdata->vec);
-        GF_FREE (newdata);
+        mem_put (newdata);
 
         return NULL;
 }
@@ -272,8 +270,7 @@ _dict_set (dict_t *this,
                 /* Indicates duplicate key */
                 return 0;
         }
-        pair = (data_pair_t *) GF_CALLOC (1, sizeof (*pair),
-                                          gf_common_mt_data_pair_t);
+        pair = mem_get0 (THIS->ctx->dict_pair_pool);
         if (!pair) {
                 return -1;
         }
@@ -281,7 +278,7 @@ _dict_set (dict_t *this,
         pair->key = (char *) GF_CALLOC (1, strlen (key) + 1,
                                         gf_common_mt_char);
         if (!pair->key) {
-                GF_FREE (pair);
+                mem_put (pair);
 
                 if (key_free)
                         GF_FREE (key);
@@ -385,7 +382,7 @@ dict_del (dict_t *this, char *key)
                                 pair->next->prev = pair->prev;
 
                         GF_FREE (pair->key);
-                        GF_FREE (pair);
+                        mem_put (pair);
                         this->count--;
                         break;
                 }
@@ -416,11 +413,11 @@ dict_destroy (dict_t *this)
                 pair = pair->next;
                 data_unref (prev->value);
                 GF_FREE (prev->key);
-                GF_FREE (prev);
+                mem_put (prev);
                 prev = pair;
         }
 
-        GF_FREE (this->members);
+        mem_put (this->members);
 
         if (this->extra_free)
                 GF_FREE (this->extra_free);
@@ -428,7 +425,7 @@ dict_destroy (dict_t *this)
                 free (this->extra_stdfree);
 
         if (!this->is_static)
-                GF_FREE (this);
+                mem_put (this);
 
         return;
 }

@@ -1031,6 +1031,18 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
                 return -1;
         }
 
+        ctx->dict_pool = mem_pool_new (dict_t, 1024);
+        if (!ctx->dict_pool)
+                return -1;
+
+        ctx->dict_pair_pool = mem_pool_new (data_pair_t, 16 * GF_UNIT_KB);
+        if (!ctx->dict_pair_pool)
+                return -1;
+
+        ctx->dict_data_pool = mem_pool_new (data_t, 8 * GF_UNIT_KB);
+        if (!ctx->dict_data_pool)
+                return -1;
+
         INIT_LIST_HEAD (&pool->all_frames);
         LOCK_INIT (&pool->lock);
         ctx->pool = pool;
