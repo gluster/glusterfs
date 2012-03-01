@@ -1700,6 +1700,8 @@ mdc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	STACK_WIND (frame, mdc_readdirp_cbk,
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->readdirp,
 		    fd, size, offset, xattr_req);
+
+        dict_unref (xattr_req);
 	return 0;
 }
 
