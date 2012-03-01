@@ -1658,7 +1658,7 @@ glusterd_clearlocks_mount (glusterd_volinfo_t *volinfo, char **xl_opts,
         priv = THIS->private;
 
         runinit (&runner);
-        glusterd_get_client_filepath (client_volfpath, volinfo,
+        glusterd_get_trusted_client_filepath (client_volfpath, volinfo,
                                       volinfo->transport_type);
         runner_add_args (&runner, SBIN_DIR"/glusterfs", "-f", NULL);
         runner_argprintf (&runner, "%s", client_volfpath);
