@@ -534,7 +534,7 @@ clnt_fd_lk_local_unref (xlator_t *this, clnt_fd_lk_local_t *local)
 
         if (ref == 0) {
                 LOCK_DESTROY (&local->lock);
-                mem_put (local);
+                GF_FREE (local);
         }
         ref = 0;
 out:
