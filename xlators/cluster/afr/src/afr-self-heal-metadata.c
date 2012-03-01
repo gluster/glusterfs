@@ -54,17 +54,11 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
 
-//      memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
-        memset (sh->buf, 0, sizeof (struct iatt) * priv->child_count);
-        memset (sh->success, 0, sizeof (*sh->success) * priv->child_count);
-
-        afr_reset_xattr (sh->xattr, priv->child_count);
+        afr_sh_reset (frame, this);
         if (local->govinda_gOvinda) {
                 gf_log (this->name, GF_LOG_INFO,
                         "split-brain detected, aborting selfheal of %s",
