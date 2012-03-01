@@ -371,6 +371,11 @@ struct _glusterfs_ctx {
                                              mempools, used to log details of
                                              mempool in statedump */
         char                *statedump_path;
+
+        struct mem_pool    *dict_pool;
+        struct mem_pool    *dict_pair_pool;
+        struct mem_pool    *dict_data_pool;
+
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
