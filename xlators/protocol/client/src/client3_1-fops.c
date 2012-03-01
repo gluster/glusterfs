@@ -5076,6 +5076,9 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        if (req.dict.dict_val)
+                GF_FREE (req.dict.dict_val);
+
         return 0;
 unwind:
         gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
@@ -5090,6 +5093,9 @@ unwind:
         if (rsp_iobuf) {
                 iobuf_unref (rsp_iobuf);
         }
+
+        if (req.dict.dict_val)
+                GF_FREE (req.dict.dict_val);
 
         STACK_UNWIND_STRICT (readdirp, frame, -1, op_errno, NULL);
         return 0;
