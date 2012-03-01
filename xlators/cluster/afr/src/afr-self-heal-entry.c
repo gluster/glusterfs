@@ -70,10 +70,6 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
-        if (sh->healing_fd)
-                fd_unref (sh->healing_fd);
-        sh->healing_fd = NULL;
-
         sh->completion_cbk (frame, this);
 
         return 0;

@@ -124,4 +124,6 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name);
 int
 afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
                           int active_source, call_frame_t **impunge_frame);
+void
+afr_sh_reset (call_frame_t *frame, xlator_t *this);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */
