@@ -1168,6 +1168,8 @@ afr_lock (call_frame_t *frame, xlator_t *this)
 
         frame->root->pid = (long) frame->root;
 
+        afr_set_lk_owner (frame, this);
+
         afr_set_lock_number (frame, this);
 
         return afr_lock_rec (frame, this);

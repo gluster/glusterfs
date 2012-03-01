@@ -336,9 +336,6 @@ afr_index_for_transaction_type (afr_transaction_type type)
 typedef struct {
         loc_t *lk_loc;
         struct gf_flock lk_flock;
-        gf_lkowner_t fop_lkowner; /* 'copy' of fop's lk_owner to protect
-                                      against afr internal locks 'irreversibly'
-                                      overloading lk_owner.*/
 
         const char *lk_basename;
         const char *lower_basename;
@@ -773,12 +770,7 @@ afr_mark_locked_nodes (xlator_t *this, fd_t *fd,
                        unsigned char *locked_nodes);
 
 void
-afr_set_lk_owner (call_frame_t *frame, xlator_t *this,
-                  afr_internal_lock_t *int_lock);
-
-void
-afr_unset_lk_owner (call_frame_t *frame, xlator_t *this,
-                    afr_internal_lock_t *int_lock);
+afr_set_lk_owner (call_frame_t *frame, xlator_t *this);
 
 int
 afr_set_lock_number (call_frame_t *frame, xlator_t *this);
