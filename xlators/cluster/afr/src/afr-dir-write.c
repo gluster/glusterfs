@@ -67,6 +67,8 @@ afr_build_parent_loc (loc_t *parent, loc_t *child, int32_t *op_errno)
         }
         parent->path = dirname (child_path);
         parent->inode  = inode_ref (child->parent);
+        uuid_copy (parent->gfid, child->pargfid);
+
         ret = 0;
 out:
         return ret;
