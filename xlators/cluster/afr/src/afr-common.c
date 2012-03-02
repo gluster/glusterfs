@@ -1030,20 +1030,43 @@ afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
 int
 afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
 {
-        int32_t         read_child = -1;
         struct iatt     *buf = NULL;
         struct iatt     *postparent = NULL;
         dict_t          **xattr = NULL;
+        int32_t         *success_children = NULL;
+        int32_t         *sources = NULL;
+        afr_private_t   *priv = NULL;
+        int32_t         read_child = -1;
         int             ret = 0;
+        int             i = 0;
 
         GF_ASSERT (local);
 
         buf = &local->cont.lookup.buf;
         postparent = &local->cont.lookup.postparent;
         xattr = &local->cont.lookup.xattr;
+        priv = this->private;
 
         read_child = afr_inode_get_read_ctx (this, local->cont.lookup.inode,
-                                             NULL);
+                                             local->fresh_children);
+        if (read_child < 0) {
+                ret = -1;
+                goto out;
+        }
+        success_children = local->cont.lookup.success_children;
+        sources = local->cont.lookup.sources;
+        memset (sources, 0, sizeof (*sources) * priv->child_count);
+        afr_children_intersection_get (local->fresh_children, success_children,
+                                       sources, priv->child_count);
+        if (!sources[read_child]) {
+                read_child = -1;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (sources[i]) {
+                                read_child = i;
+                                break;
+                        }
+                }
+        }
         if (read_child < 0) {
                 ret = -1;
                 goto out;

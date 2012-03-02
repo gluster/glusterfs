@@ -126,4 +126,8 @@ afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
                           int active_source, call_frame_t **impunge_frame);
 void
 afr_sh_reset (call_frame_t *frame, xlator_t *this);
+
+void
+afr_children_intersection_get (int32_t *set1, int32_t *set2,
+                               int *intersection, unsigned int child_count);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */
