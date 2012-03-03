@@ -48,7 +48,7 @@ void free_state (server_state_t *state);
 void server_loc_wipe (loc_t *loc);
 
 int32_t
-gf_add_locker (struct _lock_table *table, const char *volume,
+gf_add_locker (server_connection_t *conn, const char *volume,
                loc_t *loc,
                fd_t *fd,
                pid_t pid,
@@ -56,7 +56,7 @@ gf_add_locker (struct _lock_table *table, const char *volume,
                glusterfs_fop_t type);
 
 int32_t
-gf_del_locker (struct _lock_table *table, const char *volume,
+gf_del_locker (server_connection_t *conn, const char *volume,
                loc_t *loc,
                fd_t *fd,
                gf_lkowner_t *owner,
