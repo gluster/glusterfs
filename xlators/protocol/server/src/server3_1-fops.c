@@ -219,11 +219,11 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret >= 0) {
                 if (state->flock.l_type == F_UNLCK)
-                        gf_del_locker (conn->ltable, state->volume,
+                        gf_del_locker (conn, state->volume,
                                        &state->loc, NULL, &frame->root->lk_owner,
                                        GF_FOP_INODELK);
                 else
-                        gf_add_locker (conn->ltable, state->volume,
+                        gf_add_locker (conn, state->volume,
                                        &state->loc, NULL, frame->root->pid,
                                        &frame->root->lk_owner,
                                        GF_FOP_INODELK);
@@ -261,11 +261,11 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret >= 0) {
                 if (state->flock.l_type == F_UNLCK)
-                        gf_del_locker (conn->ltable, state->volume,
+                        gf_del_locker (conn, state->volume,
                                        NULL, state->fd,
                                        &frame->root->lk_owner,  GF_FOP_INODELK);
                 else
-                        gf_add_locker (conn->ltable, state->volume,
+                        gf_add_locker (conn, state->volume,
                                        NULL, state->fd,
                                        frame->root->pid,
                                        &frame->root->lk_owner, GF_FOP_INODELK);
@@ -302,11 +302,11 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret >= 0) {
                 if (state->cmd == ENTRYLK_UNLOCK)
-                        gf_del_locker (conn->ltable, state->volume,
+                        gf_del_locker (conn, state->volume,
                                        &state->loc, NULL, &frame->root->lk_owner,
                                        GF_FOP_ENTRYLK);
                 else
-                        gf_add_locker (conn->ltable, state->volume,
+                        gf_add_locker (conn, state->volume,
                                        &state->loc, NULL, frame->root->pid,
                                        &frame->root->lk_owner,
                                        GF_FOP_ENTRYLK);
@@ -342,11 +342,11 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
         if (op_ret >= 0) {
                 if (state->cmd == ENTRYLK_UNLOCK)
-                        gf_del_locker (conn->ltable, state->volume,
+                        gf_del_locker (conn, state->volume,
                                        NULL, state->fd, &frame->root->lk_owner,
                                        GF_FOP_ENTRYLK);
                 else
-                        gf_add_locker (conn->ltable, state->volume,
+                        gf_add_locker (conn, state->volume,
                                        NULL, state->fd, frame->root->pid,
                                        &frame->root->lk_owner, GF_FOP_ENTRYLK);
         } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {

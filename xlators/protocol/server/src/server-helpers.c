@@ -133,14 +133,14 @@ free_state (server_state_t *state)
 
 
 int
-gf_add_locker (struct _lock_table *table, const char *volume,
+gf_add_locker (server_connection_t *conn, const char *volume,
                loc_t *loc, fd_t *fd, pid_t pid, gf_lkowner_t *owner,
                glusterfs_fop_t type)
 {
         int32_t         ret = -1;
         struct _locker *new = NULL;
+        struct _lock_table *table = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", table, out);
         GF_VALIDATE_OR_GOTO ("server", volume, out);
 
         new = GF_CALLOC (1, sizeof (struct _locker), gf_server_mt_locker_t);
@@ -160,21 +160,22 @@ gf_add_locker (struct _lock_table *table, const char *volume,
         new->pid   = pid;
         new->owner = *owner;
 
-        LOCK (&table->lock);
+        pthread_mutex_lock (&conn->lock);
         {
+                table = conn->ltable;
                 if (type == GF_FOP_ENTRYLK)
                         list_add_tail (&new->lockers, &table->entrylk_lockers);
                 else
                         list_add_tail (&new->lockers, &table->inodelk_lockers);
         }
-        UNLOCK (&table->lock);
+        pthread_mutex_unlock (&conn->lock);
 out:
         return ret;
 }
 
 
 int
-gf_del_locker (struct _lock_table *table, const char *volume,
+gf_del_locker (server_connection_t *conn, const char *volume,
                loc_t *loc, fd_t *fd, gf_lkowner_t *owner,
                glusterfs_fop_t type)
 {
@@ -183,14 +184,15 @@ gf_del_locker (struct _lock_table *table, const char *volume,
         int32_t            ret = -1;
         struct list_head  *head = NULL;
         struct list_head   del;
+        struct _lock_table *table = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", table, out);
         GF_VALIDATE_OR_GOTO ("server", volume, out);
 
         INIT_LIST_HEAD (&del);
 
-        LOCK (&table->lock);
+        pthread_mutex_lock (&conn->lock);
         {
+                table = conn->ltable;
                 if (type == GF_FOP_ENTRYLK) {
                         head = &table->entrylk_lockers;
                 } else {
@@ -209,7 +211,7 @@ gf_del_locker (struct _lock_table *table, const char *volume,
                                 list_move_tail (&locker->lockers, &del);
                 }
         }
-        UNLOCK (&table->lock);
+        pthread_mutex_unlock (&conn->lock);
 
         tmp = NULL;
         locker = NULL;
@@ -241,7 +243,6 @@ gf_lock_table_new (void)
         }
         INIT_LIST_HEAD (&new->entrylk_lockers);
         INIT_LIST_HEAD (&new->inodelk_lockers);
-        LOCK_INIT (&new->lock);
 out:
         return new;
 }
@@ -291,16 +292,10 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         INIT_LIST_HEAD (&inodelk_lockers);
         INIT_LIST_HEAD (&entrylk_lockers);
 
-        LOCK (&ltable->lock);
-        {
-                list_splice_init (&ltable->inodelk_lockers,
-                                  &inodelk_lockers);
+        list_splice_init (&ltable->inodelk_lockers,
+                          &inodelk_lockers);
 
-                list_splice_init (&ltable->entrylk_lockers, &entrylk_lockers);
-        }
-        UNLOCK (&ltable->lock);
-
-        LOCK_DESTROY (&ltable->lock);
+        list_splice_init (&ltable->entrylk_lockers, &entrylk_lockers);
         GF_FREE (ltable);
 
         flock.l_type  = F_UNLCK;
@@ -606,16 +601,11 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 INIT_LIST_HEAD (&entrylk_lockers);
 
                 if (ltable) {
-                        LOCK (&ltable->lock);
-                        {
-                                list_splice_init (&ltable->inodelk_lockers,
-                                                  &inodelk_lockers);
+                        list_splice_init (&ltable->inodelk_lockers,
+                                          &inodelk_lockers);
 
-                                list_splice_init (&ltable->entrylk_lockers,
-                                                  &entrylk_lockers);
-                        }
-                        UNLOCK (&ltable->lock);
-                        LOCK_DESTROY (&ltable->lock);
+                        list_splice_init (&ltable->entrylk_lockers,
+                                          &entrylk_lockers);
                         GF_FREE (ltable);
                 }
 

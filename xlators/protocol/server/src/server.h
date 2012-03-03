@@ -49,7 +49,6 @@ struct _locker {
 struct _lock_table {
         struct list_head  inodelk_lockers;
         struct list_head  entrylk_lockers;
-        gf_lock_t         lock;
         size_t            count;
 };
 
