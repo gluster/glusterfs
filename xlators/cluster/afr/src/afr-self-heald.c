@@ -1032,6 +1032,7 @@ afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl,
         if (!frame)
                 goto out;
 
+        afr_set_lk_owner (frame, this);
         afr_set_low_priority (frame);
         crawl_data = GF_CALLOC (1, sizeof (*crawl_data),
                                 gf_afr_mt_crawl_data_t);
