@@ -1662,6 +1662,9 @@ glusterd_clearlocks_mount (glusterd_volinfo_t *volinfo, char **xl_opts,
                                       volinfo->transport_type);
         runner_add_args (&runner, SBIN_DIR"/glusterfs", "-f", NULL);
         runner_argprintf (&runner, "%s", client_volfpath);
+        runner_add_arg (&runner, "-l");
+        runner_argprintf (&runner, DEFAULT_LOG_FILE_DIRECTORY
+                          "/%s-clearlocks-mnt.log", volinfo->volname);
 
         for (i = 0; i < volinfo->brick_count && xl_opts[i]; i++) {
                 runner_add_arg (&runner, "--xlator-option");
