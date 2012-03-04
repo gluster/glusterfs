@@ -272,6 +272,8 @@ cli_submit_request (void *req, call_frame_t *frame,
 out:
         if (new_iobref)
                 iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
         return ret;
 }
 

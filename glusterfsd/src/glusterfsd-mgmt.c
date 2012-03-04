@@ -1100,6 +1100,8 @@ out:
         if (iobref)
                 iobref_unref (iobref);
 
+        if (iobuf)
+                iobuf_unref (iobuf);
         return ret;
 }
 
