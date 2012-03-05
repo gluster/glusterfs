@@ -2803,7 +2803,7 @@ done:
                 STACK_WIND (frame, dht_readdirp_cbk,
                             next_subvol, next_subvol->fops->readdirp,
                             local->fd, local->size, next_offset,
-                            local->xattr_req);
+                            local->xattr);
                 return 0;
         }
 
@@ -2941,21 +2941,29 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
 
-        if (dict) {
-                ret = dict_set_uint32 (dict, "trusted.glusterfs.dht.linkto",
-                                       256);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to set 'glusterfs.dht.linkto' key");
-        }
-
         /* TODO: do proper readdir */
-        if (whichop == GF_FOP_READDIR)
+        if (whichop == GF_FOP_READDIRP) {
+                if (dict)
+                        local->xattr = dict_ref (dict);
+                else
+                        local->xattr = dict_new ();
+
+                if (local->xattr) {
+                        ret = dict_set_uint32 (local->xattr,
+                                               "trusted.glusterfs.dht.linkto",
+                                               256);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "failed to set 'glusterfs.dht.linkto'"
+                                        " key");
+                }
+
+                STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
+                            fd, size, xoff, local->xattr);
+        } else {
                 STACK_WIND (frame, dht_readdir_cbk, xvol, xvol->fops->readdir,
                             fd, size, xoff);
-        else
-                STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
-                            fd, size, xoff, dict);
+        }
 
         return 0;
 
