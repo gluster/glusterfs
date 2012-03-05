@@ -26,7 +26,6 @@
 #ifndef GSYNC_CONF
 #define GSYNC_CONF GEOREP"/gsyncd.conf"
 #endif
-#define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
 
 /* Widths of various columns in top read/write-perf output
  * Total width of top read/write-perf should be 80 chars
@@ -477,6 +476,10 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (!rsp.dict.dict_len) {
+#if (HAVE_LIB_XML)
+                if (global_state->mode & GLUSTER_MODE_XML)
+                        goto xml_output;
+#endif
                 cli_out ("No volumes present");
                 ret = 0;
                 goto out;
@@ -520,17 +523,46 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                   "Volume %s does not exist",
                                   local->get_vol.volname);
                         ret = -1;
-                        goto out;
+#if (HAVE_LIB_XML)
+                        if (!(global_state->mode & GLUSTER_MODE_XML))
+#endif
+                        {
+                                goto out;
+                        }
                 }
         }
 
 #if (HAVE_LIB_XML)
+xml_output:
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_vol_info (dict, rsp.op_ret,
-                                               rsp.op_errno, rsp.op_errstr);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "Error outputting to xml");
+                /* For GET_NEXT_VOLUME output is already begun in
+                 * and will also end in gf_cli3_1_get_next_volume()
+                 */
+                if (local->get_vol.flags == GF_CLI_GET_VOLUME) {
+                        ret = cli_xml_output_vol_info_begin
+                                (local, rsp.op_ret, rsp.op_errno,
+                                 rsp.op_errstr);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error outputting to xml");
+                                goto out;
+                        }
+                }
+
+                if (dict) {
+                        ret = cli_xml_output_vol_info (local, dict);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error outputting to xml");
+                                goto out;
+                        }
+                }
+
+                if (local->get_vol.flags == GF_CLI_GET_VOLUME) {
+                        ret = cli_xml_output_vol_info_end (local);
+                        if (ret)
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error outputting to xml");
                 }
                 goto out;
         }
@@ -1253,9 +1285,6 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to set");
 
-        if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
-                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
-
         dict = dict_new ();
 
         if (!dict) {
@@ -1282,6 +1311,9 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 #endif
+
+        if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
+                cli_out ("%s", rsp.op_errstr);
 
         cli_out ("%s", ((help_str == NULL) ? msg : help_str));
 
@@ -1892,6 +1924,7 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
         char              *volname    = NULL;
         char              *limit_list = NULL;
         int32_t            type       = 0;
+        char               msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1905,7 +1938,12 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (rsp.op_ret &&
             strcmp (rsp.op_errstr, "") == 0) {
-                cli_out ("command unsuccessful %s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "command unsuccessful %s",
+                          rsp.op_errstr);
+#if (HAVE_LIB_XML)
+                if (global_state->mode & GLUSTER_MODE_XML)
+                        goto xml_output;
+#endif
                 goto out;
         }
 
@@ -1940,6 +1978,18 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
                         "failed to get type");
 
         if (type == GF_QUOTA_OPTION_TYPE_LIST) {
+#if (HAVE_LIB_XML)
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        ret = cli_xml_output_vol_quota_limit_list
+                                (volname, limit_list, rsp.op_ret,
+                                 rsp.op_errno, rsp.op_errstr);
+                        if (ret)
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error outputting to xml");
+                        goto out;
+
+                }
+#endif
                 if (limit_list) {
                         gf_cli3_1_print_limit_list (volname,
                                                     limit_list,
@@ -1948,19 +1998,34 @@ gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_log ("cli", GF_LOG_INFO, "Received resp to quota "
                                 "command ");
                         if (rsp.op_errstr)
-                                cli_out ("%s", rsp.op_errstr);
+                                snprintf (msg, sizeof (msg), "%s",
+                                          rsp.op_errstr);
                 }
         } else {
                 gf_log ("cli", GF_LOG_INFO, "Received resp to quota command ");
                 if (rsp.op_errstr)
-                        cli_out ("%s", rsp.op_errstr);
+                        snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
                 else
-                        cli_out ("%s", "successful");
+                        snprintf (msg, sizeof (msg), "successful");
         }
 
-out:
-        ret = rsp.op_ret;
+#if (HAVE_LIB_XML)
+xml_output:
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volQuota", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+#endif
 
+        if (strlen (msg) > 0)
+                cli_out ("%s", msg);
+
+        ret = rsp.op_ret;
+out:
         cli_cmd_broadcast_response (ret);
 
         if (rsp.dict.dict_val)
@@ -2155,15 +2220,30 @@ gf_cli3_1_get_next_volume (call_frame_t *frame, xlator_t *this,
         }
 
         ctx = data;
+        local = frame->local;
+
+#if (HAVE_LIB_XML)
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_info_begin (local, 0, 0, "");
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Error outputting to xml");
+                        goto out;
+                }
+        }
+#endif
 
         ret = gf_cli3_1_get_volume (frame, this, data);
 
-        local = frame->local;
 
         if (!local || !local->get_vol.volname) {
+#if (HAVE_LIB_XML)
+                if ((global_state->mode & GLUSTER_MODE_XML))
+                        goto end_xml;
+#endif
                 cli_out ("No volumes present");
                 goto out;
         }
+
 
         ctx->volname = local->get_vol.volname;
 
@@ -2174,7 +2254,17 @@ gf_cli3_1_get_next_volume (call_frame_t *frame, xlator_t *this,
                 ctx->volname = local->get_vol.volname;
         }
 
+#if (HAVE_LIB_XML)
+end_xml:
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_info_end (local);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR, "Error outputting to xml");
+        }
+#endif
+
 out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
