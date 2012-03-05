@@ -373,12 +373,13 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                 gf_log_callingfn (trav->rpcreq->conn->trans->name,
                                   GF_LOG_ERROR,
                                   "forced unwinding frame type(%s) op(%s(%d)) "
-                                  "called at %s",
+                                  "called at %s (xid=0x%ux)",
                                   trav->rpcreq->prog->progname,
                                   ((trav->rpcreq->prog->procnames) ?
                                    trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
                                    : "--"),
-                                  trav->rpcreq->procnum, timestr);
+                                  trav->rpcreq->procnum, timestr,
+                                  trav->rpcreq->xid);
 		saved_frames->count--;
 
                 clnt = rpc_clnt_ref (trav->rpcreq->conn->rpc_clnt);
