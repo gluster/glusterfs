@@ -838,9 +838,8 @@ reincarnate (int signum)
                         "Fetching the volume file from server...");
                 ret = glusterfs_volfile_fetch (ctx);
         } else {
-                gf_log ("glusterfsd", GF_LOG_INFO,
-                        "Reloading volfile ...");
-                ret = glusterfs_volumes_init (ctx);
+                gf_log ("glusterfsd", GF_LOG_DEBUG,
+                        "Not reloading volume specification file on SIGHUP");
         }
 
         /* Also, SIGHUP should do logrotate */
