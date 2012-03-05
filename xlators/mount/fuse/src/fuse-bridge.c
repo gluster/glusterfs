@@ -3665,12 +3665,6 @@ fuse_graph_switch_task (void *data)
         fuse_handle_blocked_locks (args->this, args->old_subvol,
                                    args->new_subvol);
 
-        pthread_mutex_lock (&args->lock);
-        {
-                args->complete = 1;
-                pthread_cond_broadcast (&args->cond);
-        }
-        pthread_mutex_unlock (&args->lock);
 out:
         return 0;
 }
@@ -3686,9 +3680,6 @@ fuse_graph_switch_args_alloc (void)
                 goto out;
         }
 
-        pthread_cond_init (&args->cond, NULL);
-        pthread_mutex_init (&args->lock, NULL);
-
 out:
         return args;
 }
@@ -3701,19 +3692,9 @@ fuse_graph_switch_args_destroy (fuse_graph_switch_args_t *args)
                 goto out;
         }
 
-        pthread_cond_destroy (&args->cond);
-        pthread_mutex_destroy (&args->lock);
-
         GF_FREE (args);
 out:
         return;
-}
-
-
-static int
-fuse_graph_switch_complete (int ret, call_frame_t *frame, void *data)
-{
-        return 0;
 }
 
 
@@ -3739,26 +3720,13 @@ fuse_handle_graph_switch (xlator_t *this, xlator_t *old_subvol,
         args->old_subvol = old_subvol;
         args->new_subvol = new_subvol;
 
-        ret = synctask_new (this->ctx->env, fuse_graph_switch_task,
-                            fuse_graph_switch_complete, frame, args);
+        ret = synctask_new (this->ctx->env, fuse_graph_switch_task, NULL, frame,
+                            args);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING, "starting sync-task to "
                         "handle graph switch failed");
                 goto out;
         }
-
-        pthread_mutex_lock (&args->lock);
-        {
-                while (!args->complete) {
-                        ret = pthread_cond_wait (&args->cond, &args->lock);
-                        if (ret != 0) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "cond_wait failed ret:%d errno:%d", ret,
-                                        errno);
-                        }
-                }
-        }
-        pthread_mutex_unlock (&args->lock);
 
         ret = 0;
 out:

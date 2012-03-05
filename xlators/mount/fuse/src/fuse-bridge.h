@@ -123,9 +123,6 @@ struct fuse_graph_switch_args {
         xlator_t        *this;
         xlator_t        *old_subvol;
         xlator_t        *new_subvol;
-        pthread_cond_t   cond;
-        pthread_mutex_t  lock;
-        char             complete;
 };
 typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
