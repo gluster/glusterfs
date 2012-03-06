@@ -30,7 +30,8 @@
 #endif /* MALLOC_H */
 
 /* We don't want gf_log in this function because it may cause
-   'deadlock' with statedump */
+   'deadlock' with statedump. This is because statedump happens
+   inside a signal handler and cannot afford to block on a lock.*/
 #ifdef gf_log
 # undef gf_log
 #endif

@@ -2409,6 +2409,54 @@ fini (xlator_t *this)
         return;
 }
 
+static void
+client_fd_lk_ctx_dump (xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
+{
+        gf_boolean_t            use_try_lock             = _gf_true;
+        int                     ret                      = -1;
+        int                     lock_no                  = 0;
+        fd_lk_ctx_t             *lk_ctx_ref              = NULL;
+        fd_lk_ctx_node_t        *plock                   = NULL;
+        char                    key[GF_DUMP_MAX_BUF_LEN] = {0,};
+
+        lk_ctx_ref = fd_lk_ctx_try_ref (lk_ctx);
+        if (!lk_ctx_ref)
+                return;
+
+        ret = client_fd_lk_list_empty (lk_ctx_ref, (use_try_lock = _gf_true));
+        if (ret != 0)
+                return;
+
+        ret = TRY_LOCK (&lk_ctx_ref->lock);
+        if (ret)
+                return;
+
+        gf_proc_dump_write ("------","------");
+
+        lock_no = 0;
+        list_for_each_entry (plock, &lk_ctx_ref->lk_list, next) {
+                snprintf (key, sizeof (key), "granted-posix-lock[%d]",
+                          lock_no++);
+                gf_proc_dump_write (key, "owner = %s, cmd = %s "
+                                    "fl_type = %s, fl_start = %"
+                                    PRId64", fl_end = %"PRId64
+                                    ", user_flock: l_type = %s, "
+                                    "l_start = %"PRId64", l_len = %"PRId64,
+                                    lkowner_utoa (&plock->user_flock.l_owner),
+                                    get_lk_cmd (plock->cmd),
+                                    get_lk_type (plock->fl_type),
+                                    plock->fl_start, plock->fl_end,
+                                    get_lk_type (plock->user_flock.l_type),
+                                    plock->user_flock.l_start,
+                                    plock->user_flock.l_len);
+        }
+        gf_proc_dump_write ("------","------");
+
+        UNLOCK (&lk_ctx_ref->lock);
+        fd_lk_ctx_unref (lk_ctx_ref);
+
+}
+
 int
 client_priv_dump (xlator_t *this)
 {
@@ -2423,18 +2471,12 @@ client_priv_dump (xlator_t *this)
                 return -1;
 
         conf = this->private;
-        if (!conf) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "conf null in xlator");
+        if (!conf)
                 return -1;
-        }
 
         ret = pthread_mutex_trylock(&conf->lock);
-        if (ret) {
-                gf_log(this->name, GF_LOG_WARNING, "Unable to lock client %s"
-                       " errno: %d", this->name, errno);
+        if (ret)
                 return -1;
-        }
 
         gf_proc_dump_build_key(key_prefix, "xlator.protocol.client",
                                "%s.priv", this->name);
@@ -2442,8 +2484,10 @@ client_priv_dump (xlator_t *this)
         gf_proc_dump_add_section(key_prefix);
 
         list_for_each_entry(tmp, &conf->saved_fds, sfd_pos) {
-                sprintf (key, "fd.%d.remote_fd", ++i);
+                sprintf (key, "fd.%d.remote_fd", i);
                 gf_proc_dump_write(key, "%d", tmp->remote_fd);
+                client_fd_lk_ctx_dump (this, tmp->lk_ctx, i);
+                i++;
         }
 
         gf_proc_dump_write("connecting", "%d", conf->connecting);

@@ -60,6 +60,9 @@ fd_lk_ctx_t *
 fd_lk_ctx_ref (fd_lk_ctx_t *lk_ctx);
 
 fd_lk_ctx_t *
+fd_lk_ctx_try_ref (fd_lk_ctx_t *lk_ctx);
+
+fd_lk_ctx_t *
 fd_lk_ctx_create ();
 
 int
