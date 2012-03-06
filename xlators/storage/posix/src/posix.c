@@ -2480,7 +2480,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         if (loc->inode && name &&
             (strcmp (name, GF_XATTR_NODE_UUID_KEY) == 0)
             && !uuid_is_null (priv->glusterd_uuid)) {
-                (void) snprintf (host_buf, 1024, "<%s>",
+                (void) snprintf (host_buf, 1024, "%s",
                                  uuid_utoa (priv->glusterd_uuid));
 
                 dyn_rpath = gf_strdup (host_buf);

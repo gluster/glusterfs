@@ -320,7 +320,7 @@ out:
 
 static inline int
 __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
-                        struct iatt *stbuf)
+                        struct iatt *stbuf, int flag)
 {
         struct statvfs  src_statfs = {0,};
         struct statvfs  dst_statfs = {0,};
@@ -344,6 +344,12 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         loc->path, to->name, strerror (errno));
                 goto out;
         }
+
+        /* if force option is given, do not check for space @ dst.
+         * Check only if space is avail for the file */
+        if (flag != GF_DHT_MIGRATE_DATA)
+                goto check_avail_space;
+
         if (((dst_statfs.f_bavail *
               dst_statfs.f_bsize) / GF_DISK_SECTOR_SIZE) <
             (((src_statfs.f_bavail * src_statfs.f_bsize) /
@@ -356,6 +362,17 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
 
                 /* this is not a 'failure', but we don't want to
                    consider this as 'success' too :-/ */
+                ret = 1;
+                goto out;
+        }
+
+check_avail_space:
+        if (((dst_statfs.f_bavail * dst_statfs.f_bsize) /
+              GF_DISK_SECTOR_SIZE) < stbuf->ia_blocks) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "data movement attempted from node (%s) with "
+                        "to node (%s) which does not have required free space"
+                        " for %s", from->name, to->name, loc->path);
                 ret = 1;
                 goto out;
         }
@@ -672,12 +689,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         if (ret)
                 goto out;
 
-        /* Should happen on all files when 'force' option is not given */
-        if (flag == GF_DHT_MIGRATE_DATA) {
-                ret = __dht_check_free_space (to, from, loc, &stbuf);
-                if (ret) {
-                        goto out;
-                }
+        ret = __dht_check_free_space (to, from, loc, &stbuf, flag);
+        if (ret) {
+                goto out;
         }
 
         /* Open the source, and also update mode/xattr */
@@ -1040,6 +1054,8 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         dict_t                  *dict           = NULL;
         struct iatt              iatt           = {0,};
         int32_t                  op_errno       = 0;
+        char                    *uuid_str       = NULL;
+        uuid_t                   node_uuid      = {0,};
 
         gf_log (this->name, GF_LOG_INFO, "migate data called on %s",
                 loc->path);
@@ -1122,6 +1138,43 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 continue;
                         }
 
+                        ret = syncop_getxattr (this, &entry_loc, &dict,
+                                               GF_XATTR_NODE_UUID_KEY);
+                        if(ret < 0) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "get node-uuid for %s", entry_loc.path);
+                                continue;
+                        }
+
+                        ret = dict_get_str (dict, GF_XATTR_NODE_UUID_KEY,
+                                            &uuid_str);
+                        if(ret < 0) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "get node-uuid from dict for %s",
+                                        entry_loc.path);
+                                continue;
+                        }
+
+                        if (uuid_parse (uuid_str, node_uuid)) {
+                                gf_log (this->name, GF_LOG_ERROR, "uuid_parse "
+                                        "failed for %s", entry_loc.path);
+                                continue;
+                        }
+
+                        /* if file belongs to different node, skip migration
+                         * the other node will take responsibility of migration
+                         */
+                        if (uuid_compare (node_uuid, defrag->node_uuid)) {
+                                gf_log (this->name, GF_LOG_TRACE, "%s does not"
+                                        "belong to this node", entry_loc.path);
+                                continue;
+                        }
+
+                        uuid_str = NULL;
+
+                        dict_del (dict, GF_XATTR_NODE_UUID_KEY);
+
+
                         /* if distribute is present, it will honor this key.
                          * -1 is returned if distribute is not present or file
                          * doesn't have a link-file. If file has link-file, the
@@ -1131,6 +1184,8 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         ret = syncop_getxattr (this, &entry_loc, &dict,
                                                GF_XATTR_LINKINFO_KEY);
                         if (ret < 0) {
+                                gf_log (this->name, GF_LOG_TRACE, "getxattr "
+                                        "failed for %s", entry_loc.path);
                                 continue;
                         }
 
