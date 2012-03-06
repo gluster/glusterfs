@@ -1367,7 +1367,7 @@ nlm4_cancel_fd_resume (void *carg)
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         nfs_request_user_init (&nfu, cs->req);
         nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_cancargs.alock,
-                               cs->args.nlm4_cancargs.exclusive);
+                                cs->args.nlm4_cancargs.exclusive);
         nlm_copy_lkowner (&nfu.lk_owner, &cs->args.nlm4_cancargs.alock.oh);
         flock.l_type = F_UNLCK;
         ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLK,
@@ -1467,7 +1467,7 @@ nlm4_cancel_resume (void *carg)
                 gf_log (GF_NLM, GF_LOG_ERROR, "nlm_get_uniq() returned NULL");
                 goto nlm4err;
         }
-        ret = nlm4_unlock_fd_resume (cs);
+        ret = nlm4_cancel_fd_resume (cs);
 
 nlm4err:
         if (ret < 0) {
