@@ -229,4 +229,6 @@ int32_t client_type_to_gf_type (short l_type);
 int client_mark_fd_bad (xlator_t *this);
 
 int client_set_lk_version (xlator_t *this);
+
+int client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
 #endif /* !_CLIENT_H */

@@ -470,22 +470,6 @@ out:
 }
 
 int
-client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx)
-{
-        int  ret = 1;
-
-        GF_VALIDATE_OR_GOTO ("client", lk_ctx, out);
-
-        LOCK (&lk_ctx->lock);
-        {
-                ret = list_empty (&lk_ctx->lk_list);
-        }
-        UNLOCK (&lk_ctx->lock);
-out:
-        return ret;
-}
-
-int
 client_fd_lk_count (fd_lk_ctx_t *lk_ctx)
 {
         int               count     = 0;
@@ -789,7 +773,7 @@ client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
         int32_t          ret       = -1;
         fd_lk_ctx_t     *lk_ctx    = NULL;
 
-        if (client_fd_lk_list_empty (fdctx->lk_ctx)) {
+        if (client_fd_lk_list_empty (fdctx->lk_ctx, _gf_false)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "fd lock list is empty");
                 decrement_reopen_fd_count (this, (clnt_conf_t *)this->private);
@@ -874,7 +858,7 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 fdctx->remote_fd = rsp.fd;
                 if (!fdctx->released) {
                         list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
-                        if (!client_fd_lk_list_empty (fdctx->lk_ctx))
+                        if (!client_fd_lk_list_empty (fdctx->lk_ctx, _gf_false))
                                 attempt_lock_recovery = _gf_true;
                         fdctx = NULL;
                 }

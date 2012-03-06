@@ -26,6 +26,32 @@
 #include "fd.h"
 
 
+int
+client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t try_lock)
+{
+        int  ret = 1;
+
+        if (!lk_ctx) {
+                ret = -1;
+                goto out;
+        }
+
+        if (try_lock) {
+                ret = TRY_LOCK (&lk_ctx->lock);
+                if (ret != 0) {
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                LOCK (&lk_ctx->lock);
+        }
+
+        ret = list_empty (&lk_ctx->lk_list);
+        UNLOCK (&lk_ctx->lock);
+out:
+        return ret;
+}
+
 clnt_fd_ctx_t *
 this_fd_del_ctx (fd_t *file, xlator_t *this)
 {
