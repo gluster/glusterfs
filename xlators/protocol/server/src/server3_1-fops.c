@@ -414,6 +414,10 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               state->loc.name);
                 parent = inode_parent (state->loc.inode, 0, NULL);
                 if (parent)
+                        /* parent should not be found for directories after
+                         * inode_unlink, since directories cannot have
+                         * hardlinks.
+                         */
                         inode_unref (parent);
                 else
                         inode_forget (state->loc.inode, 0);
@@ -830,6 +834,8 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_rename_rsp   rsp   = {0,};
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
+        inode_t     *tmp_inode = NULL;
+        inode_t     *tmp_parent = NULL;
 
         req           = frame->local;
 
@@ -845,6 +851,28 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
                         "%"PRId64": RENAME_CBK  %s ==> %s",
                         frame->root->unique, state->loc.name, state->loc2.name);
+
+                /* Before renaming the inode, we have to get the inode for the
+                 * destination entry (i.e. inode with state->loc2.parent as
+                 * parent and state->loc2.name as name). If it exists, then
+                 * unlink that inode, and send forget on that inode if the
+                 * unlinked entry is the last entry. In case of fuse client
+                 * the fuse kernel module itself sends the forget on the
+                 * unlinked inode.
+                 */
+                tmp_inode = inode_grep (state->loc.inode->table,
+                                        state->loc2.parent, state->loc2.name);
+                if (tmp_inode) {
+                        inode_unlink (tmp_inode, state->loc2.parent,
+                                      state->loc2.name);
+                        tmp_parent = inode_parent (tmp_inode, 0, NULL);
+                        if (tmp_parent)
+                                inode_unref (tmp_parent);
+                        else
+                                inode_forget (tmp_inode, 0);
+
+                        inode_unref (tmp_inode);
+                }
 
                 inode_rename (state->itable,
                               state->loc.parent, state->loc.name,
