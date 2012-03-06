@@ -1059,6 +1059,8 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
         glusterd_op_t  op       = GD_OP_NONE;
         uint64_t       value    = 0;
         int32_t        value32  = 0;
+        char          *volname  = NULL;
+        glusterd_volinfo_t *volinfo = NULL;
 
         GF_ASSERT (rsp_dict);
 
@@ -1071,9 +1073,22 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
         if (!ctx_dict)
                 goto out;
 
+        ret = dict_get_str (ctx_dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
         ret = dict_get_uint64 (rsp_dict, "files", &value);
         if (!ret) {
-                ret = dict_set_uint64 (ctx_dict, "files", value);
+                volinfo->rebalance_files += value;
+                ret = dict_set_uint64 (ctx_dict, "files",
+                                       volinfo->rebalance_files);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set the file count");
@@ -1082,7 +1097,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
 
         ret = dict_get_uint64 (rsp_dict, "size", &value);
         if (!ret) {
-                ret = dict_set_uint64 (ctx_dict, "size", value);
+                volinfo->rebalance_data += value;
+                ret = dict_set_uint64 (ctx_dict, "size",
+                                       volinfo->rebalance_data);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set the size of migration");
@@ -1091,7 +1108,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
 
         ret = dict_get_uint64 (rsp_dict, "lookups", &value);
         if (!ret) {
-                ret = dict_set_uint64 (ctx_dict, "lookups", value);
+                volinfo->lookedup_files += value;
+                ret = dict_set_uint64 (ctx_dict, "lookups",
+                                       volinfo->lookedup_files);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set lookuped file count");
@@ -1273,6 +1292,9 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
                 case GD_OP_REBALANCE:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
+                        ret = glusterd_volume_rebalance_use_rsp_dict (dict);
+                        if (ret)
+                                goto out;
                 break;
 
                 case GD_OP_HEAL_VOLUME:

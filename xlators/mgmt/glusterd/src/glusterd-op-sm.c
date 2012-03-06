@@ -2709,6 +2709,83 @@ out:
         return ret;
 }
 
+
+int
+glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
+                                 dict_t *op_ctx)
+{
+        int                             ret = 0;
+        char                            *volname = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+        uint64_t                        files = 0;
+        uint64_t                        size = 0;
+        uint64_t                        lookup = 0;
+        gf_defrag_status_t              status = GF_DEFRAG_STATUS_NOT_STARTED;
+
+        GF_ASSERT (req_dict);
+
+        ret = dict_get_str (req_dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        ret = dict_get_uint64 (rsp_dict, "files", &files);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "failed to get file count");
+
+        ret = dict_get_uint64 (rsp_dict, "size", &size);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "failed to get size of xfer");
+
+        ret = dict_get_uint64 (rsp_dict, "lookups", &lookup);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "failed to get lookedup file count");
+        ret = dict_get_int32 (rsp_dict, "status", (int32_t *)&status);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "failed to get status");
+
+        volinfo->rebalance_files += files;
+        volinfo->rebalance_data += size;
+        volinfo->lookedup_files += lookup;
+
+        if (!op_ctx) {
+                dict_copy (rsp_dict, op_ctx);
+                goto out;
+        }
+
+        ret = dict_set_uint64 (op_ctx, "files", volinfo->rebalance_files);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set file count");
+
+        ret = dict_set_uint64 (op_ctx, "size", volinfo->rebalance_data);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set size of xfer");
+
+        ret = dict_set_uint64 (op_ctx, "lookups", volinfo->lookedup_files);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set lookedup file count");
+        ret = dict_set_int32 (op_ctx, "status", status);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set status");
+
+out:
+        return ret;
+}
+
 int32_t
 glusterd_handle_node_rsp (glusterd_req_ctx_t *req_ctx, void *pending_entry,
                           glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
@@ -2732,8 +2809,9 @@ glusterd_handle_node_rsp (glusterd_req_ctx_t *req_ctx, void *pending_entry,
                 break;
 
         case GD_OP_DEFRAG_BRICK_VOLUME:
-                dict_copy (rsp_dict, op_ctx);
-        break;
+                glusterd_defrag_volume_node_rsp (req_ctx->dict,
+                                                 rsp_dict, op_ctx);
+                break;
 
         case GD_OP_HEAL_VOLUME:
                 ret = glusterd_heal_volume_brick_rsp (req_ctx->dict, rsp_dict,

@@ -210,6 +210,7 @@ struct gf_defrag_info_ {
         uint32_t                     is_exiting;
         pid_t                        pid;
         inode_t                     *root_inode;
+        uuid_t                       node_uuid;
 
 };
 

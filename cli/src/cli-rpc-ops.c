@@ -976,6 +976,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         uint64_t                 size    = 0;
         uint64_t                 lookup  = 0;
         char                     msg[1024] = {0,};
+        gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1041,6 +1042,11 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log (THIS->name, GF_LOG_TRACE,
                         "failed to get lookedup file count");
 
+        ret = dict_get_int32 (dict, "status", (int32_t *)&status_rcd);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "failed to get status");
+
         if (cmd == GF_DEFRAG_CMD_STOP) {
                 if (rsp.op_ret == -1) {
                         if (strcmp (rsp.op_errstr, ""))
@@ -1070,7 +1076,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto done;
                 }
 
-                switch (rsp.op_errno) {
+                switch (status_rcd) {
                 case GF_DEFRAG_STATUS_NOT_STARTED:
                         status = "not started";
                         break;
@@ -1113,7 +1119,7 @@ done:
 #if (HAVE_LIB_XML)
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_str ("volRebalance", msg, rsp.op_ret,
-                                          rsp.op_errno, rsp.op_errstr);
+                                          status_rcd, rsp.op_errstr);
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Error outputting to xml");

@@ -82,60 +82,6 @@ out:
         return ret;
 }
 
-int
-glusterd_defrag_status_get (glusterd_volinfo_t *volinfo,
-                            dict_t *dict)
-{
-        int      ret    = 0;
-        uint64_t files  = 0;
-        uint64_t size   = 0;
-        uint64_t lookup = 0;
-
-        if (!volinfo || !dict)
-                goto out;
-
-        ret = 0;
-        if (volinfo->defrag_status == GF_DEFRAG_STATUS_NOT_STARTED)
-                goto out;
-
-        if (volinfo->defrag) {
-                LOCK (&volinfo->defrag->lock);
-                {
-                        files  = volinfo->defrag->total_files;
-                        size   = volinfo->defrag->total_data;
-                        lookup = volinfo->defrag->num_files_lookedup;
-                }
-                UNLOCK (&volinfo->defrag->lock);
-        } else {
-                files  = volinfo->rebalance_files;
-                size   = volinfo->rebalance_data;
-                lookup = volinfo->lookedup_files;
-        }
-
-        ret = dict_set_uint64 (dict, "files", files);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING,
-                        "failed to set file count");
-
-        ret = dict_set_uint64 (dict, "size", size);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING,
-                        "failed to set size of xfer");
-
-        ret = dict_set_uint64 (dict, "lookups", lookup);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING,
-                        "failed to set lookedup file count");
-
-        ret = dict_set_int32 (dict, "status", volinfo->defrag_status);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING,
-                        "failed to set status");
-
-out:
-        return 0;
-}
-
 void
 glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
 {
@@ -338,6 +284,10 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         volinfo->defrag_status = GF_DEFRAG_STATUS_STARTED;
 
+        volinfo->rebalance_files = 0;
+        volinfo->rebalance_data = 0;
+        volinfo->lookedup_files = 0;
+
         volinfo->defrag_cmd = cmd;
         glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
 
@@ -369,6 +319,8 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                          NULL);
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf ( &runner, "*dht.rebalance-cmd=%d",cmd);
+        runner_add_arg (&runner, "--xlator-option");
+        runner_argprintf (&runner, "*dht.node-uuid=%s", uuid_utoa(priv->uuid));
         runner_add_arg (&runner, "--socket-file");
         runner_argprintf (&runner, "%s",sockfile);
         runner_add_arg (&runner, "--pid-file");
@@ -383,6 +335,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                 goto out;
         }
 
+        sleep (5);
         ret = rpc_clnt_transport_unix_options_build (&options, sockfile);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
@@ -609,7 +562,6 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         int32_t             cmd       = 0;
         char                msg[2048] = {0};
         glusterd_volinfo_t *volinfo   = NULL;
-        void               *node_uuid = NULL;
         glusterd_conf_t    *priv      = NULL;
 
         priv = THIS->private;
@@ -633,23 +585,6 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        if ((cmd != GF_DEFRAG_CMD_STATUS) &&
-            (cmd != GF_DEFRAG_CMD_STOP)) {
-                ret = dict_get_ptr (dict, "node-uuid", &node_uuid);
-                if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG, "node-uuid not found");
-                        goto out;
-                }
-
-                /* perform this on only the node which has
-                   issued the command */
-                if (uuid_compare (node_uuid, priv->uuid)) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
-                                "not the source node %s", uuid_utoa (priv->uuid));
-                        goto out;
-                }
-        }
-
         switch (cmd) {
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
@@ -659,6 +594,9 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  break;
         case GF_DEFRAG_CMD_STOP:
         case GF_DEFRAG_CMD_STATUS:
+                volinfo->rebalance_files = 0;
+                volinfo->rebalance_data = 0;
+                volinfo->lookedup_files = 0;
                 break;
         default:
                 break;
