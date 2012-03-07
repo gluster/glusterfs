@@ -1368,6 +1368,96 @@ out:
         return ret;
 }
 
+char **
+glusterd_readin_file (const char *filepath, int *line_count)
+{
+        int         ret                    = -1;
+        int         n                      = 8;
+        int         counter                = 0;
+        char        buffer[PATH_MAX + 256] = {0};
+        char      **lines                  = NULL;
+        FILE       *fp                     = NULL;
+
+        fp = fopen (filepath, "r");
+        if (!fp)
+                goto out;
+
+        lines = GF_CALLOC (1, n * sizeof (*lines), gf_gld_mt_charptr);
+        if (!lines)
+                goto out;
+
+        for (counter = 0; fgets (buffer, sizeof (buffer), fp); counter++) {
+
+                if (counter == n-1) {
+                        n *= 2;
+                        lines = GF_REALLOC (lines, n * sizeof (char *));
+                        if (!lines)
+                                goto out;
+                }
+
+                lines[counter] = gf_strdup (buffer);
+                memset (buffer, 0, sizeof (buffer));
+        }
+
+        lines[counter] = NULL;
+        lines = GF_REALLOC (lines, (counter + 1) * sizeof (char *));
+        if (!lines)
+                goto out;
+
+        *line_count = counter;
+        ret = 0;
+
+ out:
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", strerror (errno));
+        if (fp)
+                fclose (fp);
+
+        return lines;
+}
+
+int
+glusterd_compare_lines (const void *a, const void *b) {
+
+        return strcmp(* (char * const *) a, * (char * const *) b);
+}
+
+int
+glusterd_sort_and_redirect (const char *src_filepath, int dest_fd)
+{
+        int            ret          = -1;
+        int            line_count   = 0;
+        int            counter      = 0;
+        char         **lines        = NULL;
+
+
+        if (!src_filepath || dest_fd < 0)
+                goto out;
+
+        lines = glusterd_readin_file (src_filepath, &line_count);
+        if (!lines)
+                goto out;
+
+        qsort (lines, line_count, sizeof (*lines), glusterd_compare_lines);
+
+        for (counter = 0; lines[counter]; counter++) {
+
+                ret = write (dest_fd, lines[counter],
+                             strlen (lines[counter]));
+                if (ret < 0)
+                        goto out;
+
+                GF_FREE (lines[counter]);
+        }
+
+        ret = 0;
+ out:
+        if (lines)
+                GF_FREE (lines);
+
+        return ret;
+}
+
 int
 glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
 {
@@ -1382,10 +1472,10 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         char                    sort_filepath[PATH_MAX] = {0};
         gf_boolean_t            unlink_sortfile = _gf_false;
         int                     sort_fd = 0;
-        runner_t                runner;
+        xlator_t               *this = NULL;
 
         GF_ASSERT (volinfo);
-
+        this = THIS;
         priv = THIS->private;
         GF_ASSERT (priv);
 
@@ -1397,7 +1487,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0600);
 
         if (-1 == fd) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to open %s, errno: %d",
+                gf_log (this->name, GF_LOG_ERROR, "Unable to open %s, errno: %d",
                         cksum_path, errno);
                 ret = -1;
                 goto out;
@@ -1407,9 +1497,10 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
                   GLUSTERD_VOLUME_INFO_FILE);
         snprintf (sort_filepath, sizeof (sort_filepath), "/tmp/%s.XXXXXX",
                   volinfo->volname);
+
         sort_fd = mkstemp (sort_filepath);
         if (sort_fd < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Could not generate temp file, "
+                gf_log (this->name, GF_LOG_ERROR, "Could not generate temp file, "
                         "reason: %s for volume: %s", strerror (errno),
                         volinfo->volname);
                 goto out;
@@ -1418,21 +1509,21 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         }
 
         /* sort the info file, result in sort_filepath */
-        runinit (&runner);
-        runner_add_args (&runner, "sort", filepath, NULL);
-        runner_redir (&runner, STDOUT_FILENO, sort_fd);
 
-        ret = runner_run (&runner);
-        close (sort_fd);
+        ret = glusterd_sort_and_redirect (filepath, sort_fd);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to sort file %s to %s",
-                        filepath, sort_filepath);
+                gf_log (this->name, GF_LOG_ERROR, "sorting info file failed");
                 goto out;
         }
+
+        ret = close (sort_fd);
+        if (ret)
+                goto out;
+
         ret = get_checksum_for_path (sort_filepath, &cksum);
 
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to get checksum"
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get checksum"
                         " for path: %s", sort_filepath);
                 goto out;
         }
@@ -1457,7 +1548,7 @@ out:
                close (fd);
         if (unlink_sortfile)
                unlink (sort_filepath);
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
 }
