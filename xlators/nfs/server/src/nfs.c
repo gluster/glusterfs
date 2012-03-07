@@ -1040,28 +1040,28 @@ struct volume_options options[] = {
                          "unrecognized option warnings."
         },
         { .key  = {"rpc-auth.addr.allow"},
-          .type = GF_OPTION_TYPE_STR,
+          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
                          " connections are allowed. This allows users to "
                          "define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.reject"},
-          .type = GF_OPTION_TYPE_STR,
+          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
                          " all connections are allowed. This allows users to"
                          "define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.*.allow"},
-          .type = GF_OPTION_TYPE_STR,
+          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
                          " connections are allowed. This allows users to "
                          "define a rule for a specific exported volume."
         },
         { .key  = {"rpc-auth.addr.*.reject"},
-          .type = GF_OPTION_TYPE_STR,
+          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
                          " all connections are allowed. This allows users to"
@@ -1123,12 +1123,16 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs.port"},
           .type = GF_OPTION_TYPE_INT,
+          .min  = 1,
+          .max  = 0xffff,
           .description = "Use this option on systems that need Gluster NFS to "
                          "be associated with a non-default port number."
         },
         { .key  = {"nfs.mem-factor"},
           .type = GF_OPTION_TYPE_INT,
-          .description = "Use this option to make NFS faster on systems by "
+          .min  = 1,
+          .max  = 1024,
+          .description = "Use this option to make NFS be faster on systems by "
                          "using more memory. This option specifies a multiple "
                          "that determines the total amount of memory used. "
                          "Default value is 15. Increase to use more memory in "

@@ -1984,7 +1984,7 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
         { .key  = {"priority"},
-          .type = GF_OPTION_TYPE_ANY,
+          .type = GF_OPTION_TYPE_PRIORITY_LIST,
           .default_value = "",
           .description = "Assigns priority to filenames with specific "
           "patterns so that when a page needs to be ejected "
