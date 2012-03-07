@@ -171,6 +171,14 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC, 0},
         {VKEY_PERF_STAT_PREFETCH,                "performance/md-cache",      "!perf", "on", NO_DOC, 0},
         {"performance.client-io-threads",        "performance/io-threads",    "!perf", "off", NO_DOC, 0},
+
+        {"performance.nfs.write-behind",         "performance/write-behind",  "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.read-ahead",           "performance/read-ahead",    "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.io-cache",             "performance/io-cache",      "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.quick-read",           "performance/quick-read",    "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.stat-prefetch",        "performance/md-cache",      "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.io-threads",           "performance/io-threads",    "!nfsperf", "off", NO_DOC, 0},
+
         {VKEY_MARKER_XTIME,                      "features/marker",           "xtime", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_MARKER_XTIME,                      "features/marker",           "!xtime", "off", NO_DOC, OPT_FLAG_FORCE},
         {"debug.trace",                          "debug/trace",               "!debug","off", NO_DOC, 0},
@@ -1791,6 +1799,29 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                 return -1;
 }
 
+static int
+nfsperfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+        char *volname = NULL;
+        gf_boolean_t enabled = _gf_false;
+
+        volname = param;
+
+        if (strcmp (vme->option, "!nfsperf") != 0)
+                return 0;
+
+        if (gf_string2boolean (vme->value, &enabled) == -1)
+                return -1;
+        if (!enabled)
+                return 0;
+
+        if (volgen_graph_add (graph, vme->voltype, volname))
+                return 0;
+        else
+                return -1;
+}
+
 #if (HAVE_LIB_XML)
 static int
 end_sethelp_xml_doc (xmlTextWriterPtr writer)
@@ -2417,9 +2448,10 @@ static int
 client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        int                      ret                = 0;
-        xlator_t                *xl                 = NULL;
-        char                    *volname            = NULL;
+        int       ret      = 0;
+        xlator_t *xl       = NULL;
+        char     *volname  = NULL;
+        data_t   *tmp_data = NULL;
 
         volname = volinfo->volname;
         ret = volgen_graph_build_clients (graph, volinfo, set_dict, param);
@@ -2442,8 +2474,16 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-        ret = volgen_graph_set_options_generic (graph, set_dict, volname,
-                                                &perfxl_option_handler);
+        /* Logic to make sure NFS doesn't have performance translators by
+           default for a volume */
+        tmp_data = dict_get (set_dict, "nfs-volume-file");
+        if (!tmp_data)
+                ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                                                        &perfxl_option_handler);
+        else
+                ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                                                        &nfsperfxl_option_handler);
+
         if (ret)
                 goto out;
 
@@ -2866,6 +2906,10 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
                 ret = dict_set_uint32 (set_dict, "trusted-client",
                                        GF_CLIENT_TRUSTED);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str (set_dict, "nfs-volume-file", "yes");
                 if (ret)
                         goto out;
 
