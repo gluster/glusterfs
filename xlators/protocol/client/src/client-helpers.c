@@ -229,6 +229,7 @@ clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
         while (trav) {
                 trav = trav->nextentry;
                 /* on client, the rpc lib allocates this */
+                free (prev->dict.dict_val);
                 free (prev->name);
                 free (prev);
                 prev = trav;
