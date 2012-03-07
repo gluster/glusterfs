@@ -107,7 +107,7 @@ marker_inode_loc_fill (inode_t *inode, loc_t *loc)
         if (ret < 0)
                 goto err;
 
-        ret = marker_loc_fill (loc, inode, NULL, resolvedpath);
+        ret = marker_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0)
                 goto err;
 

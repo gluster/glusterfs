@@ -1057,7 +1057,6 @@ mq_create_xattr (xlator_t *this, call_frame_t *frame)
                         goto free_value;
         }
 
-        uuid_copy (local->loc.gfid, local->loc.inode->gfid);
         GF_UUID_ASSERT (local->loc.gfid);
 
         STACK_WIND (frame, mq_create_dirty_xattr, FIRST_CHILD(this),
@@ -1129,6 +1128,10 @@ out:
         return 0;
 
 create_xattr:
+        if (uuid_is_null (local->loc.gfid)) {
+                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        }
+
         mq_create_xattr (this, frame);
         return 0;
 }
