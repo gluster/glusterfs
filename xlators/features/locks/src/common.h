@@ -79,7 +79,7 @@ void
 __delete_inode_lock (pl_inode_lock_t *lock);
 
 void
-__destroy_inode_lock (pl_inode_lock_t *lock);
+__pl_inodelk_unref (pl_inode_lock_t *lock);
 
 void
 grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,

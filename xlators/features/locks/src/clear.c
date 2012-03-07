@@ -223,7 +223,9 @@ clrlk_clear_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
         int                     bcount          = 0;
         int                     gcount          = 0;
         gf_boolean_t            chk_range       = _gf_false;
+        struct list_head        released;
 
+        INIT_LIST_HEAD (&released);
         if (clrlk_get_lock_range (args->opts, &ulock, &chk_range)) {
                 *op_errno = EINVAL;
                 goto out;
@@ -247,16 +249,22 @@ blkd:
                                 continue;
 
                         bcount++;
-                        list_del_init (&ilock->list);
-                        pl_trace_out (this, ilock->frame, NULL, NULL, F_SETLKW,
-                                      &ilock->user_flock, -1, EAGAIN,
-                                      ilock->volume);
-                        STACK_UNWIND_STRICT (inodelk, ilock->frame, -1,
-                                             EAGAIN);
-                        GF_FREE (ilock);
+                        list_del_init (&ilock->blocked_locks);
+                        list_add (&ilock->blocked_locks, &released);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
+
+        list_for_each_entry_safe (ilock, tmp, &released, blocked_locks) {
+                list_del_init (&ilock->blocked_locks);
+                pl_trace_out (this, ilock->frame, NULL, NULL, F_SETLKW,
+                              &ilock->user_flock, -1, EAGAIN,
+                              ilock->volume);
+                STACK_UNWIND_STRICT (inodelk, ilock->frame, -1,
+                                     EAGAIN);
+                //No need to take lock as the locks are only in one list
+                __pl_inodelk_unref (ilock);
+        }
 
         if (!(args->kind & CLRLK_GRANTED)) {
                 ret = 0;
@@ -276,14 +284,20 @@ granted:
 
                         gcount++;
                         list_del_init (&ilock->list);
-                        GF_FREE (ilock);
+                        list_add (&ilock->list, &released);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
-        grant_blocked_inode_locks (this, pl_inode, dom);
+        list_for_each_entry_safe (ilock, tmp, &released, list) {
+                list_del_init (&ilock->list);
+                //No need to take lock as the locks are only in one list
+                __pl_inodelk_unref (ilock);
+        }
+
         ret = 0;
 out:
+        grant_blocked_inode_locks (this, pl_inode, dom);
         *blkd    = bcount;
         *granted = gcount;
         return ret;
