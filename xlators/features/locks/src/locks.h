@@ -65,6 +65,7 @@ typedef struct __posix_lock posix_lock_t;
 struct __pl_inode_lock {
         struct list_head   list;
         struct list_head   blocked_locks; /* list_head pointing to blocked_inodelks */
+        int                ref;
 
         short              fl_type;
         off_t              fl_start;

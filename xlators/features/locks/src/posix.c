@@ -1314,7 +1314,7 @@ pl_forget (xlator_t *this,
 
                                 list_for_each_entry_safe (ino_l, ino_tmp, &dom->inodelk_list, list) {
                                         __delete_inode_lock (ino_l);
-                                        __destroy_inode_lock (ino_l);
+                                        __pl_inodelk_unref (ino_l);
                                 }
 
                                 list_splice_init (&dom->blocked_inodelks, &inodelks_released);
@@ -1355,7 +1355,7 @@ pl_forget (xlator_t *this,
         list_for_each_entry_safe (ino_l, ino_tmp, &inodelks_released, blocked_locks) {
 
                 STACK_UNWIND_STRICT (inodelk, ino_l->frame, -1, 0);
-                __destroy_inode_lock (ino_l);
+                __pl_inodelk_unref (ino_l);
         }
 
         list_for_each_entry_safe (entry_l, entry_tmp, &entrylks_released, blocked_locks) {
