@@ -3928,7 +3928,7 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                         goto out;
                 }
 
-                if (stripe_opt->block_size < 512) {
+                if (stripe_opt->block_size < 16384) {
                         gf_log (this->name, GF_LOG_ERROR, "Invalid Block-size: "
                                 "%s. Should be atleast 512 bytes", num);
                         goto out;
@@ -4489,7 +4489,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("block-size", priv->block_size, size, out);
 
-        /* option stripe-pattern *avi:1GB,*pdf:4096 */
+        /* option stripe-pattern *avi:1GB,*pdf:16384 */
         data = dict_get (this->options, "block-size");
         if (data) {
                 ret = set_stripe_block_size (this, priv, data->data);
