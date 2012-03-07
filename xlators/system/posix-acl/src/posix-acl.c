@@ -1430,8 +1430,6 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_dirent_t      *entry       = NULL;
         struct posix_acl *acl_access  = NULL;
         struct posix_acl *acl_default = NULL;
-        struct posix_acl *old_access  = NULL;
-        struct posix_acl *old_default = NULL;
         data_t           *data        = NULL;
         int               ret         = 0;
 
@@ -1444,16 +1442,16 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         continue;
 
                 ret = posix_acl_get (entry->inode, this,
-                                     &old_access, &old_default);
+                                     &acl_access, &acl_default);
 
                 data = dict_get (entry->dict, POSIX_ACL_ACCESS_XATTR);
                 if (!data)
                         goto acl_default;
 
-                if (old_access &&
-                    posix_acl_matches_xattr (this, old_access, data->data,
+                if (acl_access &&
+                    posix_acl_matches_xattr (this, acl_access, data->data,
                                              data->len)) {
-                        acl_access = posix_acl_ref (this, old_access);
+                        acl_access = posix_acl_ref (this, acl_access);
                 } else {
                         acl_access = posix_acl_from_xattr (this, data->data,
                                                            data->len);
@@ -1464,10 +1462,10 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!data)
                         goto acl_set;
 
-                if (old_default &&
-                    posix_acl_matches_xattr (this, old_default, data->data,
+                if (acl_default &&
+                    posix_acl_matches_xattr (this, acl_default, data->data,
                                              data->len)) {
-                        acl_default = posix_acl_ref (this, old_default);
+                        acl_default = posix_acl_ref (this, acl_default);
                 } else {
                         acl_default = posix_acl_from_xattr (this, data->data,
                                                             data->len);
