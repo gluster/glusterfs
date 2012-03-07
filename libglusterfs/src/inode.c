@@ -813,6 +813,14 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
 
                 if (!old_dentry || old_dentry->inode != link_inode) {
                         dentry = __dentry_create (link_inode, parent, name);
+                        if (!dentry) {
+                                gf_log_callingfn (THIS->name, GF_LOG_ERROR,
+                                                  "dentry create failed on "
+                                                  "inode %s with parent %s",
+                                                  uuid_utoa (link_inode->gfid),
+                                                  uuid_utoa (parent->gfid));
+                                return NULL;
+                        }
                         if (old_inode && __is_dentry_cyclic (dentry)) {
                                 __dentry_unset (dentry);
                                 return NULL;
