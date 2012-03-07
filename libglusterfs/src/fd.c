@@ -721,6 +721,10 @@ __fd_anonymous (inode_t *inode)
 
         fd = __fd_lookup (inode, (uint64_t)-1);
 
+        /* if (fd); then we already have increased the refcount in
+           __fd_lookup(), so no need of one more fd_ref().
+           if (!fd); then both create and bind wont bump up the ref
+           count, so we have to call fd_ref() after bind. */
         if (!fd) {
                 fd = __fd_create (inode, (uint64_t)-1);
 
@@ -728,9 +732,9 @@ __fd_anonymous (inode_t *inode)
                         return NULL;
 
                 __fd_bind (fd);
-        }
 
-        __fd_ref (fd);
+                __fd_ref (fd);
+        }
 
         return fd;
 }
