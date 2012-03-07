@@ -100,6 +100,10 @@ struct nfs_fop_local {
         char            newpath[NFS_NAME_MAX + 1];
         xlator_t        *nfsx;
         dict_t          *dictgfid;
+
+        fd_t            *fd;
+        int             cmd;
+        struct gf_flock flock;
 };
 
 extern struct nfs_fop_local *
