@@ -115,9 +115,9 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                         GF_FREE (tmp_host);
                         goto out;
                 }
-                if (!valid_internet_address (host_name)) {
-                        cli_out ("internet address '%s' does not comform to "
-			         "standards", host_name);
+                if (!valid_internet_address (host_name, _gf_false)) {
+                        cli_out ("internet address '%s' does not conform to "
+                                 "standards", host_name);
                 }
                 GF_FREE (tmp_host);
                 tmp_list = gf_strdup (brick_list + 1);
@@ -635,53 +635,16 @@ out:
 }
 
 int32_t
-cli_cmd_valid_ip_list (char *iplist)
-{
-        int     ret = 0;
-        char    *duplist = NULL;
-        char    *addr = NULL;
-        char    *saveptr = NULL;
-
-        GF_ASSERT (iplist);
-        duplist = gf_strdup (iplist);
-
-        if (!duplist) {
-                ret = -1;
-                goto out;
-        }
-
-        addr = strtok_r (duplist, ",", &saveptr);
-        if (!addr) {
-                ret = -1;
-                goto out;
-        }
-        while (addr) {
-                if (!valid_internet_address (addr) &&
-                    !valid_wildcard_internet_address (addr)) {
-                        cli_out ("Invalid ip or wildcard : %s", addr);
-                        ret= -1;
-                        goto out;
-                }
-                addr = strtok_r (NULL, ",", &saveptr);
-        }
-out:
-        if (duplist)
-                GF_FREE (duplist);
-        gf_log ("cli", GF_LOG_INFO, "Returning %d", ret);
-        return ret;
-}
-
-int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
 {
-        dict_t  *dict = NULL;
-        char    *volname = NULL;
-        int     ret = -1;
-        int     count = 0;
-        char    *key = NULL;
-        char    *value = NULL;
-        int     i = 0;
-        char    str[50] = {0,};
+        dict_t                  *dict = NULL;
+        char                    *volname = NULL;
+        int                     ret = -1;
+        int                     count = 0;
+        char                    *key = NULL;
+        char                    *value = NULL;
+        int                     i = 0;
+        char                    str[50] = {0,};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -703,42 +666,28 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        if (wordcount == 3) {
-                if (!strcmp (volname, "help")) {
-                        ret = dict_set_str (dict, "help", volname);
-                        if (ret)
-                                goto out;
-                } else if (!strcmp (volname, "help-xml")) {
-                        ret = dict_set_str (dict, "help-xml", volname);
-                        if (ret)
-                                goto out;
-                } else {
-                        ret = -1;
+        if ((!strcmp (volname, "help") || !strcmp (volname, "help-xml"))
+            && wordcount == 3 ) {
+                ret = dict_set_str (dict, volname, volname);
+                if (ret)
                         goto out;
-                }
+        } else if (wordcount < 5) {
+                ret = -1;
+                goto out;
         }
-
 
         for (i = 3; i < wordcount; i+=2) {
 
-		key = (char *) words[i];
-		value = (char *) words[i+1];
+                key = (char *) words[i];
+                value = (char *) words[i+1];
 
-		if ( !key || !value) {
-			ret = -1;
-			goto out;
-	        }
+                if ( !key || !value) {
+                        ret = -1;
+                        goto out;
+                }
 
                 count++;
-                if (!strncmp ("auth.allow", key, sizeof (key)) ||
-                    !strncmp ("auth.reject", key, sizeof (key))) {
-                        ret = cli_cmd_valid_ip_list (value);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR,
-                                        "invalid ips given");
-                                goto out;
-                        }
-                }
+
                 sprintf (str, "key%d", count);
                 ret = dict_set_str (dict, str, key);
                 if (ret)

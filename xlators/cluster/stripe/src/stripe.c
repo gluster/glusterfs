@@ -39,6 +39,8 @@
 #include "byte-order.h"
 #include "statedump.h"
 
+#define STRIPE_MIN_BLOCK_SIZE 16*GF_UNIT_KB
+
 struct volume_options options[];
 
 void
@@ -70,33 +72,27 @@ out:
  * stripe_get_matching_bs - Get the matching block size for the given path.
  */
 int32_t
-stripe_get_matching_bs (const char *path, struct stripe_options *opts,
-                        uint64_t default_bs)
+stripe_get_matching_bs (const char *path, stripe_private_t *priv)
 {
         struct stripe_options *trav       = NULL;
-        char                  *pathname   = NULL;
         uint64_t               block_size = 0;
 
-        block_size = default_bs;
+        GF_VALIDATE_OR_GOTO ("stripe", priv, out);
+        GF_VALIDATE_OR_GOTO ("stripe", path, out);
 
-        if (!path || !opts)
-                goto out;
-
-        /* FIXME: is a strdup really necessary? */
-        pathname = gf_strdup (path);
-        if (!pathname)
-                goto out;
-
-        trav = opts;
-        while (trav) {
-                if (!fnmatch (trav->path_pattern, pathname, FNM_NOESCAPE)) {
-                        block_size = trav->block_size;
-                        break;
+        LOCK (&priv->lock);
+        {
+                block_size = priv->block_size;
+                trav = priv->pattern;
+                while (trav) {
+                        if (!fnmatch (trav->path_pattern, path, FNM_NOESCAPE)) {
+                                block_size = trav->block_size;
+                                break;
+                        }
+                        trav = trav->next;
                 }
-                trav = trav->next;
         }
-
-        GF_FREE (pathname);
+        UNLOCK (&priv->lock);
 
 out:
         return block_size;
@@ -1883,9 +1879,7 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 }
                 local->op_ret = -1;
                 local->op_errno = ENOTCONN;
-                local->stripe_size = stripe_get_matching_bs (loc->path,
-                                                             priv->pattern,
-                                                             priv->block_size);
+                local->stripe_size = stripe_get_matching_bs (loc->path, priv);
                 frame->local = local;
                 local->inode = inode_ref (loc->inode);
                 loc_copy (&local->loc, loc);
@@ -2546,9 +2540,7 @@ stripe_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
         local->op_ret = -1;
         local->op_errno = ENOTCONN;
-        local->stripe_size = stripe_get_matching_bs (loc->path,
-                                                     priv->pattern,
-                                                     priv->block_size);
+        local->stripe_size = stripe_get_matching_bs (loc->path, priv);
         frame->local = local;
         local->inode = inode_ref (loc->inode);
         loc_copy (&local->loc, loc);
@@ -2689,9 +2681,7 @@ stripe_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         /* Striped files */
         local->flags = flags;
         local->call_count = priv->child_count;
-        local->stripe_size = stripe_get_matching_bs (loc->path,
-                                                     priv->pattern,
-                                                     priv->block_size);
+        local->stripe_size = stripe_get_matching_bs (loc->path, priv);
 
         while (trav) {
                 STACK_WIND (frame, stripe_open_cbk, trav->xlator,
@@ -3889,6 +3879,30 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         return 0;
 }
 
+static int
+set_default_block_size (stripe_private_t *priv, char *num)
+{
+
+        int             ret = -1;
+        GF_VALIDATE_OR_GOTO ("stripe", THIS, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, priv, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, num, out);
+
+
+        if (gf_string2bytesize (num, &priv->block_size) != 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "invalid number format \"%s\"", num);
+                goto out;
+        }
+
+        ret = 0;
+
+ out:
+        return ret;
+
+}
+
+
 int
 set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
 {
@@ -3910,7 +3924,8 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
         stripe_str = strtok_r (data, ",", &tmp_str);
         while (stripe_str) {
                 dup_str = gf_strdup (stripe_str);
-                stripe_opt = CALLOC (1, sizeof (struct stripe_options));
+                stripe_opt = GF_CALLOC (1, sizeof (struct stripe_options),
+                                        gf_stripe_mt_stripe_options);
                 if (!stripe_opt) {
                         GF_FREE (dup_str);
                         goto out;
@@ -3921,6 +3936,9 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                 if (!num) {
                         num = pattern;
                         pattern = "*";
+                        ret = set_default_block_size (priv, num);
+                        if (ret)
+                                goto out;
                 }
                 if (gf_string2bytesize (num, &stripe_opt->block_size) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -3928,7 +3946,7 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                         goto out;
                 }
 
-                if (stripe_opt->block_size < 512) {
+                if (stripe_opt->block_size < STRIPE_MIN_BLOCK_SIZE) {
                         gf_log (this->name, GF_LOG_ERROR, "Invalid Block-size: "
                                 "%s. Should be atleast 512 bytes", num);
                         goto out;
@@ -3945,14 +3963,13 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                         "block-size : pattern %s : size %"PRId64,
                         stripe_opt->path_pattern, stripe_opt->block_size);
 
-                if (!priv->pattern) {
-                        priv->pattern = stripe_opt;
-                } else {
+                if (priv->pattern)
+                        temp_stripeopt = NULL;
+                else
                         temp_stripeopt = priv->pattern;
-                        while (temp_stripeopt->next)
-                                temp_stripeopt = temp_stripeopt->next;
-                        temp_stripeopt->next = stripe_opt;
-                }
+                priv->pattern = stripe_opt;
+                stripe_opt->next = temp_stripeopt;
+
                 stripe_str = strtok_r (NULL, ",", &tmp_str);
                 GF_FREE (dup_str);
         }
@@ -4397,21 +4414,83 @@ out:
         return ret;
 }
 
+static int
+clear_pattern_list (stripe_private_t *priv)
+{
+        struct stripe_options *prev = NULL;
+        struct stripe_options *trav = NULL;
+        int                    ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("stripe", priv, out);
+
+        trav = priv->pattern;
+        priv->pattern = NULL;
+        while (trav) {
+                prev = trav;
+                trav = trav->next;
+                GF_FREE (prev);
+        }
+
+        ret = 0;
+ out:
+        return ret;
+
+
+}
+
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
 
-	stripe_private_t *priv = NULL;
-	int		  ret = -1;
+        stripe_private_t *priv = NULL;
+        data_t           *data = NULL;
+        int               ret = -1;
+        volume_option_t  *opt = NULL;
 
-	priv = this->private;
+        GF_ASSERT (this);
+        GF_ASSERT (this->private);
 
-        GF_OPTION_RECONF ("block-size", priv->block_size, options, size, out);
+        priv = this->private;
+
 
         ret = 0;
-out:
-	return ret;
+        LOCK (&priv->lock);
+        {
+                ret = clear_pattern_list (priv);
+                if (ret)
+                         goto unlock;
+
+                data = dict_get (options, "block-size");
+                if (data) {
+                        ret = set_stripe_block_size (this, priv, data->data);
+                        if (ret)
+                                goto unlock;
+                } else {
+                        opt = xlator_volume_option_get (this, "block-size");
+                        if (!opt) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "option 'block-size' not found");
+                                ret = -1;
+                                goto unlock;
+                        }
+
+                        if (gf_string2bytesize (opt->default_value, &priv->block_size)){
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to set default block-size ");
+                                ret = -1;
+                                goto unlock;
+                        }
+                }
+        }
+ unlock:
+        UNLOCK (&priv->lock);
+        if (ret)
+                goto out;
+
+        ret = 0;
+ out:
+        return ret;
 
 }
 
@@ -4424,6 +4503,7 @@ int32_t
 init (xlator_t *this)
 {
         stripe_private_t *priv = NULL;
+        volume_option_t  *opt = NULL;
         xlator_list_t    *trav = NULL;
         data_t           *data = NULL;
         int32_t           count = 0;
@@ -4489,19 +4569,36 @@ init (xlator_t *this)
                 goto out;
         }
 
-
-        GF_OPTION_INIT ("block-size", priv->block_size, size, out);
-
-        /* option stripe-pattern *avi:1GB,*pdf:4096 */
-        data = dict_get (this->options, "block-size");
-        if (data) {
-                ret = set_stripe_block_size (this, priv, data->data);
-                if (ret)
-                        goto out;
+        ret = 0;
+        LOCK (&priv->lock);
+        {
+                opt = xlator_volume_option_get (this, "block-size");
+                if (!opt) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "option 'block-size' not found");
+                        ret = -1;
+                        goto unlock;
+                }
+                if (gf_string2bytesize (opt->default_value, &priv->block_size)){
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to set default block-size ");
+                        ret = -1;
+                        goto unlock;
+                }
+                /* option stripe-pattern *avi:1GB,*pdf:16K */
+                data = dict_get (this->options, "block-size");
+                if (data) {
+                        ret = set_stripe_block_size (this, priv, data->data);
+                        if (ret)
+                                goto unlock;
+                }
         }
+ unlock:
+        UNLOCK (&priv->lock);
+        if (ret)
+                goto out;
 
         GF_OPTION_INIT ("use-xattr", priv->xattr_supported, bool, out);
-
         /* notify related */
         priv->nodes_down = priv->child_count;
 
@@ -4551,7 +4648,7 @@ fini (xlator_t *this)
                 while (trav) {
                         prev = trav;
                         trav = trav->next;
-                        FREE (prev);
+                        GF_FREE (prev);
                 }
                 LOCK_DESTROY (&priv->lock);
                 GF_FREE (priv);
@@ -5072,8 +5169,9 @@ struct xlator_dumpops dumpops = {
 
 struct volume_options options[] = {
         { .key  = {"block-size"},
-          .type = GF_OPTION_TYPE_ANY,
+          .type = GF_OPTION_TYPE_SIZE_LIST,
           .default_value = "128KB",
+          .min = STRIPE_MIN_BLOCK_SIZE,
           .description = "Size of the stripe unit that would be read "
                          "from or written to the striped servers."
         },

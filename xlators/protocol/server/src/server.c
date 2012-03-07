@@ -558,9 +558,8 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 
                                 while (addr) {
 
-                                        if (valid_internet_address (addr) ||
-                                        valid_wildcard_internet_address (addr))
-                                        {
+                                        if (valid_internet_address
+                                                        (addr, _gf_true)) {
                                                 error = 0;
                                         } else {
                                                 error = -1;
@@ -1140,5 +1139,16 @@ struct volume_options options[] = {
          .min  = GF_MIN_SOCKET_WINDOW_SIZE,
          .max  = GF_MAX_SOCKET_WINDOW_SIZE
         },
+
+        /*  The following two options are defined in addr.c, redifined here *
+         * for the sake of validation during volume set from cli            */
+
+        { .key   = {"auth.addr.*.allow"},
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
+        },
+        { .key   = {"auth.addr.*.reject"},
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
+        },
+
         { .key   = {NULL} },
 };

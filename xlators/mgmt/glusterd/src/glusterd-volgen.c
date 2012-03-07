@@ -186,7 +186,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC, 0},
 
         {"nfs.rpc-auth-unix",                    "nfs/server",                "!rpc-auth.auth-unix.*", NULL, DOC, 0},
-        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth.null.*", NULL, DOC, 0},
+        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth-null.*", NULL, DOC, 0},
         {"nfs.rpc-auth-allow",                   "nfs/server",                "!rpc-auth.addr.*.allow", NULL, DOC, 0},
         {"nfs.rpc-auth-reject",                  "nfs/server",                "!rpc-auth.addr.*.reject", NULL, DOC, 0},
         {"nfs.ports-insecure",                   "nfs/server",                "!rpc-auth.ports.*.insecure", NULL, DOC, 0},
@@ -2539,7 +2539,7 @@ nfs_option_handler (volgen_graph_t *graph,
         }
 
         if (! strcmp (vme->option, "!rpc-auth.auth-unix.*")) {
-                ret = gf_asprintf (&aa, "rpc-auth.auth.unix.%s",
+                ret = gf_asprintf (&aa, "rpc-auth.auth-unix.%s",
                                         volinfo->volname);
 
                 if (ret != -1) {
@@ -2550,8 +2550,8 @@ nfs_option_handler (volgen_graph_t *graph,
                 if (ret)
                         return -1;
         }
-        if (! strcmp (vme->option, "!rpc-auth.auth.null.*")) {
-                ret = gf_asprintf (&aa, "rpc-auth.auth.null.%s",
+        if (! strcmp (vme->option, "!rpc-auth.auth-null.*")) {
+                ret = gf_asprintf (&aa, "rpc-auth.auth-null.%s",
                                         volinfo->volname);
 
                 if (ret != -1) {

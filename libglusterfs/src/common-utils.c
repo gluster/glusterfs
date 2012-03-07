@@ -1586,47 +1586,79 @@ get_nth_word (const char *str, int n)
 }
 
 /* RFC 1123 & 952 */
-
-/* The functions below validate given internet addresses and
- * wildcard internet address for correctness.
- * All return 1 on success and 0 on failure
- */
-
+/* Syntax formed combining RFC 1123 & 952                                     *
+   <hname> ::= <first-name>*["."<gen-name>]                                   *
+   <first-name> ::= <let-or-digit> <[*[<let-or-digit-or-hyphen>]<let-or-digit>]
+   <gen-name> ::= <let>[*[<let-or-digit-or-hyphen>]<let-or-digit>]            */
 char
 valid_host_name (char *address, int length)
 {
-        int     i = 0;
-        char    ret = 0;
-        int     flag = 0;
+        int             i = 0;
+        int             str_len = 0;
+        char            ret = 1;
+        char            *dup_addr = NULL;
+        char            *temp_str = NULL;
+        char            *save_ptr = NULL;
 
-        if ((length > 255) || (length == 1))
+        if ((length > _POSIX_HOST_NAME_MAX) || (length == 1)) {
+                ret = 0;
                 goto out;
-
-        if (!isalnum (address[length - 1]))
-                goto out;
-
-        for (i = 0; i < length; i++) {
-                if (!isalnum (address[i]) && (address[i] != '.')
-                    && (address[i] != '-'))
-                        goto out;
-
-                if (isalpha(address[i]))
-                        flag = 1;
         }
 
-        if (flag)
-                ret = 1;
+        dup_addr = gf_strdup (address);
+        if (!dup_addr) {
+                ret = 0;
+                goto out;
+        }
+        temp_str = strtok_r (dup_addr,".", &save_ptr);
+
+        /* first-name */
+        if (!temp_str ||
+            !isalnum(temp_str[0]) ||
+            !isalnum (temp_str[strlen(temp_str)-1])) {
+                ret = 0;
+                goto out;
+        }
+        for (i = 1; i < (strlen (temp_str) - 1); i++) {
+                if (!isalnum (temp_str[i]) && (temp_str[i] != '-')) {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        /* gen-name */
+        while ((temp_str = strtok_r (NULL, ".", &save_ptr))) {
+                str_len = strlen (temp_str);
+
+                if (!isalpha (temp_str[0]) ||
+                    !isalnum (temp_str[str_len-1])) {
+                        ret = 0;
+                        goto out;
+                }
+                for (i = 1; i < str_len; i++) {
+                        if (!isalnum (temp_str[i]) && (temp_str[i] != '-')) {
+                                ret = 0;
+                                goto out;
+                        }
+                }
+        }
+
 out:
+        if (dup_addr)
+                GF_FREE (dup_addr);
         return ret;
 }
 
+/*  Matches all ipv4 address, if wildcard_acc is true  '*' wildcard pattern for*
+  subnets is considerd as valid strings as well                               */
 char
-valid_ipv4_address (char *address, int length)
+valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc)
 {
         int octets = 0;
         int value = 0;
         char *tmp = NULL, *ptr = NULL, *prev = NULL, *endptr = NULL;
-        char ret = 0;
+        char ret = 1;
+        int is_wildcard = 0;
 
         tmp = gf_strdup (address);
         prev = tmp;
@@ -1634,15 +1666,22 @@ valid_ipv4_address (char *address, int length)
 
         while (prev != NULL) {
                 octets++;
-                value = strtol (prev, &endptr, 10);
-                if ((value > 255) || (value < 0) ||
-                    (endptr != NULL && *endptr != '\0'))
-                        goto out;
+                if (wildcard_acc && !strcmp (prev, "*")) {
+                        is_wildcard = 1;
+                } else {
+                        value = strtol (prev, &endptr, 10);
+                        if ((value > 255) || (value < 0) ||
+                            (endptr != NULL && *endptr != '\0')) {
+                                ret = 0;
+                                goto out;
+                        }
+                }
                 prev = strtok_r (NULL, ".", &ptr);
         }
 
-        if (octets == 4)
-                ret = 1;
+        if ((octets > 4) || (octets < 4 && !is_wildcard)) {
+                ret = 0;
+        }
 
 out:
         GF_FREE (tmp);
@@ -1650,27 +1689,35 @@ out:
 }
 
 char
-valid_ipv6_address (char *address, int length)
+valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc)
 {
         int hex_numbers = 0;
         int value = 0;
         char *tmp = NULL, *ptr = NULL, *prev = NULL, *endptr = NULL;
-        char ret = 0;
+        char ret = 1;
+        int is_wildcard = 0;
 
         tmp = gf_strdup (address);
         prev = strtok_r (tmp, ":", &ptr);
 
         while (prev != NULL) {
                 hex_numbers++;
-                value = strtol (prev, &endptr, 16);
-                if ((value > 0xffff) || (value < 0)
-                    || (endptr != NULL && *endptr != '\0'))
-                        goto out;
+                if (wildcard_acc && !strcmp (prev, "*")) {
+                        is_wildcard = 1;
+                } else {
+                        value = strtol (prev, &endptr, 16);
+                        if ((value > 0xffff) || (value < 0)
+                        || (endptr != NULL && *endptr != '\0')) {
+                                ret = 0;
+                                goto out;
+                        }
+                }
                 prev = strtok_r (NULL, ":", &ptr);
         }
 
-        if (hex_numbers <= 8)
-                ret = 1;
+        if ((hex_numbers > 8) || (hex_numbers < 8 && !is_wildcard)) {
+                ret = 0;
+        }
 
 out:
         GF_FREE (tmp);
@@ -1678,7 +1725,7 @@ out:
 }
 
 char
-valid_internet_address (char *address)
+valid_internet_address (char *address, gf_boolean_t wildcard_acc)
 {
         char ret = 0;
         int length = 0;
@@ -1692,107 +1739,9 @@ valid_internet_address (char *address)
         if (length == 0)
                 goto out;
 
-        if (valid_ipv4_address (address, length)
-            || valid_ipv6_address (address, length)
+        if (valid_ipv4_address (address, length, wildcard_acc)
+            || valid_ipv6_address (address, length, wildcard_acc)
             || valid_host_name (address, length))
-                ret = 1;
-
-out:
-        return ret;
-}
-
-char
-valid_ipv4_wildcard_check (char *address)
-{
-        char    ret = 0;
-        int     octets = 0;
-        char    *tmp = NULL;
-        char    *prev = NULL;
-        char    *endptr = NULL;
-        int     value = 0;
-        int     is_wildcard = 0;
-
-        tmp = gf_strdup (address);
-        prev = strtok (tmp, ".");
-
-        while (prev != NULL) {
-                octets++;
-
-                if (!strcmp (prev, "*")) {
-                        is_wildcard = 1;
-                } else {
-                        value = strtol (prev, &endptr, 10);
-
-                        if ((value > 255) || (value < 0) ||
-                            (endptr != NULL && *endptr != '\0'))
-                                goto out;
-                }
-                prev = strtok (NULL, ".");
-        }
-
-        if (is_wildcard && (octets <= 4))
-                ret = 1;
-
-out:
-        if (tmp)
-                GF_FREE (tmp);
-        return ret;
-
-}
-
-char
-valid_ipv6_wildcard_check (char *address)
-{
-        char    ret = 0;
-        int     hex_numbers = 0;
-        int     value = 0;
-        char    *tmp = NULL;
-        char    *prev = NULL;
-        char    *endptr = NULL;
-        int     is_wildcard = 0;
-
-        tmp = gf_strdup (address);
-        prev = strtok (tmp, ":");
-
-        while (prev != NULL) {
-                hex_numbers++;
-
-                if (!strcmp (prev, "*")) {
-                        is_wildcard = 1;
-                } else {
-                        value = strtol (prev, &endptr, 16);
-
-                        if ((value > 0xffff) || (value < 0) ||
-                            (endptr != NULL && *endptr != '\0'))
-                                goto out;
-                }
-                prev = strtok (NULL, ":");
-        }
-
-        if (is_wildcard && (hex_numbers <= 8))
-                ret = 1;
-out:
-        if (tmp)
-                GF_FREE (tmp);
-        return ret;
-}
-
-char
-valid_wildcard_internet_address (char *address)
-{
-        char    ret = 0;
-
-        if (address == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
-                                  "argument invalid");
-                goto out;
-        }
-
-        if (strlen (address) == 0)
-                goto out;
-
-        if (valid_ipv4_wildcard_check (address) ||
-            valid_ipv6_wildcard_check (address))
                 ret = 1;
 
 out:

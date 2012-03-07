@@ -464,10 +464,11 @@ xlator_option_validate_addr (xlator_t *xl, const char *key, const char *value,
         int          ret = -1;
         char         errstr[256];
 
-        if (!valid_internet_address ((char *)value)) {
+        if (!valid_internet_address ((char *)value, _gf_false)) {
                 snprintf (errstr, 256,
-                          "internet address '%s' does not conform to standards.",
-                          value);
+                          "option %s %s: '%s'  is not a valid internet-address,"
+                          " it does not conform to standards.",
+                          key, value, value);
                 gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
                 if (op_errstr)
                         *op_errstr = gf_strdup (errstr);
@@ -478,6 +479,176 @@ xlator_option_validate_addr (xlator_t *xl, const char *key, const char *value,
         return ret;
 }
 
+static int
+xlator_option_validate_addr_list (xlator_t *xl, const char *key,
+                                  const char *value, volume_option_t *opt,
+                                  char **op_errstr)
+{
+        int          ret = -1;
+        char         *dup_val = NULL;
+        char         *addr_tok = NULL;
+        char         *save_ptr = NULL;
+        char         errstr[256];
+
+        dup_val = gf_strdup (value);
+        if (!dup_val) {
+                ret = -1;
+                snprintf (errstr, 256, "internal error, out of memory.");
+                goto out;
+        }
+
+        addr_tok = strtok_r (dup_val, ",", &save_ptr);
+        while (addr_tok) {
+                if (!valid_internet_address (addr_tok, _gf_true)) {
+                        snprintf (errstr, 256,
+                                  "option %s %s: '%s' is not a valid "
+                                  "internet-address-list",
+                                  key, value, value);
+                        gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                        ret = -1;
+                        goto out;
+                }
+                addr_tok = strtok_r (NULL, ",", &save_ptr);
+        }
+        ret = 0;
+ out:
+        if (op_errstr && ret)
+                *op_errstr = gf_strdup (errstr);
+        if (dup_val)
+                GF_FREE (dup_val);
+
+        return ret;
+}
+
+/*XXX: the rules to validate are as per block-size required for stripe xlator */
+static int
+gf_validate_size (const char *sizestr, volume_option_t *opt)
+{
+        uint64_t                value = 0;
+        int                     ret = 0;
+
+        GF_ASSERT (opt);
+
+        if (gf_string2bytesize (sizestr, &value) != 0 ||
+            value < opt->min ||
+            value % 512) {
+                ret = -1;
+                goto out;
+        }
+
+ out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static int
+gf_validate_number (const char *numstr, volume_option_t *opt)
+{
+        int32_t value;
+        return gf_string2int32 (numstr, &value);
+}
+
+/*  Parses the string to be of the form <key1>:<value1>,<key2>:<value2>...  *
+ *  takes two optional validaters key_validator and value_validator         */
+static int
+validate_list_elements (const char *string, volume_option_t *opt,
+                        int (key_validator)( const char *),
+                        int (value_validator)( const char *, volume_option_t *))
+{
+
+        char                    *dup_string = NULL;
+        char                    *str_sav = NULL;
+        char                    *substr_sav = NULL;
+        char                    *str_ptr = NULL;
+        char                    *key = NULL;
+        char                    *value = NULL;
+        int                     ret = 0;
+
+        GF_ASSERT (string);
+
+        dup_string = gf_strdup (string);
+        if (NULL == dup_string)
+                goto out;
+
+        str_ptr = strtok_r (dup_string, ",", &str_sav);
+        while (str_ptr) {
+
+                key = strtok_r (str_ptr, ":", &substr_sav);
+                if (!key ||
+                    (key_validator && key_validator(key))) {
+                        ret = -1;
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "invalid list '%s', key '%s' not valid.",
+                                string, key);
+                        goto out;
+                }
+
+                value = strtok_r (NULL, ":", &substr_sav);
+                if (!value ||
+                    (value_validator && value_validator(value, opt))) {
+                        ret = -1;
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "invalid list '%s', value '%s' not valid.",
+                                string, key);
+                        goto out;
+                }
+
+                str_ptr = strtok_r (NULL, ",", &str_sav);
+                substr_sav = NULL;
+        }
+ out:
+        if (dup_string)
+                GF_FREE (dup_string);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static int
+xlator_option_validate_priority_list (xlator_t *xl, const char *key,
+                                      const char *value, volume_option_t *opt,
+                                      char **op_errstr)
+{
+        int                     ret =0;
+        char                    errstr[1024] = {0, };
+
+        GF_ASSERT (value);
+
+        ret = validate_list_elements (value, opt, NULL, &gf_validate_number);
+        if (ret) {
+                snprintf (errstr, 1024,
+                          "option %s %s: '%s' is not a valid "
+                          "priority-list", key, value, value);
+                *op_errstr = gf_strdup (errstr);
+        }
+
+        return ret;
+}
+
+static int
+xlator_option_validate_size_list (xlator_t *xl, const char *key,
+                                  const char *value, volume_option_t *opt,
+                                  char **op_errstr)
+{
+
+        int                    ret = 0;
+        char                   errstr[1024] = {0, };
+
+        GF_ASSERT (value);
+
+        ret = gf_validate_size (value, opt);
+        if (ret)
+                ret = validate_list_elements (value, opt, NULL, &gf_validate_size);
+
+        if (ret) {
+                snprintf (errstr, 1024,
+                          "option %s %s: '%s' is not a valid "
+                          "size-list", key, value, value);
+                *op_errstr = gf_strdup (errstr);
+        }
+
+        return ret;
+
+}
 
 static int
 xlator_option_validate_any (xlator_t *xl, const char *key, const char *value,
@@ -485,7 +656,6 @@ xlator_option_validate_any (xlator_t *xl, const char *key, const char *value,
 {
         return 0;
 }
-
 
 typedef int (xlator_option_validator_t) (xlator_t *xl, const char *key,
                                          const char *value,
@@ -510,6 +680,11 @@ xlator_option_validate (xlator_t *xl, char *key, char *value,
                 [GF_OPTION_TYPE_TIME]        = xlator_option_validate_time,
                 [GF_OPTION_TYPE_DOUBLE]      = xlator_option_validate_double,
                 [GF_OPTION_TYPE_INTERNET_ADDRESS] = xlator_option_validate_addr,
+                [GF_OPTION_TYPE_INTERNET_ADDRESS_LIST] =
+                xlator_option_validate_addr_list,
+                [GF_OPTION_TYPE_PRIORITY_LIST] =
+                xlator_option_validate_priority_list,
+                [GF_OPTION_TYPE_SIZE_LIST]   = xlator_option_validate_size_list,
                 [GF_OPTION_TYPE_ANY]         = xlator_option_validate_any,
                 [GF_OPTION_TYPE_MAX]         = NULL,
         };
