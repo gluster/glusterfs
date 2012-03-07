@@ -30,7 +30,7 @@
 #endif
 #include "afr-common.c"
 
-#define SHD_INODE_LRU_LIMIT          100
+#define SHD_INODE_LRU_LIMIT          2048
 #define AFR_EH_HEALED_LIMIT          1024
 #define AFR_EH_HEAL_FAIL_LIMIT       1024
 #define AFR_EH_SPLIT_BRAIN_LIMIT     1024

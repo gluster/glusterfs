@@ -715,6 +715,7 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
         loc_t            entry_loc = {0};
         fd_t             *fd = NULL;
         struct iatt      iattr = {0};
+        inode_t          *link_inode = NULL;
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
                 if (!_crawl_proceed (this, crawl_data->child,
@@ -751,7 +752,15 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                 if (ret || !IA_ISDIR (iattr.ia_type))
                         continue;
 
-                inode_link (entry_loc.inode, parentloc->inode, NULL, &iattr);
+                link_inode = inode_link (entry_loc.inode, NULL, NULL, &iattr);
+                if (link_inode == NULL) {
+                        char uuidbuf[64];
+                        gf_log (this->name, GF_LOG_ERROR, "inode link failed "
+                                "on the inode (%s)",
+                                uuid_utoa_r (entry_loc.gfid, uuidbuf));
+                        ret = -1;
+                        goto out;
+                }
 
                 fd = NULL;
                 ret = afr_crawl_opendir (this, crawl_data, &fd, &entry_loc);
