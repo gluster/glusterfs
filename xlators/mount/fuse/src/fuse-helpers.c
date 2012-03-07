@@ -422,21 +422,24 @@ gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa)
 #endif
 }
 
-int
-fuse_flip_user_to_trusted (char *okey, char **nkey)
+static int
+fuse_do_flip_xattr_ns (char *okey, const char *nns, char **nkey)
 {
         int   ret = 0;
         char *key = NULL;
 
-        key = GF_CALLOC (1, strlen(okey) + 10, gf_common_mt_char);
+        okey = strchr (okey, '.');
+        GF_ASSERT (okey);
+
+        key = GF_CALLOC (1, strlen (nns) + strlen(okey) + 1,
+                         gf_common_mt_char);
         if (!key) {
                 ret = -1;
                 goto out;
         }
 
-        okey += 5;
-        strncpy(key, "trusted.", 8);
-        strncat(key+8, okey, strlen(okey));
+        strcpy (key, nns);
+        strcat (key, okey);
 
         *nkey = key;
 
@@ -454,6 +457,9 @@ fuse_xattr_alloc_default (char *okey, char **nkey)
                 ret = -1;
         return ret;
 }
+
+#define PRIV_XA_NS   "trusted"
+#define UNPRIV_XA_NS "system"
 
 int
 fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
@@ -482,9 +488,9 @@ fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
                 /* valid xattr(s): *xtime, volume-mark* */
                 gf_log("glusterfs-fuse", GF_LOG_DEBUG, "PID: %d, checking xattr(s): "
                        "volume-mark*, *xtime", npid);
-                if ( (strcmp (okey, "user.glusterfs.volume-mark") == 0)
-                     || (fnmatch (okey, "user.glusterfs.volume-mark.*", FNM_PERIOD) == 0)
-                     || (fnmatch ("user.glusterfs.*.xtime", okey, FNM_PERIOD) == 0) )
+                if ( (strcmp (okey, UNPRIV_XA_NS".glusterfs.volume-mark") == 0)
+                     || (fnmatch (UNPRIV_XA_NS".glusterfs.volume-mark.*", okey, FNM_PERIOD) == 0)
+                     || (fnmatch (UNPRIV_XA_NS".glusterfs.*.xtime", okey, FNM_PERIOD) == 0) )
                         need_flip = _gf_true;
                 break;
 
@@ -492,15 +498,15 @@ fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
                 /* valid xattr(s): pathinfo */
                 gf_log("glusterfs-fuse", GF_LOG_DEBUG, "PID: %d, checking xattr(s): "
                        "pathinfo", npid);
-                if (strcmp (okey, "user.glusterfs.pathinfo") == 0)
+                if (strcmp (okey, UNPRIV_XA_NS".glusterfs.pathinfo") == 0)
                         need_flip = _gf_true;
                 break;
         }
 
         if (need_flip) {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "flipping %s to trusted equivalent",
+                gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "flipping %s to "PRIV_XA_NS" equivalent",
                         okey);
-                ret = fuse_flip_user_to_trusted (okey, nkey);
+                ret = fuse_do_flip_xattr_ns (okey, PRIV_XA_NS, nkey);
         } else {
                 /* if we cannot match, continue with what we got */
                 ret = fuse_xattr_alloc_default (okey, nkey);

@@ -347,7 +347,6 @@ inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);
 int fuse_gfid_set (fuse_state_t *state);
 int fuse_flip_xattr_ns (struct fuse_private *priv, char *okey, char **nkey);
-int fuse_flip_user_to_trusted (char *okey, char **nkey);
 int fuse_xattr_alloc_default (char *okey, char **nkey);
 fuse_fd_ctx_t * __fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
 fuse_fd_ctx_t * fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
