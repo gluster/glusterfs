@@ -524,7 +524,8 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         /* wake up all the frames waiting on
                                          * this page, including
                                          * the frame which triggered fault */
-                                        waitq = __ioc_page_wakeup (page);
+                                        waitq = __ioc_page_wakeup (page,
+                                                                   op_errno);
                                 } /* if(page->waitq) */
                         } /* if(!page)...else */
                 } /* if(op_ret < 0)...else */
@@ -650,7 +651,7 @@ err:
 
 int32_t
 __ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
-                  size_t size)
+                  size_t size, int32_t op_errno)
 {
         ioc_local_t *local      = NULL;
         ioc_fill_t  *fill       = NULL;
@@ -685,7 +686,13 @@ __ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
         /* immediately move this page to the end of the page_lru list */
         list_move_tail (&page->page_lru, &ioc_inode->cache.page_lru);
         /* fill local->pending_size bytes from local->pending_offset */
-        if (local->op_ret != -1 && page->size) {
+        if (local->op_ret != -1) {
+                local->op_errno = op_errno;
+
+                if (page->size == 0) {
+                        goto done;
+                }
+
                 if (offset > page->offset)
                         /* offset is offset in file, convert it to offset in
                          * page */
@@ -778,6 +785,7 @@ __ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
                 local->op_ret += copy_size;
         }
 
+done:
         ret = 0;
 out:
         return ret;
@@ -922,7 +930,7 @@ ioc_frame_return (call_frame_t *frame)
  * to be called only when a frame is waiting on an in-transit page
  */
 ioc_waitq_t *
-__ioc_page_wakeup (ioc_page_t *page)
+__ioc_page_wakeup (ioc_page_t *page, int32_t op_errno)
 {
         ioc_waitq_t  *waitq = NULL, *trav = NULL;
         call_frame_t *frame = NULL;
@@ -941,7 +949,7 @@ __ioc_page_wakeup (ioc_page_t *page)
         for (trav = waitq; trav; trav = trav->next) {
                 frame = trav->data;
                 ret = __ioc_frame_fill (page, frame, trav->pending_offset,
-                                        trav->pending_size);
+                                        trav->pending_size, op_errno);
                 if (ret == -1) {
                         break;
                 }

@@ -212,7 +212,7 @@ __ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
                   size_t size);
 
 ioc_waitq_t *
-__ioc_page_wakeup (ioc_page_t *page);
+__ioc_page_wakeup (ioc_page_t *page, int32_t op_errno);
 
 void
 ioc_page_flush (ioc_page_t *page);
@@ -228,7 +228,7 @@ ioc_waitq_return (ioc_waitq_t *waitq);
 
 int32_t
 ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
-                size_t size);
+                size_t size, int32_t op_errno);
 
 #define ioc_inode_lock(ioc_inode)                                       \
         do {                                                            \
