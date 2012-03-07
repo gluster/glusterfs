@@ -414,7 +414,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "%s: failed to set gfid in dict", loc->path);
         } else if (local->params) {
                 /* Send the dictionary from higher layers directly */
@@ -830,14 +830,14 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         local->selfheal.layout = dht_layout_ref (this, layout);
 
         if (down) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "%d subvolumes down -- not fixing", down);
                 ret = 0;
                 goto sorry_no_fix;
         }
 
         if (misc) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "%d subvolumes have unrecoverable errors", misc);
                 ret = 0;
                 goto sorry_no_fix;
@@ -847,7 +847,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "not able to form layout for the directory");
                 goto sorry_no_fix;
         }
