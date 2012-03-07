@@ -999,7 +999,7 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                                                 "cache hit for trav_offset=%"
                                                 PRId64"/local_offset=%"PRId64"",
                                                 trav_offset, local_offset);
-                                        waitq = __ioc_page_wakeup (trav);
+                                        waitq = __ioc_page_wakeup (trav, 0);
                                 } else {
                                         /* if waitq already exists, fstat
                                          * revalidate is
@@ -1016,7 +1016,8 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                                                 local->op_errno = -ret;
                                                 need_validate = 0;
 
-                                                waitq = __ioc_page_wakeup (trav);
+                                                waitq = __ioc_page_wakeup (trav,
+                                                                           0);
                                                 ioc_inode_unlock (ioc_inode);
 
                                                 ioc_waitq_return (waitq);
@@ -1048,7 +1049,7 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                         if (ret == -1) {
                                 ioc_inode_lock (ioc_inode);
                                 {
-                                        waitq = __ioc_page_wakeup (trav);
+                                        waitq = __ioc_page_wakeup (trav, 0);
                                 }
                                 ioc_inode_unlock (ioc_inode);
 

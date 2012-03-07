@@ -123,7 +123,8 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                                 ioc_inode_lock (ioc_inode);
                                 {
                                         page_waitq =
-                                                __ioc_page_wakeup (waiter_page);
+                                                __ioc_page_wakeup (waiter_page,
+                                                                   0);
                                 }
                                 ioc_inode_unlock (ioc_inode);
                                 if (page_waitq)
