@@ -1370,6 +1370,11 @@ nfs_fop_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         nfl_to_prog_data (nfl, progcbk, frame);
 
+        if (!op_ret)
+                fd_lk_insert_and_merge (nfl->fd, nfl->cmd, &nfl->flock);
+
+        fd_unref (nfl->fd);
+
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, flock);
 
@@ -1391,6 +1396,10 @@ nfs_fop_lk (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
+
+        nfl->cmd   = cmd;
+        nfl->fd    = fd_ref (fd);
+        nfl->flock = *flock;
 
         STACK_WIND_COOKIE (frame, nfs_fop_lk_cbk, xl, xl, xl->fops->lk,
                            fd, cmd, flock);
