@@ -176,7 +176,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
 
         ret = dht_hash_compute (layout->type, name, &hash);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "hash computation failed for type=%d name=%s",
                         layout->type, name);
                 goto out;
@@ -191,7 +191,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
         }
 
         if (!subvol) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "no subvolume for hash (value) = %u", hash);
         }
 
@@ -309,7 +309,7 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 
         cnt  = ntoh32 (disk_layout[0]);
         if (cnt != 1) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "disk layout has invalid count %d", cnt);
                 return -1;
         }
@@ -385,7 +385,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         ret = dht_disk_layout_merge (this, layout, i, disk_layout_raw,
 				     disk_layout_len);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "layout merge from subvolume %s failed",
                         subvol->name);
                 goto out;
@@ -681,7 +681,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         count  = ntoh32 (disk_layout[0]);
         if (count != 1) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "%s - disk layout has invalid count %d",
                         loc->path, count);
                 ret = -1;
