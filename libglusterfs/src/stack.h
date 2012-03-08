@@ -176,6 +176,7 @@ STACK_DESTROY (call_stack_t *stack)
         }
 
         LOCK_DESTROY (&stack->frames.lock);
+        LOCK_DESTROY (&stack->stack_lock);
 
         while (stack->frames.next) {
                 FRAME_DESTROY (stack->frames.next);
