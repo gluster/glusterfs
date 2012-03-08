@@ -1450,12 +1450,14 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (acl_access &&
                     posix_acl_matches_xattr (this, acl_access, data->data,
-                                             data->len)) {
-                        acl_access = posix_acl_ref (this, acl_access);
-                } else {
-                        acl_access = posix_acl_from_xattr (this, data->data,
-                                                           data->len);
-                }
+                                             data->len))
+                        goto acl_default;
+
+		if (acl_access)
+			posix_acl_unref(this, acl_access);
+
+                acl_access = posix_acl_from_xattr (this, data->data,
+                                                   data->len);
 
         acl_default:
                 data = dict_get (entry->dict, POSIX_ACL_DEFAULT_XATTR);
@@ -1464,12 +1466,14 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (acl_default &&
                     posix_acl_matches_xattr (this, acl_default, data->data,
-                                             data->len)) {
-                        acl_default = posix_acl_ref (this, acl_default);
-                } else {
-                        acl_default = posix_acl_from_xattr (this, data->data,
-                                                            data->len);
-                }
+                                             data->len))
+                        goto acl_set;
+
+		if (acl_default)
+			posix_acl_unref(this, acl_default);
+
+                acl_default = posix_acl_from_xattr (this, data->data,
+                                                    data->len);
 
         acl_set:
                 posix_acl_ctx_update (entry->inode, this, &entry->d_stat);
@@ -1479,6 +1483,11 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (ret)
                         gf_log (this->name, GF_LOG_WARNING,
                                 "failed to set ACL in context");
+
+		if (acl_access)
+			posix_acl_unref(this, acl_access);
+		if (acl_default)
+			posix_acl_unref(this, acl_default);
         }
 
 unwind:
