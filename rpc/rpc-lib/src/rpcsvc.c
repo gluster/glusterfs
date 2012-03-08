@@ -50,6 +50,8 @@
 
 #include "xdr-rpcclnt.h"
 
+#define ACL_PROGRAM 100227
+
 struct rpcsvc_program gluster_dump_prog;
 
 #define rpcsvc_alloc_request(svc, request)                              \
@@ -170,7 +172,11 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
 
         if (!found) {
                 if (err != PROG_MISMATCH) {
-                        gf_log (GF_RPCSVC, GF_LOG_WARNING,
+                        /* log in DEBUG when nfs clients try to see if
+                         * ACL requests are accepted by nfs server
+                         */
+                        gf_log (GF_RPCSVC, (req->prognum == ACL_PROGRAM) ?
+                                GF_LOG_DEBUG : GF_LOG_WARNING,
                                 "RPC program not available (req %u %u)",
                                 req->prognum, req->progver);
                         err = PROG_UNAVAIL;
@@ -1108,7 +1114,7 @@ rpcsvc_error_reply (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        gf_log_callingfn ("", GF_LOG_WARNING, "sending a RPC error reply");
+        gf_log_callingfn ("", GF_LOG_DEBUG, "sending a RPC error reply");
 
         /* At this point the req should already have been filled with the
          * appropriate RPC error numbers.
