@@ -1091,7 +1091,6 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ioc_local_t *local         = NULL;
         uint32_t     weight        = 0;
         ioc_table_t *table         = NULL;
-        uint32_t     num_pages     = 0;
         int32_t      op_errno      = -1;
 
         if (!this) {
@@ -1117,29 +1116,6 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = EINVAL;
                 goto out;
         }
-
-
-        ioc_table_lock (table);
-        {
-                if (!table->mem_pool) {
-
-                        num_pages = (table->cache_size / table->page_size)
-                                + ((table->cache_size % table->page_size)
-                                   ? 1 : 0);
-
-                        table->mem_pool
-                                =  mem_pool_new (rbthash_entry_t, num_pages);
-
-                        if (!table->mem_pool) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Unable to allocate mem_pool");
-                                op_errno = ENOMEM;
-                                ioc_table_unlock (table);
-                                goto out;
-                        }
-                }
-        }
-        ioc_table_unlock (table);
 
         ioc_inode_lock (ioc_inode);
         {
@@ -1672,6 +1648,7 @@ init (xlator_t *this)
         int32_t          ret               = -1;
         glusterfs_ctx_t *ctx               = NULL;
         data_t          *data              = 0;
+        uint32_t         num_pages         = 0;
 
         xl_options = this->options;
 
@@ -1757,6 +1734,18 @@ init (xlator_t *this)
 
         pthread_mutex_init (&table->table_lock, NULL);
         this->private = table;
+
+        num_pages = (table->cache_size / table->page_size)
+                + ((table->cache_size % table->page_size)
+                   ? 1 : 0);
+
+        table->mem_pool = mem_pool_new (rbthash_entry_t, num_pages);
+        if (!table->mem_pool) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to allocate mem_pool");
+                goto out;
+        }
+
         ret = 0;
 
         ctx = this->ctx;
