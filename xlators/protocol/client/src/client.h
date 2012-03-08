@@ -60,6 +60,14 @@
                 }                                                       \
         } while (0);
 
+#define CLIENT_STACK_UNWIND(op, frame, params ...) do {             \
+                clnt_local_t *__local = frame->local;               \
+                frame->local = NULL;                                \
+                STACK_UNWIND_STRICT (op, frame, params);            \
+                client_local_wipe (__local);                        \
+        } while (0)
+
+
 struct clnt_options {
         char *remote_subvolume;
         int   ping_timeout;

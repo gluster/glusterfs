@@ -159,7 +159,6 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
 
         local = frame->local;
-        frame->local = NULL;
         inode = local->loc.inode;
 
         if (-1 == req->rpc_status) {
@@ -183,18 +182,16 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (symlink, frame, rsp.op_ret,
+
+        CLIENT_STACK_UNWIND (symlink, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode, &stbuf,
                              &preparent, &postparent);
-
-         client_local_wipe (local);
 
         return 0;
 }
@@ -219,7 +216,7 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
 
         local = frame->local;
-        frame->local = NULL;
+
         inode = local->loc.inode;
 
         if (-1 == req->rpc_status) {
@@ -243,19 +240,16 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (mknod, frame, rsp.op_ret,
+
+        CLIENT_STACK_UNWIND (mknod, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent);
-
-        client_local_wipe (local);
-
         return 0;
 }
 
@@ -301,18 +295,16 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (mkdir, frame, rsp.op_ret,
+
+        CLIENT_STACK_UNWIND (mkdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent);
-
-        client_local_wipe (local);
 
         return 0;
 }
@@ -335,7 +327,6 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
 
-        frame->local = NULL;
         conf  = frame->this->private;
         fd    = local->fd;
 
@@ -380,17 +371,15 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (open, frame, rsp.op_ret,
-                             gf_error_to_errno (rsp.op_errno), fd);
 
-        client_local_wipe (local);
+        CLIENT_STACK_UNWIND (open, frame, rsp.op_ret,
+                             gf_error_to_errno (rsp.op_errno), fd);
 
         return 0;
 }
@@ -432,7 +421,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (stat, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (stat, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &iatt);
 
         return 0;
@@ -474,7 +463,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (readlink, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (readlink, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), rsp.path, &iatt);
 
         /* This is allocated by the libc while decoding RPC msg */
@@ -523,7 +512,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (unlink, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (unlink, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &preparent,
                              &postparent);
 
@@ -568,7 +557,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (rmdir, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (rmdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &preparent,
                              &postparent);
 
@@ -614,7 +603,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (truncate, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (truncate, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
 
@@ -658,7 +647,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (statfs, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (statfs, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &statfs);
 
         return 0;
@@ -704,7 +693,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (writev, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (writev, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
 
@@ -747,16 +736,13 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (flush, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (flush, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
-
-        client_local_wipe (local);
 
         return 0;
 }
@@ -800,7 +786,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fsync, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fsync, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
 
@@ -839,7 +825,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (setxattr, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (setxattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -861,7 +847,6 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret = -1;
@@ -892,7 +877,8 @@ out:
                         strerror (op_errno),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (getxattr, frame, rsp.op_ret, op_errno, dict);
+
+        CLIENT_STACK_UNWIND (getxattr, frame, rsp.op_ret, op_errno, dict);
 
         if (rsp.dict.dict_val) {
                 /* don't use GF_FREE, this memory was allocated by libc
@@ -903,8 +889,6 @@ out:
 
         if (dict)
                 dict_unref (dict);
-
-        client_local_wipe (local);
 
         return 0;
 }
@@ -925,7 +909,6 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret = -1;
@@ -953,7 +936,8 @@ out:
                         "remote operation failed: %s",
                         strerror (op_errno));
         }
-        STACK_UNWIND_STRICT (fgetxattr, frame, rsp.op_ret, op_errno, dict);
+
+        CLIENT_STACK_UNWIND (fgetxattr, frame, rsp.op_ret, op_errno, dict);
         if (rsp.dict.dict_val) {
                 /* don't use GF_FREE, this memory was allocated by libc
                  */
@@ -963,8 +947,6 @@ out:
 
         if (dict)
                 dict_unref (dict);
-
-        client_local_wipe (local);
 
         return 0;
 }
@@ -1001,7 +983,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (removexattr, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (removexattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1039,7 +1021,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fremovexattr, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fremovexattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1076,7 +1058,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fsyncdir, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fsyncdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1113,7 +1095,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (access, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (access, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1158,7 +1140,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (ftruncate, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (ftruncate, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
 
@@ -1201,7 +1183,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fstat, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fstat, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &stat);
 
         return 0;
@@ -1240,7 +1222,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (inodelk, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (inodelk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1278,7 +1260,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (finodelk, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (finodelk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1317,7 +1299,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (entrylk, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (entrylk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1355,7 +1337,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fentrylk, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fentrylk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1377,7 +1359,6 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret = -1;
@@ -1401,14 +1382,14 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (xattrop, frame, rsp.op_ret,
+
+        CLIENT_STACK_UNWIND (xattrop, frame, rsp.op_ret,
                              gf_error_to_errno (op_errno), dict);
 
         if (rsp.dict.dict_val) {
@@ -1420,8 +1401,6 @@ out:
 
         if (dict)
                 dict_unref (dict);
-
-        client_local_wipe (local);
 
         return 0;
 }
@@ -1442,7 +1421,6 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1472,7 +1450,7 @@ out:
                         "remote operation failed: %s",
                         strerror (gf_error_to_errno (op_errno)));
         }
-        STACK_UNWIND_STRICT (fxattrop, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fxattrop, frame, rsp.op_ret,
                              gf_error_to_errno (op_errno), dict);
 
         if (rsp.dict.dict_val) {
@@ -1485,7 +1463,6 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        client_local_wipe (local);
         return 0;
 }
 
@@ -1520,7 +1497,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fsetxattr, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fsetxattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
         return 0;
@@ -1564,7 +1541,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (fsetattr, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (fsetattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
 
@@ -1611,7 +1588,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (setattr, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (setattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
 
@@ -1638,7 +1615,7 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
         this = THIS;
 
         frame = myframe;
-        local = frame->local; frame->local = NULL;
+        local = frame->local;
         conf  = frame->this->private;
         fd    = local->fd;
         inode = local->loc.inode;
@@ -1688,18 +1665,17 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (create, frame, rsp.op_ret,
+
+        CLIENT_STACK_UNWIND (create, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), fd, inode,
                              &stbuf, &preparent, &postparent);
 
-        client_local_wipe (local);
         return 0;
 }
 
@@ -1736,7 +1712,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (rchecksum, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (rchecksum, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno),
                              rsp.weak_checksum,
                              (uint8_t *)rsp.strong_checksum.strong_checksum_val);
@@ -1799,17 +1775,16 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         */
 
 out:
-        frame->local = NULL;
         if ((rsp.op_ret == -1) &&
             (EAGAIN != gf_error_to_errno (rsp.op_errno))) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (lk, frame, rsp.op_ret,
+
+        CLIENT_STACK_UNWIND (lk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &lock);
 
-        client_local_wipe (local);
         return 0;
 }
 
@@ -1828,7 +1803,6 @@ client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1856,10 +1830,8 @@ out:
                         strerror (gf_error_to_errno (rsp.op_errno)),
                                   local->cmd);
         }
-        STACK_UNWIND_STRICT (readdir, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (readdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &entries);
-
-        client_local_wipe (local);
 
         if (rsp.op_ret != -1) {
                 gf_dirent_free (&entries);
@@ -1886,7 +1858,6 @@ client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1913,10 +1884,8 @@ out:
                         "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (readdirp, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (readdirp, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &entries);
-
-        client_local_wipe (local);
 
         if (rsp.op_ret != -1) {
                 gf_dirent_free (&entries);
@@ -1975,7 +1944,7 @@ out:
                 gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (rename, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (rename, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno),
                              &stbuf, &preoldparent, &postoldparent,
                              &prenewparent, &postnewparent);
@@ -2002,7 +1971,6 @@ client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
 
         local = frame->local;
-        frame->local = NULL;
         inode = local->loc.inode;
 
         if (-1 == req->rpc_status) {
@@ -2027,18 +1995,17 @@ client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (link, frame, rsp.op_ret,
+
+        CLIENT_STACK_UNWIND (link, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent);
 
-        client_local_wipe (local);
         return 0;
 }
 
@@ -2061,7 +2028,6 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
 
-        frame->local = NULL;
         conf  = frame->this->private;
         fd    = local->fd;
 
@@ -2105,17 +2071,14 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--");
         }
-        STACK_UNWIND_STRICT (opendir, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (opendir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), fd);
-
-        client_local_wipe (local);
 
         return 0;
 }
@@ -2141,7 +2104,6 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
         inode = local->loc.inode;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -2183,7 +2145,6 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         rsp.op_errno = op_errno;
-        frame->local = NULL;
         if (rsp.op_ret == -1) {
                 /* any error other than ENOENT */
                 if (rsp.op_errno != ENOENT)
@@ -2195,10 +2156,9 @@ out:
                         gf_log (this->name, GF_LOG_TRACE, "not found on remote node");
 
         }
-        STACK_UNWIND_STRICT (lookup, frame, rsp.op_ret, rsp.op_errno, inode,
-                             &stbuf, xattr, &postparent);
 
-        client_local_wipe (local);
+        CLIENT_STACK_UNWIND (lookup, frame, rsp.op_ret, rsp.op_errno, inode,
+                             &stbuf, xattr, &postparent);
 
         if (xattr)
                 dict_unref (xattr);
@@ -2231,7 +2191,6 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -2262,11 +2221,9 @@ out:
                         "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
-        STACK_UNWIND_STRICT (readv, frame, rsp.op_ret,
+        CLIENT_STACK_UNWIND (readv, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), vector, rspcount,
                              &stat, iobref);
-
-        client_local_wipe (local);
 
         return 0;
 }
@@ -2610,13 +2567,8 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        if (frame)
-                frame->local = NULL;
-
-        STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL, NULL,
+        CLIENT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL);
-
-        client_local_wipe (local);
 
         if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);
@@ -2671,7 +2623,7 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (stat, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2717,7 +2669,7 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2757,7 +2709,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2804,7 +2756,7 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (access, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (access, frame, -1, op_errno);
         return 0;
 }
 
@@ -2848,7 +2800,7 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (readlink, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (readlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2894,7 +2846,7 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2939,7 +2891,7 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (rmdir, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2966,11 +2918,12 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        frame->local = local;
+
         if (!(args->loc && args->loc->parent))
                 goto unwind;
 
         loc_copy (&local->loc, args->loc);
-        frame->local = local;
 
         if (!uuid_is_null (args->loc->parent->gfid))
                 memcpy (req.pargfid,  args->loc->parent->gfid, 16);
@@ -3001,12 +2954,10 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        if (frame)
-                frame->local = NULL;
 
-        STACK_UNWIND_STRICT (symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        CLIENT_STACK_UNWIND (symlink, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL);
 
-        client_local_wipe (local);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
@@ -3064,7 +3015,8 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+        CLIENT_STACK_UNWIND (rename, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL);
         return 0;
 }
 
@@ -3128,7 +3080,7 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        CLIENT_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -3194,13 +3146,9 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        if (frame)
-                frame->local = NULL;
-
-        STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL, NULL,
+        CLIENT_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL);
 
-        client_local_wipe (local);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
@@ -3269,13 +3217,9 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        if (frame)
-                frame->local = NULL;
-
-        STACK_UNWIND_STRICT (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
+        CLIENT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL);
 
-        client_local_wipe (local);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
@@ -3346,12 +3290,9 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        if (frame)
-                frame->local = NULL;
-
-        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL,
+        CLIENT_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL);
-        client_local_wipe (local);
+
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
@@ -3413,12 +3354,8 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        if (frame)
-                frame->local = NULL;
+        CLIENT_STACK_UNWIND (open, frame, -1, op_errno, NULL);
 
-        STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL);
-
-        client_local_wipe (local);
         return 0;
 }
 
@@ -3511,7 +3448,7 @@ unwind:
                 iobref_unref (rsp_iobref);
         }
 
-        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
+        CLIENT_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
         return 0;
 }
 
@@ -3558,7 +3495,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -3608,9 +3545,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        frame->local = NULL;
-        STACK_UNWIND_STRICT (flush, frame, -1, op_errno);
-        client_local_wipe (local);
+        CLIENT_STACK_UNWIND (flush, frame, -1, op_errno);
         return 0;
 }
 
@@ -3651,7 +3586,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -3690,7 +3625,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (fstat, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (fstat, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3746,10 +3681,8 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        frame->local = NULL;
-        STACK_UNWIND_STRICT (opendir, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (opendir, frame, -1, op_errno, NULL);
 
-        client_local_wipe (local);
         return 0;
 }
 
@@ -3791,7 +3724,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (fsyncdir, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (fsyncdir, frame, -1, op_errno);
         return 0;
 }
 
@@ -3839,7 +3772,7 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (statfs, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (statfs, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3895,7 +3828,7 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (setxattr, frame, -1, op_errno);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
@@ -3948,7 +3881,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (fsetxattr, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (fsetxattr, frame, -1, op_errno);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
@@ -4034,12 +3967,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        local = frame->local;
-        frame->local = NULL;
-
-        STACK_UNWIND_STRICT (fgetxattr, frame, -1, op_errno, NULL);
-
-        client_local_wipe (local);
+        CLIENT_STACK_UNWIND (fgetxattr, frame, -1, op_errno, NULL);
 
         if (rsp_iobuf) {
                 iobuf_unref (rsp_iobuf);
@@ -4162,10 +4090,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        local = frame->local;
-        frame->local = NULL;
-        client_local_wipe (local);
-
         if (rsp_iobuf) {
                 iobuf_unref (rsp_iobuf);
         }
@@ -4174,7 +4098,7 @@ unwind:
                 iobref_unref (rsp_iobref);
         }
 
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        CLIENT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
 
         return 0;
 }
@@ -4269,16 +4193,11 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        local = frame->local;
-        frame->local = NULL;
-
-        STACK_UNWIND_STRICT (xattrop, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL);
 
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
-
-        client_local_wipe (local);
 
         if (rsp_iobuf) {
                 iobuf_unref (rsp_iobuf);
@@ -4375,16 +4294,11 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        local = frame->local;
-        frame->local = NULL;
-
-        STACK_UNWIND_STRICT (fxattrop, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL);
 
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
-
-        client_local_wipe (local);
 
         if (rsp_iobref) {
                 iobref_unref (rsp_iobref);
@@ -4440,7 +4354,7 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (removexattr, frame, -1, op_errno);
         return 0;
 }
 
@@ -4482,7 +4396,7 @@ client3_1_fremovexattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (fremovexattr, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (fremovexattr, frame, -1, op_errno);
         return 0;
 }
 
@@ -4555,7 +4469,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (lk, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (lk, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -4630,7 +4544,7 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (inodelk, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (inodelk, frame, -1, op_errno);
         return 0;
 }
 
@@ -4699,7 +4613,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (finodelk, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (finodelk, frame, -1, op_errno);
         return 0;
 }
 
@@ -4752,7 +4666,7 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (entrylk, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (entrylk, frame, -1, op_errno);
         return 0;
 }
 
@@ -4799,7 +4713,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (fentrylk, frame, -1, op_errno);
+        CLIENT_STACK_UNWIND (fentrylk, frame, -1, op_errno);
         return 0;
 }
 
@@ -4839,7 +4753,7 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (rchecksum, frame, -1, op_errno, 0, NULL);
+        CLIENT_STACK_UNWIND (rchecksum, frame, -1, op_errno, 0, NULL);
         return 0;
 }
 
@@ -4930,10 +4844,6 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        local = frame->local;
-        frame->local = NULL;
-        client_local_wipe (local);
-
         if (rsp_iobref != NULL) {
                 iobref_unref (rsp_iobref);
         }
@@ -4942,7 +4852,7 @@ unwind:
                 iobuf_unref (rsp_iobuf);
         }
 
-        STACK_UNWIND_STRICT (readdir, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (readdir, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -5040,10 +4950,6 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        local = frame->local;
-        frame->local = NULL;
-        client_local_wipe (local);
-
         if (rsp_iobref) {
                 iobref_unref (rsp_iobref);
         }
@@ -5055,7 +4961,7 @@ unwind:
         if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);
 
-        STACK_UNWIND_STRICT (readdirp, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (readdirp, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -5102,7 +5008,7 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -5139,7 +5045,7 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL, NULL);
+        CLIENT_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 

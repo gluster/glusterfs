@@ -346,7 +346,8 @@ client3_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        STACK_UNWIND_STRICT (getspec, frame, rsp.op_ret, rsp.op_errno, rsp.spec);
+        CLIENT_STACK_UNWIND (getspec, frame, rsp.op_ret, rsp.op_errno,
+                             rsp.spec);
 
         /* Don't use 'GF_FREE', this is allocated by libc */
         if (rsp.spec)
@@ -383,7 +384,7 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (getspec, frame, -1, op_errno, NULL);
+        CLIENT_STACK_UNWIND (getspec, frame, -1, op_errno, NULL);
         return 0;
 
 }
