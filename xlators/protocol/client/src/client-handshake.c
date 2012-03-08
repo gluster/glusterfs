@@ -227,14 +227,14 @@ client_start_ping (void *data)
         ret = client_submit_request (this, NULL, frame, conf->handshake,
                                      GF_HNDSK_PING, client_ping_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL, (xdrproc_t)NULL);
-        if (ret)
-                goto fail;
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to start ping timer");
+        }
 
         return;
-fail:
-        gf_log (THIS->name, GF_LOG_ERROR,
-                "failed to start ping timer");
 
+fail:
         if (frame) {
                 STACK_DESTROY (frame->root);
         }
@@ -376,12 +376,13 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf_getspec_req);
 
-        if (ret)
-                goto unwind;
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to send the request");
+        }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the request");
         STACK_UNWIND_STRICT (getspec, frame, -1, op_errno, NULL);
         return 0;
 
@@ -602,15 +603,6 @@ clnt_release_reopen_fd (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                         NULL, 0, NULL, 0, NULL,
                                         (xdrproc_t)xdr_gfs3_releasedir_req);
 out:
-        if (ret) {
-                decrement_reopen_fd_count (this, conf);
-                clnt_mark_fd_bad (conf, fdctx);
-                if (frame) {
-                        frame->local = NULL;
-                        STACK_DESTROY (frame->root);
-                }
-        }
-
         return 0;
 }
 
@@ -750,17 +742,6 @@ _client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 frame = NULL;
         }
 
-        if (ret) {
-                clnt_fd_lk_local_mark_error (this, local);
-
-                if (frame) {
-                        if (frame->local) {
-                                clnt_fd_lk_local_unref (this, frame->local);
-                                frame->local = NULL;
-                        }
-                        STACK_DESTROY (frame->root);
-                }
-        }
         if (local)
                 (void) clnt_fd_lk_local_unref (this, local);
 out:
@@ -1034,15 +1015,14 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                      client3_1_reopendir_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_opendir_req);
-        if (ret)
-                goto out;
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to send the re-opendir request");
+        }
 
         return ret;
 
 out:
-        gf_log (THIS->name, GF_LOG_ERROR,
-                "failed to send the re-opendir request");
-
         if (frame) {
                 frame->local = NULL;
                 STACK_DESTROY (frame->root);
@@ -1115,15 +1095,14 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                      GFS3_OP_OPEN, client3_1_reopen_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_open_req);
-        if (ret)
-                goto out;
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to send the re-open request");
+        }
 
         return ret;
 
 out:
-        gf_log (THIS->name, GF_LOG_ERROR,
-                "failed to send the re-open request");
-
         if (frame) {
                 frame->local = NULL;
                 STACK_DESTROY (frame->root);

@@ -34,18 +34,20 @@ rpc_clnt_prog_t clnt3_1_fop_prog;
 
 int
 client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
-                           rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
+                           rpc_clnt_prog_t *prog, int procnum,
+                           fop_cbk_fn_t cbkfn,
                            struct iovec  *payload, int payloadcnt,
                            struct iobref *iobref, xdrproc_t xdrproc)
 {
-        int            ret        = 0;
-        clnt_conf_t   *conf       = NULL;
-        struct iovec   iov        = {0, };
-        struct iobuf  *iobuf      = NULL;
-        int            count      = 0;
-        int            start_ping = 0;
-        struct iobref *new_iobref = NULL;
-        ssize_t        xdr_size   = 0;
+        int             ret        = 0;
+        clnt_conf_t    *conf       = NULL;
+        struct iovec    iov        = {0, };
+        struct iobuf   *iobuf      = NULL;
+        int             count      = 0;
+        int             start_ping = 0;
+        struct iobref  *new_iobref = NULL;
+        ssize_t         xdr_size   = 0;
+        struct rpc_req  rpcreq     = {0, };
 
         start_ping = 0;
 
@@ -55,12 +57,12 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                 xdr_size = xdr_sizeof (xdrproc, req);
                 iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
                 if (!iobuf) {
-                        goto out;
+                        goto unwind;
                 };
 
                 new_iobref = iobref_new ();
                 if (!new_iobref) {
-                        goto out;
+                        goto unwind;
                 }
 
                 if (iobref != NULL) {
@@ -76,7 +78,7 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "cannot add iobuf into iobref");
-                        goto out;
+                        goto unwind;
                 }
 
                 iov.iov_base = iobuf->ptr;
@@ -87,7 +89,7 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                 if (ret == -1) {
                         gf_log_callingfn ("", GF_LOG_WARNING,
                                           "XDR function failed");
-                        goto out;
+                        goto unwind;
                 }
 
                 iov.iov_len = ret;
@@ -95,7 +97,7 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         }
 
         /* Send the msg */
-        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count,
+        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
                                payload, payloadcnt, new_iobref, frame, NULL, 0,
                                NULL, 0, NULL);
         if (ret < 0) {
@@ -115,7 +117,18 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         if (start_ping)
                 client_start_ping ((void *) this);
 
-out:
+        if (new_iobref != NULL) {
+                iobref_unref (new_iobref);
+        }
+
+        iobuf_unref (iobuf);
+
+        return ret;
+
+unwind:
+        rpcreq.rpc_status = -1;
+        cbkfn (&rpcreq, NULL, 0, frame);
+
         if (new_iobref != NULL) {
                 iobref_unref (new_iobref);
         }
@@ -2307,29 +2320,32 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
         fd_lk_ctx_unref (lk_ctx);
 
         fr = create_frame (this, this->ctx->pool);
+        if (fr == NULL) {
+                goto out;
+        }
 
         if (fdctx->is_dir) {
                 gfs3_releasedir_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
                 gf_log (this->name, GF_LOG_INFO, "sending releasedir on fd");
-                ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
-                                             GFS3_OP_RELEASEDIR,
-                                             client3_1_releasedir_cbk,
-                                             NULL, NULL, 0, NULL, 0, NULL,
-                                             (xdrproc_t)xdr_gfs3_releasedir_req);
+                client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
+                                       GFS3_OP_RELEASEDIR,
+                                       client3_1_releasedir_cbk,
+                                       NULL, NULL, 0, NULL, 0, NULL,
+                                       (xdrproc_t)xdr_gfs3_releasedir_req);
         } else {
                 gfs3_release_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
                 gf_log (this->name, GF_LOG_INFO, "sending release on fd");
-                ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
-                                             GFS3_OP_RELEASE,
-                                             client3_1_release_cbk, NULL,
-                                             NULL, 0, NULL, 0, NULL,
-                                             (xdrproc_t)xdr_gfs3_release_req);
+                client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
+                                       GFS3_OP_RELEASE,
+                                       client3_1_release_cbk, NULL,
+                                       NULL, 0, NULL, 0, NULL,
+                                       (xdrproc_t)xdr_gfs3_release_req);
         }
 
 out:
-        if (!ret && fdctx) {
+        if (fdctx) {
                 fdctx->remote_fd = -1;
                 inode_unref (fdctx->inode);
                 GF_FREE (fdctx);
@@ -2391,13 +2407,13 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
                 if (!parent_down) {
                         req.fd = remote_fd;
 
-                        ret = client_submit_request (this, &req, frame,
-                                                     conf->fops,
-                                                     GFS3_OP_RELEASEDIR,
-                                                     client3_1_releasedir_cbk,
-                                                     NULL, NULL, 0, NULL, 0,
-                                                     NULL,
-                                                     (xdrproc_t)xdr_gfs3_releasedir_req);
+                        client_submit_request (this, &req, frame,
+                                               conf->fops,
+                                               GFS3_OP_RELEASEDIR,
+                                               client3_1_releasedir_cbk,
+                                               NULL, NULL, 0, NULL, 0,
+                                               NULL,
+                                               (xdrproc_t)xdr_gfs3_releasedir_req);
 
                         rpc_clnt_unref (conf->rpc);
                 }
@@ -2465,13 +2481,13 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
                 pthread_mutex_unlock (&conf->lock);
 
                 if (!parent_down) {
-                        ret = client_submit_request (this, &req, frame,
-                                                     conf->fops,
-                                                     GFS3_OP_RELEASE,
-                                                     client3_1_release_cbk,
-                                                     NULL, NULL,
-                                                     0, NULL, 0, NULL,
-                                                     (xdrproc_t)xdr_gfs3_release_req);
+                        client_submit_request (this, &req, frame,
+                                               conf->fops,
+                                               GFS3_OP_RELEASE,
+                                               client3_1_release_cbk,
+                                               NULL, NULL,
+                                               0, NULL, 0, NULL,
+                                               (xdrproc_t)xdr_gfs3_release_req);
                         rpc_clnt_unref (conf->rpc);
                 }
 
@@ -2580,8 +2596,7 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                                      (xdrproc_t)xdr_gfs3_lookup_req);
 
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         if (req.dict.dict_val) {
@@ -2595,8 +2610,6 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
-
         if (frame)
                 frame->local = NULL;
 
@@ -2653,14 +2666,11 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_stat_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop %s",
-                strerror (op_errno));
         STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -2702,12 +2712,11 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_truncate_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop %s", strerror (op_errno));
         STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2743,12 +2752,11 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_ftruncate_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2791,13 +2799,11 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_access_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (access, frame, -1, op_errno);
         return 0;
 }
@@ -2837,13 +2843,11 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_readlink_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (readlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2886,12 +2890,10 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_unlink_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2933,12 +2935,10 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_rmdir_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2993,15 +2993,14 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
                                      NULL,  NULL, 0, NULL,
                                      0, NULL, (xdrproc_t)xdr_gfs3_symlink_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -3060,12 +3059,11 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_rename_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -3125,12 +3123,11 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_link_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -3190,19 +3187,18 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_mknod_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
-        STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL);
 
         client_local_wipe (local);
         if (req.dict.dict_val) {
@@ -3266,19 +3262,18 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_mkdir_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
-        STACK_UNWIND_STRICT (mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL);
 
         client_local_wipe (local);
         if (req.dict.dict_val) {
@@ -3343,15 +3338,14 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_create_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
         }
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -3414,12 +3408,11 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_open_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -3505,13 +3498,11 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
                                      local->iobref,
                                      (xdrproc_t)xdr_gfs3_read_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (rsp_iobuf) {
                 iobuf_unref (rsp_iobuf);
         }
@@ -3550,9 +3541,10 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
 
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
-        ret = client_submit_vec_request (this, &req, frame, conf->fops, GFS3_OP_WRITE,
-                                         client3_1_writev_cbk, args->vector,
-                                         args->count, args->iobref,
+        ret = client_submit_vec_request (this, &req, frame, conf->fops,
+                                         GFS3_OP_WRITE, client3_1_writev_cbk,
+                                         args->vector, args->count,
+                                         args->iobref,
                                          (xdrproc_t)xdr_gfs3_write_req);
         if (ret) {
                 /*
@@ -3560,8 +3552,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
                  * do the unwind for us (see rpc_clnt_submit), so don't unwind
                  * here in such cases.
                  */
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to send the fop: %s", strerror (op_errno));
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
@@ -3596,9 +3587,8 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
 
         local = mem_get0 (this->local_pool);
         if (!local) {
-                STACK_UNWIND (frame, -1, ENOMEM);
-                return 0;
-
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->fd = fd_ref (args->fd);
@@ -3613,13 +3603,14 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_flush_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
         return 0;
+
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
+        frame->local = NULL;
         STACK_UNWIND_STRICT (flush, frame, -1, op_errno);
+        client_local_wipe (local);
         return 0;
 }
 
@@ -3629,12 +3620,12 @@ int32_t
 client3_1_fsync (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
-        clnt_args_t    *args     = NULL;
-        gfs3_fsync_req  req      = {{0,},};
+        clnt_args_t    *args      = NULL;
+        gfs3_fsync_req  req       = {{0,},};
         int64_t         remote_fd = -1;
-        clnt_conf_t    *conf     = NULL;
-        int             op_errno = 0;
-        int           ret        = 0;
+        clnt_conf_t    *conf      = NULL;
+        int             op_errno  = 0;
+        int             ret       = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -3654,12 +3645,12 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fsync_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
+
         }
         return 0;
+
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -3693,12 +3684,12 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fstat_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
+
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fstat, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -3749,15 +3740,15 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_opendir_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
+
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
-        if (frame)
-                frame->local = NULL;
+        frame->local = NULL;
         STACK_UNWIND_STRICT (opendir, frame, -1, op_errno, NULL);
+
         client_local_wipe (local);
         return 0;
 }
@@ -3767,12 +3758,12 @@ unwind:
 int32_t
 client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
 {
-        clnt_args_t       *args     = NULL;
+        clnt_args_t       *args      = NULL;
         int64_t            remote_fd = -1;
-        clnt_conf_t       *conf     = NULL;
-        int                op_errno = ESTALE;
-        gfs3_fsyncdir_req  req      = {{0,},};
-        int                ret        = 0;
+        clnt_conf_t       *conf      = NULL;
+        gfs3_fsyncdir_req  req       = {{0,},};
+        int                ret       = 0;
+        int32_t            op_errno  = ESTALE;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -3794,12 +3785,12 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
                                      NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_fsyncdir_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
+
         return 0;
+
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsyncdir, frame, -1, op_errno);
         return 0;
 }
@@ -3843,12 +3834,11 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_statfs_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
         return 0;
+
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (statfs, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -3897,8 +3887,7 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_setxattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
@@ -3906,7 +3895,6 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
@@ -3951,8 +3939,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_fsetxattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         if (req.dict.dict_val) {
@@ -3961,7 +3948,6 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsetxattr, frame, -1, op_errno);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
@@ -4043,13 +4029,11 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_fgetxattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
 
@@ -4173,14 +4157,11 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_getxattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s",
-                strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
         client_local_wipe (local);
@@ -4280,8 +4261,7 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_xattrop_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         if (req.dict.dict_val) {
@@ -4289,7 +4269,6 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
 
@@ -4387,8 +4366,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_fxattrop_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         if (req.dict.dict_val) {
@@ -4397,7 +4375,6 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
 
@@ -4458,13 +4435,11 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_removexattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno);
         return 0;
 }
@@ -4502,13 +4477,11 @@ client3_1_fremovexattr (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_fremovexattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fremovexattr, frame, -1, op_errno);
         return 0;
 }
@@ -4577,13 +4550,11 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_lk_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (lk, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -4654,13 +4625,11 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_inodelk_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (inodelk, frame, -1, op_errno);
         return 0;
 }
@@ -4725,13 +4694,11 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_finodelk_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (finodelk, frame, -1, op_errno);
         return 0;
 }
@@ -4780,13 +4747,11 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_entrylk_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (entrylk, frame, -1, op_errno);
         return 0;
 }
@@ -4829,13 +4794,11 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fentrylk_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fentrylk, frame, -1, op_errno);
         return 0;
 }
@@ -4868,15 +4831,14 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
                                      GFS3_OP_RCHECKSUM,
                                      client3_1_rchecksum_cbk, NULL,
                                      NULL, 0, NULL,
-                                     0, NULL, (xdrproc_t)xdr_gfs3_rchecksum_req);
+                                     0, NULL,
+                                     (xdrproc_t)xdr_gfs3_rchecksum_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (rchecksum, frame, -1, op_errno, 0, NULL);
         return 0;
 }
@@ -4962,14 +4924,12 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         rsp_iobref = NULL;
 
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
         client_local_wipe (local);
@@ -5072,8 +5032,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
                                      0, rsp_iobref,
                                      (xdrproc_t)xdr_gfs3_readdirp_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         if (req.dict.dict_val)
@@ -5081,7 +5040,6 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
         client_local_wipe (local);
@@ -5139,13 +5097,11 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_setattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -5178,13 +5134,11 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fsetattr_req);
         if (ret) {
-                op_errno = ENOTCONN;
-                goto unwind;
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
         return 0;
 unwind:
-        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }

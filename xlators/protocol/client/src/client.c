@@ -118,20 +118,21 @@ out:
 
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
-                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
+                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
                        struct iobref *iobref,  struct iovec *rsphdr,
                        int rsphdr_count, struct iovec *rsp_payload,
                        int rsp_payload_count, struct iobref *rsp_iobref,
                        xdrproc_t xdrproc)
 {
-        int            ret         = -1;
-        clnt_conf_t   *conf        = NULL;
-        struct iovec   iov         = {0, };
-        struct iobuf  *iobuf       = NULL;
-        int            count       = 0;
-        char           start_ping  = 0;
-        struct iobref *new_iobref  = NULL;
-        ssize_t        xdr_size    = 0;
+        int             ret        = -1;
+        clnt_conf_t    *conf       = NULL;
+        struct iovec    iov        = {0, };
+        struct iobuf   *iobuf      = NULL;
+        int             count      = 0;
+        char            start_ping = 0;
+        struct iobref  *new_iobref = NULL;
+        ssize_t         xdr_size   = 0;
+        struct rpc_req  rpcreq     = {0, };
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, prog, out);
@@ -199,8 +200,8 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         }
 
         /* Send the msg */
-        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL,
-                               0, new_iobref, frame, rsphdr, rsphdr_count,
+        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
+                               NULL, 0, new_iobref, frame, rsphdr, rsphdr_count,
                                rsp_payload, rsp_payload_count, rsp_iobref);
 
         if (ret < 0) {
@@ -221,7 +222,7 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 client_start_ping ((void *) this);
 
         ret = 0;
-out:
+
         if (new_iobref != NULL)
                 iobref_unref (new_iobref);
 
@@ -229,6 +230,19 @@ out:
                 iobuf_unref (iobuf);
 
         return ret;
+
+out:
+        rpcreq.rpc_status = -1;
+
+        cbkfn (&rpcreq, NULL, 0, frame);
+
+        if (new_iobref != NULL) {
+                iobref_unref (new_iobref);
+        }
+
+        iobuf_unref (iobuf);
+
+        return 0;
 }
 
 
