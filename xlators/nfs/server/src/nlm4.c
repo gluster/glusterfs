@@ -101,12 +101,23 @@ nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v);
 xlator_t *
 nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
 
-#define nlm4_map_fh_to_volume(nfs3state, handle, rqst, volume, status, label) \
+#define nlm4_map_fh_to_volume(nfs3state, handle, req, volume, status, label) \
         do {                                                            \
-                volume = nfs3_fh_to_xlator ((nfs3state), handle);       \
+                char exportid[256], gfid[256];                          \
+                rpc_transport_t *trans = NULL;                          \
+                volume = nfs3_fh_to_xlator ((nfs3state), &handle);      \
                 if (!volume) {                                          \
+                        uuid_unparse (handle.exportid, exportid);       \
+                        uuid_unparse (handle.gfid, gfid);               \
+                        trans = rpcsvc_request_transport (req);         \
                         gf_log (GF_NLM, GF_LOG_ERROR, "Failed to map "  \
-                                "FH to vol");                           \
+                                "FH to vol: client=%s, exportid=%s, gfid=%s",\
+                                trans->peerinfo.identifier, exportid,   \
+                                gfid);                                  \
+                        gf_log (GF_NLM, GF_LOG_ERROR,                   \
+                                "Stale nfs client %s must be trying to "\
+                                "connect to a deleted volume, please "  \
+                                "unmount it.", trans->peerinfo.identifier);\
                         status = nlm4_stale_fh;                         \
                         goto label;                                     \
                 } else {                                                \
@@ -126,10 +137,21 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
               }                                                         \
         } while (0)                                                     \
 
-#define nlm4_check_fh_resolve_status(cst, _stat, erlabl)               \
+#define nlm4_check_fh_resolve_status(cst, nfstat, erlabl)               \
         do {                                                            \
+                xlator_t *xlatorp = NULL;                               \
+                char buf[256], gfid[256];                               \
+                rpc_transport_t *trans = NULL;                          \
                 if ((cst)->resolve_ret < 0) {                           \
-                        _stat = nlm4_errno_to_nlm4stat (cst->resolve_errno);\
+                        trans = rpcsvc_request_transport (cst->req);    \
+                        xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
+                                                     &cst->resolvefh);  \
+                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
+                        sprintf (buf, "(%s) %s : %s", trans->peerinfo.identifier,\
+                        xlatorp ? xlatorp->name : "ERR", gfid);         \
+                        gf_log (GF_NLM, GF_LOG_ERROR, "Unable to resolve FH"\
+                                ": %s", buf);                           \
+                        nfstat = nlm4_errno_to_nlm4stat (cst->resolve_errno);\
                         goto erlabl;                                    \
                 }                                                       \
         } while (0)                                                     \
@@ -753,7 +775,7 @@ nlm4svc_test (rpcsvc_request_t *req)
         }
 
         nlm4_validate_gluster_fh (&fh, stat, nlm4err);
-        nlm4_map_fh_to_volume (cs->nfs3state, &fh, req, vol, stat, nlm4err);
+        nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period) {
                 gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");
@@ -1309,7 +1331,7 @@ nlm4svc_lock (rpcsvc_request_t *req)
         }
         fh = cs->lockfh;
         nlm4_validate_gluster_fh (&fh, stat, nlm4err);
-        nlm4_map_fh_to_volume (cs->nfs3state, &fh, req, vol, stat, nlm4err);
+        nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period && !cs->args.nlm4_lockargs.reclaim) {
                 gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");
@@ -1522,7 +1544,7 @@ nlm4svc_cancel (rpcsvc_request_t *req)
         }
 
         nlm4_validate_gluster_fh (&fh, stat, nlm4err);
-        nlm4_map_fh_to_volume (cs->nfs3state, &fh, req, vol, stat, nlm4err);
+        nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period) {
                 gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");
@@ -1621,7 +1643,7 @@ nlm4svc_unlock (rpcsvc_request_t *req)
         }
 
         nlm4_validate_gluster_fh (&fh, stat, nlm4err);
-        nlm4_map_fh_to_volume (cs->nfs3state, &fh, req, vol, stat, nlm4err);
+        nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period) {
                 gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");

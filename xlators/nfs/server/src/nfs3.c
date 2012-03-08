@@ -216,14 +216,23 @@ out:
 }
 
 
-#define nfs3_map_fh_to_volume(nfs3state, handle, rqst, volume, status, label) \
+#define nfs3_map_fh_to_volume(nfs3state, handle, req, volume, status, label) \
         do {                                                            \
-                char buf[256];                                          \
+                char exportid[256], gfid[256];                          \
+                rpc_transport_t *trans = NULL;                          \
                 volume = nfs3_fh_to_xlator ((nfs3state), handle);       \
                 if (!volume) {                                          \
-                        uuid_unparse (handle->exportid, buf);           \
+                        uuid_unparse (handle->exportid, exportid);      \
+                        uuid_unparse (handle->gfid, gfid);              \
+                        trans = rpcsvc_request_transport (req);         \
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to map " \
-                                "FH to vol, exportid=%s", buf);         \
+                                "FH to vol: client=%s, exportid=%s, gfid=%s",\
+                                trans->peerinfo.identifier, exportid,   \
+                                gfid);                                  \
+                        gf_log (GF_NFS3, GF_LOG_ERROR,                   \
+                                "Stale nfs client %s must be trying to "\
+                                "connect to a deleted volume, please "  \
+                                "unmount it.", trans->peerinfo.identifier);\
                         status = NFS3ERR_STALE;                         \
                         goto label;                                     \
                 } else {                                                \
@@ -248,13 +257,15 @@ out:
 #define nfs3_check_fh_resolve_status(cst, nfstat, erlabl)               \
         do {                                                            \
                 xlator_t *xlatorp = NULL;                               \
-                char buf[256], gfid[256];                                \
+                char buf[256], gfid[256];                               \
+                rpc_transport_t *trans = NULL;                          \
                 if ((cst)->resolve_ret < 0) {                           \
+                        trans = rpcsvc_request_transport (cst->req);    \
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
-                        uuid_unparse (cst->fh.gfid, gfid);              \
-                        sprintf (buf, "%s : %s", xlatorp ?              \
-                                 xlatorp->name : "ERR", gfid);          \
+                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
+                        sprintf (buf, "(%s) %s : %s", trans->peerinfo.identifier,\
+                        xlatorp ? xlatorp->name : "ERR", gfid);         \
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Unable to resolve FH"\
                                 ": %s", buf);                           \
                         nfstat = nfs3_errno_to_nfsstat3 (cst->resolve_errno);\
@@ -265,14 +276,16 @@ out:
 #define nfs3_check_new_fh_resolve_status(cst, nfstat, erlabl)           \
         do {                                                            \
                 xlator_t *xlatorp = NULL;                               \
-                char buf[256], gfid[256];                                \
+                char buf[256], gfid[256];                               \
+                rpc_transport_t *trans = NULL;                          \
                 if (((cst)->resolve_ret < 0) &&                         \
                     ((cst)->resolve_errno != ENOENT)) {                 \
+                        trans = rpcsvc_request_transport (cst->req);    \
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
-                                                     &cst->resolvefh);   \
-                        uuid_unparse (cst->fh.gfid, gfid);             \
-                        sprintf (buf, "%s : %s", xlatorp ?              \
-                                 xlatorp->name : "ERR", gfid);          \
+                                                     &cst->resolvefh);  \
+                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
+                        sprintf (buf, "(%s) %s : %s", trans->peerinfo.identifier,\
+                        xlatorp ? xlatorp->name : "ERR", gfid);         \
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Unable to resolve FH"\
                                 ": %s", buf);                           \
                         nfstat = nfs3_errno_to_nfsstat3 (cs->resolve_errno);\
