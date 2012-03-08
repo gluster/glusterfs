@@ -24,22 +24,6 @@
 
 #include "syncop.h"
 
-call_frame_t *
-syncop_create_frame ()
-{
-        struct synctask *task = NULL;
-        call_frame_t *frame = NULL;
-
-        task = synctask_get ();
-
-        if (task) {
-                frame = task->frame;
-        }
-
-        return (call_frame_t *)frame;
-}
-
-
 static void
 __run (struct synctask *task)
 {
@@ -160,6 +144,9 @@ synctask_destroy (struct synctask *task)
         if (task->stack)
                 FREE (task->stack);
 
+        if (task->opframe)
+                STACK_DESTROY (task->opframe->root);
+
 	pthread_mutex_destroy (&task->mutex);
 
 	pthread_cond_destroy (&task->cond);
@@ -195,18 +182,24 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 
         VALIDATE_OR_GOTO (env, err);
         VALIDATE_OR_GOTO (fn, err);
-        VALIDATE_OR_GOTO (frame, err);
 
         newtask = CALLOC (1, sizeof (*newtask));
         if (!newtask)
                 return -ENOMEM;
 
+        newtask->frame      = frame;
+        if (!frame) {
+                newtask->opframe = create_frame (this, this->ctx->pool);
+        } else {
+                newtask->opframe = copy_frame (frame);
+        }
+        if (!newtask->opframe)
+                goto err;
         newtask->env        = env;
         newtask->xl         = this;
         newtask->syncfn     = fn;
 	newtask->synccbk    = cbk;
         newtask->opaque     = opaque;
-        newtask->frame      = frame;
 
         INIT_LIST_HEAD (&newtask->all_tasks);
 
@@ -260,6 +253,8 @@ err:
         if (newtask) {
                 if (newtask->stack)
                         FREE (newtask->stack);
+                if (newtask->opframe)
+                        STACK_DESTROY (newtask->opframe->root);
                 FREE (newtask);
         }
         return -1;

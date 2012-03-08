@@ -56,6 +56,7 @@ struct synctask {
         struct syncenv     *env;
         xlator_t           *xl;
         call_frame_t       *frame;
+        call_frame_t       *opframe;
         synctask_cbk_t      synccbk;
         synctask_fn_t       syncfn;
 	synctask_state_t    state;
@@ -153,12 +154,14 @@ struct syncargs {
 
 
 #define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
-                call_frame_t    *frame = NULL;                          \
+                struct  synctask        *task = NULL;                   \
                                                                         \
-                frame = syncop_create_frame ();                         \
+                task = synctask_get ();                                 \
                                                                         \
-                STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol, op, params); \
+                STACK_WIND_COOKIE (task->opframe, cbk, (void *)stb,     \
+                                   subvol, op, params);                 \
                 __yield (stb);                                          \
+                STACK_RESET (task->opframe->root);                              \
         } while (0)
 
 
