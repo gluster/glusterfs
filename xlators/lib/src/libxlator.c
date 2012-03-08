@@ -188,7 +188,7 @@ out:
                 local->xl_specf_unwind (frame, op_ret,
                                          op_errno, dict);
                 return 0;
-        } else {
+        } else if (need_unwind) {
                 STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
         }
 
