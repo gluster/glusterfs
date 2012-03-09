@@ -3,6 +3,7 @@ import os
 import sys
 import stat
 import time
+import fcntl
 import errno
 import struct
 import socket
@@ -149,6 +150,14 @@ class Popen(subprocess.Popen):
         t.start()
         cls.errhandler = t
 
+    @classmethod
+    def fork(cls):
+        """fork wrapper that restarts errhandler thread in child"""
+        pid = os.fork()
+        if not pid:
+            cls.init_errhandler()
+        return pid
+
     def __init__(self, args, *a, **kw):
         """customizations for subprocess.Popen instantiation
 
@@ -172,8 +181,8 @@ class Popen(subprocess.Popen):
             assert(getattr(self, 'errhandler', None))
             self.errstore[self] = []
 
-    def errfail(self):
-        """fail nicely if child did not terminate with success"""
+    def errlog(self):
+        """make a log about child's failure event"""
         filling = ""
         if self.elines:
             filling = ", saying:"
@@ -182,6 +191,10 @@ class Popen(subprocess.Popen):
         for l in self.elines:
             for ll in l.rstrip().split("\n"):
                 logging.error(self.args[0] + "> " + ll.rstrip())
+
+    def errfail(self):
+        """fail nicely if child did not terminate with success"""
+        self.errlog()
         syncdutils.finalize(exval = 1)
 
     def terminate_geterr(self, fail_on_err = True):
@@ -626,6 +639,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
         def __init__(self, params):
             self.params = params
+            self.mntpt = None
 
         @classmethod
         def get_glusterprog(cls):
@@ -644,7 +658,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         def make_mount_argv(self, *a):
             raise NotImplementedError
 
-        def cleanup_mntpt(self):
+        def cleanup_mntpt(self, *a):
             pass
 
         def handle_mounter(self, po):
@@ -657,24 +671,67 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             change into the mount, and lazy unmount the
             filesystem.
             """
-            mounted = False
-            try:
-                po = Popen(self.make_mount_argv(*a), **self.mountkw)
+
+            mpi, mpo = os.pipe()
+            mh = Popen.fork()
+            if mh:
+                os.close(mpi)
+                fcntl.fcntl(mpo, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+                d = None
+                margv = self.make_mount_argv(*a)
+                if self.mntpt:
+                    # mntpt is determined pre-mount
+                    d = self.mntpt
+                    os.write(mpo, d + '\0')
+                po = Popen(margv, **self.mountkw)
                 self.handle_mounter(po)
                 po.terminate_geterr()
-                d = self.mntpt
-                mounted = True
                 logging.debug('auxiliary glusterfs mount in place')
+                if not d:
+                    # mntpt is determined during mount
+                    d = self.mntpt
+                    os.write(mpo, d + '\0')
+                os.write(mpo, 'M')
                 os.chdir(d)
-                self.umount_l(d).terminate_geterr()
-                mounted = False
-            finally:
-                try:
-                    if mounted:
-                        self.umount_l(d).terminate_geterr(fail_on_err = False)
-                    self.cleanup_mntpt()
-                except:
+                os.close(mpo)
+                _, rv = syncdutils.waitpid(mh, 0)
+                if rv:
+                    rv = (os.WIFEXITED(rv) and os.WEXITSTATUS(rv) or 0) - \
+                         (os.WIFSIGNALED(rv) and os.WTERMSIG(rv) or 0)
                     logging.warn('stale mount possibly left behind on ' + d)
+                    raise GsyncdError("cleaning up temp mountpoint %s failed with status %d" % \
+                                      (d, rv))
+            else:
+                rv = 0
+                try:
+                    os.setsid()
+                    os.close(mpo)
+                    mntdata = ''
+                    while True:
+                        c = os.read(mpi, 1)
+                        if not c:
+                            break
+                        mntdata += c
+                    if mntdata:
+                        mounted = False
+                        if mntdata[-1] == 'M':
+                            mntdata = mntdata[:-1]
+                            assert(mntdata)
+                            mounted = True
+                        assert(mntdata[-1] == '\0')
+                        mntpt = mntdata[:-1]
+                        assert(mntpt)
+                        if mounted:
+                            po = self.umount_l(mntpt)
+                            po.terminate_geterr(fail_on_err = False)
+                            if po.returncode != 0:
+                                po.errlog()
+                                rv = po.returncode
+                        self.cleanup_mntpt(mntpt)
+                except:
+                    logging.exception('mount cleanup failure:')
+                    rv = 200
+                os._exit(rv)
             logging.debug('auxiliary glusterfs mount prepared')
 
     class DirectMounter(Mounter):
@@ -691,8 +748,10 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             self.mntpt = tempfile.mkdtemp(prefix = 'gsyncd-aux-mount-')
             return [self.get_glusterprog()] + ['--' + p for p in self.params] + [self.mntpt]
 
-        def cleanup_mntpt(self):
-            os.rmdir(self.mntpt)
+        def cleanup_mntpt(self, mntpt = None):
+            if not mntpt:
+                mntpt = self.mntpt
+            os.rmdir(mntpt)
 
     class MountbrokerMounter(Mounter):
         """mounter backend using the mountbroker gluster service"""
