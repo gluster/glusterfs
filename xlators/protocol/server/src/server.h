@@ -60,6 +60,7 @@ struct _server_connection {
         struct list_head    list;
         char               *id;
         int                 ref;
+        int                 bind_ref;
         pthread_mutex_t     lock;
         fdtable_t          *fdtable;
         struct _lock_table *ltable;
@@ -74,6 +75,10 @@ typedef struct _server_connection server_connection_t;
 
 server_connection_t *
 server_connection_get (xlator_t *this, const char *id);
+
+server_connection_t *
+server_connection_put (xlator_t *this, server_connection_t *conn,
+                       gf_boolean_t *detached);
 
 server_connection_t*
 server_conn_unref (server_connection_t *conn);

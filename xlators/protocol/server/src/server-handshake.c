@@ -432,8 +432,8 @@ server_setvolume (rpcsvc_request_t *req)
         }
 
         cancelled = server_cancel_conn_timer (this, conn);
-        if (cancelled)
-                server_conn_unref (conn);
+        if (cancelled)//Do connection_put on behalf of grace-timer-handler.
+                server_connection_put (this, conn, NULL);
         if (conn->lk_version != 0 &&
             conn->lk_version != lk_version) {
                 (void) server_connection_cleanup (this, conn);
@@ -723,7 +723,7 @@ server_set_lk_version (rpcsvc_request_t *req)
 
         conn = server_connection_get (this, args.uid);
         conn->lk_version = args.lk_ver;
-        server_conn_unref (conn);
+        server_connection_put (this, conn, NULL);
 
         rsp.lk_ver   = args.lk_ver;
 
