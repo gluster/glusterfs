@@ -4,6 +4,7 @@ import sys
 import pwd
 import stat
 import time
+import fcntl
 import errno
 import struct
 import socket
@@ -364,32 +365,43 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         return True
 
     def connect(self):
-        def umount_l(d):
-            time.sleep(0.2) # XXX temporary workaround
-            argv = ['umount', '-l', d]
-            return os.spawnvp(os.P_WAIT, argv[0], argv)
         d = tempfile.mkdtemp(prefix='gsyncd-aux-mount-')
-        mounted = False
-        try:
+        mpi, mpo = os.pipe()
+        mh = os.fork()
+        if mh:
+            os.close(mpi)
+            fcntl.fcntl(mpo, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
             argv = gconf.gluster_command.split() + \
                     (gconf.gluster_log_level and ['-L', gconf.gluster_log_level] or []) + \
                     ['-l', gconf.gluster_log_file, '-s', self.host,
                      '--volfile-id', self.volume, '--client-pid=-1', d]
             if os.spawnvp(os.P_WAIT, argv[0], argv):
                 raise RuntimeError("command failed: " + " ".join(argv))
-            mounted = True
             logging.debug('auxiliary glusterfs mount in place')
+            os.write(mpo, 'M')
             os.chdir(d)
-            if umount_l(d) != 0:
-                raise RuntimeError("umounting %s failed" % d)
-            mounted = False
-        finally:
+            os.close(mpo)
+            _, rv = os.waitpid(mh, 0)
+            if rv:
+                logging.warn('stale mount possibly left behind on ' + d)
+                raise RuntimeError("cleaning up temp mountpoint %s failed with status %d" % \
+                                   (d, rv))
+        else:
+            rv = 0
             try:
+                os.setsid()
+                os.close(mpo)
+                mounted = False
+                while os.read(mpi, 1):
+                    mounted = True
                 if mounted:
-                    umount_l(d)
+                    time.sleep(0.2) # XXX temporary workaround
+                    argv = ['umount', '-l', d]
+                    rv = os.spawnvp(os.P_WAIT, argv[0], argv)
                 os.rmdir(d)
             except:
-                logging.warn('stale mount possibly left behind on ' + d)
+                rv = 200
+            os._exit(rv)
         logging.debug('auxiliary glusterfs mount prepared')
 
     def connect_remote(self, *a, **kw):
