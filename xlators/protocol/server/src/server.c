@@ -42,6 +42,7 @@ grace_time_handler (void *data)
         server_connection_t     *conn = NULL;
         xlator_t                *this = NULL;
         gf_boolean_t            cancelled = _gf_false;
+        gf_boolean_t            detached = _gf_false;
 
         conn = data;
         this = conn->this;
@@ -49,11 +50,15 @@ grace_time_handler (void *data)
         GF_VALIDATE_OR_GOTO (THIS->name, conn, out);
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
 
-        gf_log (this->name, GF_LOG_INFO, "grace timer expired");
+        gf_log (this->name, GF_LOG_INFO, "grace timer expired for %s", conn->id);
 
         cancelled = server_cancel_conn_timer (this, conn);
         if (cancelled) {
-                server_connection_cleanup (this, conn);
+                //conn should not be destroyed in conn_put, so take a ref.
+                server_conn_ref (conn);
+                server_connection_put (this, conn, &detached);
+                if (detached)//reconnection did not happen :-(
+                        server_connection_cleanup (this, conn);
                 server_conn_unref (conn);
         }
 out:

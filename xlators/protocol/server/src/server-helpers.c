@@ -648,7 +648,6 @@ server_conn_unref (server_connection_t *conn)
                 conn->ref--;
 
                 if (!conn->ref) {
-                        list_del_init (&conn->list);
                         todel = conn;
                 }
         }
@@ -691,6 +690,7 @@ server_connection_get (xlator_t *this, const char *id)
                 list_for_each_entry (trav, &conf->conns, list) {
                         if (!strncmp (trav->id, id, strlen (id))) {
                                 conn = trav;
+                                conn->bind_ref++;
                                 goto unlock;
                         }
                 }
@@ -706,6 +706,8 @@ server_connection_get (xlator_t *this, const char *id)
                 conn->fdtable = gf_fd_fdtable_alloc ();
                 conn->ltable  = gf_lock_table_new ();
                 conn->this    = this;
+                conn->bind_ref = 1;
+                conn->ref     = 1;//when bind_ref becomes 0 it calls conn_unref
                 pthread_mutex_init (&conn->lock, NULL);
                 list_add (&conn->list, &conf->conns);
 
@@ -713,11 +715,38 @@ server_connection_get (xlator_t *this, const char *id)
 unlock:
         pthread_mutex_unlock (&conf->mutex);
 out:
-        if (conn)
-                server_conn_ref (conn);
         return conn;
 }
 
+server_connection_t*
+server_connection_put (xlator_t *this, server_connection_t *conn,
+                       gf_boolean_t *detached)
+{
+        server_conf_t       *conf = NULL;
+        gf_boolean_t        unref = _gf_false;
+
+        if (detached)
+                *detached = _gf_false;
+        conf = this->private;
+        pthread_mutex_lock (&conf->mutex);
+        {
+                conn->bind_ref--;
+                if (!conn->bind_ref) {
+                        list_del_init (&conn->list);
+                        unref = _gf_true;
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+        if (unref) {
+                gf_log (this->name, GF_LOG_INFO, "Shutting down connection %s",
+                        conn->id);
+                if (detached)
+                        *detached = _gf_true;
+                server_conn_unref (conn);
+                conn = NULL;
+        }
+        return conn;
+}
 
 static call_frame_t *
 server_alloc_frame (rpcsvc_request_t *req)
