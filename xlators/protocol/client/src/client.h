@@ -100,7 +100,12 @@ typedef struct clnt_conf {
                                               performing lock healing */
         struct timeval         grace_tv;
         gf_timer_t            *grace_timer;
-
+        gf_boolean_t           grace_timer_flag; /* The state of this flag will
+                                                    be used to decide whether
+                                                    a new grace-timer must be
+                                                    registered or not. False
+                                                    means dont register, true
+                                                    means register */
         char                   parent_down;
 } clnt_conf_t;
 
