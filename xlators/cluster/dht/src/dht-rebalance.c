@@ -720,7 +720,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_ERROR, "%s: failed to migrate data",
                         loc->path);
                 /* reset the destination back to 0 */
-                ret = syncop_ftruncate (to, dst_fd, 0);
+                /* TODO: revert back to syncop_ftruncate once its fixed */
+                ret = syncop_truncate (to, loc, 0);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to reset target size back to 0 (%s)",
@@ -825,7 +826,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* Free up the data blocks on the source node, as the whole
            file is migrated */
-        ret = syncop_ftruncate (from, src_fd, 0);
+        /* TODO: revert back to syncop_ftruncate once its fixed */
+        ret = syncop_truncate (from, loc, 0);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform truncate on %s (%s)",
