@@ -1985,13 +1985,16 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 /* Cancel grace timer if set */
                 pthread_mutex_lock (&conf->lock);
                 {
+                        conf->grace_timer_flag = _gf_true;
+
                         if (conf->grace_timer) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "Cancelling the grace timer");
 
                                 gf_timer_call_cancel (this->ctx,
                                                       conf->grace_timer);
-                                conf->grace_timer = NULL;
+
+                                conf->grace_timer      = NULL;
                         }
                 }
                 pthread_mutex_unlock (&conf->lock);
@@ -2003,12 +2006,16 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 pthread_mutex_lock (&conf->lock);
                 {
-                        if (conf->grace_timer) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "Client grace timer is already set");
+                        if (conf->grace_timer || !conf->grace_timer_flag) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "Client grace timer is already set "
+                                        "or a grace-timer has already timeout, "
+                                        "not registering a new timer");
                         } else {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "Registering a grace timer");
+                                conf->grace_timer_flag = _gf_false;
+
                                 conf->grace_timer =
                                         gf_timer_call_after (this->ctx,
                                                              conf->grace_tv,
@@ -2322,7 +2329,6 @@ init (xlator_t *this)
         int          ret = -1;
         clnt_conf_t *conf = NULL;
 
-        /* */
         if (this->children) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: client protocol translator cannot have any "
@@ -2343,8 +2349,9 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->saved_fds);
 
         /* Initialize parameters for lock self healing*/
-        conf->lk_version  = 1;
-        conf->grace_timer = NULL;
+        conf->lk_version       = 1;
+        conf->grace_timer      = NULL;
+        conf->grace_timer_flag = _gf_true;
 
         ret = client_init_grace_timer (this, this->options, conf);
         if (ret)

@@ -425,7 +425,7 @@ print_lock_list (fd_lk_ctx_t *lk_ctx)
 {
         fd_lk_ctx_node_t    *lk     = NULL;
 
-        gf_log ("fd-lk", GF_LOG_WARNING, "lock list:");
+        gf_log ("fd-lk", GF_LOG_DEBUG, "lock list:");
 
         list_for_each_entry (lk, &lk_ctx->lk_list, next)
                 gf_log ("fd-lk", GF_LOG_DEBUG, "owner = %s, "
