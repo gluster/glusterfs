@@ -49,7 +49,7 @@ lkowner_unparse (gf_lkowner_t *lkowner, char *buf, int buf_len)
                         buf[j] = '-';
                         j++;
                 }
-                sprintf (&buf[j], "%02x", lkowner->data[i]);
+                sprintf (&buf[j], "%02hhx", lkowner->data[i]);
                 j += 2;
                 if (j == buf_len)
                         break;
