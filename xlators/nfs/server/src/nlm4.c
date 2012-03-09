@@ -840,10 +840,16 @@ nlm4_establish_callback (void *csarg)
         sockaddr = (struct sockaddr*) &sa;
         switch (sockaddr->sa_family) {
         case AF_INET6:
+        /* can not come here as NLM listens on IPv4 */
+                gf_log (GF_NLM, GF_LOG_ERROR, "NLM is not supported on IPv6 in"
+                        " this release");
+                goto err;
+/*
                 inet_ntop (AF_INET6,
                            &((struct sockaddr_in6 *)sockaddr)->sin6_addr,
                            peerip, INET6_ADDRSTRLEN+1);
                 break;
+*/
         case AF_INET:
                 inet_ntop (AF_INET,
                            &((struct sockaddr_in *)sockaddr)->sin_addr,
@@ -857,6 +863,12 @@ nlm4_establish_callback (void *csarg)
         /* looks like libc rpc supports only ipv4 */
         port = pmap_getport ((struct sockaddr_in*)sockaddr, NLM_PROGRAM,
                              NLM_V4, IPPROTO_TCP);
+
+        if (port == 0) {
+                gf_log (GF_NLM, GF_LOG_ERROR, "Unable to get NLM port of the "
+                        "client. Is the firewall running on client?");
+                goto err;
+        }
 
         options = dict_new();
         ret = dict_set_str (options, "transport-type", "socket");
@@ -915,7 +927,9 @@ nlm4_establish_callback (void *csarg)
         }
         nlm4svc_send_granted (cs);
 err:
-        rpc_clnt_unref (rpc_clnt);
+        if (rpc_clnt) {
+                rpc_clnt_unref (rpc_clnt);
+        }
         return NULL;
 }
 
@@ -1739,6 +1753,12 @@ nlm4svc_init(xlator_t *nfsx)
                         gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
                         goto err;
                 }
+        }
+
+        ret = dict_set_str (options, "transport.address-family", "inet");
+        if (ret == -1) {
+                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
+                goto err;
         }
 
         rpcsvc_create_listeners (nfs->rpcsvc, options, "NLM");
