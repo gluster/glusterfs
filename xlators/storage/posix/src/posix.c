@@ -3489,8 +3489,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
 #endif /* __NetBSD__ */
 
                 if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
-                    && (!strncmp (GF_HIDDEN_PATH, entry->d_name,
-                                  strlen (GF_HIDDEN_PATH)))) {
+                    && (!strcmp (GF_HIDDEN_PATH, entry->d_name))) {
                         continue;
                 }
 
