@@ -3164,12 +3164,14 @@ qr_inodectx_dump (xlator_t *this, inode_t *inode)
 
         gf_proc_dump_write ("entire-file-cached", "%s", qr_inode->xattr ? "yes" : "no");
 
-        tm = localtime (&qr_inode->tv.tv_sec);
-        strftime (buf, 256, "%Y-%m-%d %H:%M:%S", tm);
-        snprintf (buf + strlen (buf), 256 - strlen (buf),
-                  ".%"GF_PRI_SUSECONDS, qr_inode->tv.tv_usec);
+        if (qr_inode->tv.tv_sec) {
+                tm = localtime (&qr_inode->tv.tv_sec);
+                strftime (buf, 256, "%Y-%m-%d %H:%M:%S", tm);
+                snprintf (buf + strlen (buf), 256 - strlen (buf),
+                          ".%"GF_PRI_SUSECONDS, qr_inode->tv.tv_usec);
 
-        gf_proc_dump_write ("last-cache-validation-time", "%s", buf);
+                gf_proc_dump_write ("last-cache-validation-time", "%s", buf);
+        }
 
         ret = 0;
 out:
