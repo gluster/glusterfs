@@ -113,21 +113,17 @@ struct iobuf_pool {
 
         int                 arena_cnt;
         struct list_head    arenas[GF_VARIABLE_IOBUF_COUNT];
-        /* array of arenas. Each element of
-           the array is a list of arenas
-           holding iobufs of particular
-           page_size
-        */
+        /* array of arenas. Each element of the array is a list of arenas
+           holding iobufs of particular page_size */
+
         struct list_head    filled[GF_VARIABLE_IOBUF_COUNT];
-        /*
-          array of arenas without free iobufs
-        */
+        /* array of arenas without free iobufs */
 
         struct list_head    purge[GF_VARIABLE_IOBUF_COUNT];
-        /*
-          array of of arenas which can be
-          purged
-        */
+        /* array of of arenas which can be purged */
+
+        uint64_t            request_misses; /* mostly the requests for higher
+                                               value of iobufs */
 };
 
 
