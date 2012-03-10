@@ -144,7 +144,10 @@ dht_priv_dump (xlator_t *this)
                                    conf->du_stats->avail_inodes);
                 gf_proc_dump_write("du_stats.log", "%lu", conf->du_stats->log);
         }
-        gf_proc_dump_write("last_stat_fetch", "%s", ctime(&conf->last_stat_fetch.tv_sec));
+
+        if (conf->last_stat_fetch.tv_sec)
+                gf_proc_dump_write("last_stat_fetch", "%s",
+                                    ctime(&conf->last_stat_fetch.tv_sec));
 
         UNLOCK(&conf->subvolume_lock);
 

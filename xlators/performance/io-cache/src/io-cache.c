@@ -1834,12 +1834,15 @@ __ioc_cache_dump (ioc_inode_t *ioc_inode, char *prefix)
 
         table = ioc_inode->table;
 
-        tm = localtime (&ioc_inode->cache.tv.tv_sec);
-        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
-                  ".%"GF_PRI_SUSECONDS, ioc_inode->cache.tv.tv_usec);
+        if (ioc_inode->cache.tv.tv_sec) {
+                tm = localtime (&ioc_inode->cache.tv.tv_sec);
+                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, ioc_inode->cache.tv.tv_usec);
 
-        gf_proc_dump_write ("last-cache-validation-time", "%s", timestr);
+                gf_proc_dump_write ("last-cache-validation-time", "%s",
+                                    timestr);
+        }
 
         for (offset = 0; offset < ioc_inode->ia_size;
              offset += table->page_size) {
