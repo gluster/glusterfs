@@ -102,21 +102,18 @@ struct nfs3stat_strerror nfs3stat_strerror_table[] = {
 uint64_t
 nfs3_iatt_gfid_to_ino (struct iatt *buf)
 {
-        uuid_t          gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
-        uint64_t        ino = 0;
+        uint64_t ino  = 0;
 
         if (!buf)
                 return 0;
 
-        if ((buf->ia_ino != 1) && (uuid_compare (buf->ia_gfid, gfid) != 0)) {
-                if (gf_nfs_enable_ino32()) {
-                        ino = (uint32_t )nfs_hash_gfid (buf->ia_gfid);
-                        goto hashout;
-                }
+        if (gf_nfs_enable_ino32()) {
+                ino = (uint32_t )nfs_hash_gfid (buf->ia_gfid);
+                goto hashout;
+        }
 
-                memcpy (&ino, &buf->ia_gfid[8], sizeof (uint64_t));
-        } else
-                ino = 1;
+        /* from posix its guaranteed to send unique ino */
+        ino = buf->ia_ino;
 
 hashout:
         return ino;
