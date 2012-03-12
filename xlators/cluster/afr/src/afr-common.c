@@ -841,6 +841,9 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         if (local->xattr_req)
                 dict_unref (local->xattr_req);
 
+        if (local->dict)
+                dict_unref (local->dict);
+
         if (local->child_up)
                 GF_FREE (local->child_up);
 
