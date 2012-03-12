@@ -596,9 +596,6 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
-        if (local->loc.name == NULL)
-                goto unwind;
-
         ret = quota_inode_ctx_get (local->loc.inode, local->limit, this, dict,
                                    buf, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
@@ -631,6 +628,9 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!(IA_ISREG (buf->ia_type) || IA_ISLNK (buf->ia_type))) {
                         goto unlock;
                 }
+
+                if (local->loc.name == NULL)
+                        goto unlock;
 
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         if ((strcmp (dentry->name, local->loc.name) == 0) &&
