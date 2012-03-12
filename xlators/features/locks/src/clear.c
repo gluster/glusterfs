@@ -310,11 +310,13 @@ clrlk_clear_entrylk (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
 {
         pl_entry_lock_t         *elock          = NULL;
         pl_entry_lock_t         *tmp            = NULL;
-        struct list_head        removed         = {0};
         int                     bcount          = 0;
         int                     gcount          = 0;
         int                     ret             = -1;
+        struct list_head        removed;
+        struct list_head        released;
 
+        INIT_LIST_HEAD (&released);
         if (args->kind & CLRLK_BLOCKED)
                 goto blkd;
 
@@ -326,20 +328,28 @@ blkd:
         {
                 list_for_each_entry_safe (elock, tmp, &dom->blocked_entrylks,
                                           blocked_locks) {
-                        if (args->opts &&
-                            strncmp (elock->basename, args->opts,
-                                     strlen (elock->basename)))
-                                continue;
+                        if (args->opts) {
+                                if (!elock->basename ||
+                                    strcmp (elock->basename, args->opts))
+                                        continue;
+                        }
 
                         bcount++;
-                        list_del_init (&elock->domain_list);
-                        STACK_UNWIND_STRICT (entrylk, elock->frame, -1,
-                                             EAGAIN);
-                        GF_FREE ((char *) elock->basename);
-                        GF_FREE (elock);
+                        list_del_init (&elock->blocked_locks);
+                        list_add_tail (&elock->blocked_locks, &released);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
+
+        list_for_each_entry_safe (elock, tmp, &released, blocked_locks) {
+                list_del_init (&elock->blocked_locks);
+                entrylk_trace_out (this, elock->frame, elock->volume, NULL, NULL,
+                                   elock->basename, ENTRYLK_LOCK, elock->type,
+                                   -1, EAGAIN);
+                STACK_UNWIND_STRICT (entrylk, elock->frame, -1, EAGAIN);
+                GF_FREE ((char *) elock->basename);
+                GF_FREE (elock);
+        }
 
         if (!(args->kind & CLRLK_GRANTED)) {
                 ret = 0;
@@ -352,13 +362,11 @@ granted:
         {
                 list_for_each_entry_safe (elock, tmp, &dom->entrylk_list,
                                           domain_list) {
-                        if (!elock->basename)
-                                continue;
-
-                        if (args->opts &&
-                            strncmp (elock->basename, args->opts,
-                                     strlen (elock->basename)))
-                                continue;
+                        if (args->opts) {
+                                if (!elock->basename ||
+                                    strcmp (elock->basename, args->opts))
+                                        continue;
+                        }
 
                         gcount++;
                         list_del_init (&elock->domain_list);
