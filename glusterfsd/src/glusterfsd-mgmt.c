@@ -762,6 +762,11 @@ glusterfs_handle_defrag (rpcsvc_request_t *req)
         GF_ASSERT (ctx);
 
         active = ctx->active;
+        if (!active) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
         any = active->first;
         if (!xdr_to_generic (req->msg[0], &xlator_req,
                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
