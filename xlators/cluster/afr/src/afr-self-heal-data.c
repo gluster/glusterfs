@@ -796,7 +796,8 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
 int
 afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                           dict_t **xattr,
-                                          afr_transaction_type txn_type)
+                                          afr_transaction_type txn_type,
+                                          uuid_t gfid)
 {
         afr_private_t            *priv      = NULL;
         int                      read_child = -1;
@@ -855,7 +856,8 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                                         priv->child_count,
                                                         prev_read_child,
                                                         config_read_child,
-                                                        sources);
+                                                        sources,
+                                                        priv->hash_mode, gfid);
 out:
         afr_matrix_cleanup (pending_matrix, priv->child_count);
         gf_log (this->name, GF_LOG_DEBUG, "returning read_child: %d",
