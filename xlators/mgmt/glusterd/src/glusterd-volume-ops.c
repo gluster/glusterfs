@@ -823,7 +823,13 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
+                /* we should not be creating the directory if 'force' option
+                   is not given. This may lead to issues where the actual data
+                   disk is not mounted after a machine reboot, but because
+                   'glusterd' restarts the processes, the export directories
+                   can be automatically created and brick would start */
+                if ((flags & GF_CLI_FLAG_OP_FORCE) &&
+                    !uuid_compare (brickinfo->uuid, priv->uuid)) {
                         ret = glusterd_brick_create_path (brickinfo->hostname,
                                                           brickinfo->path,
                                                           volinfo->volume_id,
