@@ -130,6 +130,7 @@ typedef struct _afr_private {
         gf_boolean_t entry_change_log;      /* on/off */
 
         int read_child;               /* read-subvolume */
+        unsigned int hash_mode;       /* for when read_child is not set */
         int favorite_child;  /* subvolume to be preferred in resolving
                                          split-brain cases */
 
@@ -936,12 +937,13 @@ afr_first_up_child (unsigned char *child_up, size_t child_count);
 int
 afr_select_read_child_from_policy (int32_t *fresh_children, int32_t child_count,
                                    int32_t prev_read_child,
-                                   int32_t config_read_child, int32_t *sources);
+                                   int32_t config_read_child, int32_t *sources,
+                                   unsigned int hmode, uuid_t gfid);
 
 void
 afr_set_read_ctx_from_policy (xlator_t *this, inode_t *inode,
                               int32_t *fresh_children, int32_t prev_read_child,
-                              int32_t config_read_child);
+                              int32_t config_read_child, uuid_t gfid);
 
 int32_t
 afr_get_call_child (xlator_t *this, unsigned char *child_up, int32_t read_child,

@@ -45,5 +45,6 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode);
 int
 afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                           dict_t **xattr,
-                                          afr_transaction_type txn_type);
+                                          afr_transaction_type txn_type,
+                                          uuid_t gfid);
 #endif /* __AFR_SELF_HEAL_H__ */

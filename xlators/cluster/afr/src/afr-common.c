@@ -546,6 +546,10 @@ afr_is_read_child (int32_t *success_children, int32_t *sources,
         gf_boolean_t             success_child = _gf_false;
         gf_boolean_t             source        = _gf_false;
 
+        if (child < 0) {
+                return _gf_false;
+        }
+
         GF_ASSERT (success_children);
         GF_ASSERT (child_count > 0);
 
@@ -562,13 +566,44 @@ out:
         return (success_child && source);
 }
 
+int32_t
+afr_hash_child (int32_t *success_children, int32_t child_count,
+                unsigned int hmode, uuid_t gfid)
+{
+        uuid_t  gfid_copy = {0,};
+
+        if (!hmode) {
+                return -1;
+        }
+
+        if (gfid) {
+               uuid_copy(gfid_copy,gfid);
+        }
+        if (hmode > 1) {
+                /*
+                 * Why getpid?  Because it's one of the cheapest calls
+                 * available - faster than gethostname etc. - and returns a
+                 * constant-length value that's sure to be shorter than a UUID.
+                 * It's still very unlikely to be the same across clients, so
+                 * it still provides good mixing.  We're not trying for
+                 * perfection here.  All we need is a low probability that
+                 * multiple clients won't converge on the same subvolume.
+                 */
+                *((pid_t *)gfid_copy) = getpid();
+        }
+
+        return SuperFastHash((char *)gfid_copy,
+                             sizeof(gfid_copy)) % child_count;
+}
+
 /* If sources is NULL the xattrs are assumed to be of source for all
  * success_children.
  */
 int
-afr_select_read_child_from_policy (int32_t *success_children, int32_t child_count,
-                                   int32_t prev_read_child,
-                                   int32_t config_read_child, int32_t *sources)
+afr_select_read_child_from_policy (int32_t *success_children,
+                                   int32_t child_count, int32_t prev_read_child,
+                                   int32_t config_read_child, int32_t *sources,
+                                   unsigned int hmode, uuid_t gfid)
 {
         int32_t                  read_child   = -1;
         int                      i            = 0;
@@ -584,6 +619,13 @@ afr_select_read_child_from_policy (int32_t *success_children, int32_t child_coun
         if (afr_is_read_child (success_children, sources, child_count,
                                read_child))
                 goto out;
+
+        read_child = afr_hash_child (success_children, child_count,
+                                     hmode, gfid);
+        if (afr_is_read_child (success_children, sources, child_count,
+                               read_child)) {
+                goto out;
+        }
 
         for (i = 0; i < child_count; i++) {
                 read_child = success_children[i];
@@ -604,7 +646,7 @@ out:
 void
 afr_set_read_ctx_from_policy (xlator_t *this, inode_t *inode,
                               int32_t *fresh_children, int32_t prev_read_child,
-                              int32_t config_read_child)
+                              int32_t config_read_child, uuid_t gfid)
 {
         int                      read_child = -1;
         afr_private_t            *priv = NULL;
@@ -614,7 +656,8 @@ afr_set_read_ctx_from_policy (xlator_t *this, inode_t *inode,
                                                         priv->child_count,
                                                         prev_read_child,
                                                         config_read_child,
-                                                        NULL);
+                                                        NULL,
+                                                        priv->hash_mode, gfid);
         if (read_child >= 0)
                 afr_inode_set_read_ctx (this, inode, read_child,
                                         fresh_children);
@@ -1271,6 +1314,7 @@ afr_lookup_select_read_child (afr_local_t *local, xlator_t *this,
         dict_t                  **xattrs       = NULL;
         int32_t                 *success_children = NULL;
         afr_transaction_type    type           = AFR_METADATA_TRANSACTION;
+        uuid_t                  *gfid          = NULL;
 
         GF_ASSERT (local);
         GF_ASSERT (this);
@@ -1284,8 +1328,9 @@ afr_lookup_select_read_child (afr_local_t *local, xlator_t *this,
         ia_type = local->cont.lookup.bufs[success_children[0]].ia_type;
         type = afr_transaction_type_get (ia_type);
         xattrs = local->cont.lookup.xattrs;
+        gfid = &local->cont.lookup.buf.ia_gfid;
         source = afr_lookup_select_read_child_by_txn_type (this, local, xattrs,
-                                                           type);
+                                                           type, *gfid);
         if (source < 0) {
                 gf_log (this->name, GF_LOG_DEBUG, "failed to select source "
                         "for %s", local->loc.path);
@@ -2131,8 +2176,14 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         } else {
                 LOCK (&priv->read_child_lock);
                 {
-                        local->read_child_index = (++priv->read_child_rr)
-                                % (priv->child_count);
+                        if (priv->hash_mode) {
+                                local->read_child_index = -1;
+                        }
+                        else {
+                                local->read_child_index =
+                                        (++priv->read_child_rr) %
+                                        (priv->child_count);
+                        }
                 }
                 UNLOCK (&priv->read_child_lock);
                 local->cont.lookup.fresh_lookup = _gf_true;

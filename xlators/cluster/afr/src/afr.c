@@ -149,6 +149,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("read-subvolume", read_subvol, options, xlator, out);
 
+        GF_OPTION_RECONF ("read-hash-mode", priv->hash_mode,
+                          options, uint32, out);
+
         if (read_subvol) {
                 index = xlator_subvolume_index (this, read_subvol);
                 if (index == -1) {
@@ -236,6 +239,8 @@ init (xlator_t *this)
                         goto out;
                 }
         }
+
+        GF_OPTION_INIT ("read-hash-mode", priv->hash_mode, uint32, out);
 
         priv->favorite_child = -1;
         GF_OPTION_INIT ("favorite-child", fav_child, xlator, out);
@@ -493,6 +498,15 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
         { .key  = {"read-subvolume" },
           .type = GF_OPTION_TYPE_XLATOR
+        },
+        { .key = {"read-hash-mode" },
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .max = 2,
+          .default_value = "0",
+          .description = "0 = first responder, "
+                         "1 = hash by GFID (all clients use same subvolume), "
+                         "2 = hash by GFID and client PID",
         },
         { .key  = {"favorite-child"},
           .type = GF_OPTION_TYPE_XLATOR

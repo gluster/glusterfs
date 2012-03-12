@@ -196,7 +196,8 @@ unlock:
                 afr_set_read_ctx_from_policy (this, inode,
                                               local->fresh_children,
                                               local->read_child_index,
-                                              priv->read_child);
+                                              priv->read_child,
+                                              local->cont.create.buf.ia_gfid);
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -429,7 +430,8 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 afr_set_read_ctx_from_policy (this, inode,
                                               local->fresh_children,
                                               local->read_child_index,
-                                              priv->read_child);
+                                              priv->read_child,
+                                              local->cont.mknod.buf.ia_gfid);
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -657,7 +659,8 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 afr_set_read_ctx_from_policy (this, inode,
                                               local->fresh_children,
                                               local->read_child_index,
-                                              priv->read_child);
+                                              priv->read_child,
+                                              local->cont.mkdir.buf.ia_gfid);
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -887,7 +890,8 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 afr_set_read_ctx_from_policy (this, inode,
                                               local->fresh_children,
                                               local->read_child_index,
-                                              priv->read_child);
+                                              priv->read_child,
+                                              local->cont.link.buf.ia_gfid);
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -1110,7 +1114,8 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 afr_set_read_ctx_from_policy (this, inode,
                                               local->fresh_children,
                                               local->read_child_index,
-                                              priv->read_child);
+                                              priv->read_child,
+                                              local->cont.symlink.buf.ia_gfid);
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
