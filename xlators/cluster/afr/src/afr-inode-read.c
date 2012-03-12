@@ -713,12 +713,6 @@ unlock:
                                                     priv->child_count);
                 AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr);
 
-                if (local->dict)
-                        dict_unref (local->dict);
-
-                if (local->child_errno)
-                        GF_FREE (local->child_errno);
-
                 if (xattr)
                         dict_unref (xattr);
         }
@@ -879,9 +873,6 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         unwind:
                 AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, nxattr);
 
-                if (local->dict)
-                        dict_unref (local->dict);
-
                 if (nxattr)
                         dict_unref (nxattr);
         }
@@ -903,7 +894,8 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk)
         if (!strcmp (name, GF_XATTR_PATHINFO_KEY))
                 *cbk = afr_getxattr_pathinfo_cbk;
 
-        else if (!strcmp (name, GF_XATTR_CLRLK_CMD))
+        else if (!strncmp (name, GF_XATTR_CLRLK_CMD,
+                           strlen (GF_XATTR_CLRLK_CMD)))
                 *cbk = afr_getxattr_clrlk_cbk;
         else
                 is_spl = _gf_false;
