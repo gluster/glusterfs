@@ -3488,8 +3488,16 @@ afr_notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_UP:
                 LOCK (&priv->lock);
                 {
+                        /*
+                         * This only really counts if the child was never up
+                         * (value = -1) or had been down (value = 0).  See
+                         * comment at GF_EVENT_CHILD_DOWN for a more detailed
+                         * explanation.
+                         */
+                        if (priv->child_up[idx] != 1) {
+                                priv->up_count++;
+                        }
                         priv->child_up[idx] = 1;
-                        priv->up_count++;
 
                         call_psh = 1;
                         up_child = idx;
@@ -3513,8 +3521,22 @@ afr_notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_DOWN:
                 LOCK (&priv->lock);
                 {
+                        /*
+                         * If a brick is down when we start, we'll get a
+                         * CHILD_DOWN to indicate its initial state.  There
+                         * was never a CHILD_UP in this case, so if we
+                         * increment "down_count" the difference between than
+                         * and "up_count" will no longer be the number of
+                         * children that are currently up.  This has serious
+                         * implications e.g. for quorum enforcement, so we
+                         * don't increment these values unless the event
+                         * represents an actual state transition between "up"
+                         * (value = 1) and anything else.
+                         */
+                        if (priv->child_up[idx] == 1) {
+                                priv->down_count++;
+                        }
                         priv->child_up[idx] = 0;
-                        priv->down_count++;
 
                         for (i = 0; i < priv->child_count; i++)
                                 if (priv->child_up[i] == 0)
