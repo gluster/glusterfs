@@ -204,6 +204,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"client.lk-heal",                       "protocol/client",           "lk-heal", NULL, DOC, 0},
         {"client.grace-timeout",                 "protocol/client",           "grace-timeout", NULL, DOC, 0},
         {"server.grace-timeout",                 "protocol/server",           "grace-timeout", NULL, DOC, 0},
+        {"feature.read-only",                    "features/read-only",        "!read-only", "off", DOC, 0},
         {NULL,                                                                }
 };
 
@@ -1707,6 +1708,15 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = check_and_add_debug_xl (graph, set_dict, volname, "marker");
         if (ret)
                 return -1;
+
+        /* Check for read-only volume option, and add it to the graph */
+        if (dict_get_str_boolean (set_dict, "feature.read-only", 0)) {
+                xl = volgen_graph_add (graph, "features/read-only", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         xl = volgen_graph_add_as (graph, "debug/io-stats", path);
         if (!xl)
