@@ -49,20 +49,7 @@ stop()
     fi
 
     echo
-    pidof -c -o %PPID -x $GLUSTERFSD &> /dev/null
-    [ $? -eq 0 ] &&  killproc $GLUSTERFSD &> /dev/null
 
-       #pidof -c -o %PPID -x $GLUSTERFS &> /dev/null
-       #[ $? -eq 0 ] &&  killproc $GLUSTERFS &> /dev/null
-
-    if [ -f /etc/glusterd/nfs/run/nfs.pid ] ;then
-        pid=`cat /etc/glusterd/nfs/run/nfs.pid`;
-        cmd=`ps -p $pid -o comm=`
-
-        if [ $cmd == "glusterfs" ]; then
-            kill `cat /etc/glusterd/nfs/run/nfs.pid`
-        fi
-    fi
 }
 
 
