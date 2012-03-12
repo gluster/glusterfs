@@ -203,11 +203,24 @@ nfs_inode_loc_fill (inode_t *inode, loc_t *loc, int how)
         if ((!inode) || (!loc))
                 return ret;
 
-        ret = inode_path (inode, NULL, &resolvedpath);
-        if (ret < 0) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "path resolution failed %s",
-                                resolvedpath);
-                goto err;
+        /* If gfid is not null, then the inode is already linked to
+         * the inode table, and not a newly created one. For newly
+         * created inode, inode_path returns null gfid as the path.
+         */
+        if (!uuid_is_null (inode->gfid)) {
+                ret = inode_path (inode, NULL, &resolvedpath);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "path resolution failed "
+                                "%s", resolvedpath);
+                        goto err;
+                }
+        }
+
+        if (resolvedpath == NULL) {
+                char tmp_path[GFID_STR_PFX_LEN + 1] = {0,};
+                snprintf (tmp_path, sizeof (tmp_path), "<gfid:%s>",
+                          uuid_utoa (loc->gfid));
+                resolvedpath = gf_strdup (tmp_path);
         }
 
         ret = nfs_loc_fill (loc, inode, parent, resolvedpath);
