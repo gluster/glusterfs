@@ -73,8 +73,6 @@ typedef struct clnt_conf {
         pthread_mutex_t        lock;
         int                    connecting;
         int                    connected;
-	struct timeval         last_sent;
-	struct timeval         last_received;
 
         rpc_clnt_prog_t       *fops;
         rpc_clnt_prog_t       *mgmt;
