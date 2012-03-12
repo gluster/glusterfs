@@ -1780,7 +1780,7 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
                                      (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO, "Responded to %s, op_ret: %d, "
-                "op_errno: %d, ret: %d", probe_req.hostname,
+                "op_errno: %d, ret: %d", remote_hostname,
                 rsp.op_ret, rsp.op_errno, ret);
 
 out:
