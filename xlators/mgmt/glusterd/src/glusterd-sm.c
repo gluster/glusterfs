@@ -478,6 +478,9 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                if (!peerinfo->connected || !peerinfo->peer ||
+                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                        continue;
                 count++;
                 snprintf (key, sizeof (key), "friend%d.uuid", count);
                 dup_buf = gf_strdup (uuid_utoa (peerinfo->uuid));
@@ -497,7 +500,8 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                if (!peerinfo->connected || !peerinfo->peer)
+                if (!peerinfo->connected || !peerinfo->peer ||
+                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
                         continue;
 
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);

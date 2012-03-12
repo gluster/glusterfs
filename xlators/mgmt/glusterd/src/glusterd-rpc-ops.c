@@ -488,21 +488,30 @@ int32_t
 glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                               int count, void *myframe)
 {
-        int                           ret   = -1;
-        int32_t                       op_ret = 0;
-        char                          str[50] = {0,};
+        int                           ret    = -1;
+        gd1_mgmt_friend_update_rsp    rsp    = {{0}, };
+        xlator_t                      *this  = NULL;
 
         GF_ASSERT (req);
+        this = THIS;
 
         if (-1 == req->rpc_status) {
+                gf_log (this->name, GF_LOG_ERROR, "RPC Error");
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Received %s from uuid: %s",
-                (op_ret)?"RJT":"ACC", str);
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to serialize friend"
+                        " update repsonse");
+                goto out;
+        }
 
 out:
+        gf_log (this->name, GF_LOG_INFO, "Received %s from uuid: %s",
+                (ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
+
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
