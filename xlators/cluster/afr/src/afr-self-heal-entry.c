@@ -63,23 +63,9 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
-
-        /*
-          TODO: cleanup sh->*
-        */
-
-        if (sh->healing_fd)
-                fd_unref (sh->healing_fd);
-        sh->healing_fd = NULL;
-
-        /* for (i = 0; i < priv->child_count; i++) { */
-        /*        sh->locked_nodes[i] = 0; */
-        /* } */
 
         sh->completion_cbk (frame, this);
 

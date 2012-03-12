@@ -27,6 +27,32 @@
 #include "afr-self-heal.h"
 #include "pump.h"
 
+
+void
+afr_sh_reset (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_private_t   *priv = NULL;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+
+        memset (sh->child_errno, 0,
+                sizeof (*sh->child_errno) * priv->child_count);
+        memset (sh->buf, 0, sizeof (*sh->buf) * priv->child_count);
+        memset (sh->parentbufs, 0,
+                sizeof (*sh->parentbufs) * priv->child_count);
+        memset (sh->success, 0, sizeof (*sh->success) * priv->child_count);
+        memset (sh->locked_nodes, 0,
+                sizeof (*sh->locked_nodes) * priv->child_count);
+        sh->active_sinks = 0;
+
+        afr_reset_xattr (sh->xattr, priv->child_count);
+}
+
+
 //Intersection[child]=1 if child is part of intersection
 void
 afr_children_intersection_get (int32_t *set1, int32_t *set2,
@@ -927,25 +953,11 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
-        int              i = 0;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
 
-//      memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
-        memset (sh->buf, 0, sizeof (struct iatt) * priv->child_count);
-
-        for (i = 0; i < priv->child_count; i++) {
-                sh->locked_nodes[i] = 0;
-        }
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->xattr[i])
-                        dict_unref (sh->xattr[i]);
-                sh->xattr[i] = NULL;
-        }
+	afr_sh_reset (frame, this);
 
         if (local->govinda_gOvinda || sh->op_failed) {
                 gf_log (this->name, GF_LOG_INFO,

@@ -54,26 +54,11 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
-        int              i = 0;
 
         local = frame->local;
         sh = &local->self_heal;
-        priv = this->private;
 
-//      memset (sh->child_errno, 0, sizeof (int) * priv->child_count);
-        memset (sh->buf, 0, sizeof (struct iatt) * priv->child_count);
-        memset (sh->success, 0, sizeof (int) * priv->child_count);
-
-/*         for (i = 0; i < priv->child_count; i++) { */
-/*                 sh->locked_nodes[i] = 1; */
-/*         } */
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->xattr[i])
-                        dict_unref (sh->xattr[i]);
-                sh->xattr[i] = NULL;
-        }
+	afr_sh_reset (frame, this);
 
         if (local->govinda_gOvinda) {
                 gf_log (this->name, GF_LOG_INFO,
