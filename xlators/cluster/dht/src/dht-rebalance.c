@@ -1058,6 +1058,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         int32_t                  op_errno       = 0;
         char                    *uuid_str       = NULL;
         uuid_t                   node_uuid      = {0,};
+        int                      readdir_operrno = 0;
 
         gf_log (this->name, GF_LOG_INFO, "migate data called on %s",
                 loc->path);
@@ -1077,10 +1078,13 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         INIT_LIST_HEAD (&entries.list);
 
         while ((ret = syncop_readdirp (this, fd, 131072, offset, NULL,
-                &entries)) != 0)
-        {
-                if ((ret < 0) || (ret && (errno == ENOENT)))
+                                       &entries)) != 0) {
+                if (ret < 0)
                         break;
+
+                /* Need to keep track of ENOENT errno, that means, there is no
+                   need to send more readdirp() */
+                readdir_operrno = errno;
 
                 free_entries = _gf_true;
 
@@ -1225,6 +1229,8 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 free_entries = _gf_false;
                 INIT_LIST_HEAD (&entries.list);
 
+                if (readdir_operrno == ENOENT)
+                        break;
         }
         ret = 0;
 out:
