@@ -2156,7 +2156,9 @@ rpcsvc_transport_peer_check_addr (dict_t *options, char *volname,
         int     aret = RPCSVC_AUTH_DONTCARE;
         int     rjret = RPCSVC_AUTH_REJECT;
         char    clstr[RPCSVC_PEER_STRLEN];
+        char   *tmp   = NULL;
         struct sockaddr_storage sastorage = {0,};
+        struct sockaddr        *sockaddr  = NULL;
 
         if (!trans)
                 return ret;
@@ -2168,6 +2170,17 @@ rpcsvc_transport_peer_check_addr (dict_t *options, char *volname,
                         "%s", gai_strerror (ret));
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
+        }
+
+        sockaddr = (struct sockaddr *) &sastorage;
+        switch (sockaddr->sa_family) {
+
+        case AF_INET:
+        case AF_INET6:
+                tmp = strrchr (clstr, ':');
+                if (tmp)
+                        *tmp = '\0';
+                break;
         }
 
         aret = rpcsvc_transport_peer_check_allow (options, volname, clstr);
@@ -2248,8 +2261,7 @@ rpcsvc_transport_check_volume_general (dict_t *options, rpc_transport_t *trans)
         addrchk = rpcsvc_transport_peer_check_addr (options, NULL, trans);
 
         if (namelookup)
-                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk,
-                                                               namechk);
+                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk, namechk);
         else
                 ret = addrchk;
 
