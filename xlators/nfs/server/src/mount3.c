@@ -192,6 +192,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
 {
         struct mountentry       *me = NULL;
         int                     ret = -1;
+        char                    *colon = NULL;
 
         if ((!ms) || (!req) || (!expname))
                 return -1;
@@ -210,6 +211,10 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         if (ret == -1)
                 goto free_err;
 
+        colon = strrchr (me->hostname, ':');
+        if (colon) {
+                *colon = '\0';
+        }
         LOCK (&ms->mountlock);
         {
                 list_add_tail (&me->mlist, &ms->mountlist);
@@ -1163,6 +1168,7 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         int                     ret = -1;
         struct mount3_state     *ms = NULL;
         mountstat3              mstat = MNT3_OK;
+        char                    *colon = NULL;
 
         if (!req)
                 return -1;
@@ -1189,37 +1195,23 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         if (ret != 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get remote name: %s",
                         gai_strerror (ret));
-                goto try_umount_with_addr;
-        }
-
-        gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s, hostname: %s", dirpath,
-                hostname);
-        ret = mnt3svc_umount (ms, dirpath, hostname);
-
-        /* Unmount succeeded with the given hostname. */
-        if (ret == 0)
-                goto snd_reply;
-
-try_umount_with_addr:
-        if (ret != 0)
-                ret = rpcsvc_transport_peeraddr (req->trans, hostname,
-                                                 MNTPATHLEN, NULL, 0);
-
-        if (ret != 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get remote addr: %s",
-                        gai_strerror (ret));
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto rpcerr;
         }
 
+        colon = strrchr (hostname, ':');
+        if (colon) {
+                *colon= '\0';
+        }
         gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s, hostname: %s", dirpath,
                 hostname);
         ret = mnt3svc_umount (ms, dirpath, hostname);
-        if (ret == -1)
-                mstat = MNT3ERR_INVAL;
 
-        ret = 0;
-snd_reply:
+        if (ret == -1) {
+                mstat = MNT3ERR_NOENT;
+        }
+        /* FIXME: also take care of the corner case where the
+         * client was resolvable at mount but not at the umount - vice-versa.
+         */
         mnt3svc_submit_reply (req, &mstat,
                               (mnt3_serializer)xdr_serialize_mountstat3);
 
