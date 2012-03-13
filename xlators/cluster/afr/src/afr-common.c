@@ -670,8 +670,11 @@ afr_get_call_child (xlator_t *this, unsigned char *child_up, int32_t read_child,
         GF_ASSERT (call_child);
         GF_ASSERT (last_index);
         GF_ASSERT (fresh_children);
-        GF_ASSERT (read_child >= 0);
 
+        if (read_child < 0) {
+                ret = -EIO;
+                goto out;
+        }
         priv = this->private;
         *call_child = -1;
         *last_index = -1;
