@@ -544,6 +544,46 @@ out:
         return nsources;
 }
 
+int
+afr_sh_mark_zero_size_file_as_sink (struct iatt *bufs, int32_t *success_children,
+                                    int child_count, int32_t *sources)
+{
+        int             nsources = 0;
+        int             i = 0;
+        int             child = 0;
+        gf_boolean_t    sink_exists = _gf_false;
+        gf_boolean_t    source_exists = _gf_false;
+
+        for (i = 0; i < child_count; i++) {
+                child = success_children[i];
+                if (child < 0)
+                        break;
+                if (bufs[child].ia_size)
+                        source_exists = _gf_true;
+                if (!bufs[child].ia_size)
+                        sink_exists = _gf_true;
+        }
+        if (!source_exists && !sink_exists) {
+                nsources = -1;
+                goto out;
+        }
+
+        if (!source_exists || !sink_exists)
+                goto out;
+
+        for (i = 0; i < child_count; i++) {
+                child = success_children[i];
+                if (child < 0)
+                        break;
+                if (bufs[child].ia_size) {
+                        sources[child] = 1;
+                        nsources++;
+                }
+        }
+out:
+        return nsources;
+}
+
 char *
 afr_get_character_str (afr_node_type type)
 {
@@ -712,11 +752,22 @@ afr_mark_sources (xlator_t *this, int32_t *sources, int32_t **pending_matrix,
         afr_find_character_types (characters, pending_matrix, success_children,
                                   child_count);
         if (afr_sh_all_nodes_innocent (characters, child_count)) {
-                if (type == AFR_SELF_HEAL_METADATA)
+                switch (type) {
+                case AFR_SELF_HEAL_METADATA:
                         nsources = afr_sh_mark_lowest_uid_as_source (bufs,
                                                              success_children,
                                                              child_count,
                                                              sources);
+                        break;
+                case AFR_SELF_HEAL_DATA:
+                        nsources = afr_sh_mark_zero_size_file_as_sink (bufs,
+                                                             success_children,
+                                                             child_count,
+                                                             sources);
+                        break;
+                default:
+                        break;
+                }
                 goto out;
         }
 
