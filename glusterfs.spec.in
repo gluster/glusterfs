@@ -230,12 +230,18 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %post
 /sbin/ldconfig
 
+# Copy the 'glusterfs-logrotate' file at the right place
+if [ -d /etc/logrotate.d ]; then
+   cp %{_docdir}/%{name}-%{version}/glusterfs-logrotate /etc/logrotate.d/glusterfs
+fi
+
 %postun
 /sbin/ldconfig
 
 %files
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
+%doc extras/glusterfs-logrotate
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
