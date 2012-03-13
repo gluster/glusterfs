@@ -821,9 +821,17 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         nsources = afr_build_sources (this, xattr, bufs, pending_matrix,
                                       sources, success_children, txn_type,
                                       &subvol_status, _gf_false);
-        if (subvol_status & SPLIT_BRAIN)
+        if (subvol_status & SPLIT_BRAIN) {
                 gf_log (this->name, GF_LOG_WARNING, "%s: Possible split-brain",
                         local->loc.path);
+                if (txn_type == AFR_DATA_TRANSACTION) {
+                        //succeed lookup fail open
+                        afr_set_split_brain (this, local->cont.lookup.inode,
+                                             _gf_true);
+                        nsources = 1;
+                        sources[success_children[0]] = 1;
+                }
+        }
         if (nsources < 0)
                 goto out;
 
