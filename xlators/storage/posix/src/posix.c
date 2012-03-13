@@ -114,6 +114,18 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
         VALIDATE_OR_GOTO (loc->path, out);
 
+        /* The Hidden directory should be for housekeeping purpose and it
+           should not get any gfid on it */
+        if (__is_root_gfid (loc->pargfid) &&
+            (strcmp (loc->name, GF_HIDDEN_PATH) == 0)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Lookup issued on %s, which is not permitted",
+                        GF_HIDDEN_PATH);
+                op_errno = EPERM;
+                op_ret = -1;
+                goto out;
+        }
+
         if (uuid_is_null (loc->pargfid)) {
                 /* nameless lookup */
                 MAKE_INODE_HANDLE (real_path, this, loc, &buf);
@@ -1098,9 +1110,22 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        /* The Hidden directory should be for housekeeping purpose and it
+           should not get deleted from inside process */
+        if (__is_root_gfid (loc->pargfid) &&
+            (strcmp (loc->name, GF_HIDDEN_PATH) == 0)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "rmdir issued on %s, which is not permitted",
+                        GF_HIDDEN_PATH);
+                op_errno = EPERM;
+                op_ret = -1;
+                goto out;
+        }
+
         priv = this->private;
 
-        SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
