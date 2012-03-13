@@ -550,15 +550,25 @@ afr_sh_mark_zero_size_file_as_sink (struct iatt *bufs, int32_t *success_children
         int             child = 0;
         gf_boolean_t    sink_exists = _gf_false;
         gf_boolean_t    source_exists = _gf_false;
+        int             source = -1;
 
         for (i = 0; i < child_count; i++) {
                 child = success_children[i];
                 if (child < 0)
                         break;
-                if (bufs[child].ia_size)
-                        source_exists = _gf_true;
-                if (!bufs[child].ia_size)
+                if (!bufs[child].ia_size) {
                         sink_exists = _gf_true;
+                        continue;
+                }
+                if (!source_exists) {
+                        source_exists = _gf_true;
+                        source = child;
+                        continue;
+                }
+                if (bufs[source].ia_size != bufs[child].ia_size) {
+                        nsources = -1;
+                        goto out;
+                }
         }
         if (!source_exists && !sink_exists) {
                 nsources = -1;
@@ -758,6 +768,8 @@ afr_mark_sources (xlator_t *this, int32_t *sources, int32_t **pending_matrix,
                                                              success_children,
                                                              child_count,
                                                              sources);
+                        if ((nsources < 0) && subvol_status)
+                                *subvol_status |= SPLIT_BRAIN;
                         break;
                 default:
                         break;
@@ -1254,6 +1266,9 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         ia_type_t       ia_type = IA_INVAL;
         int32_t         nsources = 0;
         loc_t           *loc = NULL;
+        int32_t         subvol_status = 0;
+        afr_transaction_type txn_type = AFR_DATA_TRANSACTION;
+        gf_boolean_t    data_split_brain = _gf_false;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -1269,17 +1284,24 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
 
         //now No chance for the ia_type to conflict
         ia_type = sh->buf[sh->success_children[0]].ia_type;
+        txn_type = afr_transaction_type_get (ia_type);
         nsources = afr_build_sources (this, sh->xattr, sh->buf,
                                       sh->pending_matrix, sh->sources,
-                                      sh->success_children,
-                                      afr_transaction_type_get (ia_type),
-                                      NULL, _gf_false);
+                                      sh->success_children, txn_type,
+                                      &subvol_status, _gf_false);
         if (nsources < 0) {
                 gf_log (this->name, GF_LOG_INFO, "No sources for dir of %s,"
                         " in missing entry self-heal, continuing with the rest"
                         " of the self-heals", local->loc.path);
-                op_errno = EIO;
-                goto out;
+                if ((txn_type == AFR_DATA_TRANSACTION) &&
+                    (subvol_status & SPLIT_BRAIN)) {
+                        data_split_brain = _gf_true;
+                        sh->sources[sh->success_children[0]] = 1;
+                        nsources = 1;
+                } else {
+                        op_errno = EIO;
+                        goto out;
+                }
         }
 
         afr_get_fresh_children (sh->success_children, sh->sources,
@@ -1296,7 +1318,11 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         sh->type = sh->buf[sh->source].ia_type;
         if (uuid_is_null (loc->inode->gfid))
                 uuid_copy (loc->gfid, sh->buf[sh->source].ia_gfid);
-        sh_missing_entries_create (frame, this);
+        if (data_split_brain) {
+                afr_sh_missing_entries_finish (frame, this);
+        } else {
+                sh_missing_entries_create (frame, this);
+        }
         return;
 out:
         sh->op_failed = 1;
