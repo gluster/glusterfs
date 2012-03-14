@@ -2850,3 +2850,40 @@ dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
 out:
         return ret;
 }
+
+void
+dict_dump (dict_t *this)
+{
+        int          ret     = 0;
+        int          dumplen = 0;
+        data_pair_t *trav    = NULL;
+        char         dump[64*1024]; /* This is debug only, hence
+                                       performance should not matter */
+
+        if (!this) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict NULL");
+                goto out;
+        }
+
+        dump[0] = '\0'; /* the array is not initialized to '\0' */
+
+        /* There is a possibility of issues if data is binary, ignore it
+           for now as debugging is more important */
+        for (trav = this->members_list; trav; trav = trav->next) {
+                ret = snprintf (&dump[dumplen], ((64*1024) - dumplen - 1),
+                                "(%s:%s)", trav->key, trav->value->data);
+                if ((ret == -1) || !ret)
+                        break;
+
+                dumplen += ret;
+                /* snprintf doesn't append a trailing '\0', add it here */
+                dump[dumplen] = '\0';
+        }
+
+        if (dumplen)
+                gf_log_callingfn ("dict", GF_LOG_INFO,
+                                  "dict=%p (%s)", this, dump);
+
+out:
+        return;
+}
