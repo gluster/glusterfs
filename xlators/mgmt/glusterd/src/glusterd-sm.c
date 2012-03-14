@@ -445,18 +445,14 @@ out:
 }
 
 static gf_boolean_t
-glusterd_is_valid_recipient_peer (glusterd_peerinfo_t *peerinfo,
-                                  glusterd_peerinfo_t *cur_peerinfo)
+glusterd_should_update_peer (glusterd_peerinfo_t *peerinfo,
+                             glusterd_peerinfo_t *cur_peerinfo)
 {
         gf_boolean_t is_valid = _gf_false;
 
-        if (peerinfo == cur_peerinfo)
+        if ((peerinfo == cur_peerinfo) ||
+            (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED))
                 is_valid = _gf_true;
-
-        else if (peerinfo->connected && peerinfo->peer &&
-                 peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED)
-                is_valid = _gf_true;
-
 
         return is_valid;
 }
@@ -496,7 +492,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                if (!glusterd_is_valid_recipient_peer (peerinfo, cur_peerinfo))
+                if (!glusterd_should_update_peer (peerinfo, cur_peerinfo))
                         continue;
 
                 count++;
@@ -518,7 +514,10 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                if (!glusterd_is_valid_recipient_peer (peerinfo, cur_peerinfo))
+                if (!peerinfo->connected || !peerinfo->peer)
+                        continue;
+
+                if (!glusterd_should_update_peer (peerinfo, cur_peerinfo))
                         continue;
 
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
