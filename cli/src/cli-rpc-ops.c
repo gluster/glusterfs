@@ -3786,9 +3786,9 @@ gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         snprintf (str, sizeof (str), "NFS Server : %s", brick);
                 else
                         snprintf (str, sizeof (str), "Brick: %s", brick);
-                cli_out (str);
+                cli_out ("%s", str);
                 memset (str, '-', strlen (str));
-                cli_out (str);
+                cli_out ("%s", str);
 
                 snprintf (key, sizeof (key), "%d-cumulative", i);
                 ret = dict_get_int32 (dict, key, &interval);
