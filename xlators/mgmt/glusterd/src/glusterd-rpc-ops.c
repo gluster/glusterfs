@@ -508,6 +508,7 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        ret = 0;
 out:
         gf_log (this->name, GF_LOG_INFO, "Received %s from uuid: %s",
                 (ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
