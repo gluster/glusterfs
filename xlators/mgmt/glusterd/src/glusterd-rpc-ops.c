@@ -1853,14 +1853,14 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                 if (!dummy_frame)
                         continue;
 
-                if (pending_node->type == GD_NODE_BRICK)
-                        ret = glusterd_brick_op_build_payload
-                                (req_ctx->op, pending_node->node,
-                                 (gd1_mgmt_brick_op_req **)&req,
-                                 req_ctx->dict);
-                else if (pending_node->type == GD_NODE_NFS)
+                if (pending_node->type == GD_NODE_NFS)
                         ret = glusterd_nfs_op_build_payload
                                 (req_ctx->op,
+                                 (gd1_mgmt_brick_op_req **)&req,
+                                 req_ctx->dict);
+                else
+                        ret = glusterd_brick_op_build_payload
+                                (req_ctx->op, pending_node->node,
                                  (gd1_mgmt_brick_op_req **)&req,
                                  req_ctx->dict);
 
