@@ -2909,7 +2909,13 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         uint64_t                        size = 0;
         uint64_t                        lookup = 0;
         gf_defrag_status_t              status = GF_DEFRAG_STATUS_NOT_STARTED;
+        char                            key[256] = {0,};
+        int32_t                         i = 0;
+        char                            buf[1024] = {0,};
+        char                            *node_str = NULL;
+        glusterd_conf_t                 *priv = NULL;
 
+        priv = THIS->private;
         GF_ASSERT (req_dict);
 
         ret = dict_get_str (req_dict, "volname", &volname);
@@ -2922,6 +2928,9 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
 
         if (ret)
                 goto out;
+
+        if (!rsp_dict)
+                goto populate;
 
         ret = dict_get_uint64 (rsp_dict, "files", &files);
         if (ret)
@@ -2942,30 +2951,61 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                 gf_log (THIS->name, GF_LOG_TRACE,
                         "failed to get status");
 
-        volinfo->rebalance_files += files;
-        volinfo->rebalance_data += size;
-        volinfo->lookedup_files += lookup;
+        if (files)
+                volinfo->rebalance_files = files;
+        if (size)
+                volinfo->rebalance_data = size;
+        if (lookup)
+                volinfo->lookedup_files = lookup;
 
         if (!op_ctx) {
                 dict_copy (rsp_dict, op_ctx);
                 goto out;
         }
 
-        ret = dict_set_uint64 (op_ctx, "files", volinfo->rebalance_files);
+populate:
+        ret = dict_get_int32 (op_ctx, "count", &i);
+        i++;
+
+        ret = dict_set_int32 (op_ctx, "count", i);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set count");
+
+        snprintf (buf, 1024, "%s", uuid_utoa (priv->uuid));
+        node_str = gf_strdup (buf);
+
+        snprintf (key, 256, "node-uuid-%d",i);
+        ret = dict_set_dynstr (op_ctx, key, node_str);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set node-uuid");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "files-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebalance_files);
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set file count");
 
-        ret = dict_set_uint64 (op_ctx, "size", volinfo->rebalance_data);
+        memset (key, 0 , 256);
+        snprintf (key, 256, "size-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebalance_data);
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set size of xfer");
 
-        ret = dict_set_uint64 (op_ctx, "lookups", volinfo->lookedup_files);
+        memset (key, 0 , 256);
+        snprintf (key, 256, "lookups-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->lookedup_files);
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set lookedup file count");
-        ret = dict_set_int32 (op_ctx, "status", status);
+        if (!status)
+                status = volinfo->defrag_status;
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "status-%d", i);
+        ret = dict_set_int32 (op_ctx, key, status);
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set status");

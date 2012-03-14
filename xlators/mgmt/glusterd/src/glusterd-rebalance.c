@@ -516,31 +516,8 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 }
                 break;
         case GF_DEFRAG_CMD_STATUS:
-                ret = glusterd_is_defrag_on (volinfo);
-                if (!ret) {
-                        ret = -1;
-                        if (volinfo->defrag_status ==
-                                GF_DEFRAG_STATUS_COMPLETE) {
-                                snprintf (msg, sizeof (msg), "Rebalance "
-                                          "completed!");
-                                goto out;
-                        }
-                        snprintf (msg, sizeof(msg), "Rebalance is not running"
-                                  " on volume %s", volname);
-                        goto out;
-                }
-                break;
-
         case GF_DEFRAG_CMD_STOP:
-                ret = glusterd_is_defrag_on (volinfo);
-                if (!ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
-                                "rebalance is not running");
-                        ret = -1;
-                        snprintf (msg, sizeof(msg), "Rebalance is not running"
-                                  " on volume %s", volname);
-                        goto out;
-                }
+                break;
         default:
                 break;
         }
@@ -594,9 +571,6 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  break;
         case GF_DEFRAG_CMD_STOP:
         case GF_DEFRAG_CMD_STATUS:
-                volinfo->rebalance_files = 0;
-                volinfo->rebalance_data = 0;
-                volinfo->lookedup_files = 0;
                 break;
         default:
                 break;

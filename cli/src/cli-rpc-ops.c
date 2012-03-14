@@ -1009,6 +1009,10 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         uint64_t                 lookup  = 0;
         char                     msg[1024] = {0,};
         gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
+        int32_t                  counter = 0;
+        char                    *node_uuid = NULL;
+        char                     key[256] = {0,};
+        int32_t                  i = 1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1059,25 +1063,23 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        ret = dict_get_uint64 (dict, "files", &files);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get file count");
+        if (!((cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_STATUS))) {
+                /* All other possibility is about starting a volume */
+                if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                        snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+                else
+                        snprintf (msg, sizeof (msg),
+                                  "Starting rebalance on volume %s has been %s",
+                                  volname, (rsp.op_ret) ? "unsuccessful":
+                                  "successful");
+                goto done;
+        }
 
-        ret = dict_get_uint64 (dict, "size", &size);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get size of xfer");
-
-        ret = dict_get_uint64 (dict, "lookups", &lookup);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get lookedup file count");
-
-        ret = dict_get_int32 (dict, "status", (int32_t *)&status_rcd);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get status");
+        ret = dict_get_int32 (dict, "count", &counter);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "count not set");
+                goto out;
+        }
 
         if (cmd == GF_DEFRAG_CMD_STOP) {
                 if (rsp.op_ret == -1) {
@@ -1088,13 +1090,12 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 snprintf (msg, sizeof (msg),
                                           "rebalance volume %s stop failed",
                                           volname);
+                        goto done;
                 } else {
                         snprintf (msg, sizeof (msg),
-                                 "Stopped rebalance process on volume %s \n"
-                                 "(after rebalancing %"PRId64" bytes - "
-                                 "%"PRId64" files)", volname, size, files);
+                                 "Stopped rebalance process on volume %s \n",
+                                  volname);
                 }
-                goto done;
         }
         if (cmd == GF_DEFRAG_CMD_STATUS) {
                 if (rsp.op_ret == -1) {
@@ -1107,6 +1108,42 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                           "rebalance process");
                         goto done;
                 }
+        }
+        cli_out ("%40s %16s %13s %13s %14s", "Node", "Rebalanced-files",
+                 "size", "scanned", "status");
+        cli_out ("%40s %16s %13s %13s %14s", "---------", "-----------",
+                 "-----------", "-----------", "------------");
+
+        do {
+                snprintf (key, 256, "node-uuid-%d", i);
+                ret = dict_get_str (dict, key, &node_uuid);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get node-uuid");
+
+                snprintf (key, 256, "files-%d", i);
+                ret = dict_get_uint64 (dict, key, &files);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get file count");
+
+                snprintf (key, 256, "size-%d", i);
+                ret = dict_get_uint64 (dict, key, &size);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get size of xfer");
+
+                snprintf (key, 256, "lookups-%d", i);
+                ret = dict_get_uint64 (dict, key, &lookup);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get lookedup file count");
+
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get status");
 
                 switch (status_rcd) {
                 case GF_DEFRAG_STATUS_NOT_STARTED:
@@ -1125,27 +1162,11 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         status = "failed";
                         break;
                 }
-                if (files || size || lookup) {
-                        snprintf (msg, sizeof(msg),
-                                  "Rebalance %s: rebalanced %"PRId64
-                                  " files of size %"PRId64" (total files"
-                                  " scanned %"PRId64")", status,
-                                  files, size, lookup);
-                        goto done;
-                }
+                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%14s", node_uuid, files,
+                        size, lookup, status);
+                i++;
+        } while (i <= counter);
 
-                snprintf (msg, sizeof (msg), "Rebalance %s", status);
-                goto done;
-        }
-
-        /* All other possibility is about starting a volume */
-        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
-        else
-                snprintf (msg, sizeof (msg),
-                          "Starting rebalance on volume %s has been %s",
-                          volname, (rsp.op_ret) ? "unsuccessful":
-                          "successful");
 
 done:
 #if (HAVE_LIB_XML)
