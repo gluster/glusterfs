@@ -3516,6 +3516,7 @@ fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
         loc_t    loc                = {0, };
         char     create_in_progress = 0;
         inode_t *old_inode          = NULL;
+        int      flags              = 0;
 
         /* could've used pthread_cond_wait, but that requires a cond variable to
          * be mainted for each fd and that is a bit too much overhead.
@@ -3581,7 +3582,8 @@ fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
         if (IA_ISDIR (fd->inode->ia_type)) {
                 ret = syncop_opendir (new_subvol, &loc, fd);
         } else {
-                ret = syncop_open (new_subvol, &loc, fd->flags, fd);
+                flags = fd->flags & ~(O_CREAT | O_EXCL);
+                ret = syncop_open (new_subvol, &loc, flags, fd);
         }
 
         if (ret < 0) {
