@@ -103,6 +103,8 @@ struct iatt {
 #define IA_PROT_SGID(prot)      ((prot).sgid == 1)
 #define IA_PROT_STCKY(prot)     ((prot).sticky == 1)
 
+#define IA_FILE_OR_DIR(t)       (IA_ISREG(t) || IA_ISDIR(t))
+
 static inline uint32_t
 ia_major (uint64_t ia_dev)
 {
