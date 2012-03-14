@@ -126,6 +126,7 @@ struct ioc_page {
         struct ioc_waitq    *waitq;
         struct iobref       *iobref;
         pthread_mutex_t     page_lock;
+        int32_t             op_errno;
 };
 
 struct ioc_cache {

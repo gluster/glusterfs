@@ -517,6 +517,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  * byte replies */
                                 page_size = iov_length(vector, count);
                                 page->size = page_size;
+                                page->op_errno = op_errno;
 
                                 iobref_page_size = iobref_size (page->iobref);
 
