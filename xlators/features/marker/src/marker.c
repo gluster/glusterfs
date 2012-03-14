@@ -65,23 +65,25 @@ marker_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-		uuid_copy (loc->gfid, loc->inode->gfid);
+                if (uuid_is_null (loc->gfid)) {
+                        uuid_copy (loc->gfid, loc->inode->gfid);
+                }
         }
 
         if (parent)
                 loc->parent = inode_ref (parent);
 
-        loc->path = gf_strdup (path);
-        if (!loc->path) {
-                gf_log ("loc fill", GF_LOG_ERROR, "strdup failed");
-                goto loc_wipe;
-        }
+        if (path) {
+                loc->path = gf_strdup (path);
+                if (!loc->path) {
+                        gf_log ("loc fill", GF_LOG_ERROR, "strdup failed");
+                        goto loc_wipe;
+                }
 
-        loc->name = strrchr (loc->path, '/');
-        if (loc->name)
-                loc->name++;
-        else
-                goto loc_wipe;
+                loc->name = strrchr (loc->path, '/');
+                if (loc->name)
+                        loc->name++;
+        }
 
         ret = 0;
 loc_wipe:
