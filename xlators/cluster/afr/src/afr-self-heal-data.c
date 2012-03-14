@@ -815,12 +815,23 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
         if (subvol_status & SPLIT_BRAIN) {
                 gf_log (this->name, GF_LOG_WARNING, "%s: Possible split-brain",
                         local->loc.path);
-                if (txn_type == AFR_DATA_TRANSACTION) {
-                        //succeed lookup fail open
-                        afr_set_split_brain (this, local->cont.lookup.inode,
+                switch (txn_type) {
+                case AFR_DATA_TRANSACTION:
+                        afr_set_split_brain (this,
+                                             local->cont.lookup.inode,
                                              _gf_true);
                         nsources = 1;
                         sources[success_children[0]] = 1;
+                        break;
+                case AFR_ENTRY_TRANSACTION:
+                        read_child = afr_get_no_xattr_dir_read_child (this,
+                                                             success_children,
+                                                             bufs);
+                        sources[read_child] = 1;
+                        nsources = 1;
+                        break;
+                default:
+                        break;
                 }
         }
         if (nsources < 0) {

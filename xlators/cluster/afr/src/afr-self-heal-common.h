@@ -115,4 +115,7 @@ afr_impunge_frame_create (call_frame_t *frame, xlator_t *this,
                           call_frame_t **impunge_frame);
 void
 afr_sh_reset (call_frame_t *frame, xlator_t *this);
+int
+afr_get_no_xattr_dir_read_child (xlator_t *this, int32_t *success_children,
+                                 struct iatt *bufs);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */
