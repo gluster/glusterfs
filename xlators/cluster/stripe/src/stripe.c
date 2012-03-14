@@ -3997,7 +3997,41 @@ int
 stripe_setxattr_cbk (call_frame_t *frame, void *cookie,
                      xlator_t *this, int op_ret, int op_errno)
 {
-        STRIPE_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
+        int ret = -1;
+        int call_cnt = 0;
+        stripe_local_t *local = NULL;
+
+        if (!frame || !frame->local || !this) {
+                gf_log ("", GF_LOG_ERROR, "Possible NULL deref");
+                return ret;
+        }
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                call_cnt = --local->wind_count;
+
+                /**
+                 * We overwrite ->op_* values here for subsequent faliure
+                 * conditions, hence we propogate the last errno down the
+                 * stack.
+                 */
+                if (op_ret < 0) {
+                        local->op_ret = op_ret;
+                        local->op_errno = op_errno;
+                        goto unlock;
+                }
+        }
+
+ unlock:
+        UNLOCK (&frame->lock);
+
+        if (!call_cnt) {
+                STRIPE_STACK_UNWIND (setxattr, frame, local->op_ret,
+                                     local->op_errno);
+        }
+
         return 0;
 }
 
@@ -4005,20 +4039,52 @@ int
 stripe_setxattr (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, dict_t *dict, int flags)
 {
-        data_pair_t    *trav     = NULL;
-        int32_t         op_errno = EINVAL;
+        data_pair_t      *pair     = NULL;
+        int32_t           op_errno = EINVAL;
+        xlator_list_t    *trav     = NULL;
+        stripe_private_t *priv     = NULL;
+        stripe_local_t   *local    = NULL;
+        int               i        = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.*stripe*", dict,
-                                   trav, op_errno, err);
+                                   pair, op_errno, err);
 
-        STACK_WIND (frame, stripe_setxattr_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setxattr,
-                    loc, dict, flags);
+        priv = this->private;
+        trav = this->children;
+
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        frame->local = local;
+        local->wind_count = priv->child_count;
+        local->op_ret = local->op_errno = 0;
+
+        /**
+         * Set xattrs for directories on all subvolumes. Additionally
+         * this power is only given to a special client.
+         */
+        if ((frame->root->pid == -1) && IA_ISDIR (loc->inode->ia_type)) {
+                for (i = 0; i < priv->child_count; i++, trav = trav->next) {
+                        STACK_WIND (frame, stripe_setxattr_cbk,
+                                    trav->xlator, trav->xlator->fops->setxattr,
+                                    loc, dict, flags);
+                }
+        } else {
+                local->wind_count = 1;
+                STACK_WIND (frame, stripe_setxattr_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->setxattr,
+                            loc, dict, flags);
+        }
+
         return 0;
 err:
         STRIPE_STACK_UNWIND (setxattr, frame, -1,  op_errno);
@@ -4854,7 +4920,7 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
         dict_t              *stripe_xattr  = NULL;
 
         if (!frame || !frame->local || !this) {
-                gf_log (this->name, GF_LOG_ERROR, "Possible NULL deref");
+                gf_log ("", GF_LOG_ERROR, "Possible NULL deref");
                 return ret;
         }
 
@@ -5044,26 +5110,33 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
         if (name &&(*priv->vol_uuid)) {
                 if ((match_uuid_local (name, priv->vol_uuid) == 0)
                     && (-1 == frame->root->pid)) {
-                        local->marker.call_count = priv->child_count;
 
-                        sub_volumes = alloca ( priv->child_count *
-                                               sizeof (xlator_t *));
-                        for (i = 0, trav = this->children; trav ;
-                             trav = trav->next, i++) {
+                        if (!IA_FILE_OR_DIR (loc->inode->ia_type))
+                                local->marker.call_count = 1;
+                        else
+                                local->marker.call_count = priv->child_count;
 
+                        sub_volumes = alloca (local->marker.call_count *
+                                              sizeof (xlator_t *));
+
+                        for (i = 0, trav = this->children;
+                             i < local->marker.call_count;
+                             i++, trav = trav->next) {
                                 *(sub_volumes + i) = trav->xlator;
 
                         }
 
                         if (cluster_getmarkerattr (frame, this, loc, name,
-                                                   local, stripe_getxattr_unwind,
+                                                   local,
+                                                   stripe_getxattr_unwind,
                                                    sub_volumes,
-                                                   priv->child_count,
+                                                   local->marker.call_count,
                                                    MARKER_XTIME_TYPE,
                                                    priv->vol_uuid)) {
                                 op_errno = EINVAL;
                                 goto err;
                         }
+
                         return 0;
                 }
         }
