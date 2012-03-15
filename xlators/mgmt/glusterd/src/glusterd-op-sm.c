@@ -391,11 +391,25 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 global_opt = _gf_false;
                 sprintf (str, "key%d", count);
                 ret = dict_get_str (dict, str, &key);
-
-
                 if (ret)
                         break;
 
+                sprintf (str, "value%d", count);
+                ret = dict_get_str (dict, str, &value);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid key,value pair in 'volume set'");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (strcmp (key, "memory-accounting") == 0) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "enabling memory accounting for volume %s",
+                                volname);
+                        ret = 0;
+                        goto out;
+                }
                 exists = glusterd_check_option_exists (key, &key_fixed);
                 if (exists == -1) {
                         ret = -1;
@@ -412,16 +426,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 snprintf (errstr + ret, 2048 - ret,
                                           "\nDid you mean %s?", key_fixed);
                         *op_errstr = gf_strdup (errstr);
-                        ret = -1;
-                        goto out;
-                }
-
-                sprintf (str, "value%d", count);
-                ret = dict_get_str (dict, str, &value);
-
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "invalid key,value pair in 'volume set'");
                         ret = -1;
                         goto out;
                 }
@@ -1008,23 +1012,8 @@ glusterd_op_set_volume (dict_t *dict)
                 global_opt = _gf_false;
                 sprintf (str, "key%d", count);
                 ret = dict_get_str (dict, str, &key);
-
                 if (ret)
                         break;
-
-                if (!ret) {
-                        ret = glusterd_check_option_exists (key, &key_fixed);
-                        GF_ASSERT (ret);
-                        if (ret == -1) {
-                                key_fixed = NULL;
-                                goto out;
-                        }
-                        ret = 0;
-                }
-
-                ret = glusterd_check_globaloption (key);
-                if (ret)
-                        global_opt = _gf_true;
 
                 sprintf (str, "value%d", count);
                 ret = dict_get_str (dict, str, &value);
@@ -1034,6 +1023,22 @@ glusterd_op_set_volume (dict_t *dict)
                         ret = -1;
                         goto out;
                 }
+
+                if (strcmp (key, "memory-accounting") == 0) {
+                        ret = gf_string2boolean (value,
+                                                 &volinfo->memory_accounting);
+                        goto out;
+                }
+                ret = glusterd_check_option_exists (key, &key_fixed);
+                GF_ASSERT (ret);
+                if (ret == -1) {
+                        key_fixed = NULL;
+                        goto out;
+                }
+
+                ret = glusterd_check_globaloption (key);
+                if (ret)
+                        global_opt = _gf_true;
 
                 if (!global_opt)
                         value = gf_strdup (value);
@@ -1067,7 +1072,7 @@ glusterd_op_set_volume (dict_t *dict)
                 }
         }
 
-        if ( count == 1 ) {
+        if (count == 1) {
                 gf_log (this->name, GF_LOG_ERROR, "No options received ");
                 ret = -1;
                 goto out;

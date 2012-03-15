@@ -185,6 +185,8 @@ static struct argp_option gf_options[] = {
          "Dump fuse traffic to PATH"},
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
          "Enable strict volume file checking"},
+        {"mem-accounting", ARGP_MEM_ACCOUNTING_KEY, 0, OPTION_HIDDEN,
+         "Enable internal memory accounting"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -501,6 +503,7 @@ out:
 static error_t
 parse_opts (int key, char *arg, struct argp_state *state)
 {
+        glusterfs_ctx_t *ctx        = NULL;
         cmd_args_t   *cmd_args      = NULL;
         uint32_t      n             = 0;
         double        d             = 0.0;
@@ -762,6 +765,12 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                 argp_failure (state, -1, 0,
                               "unknown brick (listen) port %s", arg);
+                break;
+
+        case ARGP_MEM_ACCOUNTING_KEY:
+                /* TODO: it should have got handled much earlier */
+                ctx = glusterfs_ctx_get ();
+                ctx->mem_accounting = 1;
                 break;
         }
 
@@ -1102,6 +1111,17 @@ logging_init (glusterfs_ctx_t *ctx)
         return 0;
 }
 
+void
+gf_check_and_set_mem_acct (int argc, char *argv[], glusterfs_ctx_t *ctx)
+{
+        int i = 0;
+        for (i = 0; i < argc; i++) {
+                if (strcmp (argv[i], "--mem-accounting") == 0) {
+                        ctx->mem_accounting = 1;
+                        break;
+                }
+        }
+}
 
 int
 parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
@@ -1582,7 +1602,10 @@ main (int argc, char *argv[])
                         "ERROR: glusterfs context not initialized");
                 return ENOMEM;
         }
-
+#ifndef DEBUG
+        /* Enable memory accounting on the fly based on argument */
+        gf_check_and_set_mem_acct (argc, argv, ctx);
+#endif
         ret = glusterfs_ctx_defaults_init (ctx);
         if (ret)
                 goto out;
