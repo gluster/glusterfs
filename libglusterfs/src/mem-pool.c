@@ -331,7 +331,7 @@ mem_pool_new_fn (unsigned long sizeof_type,
         glusterfs_ctx_t  *ctx = NULL;
 
         if (!sizeof_type || !count) {
-                gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
         padded_sizeof_type = sizeof_type + GF_MEM_POOL_PAD_BOUNDARY;
@@ -484,7 +484,7 @@ static int
 __is_member (struct mem_pool *pool, void *ptr)
 {
         if (!pool || !ptr) {
-                gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
                 return -1;
         }
 
@@ -516,13 +516,15 @@ mem_put (void *ptr)
         list = head = mem_pool_ptr2chunkhead (ptr);
         tmp = mem_pool_from_ptr (head);
         if (!tmp) {
-                gf_log ("mem-pool", GF_LOG_ERROR, "ptr header is corrupted");
+                gf_log_callingfn ("mem-pool", GF_LOG_ERROR,
+                                  "ptr header is corrupted");
                 return;
         }
 
         pool = *tmp;
         if (!pool) {
-                gf_log ("mem-pool", GF_LOG_ERROR, "mem-pool ptr is NULL");
+                gf_log_callingfn ("mem-pool", GF_LOG_ERROR,
+                                  "mem-pool ptr is NULL");
                 return;
         }
         LOCK (&pool->lock);
