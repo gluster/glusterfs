@@ -1121,24 +1121,28 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_log (THIS->name, GF_LOG_TRACE,
                                 "failed to get node-uuid");
 
+                memset (key, 0, 256);
                 snprintf (key, 256, "files-%d", i);
                 ret = dict_get_uint64 (dict, key, &files);
                 if (ret)
                         gf_log (THIS->name, GF_LOG_TRACE,
                                 "failed to get file count");
 
+                memset (key, 0, 256);
                 snprintf (key, 256, "size-%d", i);
                 ret = dict_get_uint64 (dict, key, &size);
                 if (ret)
                         gf_log (THIS->name, GF_LOG_TRACE,
                                 "failed to get size of xfer");
 
+                memset (key, 0, 256);
                 snprintf (key, 256, "lookups-%d", i);
                 ret = dict_get_uint64 (dict, key, &lookup);
                 if (ret)
                         gf_log (THIS->name, GF_LOG_TRACE,
                                 "failed to get lookedup file count");
 
+                memset (key, 0, 256);
                 snprintf (key, 256, "status-%d", i);
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
                 if (ret)
@@ -1404,8 +1408,15 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         int                      ret     = -1;
         uint64_t                 files   = 0;
         uint64_t                 size    = 0;
+        uint64_t                 lookup  = 0;
         dict_t                  *dict    = NULL;
         char                     msg[1024] = {0,};
+        char                     key[256] = {0,};
+        int32_t                  i       = 1;
+        int32_t                  counter = 0;
+        char                    *node_uuid = 0;
+        gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
+
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1428,24 +1439,6 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        switch (rsp.op_errno) {
-        case GF_DEFRAG_STATUS_NOT_STARTED:
-                status = "not started";
-                break;
-        case GF_DEFRAG_STATUS_STARTED:
-                status = "in progress";
-                break;
-        case GF_DEFRAG_STATUS_STOPPED:
-                status = "stopped";
-                break;
-        case GF_DEFRAG_STATUS_COMPLETE:
-                status = "completed";
-                break;
-        case GF_DEFRAG_STATUS_FAILED:
-                status = "failed";
-                break;
-        }
-
         if (rsp.dict.dict_len) {
                 /* Unserialize the dictionary */
                 dict  = dict_new ();
@@ -1461,37 +1454,74 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        ret = dict_get_uint64 (dict, "files", &files);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get file count");
-
-        ret = dict_get_uint64 (dict, "size", &size);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get size of xfer");
-
-        if (files && (rsp.op_errno == 1)) {
-                snprintf (msg, sizeof (msg),
-                          "remove-brick %s: fixed layout %"PRId64,
-                          status,files);
-                goto out;
-        }
-        if (files && (rsp.op_errno == 6)) {
-                snprintf (msg, sizeof (msg),
-                          "remove-brick %s: fixed layout %"PRId64,
-                          status, files);
-                goto out;
-        }
-        if (files) {
-                snprintf (msg, sizeof (msg),
-                          "remove-brick %s: decommissioned %"PRId64
-                          " files of size %"PRId64, status,
-                          files, size);
+        ret = dict_get_int32 (dict, "count", &counter);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "count not set");
                 goto out;
         }
 
-        snprintf (msg, sizeof (msg), "remove-brick %s", status);
+
+        cli_out ("%40s %16s %13s %13s %14s", "Node", "Rebalanced-files",
+                 "size", "scanned", "status");
+        cli_out ("%40s %16s %13s %13s %14s", "---------", "-----------",
+                 "-----------", "-----------", "------------");
+
+        do {
+                snprintf (key, 256, "node-uuid-%d", i);
+                ret = dict_get_str (dict, key, &node_uuid);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get node-uuid");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "files-%d", i);
+                ret = dict_get_uint64 (dict, key, &files);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get file count");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "size-%d", i);
+                ret = dict_get_uint64 (dict, key, &size);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get size of xfer");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "lookups-%d", i);
+                ret = dict_get_uint64 (dict, key, &lookup);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get lookedup file count");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get status");
+
+                switch (status_rcd) {
+                case GF_DEFRAG_STATUS_NOT_STARTED:
+                        status = "not started";
+                        break;
+                case GF_DEFRAG_STATUS_STARTED:
+                        status = "in progress";
+                        break;
+                case GF_DEFRAG_STATUS_STOPPED:
+                        status = "stopped";
+                        break;
+                case GF_DEFRAG_STATUS_COMPLETE:
+                        status = "completed";
+                        break;
+                case GF_DEFRAG_STATUS_FAILED:
+                        status = "failed";
+                        break;
+                }
+                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%14s", node_uuid, files,
+                        size, lookup, status);
+                i++;
+        } while (i <= counter);
 
 #if (HAVE_LIB_XML)
         if (global_state->mode & GLUSTER_MODE_XML) {
