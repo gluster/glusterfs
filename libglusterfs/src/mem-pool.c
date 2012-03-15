@@ -50,26 +50,31 @@ gf_mem_acct_is_enabled ()
 void
 gf_mem_acct_enable_set ()
 {
-        char    *opt = NULL;
-        long    val = -1;
-
 #ifdef DEBUG
         gf_mem_acct_enable = 1;
         return;
 #endif
+        glusterfs_ctx_t *ctx = NULL;
+        char            *opt = NULL;
+        long             val = -1;
+
+        gf_mem_acct_enable = 0;
+
+        ctx = glusterfs_ctx_get ();
+
+        if (ctx->mem_accounting) {
+                gf_mem_acct_enable = 1;
+                return;
+        }
 
         opt = getenv (GLUSTERFS_ENV_MEM_ACCT_STR);
+        if (opt) {
+                val = strtol (opt, NULL, 0);
+                if (val)
+                        gf_mem_acct_enable = 1;
+        }
 
-        if (!opt)
-                return;
-
-        val = strtol (opt, NULL, 0);
-
-        if (val)
-                gf_mem_acct_enable = 0;
-        else
-                gf_mem_acct_enable = 1;
-
+        return;
 }
 
 void

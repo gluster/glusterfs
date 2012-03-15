@@ -244,6 +244,8 @@ struct glusterd_volinfo_ {
 
         int                      decommission_in_progress;
         xlator_t                *xl;
+
+        gf_boolean_t             memory_accounting;
 };
 
 typedef enum gd_node_type_ {

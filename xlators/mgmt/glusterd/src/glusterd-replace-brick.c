@@ -635,6 +635,8 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
                           priv->workdir, volinfo->volname);
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf (&runner, "src-server.listen-port=%d", port);
+        if (volinfo->memory_accounting)
+                runner_add_arg (&runner, "--mem-accounting");
 
         ret = runner_run (&runner);
         if (ret) {
@@ -671,6 +673,8 @@ rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
                           priv->workdir, volinfo->volname);
         runner_argprintf (&runner, "%s/vols/%s/"RB_CLIENT_MOUNTPOINT,
                           priv->workdir, volinfo->volname);
+        if (volinfo->memory_accounting)
+                runner_add_arg (&runner, "--mem-accounting");
 
         ret = runner_run (&runner);
         if (ret) {

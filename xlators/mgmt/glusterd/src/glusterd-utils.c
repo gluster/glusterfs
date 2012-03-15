@@ -1236,6 +1236,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         runner_argprintf (&runner, "%s-server.listen-port=%d",
                           volinfo->volname, port);
 
+        if (volinfo->memory_accounting)
+                runner_add_arg (&runner, "--mem-accounting");
+
         runner_log (&runner, "", GF_LOG_DEBUG, "Starting GlusterFS");
         ret = runner_run (&runner);
 

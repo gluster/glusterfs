@@ -327,6 +327,8 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_argprintf (&runner, "%s",pidfile);
         runner_add_arg (&runner, "-l");
         runner_argprintf (&runner, logfile);
+        if (volinfo->memory_accounting)
+                runner_add_arg (&runner, "--mem-accounting");
 
         ret = runner_run_reuse (&runner);
         if (ret) {

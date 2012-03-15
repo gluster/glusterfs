@@ -376,6 +376,8 @@ struct _glusterfs_ctx {
         struct mem_pool    *dict_pair_pool;
         struct mem_pool    *dict_data_pool;
 
+        int                 mem_accounting; /* if value is other than 0, it
+                                               will be set */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
