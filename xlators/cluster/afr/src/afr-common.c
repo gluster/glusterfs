@@ -1702,11 +1702,9 @@ afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
         ret = afr_lookup_build_response_params (local, this);
         if (ret)
                 goto out;
-        if (afr_is_fresh_lookup (&local->loc, this)) {
-                afr_update_loc_gfids (&local->loc,
-                                      &local->cont.lookup.buf,
-                                      &local->cont.lookup.postparent);
-        }
+        afr_update_loc_gfids (&local->loc,
+                              &local->cont.lookup.buf,
+                              &local->cont.lookup.postparent);
 
         ret = 0;
 out:
