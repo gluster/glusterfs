@@ -298,28 +298,40 @@ server_priv_to_dict (xlator_t *this, dict_t *dict)
                 return 0;
         //TODO: Dump only specific info to dict
 
-        list_for_each_entry (xprt, &conf->xprt_list, list) {
-                peerinfo = &xprt->peerinfo;
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "client%d.hostname", count);
-                ret = dict_set_str (dict, key, peerinfo->identifier);
-                if (ret)
-                        goto out;
+        pthread_mutex_lock (&conf->mutex);
+        {
+                list_for_each_entry (xprt, &conf->xprt_list, list) {
+                        peerinfo = &xprt->peerinfo;
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "client%d.hostname",
+                                  count);
+                        ret = dict_set_str (dict, key, peerinfo->identifier);
+                        if (ret)
+                                goto unlock;
 
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "client%d.bytesread", count);
-                ret = dict_set_uint64 (dict, key, xprt->total_bytes_read);
-                if (ret)
-                        goto out;
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "client%d.bytesread",
+                                  count);
+                        ret = dict_set_uint64 (dict, key,
+                                               xprt->total_bytes_read);
+                        if (ret)
+                                goto unlock;
 
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "client%d.byteswrite", count);
-                ret = dict_set_uint64 (dict, key, xprt->total_bytes_write);
-                if (ret)
-                        goto out;
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "client%d.byteswrite",
+                                  count);
+                        ret = dict_set_uint64 (dict, key,
+                                               xprt->total_bytes_write);
+                        if (ret)
+                                goto unlock;
 
-                count++;
+                        count++;
+                }
         }
+unlock:
+        pthread_mutex_unlock (&conf->mutex);
+        if (ret)
+                goto out;
 
         ret = dict_set_int32 (dict, "clientcount", count);
 
@@ -343,10 +355,14 @@ server_priv (xlator_t *this)
         if (!conf)
                 return 0;
 
-        list_for_each_entry (xprt, &conf->xprt_list, list) {
-                total_read  += xprt->total_bytes_read;
-                total_write += xprt->total_bytes_write;
+        pthread_mutex_lock (&conf->mutex);
+        {
+                list_for_each_entry (xprt, &conf->xprt_list, list) {
+                        total_read  += xprt->total_bytes_read;
+                        total_write += xprt->total_bytes_write;
+                }
         }
+        pthread_mutex_unlock (&conf->mutex);
 
         gf_proc_dump_build_key(key, "server", "total-bytes-read");
         gf_proc_dump_write(key, "%"PRIu64, total_read);
@@ -613,7 +629,11 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 */
                 INIT_LIST_HEAD (&xprt->list);
 
-                list_add_tail (&xprt->list, &conf->xprt_list);
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        list_add_tail (&xprt->list, &conf->xprt_list);
+                }
+                pthread_mutex_unlock (&conf->mutex);
 
                 break;
         }
@@ -625,7 +645,11 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 put_server_conn_state (this, xprt);
                 gf_log (this->name, GF_LOG_INFO, "disconnecting connection"
                         "from %s", xprt->peerinfo.identifier);
-                list_del (&xprt->list);
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        list_del (&xprt->list);
+                }
+                pthread_mutex_unlock (&conf->mutex);
 
                 pthread_mutex_lock (&conn->lock);
                 {
