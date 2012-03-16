@@ -1673,9 +1673,11 @@ afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
         int32_t             ret        = -1;
         afr_local_t         *local     = NULL;
         afr_private_t       *priv      = NULL;
+        gf_boolean_t        fresh_lookup = _gf_false;
 
         local   = frame->local;
         priv    = this->private;
+        fresh_lookup = local->cont.lookup.fresh_lookup;
 
         if (local->loc.parent == NULL)
                 fail_conflict = _gf_true;
@@ -1689,9 +1691,9 @@ afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (!afr_is_transaction_running (local)) {
-                ret = afr_lookup_select_read_child (local, this, &read_child);
-                if (ret)
+        ret = afr_lookup_select_read_child (local, this, &read_child);
+        if (!afr_is_transaction_running (local) || fresh_lookup) {
+                if (read_child < 0)
                         goto out;
 
                 ret = afr_lookup_set_read_ctx (local, this, read_child);
@@ -2027,6 +2029,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                                 % (priv->child_count);
                 }
                 UNLOCK (&priv->read_child_lock);
+                local->cont.lookup.fresh_lookup = _gf_true;
         }
 
         local->child_up = memdup (priv->child_up,
