@@ -2403,14 +2403,15 @@ rpcsvc_volume_allowed (dict_t *options, char *volname)
                 goto out;
         }
 
-        if (!dict_get (options, srchstr)) {
-                GF_FREE (srchstr);
-                srchstr = globalrule;
-                ret = dict_get_str (options, srchstr, &addrstr);
-        } else
+        if (!dict_get (options, srchstr))
+                ret = dict_get_str (options, globalrule, &addrstr);
+        else
                 ret = dict_get_str (options, srchstr, &addrstr);
 
 out:
+        if (srchstr)
+                GF_FREE (srchstr);
+
         return addrstr;
 }
 

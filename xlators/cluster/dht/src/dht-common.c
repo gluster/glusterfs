@@ -3776,7 +3776,7 @@ err:
 }
 
 
-int
+ int
 dht_mkdir (call_frame_t *frame, xlator_t *this,
            loc_t *loc, mode_t mode, dict_t *params)
 {
