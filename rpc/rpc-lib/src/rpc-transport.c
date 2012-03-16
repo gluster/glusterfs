@@ -326,7 +326,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		goto fail;
 	}
 
-	return_trans = trans;
+        return_trans = trans;
 
         if (name) {
                 GF_FREE (name);
@@ -470,7 +470,7 @@ rpc_transport_unref (rpc_transport_t *this)
 
 	pthread_mutex_lock (&this->lock);
 	{
-		refcount = --this->refcount;
+                refcount = --this->refcount;
 	}
 	pthread_mutex_unlock (&this->lock);
 
@@ -478,7 +478,7 @@ rpc_transport_unref (rpc_transport_t *this)
                 if (this->mydata)
                         this->notify (this, this->mydata, RPC_TRANSPORT_CLEANUP,
                                       NULL);
-		rpc_transport_destroy (this);
+                rpc_transport_destroy (this);
 	}
 
 	ret = 0;

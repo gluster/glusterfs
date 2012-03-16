@@ -1370,10 +1370,14 @@ gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)
 
         if (fnmatch ("*list*mount*point*", key, 0) == 0) {
                 /* list all the client protocol connecting to this process */
-                list_for_each_entry (xprt, &conf->xprt_list, list) {
-                        gf_log ("mount-point-list", GF_LOG_INFO,
-                                "%s", xprt->peerinfo.identifier);
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                                gf_log ("mount-point-list", GF_LOG_INFO,
+                                        "%s", xprt->peerinfo.identifier);
+                        }
                 }
+                pthread_mutex_unlock (&conf->mutex);
         }
 
         /* Add more options/keys here */
