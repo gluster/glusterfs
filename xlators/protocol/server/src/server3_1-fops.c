@@ -3919,6 +3919,10 @@ out:
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
 
+        if (args.dict.dict_val != NULL) {
+                free (args.dict.dict_val);
+        }
+
         return ret;
 }
 

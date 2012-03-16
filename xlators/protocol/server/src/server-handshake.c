@@ -733,6 +733,11 @@ fail:
         rsp.op_errno = op_errno;
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_set_lk_ver_rsp);
+
+        if (args.uid != NULL) {
+                free (args.uid);
+        }
+
         return 0;
 }
 
