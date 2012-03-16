@@ -111,11 +111,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 }
                 break;
         }
-        case GD_OP_HEAL_VOLUME:
-        {
-                glusterd_add_bricks_hname_path_to_dict (ctx);
-                break;
-        }
         case GD_OP_PROFILE_VOLUME:
         {
                 if (ctx && dict_get_int32 (ctx, "count", &count)) {
@@ -153,6 +148,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_SET_VOLUME:
         case GD_OP_LIST_VOLUME:
         case GD_OP_CLEARLOCKS_VOLUME:
+        case GD_OP_HEAL_VOLUME:
         {
                 /*nothing specific to be done*/
                 break;
@@ -1198,28 +1194,6 @@ out:
         return ret;
 }
 
-void
-_heal_volume_add_peer_rsp (dict_t *peer_dict, char *key, data_t *value,
-                           void *data)
-{
-        int                             max_brick = 0;
-        int                             peer_max_brick = 0;
-        int                             ret = 0;
-        dict_t                          *ctx_dict = data;
-
-
-
-        ret = dict_get_int32 (ctx_dict, "count", &max_brick);
-        ret = dict_get_int32 (peer_dict, "count", &peer_max_brick);
-        if (peer_max_brick > max_brick)
-                ret = dict_set_int32 (ctx_dict, "count", peer_max_brick);
-        else
-                ret = dict_set_int32 (ctx_dict, "count", max_brick);
-        dict_del (peer_dict, "count");
-        dict_copy (peer_dict, ctx_dict);
-        return;
-}
-
 int
 glusterd_volume_heal_use_rsp_dict (dict_t *rsp_dict)
 {
@@ -1236,7 +1210,7 @@ glusterd_volume_heal_use_rsp_dict (dict_t *rsp_dict)
 
         if (!ctx_dict)
                 goto out;
-        dict_foreach (rsp_dict, _heal_volume_add_peer_rsp, ctx_dict);
+        dict_copy (rsp_dict, ctx_dict);
 out:
         return ret;
 }

@@ -3597,7 +3597,7 @@ afr_notify (xlator_t *this, int32_t event,
         if (propagate)
                 ret = default_notify (this, event, data);
         if (call_psh && priv->shd.iamshd)
-                afr_do_poll_self_heal ((void*) (long) up_child);
+                afr_proactive_self_heal ((void*) (long) up_child);
 
 out:
         return ret;

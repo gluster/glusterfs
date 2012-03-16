@@ -1561,8 +1561,10 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     sent = 0;
         int                     parse_error = 0;
         dict_t                  *options = NULL;
+        xlator_t                *this = NULL;
 
-        frame = create_frame (THIS, THIS->ctx->pool);
+        this = THIS;
+        frame = create_frame (this, this->ctx->pool);
         if (!frame)
                 goto out;
 

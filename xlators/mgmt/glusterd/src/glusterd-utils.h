@@ -419,4 +419,11 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count);
 
 char *
 glusterd_uuid_to_hostname (uuid_t uuid);
+
+glusterd_brickinfo_t*
+glusterd_get_brickinfo_by_position (glusterd_volinfo_t *volinfo, uint32_t pos);
+
+gf_boolean_t
+glusterd_is_local_brick (xlator_t *this, glusterd_volinfo_t *volinfo,
+                         glusterd_brickinfo_t *brickinfo);
 #endif

@@ -2780,9 +2780,9 @@ _heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
         int                             rxl_child_id = 0;
         int                             brick_id = 0;
         int                             int_len = 0;
-        int                             brick_count = 0;
         int                             ret = 0;
         glusterd_heal_rsp_conv_t        *rsp_ctx = NULL;
+        glusterd_brickinfo_t            *brickinfo = NULL;
 
         rsp_ctx = data;
         rxl_end = strchr (key, '-');
@@ -2810,13 +2810,19 @@ _heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
         volinfo = rsp_ctx->volinfo;
         brick_id = rxl_id * volinfo->replica_count + rxl_child_id;
 
+        if (!strcmp (rxl_child_end, "status")) {
+                brickinfo = glusterd_get_brickinfo_by_position (volinfo,
+                                                                brick_id);
+                if (!brickinfo)
+                        goto out;
+                if (!glusterd_is_local_brick (rsp_ctx->this, volinfo,
+                                              brickinfo))
+                        goto out;
+        }
         new_value = data_copy (value);
         snprintf (new_key, sizeof (new_key), "%d%s", brick_id, rxl_child_end);
         dict_set (rsp_ctx->dict, new_key, new_value);
 
-        ret = dict_get_int32 (rsp_ctx->dict, "count", &brick_count);
-        if (brick_id >= brick_count)
-                ret = dict_set_int32 (rsp_ctx->dict, "count", brick_id + 1);
 out:
         return;
 }
@@ -2847,6 +2853,7 @@ glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
 
         rsp_ctx.dict = op_ctx;
         rsp_ctx.volinfo = volinfo;
+        rsp_ctx.this = THIS;
         dict_foreach (rsp_dict, _heal_volume_add_shd_rsp, &rsp_ctx);
 
 out:

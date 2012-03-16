@@ -34,6 +34,11 @@ typedef enum {
         STOP_CRAWL_ON_SINGLE_SUBVOL = 1
 } afr_crawl_flags_t;
 
+typedef enum {
+        HEAL = 1,
+        INFO
+} shd_crawl_op;
+
 typedef struct shd_dump {
         dict_t   *dict;
         time_t   sh_time;
@@ -46,6 +51,12 @@ typedef struct shd_event_ {
         char    *path;
 } shd_event_t;
 
+typedef struct shd_pos_ {
+        int     child;
+        xlator_t *this;
+        afr_child_pos_t pos;
+} shd_pos_t;
+
 typedef int
 (*afr_crawl_done_cbk_t)  (int ret, call_frame_t *sync_frame, void *crawl_data);
 
@@ -57,6 +68,9 @@ afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl,
 
 static int
 _crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data);
+
+int
+afr_syncop_find_child_position (void *data);
 
 void
 shd_cleanup_event (void *event)
@@ -360,44 +374,119 @@ _do_self_heal_on_subvol (xlator_t *this, int child, afr_crawl_type_t crawl)
                          afr_crawl_done);
 }
 
-void
-_do_self_heal_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl)
+gf_boolean_t
+_crawl_proceed (xlator_t *this, int child, int crawl_flags, char **reason)
 {
-        int             i = 0;
-        afr_private_t   *priv = NULL;
+        afr_private_t           *priv = NULL;
+        afr_self_heald_t        *shd = NULL;
+        gf_boolean_t            proceed = _gf_false;
+        char                    *msg = NULL;
 
         priv = this->private;
-        for (i = 0; i < priv->child_count; i++)
-                _do_self_heal_on_subvol (this, i, INDEX);
+        shd  = &priv->shd;
+        if (!shd->enabled) {
+                msg = "Self-heal daemon is not enabled";
+                gf_log (this->name, GF_LOG_ERROR, msg);
+                goto out;
+        }
+        if (!priv->child_up[child]) {
+                gf_log (this->name, GF_LOG_ERROR, "Stopping crawl for %s , "
+                        "subvol went down", priv->children[child]->name);
+                msg = "Brick is Not connected";
+                goto out;
+        }
+
+        if (crawl_flags & STOP_CRAWL_ON_SINGLE_SUBVOL) {
+                if (afr_up_children_count (priv->child_up,
+                                           priv->child_count) < 2) {
+                        gf_log (this->name, GF_LOG_ERROR, "Stopping crawl as "
+                                "< 2 children are up");
+                        msg = "< 2 bricks in replica are running";
+                        goto out;
+                }
+        }
+        proceed = _gf_true;
+out:
+        if (reason)
+                *reason = msg;
+        return proceed;
 }
 
-void
-_do_self_heal_on_local_subvol (xlator_t *this, afr_crawl_type_t crawl)
+int
+_do_crawl_op_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl,
+                               shd_crawl_op op, dict_t *output)
 {
-        int             local_child = -1;
-        afr_private_t   *priv = NULL;
+        afr_private_t       *priv = NULL;
+        char                *status = NULL;
+        char                *subkey = NULL;
+        char                key[256] = {0};
+        shd_pos_t           pos_data = {0};
+        int                 op_ret = -1;
+        int                 xl_id = -1;
+        int                 i = 0;
+        int                 ret = 0;
+        int                 crawl_flags = 0;
 
         priv = this->private;
-        local_child = afr_get_local_child (&priv->shd,
-                                           priv->child_count);
-        if (local_child < -1) {
-               gf_log (this->name, GF_LOG_INFO,
-                       "No local bricks found");
+        if (op == HEAL)
+                crawl_flags |= STOP_CRAWL_ON_SINGLE_SUBVOL;
+
+        ret = dict_get_int32 (output, this->name, &xl_id);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid input, "
+                        "translator-id is not available");
+                goto out;
         }
-        _do_self_heal_on_subvol (this, local_child, FULL);
+        pos_data.this = this;
+        subkey = "status";
+        for (i = 0; i < priv->child_count; i++) {
+                if (_crawl_proceed (this, i, crawl_flags, &status)) {
+                        pos_data.child = i;
+                        ret = synctask_new (this->ctx->env,
+                                            afr_syncop_find_child_position,
+                                            NULL, NULL, &pos_data);
+                        if (ret) {
+                                status = "Not able to find brick location";
+                        } else if (pos_data.pos == AFR_POS_REMOTE) {
+                                status = "brick is remote";
+                        } else {
+                                op_ret = 0;
+                                if (op == HEAL) {
+                                        status = "Started self-heal";
+                                        _do_self_heal_on_subvol (this, i,
+                                                                 crawl);
+                                } else {
+                                        status = "";
+                                        afr_start_crawl (this, i, INDEX,
+                                                         _add_summary_to_dict,
+                                                         output, _gf_false, 0,
+                                                         NULL);
+                                }
+                        }
+                        snprintf (key, sizeof (key), "%d-%d-%s", xl_id,
+                                  i, subkey);
+                        ret = dict_set_str (output, key, status);
+                        if (!op_ret && (crawl == FULL))
+                                break;
+                }
+                snprintf (key, sizeof (key), "%d-%d-%s", xl_id, i, subkey);
+                ret = dict_set_str (output, key, status);
+        }
+out:
+        return op_ret;
+}
+
+int
+_do_self_heal_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl,
+                                dict_t *output)
+{
+        return _do_crawl_op_on_local_subvols (this, crawl, HEAL, output);
 }
 
 int
 _get_index_summary_on_local_subvols (xlator_t *this, dict_t *output)
 {
-        int             i = 0;
-        afr_private_t   *priv = NULL;
-
-        priv = this->private;
-        for (i = 0; i < priv->child_count; i++)
-                afr_start_crawl (this, i, INDEX, _add_summary_to_dict,
-                                 output, _gf_false, 0, NULL);
-        return 0;
+        return _do_crawl_op_on_local_subvols (this, INDEX, INFO, output);
 }
 
 int
@@ -441,17 +530,13 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
                 goto out;
         switch (op) {
         case GF_AFR_OP_HEAL_INDEX:
-                _do_self_heal_on_local_subvols (this, INDEX);
-                ret = 0;
+                ret = _do_self_heal_on_local_subvols (this, INDEX, output);
                 break;
         case GF_AFR_OP_HEAL_FULL:
-                _do_self_heal_on_local_subvol (this, FULL);
-                ret = 0;
+                ret = _do_self_heal_on_local_subvols (this, FULL, output);
                 break;
         case GF_AFR_OP_INDEX_SUMMARY:
                 ret = _get_index_summary_on_local_subvols (this, output);
-                if (ret)
-                        goto out;
                 break;
         case GF_AFR_OP_HEALED_FILES:
                 ret = _add_all_subvols_eh_to_dict (this, shd->healed, output);
@@ -474,34 +559,85 @@ out:
 }
 
 void
-afr_do_poll_self_heal (void *data)
+afr_poll_self_heal (void *data)
 {
         afr_private_t    *priv = NULL;
         afr_self_heald_t *shd = NULL;
         struct timeval   timeout = {0};
         xlator_t         *this = NULL;
         long             child = (long)data;
+        gf_timer_t       *old_timer = NULL;
+        gf_timer_t       *new_timer = NULL;
 
         this = THIS;
         priv = this->private;
         shd = &priv->shd;
 
-        if (shd->enabled)
-                _do_self_heal_on_subvol (this, child, INDEX);
-        if (shd->pos[child] == AFR_POS_REMOTE)
-                goto out;
+        _do_self_heal_on_subvol (this, child, INDEX);
         timeout.tv_sec = AFR_POLL_TIMEOUT;
         timeout.tv_usec = 0;
-        if (shd->timer[child])
-                gf_timer_call_cancel (this->ctx, shd->timer[child]);
-        shd->timer[child] = gf_timer_call_after (this->ctx, timeout,
-                                                 afr_do_poll_self_heal, data);
+        //notify and previous timer should be synchronized.
+        LOCK (&priv->lock);
+        {
+                old_timer = shd->timer[child];
+                shd->timer[child] = gf_timer_call_after (this->ctx, timeout,
+                                                         afr_poll_self_heal,
+                                                         data);
+                new_timer = shd->timer[child];
+        }
+        UNLOCK (&priv->lock);
 
-        if (shd->timer[child] == NULL) {
+        if (old_timer)
+                gf_timer_call_cancel (this->ctx, old_timer);
+        if (!new_timer) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "Cannot create pending self-heal polling timer for %s",
+                        "Could not create self-heal polling timer for %s",
                         priv->children[child]->name);
         }
+        return;
+}
+
+static int
+afr_local_child_poll_self_heal  (int ret, call_frame_t *sync_frame, void *data)
+{
+        afr_self_heald_t *shd = NULL;
+        shd_pos_t        *pos_data = data;
+        afr_private_t    *priv = NULL;
+
+        if (ret)
+                goto out;
+
+        priv = pos_data->this->private;
+        shd = &priv->shd;
+        shd->pos[pos_data->child] = pos_data->pos;
+        if (pos_data->pos == AFR_POS_LOCAL)
+                afr_poll_self_heal ((void*)(long)pos_data->child);
+out:
+        GF_FREE (data);
+        return 0;
+}
+
+void
+afr_proactive_self_heal (void *data)
+{
+        xlator_t         *this = NULL;
+        long             child = (long)data;
+        shd_pos_t        *pos_data = NULL;
+        int              ret = 0;
+
+        this = THIS;
+
+        //Position of brick could have changed and it could be local now.
+        //Compute the position again
+        pos_data = GF_CALLOC (1, sizeof (*pos_data), gf_afr_mt_pos_data_t);
+        if (!pos_data)
+                goto out;
+        pos_data->this = this;
+        pos_data->child = child;
+        ret = synctask_new (this->ctx->env, afr_syncop_find_child_position,
+                            afr_local_child_poll_self_heal, NULL, pos_data);
+        if (ret)
+                goto out;
 out:
         return;
 }
@@ -680,31 +816,6 @@ afr_crawl_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent,
         return ret;
 }
 
-gf_boolean_t
-_crawl_proceed (xlator_t *this, int child, int crawl_flags)
-{
-        afr_private_t *priv = this->private;
-        gf_boolean_t proceed = _gf_false;
-
-        if (!priv->child_up[child]) {
-                gf_log (this->name, GF_LOG_ERROR, "Stopping crawl for %s "
-                        ", subvol went down", priv->children[child]->name);
-                goto out;
-        }
-
-        if (crawl_flags & STOP_CRAWL_ON_SINGLE_SUBVOL) {
-                if (afr_up_children_count (priv->child_up,
-                                           priv->child_count) < 2) {
-                        gf_log (this->name, GF_LOG_ERROR, "Stopping crawl as "
-                                "< 2 children are up");
-                        goto out;
-                }
-        }
-        proceed = _gf_true;
-out:
-        return proceed;
-}
-
 static int
 _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                   off_t *offset, afr_crawl_data_t *crawl_data)
@@ -719,7 +830,7 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
                 if (!_crawl_proceed (this, crawl_data->child,
-                                     crawl_data->crawl_flags)) {
+                                     crawl_data->crawl_flags, NULL)) {
                         ret = -1;
                         goto out;
                 }
@@ -813,7 +924,7 @@ _crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data)
                 free_entries = _gf_true;
 
                 if (!_crawl_proceed (this, crawl_data->child,
-                                     crawl_data->crawl_flags)) {
+                                     crawl_data->crawl_flags, NULL)) {
                         ret = -1;
                         goto out;
                 }
@@ -847,7 +958,7 @@ position_str_get (afr_child_pos_t pos)
 }
 
 int
-afr_find_child_position (xlator_t *this, int child)
+afr_find_child_position (xlator_t *this, int child, afr_child_pos_t *pos)
 {
         afr_private_t    *priv = NULL;
         dict_t           *xattr_rsp = NULL;
@@ -855,28 +966,16 @@ afr_find_child_position (xlator_t *this, int child)
         int              ret = 0;
         gf_boolean_t     local = _gf_false;
         char             *pathinfo = NULL;
-        afr_child_pos_t  *pos = NULL;
 
         priv = this->private;
-        pos = &priv->shd.pos[child];
-
-        if (!priv->root_inode) {
-                LOCK (&priv->lock);
-                {
-                        if (!priv->root_inode)
-                                priv->root_inode = inode_ref
-                                                       (this->itable->root);
-                }
-                UNLOCK (&priv->lock);
-        }
 
         afr_build_root_loc (this, &loc);
 
         ret = syncop_getxattr (priv->children[child], &loc, &xattr_rsp,
                                GF_XATTR_PATHINFO_KEY);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "getxattr failed on child "
-                        "%d", child);
+                gf_log (this->name, GF_LOG_ERROR, "getxattr failed on %s",
+                        priv->children[child]->name);
                 goto out;
         }
 
@@ -904,18 +1003,21 @@ out:
         return ret;
 }
 
-static inline int
-afr_is_local_child (afr_self_heald_t *shd, int child, unsigned int child_count)
+int
+afr_syncop_find_child_position (void *data)
 {
-        return (shd->pos[child] == AFR_POS_LOCAL);
+        shd_pos_t *pos_data = data;
+        int       ret = 0;
+
+        ret = afr_find_child_position (pos_data->this, pos_data->child,
+                                       &pos_data->pos);
+        return ret;
 }
 
 static int
 afr_dir_crawl (void *data)
 {
         xlator_t            *this = NULL;
-        afr_private_t       *priv = NULL;
-        afr_self_heald_t    *shd = NULL;
         int                 ret = -1;
         xlator_t            *readdir_xl = NULL;
         fd_t                *fd = NULL;
@@ -923,17 +1025,9 @@ afr_dir_crawl (void *data)
         afr_crawl_data_t    *crawl_data = data;
 
         this = THIS;
-        priv = this->private;
-        shd = &priv->shd;
 
-        if (!_crawl_proceed (this, crawl_data->child, crawl_data->crawl_flags))
-                goto out;
-
-        ret = afr_find_child_position (this, crawl_data->child);
-        if (ret)
-                goto out;
-
-        if (!afr_is_local_child (shd, crawl_data->child, priv->child_count))
+        if (!_crawl_proceed (this, crawl_data->child, crawl_data->crawl_flags,
+                             NULL))
                 goto out;
 
         readdir_xl = afr_crawl_readdir_xl_get (this, crawl_data);
@@ -1026,16 +1120,12 @@ afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl,
                  afr_crawl_done_cbk_t crawl_done)
 {
         afr_private_t              *priv = NULL;
-        afr_self_heald_t           *shd = NULL;
         call_frame_t               *frame = NULL;
         afr_crawl_data_t           *crawl_data = NULL;
         int                        ret = 0;
         int (*crawler) (void*) = NULL;
 
         priv = this->private;
-        shd = &priv->shd;
-        if (!shd->enabled)
-                goto out;
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame)
