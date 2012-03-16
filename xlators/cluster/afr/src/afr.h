@@ -444,6 +444,7 @@ typedef struct _afr_local {
                         int32_t read_child;
                         int32_t *sources;
                         int32_t *success_children;
+                        gf_boolean_t fresh_lookup;
                 } lookup;
 
                 struct {
