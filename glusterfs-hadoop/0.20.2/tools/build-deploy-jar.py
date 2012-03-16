@@ -44,7 +44,6 @@ def whereis(program):
     return None
 
 def getLatestJar(targetdir):
-    latestJar = None
     glusterfsJar = glob.glob(targetdir + "*.jar")
     if len(glusterfsJar) == 0:
         print "No GlusterFS jar file found in %s ... exiting" % (targetdir)
@@ -63,7 +62,7 @@ def getLatestJar(targetdir):
     return latestJar
 
 # build the glusterfs hadoop plugin using maven
-def build_jar():
+def build_jar(targetdir):
     location = whereis('mvn')
 
     if location == None:
@@ -72,7 +71,6 @@ def build_jar():
         return None
 
     # do a clean packaging
-    targetdir = "./target/"
     if os.path.exists(targetdir) and os.path.isdir(targetdir):
         print "Cleaning up directories ... [ " + targetdir + " ]"
         shutil.rmtree(targetdir)
@@ -81,13 +79,10 @@ def build_jar():
     process = subprocess.Popen(['package'], shell=True,
                                executable=location, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    try:
-        (pout, perr) = process.communicate()
-    except:
-        process.wait()
-        if not process.returncode == 0:
-            print "Building glusterfs jar failed"
-            return None
+    process.wait()
+    if not process.returncode == 0:
+        print "Building glusterfs jar failed ... exiting"
+        return None
 
     latestJar = getLatestJar(targetdir)
     return latestJar
@@ -140,7 +135,6 @@ def deployInMaster(f, confdir, libdir):
             socket.inet_aton(host)
             h = socket.getfqdn(host)
         except socket.error:
-            # host is not a ip adddress
             pass
 
         if h == socket.gethostname() or h == 'localhost':
@@ -182,14 +176,17 @@ if __name__ == '__main__':
 
     assert not hadoop_dir == None, "hadoop directory missing"
 
+    os.chdir(os.path.dirname(sys.argv[0]) + '/..')
+    targetdir = './target/'
+
     if needbuild:
-        jar = build_jar()
+        jar = build_jar(targetdir)
         if jar == None:
             sys.exit(1)
     else:
-        jar = getLatestJar('./target/')
+        jar = getLatestJar(targetdir)
         if jar == None:
-            print "Maybe you want to build it ? -b option"
+            print "Maybe you want to build it ? with -b option"
             sys.exit(1)
 
     print ""
