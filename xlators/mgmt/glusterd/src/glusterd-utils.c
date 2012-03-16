@@ -3303,9 +3303,23 @@ glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
         return ret;
 }
 
+glusterd_brickinfo_t*
+glusterd_get_brickinfo_by_position (glusterd_volinfo_t *volinfo, uint32_t pos)
+{
+        glusterd_brickinfo_t    *tmpbrkinfo = NULL;
+
+        list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
+                             brick_list) {
+                if (pos == 0)
+                        return tmpbrkinfo;
+                pos--;
+        }
+        return NULL;
+}
+
 void
 glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
-                            gf_brick_status_t status)
+                           gf_brick_status_t status)
 {
         GF_ASSERT (brickinfo);
         brickinfo->status = status;
@@ -5139,3 +5153,21 @@ glusterd_uuid_to_hostname (uuid_t uuid)
         return hostname;
 }
 
+gf_boolean_t
+glusterd_is_local_brick (xlator_t *this, glusterd_volinfo_t *volinfo,
+                         glusterd_brickinfo_t *brickinfo)
+{
+        gf_boolean_t    local = _gf_false;
+        int             ret = 0;
+        glusterd_conf_t *conf = NULL;
+
+        if (uuid_is_null (brickinfo->uuid)) {
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret)
+                        goto out;
+        }
+        conf = this->private;
+        local = !uuid_compare (brickinfo->uuid, conf->uuid);
+out:
+        return local;
+}

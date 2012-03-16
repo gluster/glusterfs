@@ -415,6 +415,7 @@ init (xlator_t *this)
         this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
         if (!this->itable)
                 goto out;
+        priv->root_inode = inode_ref (this->itable->root);
 
         ret = 0;
 out:

@@ -448,6 +448,7 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_HEAL_VOLUME;
         char                            *volname = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
 
         GF_ASSERT (req);
 
@@ -483,6 +484,15 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_INFO, "Received heal vol req"
                 "for volume %s", volname);
 
+        ret = glusterd_add_bricks_hname_path_to_dict (dict);
+        if (ret)
+                goto out;
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+        ret = dict_set_int32 (dict, "count", volinfo->brick_count);
+        if (ret)
+                goto out;
         ret = glusterd_op_begin (req, GD_OP_HEAL_VOLUME, dict);
 
         gf_cmd_log ("volume heal","on volname: %s %s", volname,

@@ -5561,6 +5561,7 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
         char            key[256] = {0};
         char            *hostname = NULL;
         char            *path = NULL;
+        char            *status = NULL;
         uint64_t        i = 0;
 
         snprintf (key, sizeof (key), "%d-hostname", brick);
@@ -5571,9 +5572,14 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
         ret = dict_get_str (dict, key, &path);
         if (ret)
                 goto out;
+        cli_out ("\nBrick %s:%s", hostname, path);
         snprintf (key, sizeof (key), "%d-count", brick);
         ret = dict_get_uint64 (dict, key, &num_entries);
-        cli_out ("\nEntries on %s:%s %"PRIu64, hostname, path, num_entries);
+        cli_out ("Number of entries: %"PRIu64, num_entries);
+        snprintf (key, sizeof (key), "%d-status", brick);
+        ret = dict_get_str (dict, key, &status);
+        if (status && strlen (status))
+                cli_out ("Status: %s", status);
         for (i = 0; i < num_entries; i++) {
                 snprintf (key, sizeof (key), "%d-%"PRIu64, brick, i);
                 ret = dict_get_str (dict, key, &path);
@@ -5645,21 +5651,15 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 cli_out ("%s", rsp.op_errstr);
         else
-                cli_out ("Starting heal on volume %s has been %s", volname,
+                cli_out ("Heal operation on volume %s has been %s", volname,
                         (rsp.op_ret) ? "unsuccessful": "successful");
 
-        if (rsp.op_ret) {
-                ret = rsp.op_ret;
-                goto out;
-        }
-
+        ret = rsp.op_ret;
         if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
-            (heal_op == GF_AFR_OP_HEAL_INDEX)) {
-                ret = 0;
+            (heal_op == GF_AFR_OP_HEAL_INDEX))
                 goto out;
-        }
-        dict = dict_new ();
 
+        dict = dict_new ();
         if (!dict) {
                 ret = -1;
                 goto out;
