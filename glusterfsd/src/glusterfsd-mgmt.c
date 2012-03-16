@@ -235,23 +235,28 @@ glusterfs_translator_info_response_send (rpcsvc_request_t *req, int ret,
                                          char *msg, dict_t *output)
 {
         gd1_mgmt_brick_op_rsp    rsp = {0,};
-        GF_ASSERT (msg);
+        gf_boolean_t             free_ptr = _gf_false;
         GF_ASSERT (req);
-        GF_ASSERT (output);
 
         rsp.op_ret = ret;
         rsp.op_errno = 0;
-        if (ret && msg[0])
+        if (ret && msg && msg[0])
                 rsp.op_errstr = msg;
         else
                 rsp.op_errstr = "";
 
-        ret = dict_allocate_and_serialize (output, &rsp.output.output_val,
-                                        (size_t *)&rsp.output.output_len);
+        ret = -1;
+        if (output) {
+                ret = dict_allocate_and_serialize (output,
+                                                   &rsp.output.output_val,
+                                              (size_t *)&rsp.output.output_len);
+        }
+        if (!ret)
+                free_ptr = _gf_true;
 
         ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
-        if (rsp.output.output_val)
+        if (free_ptr)
                 GF_FREE (rsp.output.output_val);
         return ret;
 }
@@ -323,30 +328,28 @@ glusterfs_xlator_op_response_send (rpcsvc_request_t *req, int op_ret,
 {
         gd1_mgmt_brick_op_rsp    rsp = {0,};
         int                      ret = -1;
-        GF_ASSERT (msg);
+        gf_boolean_t             free_ptr = _gf_false;
         GF_ASSERT (req);
-        GF_ASSERT (output);
 
         rsp.op_ret = op_ret;
         rsp.op_errno = 0;
-        if (ret && msg[0])
+        if (op_ret && msg && msg[0])
                 rsp.op_errstr = msg;
         else
                 rsp.op_errstr = "";
 
-        ret = dict_allocate_and_serialize (output, &rsp.output.output_val,
-                                        (size_t *)&rsp.output.output_len);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't serialize "
-                        "output dict.");
-                goto out;
+        if (output) {
+                ret = dict_allocate_and_serialize (output,
+                                                   &rsp.output.output_val,
+                                              (size_t *)&rsp.output.output_len);
         }
+        if (!ret)
+                free_ptr = _gf_true;
 
         ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
 
-out:
-        if (rsp.output.output_val)
+        if (free_ptr)
                 GF_FREE (rsp.output.output_val);
 
         return ret;
