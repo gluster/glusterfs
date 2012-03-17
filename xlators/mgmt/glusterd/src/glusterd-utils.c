@@ -1199,7 +1199,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                   volinfo->volname, exp_path);
                 } else {
                          snprintf (valgrind_logfile, PATH_MAX,
-                                   "%s/bricks/valgrnd-%s-%s.log",
+                                   "%s/bricks/valgrind-%s-%s.log",
                                    DEFAULT_LOG_FILE_DIRECTORY,
                                    volinfo->volname, exp_path);
                 }
@@ -2744,7 +2744,7 @@ glusterd_nodesvc_start (char *server)
 #ifdef DEBUG
         if (priv->valgrind) {
                 snprintf (valgrind_logfile, PATH_MAX,
-                          "%s/valgrnd-%s.log",
+                          "%s/valgrind-%s.log",
                           DEFAULT_LOG_FILE_DIRECTORY,
                           server);
 
