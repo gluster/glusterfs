@@ -954,15 +954,15 @@ init (xlator_t *this)
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
 #ifdef DEBUG
         conf->valgrind = _gf_false;
-        ret = dict_get_str (this->options, "brick-with-valgrind", &valgrind_str);
+        ret = dict_get_str (this->options, "run-with-valgrind", &valgrind_str);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "cannot get brick-with-valgrind value");
+                        "cannot get run-with-valgrind value");
         }
         if (valgrind_str) {
                 if (gf_string2boolean (valgrind_str, &(conf->valgrind))) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "brick-with-valgrind value not a boolean string");
+                                "run-with-valgrind value not a boolean string");
                 }
         }
 #endif
@@ -1131,7 +1131,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_ANY,
         },
 #ifdef DEBUG
-        { .key = {"brick-with-valgrind"},
+        { .key = {"run-with-valgrind"},
           .type = GF_OPTION_TYPE_BOOL,
         },
 #endif
