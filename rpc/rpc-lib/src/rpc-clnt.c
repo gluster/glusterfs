@@ -1628,6 +1628,10 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
                         conn->timer = NULL;
                 }
 
+                if (conn->reconnect) {
+                        gf_timer_call_cancel (rpc->ctx, conn->reconnect);
+                        conn->reconnect = NULL;
+                }
                 conn->connected = 0;
 
                 if (conn->ping_timer) {
