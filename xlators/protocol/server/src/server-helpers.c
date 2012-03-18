@@ -506,15 +506,17 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO ("server", conn, out);
-        GF_VALIDATE_OR_GOTO ("server", fdentries, out);
-        GF_VALIDATE_OR_GOTO ("server", ltable, out);
+
+        if (!ltable && !fdentries)
+                goto out;
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL) {
                 goto out;
         }
 
-        saved_ret = do_lock_table_cleanup (this, conn, frame, ltable);
+        if (ltable)
+                saved_ret = do_lock_table_cleanup (this, conn, frame, ltable);
 
         if (fdentries != NULL) {
                 ret = do_fd_cleanup (this, conn, frame, fdentries, fd_count);
@@ -536,24 +538,26 @@ out:
 
 
 int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn)
+server_connection_cleanup (xlator_t *this, server_connection_t *conn,
+                           int32_t flags)
 {
         struct _lock_table *ltable = NULL;
         fdentry_t          *fdentries = NULL;
         uint32_t            fd_count = 0;
         int                 ret = 0;
 
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", conn, out);
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, conn, out);
+        GF_VALIDATE_OR_GOTO (this->name, flags, out);
 
         pthread_mutex_lock (&conn->lock);
         {
-                if (conn->ltable) {
+                if (conn->ltable && (flags & INTERNAL_LOCKS)) {
                         ltable = conn->ltable;
                         conn->ltable = gf_lock_table_new ();
                 }
 
-                if (conn->fdtable)
+                if (conn->fdtable && (flags & POSIX_LOCKS))
                         fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
                                                                &fd_count);
         }
