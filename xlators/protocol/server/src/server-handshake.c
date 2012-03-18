@@ -436,7 +436,8 @@ server_setvolume (rpcsvc_request_t *req)
                 server_connection_put (this, conn, NULL);
         if (conn->lk_version != 0 &&
             conn->lk_version != lk_version) {
-                (void) server_connection_cleanup (this, conn);
+                (void) server_connection_cleanup (this, conn,
+                                                  INTERNAL_LOCKS | POSIX_LOCKS);
         }
 
         if (req->trans->xl_private != conn)

@@ -58,7 +58,8 @@ grace_time_handler (void *data)
                 server_conn_ref (conn);
                 server_connection_put (this, conn, &detached);
                 if (detached)//reconnection did not happen :-(
-                        server_connection_cleanup (this, conn);
+                        server_connection_cleanup (this, conn,
+                                                  INTERNAL_LOCKS | POSIX_LOCKS);
                 server_conn_unref (conn);
         }
 out:
@@ -170,7 +171,8 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         if (ret == -1) {
                 gf_log_callingfn ("", GF_LOG_ERROR, "Reply submission failed");
                 if (frame && conn)
-                        server_connection_cleanup (frame->this, conn);
+                        server_connection_cleanup (frame->this, conn,
+                                                  INTERNAL_LOCKS | POSIX_LOCKS);
                 goto ret;
         }
 
@@ -644,6 +646,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 put_server_conn_state (this, xprt);
                 gf_log (this->name, GF_LOG_INFO, "disconnecting connection"
                         "from %s", xprt->peerinfo.identifier);
+                server_connection_cleanup (this, conn, INTERNAL_LOCKS);
                 pthread_mutex_lock (&conf->mutex);
                 {
                         list_del (&xprt->list);

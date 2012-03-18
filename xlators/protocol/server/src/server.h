@@ -35,6 +35,11 @@
 #define GF_MAX_SOCKET_WINDOW_SIZE  (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE  (0)
 
+typedef enum {
+        INTERNAL_LOCKS = 1,
+        POSIX_LOCKS = 2,
+} server_lock_flags_t;
+
 typedef struct _server_state server_state_t;
 
 struct _locker {
@@ -86,7 +91,8 @@ server_connection_t*
 server_conn_ref (server_connection_t *conn);
 
 int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn);
+server_connection_cleanup (xlator_t *this, server_connection_t *conn,
+                           int32_t flags);
 
 int server_null (rpcsvc_request_t *req);
 
