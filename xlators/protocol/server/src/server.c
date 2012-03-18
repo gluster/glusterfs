@@ -645,7 +645,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 
                 put_server_conn_state (this, xprt);
                 gf_log (this->name, GF_LOG_INFO, "disconnecting connection"
-                        "from %s", xprt->peerinfo.identifier);
+                        "from %s", conn->id);
                 server_connection_cleanup (this, conn, INTERNAL_LOCKS);
                 pthread_mutex_lock (&conf->mutex);
                 {
@@ -659,7 +659,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                                 goto unlock;
 
                         gf_log (this->name, GF_LOG_INFO, "starting a grace "
-                                "timer for %s", xprt->name);
+                                "timer for %s", conn->id);
 
                         conn->timer = gf_timer_call_after (this->ctx,
                                                            conf->grace_tv,

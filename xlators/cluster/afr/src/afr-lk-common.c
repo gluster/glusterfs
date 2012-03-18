@@ -714,7 +714,7 @@ afr_unlock_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                AFR_UNLOCK_OP, NULL, op_ret,
                                op_errno, child_index);
 
-        if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: unlock failed on %d, reason: %s",
                         local->loc.path, child_index, strerror (op_errno));
