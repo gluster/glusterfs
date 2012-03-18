@@ -431,6 +431,7 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
+        gf_log (this->name, GF_LOG_DEBUG, "Connected to %s", conn->id);
         cancelled = server_cancel_conn_timer (this, conn);
         if (cancelled)//Do connection_put on behalf of grace-timer-handler.
                 server_connection_put (this, conn, NULL);

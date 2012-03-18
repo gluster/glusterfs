@@ -298,18 +298,22 @@ __inode_unlock_lock (xlator_t *this, pl_inode_lock_t *lock, pl_dom_list_t *dom)
 
         conf = find_matching_inodelk (lock, dom);
         if (!conf) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        " Matching lock not found for unlock");
+                gf_log (this->name, GF_LOG_ERROR,
+                        " Matching lock not found for unlock %llu-%llu, by %s "
+                        "on %p", (unsigned long long)lock->fl_start,
+                        (unsigned long long)lock->fl_end,
+                        lkowner_utoa (&lock->owner), lock->transport);
                 goto out;
         }
         __delete_inode_lock (conf);
         gf_log (this->name, GF_LOG_DEBUG,
-                " Matching lock found for unlock");
+                " Matching lock found for unlock %llu-%llu, by %s on %p",
+                (unsigned long long)lock->fl_start,
+                (unsigned long long)lock->fl_end, lkowner_utoa (&lock->owner),
+                lock->transport);
 
 out:
         return conf;
-
-
 }
 static void
 __grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode,
