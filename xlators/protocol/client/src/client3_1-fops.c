@@ -2281,10 +2281,12 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
+        ret = 0;
+
         if (fdctx->is_dir) {
                 gfs3_releasedir_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
-                gf_log (this->name, GF_LOG_INFO, "sending releasedir on fd");
+                gf_log (this->name, GF_LOG_DEBUG, "sending releasedir on fd");
                 client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
                                        GFS3_OP_RELEASEDIR,
                                        client3_1_releasedir_cbk,
@@ -2293,7 +2295,7 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
         } else {
                 gfs3_release_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
-                gf_log (this->name, GF_LOG_INFO, "sending release on fd");
+                gf_log (this->name, GF_LOG_DEBUG, "sending release on fd");
                 client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
                                        GFS3_OP_RELEASE,
                                        client3_1_release_cbk, NULL,
