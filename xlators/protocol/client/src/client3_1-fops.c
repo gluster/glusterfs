@@ -352,11 +352,12 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto out;
                 }
 
-                fdctx->remote_fd = rsp.fd;
-                fdctx->inode     = inode_ref (fd->inode);
-                fdctx->flags     = local->flags;
-                fdctx->wbflags   = local->wbflags;
-                fdctx->lk_ctx = fd_lk_ctx_ref (fd->lk_ctx);
+                fdctx->remote_fd     = rsp.fd;
+                fdctx->inode         = inode_ref (fd->inode);
+                fdctx->flags         = local->flags;
+                fdctx->wbflags       = local->wbflags;
+                fdctx->lk_ctx        = fd_lk_ctx_ref (fd->lk_ctx);
+                fdctx->lk_heal_state = GF_LK_HEAL_DONE;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
                 INIT_LIST_HEAD (&fdctx->lock_list);
@@ -1648,9 +1649,11 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto out;
                 }
 
-                fdctx->remote_fd = rsp.fd;
-                fdctx->inode     = inode_ref (inode);
-                fdctx->flags     = local->flags;
+                fdctx->remote_fd     = rsp.fd;
+                fdctx->inode         = inode_ref (inode);
+                fdctx->flags         = local->flags;
+                fdctx->lk_ctx        = fd_lk_ctx_ref (fd->lk_ctx);
+                fdctx->lk_heal_state = GF_LK_HEAL_DONE;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
                 INIT_LIST_HEAD (&fdctx->lock_list);
@@ -2252,13 +2255,14 @@ client3_1_releasedir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 int
 client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
 {
-        clnt_conf_t  *conf = NULL;
-        call_frame_t *fr = NULL;
-        int32_t       ret = -1;
-        fd_lk_ctx_t  *lk_ctx = NULL;
+        clnt_conf_t  *conf        = NULL;
+        call_frame_t *fr          = NULL;
+        int32_t       ret         = -1;
+        char          parent_down = 0;
+        fd_lk_ctx_t  *lk_ctx      = NULL;
 
-        if (!fdctx)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fdctx, out);
 
         conf = (clnt_conf_t *) this->private;
 
@@ -2269,12 +2273,19 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         pthread_mutex_lock (&conf->lock);
         {
-                lk_ctx = fdctx->lk_ctx;
+                parent_down   = conf->parent_down;
+                lk_ctx        = fdctx->lk_ctx;
                 fdctx->lk_ctx = NULL;
         }
         pthread_mutex_unlock (&conf->lock);
 
-        fd_lk_ctx_unref (lk_ctx);
+        if (lk_ctx)
+                fd_lk_ctx_unref (lk_ctx);
+
+        if (!parent_down)
+                rpc_clnt_ref (conf->rpc);
+        else
+                goto out;
 
         fr = create_frame (this, this->ctx->pool);
         if (fr == NULL) {
@@ -2303,6 +2314,7 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                        (xdrproc_t)xdr_gfs3_release_req);
         }
 
+        rpc_clnt_unref (conf->rpc);
 out:
         if (fdctx) {
                 fdctx->remote_fd = -1;
@@ -2323,13 +2335,10 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
         clnt_conf_t         *conf        = NULL;
         clnt_fd_ctx_t       *fdctx       = NULL;
         clnt_args_t         *args        = NULL;
-        gfs3_releasedir_req  req         = {{0,},};
         int64_t              remote_fd   = -1;
-        int                  ret         = 0;
-        char                 parent_down = 0;
 
         if (!frame || !this || !data)
-                goto unwind;
+                goto out;
 
         args = data;
         conf = this->private;
@@ -2353,37 +2362,9 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
         }
         pthread_mutex_unlock (&conf->lock);
 
-        if (remote_fd != -1) {
-                pthread_mutex_lock (&conf->lock);
-                {
-                        parent_down = conf->parent_down;
-                        if (!parent_down) {
-                                rpc_clnt_ref (conf->rpc);
-                        }
-                }
-                pthread_mutex_unlock (&conf->lock);
-
-                if (!parent_down) {
-                        req.fd = remote_fd;
-
-                        client_submit_request (this, &req, frame,
-                                               conf->fops,
-                                               GFS3_OP_RELEASEDIR,
-                                               client3_1_releasedir_cbk,
-                                               NULL, NULL, 0, NULL, 0,
-                                               NULL,
-                                               (xdrproc_t)xdr_gfs3_releasedir_req);
-
-                        rpc_clnt_unref (conf->rpc);
-                }
-
-                inode_unref (fdctx->inode);
-                GF_FREE (fdctx);
-        }
-
-unwind:
-        if (ret)
-                STACK_DESTROY (frame->root);
+        if (remote_fd != -1)
+                client_fdctx_destroy (this, fdctx);
+out:
 
         return 0;
 }
@@ -2392,16 +2373,14 @@ int32_t
 client3_1_release (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
-        int64_t           remote_fd   = -1;
-        clnt_conf_t      *conf        = NULL;
-        clnt_fd_ctx_t    *fdctx       = NULL;
-        clnt_args_t      *args        = NULL;
-        gfs3_release_req  req         = {{0,},};
-        int               ret         = 0;
-        char              parent_down = 0;
+        int64_t           remote_fd     = -1;
+        clnt_conf_t      *conf          = NULL;
+        clnt_fd_ctx_t    *fdctx         = NULL;
+        clnt_args_t      *args          = NULL;
+        lk_heal_state_t   lk_heal_state = GF_LK_HEAL_DONE;
 
         if (!frame || !this || !data)
-                goto unwind;
+                goto out;
 
         args = data;
         conf = this->private;
@@ -2410,14 +2389,16 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
         {
                 fdctx = this_fd_del_ctx (args->fd, this);
                 if (fdctx != NULL) {
-                        remote_fd = fdctx->remote_fd;
+                        remote_fd     = fdctx->remote_fd;
+                        lk_heal_state = fdctx->lk_heal_state;
 
                         /* fdctx->remote_fd == -1 indicates a reopen attempt
                            in progress. Just mark ->released = 1 and let
                            reopen_cbk handle releasing
                         */
 
-                        if (remote_fd != -1)
+                        if (remote_fd != -1 &&
+                            lk_heal_state == GF_LK_HEAL_DONE)
                                 list_del_init (&fdctx->sfd_pos);
 
                         fdctx->released = 1;
@@ -2425,38 +2406,9 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
         }
         pthread_mutex_unlock (&conf->lock);
 
-        if (remote_fd != -1) {
-                req.fd = remote_fd;
-
-                delete_granted_locks_fd (fdctx);
-
-                pthread_mutex_lock (&conf->lock);
-                {
-                        parent_down = conf->parent_down;
-                        if (!parent_down) {
-                                rpc_clnt_ref (conf->rpc);
-                        }
-                }
-                pthread_mutex_unlock (&conf->lock);
-
-                if (!parent_down) {
-                        client_submit_request (this, &req, frame,
-                                               conf->fops,
-                                               GFS3_OP_RELEASE,
-                                               client3_1_release_cbk,
-                                               NULL, NULL,
-                                               0, NULL, 0, NULL,
-                                               (xdrproc_t)xdr_gfs3_release_req);
-                        rpc_clnt_unref (conf->rpc);
-                }
-
-                inode_unref (fdctx->inode);
-                GF_FREE (fdctx);
-        }
-unwind:
-        if (ret)
-                STACK_DESTROY (frame->root);
-
+        if (remote_fd != -1 && lk_heal_state == GF_LK_HEAL_DONE)
+                client_fdctx_destroy (this, fdctx);
+out:
         return 0;
 }
 
