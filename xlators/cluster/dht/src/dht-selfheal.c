@@ -143,6 +143,11 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
         subvol = layout->list[i].xlator;
         this = frame->this;
 
+        GF_VALIDATE_OR_GOTO ("", this, err);
+        GF_VALIDATE_OR_GOTO (this->name, layout, err);
+        GF_VALIDATE_OR_GOTO (this->name, local, err);
+        GF_VALIDATE_OR_GOTO (this->name, subvol, err);
+
         xattr = get_new_dict ();
         if (!xattr) {
                 goto err;
