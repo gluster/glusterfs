@@ -436,6 +436,7 @@ server_inode (xlator_t *this)
         char                 key[GF_DUMP_MAX_BUF_LEN];
         int                  i = 1;
         int                  ret = -1;
+        xlator_t             *prev_bound_xl = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
 
@@ -455,6 +456,17 @@ server_inode (xlator_t *this)
 
         list_for_each_entry (trav, &conf->conns, list) {
                 if (trav->bound_xl && trav->bound_xl->itable) {
+                        /* Presently every brick contains only one
+                         * bound_xl for all connections. This will lead
+                         * to duplicating of the inode lists, if listing
+                         * is done for every connection. This simple check
+                         * prevents duplication in the present case. If
+                         * need arises the check can be improved.
+                         */
+                        if (trav->bound_xl == prev_bound_xl)
+                                continue;
+                        prev_bound_xl = trav->bound_xl;
+
                         gf_proc_dump_build_key(key,
                                                "conn","%d.bound_xl.%s",
                                                i, trav->bound_xl->name);
