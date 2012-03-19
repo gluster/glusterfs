@@ -38,6 +38,11 @@
 #define GF_MAX_SOCKET_WINDOW_SIZE  (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE  (0)
 
+typedef enum {
+        GF_LK_HEAL_IN_PROGRESS,
+        GF_LK_HEAL_DONE,
+} lk_heal_state_t;
+
 #define CLIENT_GET_REMOTE_FD(conf, fd, remote_fd, op_errno, label)      \
         do {                                                            \
                 clnt_fd_ctx_t      *fdctx    = NULL;                    \
@@ -129,6 +134,7 @@ typedef struct _client_fd_ctx {
         int32_t           wbflags;
         fd_lk_ctx_t      *lk_ctx;
         pthread_mutex_t   mutex;
+        lk_heal_state_t   lk_heal_state;
         struct list_head  lock_list;     /* List of all granted locks on this fd */
 } clnt_fd_ctx_t;
 
