@@ -116,6 +116,38 @@ out:
         return;
 }
 
+int32_t
+client_register_grace_timer (xlator_t *this, clnt_conf_t *conf)
+{
+        int32_t  ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                if (conf->grace_timer || !conf->grace_timer_needed) {
+                        gf_log (this->name, GF_LOG_TRACE,
+				"Client grace timer is already set "
+				"or a grace-timer has already time out, "
+				"not registering a new timer");
+                } else {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Registering a grace timer");
+                        conf->grace_timer =
+                                gf_timer_call_after (this->ctx,
+                                                     conf->grace_tv,
+                                                     client_grace_timeout,
+                                                     conf->rpc);
+                }
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                        rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
@@ -1999,7 +2031,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 /* Cancel grace timer if set */
                 pthread_mutex_lock (&conf->lock);
                 {
-                        conf->grace_timer_flag = _gf_true;
+                        conf->grace_timer_needed = _gf_true;
 
                         if (conf->grace_timer) {
                                 gf_log (this->name, GF_LOG_WARNING,
@@ -2016,28 +2048,10 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 break;
         }
         case RPC_CLNT_DISCONNECT:
-                /* client_mark_fd_bad (this); */
-
-                pthread_mutex_lock (&conf->lock);
-                {
-                        if (conf->grace_timer || !conf->grace_timer_flag) {
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "Client grace timer is already set "
-                                        "or a grace-timer has already timeout, "
-                                        "not registering a new timer");
-                        } else {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "Registering a grace timer");
-                                conf->grace_timer_flag = _gf_false;
-
-                                conf->grace_timer =
-                                        gf_timer_call_after (this->ctx,
-                                                             conf->grace_tv,
-                                                             client_grace_timeout,
-                                                             conf->rpc);
-                        }
-                }
-                pthread_mutex_unlock (&conf->lock);
+                if (!conf->lk_heal)
+                        client_mark_fd_bad (this);
+                else
+                        client_register_grace_timer (this, conf);
 
                 if (!conf->skip_notify) {
                         if (conf->connected)
@@ -2263,6 +2277,9 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
         if (!ret)
                 gf_string2boolean (lk_heal, &conf->lk_heal);
 
+        gf_log (this->name, GF_LOG_DEBUG, "lk-heal = %s",
+                (conf->lk_heal) ? "on" : "off");
+
         ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
         if (!ret)
                 conf->grace_tv.tv_sec = grace_timeout;
@@ -2271,8 +2288,8 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
 
         conf->grace_tv.tv_usec  = 0;
 
-        gf_log (this->name, GF_LOG_INFO, "lk-heal = %s",
-                (conf->lk_heal) ? "on" : "off");
+        gf_log (this->name, GF_LOG_DEBUG, "Client grace timeout "
+                "value = %"PRIu64, conf->grace_tv.tv_sec);
 
         ret = 0;
 out:
@@ -2363,9 +2380,9 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->saved_fds);
 
         /* Initialize parameters for lock self healing*/
-        conf->lk_version       = 1;
-        conf->grace_timer      = NULL;
-        conf->grace_timer_flag = _gf_true;
+        conf->lk_version         = 1;
+        conf->grace_timer        = NULL;
+        conf->grace_timer_needed = _gf_true;
 
         ret = client_init_grace_timer (this, this->options, conf);
         if (ret)
@@ -2644,10 +2661,12 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_BOOL
         },
         { .key   = {"lk-heal"},
-          .type  = GF_OPTION_TYPE_STR
+          .type  = GF_OPTION_TYPE_BOOL,
         },
         { .key   = {"grace-timeout"},
-          .type  = GF_OPTION_TYPE_INT
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 10,
+          .max   = 1800
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,

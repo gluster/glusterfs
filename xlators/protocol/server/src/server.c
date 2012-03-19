@@ -128,7 +128,8 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         struct iovec            rsp        = {0,};
         server_state_t         *state      = NULL;
         char                    new_iobref = 0;
-        server_connection_t    *conn  = NULL;
+        server_connection_t    *conn       = NULL;
+        gf_boolean_t            lk_heal    = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("server", req, ret);
 
@@ -137,6 +138,9 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                 frame->local = NULL;
                 conn  = SERVER_CONNECTION(frame);
         }
+
+        if (conn)
+                lk_heal = ((server_conf_t *) conn->this->private)->lk_heal;
 
         if (!iobref) {
                 iobref = iobref_new ();
@@ -170,9 +174,14 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         iobuf_unref (iob);
         if (ret == -1) {
                 gf_log_callingfn ("", GF_LOG_ERROR, "Reply submission failed");
-                if (frame && conn)
+                if (frame && conn && !lk_heal) {
                         server_connection_cleanup (frame->this, conn,
                                                   INTERNAL_LOCKS | POSIX_LOCKS);
+                } else {
+                        /* TODO: Failure of open(dir), create, inodelk, entrylk
+                           or lk fops send failure must be handled specially. */
+                        ;
+                }
                 goto ret;
         }
 
@@ -614,6 +623,7 @@ int
 server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                    void *data)
 {
+        gf_boolean_t         detached   = _gf_false;
         xlator_t            *this       = NULL;
         rpc_transport_t     *xprt       = NULL;
         server_connection_t *conn       = NULL;
@@ -655,32 +665,44 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 if (!conn)
                         break;
 
-                put_server_conn_state (this, xprt);
                 gf_log (this->name, GF_LOG_INFO, "disconnecting connection"
                         "from %s", conn->id);
-                server_connection_cleanup (this, conn, INTERNAL_LOCKS);
-                pthread_mutex_lock (&conf->mutex);
-                {
-                        list_del (&xprt->list);
+
+                /* If lock self heal is off, then destroy the
+                   conn object, else register a grace timer event */
+                if (!conf->lk_heal) {
+                        server_conn_ref (conn);
+                        server_connection_put (this, conn, &detached);
+                        if (detached)
+                                server_connection_cleanup (this, conn,
+                                                           INTERNAL_LOCKS |
+                                                           POSIX_LOCKS);
+                        server_conn_unref (conn);
+                } else {
+                        put_server_conn_state (this, xprt);
+                        server_connection_cleanup (this, conn, INTERNAL_LOCKS);
+                        pthread_mutex_lock (&conf->mutex);
+                        {
+                                list_del (&xprt->list);
+                        }
+                        pthread_mutex_unlock (&conf->mutex);
+
+                        pthread_mutex_lock (&conn->lock);
+                        {
+                                if (conn->timer)
+                                        goto unlock;
+
+                                gf_log (this->name, GF_LOG_INFO, "starting a grace "
+                                        "timer for %s", xprt->name);
+
+                                conn->timer = gf_timer_call_after (this->ctx,
+                                                                   conf->grace_tv,
+                                                                   grace_time_handler,
+                                                                   conn);
+                        }
+                unlock:
+                        pthread_mutex_unlock (&conn->lock);
                 }
-                pthread_mutex_unlock (&conf->mutex);
-
-                pthread_mutex_lock (&conn->lock);
-                {
-                        if (conn->timer)
-                                goto unlock;
-
-                        gf_log (this->name, GF_LOG_INFO, "starting a grace "
-                                "timer for %s", conn->id);
-
-                        conn->timer = gf_timer_call_after (this->ctx,
-                                                           conf->grace_tv,
-                                                           grace_time_handler,
-                                                           conn);
-                }
-        unlock:
-                pthread_mutex_unlock (&conn->lock);
-
                 break;
         case RPCSVC_EVENT_TRANSPORT_DESTROY:
                 /*- conn obj has been disassociated from xprt on first
@@ -758,16 +780,29 @@ server_init_grace_timer (xlator_t *this, dict_t *options,
 {
         int32_t   ret            = -1;
         int32_t   grace_timeout  = -1;
+        char     *lk_heal        = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, options, out);
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        conf->lk_heal = _gf_true;
+
+        ret = dict_get_str (options, "lk-heal", &lk_heal);
+        if (!ret)
+                gf_string2boolean (lk_heal, &conf->lk_heal);
+
+        gf_log (this->name, GF_LOG_DEBUG, "lk-heal = %s",
+                (conf->lk_heal) ? "on" : "off");
 
         ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
         if (!ret)
                 conf->grace_tv.tv_sec = grace_timeout;
         else
                 conf->grace_tv.tv_sec = 10;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Server grace timeout "
+                "value = %"PRIu64, conf->grace_tv.tv_sec);
 
         conf->grace_tv.tv_usec  = 0;
 
@@ -1146,8 +1181,13 @@ struct volume_options options[] = {
           .type          = GF_OPTION_TYPE_PATH,
           .default_value = "/tmp"
         },
+        { .key   = {"lk-heal"},
+          .type  = GF_OPTION_TYPE_BOOL,
+        },
         {.key  = {"grace-timeout"},
          .type = GF_OPTION_TYPE_INT,
+         .min  = 10,
+         .max  = 1800,
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,
