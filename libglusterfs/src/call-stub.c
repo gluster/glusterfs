@@ -1868,7 +1868,9 @@ fop_readdirp_stub (call_frame_t *frame,
         stub->args.readdirp.fd = fd_ref (fd);
         stub->args.readdirp.size = size;
         stub->args.readdirp.off = off;
-        stub->args.readdirp.dict = dict;
+        if (dict != NULL) {
+                stub->args.readdirp.dict = dict_ref (dict);
+        }
 
 out:
         return stub;
@@ -3642,6 +3644,10 @@ call_stub_destroy_wind (call_stub_t *stub)
         {
                 if (stub->args.readdirp.fd)
                         fd_unref (stub->args.readdirp.fd);
+
+                if (stub->args.readdirp.dict)
+                        dict_unref (stub->args.readdirp.dict);
+
                 break;
         }
 
