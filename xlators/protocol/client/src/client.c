@@ -2199,6 +2199,9 @@ client_destroy_rpc (xlator_t *this)
                 goto out;
 
         if (conf->rpc) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&conf->rpc->conn);
+
                 conf->rpc = rpc_clnt_unref (conf->rpc);
                 ret = 0;
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -2434,8 +2437,12 @@ fini (xlator_t *this)
         this->private = NULL;
 
         if (conf) {
-                if (conf->rpc)
-                       rpc_clnt_unref (conf->rpc);
+                if (conf->rpc) {
+                        /* cleanup the saved-frames before last unref */
+                        rpc_clnt_connection_cleanup (&conf->rpc->conn);
+
+                        rpc_clnt_unref (conf->rpc);
+                }
 
                 /* Saved Fds */
                 /* TODO: */

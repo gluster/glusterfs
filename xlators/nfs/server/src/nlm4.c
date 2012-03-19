@@ -315,8 +315,14 @@ nlm_set_rpc_clnt (rpc_clnt_t *rpc_clnt, char *caller_name)
         ret = 0;
 ret:
         UNLOCK (&nlm_client_list_lk);
-        if (rpc_clnt_old)
+
+        if (rpc_clnt_old) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&rpc_clnt_old->conn);
+
                 rpc_clnt_unref (rpc_clnt_old);
+        }
+
         if (old_name)
                 GF_FREE (old_name);
         return ret;
@@ -340,8 +346,12 @@ nlm_unset_rpc_clnt (rpc_clnt_t *rpc)
         if (rpc_clnt == NULL) {
                 return -1;
         }
-        if (rpc_clnt)
+        if (rpc_clnt) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&rpc_clnt->conn);
+
                 rpc_clnt_unref (rpc_clnt);
+        }
         return 0;
 }
 

@@ -888,6 +888,9 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
         glusterd_peerctx_t      *peerctx = NULL;
 
         if (peerinfo->rpc) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&peerinfo->rpc->conn);
+
                 peerctx = peerinfo->rpc->mydata;
                 peerinfo->rpc->mydata = NULL;
                 peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
@@ -1299,6 +1302,9 @@ glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
         GF_ASSERT (brickinfo);
 
         if (brickinfo->rpc) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&brickinfo->rpc->conn);
+
                 rpc_clnt_unref (brickinfo->rpc);
                 brickinfo->rpc = NULL;
         }
