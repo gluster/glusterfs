@@ -78,6 +78,10 @@ enum _gf_boolean
 	_gf_true = 1
 };
 
+enum _gf_client_pid {
+        GF_CLIENT_PID_GSYNCD = -1,
+};
+
 typedef enum _gf_boolean gf_boolean_t;
 typedef int (*gf_cmp) (void *, void *);
 
