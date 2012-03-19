@@ -108,6 +108,8 @@ struct server_conf {
         int                     inode_lru_limit;
         gf_boolean_t            verify_volfile;
         gf_boolean_t            trace;
+        gf_boolean_t            lk_heal; /* If true means lock self
+                                            heal is on else off. */
         char                   *conf_dir;
         struct _volfile_ctx    *volfile;
         struct timeval          grace_tv;
