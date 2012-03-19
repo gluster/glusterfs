@@ -815,8 +815,11 @@ cleanup_and_exit (int signum)
         exit (0);
 #if 0
         /* TODO: Properly do cleanup_and_exit(), with synchronization */
-        if (ctx->mgmt)
+        if (ctx->mgmt) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&ctx->mgmt->conn);
                 rpc_clnt_unref (ctx->mgmt);
+        }
 
         /* call fini() of each xlator */
         trav = NULL;
