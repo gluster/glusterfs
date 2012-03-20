@@ -22,59 +22,59 @@
 
 int32_t
 afr_chmod (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode);
+	   loc_t *loc, mode_t mode, dict_t *xdata);
 
 int32_t
 afr_chown (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, uid_t uid, gid_t gid);
+	   loc_t *loc, uid_t uid, gid_t gid, dict_t *xdata);
 
 int
 afr_fchown (call_frame_t *frame, xlator_t *this,
-	    fd_t *fd, uid_t uid, gid_t gid);
+	    fd_t *fd, uid_t uid, gid_t gid, dict_t *xdata);
 
 int32_t
 afr_fchmod (call_frame_t *frame, xlator_t *this,
-	    fd_t *fd, mode_t mode);
+	    fd_t *fd, mode_t mode, dict_t *xdata);
 
 int32_t
 afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	    struct iovec *vector, int32_t count, off_t offset,
-            uint32_t flags, struct iobref *iobref);
+            uint32_t flags, struct iobref *iobref, dict_t *xdata);
 
 int32_t
 afr_truncate (call_frame_t *frame, xlator_t *this,
-	      loc_t *loc, off_t offset);
+	      loc_t *loc, off_t offset, dict_t *xdata);
 
 int32_t
 afr_ftruncate (call_frame_t *frame, xlator_t *this,
-	       fd_t *fd, off_t offset);
+	       fd_t *fd, off_t offset, dict_t *xdata);
 
 int32_t
 afr_utimens (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, struct timespec tv[2]);
+	     loc_t *loc, struct timespec tv[2], dict_t *xdata);
 
 int
 afr_setattr (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, struct iatt *buf, int32_t valid);
+             loc_t *loc, struct iatt *buf, int32_t valid, dict_t *xdata);
 
 int
 afr_fsetattr (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, struct iatt *buf, int32_t valid);
+              fd_t *fd, struct iatt *buf, int32_t valid, dict_t *xdata);
 
 int32_t
 afr_setxattr (call_frame_t *frame, xlator_t *this,
-              loc_t *loc, dict_t *dict, int32_t flags);
+              loc_t *loc, dict_t *dict, int32_t flags, dict_t *xdata);
 
 int32_t
 afr_fsetxattr (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, dict_t *dict, int32_t flags);
+               fd_t *fd, dict_t *dict, int32_t flags, dict_t *xdata);
 
 int32_t
 afr_removexattr (call_frame_t *frame, xlator_t *this,
-		 loc_t *loc, const char *name);
+		 loc_t *loc, const char *name, dict_t *xdata);
 
 int32_t
 afr_fremovexattr (call_frame_t *frame, xlator_t *this,
-                  fd_t *fd, const char *name);
+                  fd_t *fd, const char *name, dict_t *xdata);
 
 #endif /* __INODE_WRITE_H__ */

@@ -417,7 +417,8 @@ ioc_waitq_return (ioc_waitq_t *waitq)
 int
 ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iovec *vector,
-               int32_t count, struct iatt *stbuf, struct iobref *iobref)
+               int32_t count, struct iatt *stbuf, struct iobref *iobref,
+               dict_t *xdata)
 {
         ioc_local_t *local            = NULL;
         off_t        offset           = 0;
@@ -632,7 +633,7 @@ ioc_page_fault (ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
 
         STACK_WIND (fault_frame, ioc_fault_cbk, FIRST_CHILD(fault_frame->this),
                     FIRST_CHILD(fault_frame->this)->fops->readv, fd,
-                    table->page_size, offset, 0);
+                    table->page_size, offset, 0, NULL);
         return;
 
 err:
@@ -878,7 +879,7 @@ unwind:
         //  ioc_local_unlock (local);
 
         STACK_UNWIND_STRICT (readv, frame, op_ret, local->op_errno, vector,
-                             count, &stbuf, iobref);
+                             count, &stbuf, iobref, NULL);
 
         if (iobref != NULL) {
                 iobref_unref (iobref);

@@ -70,10 +70,13 @@ free_fuse_state (fuse_state_t *state)
 
         loc_wipe (&state->loc2);
 
-        if (state->dict) {
-                dict_unref (state->dict);
-                state->dict = (void *)0xaaaaeeee;
+        if (state->xdata) {
+                dict_unref (state->xdata);
+                state->xdata = (void *)0xaaaaeeee;
         }
+        if (state->xattr)
+                dict_unref (state->xattr);
+
         if (state->name) {
                 GF_FREE (state->name);
                 state->name = NULL;

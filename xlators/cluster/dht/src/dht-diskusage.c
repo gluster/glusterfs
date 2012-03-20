@@ -35,7 +35,8 @@
 
 int
 dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		 int op_ret, int op_errno, struct statvfs *statvfs)
+		 int op_ret, int op_errno, struct statvfs *statvfs,
+                 dict_t *xdata)
 {
 	dht_conf_t    *conf         = NULL;
 	call_frame_t  *prev          = NULL;
@@ -129,7 +130,7 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
 	STACK_WIND (statfs_frame, dht_du_info_cbk,
 		    conf->subvolumes[subvol_idx],
 		    conf->subvolumes[subvol_idx]->fops->statfs,
-		    &tmp_loc);
+		    &tmp_loc, NULL);
 
 	return 0;
 err:
@@ -177,7 +178,7 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 			STACK_WIND (statfs_frame, dht_du_info_cbk,
 				    conf->subvolumes[i],
 				    conf->subvolumes[i]->fops->statfs,
-				    &tmp_loc);
+				    &tmp_loc, NULL);
 		}
 
 		conf->last_stat_fetch.tv_sec = tv.tv_sec;

@@ -44,7 +44,6 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           call_cnt    = 0;
         int           ret         = 0;
 
-
         conf  = this->private;
 
         prev  = cookie;
@@ -141,7 +140,7 @@ out:
 
 err:
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno,
-                          inode, stbuf, xattr, NULL);
+                          inode, stbuf, xattr, postparent);
         return 0;
 }
 
@@ -260,7 +259,8 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        DHT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL,
+                          NULL);
         return 0;
 }
 
@@ -269,7 +269,7 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                                  xlator_t *this, int op_ret, int op_errno,
                                  inode_t *inode, struct iatt *stbuf,
                                  struct iatt *preparent,
-                                 struct iatt *postparent)
+                                 struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
 
@@ -280,21 +280,21 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         STACK_WIND (frame, dht_create_cbk,
                     local->cached_subvol, local->cached_subvol->fops->create,
-                    &local->loc, local->flags, local->mode, local->fd,
-                    local->params);
+                    &local->loc, local->flags, local->mode, local->umask,
+                    local->fd, local->params);
 
         return 0;
 
 err:
         DHT_STACK_UNWIND (create, frame, -1, op_errno,
-                          NULL, NULL, NULL, NULL, NULL);
+                          NULL, NULL, NULL, NULL, NULL, NULL);
         return 0;
 }
 
 int
 nufa_create (call_frame_t *frame, xlator_t *this,
              loc_t *loc, int32_t flags, mode_t mode,
-             fd_t *fd, dict_t *params)
+             mode_t umask, fd_t *fd, dict_t *params)
 {
         dht_local_t *local = NULL;
         dht_conf_t  *conf  = NULL;
@@ -337,7 +337,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                 local->params = dict_ref (params);
                 local->mode = mode;
                 local->flags = flags;
-
+                local->umask = umask;
                 local->cached_subvol = avail_subvol;
                 dht_linkfile_create (frame,
                                      nufa_create_linkfile_create_cbk,
@@ -350,14 +350,14 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
         STACK_WIND (frame, dht_create_cbk,
                     subvol, subvol->fops->create,
-                    loc, flags, mode, fd, params);
+                    loc, flags, mode, umask, fd, params);
 
         return 0;
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
         DHT_STACK_UNWIND (create, frame, -1, op_errno,
-                          NULL, NULL, NULL, NULL, NULL);
+                          NULL, NULL, NULL, NULL, NULL, NULL);
 
         return 0;
 }
@@ -366,7 +366,7 @@ int
 nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, inode_t *inode,
                          struct iatt *stbuf, struct iatt *preparent,
-                         struct iatt *postparent)
+                         struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
 
@@ -377,7 +377,7 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             local->cached_subvol,
                             local->cached_subvol->fops->mknod,
                             &local->loc, local->mode, local->rdev,
-                            local->params);
+                            local->umask, local->params);
 
                 return 0;
         }
@@ -386,14 +386,14 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         WIPE (preparent);
 
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno,
-                          inode, stbuf, preparent, postparent);
+                          inode, stbuf, preparent, postparent, xdata);
         return 0;
 }
 
 
 int
 nufa_mknod (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, mode_t mode, dev_t rdev, dict_t *params)
+            loc_t *loc, mode_t mode, dev_t rdev, mode_t umask, dict_t *params)
 {
         dht_local_t *local = NULL;
         dht_conf_t  *conf  = NULL;
@@ -437,6 +437,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
                 local->params = dict_ref (params);
                 local->mode = mode;
+                local->umask = umask;
                 local->rdev = rdev;
                 local->cached_subvol = avail_subvol;
 
@@ -450,14 +451,14 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
         STACK_WIND (frame, dht_newfile_cbk,
                     subvol, subvol->fops->mknod,
-                    loc, mode, rdev, params);
+                    loc, mode, rdev, umask, params);
 
         return 0;
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
         DHT_STACK_UNWIND (mknod, frame, -1, op_errno,
-                          NULL, NULL, NULL, NULL);
+                          NULL, NULL, NULL, NULL, NULL);
 
         return 0;
 }

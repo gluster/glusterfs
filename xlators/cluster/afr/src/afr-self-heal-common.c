@@ -1422,7 +1422,8 @@ afr_sh_purge_stale_entries_done (call_frame_t *frame, xlator_t *this)
                                               afr_sh_missing_entries_lookup_done,
                                               sh->sh_gfid_req,
                                               AFR_LOOKUP_FAIL_CONFLICTS|
-                                              AFR_LOOKUP_FAIL_MISSING_GFIDS);
+                                              AFR_LOOKUP_FAIL_MISSING_GFIDS,
+                                              NULL);
                 } else {
                         //No need to set gfid so goto missing entries lookup done
                         //Behave as if you have done the lookup
@@ -1711,7 +1712,8 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
         afr_get_fresh_children (sh->success_children, sh->sources,
                                 sh->fresh_parent_dirs, priv->child_count);
         afr_sh_common_lookup (frame, this, &local->loc,
-                              afr_sh_children_lookup_done, NULL, 0);
+                              afr_sh_children_lookup_done, NULL, 0,
+                              NULL);
         return;
 
 out:
@@ -1745,7 +1747,7 @@ afr_sh_common_reset (afr_self_heal_t *sh, unsigned int child_count)
 int
 afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                       afr_lookup_done_cbk_t lookup_done , uuid_t gfid,
-                      int32_t flags)
+                      int32_t flags, dict_t *xdata)
 {
         afr_local_t    *local = NULL;
         int             i = 0;
@@ -1827,7 +1829,8 @@ afr_sh_post_nb_entrylk_conflicting_sh_cbk (call_frame_t *frame, xlator_t *this)
                         "Non blocking entrylks done. Proceeding to FOP");
                 afr_sh_common_lookup (frame, this, &sh->parent_loc,
                                       afr_sh_find_fresh_parents,
-                                      NULL, AFR_LOOKUP_FAIL_CONFLICTS);
+                                      NULL, AFR_LOOKUP_FAIL_CONFLICTS,
+                                      NULL);
         }
 
         return 0;
@@ -1854,7 +1857,8 @@ afr_sh_post_nb_entrylk_gfid_sh_cbk (call_frame_t *frame, xlator_t *this)
                 afr_sh_common_lookup (frame, this, &local->loc,
                                       afr_sh_missing_entries_lookup_done,
                                       sh->sh_gfid_req, AFR_LOOKUP_FAIL_CONFLICTS|
-                                      AFR_LOOKUP_FAIL_MISSING_GFIDS);
+                                      AFR_LOOKUP_FAIL_MISSING_GFIDS,
+                                      NULL);
         }
 
         return 0;

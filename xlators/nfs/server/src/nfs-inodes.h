@@ -48,7 +48,7 @@ nfs_inode_mkdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 
 extern int
 nfs_inode_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
-                int32_t flags, int32_t wbflags, fop_open_cbk_t cbk,
+                int32_t flags, fop_open_cbk_t cbk,
                 void *local);
 
 extern int

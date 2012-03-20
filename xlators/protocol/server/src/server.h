@@ -197,6 +197,9 @@ struct _server_state {
         struct gf_flock      flock;
         const char       *volume;
         dir_entry_t      *entry;
+
+        dict_t           *xdata;
+        mode_t            umask;
 };
 
 extern struct rpcsvc_program gluster_handshake_prog;

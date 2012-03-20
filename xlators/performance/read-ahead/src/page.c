@@ -142,7 +142,8 @@ ra_waitq_return (ra_waitq_t *waitq)
 int
 ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, struct iovec *vector,
-              int32_t count, struct iatt *stbuf, struct iobref *iobref)
+              int32_t count, struct iatt *stbuf, struct iobref *iobref,
+              dict_t *xdata)
 {
         ra_local_t   *local          = NULL;
         off_t         pending_offset = 0;
@@ -278,7 +279,7 @@ ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
         STACK_WIND (fault_frame, ra_fault_cbk,
                     FIRST_CHILD (fault_frame->this),
                     FIRST_CHILD (fault_frame->this)->fops->readv,
-                    file->fd, file->page_size, offset, 0);
+                    file->fd, file->page_size, offset, 0, NULL);
 
         return;
 
@@ -447,7 +448,7 @@ ra_frame_unwind (call_frame_t *frame)
         file = (ra_file_t *)(long)tmp_file;
 
         STACK_UNWIND_STRICT (readv, frame, local->op_ret, local->op_errno,
-                             vector, count, &file->stbuf, iobref);
+                             vector, count, &file->stbuf, iobref, NULL);
 
         iobref_unref (iobref);
         pthread_mutex_destroy (&local->local_lock);

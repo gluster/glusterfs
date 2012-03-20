@@ -70,7 +70,8 @@ resolve_loc_touchup (call_frame_t *frame)
 int
 resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, inode_t *inode,
-                        struct iatt *buf, dict_t *xattr, struct iatt *postparent)
+                        struct iatt *buf, dict_t *xdata,
+                        struct iatt *postparent)
 {
         server_state_t       *state = NULL;
         server_resolve_t     *resolve = NULL;
@@ -111,7 +112,7 @@ out:
 int
 resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
-                  dict_t *xattr, struct iatt *postparent)
+                  dict_t *xdata, struct iatt *postparent)
 {
         server_state_t       *state = NULL;
         server_resolve_t     *resolve = NULL;

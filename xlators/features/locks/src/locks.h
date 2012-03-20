@@ -170,6 +170,7 @@ typedef struct {
         loc_t  loc;
         fd_t  *fd;
         off_t  offset;
+        dict_t *xdata;
         enum {TRUNCATE, FTRUNCATE} op;
 } pl_local_t;
 

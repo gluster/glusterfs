@@ -936,7 +936,7 @@ rebalance_task_completion (int op_ret, call_frame_t *sync_frame, void *data)
                 op_errno = EPERM;
         }
 
-        DHT_STACK_UNWIND (setxattr, sync_frame, op_ret, op_errno);
+        DHT_STACK_UNWIND (setxattr, sync_frame, op_ret, op_errno, NULL);
         return 0;
 }
 

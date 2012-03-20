@@ -360,7 +360,8 @@ afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
 
 int32_t
 afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno, dict_t *xattr)
+                           int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                           dict_t *xdata)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_private_t       *priv     = NULL;
@@ -583,7 +584,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                             priv->children[i],
                                             priv->children[i]->fops->xattrop,
                                             &local->loc,
-                                            GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                            GF_XATTROP_ADD_ARRAY, xattr[i],
+                                            NULL);
                                 break;
                         }
 
@@ -604,7 +606,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
                         if (nothing_failed && piggyback) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                           this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i], NULL);
                         } else {
                                 __mark_pre_op_undone_on_fd (frame, this, i);
                                 STACK_WIND_COOKIE (frame,
@@ -613,7 +615,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->fxattrop,
                                                    local->fd,
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                         }
                 }
                 break;
@@ -621,7 +624,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (nothing_failed) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                           this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i],
+                                                           NULL);
                                 break;
                         }
 
@@ -630,13 +634,15 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                             priv->children[i],
                                             priv->children[i]->fops->fxattrop,
                                             local->fd,
-                                            GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                            GF_XATTROP_ADD_ARRAY, xattr[i],
+                                            NULL);
                         else
                                 STACK_WIND (frame, afr_changelog_post_op_cbk,
                                             priv->children[i],
                                             priv->children[i]->fops->xattrop,
                                             &local->loc,
-                                            GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                            GF_XATTROP_ADD_ARRAY, xattr[i],
+                                            NULL);
                 }
                 break;
 
@@ -644,14 +650,16 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (nothing_failed) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                           this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i],
+                                                           NULL);
                         } else {
                                 STACK_WIND_COOKIE (frame, afr_changelog_post_op_cbk,
                                                    (void *) (long) i,
                                                    priv->children[i],
                                                    priv->children[i]->fops->xattrop,
                                                    &local->transaction.new_parent_loc,
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                         }
                         call_count--;
                 }
@@ -676,7 +684,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (nothing_failed) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
-                                                           this, 1, 0, xattr[i]);
+                                                           this, 1, 0, xattr[i],
+                                                           NULL);
                                 break;
                         }
 
@@ -685,13 +694,15 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                                             priv->children[i],
                                             priv->children[i]->fops->fxattrop,
                                             local->fd,
-                                            GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                            GF_XATTROP_ADD_ARRAY, xattr[i],
+                                            NULL);
                         else
                                 STACK_WIND (frame, afr_changelog_post_op_cbk,
                                             priv->children[i],
                                             priv->children[i]->fops->xattrop,
                                             &local->transaction.parent_loc,
-                                            GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                            GF_XATTROP_ADD_ARRAY, xattr[i],
+                                            NULL);
                 }
                 break;
                 }
@@ -711,7 +722,8 @@ out:
 
 int32_t
 afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, dict_t *xattr)
+                          int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                          dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = this->private;
@@ -831,7 +843,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->xattrop,
                                                    &(local->loc),
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                                 break;
                         }
 
@@ -850,7 +863,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
                         if (piggyback)
                                 afr_changelog_pre_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                          this, 1, 0, xattr[i],
+                                                          NULL);
                         else
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_pre_op_cbk,
@@ -858,14 +872,16 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->fxattrop,
                                                    local->fd,
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                 }
                 break;
                 case AFR_METADATA_TRANSACTION:
                 {
                         if (local->optimistic_change_log) {
                                 afr_changelog_pre_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                          this, 1, 0, xattr[i],
+                                                          NULL);
                                 break;
                         }
 
@@ -876,7 +892,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->fxattrop,
                                                    local->fd,
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                         else
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_pre_op_cbk,
@@ -884,7 +901,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->xattrop,
                                                    &(local->loc),
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                 }
                 break;
 
@@ -892,7 +910,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (local->optimistic_change_log) {
                                 afr_changelog_pre_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                          this, 1, 0, xattr[i],
+                                                          NULL);
                         } else {
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_pre_op_cbk,
@@ -900,7 +919,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->xattrop,
                                                    &local->transaction.new_parent_loc,
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                         }
 
                         call_count--;
@@ -927,7 +947,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                 {
                         if (local->optimistic_change_log) {
                                 afr_changelog_pre_op_cbk (frame, (void *)(long)i,
-                                                          this, 1, 0, xattr[i]);
+                                                          this, 1, 0, xattr[i],
+                                                          NULL);
                                 break;
                         }
 
@@ -938,7 +959,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->fxattrop,
                                                    local->fd,
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                         else
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_pre_op_cbk,
@@ -946,7 +968,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i],
                                                    priv->children[i]->fops->xattrop,
                                                    &local->transaction.parent_loc,
-                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i],
+                                                   NULL);
                 }
                 break;
                 }

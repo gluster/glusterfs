@@ -242,7 +242,7 @@ sc_cache_get (xlator_t *this, inode_t *inode, char **link)
 int
 sc_readlink_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int op_ret, int op_errno,
-		 const char *link, struct iatt *sbuf)
+		 const char *link, struct iatt *sbuf, dict_t *xdata)
 {
 	if (op_ret > 0)
 		sc_cache_update (this, frame->local, link);
@@ -250,14 +250,15 @@ sc_readlink_cbk (call_frame_t *frame, void *cookie,
 	inode_unref (frame->local);
 	frame->local = NULL;
 
-        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, link, sbuf);
+        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, link, sbuf,
+                             xdata);
         return 0;
 }
 
 
 int
 sc_readlink (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, size_t size)
+	     loc_t *loc, size_t size, dict_t *xdata)
 {
 	char *link = NULL;
         struct iatt buf = {0, };
@@ -275,7 +276,8 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
                   using buf in readlink_cbk should be aware that @buf
                   is 0 filled
                 */
-		STACK_UNWIND_STRICT (readlink, frame, strlen (link), 0, link, &buf);
+		STACK_UNWIND_STRICT (readlink, frame, strlen (link), 0, link,
+                                     &buf, NULL);
 		FREE (link);
 		return 0;
 	}
@@ -285,7 +287,7 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
         STACK_WIND (frame, sc_readlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readlink,
-                    loc, size);
+                    loc, size, xdata);
 
 	return 0;
 }
@@ -295,7 +297,7 @@ int
 sc_symlink_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this, int op_ret, int op_errno,
                 inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                struct iatt *postparent)
+                struct iatt *postparent, dict_t *xdata)
 {
 	if (op_ret == 0) {
 		if (frame->local) {
@@ -303,22 +305,22 @@ sc_symlink_cbk (call_frame_t *frame, void *cookie,
 		}
 	}
 
-        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf, preparent,
-                      postparent);
+        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent, xdata);
         return 0;
 }
 
 
 int
 sc_symlink (call_frame_t *frame, xlator_t *this,
-	    const char *dst, loc_t *src, dict_t *params)
+	    const char *dst, loc_t *src, mode_t umask, dict_t *xdata)
 {
 	frame->local = strdup (dst);
 
         STACK_WIND (frame, sc_symlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->symlink,
-                    dst, src, params);
+                    dst, src, umask, xdata);
 
 	return 0;
 }
@@ -327,7 +329,7 @@ sc_symlink (call_frame_t *frame, xlator_t *this,
 int
 sc_lookup_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int op_ret, int op_errno,
-	       inode_t *inode, struct iatt *buf, dict_t *xattr,
+	       inode_t *inode, struct iatt *buf, dict_t *xdata,
                struct iatt *postparent)
 {
 	if (op_ret == 0)
@@ -335,19 +337,20 @@ sc_lookup_cbk (call_frame_t *frame, void *cookie,
 	else
 		sc_cache_flush (this, inode);
 
-        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xattr, postparent);
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
+                             xdata, postparent);
         return 0;
 }
 
 
 int
 sc_lookup (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, dict_t *xattr_req)
+	   loc_t *loc, dict_t *xdata)
 {
         STACK_WIND (frame, sc_lookup_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup,
-                    loc, xattr_req);
+                    loc, xdata);
 
         return 0;
 }
@@ -363,10 +366,9 @@ sc_forget (xlator_t *this,
 }
 
 
-int32_t 
+int32_t
 init (xlator_t *this)
 {
-	
         if (!this->children || this->children->next)
         {
                 gf_log (this->name, GF_LOG_ERROR,

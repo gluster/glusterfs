@@ -109,7 +109,7 @@ afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
                                    xlator_t *this, int32_t op_ret,
-                                   int32_t op_errno, dict_t *xattr)
+                                   int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
         afr_local_t     *local     = NULL;
         int             call_count = 0;
@@ -201,7 +201,8 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
                                    priv->children[i],
                                    priv->children[i]->fops->xattrop,
                                    &local->loc,
-                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i]);
+                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i],
+                                   NULL);
                 if (!--call_count)
                         break;
         }
@@ -219,7 +220,7 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 
 int
 afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno)
+                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -260,9 +261,9 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_sh_metadata_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno,
-                             struct iatt *preop, struct iatt *postop)
+                             struct iatt *preop, struct iatt *postop, dict_t *xdata)
 {
-        afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno);
+        afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno, xdata);
 
         return 0;
 }
@@ -270,9 +271,9 @@ afr_sh_metadata_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_sh_metadata_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno)
+                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno);
+        afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno, xdata);
 
         return 0;
 }
@@ -340,7 +341,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
                                    (void *) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->setattr,
-                                   &local->loc, &stbuf, valid);
+                                   &local->loc, &stbuf, valid, NULL);
 
                 call_count--;
 
@@ -351,7 +352,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
                                    (void *) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->setxattr,
-                                   &local->loc, xattr, 0);
+                                   &local->loc, xattr, 0, NULL);
                 call_count--;
         }
 
@@ -360,9 +361,9 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 
 
 int
-afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie,
-                              xlator_t *this,
-                              int32_t op_ret, int32_t op_errno, dict_t *xattr)
+afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                              int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                              dict_t *xdata)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -427,7 +428,7 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
         STACK_WIND (frame, afr_sh_metadata_getxattr_cbk,
                     priv->children[source],
                     priv->children[source]->fops->getxattr,
-                    &local->loc, NULL);
+                    &local->loc, NULL, NULL);
 
         return 0;
 }
@@ -556,7 +557,8 @@ afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
                 afr_sh_common_lookup (frame, this, &local->loc,
                                       afr_sh_metadata_fix, NULL,
                                       AFR_LOOKUP_FAIL_CONFLICTS |
-                                      AFR_LOOKUP_FAIL_MISSING_GFIDS);
+                                      AFR_LOOKUP_FAIL_MISSING_GFIDS,
+                                      NULL);
         }
 
         return 0;

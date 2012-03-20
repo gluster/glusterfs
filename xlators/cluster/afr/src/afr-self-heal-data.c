@@ -69,7 +69,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this,
 int
 afr_post_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               dict_t *xattr);
+                               dict_t *xattr, dict_t *xdata);
 
 int
 afr_sh_data_done (call_frame_t *frame, xlator_t *this)
@@ -88,7 +88,7 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno)
+                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t   *local       = NULL;
         afr_private_t *priv        = NULL;
@@ -151,7 +151,7 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
                                    (void *) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->flush,
-                                   sh->healing_fd);
+                                   sh->healing_fd, NULL);
 
                 if (!--call_count)
                         break;
@@ -163,7 +163,7 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, struct iatt *statpre,
-                         struct iatt *statpost)
+                         struct iatt *statpost, dict_t *xdata)
 {
 
         afr_local_t   *local       = NULL;
@@ -237,7 +237,7 @@ afr_sh_data_setattr (call_frame_t *frame, xlator_t *this)
                                    (void *) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->setattr,
-                                   &local->loc, &stbuf, valid);
+                                   &local->loc, &stbuf, valid, NULL);
 
                 if (!--call_count)
                         break;
@@ -249,7 +249,7 @@ afr_sh_data_setattr (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_setattr_fstat_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               struct iatt *buf)
+                               struct iatt *buf, dict_t *xdata)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -286,7 +286,7 @@ afr_sh_set_timestamps (call_frame_t *frame, xlator_t *this)
                            (void *) (long) sh->source,
                            priv->children[sh->source],
                            priv->children[sh->source]->fops->fstat,
-                           sh->healing_fd);
+                           sh->healing_fd, NULL);
         return 0;
 }
 
@@ -355,7 +355,7 @@ afr_sh_data_fail (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret,
-                               int32_t op_errno, dict_t *xattr)
+                               int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
         int             call_count = 0;
         afr_local_t     *local = NULL;
@@ -429,7 +429,8 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
                                    priv->children[i],
                                    priv->children[i]->fops->fxattrop,
                                    sh->healing_fd,
-                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i]);
+                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i],
+                                   NULL);
                 if (!--call_count)
                         break;
         }
@@ -547,7 +548,7 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                      struct iatt *postbuf)
+                      struct iatt *postbuf, dict_t *xdata)
 {
         afr_private_t * priv = NULL;
         afr_local_t * local  = NULL;
@@ -612,7 +613,8 @@ afr_sh_data_trim_sinks (call_frame_t *frame, xlator_t *this)
                                    (void *) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->ftruncate,
-                                   sh->healing_fd, sh->file_size);
+                                   sh->healing_fd, sh->file_size,
+                                   NULL);
 
                 if (!--call_count)
                         break;
@@ -824,7 +826,7 @@ afr_sh_data_special_file_fix (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
-                       struct iatt *buf)
+                       struct iatt *buf, dict_t *xdata)
 {
         afr_private_t   *priv  = NULL;
         afr_local_t     *local = NULL;
@@ -894,7 +896,7 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->fstat,
-                                           sh->healing_fd);
+                                           sh->healing_fd, NULL);
 
                         if (!--call_count)
                                 break;
@@ -937,7 +939,7 @@ afr_sh_common_fxattrop_resp_handler (call_frame_t *frame, void *cookie,
 int
 afr_post_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               dict_t *xattr)
+                               dict_t *xattr, dict_t *xdata)
 {
         int             call_count  = -1;
         int             ret = 0;
@@ -968,7 +970,7 @@ afr_post_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
 int
 afr_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
                           xlator_t *this, int32_t op_ret, int32_t op_errno,
-                          dict_t *xattr)
+                          dict_t *xattr, dict_t *xdata)
 {
         int call_count  = -1;
 
@@ -1041,7 +1043,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this,
                                            priv->children[i],
                                            priv->children[i]->fops->fxattrop,
                                            sh->healing_fd, GF_XATTROP_ADD_ARRAY,
-                                           xattr_req);
+                                           xattr_req, NULL);
 
                         if (!--call_count)
                                 break;
@@ -1211,7 +1213,7 @@ afr_sh_data_lock (call_frame_t *frame, xlator_t *this,
 
 int
 afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, fd_t *fd)
+                      int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -1298,7 +1300,7 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
                                    priv->children[i],
                                    priv->children[i]->fops->open,
                                    &local->loc,
-                                   O_RDWR|O_LARGEFILE, fd, 0);
+                                   O_RDWR|O_LARGEFILE, fd, NULL);
 
                 if (!--call_count)
                         break;

@@ -1,0 +1,507 @@
+/*
+  Copyright (c) 2012 Red Hat, Inc. <http://www.redhat.com>
+  This file is part of GlusterFS.
+
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
+
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
+*/
+
+#include <fnmatch.h>
+
+#include "stripe.h"
+#include "byte-order.h"
+
+void
+stripe_local_wipe (stripe_local_t *local)
+{
+        if (!local)
+                goto out;
+
+        loc_wipe (&local->loc);
+        loc_wipe (&local->loc2);
+
+        if (local->fd)
+                fd_unref (local->fd);
+
+        if (local->inode)
+                inode_unref (local->inode);
+
+        if (local->xattr)
+                dict_unref (local->xattr);
+
+        if (local->xdata)
+                dict_unref (local->xdata);
+
+out:
+        return;
+}
+
+
+
+void
+stripe_aggregate (dict_t *this, char *key, data_t *value, void *data)
+{
+        dict_t  *dst  = NULL;
+        int64_t *ptr  = 0, *size = NULL;
+        int32_t  ret  = -1;
+
+        dst = data;
+
+        if (strcmp (key, GF_XATTR_QUOTA_SIZE_KEY) == 0) {
+                ret = dict_get_bin (dst, key, (void **)&size);
+                if (ret < 0) {
+                        size = GF_CALLOC (1, sizeof (int64_t),
+                                          gf_common_mt_char);
+                        if (size == NULL) {
+                                gf_log ("stripe", GF_LOG_WARNING,
+                                        "memory allocation failed");
+                                goto out;
+                        }
+                        ret = dict_set_bin (dst, key, size, sizeof (int64_t));
+                        if (ret < 0) {
+                                gf_log ("stripe", GF_LOG_WARNING,
+                                        "stripe aggregate dict set failed");
+                                GF_FREE (size);
+                                goto out;
+                        }
+                }
+
+                ptr = data_to_bin (value);
+                if (ptr == NULL) {
+                        gf_log ("stripe", GF_LOG_WARNING, "data to bin failed");
+                        goto out;
+                }
+
+                *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
+        } else if (strcmp (key, GF_CONTENT_KEY)) {
+                /* No need to aggregate 'CONTENT' data */
+                ret = dict_set (dst, key, value);
+                if (ret)
+                        gf_log ("stripe", GF_LOG_WARNING, "xattr dict set failed");
+        }
+
+out:
+        return;
+}
+
+
+void
+stripe_aggregate_xattr (dict_t *dst, dict_t *src)
+{
+        if ((dst == NULL) || (src == NULL)) {
+                goto out;
+        }
+
+        dict_foreach (src, stripe_aggregate, dst);
+out:
+        return;
+}
+
+
+int32_t
+stripe_xattr_aggregate (char *buffer, stripe_local_t *local, int32_t *total)
+{
+        int32_t              i     = 0;
+        int32_t              ret   = -1;
+        int32_t              len   = 0;
+        char                *sbuf  = NULL;
+        stripe_xattr_sort_t *xattr = NULL;
+
+        if (!buffer || !local || !local->xattr_list)
+                goto out;
+
+        sbuf = buffer;
+
+        for (i = 0; i < local->nallocs; i++) {
+                xattr = local->xattr_list + i;
+                len = xattr->xattr_len;
+
+                if (len && xattr && xattr->xattr_value) {
+                        memcpy (buffer, xattr->xattr_value, len);
+                        buffer += len;
+                        *buffer++ = ' ';
+                }
+        }
+
+        *--buffer = '\0';
+        if (total)
+                *total = buffer - sbuf;
+        ret = 0;
+
+ out:
+        return ret;
+}
+
+int32_t
+stripe_free_xattr_str (stripe_local_t *local)
+{
+        int32_t              i     = 0;
+        int32_t              ret   = -1;
+        stripe_xattr_sort_t *xattr = NULL;
+
+        if (!local || !local->xattr_list)
+                goto out;
+
+        for (i = 0; i < local->nallocs; i++) {
+                xattr = local->xattr_list + i;
+
+                if (xattr && xattr->xattr_value)
+                        GF_FREE (xattr->xattr_value);
+        }
+
+        ret = 0;
+ out:
+        return ret;
+}
+
+
+int32_t
+stripe_fill_pathinfo_xattr (xlator_t *this, stripe_local_t *local,
+                            char **xattr_serz)
+{
+        int      ret             = -1;
+        int32_t  padding         = 0;
+        int32_t  tlen            = 0;
+        char stripe_size_str[20] = {0,};
+        char    *pathinfo_serz   = NULL;
+
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR, "Possible NULL deref");
+                goto out;
+        }
+
+        (void) snprintf (stripe_size_str, 20, "%ld",
+                         (local->fctx) ? local->fctx->stripe_size : 0);
+
+        /* extra bytes for decorations (brackets and <>'s) */
+        padding = strlen (this->name) + strlen (STRIPE_PATHINFO_HEADER)
+                + strlen (stripe_size_str) + 7;
+        local->xattr_total_len += (padding + 2);
+
+        pathinfo_serz = GF_CALLOC (local->xattr_total_len, sizeof (char),
+                                   gf_common_mt_char);
+        if (!pathinfo_serz)
+                goto out;
+
+        /* xlator info */
+        (void) sprintf (pathinfo_serz, "(<"STRIPE_PATHINFO_HEADER"%s:[%s]> ",
+                        this->name, stripe_size_str);
+
+        ret = stripe_xattr_aggregate (pathinfo_serz + padding, local, &tlen);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Cannot aggregate pathinfo list");
+                goto out;
+        }
+
+        *(pathinfo_serz + padding + tlen) = ')';
+        *(pathinfo_serz + padding + tlen + 1) = '\0';
+
+        *xattr_serz = pathinfo_serz;
+
+        ret = 0;
+ out:
+        return ret;
+}
+
+/**
+ * stripe_get_matching_bs - Get the matching block size for the given path.
+ */
+int32_t
+stripe_get_matching_bs (const char *path, stripe_private_t *priv)
+{
+        struct stripe_options *trav       = NULL;
+        uint64_t               block_size = 0;
+
+        GF_VALIDATE_OR_GOTO ("stripe", priv, out);
+        GF_VALIDATE_OR_GOTO ("stripe", path, out);
+
+        LOCK (&priv->lock);
+        {
+                block_size = priv->block_size;
+                trav = priv->pattern;
+                while (trav) {
+                        if (!fnmatch (trav->path_pattern, path, FNM_NOESCAPE)) {
+                                block_size = trav->block_size;
+                                break;
+                        }
+                        trav = trav->next;
+                }
+        }
+        UNLOCK (&priv->lock);
+
+out:
+        return block_size;
+}
+
+
+
+int32_t
+stripe_ctx_handle (xlator_t *this, call_frame_t *prev, stripe_local_t *local,
+                   dict_t *dict)
+{
+        char            key[256]       = {0,};
+        data_t         *data            = NULL;
+        int32_t         index           = 0;
+        stripe_private_t *priv          = NULL;
+        int32_t         ret             = -1;
+
+        priv = this->private;
+
+
+        if (!local->fctx) {
+                local->fctx =  GF_CALLOC (1, sizeof (stripe_fd_ctx_t),
+                                         gf_stripe_mt_stripe_fd_ctx_t);
+                if (!local->fctx) {
+                        local->op_errno = ENOMEM;
+                        local->op_ret = -1;
+                        goto out;
+                }
+
+                local->fctx->static_array = 0;
+        }
+        /* Stripe block size */
+        sprintf (key, "trusted.%s.stripe-size", this->name);
+        data = dict_get (dict, key);
+        if (!data) {
+                local->xattr_self_heal_needed = 1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get stripe-size");
+                goto out;
+        } else {
+                if (!local->fctx->stripe_size) {
+                        local->fctx->stripe_size =
+                                     data_to_int64 (data);
+                }
+
+                if (local->fctx->stripe_size != data_to_int64 (data)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "stripe-size mismatch in blocks");
+                        local->xattr_self_heal_needed = 1;
+                }
+        }
+
+        /* Stripe count */
+        sprintf (key, "trusted.%s.stripe-count", this->name);
+        data = dict_get (dict, key);
+
+        if (!data) {
+                local->xattr_self_heal_needed = 1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get stripe-count");
+                goto out;
+        }
+        if (!local->fctx->xl_array) {
+                local->fctx->stripe_count = data_to_int32 (data);
+                if (!local->fctx->stripe_count) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "error with stripe-count xattr");
+                        local->op_ret   = -1;
+                        local->op_errno = EIO;
+                        goto out;
+                }
+
+                local->fctx->xl_array = GF_CALLOC (local->fctx->stripe_count,
+                                                   sizeof (xlator_t *),
+                                                   gf_stripe_mt_xlator_t);
+
+                if (!local->fctx->xl_array) {
+                        local->op_errno = ENOMEM;
+                        local->op_ret   = -1;
+                        goto out;
+                }
+        }
+        if (local->fctx->stripe_count != data_to_int32 (data)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "error with stripe-count xattr (%d != %d)",
+                        local->fctx->stripe_count, data_to_int32 (data));
+                local->op_ret   = -1;
+                local->op_errno = EIO;
+                goto out;
+        }
+
+        /* index */
+        sprintf (key, "trusted.%s.stripe-index", this->name);
+        data = dict_get (dict, key);
+        if (!data) {
+                local->xattr_self_heal_needed = 1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get stripe-index");
+                goto out;
+        }
+        index = data_to_int32 (data);
+        if (index > priv->child_count) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "error with stripe-index xattr (%d)", index);
+                local->op_ret   = -1;
+                local->op_errno = EIO;
+                goto out;
+        }
+        if (local->fctx->xl_array) {
+                if (!local->fctx->xl_array[index])
+                        local->fctx->xl_array[index] = prev->this;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+stripe_xattr_request_build (xlator_t *this, dict_t *dict, uint64_t stripe_size,
+                            uint32_t stripe_count, uint32_t stripe_index)
+{
+        char            key[256]       = {0,};
+        int32_t         ret             = -1;
+
+        sprintf (key, "trusted.%s.stripe-size", this->name);
+        ret = dict_set_int64 (dict, key, stripe_size);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set %s in xattr_req dict", key);
+                goto out;
+        }
+
+        sprintf (key, "trusted.%s.stripe-count", this->name);
+        ret = dict_set_int32 (dict, key, stripe_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set %s in xattr_req dict", key);
+                goto out;
+        }
+
+        sprintf (key, "trusted.%s.stripe-index", this->name);
+        ret = dict_set_int32 (dict, key, stripe_index);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set %s in xattr_req dict", key);
+                goto out;
+        }
+out:
+        return ret;
+}
+
+
+static int
+set_default_block_size (stripe_private_t *priv, char *num)
+{
+
+        int             ret = -1;
+        GF_VALIDATE_OR_GOTO ("stripe", THIS, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, priv, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, num, out);
+
+
+        if (gf_string2bytesize (num, &priv->block_size) != 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "invalid number format \"%s\"", num);
+                goto out;
+        }
+
+        ret = 0;
+
+ out:
+        return ret;
+
+}
+
+
+int
+set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
+{
+        int                    ret = -1;
+        char                  *tmp_str = NULL;
+        char                  *tmp_str1 = NULL;
+        char                  *dup_str = NULL;
+        char                  *stripe_str = NULL;
+        char                  *pattern = NULL;
+        char                  *num = NULL;
+        struct stripe_options *temp_stripeopt = NULL;
+        struct stripe_options *stripe_opt = NULL;
+
+        if (!this || !priv || !data)
+                goto out;
+
+        /* Get the pattern for striping.
+           "option block-size *avi:10MB" etc */
+        stripe_str = strtok_r (data, ",", &tmp_str);
+        while (stripe_str) {
+                dup_str = gf_strdup (stripe_str);
+                stripe_opt = GF_CALLOC (1, sizeof (struct stripe_options),
+                                        gf_stripe_mt_stripe_options);
+                if (!stripe_opt) {
+                        GF_FREE (dup_str);
+                        goto out;
+                }
+
+                pattern = strtok_r (dup_str, ":", &tmp_str1);
+                num = strtok_r (NULL, ":", &tmp_str1);
+                if (!num) {
+                        num = pattern;
+                        pattern = "*";
+                        ret = set_default_block_size (priv, num);
+                        if (ret)
+                                goto out;
+                }
+                if (gf_string2bytesize (num, &stripe_opt->block_size) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid number format \"%s\"", num);
+                        goto out;
+                }
+
+                if (stripe_opt->block_size < STRIPE_MIN_BLOCK_SIZE) {
+                        gf_log (this->name, GF_LOG_ERROR, "Invalid Block-size: "
+                                "%s. Should be atleast 512 bytes", num);
+                        goto out;
+                }
+                if (stripe_opt->block_size % 512) {
+                        gf_log (this->name, GF_LOG_ERROR, "Block-size: %s should"
+                                " be a multiple of 512 bytes", num);
+                        goto out;
+                }
+
+                memcpy (stripe_opt->path_pattern, pattern, strlen (pattern));
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "block-size : pattern %s : size %"PRId64,
+                        stripe_opt->path_pattern, stripe_opt->block_size);
+
+                if (priv->pattern)
+                        temp_stripeopt = NULL;
+                else
+                        temp_stripeopt = priv->pattern;
+                priv->pattern = stripe_opt;
+                stripe_opt->next = temp_stripeopt;
+
+                stripe_str = strtok_r (NULL, ",", &tmp_str);
+                GF_FREE (dup_str);
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+stripe_iatt_merge (struct iatt *from, struct iatt *to)
+{
+        if (to->ia_size < from->ia_size)
+                to->ia_size = from->ia_size;
+        if (to->ia_mtime < from->ia_mtime)
+                to->ia_mtime = from->ia_mtime;
+        if (to->ia_ctime < from->ia_ctime)
+                to->ia_ctime = from->ia_ctime;
+        if (to->ia_atime < from->ia_atime)
+                to->ia_atime = from->ia_atime;
+        return 0;
+}

@@ -116,6 +116,11 @@ free_state (server_state_t *state)
                 state->dict = NULL;
         }
 
+        if (state->xdata) {
+                dict_unref (state->xdata);
+                state->xdata = NULL;
+        }
+
         if (state->volume)
                 GF_FREE ((void *)state->volume);
 
@@ -249,7 +254,7 @@ out:
 
 static int
 server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno)
+                int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         int             ret   = -1;
         server_state_t *state = NULL;
@@ -334,7 +339,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->finodelk,
                                     locker->volume,
-                                    locker->fd, F_SETLK, &flock);
+                                    locker->fd, F_SETLK, &flock, NULL);
                         fd_unref (locker->fd);
                 } else {
                         gf_log (this->name, GF_LOG_INFO, "inodelk released "
@@ -343,7 +348,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->inodelk,
                                     locker->volume,
-                                    &(locker->loc), F_SETLK, &flock);
+                                    &(locker->loc), F_SETLK, &flock, NULL);
                         loc_wipe (&locker->loc);
                 }
 
@@ -382,7 +387,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     bound_xl->fops->fentrylk,
                                     locker->volume,
                                     locker->fd, NULL,
-                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
                         fd_unref (locker->fd);
                 } else {
                         gf_log (this->name, GF_LOG_INFO, "entrylk released "
@@ -392,7 +397,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     bound_xl->fops->entrylk,
                                     locker->volume,
                                     &(locker->loc), NULL,
-                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
                         loc_wipe (&locker->loc);
                 }
 
@@ -411,7 +416,7 @@ out:
 static int
 server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
                                      xlator_t *this, int32_t op_ret,
-                                     int32_t op_errno)
+                                     int32_t op_errno, dict_t *xdata)
 {
         int32_t ret = -1;
         fd_t *fd = NULL;
@@ -484,7 +489,7 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
 
                         STACK_WIND (tmp_frame,
                                     server_connection_cleanup_flush_cbk,
-                                    bound_xl, bound_xl->fops->flush, fd);
+                                    bound_xl, bound_xl->fops->flush, fd, NULL);
                 }
         }
 

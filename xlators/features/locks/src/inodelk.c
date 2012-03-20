@@ -369,7 +369,7 @@ grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *
                 pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
                               &lock->user_flock, 0, 0, lock->volume);
 
-                STACK_UNWIND_STRICT (inodelk, lock->frame, 0, 0);
+                STACK_UNWIND_STRICT (inodelk, lock->frame, 0, 0, NULL);
         }
 
         pthread_mutex_lock (&pl_inode->mutex);
@@ -462,7 +462,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
         list_for_each_entry_safe (l, tmp, &released, blocked_locks) {
                 list_del_init (&l->blocked_locks);
 
-                STACK_UNWIND_STRICT (inodelk, l->frame, -1, EAGAIN);
+                STACK_UNWIND_STRICT (inodelk, l->frame, -1, EAGAIN, NULL);
                 //No need to take lock as the locks are only in one list
                 __pl_inodelk_unref (l);
         }
@@ -668,7 +668,7 @@ unwind:
                 pl_trace_out (this, frame, fd, loc, cmd, flock, op_ret, op_errno, volume);
         }
 
-        STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno, NULL);
 out:
         return 0;
 }

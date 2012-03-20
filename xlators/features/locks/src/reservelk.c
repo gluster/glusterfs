@@ -299,7 +299,8 @@ grant_blocked_reserve_locks (xlator_t *this, pl_inode_t *pl_inode)
                         lock->user_flock.l_start,
                         lock->user_flock.l_len);
 
-                STACK_UNWIND_STRICT (lk, lock->frame, 0, 0, &lock->user_flock);
+                STACK_UNWIND_STRICT (lk, lock->frame, 0, 0, &lock->user_flock,
+                                     NULL);
         }
 
 }
@@ -376,7 +377,9 @@ grant_blocked_lock_calls (xlator_t *this, pl_inode_t *pl_inode)
                                 pl_trace_out (this, lock->frame, fd, NULL, cmd,
                                               &lock->user_flock, -1, EAGAIN, NULL);
                                 pl_update_refkeeper (this, fd->inode);
-                                STACK_UNWIND_STRICT (lk, lock->frame, -1, EAGAIN, &lock->user_flock);
+                                STACK_UNWIND_STRICT (lk, lock->frame, -1,
+                                                     EAGAIN, &lock->user_flock,
+                                                     NULL);
                                 __destroy_lock (lock);
                         }
                 }

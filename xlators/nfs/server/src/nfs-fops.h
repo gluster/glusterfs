@@ -189,7 +189,7 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 
 extern int
 nfs_fop_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
-              int32_t flags, fd_t *fd, int32_t wbflags, fop_open_cbk_t cbk,
+              int32_t flags, fd_t *fd, fop_open_cbk_t cbk,
               void *local);
 
 extern int

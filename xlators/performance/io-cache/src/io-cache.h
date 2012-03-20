@@ -84,7 +84,6 @@ struct ioc_fill {
 struct ioc_local {
         mode_t           mode;
         int32_t          flags;
-        int32_t          wbflags;
         loc_t            file_loc;
         off_t            offset;
         size_t           size;
@@ -198,7 +197,7 @@ int32_t
 ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, struct iovec *vector,
                         int32_t count, struct iatt *stbuf,
-                        struct iobref *iobref);
+                        struct iobref *iobref, dict_t *xdata);
 
 ioc_page_t *
 __ioc_page_get (ioc_inode_t *ioc_inode, off_t offset);

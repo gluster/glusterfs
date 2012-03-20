@@ -933,7 +933,8 @@ grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode)
                 pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
                               &lock->user_flock, 0, 0, NULL);
 
-                STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
+                STACK_UNWIND_STRICT (lk, lock->frame, 0, 0,
+                                     &lock->user_flock, NULL);
 
                 GF_FREE (lock);
         }
@@ -978,7 +979,8 @@ pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
                 pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
                               &lock->user_flock, 0, 0, NULL);
 
-                STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
+                STACK_UNWIND_STRICT (lk, lock->frame, 0, 0,
+                                     &lock->user_flock, NULL);
 
                 GF_FREE (lock);
         }

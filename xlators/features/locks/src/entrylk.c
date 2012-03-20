@@ -505,7 +505,7 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
                                    lock->basename, ENTRYLK_LOCK, lock->type,
                                    0, 0);
 
-                STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
+                STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0, NULL);
 
         }
 
@@ -573,7 +573,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
         list_for_each_entry_safe (lock, tmp, &released, blocked_locks) {
                 list_del_init (&lock->blocked_locks);
 
-                STACK_UNWIND_STRICT (entrylk, lock->frame, -1, EAGAIN);
+                STACK_UNWIND_STRICT (entrylk, lock->frame, -1, EAGAIN, NULL);
 
                 if (lock->basename)
                         GF_FREE ((char *)lock->basename);
@@ -584,7 +584,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
         list_for_each_entry_safe (lock, tmp, &granted, blocked_locks) {
                 list_del_init (&lock->blocked_locks);
 
-                STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
+                STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0, NULL);
 
                 if (lock->basename)
                         GF_FREE ((char *)lock->basename);
@@ -710,7 +710,7 @@ out:
                 entrylk_trace_out (this, frame, volume, fd, loc, basename,
                                    cmd, type, op_ret, op_errno);
 
-                STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
+                STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno, NULL);
         } else {
                 entrylk_trace_block (this, frame, volume, fd, loc, basename,
                                      cmd, type);

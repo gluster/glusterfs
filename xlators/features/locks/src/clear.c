@@ -193,8 +193,8 @@ clrlk_clear_posixlk (xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
                                               F_SETLKW, &plock->user_flock,
                                               -1, EAGAIN, NULL);
 
-                                STACK_UNWIND (plock->frame, -1, EAGAIN,
-                                              &plock->user_flock);
+                                STACK_UNWIND_STRICT (lk, plock->frame, -1, EAGAIN,
+                                                     &plock->user_flock, NULL);
 
                         } else {
                                 gcount++;
@@ -261,7 +261,7 @@ blkd:
                               &ilock->user_flock, -1, EAGAIN,
                               ilock->volume);
                 STACK_UNWIND_STRICT (inodelk, ilock->frame, -1,
-                                     EAGAIN);
+                                     EAGAIN, NULL);
                 //No need to take lock as the locks are only in one list
                 __pl_inodelk_unref (ilock);
         }
@@ -335,6 +335,7 @@ blkd:
                         }
 
                         bcount++;
+
                         list_del_init (&elock->blocked_locks);
                         list_add_tail (&elock->blocked_locks, &released);
                 }
@@ -346,7 +347,7 @@ blkd:
                 entrylk_trace_out (this, elock->frame, elock->volume, NULL, NULL,
                                    elock->basename, ENTRYLK_LOCK, elock->type,
                                    -1, EAGAIN);
-                STACK_UNWIND_STRICT (entrylk, elock->frame, -1, EAGAIN);
+                STACK_UNWIND_STRICT (entrylk, elock->frame, -1, EAGAIN, NULL);
                 GF_FREE ((char *) elock->basename);
                 GF_FREE (elock);
         }

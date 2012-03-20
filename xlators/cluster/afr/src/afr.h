@@ -449,7 +449,6 @@ typedef struct _afr_local {
 
                 struct {
                         int32_t flags;
-                        int32_t wbflags;
                 } open;
 
                 struct {
@@ -700,6 +699,13 @@ typedef struct _afr_local {
         afr_self_heal_t self_heal;
 
         struct marker_str     marker;
+
+        /* extra data for fops */
+        dict_t         *xdata_req;
+        dict_t         *xdata_rsp;
+
+        mode_t          umask;
+        int             xflag;
 } afr_local_t;
 
 typedef enum {
@@ -722,7 +728,6 @@ typedef struct {
         unsigned int *lock_acquired;
 
         int flags;
-        int32_t wbflags;
         uint64_t up_count;   /* number of CHILD_UPs this fd has seen */
         uint64_t down_count; /* number of CHILD_DOWNs this fd has seen */
 
@@ -858,7 +863,7 @@ afr_set_split_brain (xlator_t *this, inode_t *inode, gf_boolean_t set);
 
 int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-          fd_t *fd, int32_t wbflags);
+          fd_t *fd, dict_t *xdata);
 
 void
 afr_set_opendir_done (xlator_t *this, inode_t *inode);
@@ -1032,7 +1037,7 @@ void
 afr_set_low_priority (call_frame_t *frame);
 int
 afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
-                      int flags, int32_t wb_flags);
+                      int flags);
 
 gf_boolean_t
 afr_have_quorum (char *logname, afr_private_t *priv);
