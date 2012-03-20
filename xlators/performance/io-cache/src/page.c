@@ -111,6 +111,7 @@ __ioc_page_destroy (ioc_page_t *page)
         if (page->waitq) {
                 /* frames waiting on this page, do not destroy this page */
                 page_size = -1;
+                page->stale = 1;
         } else {
                 rbthash_remove (page->inode->cache.page_table, &page->offset,
                                 sizeof (page->offset));
@@ -954,6 +955,10 @@ __ioc_page_wakeup (ioc_page_t *page, int32_t op_errno)
                 if (ret == -1) {
                         break;
                 }
+        }
+
+        if (page->stale) {
+                __ioc_page_destroy (page);
         }
 
 out:
