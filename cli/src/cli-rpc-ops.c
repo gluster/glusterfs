@@ -4505,6 +4505,9 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t nfs)
                         goto out;
 
                 cli_out ("Clients connected : %d", client_count);
+                if (client_count == 0)
+                        continue;
+
                 cli_out ("%-48s %15s %15s", "Hostname", "BytesRead",
                          "BytesWritten");
                 cli_out ("%-48s %15s %15s", "--------", "---------",
@@ -5248,12 +5251,13 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
 
         cli_out ("\nStatus of volume: %s", volname);
 
-        if ((cmd & GF_CLI_STATUS_DETAIL) == 0)
+        if ((cmd & GF_CLI_STATUS_DETAIL) == 0) {
                 cli_out ("Brick\t\t\t\t\t\t\tPort\tOnline\tPid");
+                cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
+        }
 
         for (i = 0; i < count; i++) {
 
-                cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
@@ -5300,6 +5304,7 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = cli_get_detail_status (dict, i, &status);
                         if (ret)
                                 goto out;
+                        cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
                         cli_print_detailed_status (&status);
 
                 } else {
