@@ -661,6 +661,16 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
+                /* transport has to be removed from the list upon disconnect
+                 * irrespective of whether lock self heal is off or on, since
+                 * new transport will be created upon reconnect.
+                 */
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        list_del (&xprt->list);
+                }
+                pthread_mutex_unlock (&conf->mutex);
+
                 conn = get_server_conn_state (this, xprt);
                 if (!conn)
                         break;
@@ -681,11 +691,6 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 } else {
                         put_server_conn_state (this, xprt);
                         server_connection_cleanup (this, conn, INTERNAL_LOCKS);
-                        pthread_mutex_lock (&conf->mutex);
-                        {
-                                list_del (&xprt->list);
-                        }
-                        pthread_mutex_unlock (&conf->mutex);
 
                         pthread_mutex_lock (&conn->lock);
                         {
@@ -693,7 +698,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                                         goto unlock;
 
                                 gf_log (this->name, GF_LOG_INFO, "starting a grace "
-                                        "timer for %s", xprt->name);
+                                        "timer for %s", conn->id);
 
                                 conn->timer = gf_timer_call_after (this->ctx,
                                                                    conf->grace_tv,
