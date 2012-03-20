@@ -1386,16 +1386,14 @@ cli_cmd_volume_status_cbk (struct cli_state *state,
 int
 cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
 {
-        uint64_t                   free            = -1;
-        uint64_t                   total           = -1;
+        uint64_t                   free            = 0;
+        uint64_t                   total           = 0;
         char                       key[1024]       = {0};
         int                        ret             = 0;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.free", i);
         ret = dict_get_uint64 (dict, key, &free);
-        if (ret)
-                goto out;
 
         status->free = gf_uint64_2human_readable (free);
         if (!status->free)
@@ -1404,8 +1402,6 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.total", i);
         ret = dict_get_uint64 (dict, key, &total);
-        if (ret)
-                goto out;
 
         status->total = gf_uint64_2human_readable (total);
         if (!status->total)
@@ -1415,30 +1411,34 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         snprintf (key, sizeof (key), "brick%d.device", i);
         ret = dict_get_str (dict, key, &(status->device));
         if (ret)
-                goto out;
+                status->device = NULL;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.block_size", i);
         ret = dict_get_uint64 (dict, key, &(status->block_size));
-        if (ret)
-                goto out;
+        if (ret) {
+                ret = 0;
+                status->block_size = 0;
+        }
 
 #ifdef GF_LINUX_HOST_OS
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", i);
         ret = dict_get_str (dict, key, &(status->mount_options));
         if (ret)
-                goto out;
+                status->mount_options = NULL;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.fs_name", i);
         ret = dict_get_str (dict, key, &(status->fs_name));
-        if (ret)
-                goto out;
+        if (ret) {
+                ret = 0;
+                status->fs_name = NULL;
+        }
 #endif
 
-        if (IS_EXT_FS(status->fs_name) ||
-            !strcmp (status->fs_name, "xfs")) {
+        if (status->fs_name && (IS_EXT_FS(status->fs_name) ||
+            !strcmp (status->fs_name, "xfs"))) {
 
 #ifdef GF_LINUX_HOST_OS
                 memset (key, 0, sizeof (key));
@@ -1453,13 +1453,16 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 ret = dict_get_uint64 (dict, key,
                                        &(status->total_inodes));
                 if (ret)
-                        goto out;
+                        status->total_inodes = 0;
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.free_inodes", i);
                 ret = dict_get_uint64 (dict, key, &(status->free_inodes));
-                if (ret)
-                        goto out;
+                if (ret) {
+                        ret = 0;
+                        status->free_inodes = 0;
+                }
+
         } else {
 #ifdef GF_LINUX_HOST_OS
                 status->inode_size = NULL;
@@ -1481,8 +1484,15 @@ cli_print_detailed_status (cli_volume_status_t *status)
         cli_out ("%-20s : %-20s", "Pid", status->pid_str);
 
 #ifdef GF_LINUX_HOST_OS
-        cli_out ("%-20s : %-20s", "File System", status->fs_name);
-        cli_out ("%-20s : %-20s", "Device", status->device);
+        if (status->fs_name)
+                cli_out ("%-20s : %-20s", "File System", status->fs_name);
+        else
+                cli_out ("%-20s : %-20s", "File System", "N/A");
+
+        if (status->device)
+                cli_out ("%-20s : %-20s", "Device", status->device);
+        else
+                cli_out ("%-20s : %-20s", "Device", "N/A");
 
         if (status->mount_options) {
                 cli_out ("%-20s : %-20s", "Mount Options",
@@ -1498,8 +1508,16 @@ cli_print_detailed_status (cli_volume_status_t *status)
                 cli_out ("%-20s : %-20s", "Inode Size", "N/A");
         }
 #endif
-        cli_out ("%-20s : %-20s", "Disk Space Free", status->free);
-        cli_out ("%-20s : %-20s", "Total Disk Space", status->total);
+        if (status->free)
+                cli_out ("%-20s : %-20s", "Disk Space Free", status->free);
+        else
+                cli_out ("%-20s : %-20s", "Disk Space Free", "N/A");
+
+        if (status->total)
+                cli_out ("%-20s : %-20s", "Total Disk Space", status->total);
+        else
+                cli_out ("%-20s : %-20s", "Total Disk Space", "N/A");
+
 
         if (status->total_inodes) {
                 cli_out ("%-20s : %-20ld", "Inode Count",
