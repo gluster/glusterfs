@@ -248,8 +248,12 @@ flush_region (call_frame_t *frame, ra_file_t *file, off_t offset, off_t size,
                                 if (!trav->waitq) {
                                         ra_page_purge (trav);
                                 }
-                                else if (for_write) {
-                                        trav->poisoned = 1;
+                                else {
+                                        trav->stale = 1;
+
+                                        if (for_write) {
+                                                trav->poisoned = 1;
+                                        }
                                 }
                         }
                         trav = next;

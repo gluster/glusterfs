@@ -508,6 +508,9 @@ ra_page_wakeup (ra_page_t *page)
                 ra_frame_fill (page, frame);
         }
 
+        if (page->stale) {
+                ra_page_purge (page);
+        }
 out:
         return waitq;
 }

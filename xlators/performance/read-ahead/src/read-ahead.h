@@ -85,6 +85,7 @@ struct ra_page {
         size_t            size;
         struct ra_waitq  *waitq;
         struct iobref    *iobref;
+        char              stale;
 };
 
 
