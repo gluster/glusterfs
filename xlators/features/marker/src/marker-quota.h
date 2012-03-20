@@ -123,7 +123,7 @@ mq_initiate_quota_txn (xlator_t *, loc_t *);
 
 int32_t
 mq_dirty_inode_readdir (call_frame_t *, void *, xlator_t *,
-                        int32_t, int32_t, fd_t *);
+                        int32_t, int32_t, fd_t *, dict_t *);
 
 int32_t
 mq_reduce_parent_size (xlator_t *, loc_t *, int64_t);

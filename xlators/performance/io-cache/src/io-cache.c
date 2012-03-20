@@ -157,15 +157,16 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
 int32_t
 ioc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 struct iatt *preop, struct iatt *postop)
+                 struct iatt *preop, struct iatt *postop, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
+        STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop,
+                             xdata);
         return 0;
 }
 
 int32_t
 ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             struct iatt *stbuf, int32_t valid)
+             struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         uint64_t ioc_inode = 0;
 
@@ -177,7 +178,7 @@ ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
         STACK_WIND (frame, ioc_setattr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid);
+                    FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid, xdata);
 
         return 0;
 }
@@ -185,7 +186,7 @@ ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int32_t
 ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret,	int32_t op_errno, inode_t *inode,
-                struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
+                struct iatt *stbuf, dict_t *xdata, struct iatt *postparent)
 {
         ioc_inode_t *ioc_inode         = NULL;
         ioc_table_t *table             = NULL;
@@ -264,13 +265,13 @@ out:
         }
 
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, stbuf,
-                             dict, postparent);
+                             xdata, postparent);
         return 0;
 }
 
 int32_t
 ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
-            dict_t *xattr_req)
+            dict_t *xdata)
 {
         ioc_local_t *local    = NULL;
         int32_t      op_errno = -1, ret = -1;
@@ -292,7 +293,7 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         frame->local = local;
 
         STACK_WIND (frame, ioc_lookup_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->lookup, loc, xattr_req);
+                    FIRST_CHILD (this)->fops->lookup, loc, xdata);
 
         return 0;
 
@@ -338,7 +339,8 @@ ioc_forget (xlator_t *this, inode_t *inode)
  */
 int32_t
 ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
+                        int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                        dict_t *xdata)
 {
         ioc_local_t *local        = NULL;
         ioc_inode_t *ioc_inode    = NULL;
@@ -481,7 +483,7 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 
         STACK_WIND (validate_frame, ioc_cache_validate_cbk,
                     FIRST_CHILD (frame->this),
-                    FIRST_CHILD (frame->this)->fops->fstat, fd);
+                    FIRST_CHILD (frame->this)->fops->fstat, fd, NULL);
 
 out:
         return ret;
@@ -528,7 +530,7 @@ ioc_get_priority (ioc_table_t *table, const char *path)
  */
 int32_t
 ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, fd_t *fd)
+              int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         uint64_t     tmp_ioc_inode = 0;
         ioc_local_t *local         = NULL;
@@ -573,10 +575,6 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                          */
                         fd_ctx_set (fd, this, 1);
                 }
-                if ((local->wbflags & GF_OPEN_NOWB) != 0) {
-                        /* disable caching as asked by NFS */
-                        fd_ctx_set (fd, this, 1);
-                }
 
                 /* weight = 0, we disable caching on it */
                 if (weight == 0) {
@@ -590,7 +588,7 @@ out:
         mem_put (local);
         frame->local = NULL;
 
-        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, xdata);
 
         return 0;
 }
@@ -612,7 +610,7 @@ int32_t
 ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret,	int32_t op_errno, fd_t *fd,
                 inode_t *inode,	struct iatt *buf, struct iatt *preparent,
-                struct iatt *postparent)
+                struct iatt *postparent, dict_t *xdata)
 {
         ioc_local_t *local     = NULL;
         ioc_table_t *table     = NULL;
@@ -687,7 +685,7 @@ out:
         mem_put (local);
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
-                             preparent, postparent);
+                             preparent, postparent, xdata);
 
         return 0;
 }
@@ -697,7 +695,7 @@ int32_t
 ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *buf, struct iatt *preparent,
-               struct iatt *postparent)
+               struct iatt *postparent, dict_t *xdata)
 {
         ioc_local_t *local     = NULL;
         ioc_table_t *table     = NULL;
@@ -740,14 +738,14 @@ out:
         mem_put (local);
 
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
-                             preparent, postparent);
+                             preparent, postparent, xdata);
         return 0;
 }
 
 
 int
 ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-           dev_t rdev, dict_t *params)
+           dev_t rdev, mode_t umask, dict_t *xdata)
 {
         ioc_local_t *local    = NULL;
         int32_t      op_errno = -1, ret = -1;
@@ -771,7 +769,7 @@ ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         STACK_WIND (frame, ioc_mknod_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mknod,
-                    loc, mode, rdev, params);
+                    loc, mode, rdev, umask, xdata);
         return 0;
 
 unwind:
@@ -781,7 +779,7 @@ unwind:
         }
 
         STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL,
-                             NULL, NULL);
+                             NULL, NULL, NULL);
 
         return 0;
 }
@@ -797,7 +795,7 @@ unwind:
  */
 int32_t
 ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-          fd_t *fd, int32_t wbflags)
+          fd_t *fd, dict_t *xdata)
 {
 
         ioc_local_t *local = NULL;
@@ -805,19 +803,19 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         local = mem_get0 (this->local_pool);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL);
+                STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
 
         local->flags = flags;
         local->file_loc.path = loc->path;
         local->file_loc.inode = loc->inode;
-        local->wbflags = wbflags;
 
         frame->local = local;
 
         STACK_WIND (frame, ioc_open_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->open, loc, flags, fd, wbflags);
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd,
+                    xdata);
 
         return 0;
 }
@@ -834,7 +832,7 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
  */
 int32_t
 ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-            mode_t mode, fd_t *fd, dict_t *params)
+            mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
         ioc_local_t *local = NULL;
 
@@ -842,7 +840,7 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 STACK_UNWIND_STRICT (create, frame, -1, ENOMEM, NULL, NULL,
-                                     NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL);
                 return 0;
         }
 
@@ -852,7 +850,7 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         STACK_WIND (frame, ioc_create_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create, loc, flags, mode,
-                    fd, params);
+                    umask, fd, xdata);
 
         return 0;
 }
@@ -889,10 +887,10 @@ int32_t
 ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret,	int32_t op_errno, struct iovec *vector,
                         int32_t count, struct iatt *stbuf,
-                        struct iobref *iobref)
+                        struct iobref *iobref, dict_t *xdata)
 {
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
-                             stbuf, iobref);
+                             stbuf, iobref, xdata);
         return 0;
 }
 
@@ -1087,7 +1085,7 @@ out:
  */
 int32_t
 ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
-           size_t size, off_t offset, uint32_t flags)
+           size_t size, off_t offset, uint32_t flags, dict_t *xdata)
 {
         uint64_t     tmp_ioc_inode = 0;
         ioc_inode_t *ioc_inode     = NULL;
@@ -1107,7 +1105,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 STACK_WIND (frame, ioc_readv_disabled_cbk,
                             FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->readv, fd, size,
-                            offset, flags);
+                            offset, flags, xdata);
                 return 0;
         }
 
@@ -1143,7 +1141,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 STACK_WIND (frame, ioc_readv_disabled_cbk,
                             FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->readv, fd, size,
-                            offset, flags);
+                            offset, flags, xdata);
                 return 0;
         }
 
@@ -1180,7 +1178,8 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 
 out:
-        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
+        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL,
+                             NULL);
         return 0;
 }
 
@@ -1197,7 +1196,7 @@ out:
 int32_t
 ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret,	int32_t op_errno, struct iatt *prebuf,
-                struct iatt *postbuf)
+                struct iatt *postbuf, dict_t *xdata)
 {
         ioc_local_t *local     = NULL;
         uint64_t     ioc_inode = 0;
@@ -1208,7 +1207,8 @@ ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ioc_inode)
                 ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
         return 0;
 }
 
@@ -1226,7 +1226,7 @@ ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iovec *vector, int32_t count, off_t offset,
-            uint32_t flags, struct iobref *iobref)
+            uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         ioc_local_t *local     = NULL;
         uint64_t     ioc_inode = 0;
@@ -1235,7 +1235,7 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
 
-                STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL);
+                STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL, NULL);
                 return 0;
         }
 
@@ -1249,7 +1249,7 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         STACK_WIND (frame, ioc_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
-                    flags, iobref);
+                    flags, iobref, xdata);
 
         return 0;
 }
@@ -1268,11 +1268,11 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t
 ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                  struct iatt *postbuf)
+                  struct iatt *postbuf, dict_t *xdata)
 {
 
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
-                             postbuf);
+                             postbuf, xdata);
         return 0;
 }
 
@@ -1291,11 +1291,11 @@ ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 ioc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                   struct iatt *postbuf)
+                   struct iatt *postbuf, dict_t *xdata)
 {
 
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
-                             postbuf);
+                             postbuf, xdata);
         return 0;
 }
 
@@ -1310,7 +1310,8 @@ ioc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  */
 int32_t
-ioc_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
+ioc_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+              dict_t *xdata)
 {
         uint64_t ioc_inode = 0;
 
@@ -1320,7 +1321,7 @@ ioc_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
         STACK_WIND (frame, ioc_truncate_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->truncate, loc, offset);
+                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
 }
 
@@ -1334,7 +1335,8 @@ ioc_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
  *
  */
 int32_t
-ioc_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
+ioc_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+               dict_t *xdata)
 {
         uint64_t ioc_inode = 0;
 
@@ -1344,21 +1346,21 @@ ioc_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
         STACK_WIND (frame, ioc_ftruncate_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->ftruncate, fd, offset);
+                    FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
 }
 
 int32_t
 ioc_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-            int32_t op_errno, struct gf_flock *lock)
+            int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
+        STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock, xdata);
         return 0;
 }
 
 int32_t
 ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-        struct gf_flock *lock)
+        struct gf_flock *lock, dict_t *xdata)
 {
         ioc_inode_t *ioc_inode = NULL;
         uint64_t     tmp_inode = 0;
@@ -1368,7 +1370,7 @@ ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         if (!ioc_inode) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "inode context is NULL: returning EBADFD");
-                STACK_UNWIND_STRICT (lk, frame, -1, EBADFD, NULL);
+                STACK_UNWIND_STRICT (lk, frame, -1, EBADFD, NULL, NULL);
                 return 0;
         }
 
@@ -1379,14 +1381,14 @@ ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         ioc_inode_unlock (ioc_inode);
 
         STACK_WIND (frame, ioc_lk_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->lk, fd, cmd, lock);
+                    FIRST_CHILD (this)->fops->lk, fd, cmd, lock, xdata);
 
         return 0;
 }
 
 int
 ioc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int op_ret, int op_errno, gf_dirent_t *entries)
+                  int op_ret, int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
         gf_dirent_t *entry = NULL;
 
@@ -1398,7 +1400,7 @@ ioc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 unwind:
-        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
 
         return 0;
 }

@@ -28,25 +28,25 @@
 
 static int32_t
 worm_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, fd_t *fd)
+               int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, xdata);
         return 0;
 }
 
 int32_t
 worm_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-         fd_t *fd, int32_t wbflags)
+           fd_t *fd, dict_t *xdata)
 {
         if ((((flags & O_ACCMODE) == O_WRONLY) ||
               ((flags & O_ACCMODE) == O_RDWR)) &&
               !(flags & O_APPEND)) {
-                STACK_UNWIND_STRICT (open, frame, -1, EROFS, NULL);
+                STACK_UNWIND_STRICT (open, frame, -1, EROFS, NULL, NULL);
                 return 0;
         }
 
         STACK_WIND (frame, worm_open_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->open, loc, flags, fd, wbflags);
+                    FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
         return 0;
 }
 
@@ -75,7 +75,6 @@ fini (xlator_t *this)
 }
 
 struct xlator_fops fops = {
-        
         .open        = worm_open,
 
         .unlink      = ro_unlink,

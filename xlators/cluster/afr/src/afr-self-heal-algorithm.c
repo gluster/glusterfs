@@ -410,7 +410,7 @@ sh_loop_return (call_frame_t *sh_frame, xlator_t *this, call_frame_t *loop_frame
 static int
 sh_loop_write_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
-                   struct iatt *postbuf)
+                   struct iatt *postbuf, dict_t *xdata)
 {
         afr_private_t *             priv        = NULL;
         afr_local_t *               loop_local    = NULL;
@@ -461,7 +461,7 @@ static int
 sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
                   struct iovec *vector, int32_t count, struct iatt *buf,
-                  struct iobref *iobref)
+                  struct iobref *iobref, dict_t *xdata)
 {
         afr_private_t *               priv       = NULL;
         afr_local_t *                 loop_local   = NULL;
@@ -519,7 +519,7 @@ sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
                                    priv->children[i],
                                    priv->children[i]->fops->writev,
                                    loop_sh->healing_fd, vector, count,
-                                   loop_sh->offset, 0, iobref);
+                                   loop_sh->offset, 0, iobref, NULL);
 
                 if (!--call_count)
                         break;
@@ -546,7 +546,7 @@ sh_loop_read (call_frame_t *loop_frame, xlator_t *this)
                            priv->children[loop_sh->source],
                            priv->children[loop_sh->source]->fops->readv,
                            loop_sh->healing_fd, loop_sh->block_size,
-                           loop_sh->offset, 0);
+                           loop_sh->offset, 0, NULL);
 
         return 0;
 }
@@ -555,7 +555,8 @@ sh_loop_read (call_frame_t *loop_frame, xlator_t *this)
 static int
 sh_diff_checksum_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      uint32_t weak_checksum, uint8_t *strong_checksum)
+                      uint32_t weak_checksum, uint8_t *strong_checksum,
+                      dict_t *xdata)
 {
         afr_private_t                 *priv         = NULL;
         afr_local_t                   *loop_local   = NULL;
@@ -658,7 +659,7 @@ sh_diff_checksum (call_frame_t *loop_frame, xlator_t *this)
                            priv->children[loop_sh->source],
                            priv->children[loop_sh->source]->fops->rchecksum,
                            loop_sh->healing_fd,
-                           loop_sh->offset, loop_sh->block_size);
+                           loop_sh->offset, loop_sh->block_size, NULL);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (loop_sh->sources[i] || !loop_local->child_up[i])
@@ -669,7 +670,7 @@ sh_diff_checksum (call_frame_t *loop_frame, xlator_t *this)
                                    priv->children[i],
                                    priv->children[i]->fops->rchecksum,
                                    loop_sh->healing_fd,
-                                   loop_sh->offset, loop_sh->block_size);
+                                   loop_sh->offset, loop_sh->block_size, NULL);
 
                 if (!--call_count)
                         break;

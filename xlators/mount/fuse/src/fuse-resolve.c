@@ -362,15 +362,15 @@ fuse_gfid_set (fuse_state_t *state)
         if (uuid_is_null (state->gfid))
                 goto out;
 
-        if (!state->dict)
-                state->dict = dict_new ();
+        if (!state->xdata)
+                state->xdata = dict_new ();
 
-        if (!state->dict) {
+        if (!state->xdata) {
                 ret = -1;
                 goto out;
         }
 
-        ret = dict_set_static_bin (state->dict, "gfid-req",
+        ret = dict_set_static_bin (state->xdata, "gfid-req",
                                    state->gfid, sizeof (state->gfid));
 out:
         return ret;

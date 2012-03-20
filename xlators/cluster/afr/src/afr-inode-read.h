@@ -22,30 +22,30 @@
 
 int32_t
 afr_access (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, int32_t mask);
+	    loc_t *loc, int32_t mask, dict_t *xdata);
 
 int32_t
 afr_stat (call_frame_t *frame, xlator_t *this,
-	  loc_t *loc);
+	  loc_t *loc, dict_t *xdata);
 
 int32_t
 afr_fstat (call_frame_t *frame, xlator_t *this,
-	   fd_t *fd);
+	   fd_t *fd, dict_t *xdata);
 
 int32_t
 afr_readlink (call_frame_t *frame, xlator_t *this,
-	      loc_t *loc, size_t size);
+	      loc_t *loc, size_t size, dict_t *xdata);
 
 int32_t
 afr_readv (call_frame_t *frame, xlator_t *this,
-	   fd_t *fd, size_t size, off_t offset, uint32_t flags);
+	   fd_t *fd, size_t size, off_t offset, uint32_t flags, dict_t *xdata);
 
 int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
-	      loc_t *loc, const char *name);
+	      loc_t *loc, const char *name, dict_t *xdata);
 
 int32_t
 afr_fgetxattr (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, const char *name);
+               fd_t *fd, const char *name, dict_t *xdata);
 
 #endif /* __INODE_READ_H__ */

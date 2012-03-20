@@ -98,7 +98,7 @@ posix_forget (xlator_t *this, inode_t *inode)
 
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
-              loc_t *loc, dict_t *xattr_req)
+              loc_t *loc, dict_t *xdata)
 {
         struct iatt buf                = {0, };
         int32_t     op_ret             = -1;
@@ -133,7 +133,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
                 if (uuid_is_null (loc->inode->gfid))
-                        posix_gfid_set (this, real_path, loc, xattr_req);
+                        posix_gfid_set (this, real_path, loc, xdata);
         }
 
         op_errno = errno;
@@ -149,9 +149,9 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 goto parent;
         }
 
-        if (xattr_req && (op_ret == 0)) {
+        if (xdata && (op_ret == 0)) {
                 xattr = posix_lookup_xattr_fill (this, real_path, loc,
-                                                 xattr_req, &buf);
+                                                 xdata, &buf);
         }
 
 parent:
@@ -188,7 +188,7 @@ out:
 
 
 int32_t
-posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
+posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
         struct iatt           buf       = {0,};
         int32_t               op_ret    = -1;
@@ -221,7 +221,7 @@ posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 out:
         SET_TO_OLD_FS_ID();
-        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, &buf);
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, &buf, NULL);
 
         return 0;
 }
@@ -327,7 +327,7 @@ out:
 
 int
 posix_setattr (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, struct iatt *stbuf, int32_t valid)
+               loc_t *loc, struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         int32_t        op_ret    = -1;
         int32_t        op_errno  = 0;
@@ -412,7 +412,7 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno,
-                             &statpre, &statpost);
+                             &statpre, &statpost, NULL);
 
         return 0;
 }
@@ -462,7 +462,7 @@ posix_do_futimes (xlator_t *this,
 
 int
 posix_fsetattr (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, struct iatt *stbuf, int32_t valid)
+                fd_t *fd, struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         int32_t        op_ret    = -1;
         int32_t        op_errno  = 0;
@@ -557,14 +557,14 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno,
-                             &statpre, &statpost);
+                             &statpre, &statpost, NULL);
 
         return 0;
 }
 
 int32_t
 posix_opendir (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, fd_t *fd)
+               loc_t *loc, fd_t *fd, dict_t *xdata)
 {
         char *            real_path = NULL;
         int32_t           op_ret    = -1;
@@ -633,7 +633,7 @@ out:
         }
 
         SET_TO_OLD_FS_ID ();
-        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd, NULL);
         return 0;
 }
 
@@ -681,7 +681,7 @@ out:
 
 int32_t
 posix_readlink (call_frame_t *frame, xlator_t *this,
-                loc_t *loc, size_t size)
+                loc_t *loc, size_t size, dict_t *xdata)
 {
         char *  dest      = NULL;
         int32_t op_ret    = -1;
@@ -719,7 +719,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, dest, &stbuf);
+        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, dest, &stbuf, NULL);
 
         return 0;
 }
@@ -727,7 +727,7 @@ out:
 
 int
 posix_mknod (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, mode_t mode, dev_t dev, dict_t *params)
+             loc_t *loc, mode_t mode, dev_t dev, mode_t umask, dict_t *xdata)
 {
         int                   tmp_fd      = 0;
         int32_t               op_ret      = -1;
@@ -773,9 +773,9 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         /* Check if the 'gfid' already exists, because this mknod may be an
            internal call from distribute for creating 'linkfile', and that
            linkfile may be for a hardlinked file */
-        if (dict_get (params, GLUSTERFS_INTERNAL_FOP_KEY)) {
-                dict_del (params, GLUSTERFS_INTERNAL_FOP_KEY);
-                op_ret = dict_get_ptr (params, "gfid-req", &uuid_req);
+        if (dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
+                dict_del (xdata, GLUSTERFS_INTERNAL_FOP_KEY);
+                op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
                 if (op_ret) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "failed to get the gfid from dict for %s",
@@ -818,7 +818,7 @@ real_op:
                 }
         }
 
-        op_ret = posix_gfid_set (this, real_path, loc, params);
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
@@ -836,14 +836,14 @@ real_op:
 #endif
 
 post_op:
-        op_ret = posix_acl_xattr_set (this, real_path, params);
+        op_ret = posix_acl_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
@@ -874,7 +874,8 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
-                             (loc)?loc->inode:NULL, &stbuf, &preparent, &postparent);
+                             (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent, NULL);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -886,7 +887,7 @@ out:
 
 int
 posix_mkdir (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, mode_t mode, dict_t *params)
+             loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata)
 {
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
@@ -942,7 +943,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_gfid_set (this, real_path, loc, params);
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
@@ -959,14 +960,14 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
-        op_ret = posix_acl_xattr_set (this, real_path, params);
+        op_ret = posix_acl_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
@@ -997,7 +998,8 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
-                             (loc)?loc->inode:NULL, &stbuf, &preparent, &postparent);
+                             (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent, NULL);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1009,7 +1011,7 @@ out:
 
 int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
-              loc_t *loc)
+              loc_t *loc, int xflag, dict_t *xdata)
 {
         int32_t                  op_ret    = -1;
         int32_t                  op_errno  = 0;
@@ -1081,7 +1083,7 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
-                             &preparent, &postparent);
+                             &preparent, &postparent, NULL);
 
         if (fd != -1) {
                 close (fd);
@@ -1093,7 +1095,7 @@ out:
 
 int
 posix_rmdir (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, int flags)
+             loc_t *loc, int flags, dict_t *xdata)
 {
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
@@ -1186,7 +1188,7 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
-                             &preparent, &postparent);
+                             &preparent, &postparent, NULL);
 
         return 0;
 }
@@ -1194,7 +1196,7 @@ out:
 
 int
 posix_symlink (call_frame_t *frame, xlator_t *this,
-               const char *linkname, loc_t *loc, dict_t *params)
+               const char *linkname, loc_t *loc, mode_t umask, dict_t *xdata)
 {
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
@@ -1250,7 +1252,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_gfid_set (this, real_path, loc, params);
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
@@ -1267,14 +1269,14 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
-        op_ret = posix_acl_xattr_set (this, real_path, params);
+        op_ret = posix_acl_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
@@ -1305,7 +1307,8 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno,
-                             (loc)?loc->inode:NULL, &stbuf, &preparent, &postparent);
+                             (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent, NULL);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1317,7 +1320,7 @@ out:
 
 int
 posix_rename (call_frame_t *frame, xlator_t *this,
-              loc_t *oldloc, loc_t *newloc)
+              loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
         int32_t               op_ret       = -1;
         int32_t               op_errno     = 0;
@@ -1461,7 +1464,7 @@ out:
 
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, &stbuf,
                              &preoldparent, &postoldparent,
-                             &prenewparent, &postnewparent);
+                             &prenewparent, &postnewparent, NULL);
 
         if ((op_ret == -1) && !was_present) {
                 unlink (real_newpath);
@@ -1473,7 +1476,7 @@ out:
 
 int
 posix_link (call_frame_t *frame, xlator_t *this,
-            loc_t *oldloc, loc_t *newloc)
+            loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
         int32_t               op_ret       = -1;
         int32_t               op_errno     = 0;
@@ -1556,7 +1559,7 @@ out:
 
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno,
                              (oldloc)?oldloc->inode:NULL, &stbuf, &preparent,
-                             &postparent);
+                             &postparent, NULL);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_newpath);
@@ -1567,7 +1570,8 @@ out:
 
 
 int32_t
-posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
+posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+                dict_t *xdata)
 {
         int32_t               op_ret    = -1;
         int32_t               op_errno  = 0;
@@ -1619,7 +1623,7 @@ out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
-                             &prebuf, &postbuf);
+                             &prebuf, &postbuf, NULL);
 
         return 0;
 }
@@ -1628,7 +1632,7 @@ out:
 int
 posix_create (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t flags, mode_t mode,
-              fd_t *fd, dict_t *params)
+              mode_t umask, fd_t *fd, dict_t *xdata)
 {
         int32_t                op_ret      = -1;
         int32_t                op_errno    = 0;
@@ -1701,7 +1705,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_gfid_set (this, real_path, loc, params);
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
@@ -1717,14 +1721,14 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 #endif
 
-        op_ret = posix_acl_xattr_set (this, real_path, params);
+        op_ret = posix_acl_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting ACLs on %s failed (%s)", real_path,
                         strerror (errno));
         }
 
-        op_ret = posix_entry_create_xattr_set (this, real_path, params);
+        op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
@@ -1785,14 +1789,14 @@ out:
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
                              fd, (loc)?loc->inode:NULL, &stbuf, &preparent,
-                             &postparent);
+                             &postparent, NULL);
 
         return 0;
 }
 
 int32_t
 posix_open (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, int32_t flags, fd_t *fd, int wbflags)
+            loc_t *loc, int32_t flags, fd_t *fd, dict_t *xdata)
 {
         int32_t               op_ret       = -1;
         int32_t               op_errno     = 0;
@@ -1838,8 +1842,6 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         pfd->flags = flags;
         pfd->fd    = _fd;
-        if (wbflags == GF_OPEN_FSYNC)
-                pfd->flushwrites = 1;
 
         op_ret = fd_ctx_set (fd, this, (uint64_t)(long)pfd);
         if (op_ret)
@@ -1864,7 +1866,7 @@ out:
 
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, NULL);
 
         return 0;
 }
@@ -1874,7 +1876,7 @@ out:
 
 int
 posix_readv (call_frame_t *frame, xlator_t *this,
-             fd_t *fd, size_t size, off_t offset, uint32_t flags)
+             fd_t *fd, size_t size, off_t offset, uint32_t flags, dict_t *xdata)
 {
         int32_t                op_ret     = -1;
         int32_t                op_errno   = 0;
@@ -1964,7 +1966,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 out:
 
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
-                             &vec, 1, &stbuf, iobref);
+                             &vec, 1, &stbuf, iobref, NULL);
 
         if (iobref)
                 iobref_unref (iobref);
@@ -2060,7 +2062,7 @@ err:
 int32_t
 posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               struct iovec *vector, int32_t count, off_t offset,
-              uint32_t flags, struct iobref *iobref)
+              uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         int32_t                op_ret   = -1;
         int32_t                op_errno = 0;
@@ -2070,7 +2072,6 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         struct iatt            preop    = {0,};
         struct iatt            postop    = {0,};
         int                      ret      = -1;
-
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2141,7 +2142,8 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 out:
 
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &preop, &postop);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &preop, &postop,
+                             NULL);
 
         return 0;
 }
@@ -2149,7 +2151,7 @@ out:
 
 int32_t
 posix_statfs (call_frame_t *frame, xlator_t *this,
-              loc_t *loc)
+              loc_t *loc, dict_t *xdata)
 {
         char *                 real_path = NULL;
         int32_t                op_ret    = -1;
@@ -2188,14 +2190,14 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
 out:
-        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, &buf);
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, &buf, NULL);
         return 0;
 }
 
 
 int32_t
 posix_flush (call_frame_t *frame, xlator_t *this,
-             fd_t *fd)
+             fd_t *fd, dict_t *xdata)
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
@@ -2217,15 +2219,14 @@ posix_flush (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
 out:
-        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno, NULL);
 
         return 0;
 }
 
 
 int32_t
-posix_release (xlator_t *this,
-               fd_t *fd)
+posix_release (xlator_t *this, fd_t *fd)
 {
         struct posix_private * priv     = NULL;
         struct posix_fd *      pfd      = NULL;
@@ -2272,7 +2273,7 @@ out:
 
 int32_t
 posix_fsync (call_frame_t *frame, xlator_t *this,
-             fd_t *fd, int32_t datasync)
+             fd_t *fd, int32_t datasync, dict_t *xdata)
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
@@ -2350,7 +2351,8 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, &preop, &postop);
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, &preop, &postop,
+                             NULL);
 
         return 0;
 }
@@ -2359,7 +2361,7 @@ static int gf_posix_xattr_enotsup_log;
 
 int32_t
 posix_setxattr (call_frame_t *frame, xlator_t *this,
-                loc_t *loc, dict_t *dict, int flags)
+                loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
 {
         int32_t       op_ret                  = -1;
         int32_t       op_errno                = 0;
@@ -2396,7 +2398,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
 
         return 0;
 }
@@ -2408,7 +2410,7 @@ out:
  */
 int32_t
 posix_getxattr (call_frame_t *frame, xlator_t *this,
-                loc_t *loc, const char *name)
+                loc_t *loc, const char *name, dict_t *xdata)
 {
         struct posix_private *priv           = NULL;
         int32_t               op_ret         = -1;
@@ -2645,7 +2647,7 @@ done:
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, NULL);
 
         if (dict)
                 dict_unref (dict);
@@ -2656,7 +2658,7 @@ out:
 
 int32_t
 posix_fgetxattr (call_frame_t *frame, xlator_t *this,
-                 fd_t *fd, const char *name)
+                 fd_t *fd, const char *name, dict_t *xdata)
 {
         int32_t           op_ret         = -1;
         int32_t           op_errno       = ENOENT;
@@ -2797,7 +2799,7 @@ done:
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict, NULL);
 
         if (dict)
                 dict_unref (dict);
@@ -2808,7 +2810,7 @@ out:
 
 int32_t
 posix_fsetxattr (call_frame_t *frame, xlator_t *this,
-                 fd_t *fd, dict_t *dict, int flags)
+                 fd_t *fd, dict_t *dict, int flags, dict_t *xdata)
 {
         int32_t            op_ret       = -1;
         int32_t            op_errno     = 0;
@@ -2852,7 +2854,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, NULL);
 
         return 0;
 }
@@ -2860,7 +2862,7 @@ out:
 
 int32_t
 posix_removexattr (call_frame_t *frame, xlator_t *this,
-                   loc_t *loc, const char *name)
+                   loc_t *loc, const char *name, dict_t *xdata)
 {
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
@@ -2895,13 +2897,13 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, NULL);
         return 0;
 }
 
 int32_t
 posix_fremovexattr (call_frame_t *frame, xlator_t *this,
-                    fd_t *fd, const char *name)
+                    fd_t *fd, const char *name, dict_t *xdata)
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
@@ -2948,14 +2950,14 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, NULL);
         return 0;
 }
 
 
 int32_t
 posix_fsyncdir (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, int datasync)
+                fd_t *fd, int datasync, dict_t *xdata)
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
@@ -2977,7 +2979,7 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
 out:
-        STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno, NULL);
 
         return 0;
 }
@@ -3027,8 +3029,8 @@ __add_long_array (int64_t *dest, int64_t *src, int count)
  */
 
 int
-do_xattrop (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
+do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
+            gf_xattrop_flags_t optype, dict_t *xattr)
 {
         char            *real_path = NULL;
         char            *array = NULL;
@@ -3201,14 +3203,14 @@ out:
         if (path)
                 GF_FREE (path);
 
-        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr);
+        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr, NULL);
         return 0;
 }
 
 
 int
 posix_xattrop (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr)
+               loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
         do_xattrop (frame, this, loc, NULL, optype, xattr);
         return 0;
@@ -3217,7 +3219,7 @@ posix_xattrop (call_frame_t *frame, xlator_t *this,
 
 int
 posix_fxattrop (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
+                fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
         do_xattrop (frame, this, NULL, fd, optype, xattr);
         return 0;
@@ -3226,7 +3228,7 @@ posix_fxattrop (call_frame_t *frame, xlator_t *this,
 
 int
 posix_access (call_frame_t *frame, xlator_t *this,
-              loc_t *loc, int32_t mask)
+              loc_t *loc, int32_t mask, dict_t *xdata)
 {
         int32_t                 op_ret    = -1;
         int32_t                 op_errno  = 0;
@@ -3253,14 +3255,14 @@ posix_access (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno, NULL);
         return 0;
 }
 
 
 int32_t
 posix_ftruncate (call_frame_t *frame, xlator_t *this,
-                 fd_t *fd, off_t offset)
+                 fd_t *fd, off_t offset, dict_t *xdata)
 {
         int32_t               op_ret   = -1;
         int32_t               op_errno = 0;
@@ -3324,7 +3326,8 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, &preop, &postop);
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, &preop,
+                             &postop, NULL);
 
         return 0;
 }
@@ -3332,7 +3335,7 @@ out:
 
 int32_t
 posix_fstat (call_frame_t *frame, xlator_t *this,
-             fd_t *fd)
+             fd_t *fd, dict_t *xdata)
 {
         int                   _fd      = -1;
         int32_t               op_ret   = -1;
@@ -3375,7 +3378,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, &buf);
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, &buf, NULL);
         return 0;
 }
 
@@ -3383,7 +3386,7 @@ static int gf_posix_lk_log;
 
 int32_t
 posix_lk (call_frame_t *frame, xlator_t *this,
-          fd_t *fd, int32_t cmd, struct gf_flock *lock)
+          fd_t *fd, int32_t cmd, struct gf_flock *lock, dict_t *xdata)
 {
         struct gf_flock nullock = {0, };
 
@@ -3392,33 +3395,35 @@ posix_lk (call_frame_t *frame, xlator_t *this,
                              "not loaded. You need to use it for proper "
                              "functioning of your application.");
 
-        STACK_UNWIND_STRICT (lk, frame, -1, ENOSYS, &nullock);
+        STACK_UNWIND_STRICT (lk, frame, -1, ENOSYS, &nullock, NULL);
         return 0;
 }
 
 int32_t
 posix_inodelk (call_frame_t *frame, xlator_t *this,
-               const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *lock)
+               const char *volume, loc_t *loc, int32_t cmd,
+               struct gf_flock *lock, dict_t *xdata)
 {
         GF_LOG_OCCASIONALLY (gf_posix_lk_log, this->name, GF_LOG_CRITICAL,
                              "\"features/locks\" translator is "
                              "not loaded. You need to use it for proper "
                              "functioning of your application.");
 
-        STACK_UNWIND_STRICT (inodelk, frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (inodelk, frame, -1, ENOSYS, NULL);
         return 0;
 }
 
 int32_t
 posix_finodelk (call_frame_t *frame, xlator_t *this,
-                const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
+                const char *volume, fd_t *fd, int32_t cmd,
+                struct gf_flock *lock, dict_t *xdata)
 {
         GF_LOG_OCCASIONALLY (gf_posix_lk_log, this->name, GF_LOG_CRITICAL,
                              "\"features/locks\" translator is "
                              "not loaded. You need to use it for proper "
                              "functioning of your application.");
 
-        STACK_UNWIND_STRICT (finodelk, frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (finodelk, frame, -1, ENOSYS, NULL);
         return 0;
 }
 
@@ -3426,28 +3431,28 @@ posix_finodelk (call_frame_t *frame, xlator_t *this,
 int32_t
 posix_entrylk (call_frame_t *frame, xlator_t *this,
                const char *volume, loc_t *loc, const char *basename,
-               entrylk_cmd cmd, entrylk_type type)
+               entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
 {
         GF_LOG_OCCASIONALLY (gf_posix_lk_log, this->name, GF_LOG_CRITICAL,
                              "\"features/locks\" translator is "
                              "not loaded. You need to use it for proper "
                              "functioning of your application.");
 
-        STACK_UNWIND_STRICT (entrylk, frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (entrylk, frame, -1, ENOSYS, NULL);
         return 0;
 }
 
 int32_t
 posix_fentrylk (call_frame_t *frame, xlator_t *this,
                 const char *volume, fd_t *fd, const char *basename,
-                entrylk_cmd cmd, entrylk_type type)
+                entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
 {
         GF_LOG_OCCASIONALLY (gf_posix_lk_log, this->name, GF_LOG_CRITICAL,
                              "\"features/locks\" translator is "
                              "not loaded. You need to use it for proper "
                              "functioning of your application.");
 
-        STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOSYS);
+        STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOSYS, NULL);
         return 0;
 }
 
@@ -3659,7 +3664,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         }
 
 out:
-        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries);
+        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries, NULL);
 
         gf_dirent_free (&entries);
 
@@ -3669,9 +3674,9 @@ out:
 
 int32_t
 posix_readdir (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, size_t size, off_t off)
+               fd_t *fd, size_t size, off_t off, dict_t *xdata)
 {
-        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIR, NULL);
+        posix_do_readdir (frame, this, fd, size, off, GF_FOP_READDIR, xdata);
         return 0;
 }
 
@@ -3720,7 +3725,7 @@ posix_inode (xlator_t *this)
 
 int32_t
 posix_rchecksum (call_frame_t *frame, xlator_t *this,
-                 fd_t *fd, off_t offset, int32_t len)
+                 fd_t *fd, off_t offset, int32_t len, dict_t *xdata)
 {
         char *buf = NULL;
 
@@ -3776,7 +3781,7 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
-                             weak_checksum, strong_checksum);
+                             weak_checksum, strong_checksum, NULL);
         return 0;
 }
 

@@ -44,12 +44,11 @@ read_ahead (call_frame_t *frame, ra_file_t *file);
 
 int
 ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-             int32_t op_ret, int32_t op_errno, fd_t *fd)
+             int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         ra_conf_t  *conf    = NULL;
         ra_file_t  *file    = NULL;
         int         ret     = 0;
-        long        wbflags = 0;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
@@ -59,8 +58,6 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 goto unwind;
         }
-
-        wbflags = (long)frame->local;
 
         file = GF_CALLOC (1, sizeof (*file), gf_ra_mt_ra_file_t);
         if (!file) {
@@ -73,10 +70,6 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if ((fd->flags & O_DIRECT) || ((fd->flags & O_ACCMODE) == O_WRONLY))
                 file->disabled = 1;
-
-        if (wbflags & GF_OPEN_NOWB) {
-                file->disabled = 1;
-        }
 
         file->offset = (unsigned long long) 0;
         file->conf = conf;
@@ -116,7 +109,7 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unwind:
         frame->local = NULL;
 
-        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, xdata);
 
         return 0;
 }
@@ -126,7 +119,7 @@ int
 ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                struct iatt *buf, struct iatt *preparent,
-               struct iatt *postparent)
+               struct iatt *postparent, dict_t *xdata)
 {
         ra_conf_t  *conf = NULL;
         ra_file_t  *file = NULL;
@@ -187,7 +180,7 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
-                             preparent, postparent);
+                             preparent, postparent, xdata);
 
         return 0;
 }
@@ -195,17 +188,15 @@ unwind:
 
 int
 ra_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-         fd_t *fd, int32_t wbflags)
+         fd_t *fd, dict_t *xdata)
 {
         GF_ASSERT (frame);
         GF_ASSERT (this);
 
-        frame->local = (void *)(long)wbflags;
-
         STACK_WIND (frame, ra_open_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->open,
-                    loc, flags, fd, wbflags);
+                    loc, flags, fd, xdata);
 
         return 0;
 }
@@ -213,7 +204,7 @@ ra_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 int
 ra_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-           mode_t mode, fd_t *fd, dict_t *params)
+           mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
         GF_ASSERT (frame);
         GF_ASSERT (this);
@@ -221,7 +212,7 @@ ra_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         STACK_WIND (frame, ra_create_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
-                    loc, flags, mode, fd, params);
+                    loc, flags, mode, umask, fd, xdata);
 
         return 0;
 }
@@ -362,7 +353,8 @@ out:
 int
 ra_need_atime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iovec *vector,
-                   int32_t count, struct iatt *stbuf, struct iobref *iobref)
+                   int32_t count, struct iatt *stbuf, struct iobref *iobref,
+                   dict_t *xdata)
 {
         GF_ASSERT (frame);
         STACK_DESTROY (frame->root);
@@ -453,7 +445,7 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
                 STACK_WIND (ra_frame, ra_need_atime_cbk,
                             FIRST_CHILD (frame->this),
                             FIRST_CHILD (frame->this)->fops->readv,
-                            file->fd, 1, 1, 0);
+                            file->fd, 1, 1, 0, NULL);
         }
 
 out:
@@ -464,12 +456,13 @@ out:
 int
 ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iovec *vector,
-                       int32_t count, struct iatt *stbuf, struct iobref *iobref)
+                       int32_t count, struct iatt *stbuf, struct iobref *iobref,
+                       dict_t *xdata)
 {
         GF_ASSERT (frame);
 
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
-                             stbuf, iobref);
+                             stbuf, iobref, xdata);
 
         return 0;
 }
@@ -477,7 +470,7 @@ ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-          off_t offset, uint32_t flags)
+          off_t offset, uint32_t flags, dict_t *xdata)
 {
         ra_file_t   *file            = NULL;
         ra_local_t  *local           = NULL;
@@ -557,7 +550,8 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
+        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL,
+                             NULL);
 
         return 0;
 
@@ -565,17 +559,17 @@ disabled:
         STACK_WIND (frame, ra_readv_disabled_cbk,
                     FIRST_CHILD (frame->this),
                     FIRST_CHILD (frame->this)->fops->readv,
-                    fd, size, offset, flags);
+                    fd, size, offset, flags, xdata);
         return 0;
 }
 
 
 int
 ra_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno)
+              int32_t op_errno, dict_t *xdata)
 {
         GF_ASSERT (frame);
-        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno, xdata);
         return 0;
 }
 
@@ -583,16 +577,18 @@ ra_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 int
 ra_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
+              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf,
+              dict_t *xdata)
 {
         GF_ASSERT (frame);
-        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
         return 0;
 }
 
 
 int
-ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
+ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         ra_file_t *file     = NULL;
         uint64_t   tmp_file = 0;
@@ -610,17 +606,18 @@ ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         }
 
         STACK_WIND (frame, ra_flush_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->flush, fd);
+                    FIRST_CHILD (this)->fops->flush, fd, xdata);
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (flush, frame, -1, op_errno);
+        STACK_UNWIND_STRICT (flush, frame, -1, op_errno, NULL);
         return 0;
 }
 
 
 int
-ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
+ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
+          dict_t *xdata)
 {
         ra_file_t *file     = NULL;
         uint64_t   tmp_file = 0;
@@ -638,11 +635,11 @@ ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
         }
 
         STACK_WIND (frame, ra_fsync_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fsync, fd, datasync);
+                    FIRST_CHILD (this)->fops->fsync, fd, datasync, xdata);
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -650,7 +647,7 @@ unwind:
 int
 ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-               struct iatt *postbuf)
+               struct iatt *postbuf, dict_t *xdata)
 {
         ra_file_t *file     = NULL;
 
@@ -663,14 +660,16 @@ ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         frame->local = NULL;
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
         return 0;
 }
 
 
 int
 ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
-           int32_t count, off_t offset, uint32_t flags, struct iobref *iobref)
+           int32_t count, off_t offset, uint32_t flags, struct iobref *iobref,
+           dict_t *xdata)
 {
         ra_file_t *file    = NULL;
         uint64_t  tmp_file = 0;
@@ -692,12 +691,12 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         STACK_WIND (frame, ra_writev_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
-                    fd, vector, count, offset, flags, iobref);
+                    fd, vector, count, offset, flags, iobref, xdata);
 
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -705,29 +704,30 @@ unwind:
 int
 ra_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                 struct iatt *postbuf)
+                 struct iatt *postbuf, dict_t *xdata)
 {
         GF_ASSERT (frame);
 
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
-                             postbuf);
+                             postbuf, xdata);
         return 0;
 }
 
 
 int
 ra_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-             int32_t op_ret, int32_t op_errno, struct iatt *buf)
+             int32_t op_ret, int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
         GF_ASSERT (frame);
 
-        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf, xdata);
         return 0;
 }
 
 
 int
-ra_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
+ra_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+             dict_t *xdata)
 {
         ra_file_t *file     = NULL;
         fd_t      *iter_fd  = NULL;
@@ -766,11 +766,11 @@ ra_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         STACK_WIND (frame, ra_truncate_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->truncate,
-                    loc, offset);
+                    loc, offset, xdata);
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -867,7 +867,7 @@ out:
 }
 
 int
-ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
+ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         ra_file_t *file     = NULL;
         fd_t      *iter_fd  = NULL;
@@ -896,17 +896,18 @@ ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         UNLOCK (&inode->lock);
 
         STACK_WIND (frame, ra_attr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fstat, fd);
+                    FIRST_CHILD (this)->fops->fstat, fd, xdata);
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
+        STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
 
 int
-ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
+ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+              dict_t *xdata)
 {
         ra_file_t *file    = NULL;
         fd_t      *iter_fd = NULL;
@@ -942,11 +943,11 @@ ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         UNLOCK (&inode->lock);
 
         STACK_WIND (frame, ra_truncate_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->ftruncate, fd, offset);
+                    FIRST_CHILD (this)->fops->ftruncate, fd, offset, xdata);
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 

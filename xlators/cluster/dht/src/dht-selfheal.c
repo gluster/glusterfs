@@ -82,7 +82,7 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 
         local = frame->local;
         local->selfheal.dir_cbk (frame, NULL, frame->this, ret,
-                                 local->op_errno);
+                                 local->op_errno, NULL);
 
         return 0;
 }
@@ -90,7 +90,7 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 
 int
 dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int op_ret, int op_errno)
+                            int op_ret, int op_errno, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
@@ -183,7 +183,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 
         STACK_WIND (frame, dht_selfheal_dir_xattr_cbk,
                     subvol, subvol->fops->setxattr,
-                    loc, xattr, 0);
+                    loc, xattr, 0, NULL);
 
         dict_unref (xattr);
 
@@ -197,7 +197,7 @@ err:
                 GF_FREE (disk_layout);
 
         dht_selfheal_dir_xattr_cbk (frame, subvol, frame->this,
-                                    -1, ENOMEM);
+                                    -1, ENOMEM, NULL);
         return 0;
 }
 
@@ -275,7 +275,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 int
 dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               int op_ret, int op_errno, struct iatt *statpre,
-                              struct iatt *statpost)
+                              struct iatt *statpost, dict_t *xdata)
 {
         dht_local_t   *local = NULL;
         dht_layout_t  *layout = NULL;
@@ -329,7 +329,7 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                         STACK_WIND (frame, dht_selfheal_dir_setattr_cbk,
                                     layout->list[i].xlator,
                                     layout->list[i].xlator->fops->setattr,
-                                    loc, stbuf, valid);
+                                    loc, stbuf, valid, NULL);
                 }
         }
 
@@ -340,7 +340,8 @@ int
 dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             int op_ret, int op_errno,
                             inode_t *inode, struct iatt *stbuf,
-                            struct iatt *preparent, struct iatt *postparent)
+                            struct iatt *preparent, struct iatt *postparent,
+                            dict_t *xdata)
 {
         dht_local_t   *local = NULL;
         dht_layout_t  *layout = NULL;
@@ -442,7 +443,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                                     loc,
                                     st_mode_from_ia (local->stbuf.ia_prot,
                                                      local->stbuf.ia_type),
-                                    dict);
+                                    0, dict);
                 }
         }
 

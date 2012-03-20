@@ -487,7 +487,7 @@ pump_update_resume_path (xlator_t *this)
 
 static int32_t
 pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno)
+                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_private_t  *priv      = NULL;
         loc_t           loc       = {0};
@@ -753,7 +753,7 @@ pump_cmd_start_setxattr_cbk (call_frame_t *frame,
                              void *cookie,
                              xlator_t *this,
                              int32_t op_ret,
-                             int32_t op_errno)
+                             int32_t op_errno, dict_t *xdata)
 
 {
         call_frame_t *prev = NULL;
@@ -846,7 +846,7 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 		    PUMP_SINK_CHILD(this)->fops->setxattr,
 		    &loc,
 		    dict,
-		    0);
+		    0, NULL);
 
         ret = 0;
 
@@ -880,7 +880,7 @@ pump_cmd_start_getxattr_cbk (call_frame_t *frame,
                              xlator_t *this,
                              int32_t op_ret,
                              int32_t op_errno,
-                             dict_t *dict)
+                             dict_t *dict, dict_t *xdata)
 {
         afr_local_t *local = NULL;
         char *path = NULL;
@@ -996,7 +996,7 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 
 out:
 
-        AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
+        AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, NULL);
 
         if (dict)
                 dict_unref (dict);
@@ -1051,7 +1051,7 @@ pump_execute_start (call_frame_t *frame, xlator_t *this)
 		    PUMP_SOURCE_CHILD(this),
 		    PUMP_SOURCE_CHILD(this)->fops->getxattr,
 		    &loc,
-		    PUMP_PATH);
+		    PUMP_PATH, NULL);
 
         ret = 0;
 
@@ -1069,7 +1069,7 @@ static int
 pump_cleanup_helper (void *data) {
         call_frame_t *frame = data;
 
-        pump_xattr_cleaner (frame, 0, frame->this, 0, 0);
+        pump_xattr_cleaner (frame, 0, frame->this, 0, 0, NULL);
 
         return 0;
 }
@@ -1151,7 +1151,7 @@ pump_execute_abort (call_frame_t *frame, xlator_t *this)
         } else {
                 pump_priv->cleaner = fop_setxattr_cbk_stub (frame,
                                                             pump_xattr_cleaner,
-                                                            0, 0);
+                                                            0, 0, NULL);
         }
 
         return 0;
@@ -1328,7 +1328,7 @@ __filter_xattrs (dict_t *dict)
 int32_t
 pump_getxattr_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno,
-		  dict_t *dict)
+		  dict_t *dict, dict_t *xdata)
 {
 	afr_private_t   *priv           = NULL;
 	afr_local_t     *local          = NULL;
@@ -1363,7 +1363,7 @@ pump_getxattr_cbk (call_frame_t *frame, void *cookie,
 				   children[next_call_child],
 				   children[next_call_child]->fops->getxattr,
 				   &local->loc,
-				   local->cont.getxattr.name);
+				   local->cont.getxattr.name, NULL);
 	}
 
 out:
@@ -1371,7 +1371,7 @@ out:
                 if (op_ret >= 0 && dict)
                         __filter_xattrs (dict);
 
-		AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
+		AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, NULL);
 	}
 
 	return 0;
@@ -1379,7 +1379,7 @@ out:
 
 int32_t
 pump_getxattr (call_frame_t *frame, xlator_t *this,
-	      loc_t *loc, const char *name)
+	      loc_t *loc, const char *name, dict_t *xdata)
 {
 	afr_private_t *   priv       = NULL;
 	xlator_t **       children   = NULL;
@@ -1402,7 +1402,7 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, default_getxattr_cbk,
                             FIRST_CHILD (this),
                             (FIRST_CHILD (this))->fops->getxattr,
-                            loc, name);
+                            loc, name, xdata);
                 return 0;
         }
 
@@ -1456,12 +1456,12 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
 	STACK_WIND_COOKIE (frame, pump_getxattr_cbk,
 			   (void *) (long) call_child,
 			   children[call_child], children[call_child]->fops->getxattr,
-			   loc, name);
+			   loc, name, xdata);
 
 	ret = 0;
 out:
 	if (ret < 0)
-		AFR_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL);
+		AFR_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL, NULL);
 	return 0;
 }
 
@@ -1483,14 +1483,14 @@ afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
 
 	if (main_frame) {
 		AFR_STACK_UNWIND (setxattr, main_frame,
-                                  local->op_ret, local->op_errno);
+                                  local->op_ret, local->op_errno, NULL);
 	}
 	return 0;
 }
 
 static int
 afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		       int32_t op_ret, int32_t op_errno)
+		       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1559,7 +1559,7 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i]->fops->setxattr,
 					   &local->loc,
 					   local->cont.setxattr.dict,
-					   local->cont.setxattr.flags);
+					   local->cont.setxattr.flags, NULL);
 
 			if (!--call_count)
 				break;
@@ -1587,11 +1587,9 @@ pump_setxattr_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
-		      int32_t op_errno)
+		      int32_t op_errno, dict_t *xdata)
 {
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno);
+	AFR_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
 	return 0;
 }
 
@@ -1614,7 +1612,7 @@ pump_command_reply (call_frame_t *frame, xlator_t *this)
         AFR_STACK_UNWIND (setxattr,
                           frame,
                           local->op_ret,
-                          local->op_errno);
+                          local->op_errno, NULL);
 
         return 0;
 }
@@ -1651,7 +1649,7 @@ pump_parse_command (call_frame_t *frame, xlator_t *this,
 
 int
 pump_setxattr (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, dict_t *dict, int32_t flags)
+               loc_t *loc, dict_t *dict, int32_t flags, dict_t *xdata)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -1672,7 +1670,7 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, default_setxattr_cbk,
                             FIRST_CHILD (this),
                             (FIRST_CHILD (this))->fops->setxattr,
-                            loc, dict, flags);
+                            loc, dict, flags, xdata);
                 return 0;
         }
 
@@ -1726,7 +1724,7 @@ out:
 	if (ret < 0) {
 		if (transaction_frame)
 			AFR_STACK_DESTROY (transaction_frame);
-		AFR_STACK_UNWIND (setxattr, frame, -1, op_errno);
+		AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
 	}
 
 	return 0;
@@ -1760,7 +1758,7 @@ static int32_t
 pump_truncate (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc,
-               off_t offset)
+               off_t offset, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1770,11 +1768,11 @@ pump_truncate (call_frame_t *frame,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->truncate,
                             loc,
-                            offset);
+                            offset, xdata);
                 return 0;
         }
 
-        afr_truncate (frame, this, loc, offset);
+        afr_truncate (frame, this, loc, offset, xdata);
         return 0;
 }
 
@@ -1783,7 +1781,7 @@ static int32_t
 pump_ftruncate (call_frame_t *frame,
                 xlator_t *this,
                 fd_t *fd,
-                off_t offset)
+                off_t offset, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1793,11 +1791,11 @@ pump_ftruncate (call_frame_t *frame,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->ftruncate,
                             fd,
-                            offset);
+                            offset, xdata);
                 return 0;
         }
 
-        afr_ftruncate (frame, this, fd, offset);
+        afr_ftruncate (frame, this, fd, offset, xdata);
         return 0;
 }
 
@@ -1806,7 +1804,7 @@ pump_ftruncate (call_frame_t *frame,
 
 int
 pump_mknod (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, mode_t mode, dev_t rdev, dict_t *parms)
+            loc_t *loc, mode_t mode, dev_t rdev, mode_t umask, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1814,10 +1812,10 @@ pump_mknod (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, default_mknod_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->mknod,
-                            loc, mode, rdev, parms);
+                            loc, mode, rdev, umask, xdata);
                 return 0;
         }
-        afr_mknod (frame, this, loc, mode, rdev, parms);
+        afr_mknod (frame, this, loc, mode, rdev, umask, xdata);
         return 0;
 
 }
@@ -1826,7 +1824,7 @@ pump_mknod (call_frame_t *frame, xlator_t *this,
 
 int
 pump_mkdir (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, mode_t mode, dict_t *params)
+            loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1834,10 +1832,10 @@ pump_mkdir (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, default_mkdir_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->mkdir,
-                            loc, mode, params);
+                            loc, mode, umask, xdata);
                 return 0;
         }
-        afr_mkdir (frame, this, loc, mode, params);
+        afr_mkdir (frame, this, loc, mode, umask, xdata);
         return 0;
 
 }
@@ -1846,7 +1844,7 @@ pump_mkdir (call_frame_t *frame, xlator_t *this,
 static int32_t
 pump_unlink (call_frame_t *frame,
              xlator_t *this,
-             loc_t *loc)
+             loc_t *loc, int xflag, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1855,10 +1853,10 @@ pump_unlink (call_frame_t *frame,
                             default_unlink_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->unlink,
-                            loc);
+                            loc, xflag, xdata);
                 return 0;
         }
-        afr_unlink (frame, this, loc);
+        afr_unlink (frame, this, loc, xflag, xdata);
         return 0;
 
 }
@@ -1866,7 +1864,7 @@ pump_unlink (call_frame_t *frame,
 
 static int
 pump_rmdir (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, int flags)
+            loc_t *loc, int flags, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 
@@ -1876,11 +1874,11 @@ pump_rmdir (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, default_rmdir_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->rmdir,
-                            loc, flags);
+                            loc, flags, xdata);
                 return 0;
         }
 
-        afr_rmdir (frame, this, loc, flags);
+        afr_rmdir (frame, this, loc, flags, xdata);
         return 0;
 
 }
@@ -1889,7 +1887,7 @@ pump_rmdir (call_frame_t *frame, xlator_t *this,
 
 int
 pump_symlink (call_frame_t *frame, xlator_t *this,
-              const char *linkpath, loc_t *loc, dict_t *params)
+              const char *linkpath, loc_t *loc, mode_t umask, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1897,10 +1895,10 @@ pump_symlink (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, default_symlink_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->symlink,
-                            linkpath, loc, params);
+                            linkpath, loc, umask, xdata);
                 return 0;
         }
-        afr_symlink (frame, this, linkpath, loc, params);
+        afr_symlink (frame, this, linkpath, loc, umask, xdata);
         return 0;
 
 }
@@ -1910,7 +1908,7 @@ static int32_t
 pump_rename (call_frame_t *frame,
              xlator_t *this,
              loc_t *oldloc,
-             loc_t *newloc)
+             loc_t *newloc, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1919,10 +1917,10 @@ pump_rename (call_frame_t *frame,
                             default_rename_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->rename,
-                            oldloc, newloc);
+                            oldloc, newloc, xdata);
                 return 0;
         }
-        afr_rename (frame, this, oldloc, newloc);
+        afr_rename (frame, this, oldloc, newloc, xdata);
         return 0;
 
 }
@@ -1932,7 +1930,7 @@ static int32_t
 pump_link (call_frame_t *frame,
            xlator_t *this,
            loc_t *oldloc,
-           loc_t *newloc)
+           loc_t *newloc, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1941,10 +1939,10 @@ pump_link (call_frame_t *frame,
                             default_link_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->link,
-                            oldloc, newloc);
+                            oldloc, newloc, xdata);
                 return 0;
         }
-        afr_link (frame, this, oldloc, newloc);
+        afr_link (frame, this, oldloc, newloc, xdata);
         return 0;
 
 }
@@ -1953,7 +1951,7 @@ pump_link (call_frame_t *frame,
 static int32_t
 pump_create (call_frame_t *frame, xlator_t *this,
              loc_t *loc, int32_t flags, mode_t mode,
-             fd_t *fd, dict_t *params)
+             mode_t umask, fd_t *fd, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1961,10 +1959,10 @@ pump_create (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, default_create_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->create,
-                            loc, flags, mode, fd, params);
+                            loc, flags, mode, umask, fd, xdata);
                 return 0;
         }
-        afr_create (frame, this, loc, flags, mode, fd, params);
+        afr_create (frame, this, loc, flags, mode, umask, fd, xdata);
         return 0;
 
 }
@@ -1974,8 +1972,7 @@ static int32_t
 pump_open (call_frame_t *frame,
            xlator_t *this,
            loc_t *loc,
-           int32_t flags, fd_t *fd,
-           int32_t wbflags)
+           int32_t flags, fd_t *fd, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -1984,10 +1981,10 @@ pump_open (call_frame_t *frame,
                             default_open_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open,
-                            loc, flags, fd, wbflags);
+                            loc, flags, fd, xdata);
                 return 0;
         }
-        afr_open (frame, this, loc, flags, fd, wbflags);
+        afr_open (frame, this, loc, flags, fd, xdata);
         return 0;
 
 }
@@ -2000,7 +1997,7 @@ pump_writev (call_frame_t *frame,
              struct iovec *vector,
              int32_t count,
              off_t off, uint32_t flags,
-             struct iobref *iobref)
+             struct iobref *iobref, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2013,19 +2010,19 @@ pump_writev (call_frame_t *frame,
                             vector,
                             count,
                             off, flags,
-                            iobref);
+                            iobref, xdata);
                 return 0;
         }
-        afr_writev (frame, this, fd, vector, count, off, flags, iobref);
-        return 0;
 
+        afr_writev (frame, this, fd, vector, count, off, flags, iobref, xdata);
+        return 0;
 }
 
 
 static int32_t
 pump_flush (call_frame_t *frame,
             xlator_t *this,
-            fd_t *fd)
+            fd_t *fd, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2034,10 +2031,10 @@ pump_flush (call_frame_t *frame,
                             default_flush_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->flush,
-                            fd);
+                            fd, xdata);
                 return 0;
         }
-        afr_flush (frame, this, fd);
+        afr_flush (frame, this, fd, xdata);
         return 0;
 
 }
@@ -2047,7 +2044,7 @@ static int32_t
 pump_fsync (call_frame_t *frame,
             xlator_t *this,
             fd_t *fd,
-            int32_t flags)
+            int32_t flags, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2057,10 +2054,10 @@ pump_fsync (call_frame_t *frame,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->fsync,
                             fd,
-                            flags);
+                            flags, xdata);
                 return 0;
         }
-        afr_fsync (frame, this, fd, flags);
+        afr_fsync (frame, this, fd, flags, xdata);
         return 0;
 
 }
@@ -2069,7 +2066,7 @@ pump_fsync (call_frame_t *frame,
 static int32_t
 pump_opendir (call_frame_t *frame,
               xlator_t *this,
-              loc_t *loc, fd_t *fd)
+              loc_t *loc, fd_t *fd, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2078,10 +2075,10 @@ pump_opendir (call_frame_t *frame,
                             default_opendir_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->opendir,
-                            loc, fd);
+                            loc, fd, xdata);
                 return 0;
         }
-        afr_opendir (frame, this, loc, fd);
+        afr_opendir (frame, this, loc, fd, xdata);
         return 0;
 
 }
@@ -2091,7 +2088,7 @@ static int32_t
 pump_fsyncdir (call_frame_t *frame,
                xlator_t *this,
                fd_t *fd,
-               int32_t flags)
+               int32_t flags, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2101,10 +2098,10 @@ pump_fsyncdir (call_frame_t *frame,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->fsyncdir,
                             fd,
-                            flags);
+                            flags, xdata);
                 return 0;
         }
-        afr_fsyncdir (frame, this, fd, flags);
+        afr_fsyncdir (frame, this, fd, flags, xdata);
         return 0;
 
 }
@@ -2115,7 +2112,7 @@ pump_xattrop (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
               gf_xattrop_flags_t flags,
-              dict_t *dict)
+              dict_t *dict, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2126,10 +2123,10 @@ pump_xattrop (call_frame_t *frame,
                             FIRST_CHILD(this)->fops->xattrop,
                             loc,
                             flags,
-                            dict);
+                            dict, xdata);
                 return 0;
         }
-        afr_xattrop (frame, this, loc, flags, dict);
+        afr_xattrop (frame, this, loc, flags, dict, xdata);
         return 0;
 
 }
@@ -2139,7 +2136,7 @@ pump_fxattrop (call_frame_t *frame,
                xlator_t *this,
                fd_t *fd,
                gf_xattrop_flags_t flags,
-               dict_t *dict)
+               dict_t *dict, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2150,10 +2147,10 @@ pump_fxattrop (call_frame_t *frame,
                             FIRST_CHILD(this)->fops->fxattrop,
                             fd,
                             flags,
-                            dict);
+                            dict, xdata);
                 return 0;
         }
-        afr_fxattrop (frame, this, fd, flags, dict);
+        afr_fxattrop (frame, this, fd, flags, dict, xdata);
         return 0;
 
 }
@@ -2163,7 +2160,7 @@ static int32_t
 pump_removexattr (call_frame_t *frame,
                   xlator_t *this,
                   loc_t *loc,
-                  const char *name)
+                  const char *name, dict_t *xdata)
 {
         afr_private_t *priv     = NULL;
         int            op_errno = -1;
@@ -2181,14 +2178,14 @@ pump_removexattr (call_frame_t *frame,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->removexattr,
                             loc,
-                            name);
+                            name, xdata);
                 return 0;
         }
-        afr_removexattr (frame, this, loc, name);
+        afr_removexattr (frame, this, loc, name, xdata);
 
  out:
         if (op_errno)
-                AFR_STACK_UNWIND (removexattr, frame, -1, op_errno);
+                AFR_STACK_UNWIND (removexattr, frame, -1, op_errno, NULL);
         return 0;
 
 }
@@ -2200,7 +2197,7 @@ pump_readdir (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
               size_t size,
-              off_t off)
+              off_t off, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2209,10 +2206,10 @@ pump_readdir (call_frame_t *frame,
                             default_readdir_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readdir,
-                            fd, size, off);
+                            fd, size, off, xdata);
                 return 0;
         }
-        afr_readdir (frame, this, fd, size, off);
+        afr_readdir (frame, this, fd, size, off, xdata);
         return 0;
 
 }
@@ -2269,7 +2266,7 @@ pump_setattr (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
               struct iatt *stbuf,
-              int32_t valid)
+              int32_t valid, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2278,10 +2275,10 @@ pump_setattr (call_frame_t *frame,
                             default_setattr_cbk,
                             FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->setattr,
-                            loc, stbuf, valid);
+                            loc, stbuf, valid, xdata);
                 return 0;
         }
-        afr_setattr (frame, this, loc, stbuf, valid);
+        afr_setattr (frame, this, loc, stbuf, valid, xdata);
         return 0;
 
 }
@@ -2292,7 +2289,7 @@ pump_fsetattr (call_frame_t *frame,
                xlator_t *this,
                fd_t *fd,
                struct iatt *stbuf,
-               int32_t valid)
+               int32_t valid, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
 	priv = this->private;
@@ -2301,10 +2298,10 @@ pump_fsetattr (call_frame_t *frame,
                             default_fsetattr_cbk,
                             FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fsetattr,
-                            fd, stbuf, valid);
+                            fd, stbuf, valid, xdata);
                 return 0;
         }
-        afr_fsetattr (frame, this, fd, stbuf, valid);
+        afr_fsetattr (frame, this, fd, stbuf, valid, xdata);
         return 0;
 
 }

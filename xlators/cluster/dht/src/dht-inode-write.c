@@ -32,7 +32,7 @@ int dht_setattr2 (xlator_t *this, call_frame_t *frame, int ret);
 int
 dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int op_ret, int op_errno, struct iatt *prebuf,
-                struct iatt *postbuf)
+                struct iatt *postbuf, dict_t *xdata)
 {
         dht_local_t *local = NULL;
         int          ret   = -1;
@@ -85,7 +85,8 @@ out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
 
-        DHT_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf);
+        DHT_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf,
+                          xdata);
 
         return 0;
 }
@@ -113,7 +114,7 @@ dht_writev2 (xlator_t *this, call_frame_t *frame, int op_ret)
                     subvol, subvol->fops->writev,
                     local->fd, local->rebalance.vector, local->rebalance.count,
                     local->rebalance.offset, local->rebalance.flags,
-                    local->rebalance.iobref);
+                    local->rebalance.iobref, NULL);
 
         return 0;
 }
@@ -121,7 +122,7 @@ dht_writev2 (xlator_t *this, call_frame_t *frame, int op_ret)
 int
 dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iovec *vector, int count, off_t off, uint32_t flags,
-            struct iobref *iobref)
+            struct iobref *iobref, dict_t *xdata)
 {
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -156,13 +157,13 @@ dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         STACK_WIND (frame, dht_writev_cbk,
                     subvol, subvol->fops->writev,
-                    fd, vector, count, off, flags, iobref);
+                    fd, vector, count, off, flags, iobref, xdata);
 
         return 0;
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
+        DHT_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -172,7 +173,7 @@ err:
 int
 dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno, struct iatt *prebuf,
-                  struct iatt *postbuf)
+                  struct iatt *postbuf, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
@@ -231,7 +232,7 @@ out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
         DHT_STACK_UNWIND (truncate, frame, op_ret, op_errno,
-                          prebuf, postbuf);
+                          prebuf, postbuf, xdata);
 err:
         return 0;
 }
@@ -260,18 +261,19 @@ dht_truncate2 (xlator_t *this, call_frame_t *frame, int op_ret)
         if (local->fop == GF_FOP_TRUNCATE) {
                 STACK_WIND (frame, dht_truncate_cbk, subvol,
                             subvol->fops->truncate, &local->loc,
-                            local->rebalance.offset);
+                            local->rebalance.offset, NULL);
         } else {
                 STACK_WIND (frame, dht_truncate_cbk, subvol,
                             subvol->fops->ftruncate, local->fd,
-                            local->rebalance.offset);
+                            local->rebalance.offset, NULL);
         }
 
         return 0;
 }
 
 int
-dht_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
+dht_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+              dict_t *xdata)
 {
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -301,19 +303,20 @@ dht_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
         STACK_WIND (frame, dht_truncate_cbk,
                     subvol, subvol->fops->truncate,
-                    loc, offset);
+                    loc, offset, xdata);
 
         return 0;
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
+        DHT_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }
 
 int
-dht_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
+dht_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+               dict_t *xdata)
 {
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -341,13 +344,13 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
         STACK_WIND (frame, dht_truncate_cbk,
                     subvol, subvol->fops->ftruncate,
-                    fd, offset);
+                    fd, offset, xdata);
 
         return 0;
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
+        DHT_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -356,7 +359,7 @@ err:
 int
 dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, struct iatt *prebuf,
-                      struct iatt *postbuf)
+                      struct iatt *postbuf, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
@@ -393,7 +396,7 @@ out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
         DHT_STACK_UNWIND (setattr, frame, op_ret, op_errno,
-                          prebuf, postbuf);
+                          prebuf, postbuf, xdata);
 
         return 0;
 }
@@ -421,11 +424,13 @@ dht_setattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
         if (local->fop == GF_FOP_SETATTR) {
                 STACK_WIND (frame, dht_file_setattr_cbk, subvol,
                             subvol->fops->setattr, &local->loc,
-                            &local->rebalance.stbuf, local->rebalance.flags);
+                            &local->rebalance.stbuf, local->rebalance.flags,
+                            NULL);
         } else {
                 STACK_WIND (frame, dht_file_setattr_cbk, subvol,
                             subvol->fops->fsetattr, local->fd,
-                            &local->rebalance.stbuf, local->rebalance.flags);
+                            &local->rebalance.stbuf, local->rebalance.flags,
+                            NULL);
         }
 
         return 0;
@@ -436,7 +441,7 @@ dht_setattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
 int
 dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, struct iatt *statpre,
-                 struct iatt *statpost)
+                 struct iatt *statpost, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
         int           this_call_cnt = 0;
@@ -467,7 +472,7 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt))
                 DHT_STACK_UNWIND (setattr, frame, local->op_ret, local->op_errno,
-                                  &local->prebuf, &local->stbuf);
+                                  &local->prebuf, &local->stbuf, xdata);
 
         return 0;
 }
@@ -475,7 +480,7 @@ unlock:
 
 int
 dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             struct iatt *stbuf, int32_t valid)
+             struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         xlator_t     *subvol = NULL;
         dht_layout_t *layout = NULL;
@@ -521,7 +526,7 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
                 STACK_WIND (frame, dht_file_setattr_cbk, subvol,
                             subvol->fops->setattr,
-                            loc, stbuf, valid);
+                            loc, stbuf, valid, xdata);
 
                 return 0;
         }
@@ -532,14 +537,14 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 STACK_WIND (frame, dht_setattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->setattr,
-                            loc, stbuf, valid);
+                            loc, stbuf, valid, xdata);
         }
 
         return 0;
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
+        DHT_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -547,7 +552,7 @@ err:
 
 int
 dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
-              int32_t valid)
+              int32_t valid, dict_t *xdata)
 {
         xlator_t     *subvol = NULL;
         dht_layout_t *layout = NULL;
@@ -592,7 +597,7 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
 
                 STACK_WIND (frame, dht_file_setattr_cbk, subvol,
                             subvol->fops->fsetattr,
-                            fd, stbuf, valid);
+                            fd, stbuf, valid, xdata);
 
                 return 0;
         }
@@ -603,14 +608,14 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
                 STACK_WIND (frame, dht_setattr_cbk,
                             layout->list[i].xlator,
                             layout->list[i].xlator->fops->fsetattr,
-                            fd, stbuf, valid);
+                            fd, stbuf, valid, xdata);
         }
 
         return 0;
 
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
-        DHT_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL);
+        DHT_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }

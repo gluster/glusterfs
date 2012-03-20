@@ -294,7 +294,8 @@ typedef struct {
         size_t            size;
         unsigned long     nlookup;
         fd_t             *fd;
-        dict_t           *dict;
+        dict_t           *xattr;
+        dict_t           *xdata;
         char             *name;
         char              is_revalidate;
         gf_boolean_t      truncate_needed;
@@ -315,6 +316,7 @@ typedef struct {
         int            mask;
         dev_t          rdev;
         mode_t         mode;
+        mode_t         umask;
         struct iatt    attr;
         struct gf_flock   lk_lock;
         struct iovec   vector;

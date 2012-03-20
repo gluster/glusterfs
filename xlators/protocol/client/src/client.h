@@ -169,13 +169,11 @@ typedef struct client_local {
 typedef struct client_args {
         loc_t              *loc;
         fd_t               *fd;
-        dict_t             *xattr_req;
         const char         *linkname;
         struct iobref      *iobref;
         struct iovec       *vector;
         dict_t             *xattr;
         struct iatt        *stbuf;
-        dict_t             *dict;
         loc_t              *oldloc;
         loc_t              *newloc;
         const char         *name;
@@ -189,7 +187,6 @@ typedef struct client_args {
         mode_t              mode;
         dev_t               rdev;
         int32_t             flags;
-        int32_t             wbflags;
         int32_t             count;
         int32_t             datasync;
         entrylk_cmd         cmd_entrylk;
@@ -197,6 +194,9 @@ typedef struct client_args {
         gf_xattrop_flags_t  optype;
         int32_t             valid;
         int32_t             len;
+
+        mode_t              umask;
+        dict_t             *xdata;
 } clnt_args_t;
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *args);

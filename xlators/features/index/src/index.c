@@ -605,10 +605,10 @@ unlock:
                 frame = new->frame;
                 if (new->fop == GF_FOP_XATTROP) {
                         INDEX_STACK_UNWIND (xattrop, frame, -1, ENOMEM,
-                                            NULL);
+                                            NULL, NULL);
                 } else if (new->fop == GF_FOP_FXATTROP) {
                         INDEX_STACK_UNWIND (fxattrop, frame, -1, ENOMEM,
-                                            NULL);
+                                            NULL, NULL);
                 }
                 call_stub_destroy (new);
         } else if (stub) {
@@ -619,7 +619,7 @@ unlock:
 
 int32_t
 index_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, dict_t *xattr)
+                   int32_t op_ret, int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
         inode_t *inode = NULL;
 
@@ -628,7 +628,7 @@ index_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         fop_xattrop_index_action (this, frame->local, xattr);
 out:
-        INDEX_STACK_UNWIND (xattrop, frame, op_ret, op_errno, xattr);
+        INDEX_STACK_UNWIND (xattrop, frame, op_ret, op_errno, xattr, xdata);
         index_queue_process (this, inode, NULL);
         inode_unref (inode);
 
@@ -637,7 +637,8 @@ out:
 
 int32_t
 index_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xattr)
+                    int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                    dict_t *xdata)
 {
         inode_t *inode = NULL;
 
@@ -647,7 +648,7 @@ index_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         fop_fxattrop_index_action (this, frame->local, xattr);
 out:
-        INDEX_STACK_UNWIND (fxattrop, frame, op_ret, op_errno, xattr);
+        INDEX_STACK_UNWIND (fxattrop, frame, op_ret, op_errno, xattr, xdata);
         index_queue_process (this, inode, NULL);
         inode_unref (inode);
 
@@ -656,25 +657,27 @@ out:
 
 int
 index_xattrop_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                       gf_xattrop_flags_t optype, dict_t *xattr)
+                       gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
         STACK_WIND (frame, index_xattrop_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->xattrop, loc, optype, xattr);
+                    FIRST_CHILD (this)->fops->xattrop, loc, optype, xattr,
+                    xdata);
         return 0;
 }
 
 int
 index_fxattrop_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                        gf_xattrop_flags_t optype, dict_t *xattr)
+                        gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
         STACK_WIND (frame, index_fxattrop_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fxattrop, fd, optype, xattr);
+                    FIRST_CHILD (this)->fops->fxattrop, fd, optype, xattr,
+                    xdata);
         return 0;
 }
 
 int32_t
 index_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
-	       gf_xattrop_flags_t flags, dict_t *dict)
+	       gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
         call_stub_t     *stub = NULL;
 
@@ -683,9 +686,9 @@ index_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         frame->local = inode_ref (loc->inode);
         stub = fop_xattrop_stub (frame, index_xattrop_wrapper,
-                                 loc, flags, dict);
+                                 loc, flags, dict, xdata);
         if (!stub) {
-                INDEX_STACK_UNWIND (xattrop, frame, -1, ENOMEM, NULL);
+                INDEX_STACK_UNWIND (xattrop, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
 
@@ -693,13 +696,13 @@ index_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 out:
         STACK_WIND (frame, default_xattrop_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->xattrop, loc, flags, dict);
+                    FIRST_CHILD(this)->fops->xattrop, loc, flags, dict, xdata);
         return 0;
 }
 
 int32_t
 index_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
-		gf_xattrop_flags_t flags, dict_t *dict)
+		gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
         call_stub_t    *stub = NULL;
 
@@ -708,9 +711,9 @@ index_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         frame->local = inode_ref (fd->inode);
         stub = fop_fxattrop_stub (frame, index_fxattrop_wrapper,
-                                  fd, flags, dict);
+                                  fd, flags, dict, xdata);
         if (!stub) {
-                INDEX_STACK_UNWIND (fxattrop, frame, -1, ENOMEM, NULL);
+                INDEX_STACK_UNWIND (fxattrop, frame, -1, ENOMEM, NULL, xdata);
                 return 0;
         }
 
@@ -718,13 +721,13 @@ index_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 out:
         STACK_WIND (frame, default_fxattrop_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fxattrop, fd, flags, dict);
+                    FIRST_CHILD(this)->fops->fxattrop, fd, flags, dict, xdata);
         return 0;
 }
 
 int32_t
 index_getxattr_wrapper (call_frame_t *frame, xlator_t *this,
-                        loc_t *loc, const char *name)
+                        loc_t *loc, const char *name, dict_t *xdata)
 {
         index_priv_t    *priv = NULL;
         dict_t          *xattr = NULL;
@@ -748,9 +751,9 @@ index_getxattr_wrapper (call_frame_t *frame, xlator_t *this,
         }
 done:
         if (ret)
-                STACK_UNWIND_STRICT (getxattr, frame, -1, -ret, xattr);
+                STACK_UNWIND_STRICT (getxattr, frame, -1, -ret, xattr, xdata);
         else
-                STACK_UNWIND_STRICT (getxattr, frame, 0, 0, xattr);
+                STACK_UNWIND_STRICT (getxattr, frame, 0, 0, xattr, xdata);
 
         if (xattr)
                 dict_unref (xattr);
@@ -820,7 +823,7 @@ done:
 
 int32_t
 index_readdir_wrapper (call_frame_t *frame, xlator_t *this,
-                       fd_t *fd, size_t size, off_t off)
+                       fd_t *fd, size_t size, off_t off, dict_t *xdata)
 {
         index_fd_ctx_t       *fctx           = NULL;
         DIR                  *dir            = NULL;
@@ -855,13 +858,14 @@ index_readdir_wrapper (call_frame_t *frame, xlator_t *this,
         op_errno = errno;
         op_ret = count;
 done:
-        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries);
+        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries, xdata);
         gf_dirent_free (&entries);
         return 0;
 }
 
 int
-index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc)
+index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
+                      dict_t *xdata)
 {
         index_priv_t    *priv = NULL;
         int32_t         op_ret = 0;
@@ -905,29 +909,30 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         postparent.ia_ino = -1;
 done:
         INDEX_STACK_UNWIND (unlink, frame, op_ret, op_errno, &preparent,
-                            &postparent);
+                            &postparent, xdata);
         return 0;
 }
 
 int32_t
 index_getxattr (call_frame_t *frame, xlator_t *this,
-                loc_t *loc, const char *name)
+                loc_t *loc, const char *name, dict_t *xdata)
 {
         call_stub_t     *stub = NULL;
 
         if (!name || strcmp (GF_XATTROP_INDEX_GFID, name))
                 goto out;
 
-        stub = fop_getxattr_stub (frame, index_getxattr_wrapper, loc, name);
+        stub = fop_getxattr_stub (frame, index_getxattr_wrapper, loc, name,
+                                  xdata);
         if (!stub) {
-                STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM, NULL);
+                STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
         worker_enqueue (this, stub);
         return 0;
 out:
         STACK_WIND (frame, default_getxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getxattr, loc, name);
+                    FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
         return 0;
 }
 
@@ -961,7 +966,7 @@ normal:
 
 int32_t
 index_readdir (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, size_t size, off_t off)
+               fd_t *fd, size_t size, off_t off, dict_t *xdata)
 {
         call_stub_t     *stub = NULL;
         index_priv_t    *priv = NULL;
@@ -969,21 +974,23 @@ index_readdir (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         if (uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
                 goto out;
-        stub = fop_readdir_stub (frame, index_readdir_wrapper, fd, size, off);
+        stub = fop_readdir_stub (frame, index_readdir_wrapper, fd, size, off,
+                                 xdata);
         if (!stub) {
-                STACK_UNWIND_STRICT (readdir, frame, -1, ENOMEM, NULL);
+                STACK_UNWIND_STRICT (readdir, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
         worker_enqueue (this, stub);
         return 0;
 out:
         STACK_WIND (frame, default_readdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdir, fd, size, off);
+                    FIRST_CHILD(this)->fops->readdir, fd, size, off, xdata);
         return 0;
 }
 
 int
-index_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
+index_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
+              dict_t *xdata)
 {
         call_stub_t     *stub = NULL;
         index_priv_t    *priv = NULL;
@@ -992,16 +999,17 @@ index_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (uuid_compare (loc->pargfid, priv->xattrop_vgfid))
                 goto out;
 
-        stub = fop_unlink_stub (frame, index_unlink_wrapper, loc);
+        stub = fop_unlink_stub (frame, index_unlink_wrapper, loc, xflag, xdata);
         if (!stub) {
-                STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL);
+                STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL,
+                                     NULL);
                 return 0;
         }
         worker_enqueue (this, stub);
         return 0;
 out:
         STACK_WIND (frame, default_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, loc);
+                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
 }
 

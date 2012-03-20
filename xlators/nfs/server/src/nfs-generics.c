@@ -192,7 +192,7 @@ nfs_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        ret = nfs_inode_open (nfsx, xl, nfu, pathloc, flags, GF_OPEN_NOWB, cbk,
+        ret = nfs_inode_open (nfsx, xl, nfu, pathloc, flags, cbk,
                               local);
         return ret;
 }

@@ -112,6 +112,7 @@ struct syncargs {
         int                 count;
         struct iobref      *iobref;
         char               *buffer;
+        dict_t             *xdata;
 
         /* some more _cbk needs */
         uuid_t              uuid;

@@ -955,6 +955,12 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                 if (local->cont.readdir.dict)
                         dict_unref (local->cont.readdir.dict);
         }
+
+        if (local->xdata_req)
+                dict_unref (local->xdata_req);
+
+        if (local->xdata_rsp)
+                dict_unref (local->xdata_rsp);
 }
 
 
@@ -2214,7 +2220,8 @@ afr_flush_unwind (call_frame_t *frame, xlator_t *this)
 
         if (main_frame) {
                 AFR_STACK_UNWIND (flush, main_frame,
-                                  local->op_ret, local->op_errno);
+                                  local->op_ret, local->op_errno,
+                                  NULL);
         }
 
         return 0;
@@ -2223,7 +2230,7 @@ afr_flush_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_flush_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno)
+                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -2293,7 +2300,7 @@ afr_flush_wind (call_frame_t *frame, xlator_t *this)
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->flush,
-                                           local->fd);
+                                           local->fd, NULL);
 
                         if (!--call_count)
                                 break;
@@ -2320,7 +2327,7 @@ afr_flush_done (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
+afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
         afr_local_t   *local = NULL;
@@ -2373,7 +2380,7 @@ out:
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
 
-                AFR_STACK_UNWIND (flush, frame, -1, op_errno);
+                AFR_STACK_UNWIND (flush, frame, -1, op_errno, NULL);
         }
 
         return 0;
@@ -2459,7 +2466,7 @@ afr_release (xlator_t *this, fd_t *fd)
 int
 afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-               struct iatt *postbuf)
+               struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *local = NULL;
         int call_count = -1;
@@ -2501,7 +2508,8 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (call_count == 0) {
                 AFR_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
                                   &local->cont.fsync.prebuf,
-                                  &local->cont.fsync.postbuf);
+                                  &local->cont.fsync.postbuf,
+                                  NULL);
         }
 
         return 0;
@@ -2510,7 +2518,7 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
-           int32_t datasync)
+           int32_t datasync, dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
@@ -2542,7 +2550,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->fsync,
-                                           fd, datasync);
+                                           fd, datasync, xdata);
                         if (!--call_count)
                                 break;
                 }
@@ -2551,7 +2559,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -2561,7 +2569,8 @@ out:
 
 int32_t
 afr_fsyncdir_cbk (call_frame_t *frame, void *cookie,
-                  xlator_t *this, int32_t op_ret, int32_t op_errno)
+                  xlator_t *this, int32_t op_ret, int32_t op_errno,
+                  dict_t *xdata)
 {
         afr_local_t *local = NULL;
         int call_count = -1;
@@ -2581,7 +2590,7 @@ afr_fsyncdir_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (fsyncdir, frame, local->op_ret,
-                                  local->op_errno);
+                                  local->op_errno, xdata);
 
         return 0;
 }
@@ -2589,7 +2598,7 @@ afr_fsyncdir_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
-              int32_t datasync)
+              int32_t datasync, dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
@@ -2618,7 +2627,7 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         STACK_WIND (frame, afr_fsyncdir_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->fsyncdir,
-                                    fd, datasync);
+                                    fd, datasync, xdata);
                         if (!--call_count)
                                 break;
                 }
@@ -2627,7 +2636,7 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (fsyncdir, frame, -1, op_errno);
+                AFR_STACK_UNWIND (fsyncdir, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2638,7 +2647,7 @@ out:
 int32_t
 afr_xattrop_cbk (call_frame_t *frame, void *cookie,
                  xlator_t *this, int32_t op_ret, int32_t op_errno,
-                 dict_t *xattr)
+                 dict_t *xattr, dict_t *xdata)
 {
         afr_local_t *local = NULL;
         int call_count = -1;
@@ -2661,7 +2670,7 @@ afr_xattrop_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (xattrop, frame, local->op_ret, local->op_errno,
-                                  local->cont.xattrop.xattr);
+                local->cont.xattrop.xattr, xdata);
 
         return 0;
 }
@@ -2669,7 +2678,7 @@ afr_xattrop_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             gf_xattrop_flags_t optype, dict_t *xattr)
+             gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -2698,7 +2707,7 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         STACK_WIND (frame, afr_xattrop_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->xattrop,
-                                    loc, optype, xattr);
+                                    loc, optype, xattr, xdata);
                         if (!--call_count)
                                 break;
                 }
@@ -2707,7 +2716,7 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL);
+                AFR_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2718,7 +2727,7 @@ out:
 int32_t
 afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
-                  dict_t *xattr)
+                  dict_t *xattr, dict_t *xdata)
 {
         afr_local_t *local = NULL;
 
@@ -2743,7 +2752,7 @@ afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (fxattrop, frame, local->op_ret, local->op_errno,
-                                  local->cont.fxattrop.xattr);
+                                  local->cont.fxattrop.xattr, xdata);
 
         return 0;
 }
@@ -2751,7 +2760,7 @@ afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
-              gf_xattrop_flags_t optype, dict_t *xattr)
+              gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -2780,7 +2789,7 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         STACK_WIND (frame, afr_fxattrop_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->fxattrop,
-                                    fd, optype, xattr);
+                                    fd, optype, xattr, xdata);
                         if (!--call_count)
                                 break;
                 }
@@ -2789,7 +2798,7 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL);
+                AFR_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2798,7 +2807,7 @@ out:
 
 int32_t
 afr_inodelk_cbk (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno)
+                 xlator_t *this, int32_t op_ret, int32_t op_errno, dict_t *xdata)
 
 {
         afr_local_t *local = NULL;
@@ -2819,7 +2828,7 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
-                                  local->op_errno);
+                                  local->op_errno, xdata);
 
         return 0;
 }
@@ -2827,7 +2836,8 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_inodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock)
+             const char *volume, loc_t *loc, int32_t cmd,
+             struct gf_flock *flock, dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -2856,7 +2866,7 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, afr_inodelk_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->inodelk,
-                                    volume, loc, cmd, flock);
+                                    volume, loc, cmd, flock, xdata);
 
                         if (!--call_count)
                                 break;
@@ -2866,14 +2876,15 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (inodelk, frame, -1, op_errno);
+                AFR_STACK_UNWIND (inodelk, frame, -1, op_errno, NULL);
         return 0;
 }
 
 
 int32_t
 afr_finodelk_cbk (call_frame_t *frame, void *cookie,
-                  xlator_t *this, int32_t op_ret, int32_t op_errno)
+                  xlator_t *this, int32_t op_ret, int32_t op_errno,
+                  dict_t *xdata)
 
 {
         afr_local_t *local = NULL;
@@ -2894,7 +2905,7 @@ afr_finodelk_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (finodelk, frame, local->op_ret,
-                                  local->op_errno);
+                                  local->op_errno, xdata);
 
         return 0;
 }
@@ -2902,7 +2913,8 @@ afr_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_finodelk (call_frame_t *frame, xlator_t *this,
-              const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock)
+              const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock,
+              dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -2931,7 +2943,7 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, afr_finodelk_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->finodelk,
-                                    volume, fd, cmd, flock);
+                                    volume, fd, cmd, flock, xdata);
 
                         if (!--call_count)
                                 break;
@@ -2941,15 +2953,14 @@ afr_finodelk (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (finodelk, frame, -1, op_errno);
+                AFR_STACK_UNWIND (finodelk, frame, -1, op_errno, NULL);
         return 0;
 }
 
 
 int32_t
-afr_entrylk_cbk (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno)
-
+afr_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t *local = NULL;
         int call_count = -1;
@@ -2969,7 +2980,7 @@ afr_entrylk_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (entrylk, frame, local->op_ret,
-                                  local->op_errno);
+                                  local->op_errno, xdata);
 
         return 0;
 }
@@ -2978,7 +2989,8 @@ afr_entrylk_cbk (call_frame_t *frame, void *cookie,
 int32_t
 afr_entrylk (call_frame_t *frame, xlator_t *this,
              const char *volume, loc_t *loc,
-             const char *basename, entrylk_cmd cmd, entrylk_type type)
+             const char *basename, entrylk_cmd cmd, entrylk_type type,
+             dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -3007,7 +3019,7 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, afr_entrylk_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->entrylk,
-                                    volume, loc, basename, cmd, type);
+                                    volume, loc, basename, cmd, type, xdata);
 
                         if (!--call_count)
                                 break;
@@ -3017,7 +3029,7 @@ afr_entrylk (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (entrylk, frame, -1, op_errno);
+                AFR_STACK_UNWIND (entrylk, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3025,7 +3037,7 @@ out:
 
 int32_t
 afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
-                  xlator_t *this, int32_t op_ret, int32_t op_errno)
+                  xlator_t *this, int32_t op_ret, int32_t op_errno, dict_t *xdata)
 
 {
         afr_local_t *local = NULL;
@@ -3046,7 +3058,7 @@ afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (fentrylk, frame, local->op_ret,
-                                  local->op_errno);
+                                  local->op_errno, xdata);
 
         return 0;
 }
@@ -3055,7 +3067,8 @@ afr_fentrylk_cbk (call_frame_t *frame, void *cookie,
 int32_t
 afr_fentrylk (call_frame_t *frame, xlator_t *this,
               const char *volume, fd_t *fd,
-              const char *basename, entrylk_cmd cmd, entrylk_type type)
+              const char *basename, entrylk_cmd cmd,
+              entrylk_type type, dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -3084,7 +3097,7 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, afr_fentrylk_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->fentrylk,
-                                    volume, fd, basename, cmd, type);
+                                    volume, fd, basename, cmd, type, xdata);
 
                         if (!--call_count)
                                 break;
@@ -3094,14 +3107,14 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (fentrylk, frame, -1, op_errno);
+                AFR_STACK_UNWIND (fentrylk, frame, -1, op_errno, NULL);
         return 0;
 }
 
 int32_t
 afr_statfs_cbk (call_frame_t *frame, void *cookie,
                 xlator_t *this, int32_t op_ret, int32_t op_errno,
-                struct statvfs *statvfs)
+                struct statvfs *statvfs, dict_t *xdata)
 {
         afr_local_t *local = NULL;
         int call_count = 0;
@@ -3132,7 +3145,7 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (statfs, frame, local->op_ret, local->op_errno,
-                                  &local->cont.statfs.buf);
+                                  &local->cont.statfs.buf, xdata);
 
         return 0;
 }
@@ -3140,7 +3153,7 @@ afr_statfs_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_statfs (call_frame_t *frame, xlator_t *this,
-            loc_t *loc)
+            loc_t *loc, dict_t *xdata)
 {
         afr_private_t *  priv        = NULL;
         int              child_count = 0;
@@ -3171,7 +3184,7 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, afr_statfs_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->statfs,
-                                    loc);
+                                    loc, xdata);
                         if (!--call_count)
                                 break;
                 }
@@ -3180,14 +3193,15 @@ afr_statfs (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (statfs, frame, -1, op_errno, NULL);
+                AFR_STACK_UNWIND (statfs, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
 
 int32_t
 afr_lk_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
+                   int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
+                   dict_t *xdata)
 {
         afr_local_t * local = NULL;
         int call_count = -1;
@@ -3197,7 +3211,7 @@ afr_lk_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (call_count == 0)
                 AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-                                  lock);
+                                  lock, xdata);
 
         return 0;
 }
@@ -3219,7 +3233,7 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 
         if (call_count == 0) {
                 AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-                                  &local->cont.lk.ret_flock);
+                                  &local->cont.lk.ret_flock, NULL);
                 return 0;
         }
 
@@ -3233,7 +3247,7 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
                                     priv->children[i],
                                     priv->children[i]->fops->lk,
                                     local->fd, F_SETLK,
-                                    &local->cont.lk.user_flock);
+                                    &local->cont.lk.user_flock, NULL);
 
                         if (!--call_count)
                                 break;
@@ -3246,7 +3260,7 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 
 int32_t
 afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-            int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
+            int32_t op_ret, int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
@@ -3281,12 +3295,12 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    priv->children[child_index],
                                    priv->children[child_index]->fops->lk,
                                    local->fd, local->cont.lk.cmd,
-                                   &local->cont.lk.user_flock);
+                                   &local->cont.lk.user_flock, xdata);
         } else if (local->op_ret == -1) {
                 /* all nodes have gone down */
 
                 AFR_STACK_UNWIND (lk, frame, -1, ENOTCONN,
-                                  &local->cont.lk.ret_flock);
+                                  &local->cont.lk.ret_flock, NULL);
         } else {
                 /* locking has succeeded on all nodes that are up */
 
@@ -3304,7 +3318,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 */
                 AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-                                  &local->cont.lk.ret_flock);
+                                  &local->cont.lk.ret_flock, NULL);
         }
 
         return 0;
@@ -3313,7 +3327,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_lk (call_frame_t *frame, xlator_t *this,
-        fd_t *fd, int32_t cmd, struct gf_flock *flock)
+        fd_t *fd, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
@@ -3351,12 +3365,12 @@ afr_lk (call_frame_t *frame, xlator_t *this,
         STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) 0,
                            priv->children[i],
                            priv->children[i]->fops->lk,
-                           fd, cmd, flock);
+                           fd, cmd, flock, xdata);
 
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (lk, frame, -1, op_errno, NULL);
+                AFR_STACK_UNWIND (lk, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -3911,7 +3925,7 @@ afr_set_low_priority (call_frame_t *frame)
 
 int
 afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
-                      int flags, int32_t wbflags)
+                      int flags)
 {
         int             ret = 0;
         uint64_t        ctx = 0;
@@ -3936,7 +3950,6 @@ afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
         fd_ctx->opened_on[child] = AFR_FD_OPENED;
         if (!IA_ISDIR (fd->inode->ia_type)) {
                 fd_ctx->flags            = flags;
-                fd_ctx->wbflags          = wbflags;
         }
         ret = 0;
 out:

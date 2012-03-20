@@ -137,11 +137,8 @@ struct gfs3_mknod_req {
 	char pargfid[16];
 	u_quad_t dev;
 	u_int mode;
+	u_int umask;
 	char *bname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -165,11 +162,8 @@ typedef struct gfs3_mknod_rsp gfs3_mknod_rsp;
 struct gfs3_mkdir_req {
 	char pargfid[16];
 	u_int mode;
+	u_int umask;
 	char *bname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -193,6 +187,7 @@ typedef struct gfs3_mkdir_rsp gfs3_mkdir_rsp;
 struct gfs3_unlink_req {
 	char pargfid[16];
 	char *bname;
+	u_int xflags;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -214,7 +209,7 @@ typedef struct gfs3_unlink_rsp gfs3_unlink_rsp;
 
 struct gfs3_rmdir_req {
 	char pargfid[16];
-	int flags;
+	int xflags;
 	char *bname;
 	struct {
 		u_int xdata_len;
@@ -238,11 +233,8 @@ typedef struct gfs3_rmdir_rsp gfs3_rmdir_rsp;
 struct gfs3_symlink_req {
 	char pargfid[16];
 	char *bname;
+	u_int umask;
 	char *linkname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -339,7 +331,6 @@ typedef struct gfs3_truncate_rsp gfs3_truncate_rsp;
 struct gfs3_open_req {
 	char gfid[16];
 	u_int flags;
-	u_int wbflags;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -389,10 +380,6 @@ struct gfs3_lookup_req {
 	u_int flags;
 	char *bname;
 	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-	struct {
 		u_int xdata_len;
 		char *xdata_val;
 	} xdata;
@@ -404,10 +391,6 @@ struct gfs3_lookup_rsp {
 	int op_errno;
 	struct gf_iatt stat;
 	struct gf_iatt postparent;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -789,11 +772,8 @@ struct gfs3_create_req {
 	char pargfid[16];
 	u_int flags;
 	u_int mode;
+	u_int umask;
 	char *bname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;

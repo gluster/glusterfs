@@ -448,7 +448,7 @@ typedef int (*nlm4_resume_fn_t) (void *cs);
 
 int32_t
 nlm4_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, fd_t *fd)
+                    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         nfs3_call_state_t *cs = frame->local;
 
@@ -574,9 +574,9 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         frame->root->uid = 0;
         frame->root->gid = 0;
         frame->local = cs;
-        STACK_WIND_COOKIE(frame, nlm4_file_open_cbk, cs->nfsx, cs->nfsx,
+        STACK_WIND_COOKIE (frame, nlm4_file_open_cbk, cs->nfsx, cs->nfsx,
                           cs->nfsx->fops->open, &cs->resolvedloc, O_RDWR,
-                          cs->fd, GF_OPEN_NOWB);
+                          cs->fd, NULL);
         ret = 0;
 err:
         return ret;
@@ -677,7 +677,8 @@ nlm4_test_reply (nfs3_call_state_t *cs, nlm4_stats stat, struct gf_flock *flock)
 
 int
 nlm4svc_test_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct gf_flock *flock)
+                  int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                  dict_t *xdata)
 {
         nlm4_stats                      stat = nlm4_denied;
         nfs3_call_state_t              *cs = NULL;
@@ -1210,7 +1211,8 @@ ret:
 
 int
 nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct gf_flock *flock)
+                  int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                  dict_t *xdata)
 {
         nlm4_stats                      stat = nlm4_denied;
         nfs3_call_state_t              *cs = NULL;
@@ -1378,7 +1380,8 @@ rpcerr:
 
 int
 nlm4svc_cancel_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct gf_flock *flock)
+                    int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                    dict_t *xdata)
 {
         nlm4_stats                      stat = nlm4_denied;
         nfs3_call_state_t              *cs = NULL;
@@ -1434,7 +1437,8 @@ nlm4err:
 
 int
 nlm4svc_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct gf_flock *flock)
+                    int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                    dict_t *xdata)
 {
         nlm4_stats                      stat = nlm4_denied;
         nfs3_call_state_t              *cs = NULL;

@@ -44,7 +44,8 @@
 
 
 typedef int32_t (*xlator_specf_unwind_t) (call_frame_t *frame,
-                                         int op_ret, int op_errno, dict_t *dict);
+                                          int op_ret, int op_errno,
+                                          dict_t *dict, dict_t *xdata);
 
 
 struct volume_mark {
@@ -90,11 +91,11 @@ marker_has_volinfo (xl_marker_local_t *marker)
 
 int32_t
 cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, dict_t *dict);
+                         int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
 
 int32_t
 cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, dict_t *dict);
+                        int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
 
 int32_t
 cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,

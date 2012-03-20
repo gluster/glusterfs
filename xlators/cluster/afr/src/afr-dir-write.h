@@ -23,38 +23,34 @@
 int32_t
 afr_create (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int32_t flags, mode_t mode,
-            fd_t *fd, dict_t *params);
+            mode_t umask, fd_t *fd, dict_t *xdata);
 
 int32_t
 afr_mknod (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode, dev_t dev, dict_t *params);
+	   loc_t *loc, mode_t mode, dev_t dev, mode_t umask, dict_t *xdata);
 
 int32_t
 afr_mkdir (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode, dict_t *params);
+	   loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata);
 
 int32_t
 afr_unlink (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc);
+	    loc_t *loc, int xflag, dict_t *xdata);
 
 int32_t
 afr_rmdir (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, int flags);
+	   loc_t *loc, int flags, dict_t *xdata);
 
 int32_t
 afr_link (call_frame_t *frame, xlator_t *this,
-	  loc_t *oldloc, loc_t *newloc);
+	  loc_t *oldloc, loc_t *newloc, dict_t *xdata);
 
 int32_t
 afr_rename (call_frame_t *frame, xlator_t *this,
-	    loc_t *oldloc, loc_t *newloc);
+	    loc_t *oldloc, loc_t *newloc, dict_t *xdata);
 
 int
 afr_symlink (call_frame_t *frame, xlator_t *this,
-	     const char *linkpath, loc_t *oldloc, dict_t *params);
-
-int32_t
-afr_setdents (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd, int32_t flags, dir_entry_t *entries, int32_t count);
+	     const char *linkpath, loc_t *oldloc, mode_t umask, dict_t *params);
 
 #endif /* __DIR_WRITE_H__ */
