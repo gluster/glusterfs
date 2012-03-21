@@ -437,32 +437,36 @@ pl_inode_get (xlator_t *this, inode_t *inode)
         pl_inode_t *pl_inode = NULL;
         int         ret = 0;
 
-        ret = inode_ctx_get (inode, this,&tmp_pl_inode);
-        if (ret == 0) {
-                pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
-                goto out;
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &tmp_pl_inode);
+                if (ret == 0) {
+                        pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
+                        goto unlock;
+                }
+                pl_inode = GF_CALLOC (1, sizeof (*pl_inode),
+                                      gf_locks_mt_pl_inode_t);
+                if (!pl_inode) {
+                        goto unlock;
+                }
+
+                gf_log (this->name, GF_LOG_TRACE,
+                        "Allocating new pl inode");
+
+                pthread_mutex_init (&pl_inode->mutex, NULL);
+
+                INIT_LIST_HEAD (&pl_inode->dom_list);
+                INIT_LIST_HEAD (&pl_inode->ext_list);
+                INIT_LIST_HEAD (&pl_inode->rw_list);
+                INIT_LIST_HEAD (&pl_inode->reservelk_list);
+                INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
+                INIT_LIST_HEAD (&pl_inode->blocked_calls);
+
+                __inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
         }
-        pl_inode = GF_CALLOC (1, sizeof (*pl_inode),
-                              gf_locks_mt_pl_inode_t);
-        if (!pl_inode) {
-                goto out;
-        }
+unlock:
+        UNLOCK (&inode->lock);
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "Allocating new pl inode");
-
-        pthread_mutex_init (&pl_inode->mutex, NULL);
-
-        INIT_LIST_HEAD (&pl_inode->dom_list);
-        INIT_LIST_HEAD (&pl_inode->ext_list);
-        INIT_LIST_HEAD (&pl_inode->rw_list);
-        INIT_LIST_HEAD (&pl_inode->reservelk_list);
-        INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
-        INIT_LIST_HEAD (&pl_inode->blocked_calls);
-
-        inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
-
-out:
         return pl_inode;
 }
 
