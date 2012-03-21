@@ -482,7 +482,7 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
                 goto out;
         }
-        gf_log ("glusterd", GF_LOG_INFO, "Received heal vol req"
+        gf_log ("glusterd", GF_LOG_INFO, "Received heal vol req "
                 "for volume %s", volname);
 
         ret = glusterd_add_bricks_hname_path_to_dict (dict);
