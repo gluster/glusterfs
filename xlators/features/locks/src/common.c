@@ -46,7 +46,7 @@ static int
 pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
                         posix_lock_t *old_lock);
 static pl_dom_list_t *
-allocate_domain (const char *volume)
+__allocate_domain (const char *volume)
 {
         pl_dom_list_t *dom = NULL;
 
@@ -88,17 +88,19 @@ get_domain (pl_inode_t *pl_inode, const char *volume)
         GF_VALIDATE_OR_GOTO (POSIX_LOCKS, pl_inode, out);
         GF_VALIDATE_OR_GOTO (POSIX_LOCKS, volume, out);
 
-        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
-                if (strcmp (dom->domain, volume) == 0)
-                        goto found;
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
+                        if (strcmp (dom->domain, volume) == 0)
+                                goto unlock;
+                }
 
-
+                dom = __allocate_domain (volume);
+                if (dom)
+                        list_add (&dom->inode_list, &pl_inode->dom_list);
         }
-
-        dom = allocate_domain (volume);
-        if (dom)
-                list_add (&dom->inode_list, &pl_inode->dom_list);
-found:
+unlock:
+        pthread_mutex_unlock (&pl_inode->mutex);
         if (dom) {
                 gf_log (POSIX_LOCKS, GF_LOG_TRACE, "Domain %s found", volume);
         } else {
