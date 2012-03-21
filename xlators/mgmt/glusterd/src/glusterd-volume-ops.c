@@ -1671,6 +1671,9 @@ glusterd_clearlocks_mount (glusterd_volinfo_t *volinfo, char **xl_opts,
         glusterd_conf_t *priv                           = NULL;
         runner_t        runner                          = {0,};
         char            client_volfpath[PATH_MAX]       = {0,};
+        char            self_heal_opts[3][1024]      = {"*replicate*.data-self-heal=off",
+                                                        "*replicate*.metadata-self-heal=off",
+                                                        "*replicate*.entry-self-heal=off"};
 
         priv = THIS->private;
 
@@ -1688,6 +1691,11 @@ glusterd_clearlocks_mount (glusterd_volinfo_t *volinfo, char **xl_opts,
         for (i = 0; i < volinfo->brick_count && xl_opts[i]; i++) {
                 runner_add_arg (&runner, "--xlator-option");
                 runner_argprintf (&runner, "%s", xl_opts[i]);
+        }
+
+        for (i = 0; i < 3; i++) {
+                runner_add_args (&runner, "--xlator-option",
+                                 self_heal_opts[i], NULL);
         }
 
         runner_argprintf (&runner, "%s", mntpt);
