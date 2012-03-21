@@ -656,6 +656,8 @@ afr_getxattr_clrlk_cbk (call_frame_t *frame, void *cookie,
         LOCK (&frame->lock);
         {
                 callcnt = --local->call_count;
+                if (op_ret == -1)
+                        local->child_errno[cky] = op_errno;
 
                 if (!local->dict)
                         local->dict = dict_new ();
@@ -664,14 +666,12 @@ afr_getxattr_clrlk_cbk (call_frame_t *frame, void *cookie,
                                             &tmp_report);
                         if (ret)
                                 goto unlock;
-                        ret = dict_set_str (local->dict,
-                                            children[cky]->name,
-                                            tmp_report);
+                        ret = dict_set_dynstr (local->dict,
+                                               children[cky]->name,
+                                               gf_strdup (tmp_report));
                         if (ret)
                                 goto unlock;
                 }
-                if (op_ret == -1)
-                        local->child_errno[cky] = op_errno;
         }
 unlock:
         UNLOCK (&frame->lock);
