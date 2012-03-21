@@ -595,6 +595,10 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
         }
 
         dom = get_domain (pinode, volume);
+        if (!dom) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
 
         if (frame->root->lk_owner.len == 0) {
                 /*
