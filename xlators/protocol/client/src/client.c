@@ -292,7 +292,6 @@ client_releasedir (xlator_t *this, fd_t *fd)
         clnt_conf_t *conf = NULL;
         rpc_clnt_procedure_t *proc = NULL;
         clnt_args_t  args = {0,};
-        call_frame_t *frame = NULL;
 
         conf = this->private;
         if (!conf || !conf->fops)
@@ -308,11 +307,7 @@ client_releasedir (xlator_t *this, fd_t *fd)
                 goto out;
         }
         if (proc->fn) {
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame) {
-                        goto out;
-                }
-                ret = proc->fn (frame, this, &args);
+                ret = proc->fn (NULL, this, &args);
         }
 out:
         if (ret)
@@ -328,7 +323,6 @@ client_release (xlator_t *this, fd_t *fd)
         clnt_conf_t *conf = NULL;
         rpc_clnt_procedure_t *proc = NULL;
         clnt_args_t  args = {0,};
-        call_frame_t *frame = NULL;
 
         conf = this->private;
         if (!conf || !conf->fops)
@@ -343,11 +337,7 @@ client_release (xlator_t *this, fd_t *fd)
                 goto out;
         }
         if (proc->fn) {
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame) {
-                        goto out;
-                }
-                ret = proc->fn (frame, this, &args);
+                ret = proc->fn (NULL, this, &args);
         }
 out:
         if (ret)

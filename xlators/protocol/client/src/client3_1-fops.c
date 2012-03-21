@@ -2337,7 +2337,7 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
         clnt_args_t         *args        = NULL;
         int64_t              remote_fd   = -1;
 
-        if (!frame || !this || !data)
+        if (!this || !data)
                 goto out;
 
         args = data;
@@ -2379,7 +2379,7 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
         clnt_args_t      *args          = NULL;
         lk_heal_state_t   lk_heal_state = GF_LK_HEAL_DONE;
 
-        if (!frame || !this || !data)
+        if (!this || !data)
                 goto out;
 
         args = data;
