@@ -289,7 +289,7 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_INFO, "Received start vol req"
                 "for volume %s", volname);
 
-        ret = glusterd_op_begin_synctask (req, GD_OP_START_VOLUME, dict);
+        ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
 
         gf_cmd_log ("volume start","on volname: %s %s", volname,
                     ((ret == 0) ? "SUCCESS": "FAILED"));

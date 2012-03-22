@@ -454,10 +454,10 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 
         if ((cmd == GF_DEFRAG_CMD_STATUS) ||
               (cmd == GF_DEFRAG_CMD_STOP)) {
-                ret = glusterd_op_begin_synctask (req, GD_OP_DEFRAG_BRICK_VOLUME,
+                ret = glusterd_op_begin (req, GD_OP_DEFRAG_BRICK_VOLUME,
                                                   dict);
         } else
-                ret = glusterd_op_begin_synctask (req, GD_OP_REBALANCE, dict);
+                ret = glusterd_op_begin (req, GD_OP_REBALANCE, dict);
 
 out:
 
