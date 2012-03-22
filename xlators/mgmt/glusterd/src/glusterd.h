@@ -632,11 +632,7 @@ int glusterd_op_statedump_volume_args_get (dict_t *dict, char **volname,
                                            char **options, int *option_cnt);
 
 /* Synctask part */
-int gd_sync_task_begin (void *data);
-int gd_sync_task_completion (int op_ret, call_frame_t *sync_frame, void *data);
-
 int32_t glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
                                     void *dict);
-
 
 #endif

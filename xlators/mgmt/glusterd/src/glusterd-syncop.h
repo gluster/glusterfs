@@ -23,6 +23,8 @@
 #include "syncop.h"
 
 
+#define GD_SYNC_OPCODE_KEY "sync-mgmt-operation"
+
 /* gd_syncop_* */
 #define GD_SYNCOP(rpc, stb, cbk, req, prog, procnum, xdrproc) do {      \
                 int ret = 0;                                            \
