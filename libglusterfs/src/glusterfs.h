@@ -378,7 +378,6 @@ struct _glusterfs_ctx {
 
         int                 mem_accounting; /* if value is other than 0, it
                                                will be set */
-        int                 daemon_pipe[2];
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
