@@ -102,7 +102,7 @@ glusterd_handle_quota (rpcsvc_request_t *req)
                 break;
         }
         gf_cmd_log ("volume quota", " %s command on %s", operation, volname);
-        ret = glusterd_op_begin_synctask (req, GD_OP_QUOTA, dict);
+        ret = glusterd_op_begin (req, GD_OP_QUOTA, dict);
         gf_cmd_log ("volume quota", " %s command on %s %s", operation,volname,
                     (ret != 0)? "FAILED" : "SUCCEEDED");
 
