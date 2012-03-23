@@ -156,6 +156,8 @@ typedef struct _afr_private {
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
         afr_self_heald_t       shd;
+        gf_boolean_t           choose_local;
+        gf_boolean_t           did_discovery;
 } afr_private_t;
 
 typedef struct {
@@ -697,6 +699,7 @@ typedef struct _afr_local {
 
         mode_t          umask;
         int             xflag;
+        gf_boolean_t    do_discovery;
 } afr_local_t;
 
 typedef enum {

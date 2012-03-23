@@ -671,6 +671,62 @@ out:
         return;
 }
 
+static int
+get_pathinfo_host (char *pathinfo, char *hostname, size_t size)
+{
+        char    *start = NULL;
+        char    *end = NULL;
+        int     ret  = -1;
+        int     i    = 0;
+
+        if (!pathinfo)
+                goto out;
+
+        start = strchr (pathinfo, ':');
+        if (!start)
+                goto out;
+        end = strrchr (pathinfo, ':');
+        if (start == end)
+                goto out;
+
+        memset (hostname, 0, size);
+        i = 0;
+        while (++start != end)
+                hostname[i++] = *start;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+afr_local_pathinfo (char *pathinfo, gf_boolean_t *local)
+{
+        int             ret   = 0;
+        char            pathinfohost[1024] = {0};
+        char            localhost[1024] = {0};
+        xlator_t        *this = THIS;
+
+        *local = _gf_false;
+        ret = get_pathinfo_host (pathinfo, pathinfohost, sizeof (pathinfohost));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid pathinfo: %s",
+                        pathinfo);
+                goto out;
+        }
+
+        ret = gethostname (localhost, sizeof (localhost));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "gethostname() failed, "
+                        "reason: %s", strerror (errno));
+                goto out;
+        }
+
+        if (!strcmp (localhost, pathinfohost))
+                *local = _gf_true;
+out:
+        return ret;
+}
+
 int
 afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                            loc_t *dirloc)

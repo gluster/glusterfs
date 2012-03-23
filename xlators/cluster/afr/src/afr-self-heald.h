@@ -42,4 +42,11 @@ afr_proactive_self_heal (void *data);
 
 int
 afr_xl_op (xlator_t *this, dict_t *input, dict_t *output);
+
+/*
+ * In addition to its self-heal use, this is used to find a local default
+ * read_child.
+ */
+int
+afr_local_pathinfo (char *pathinfo, gf_boolean_t *local);
 #endif /* __AFR_SELF_HEALD_H__ */

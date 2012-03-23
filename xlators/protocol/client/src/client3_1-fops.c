@@ -4688,7 +4688,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         }
         args = data;
 
-        if (!(args->loc && args->loc->inode)) {
+        if (!args->loc) {
                 op_errno = EINVAL;
                 goto unwind;
         }
@@ -4729,7 +4729,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         rsp_iobuf = NULL;
         rsp_iobref = NULL;
 
-        if (!uuid_is_null (args->loc->inode->gfid))
+        if (args->loc->inode && !uuid_is_null (args->loc->inode->gfid))
                 memcpy (req.gfid,  args->loc->inode->gfid, 16);
         else
                 memcpy (req.gfid, args->loc->gfid, 16);

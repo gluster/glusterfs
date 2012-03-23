@@ -170,6 +170,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
                           int32, out);
 
+        /* Reset this so we re-discover in case the topology changed.  */
+        priv->did_discovery = _gf_false;
+
         ret = 0;
 out:
         return ret;
@@ -227,7 +230,6 @@ init (xlator_t *this)
 
         priv->child_count = child_count;
 
-
         priv->read_child = -1;
 
         GF_OPTION_INIT ("read-subvolume", read_subvol, xlator, out);
@@ -239,6 +241,7 @@ init (xlator_t *this)
                         goto out;
                 }
         }
+        GF_OPTION_INIT ("choose-local", priv->choose_local, bool, out);
 
         GF_OPTION_INIT ("read-hash-mode", priv->hash_mode, uint32, out);
 
@@ -507,6 +510,12 @@ struct volume_options options[] = {
           .description = "0 = first responder, "
                          "1 = hash by GFID (all clients use same subvolume), "
                          "2 = hash by GFID and client PID",
+        },
+        { .key  = {"choose-local" },
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "true",
+          .description = "Choose a local subvolume to read from if "
+                         "read-subvolume is not explicitly set.",
         },
         { .key  = {"favorite-child"},
           .type = GF_OPTION_TYPE_XLATOR
