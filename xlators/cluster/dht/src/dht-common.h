@@ -60,6 +60,7 @@ typedef struct dht_layout  dht_layout_t;
 
 typedef enum {
         DHT_HASH_TYPE_DM,
+        DHT_HASH_TYPE_DM_USER,
 } dht_hashfn_type_t;
 
 /* rebalance related */
