@@ -102,8 +102,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/Makefile
 		xlators/features/locks/Makefile
 		xlators/features/locks/src/Makefile
-		xlators/features/trash/Makefile
-		xlators/features/trash/src/Makefile
 		xlators/features/quota/Makefile
 		xlators/features/quota/src/Makefile
                 xlators/features/marker/Makefile
