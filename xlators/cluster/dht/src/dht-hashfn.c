@@ -28,6 +28,7 @@ dht_hash_compute_internal (int type, const char *name, uint32_t *hash_p)
 
         switch (type) {
         case DHT_HASH_TYPE_DM:
+        case DHT_HASH_TYPE_DM_USER:
                 hash = gf_dm_hashfn (name, strlen (name));
                 break;
         default:

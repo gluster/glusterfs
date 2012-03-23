@@ -308,9 +308,13 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
                 return -1;
         }
 
-	switch (disk_layout[1]) {
+        type = ntoh32 (disk_layout[1]);
+	switch (type) {
+        case DHT_HASH_TYPE_DM_USER:
+                gf_log (this->name, GF_LOG_DEBUG, "found user-set layout");
+                layout->type = type;
+                /* Fall through. */
 	case DHT_HASH_TYPE_DM:
-		type = ntoh32 (disk_layout[1]);
 		break;
         default:
 		gf_log (this->name, GF_LOG_CRITICAL,

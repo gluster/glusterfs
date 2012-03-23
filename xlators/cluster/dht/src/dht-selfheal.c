@@ -576,6 +576,12 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         priv  = this->private;
         local = frame->local;
 
+        if (layout->type == DHT_HASH_TYPE_DM_USER) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "leaving %s alone",
+                        loc->path);
+                goto done;
+        }
+
         count = cnt = dht_get_layout_count (this, layout, 0);
 
         chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
@@ -700,7 +706,7 @@ done:
         if (fix_array)
                 GF_FREE (fix_array);
 
-        return new_layout;
+        return local->layout;
 }
 
 
