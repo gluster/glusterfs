@@ -141,7 +141,7 @@ client_local_wipe (clnt_local_t *local)
                         iobref_unref (local->iobref);
                 }
 
-                 mem_put (local);
+                mem_put (local);
         }
 
         return 0;
