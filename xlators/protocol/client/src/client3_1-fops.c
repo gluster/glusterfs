@@ -117,11 +117,11 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         if (start_ping)
                 client_start_ping ((void *) this);
 
-        if (new_iobref != NULL) {
+        if (new_iobref)
                 iobref_unref (new_iobref);
-        }
 
-        iobuf_unref (iobuf);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
         return ret;
 
@@ -129,11 +129,11 @@ unwind:
         rpcreq.rpc_status = -1;
         cbkfn (&rpcreq, NULL, 0, frame);
 
-        if (new_iobref != NULL) {
+        if (new_iobref)
                 iobref_unref (new_iobref);
-        }
 
-        iobuf_unref (iobuf);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
         return ret;
 }
@@ -2941,8 +2941,8 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                         rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
                         count = 1;
-                        rsp_iobuf = NULL;
                         local->iobref = rsp_iobref;
+                        rsp_iobuf = NULL;
                         rsp_iobref = NULL;
                 }
 
@@ -2967,13 +2967,14 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val) {
+        if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
-        }
 
-        if (rsp_iobref != NULL) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
+
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
 
         return 0;
 
@@ -2984,13 +2985,11 @@ unwind:
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
-        if (rsp_iobref != NULL) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
 
-        if (rsp_iobuf != NULL) {
+        if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-        }
 
         return 0;
 }
@@ -3900,6 +3899,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
 
         iobref_add (rsp_iobref, rsp_iobuf);
         iobuf_unref (rsp_iobuf);
+
         rsp_vec.iov_base = iobuf_ptr (rsp_iobuf);
         rsp_vec.iov_len = iobuf_pagesize (rsp_iobuf);
 
@@ -3939,15 +3939,19 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
+
+        if (rsp_iobref)
+                iobref_unref (rsp_iobref);
+
         return 0;
 unwind:
-        if (rsp_iobuf) {
+        if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-        }
 
-        if (rsp_iobref) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
 
         CLIENT_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL, NULL);
         if (req.xdata.xdata_val)
@@ -4516,12 +4520,13 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         iobref_add (rsp_iobref, rsp_iobuf);
         iobuf_unref (rsp_iobuf);
+
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
         rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);;
         count = 1;
-        rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
+        rsp_iobuf = NULL;
         rsp_iobref = NULL;
 
         req.namelen = 1; /* Use it as a flag */
@@ -4549,17 +4554,22 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
+
+        if (rsp_iobref)
+                iobref_unref (rsp_iobref);
+
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (fgetxattr, frame, -1, op_errno, NULL, NULL);
 
-        if (rsp_iobuf) {
+        if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-        }
 
-        if (rsp_iobref) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
+
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
@@ -4619,12 +4629,13 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         iobref_add (rsp_iobref, rsp_iobuf);
         iobuf_unref (rsp_iobuf);
+
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
         rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
         count = 1;
-        rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
+        rsp_iobuf = NULL;
         rsp_iobref = NULL;
 
         if (!uuid_is_null (args->loc->inode->gfid))
@@ -4680,15 +4691,19 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
+
+        if (rsp_iobref)
+                iobref_unref (rsp_iobref);
+
         return 0;
 unwind:
-        if (rsp_iobuf) {
+        if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-        }
 
-        if (rsp_iobref) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
 
         CLIENT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, NULL);
 
@@ -4746,12 +4761,13 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
 
         iobref_add (rsp_iobref, rsp_iobuf);
         iobuf_unref (rsp_iobuf);
+
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
         rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
         count = 1;
-        rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
+        rsp_iobuf = NULL;
         rsp_iobref = NULL;
 
         if (!uuid_is_null (args->loc->inode->gfid))
@@ -4792,6 +4808,12 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
+
+        if (rsp_iobref)
+                iobref_unref (rsp_iobref);
+
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL, NULL);
@@ -4800,13 +4822,12 @@ unwind:
                 GF_FREE (req.dict.dict_val);
         }
 
-        if (rsp_iobuf) {
+        if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-        }
 
-        if (rsp_iobref) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
+
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
@@ -4870,8 +4891,8 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
         rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
         count = 1;
-        rsp_iobuf = NULL;
         local->iobref = rsp_iobref;
+        rsp_iobuf = NULL;
         rsp_iobref = NULL;
 
         if (args->xattr) {
@@ -4899,6 +4920,12 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
 
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
+
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
+
+        if (rsp_iobref)
+                iobref_unref (rsp_iobref);
 
         return 0;
 unwind:
@@ -5488,12 +5515,14 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
 
                 iobref_add (rsp_iobref, rsp_iobuf);
                 iobuf_unref (rsp_iobuf);
+
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                 rsphdr->iov_len  = iobuf_pagesize (rsp_iobuf);
                 count = 1;
-                rsp_iobuf = NULL;
                 local->iobref = rsp_iobref;
+                rsp_iobuf = NULL;
+                rsp_iobref = NULL;
         }
 
         req.size = args->size;
@@ -5512,7 +5541,6 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
                                      rsphdr, count,
                                      NULL, 0, rsp_iobref,
                                      (xdrproc_t)xdr_gfs3_readdir_req);
-        rsp_iobref = NULL;
 
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
@@ -5521,16 +5549,20 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
 
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
+
+        if (rsp_iobref)
+                iobref_unref (rsp_iobref);
+
         return 0;
 
 unwind:
-        if (rsp_iobref != NULL) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
 
-        if (rsp_iobuf != NULL) {
+        if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-        }
 
         CLIENT_STACK_UNWIND (readdir, frame, -1, op_errno, NULL, NULL);
         if (req.xdata.xdata_val)
@@ -5595,12 +5627,13 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
 
                 iobref_add (rsp_iobref, rsp_iobuf);
                 iobuf_unref (rsp_iobuf);
+
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                 rsphdr->iov_len  = iobuf_pagesize (rsp_iobuf);
                 count = 1;
-                rsp_iobuf = NULL;
                 local->iobref = rsp_iobref;
+                rsp_iobuf = NULL;
                 rsp_iobref = NULL;
         }
 
@@ -5628,15 +5661,19 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);
 
+        if (rsp_iobuf)
+                iobuf_unref (rsp_iobuf);
+
+        if (rsp_iobref)
+                iobref_unref (rsp_iobref);
+
         return 0;
 unwind:
-        if (rsp_iobref) {
+        if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-        }
 
-        if (rsp_iobuf) {
+        if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-        }
 
         if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);

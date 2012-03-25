@@ -258,7 +258,7 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
 
         ret = 0;
 
-        if (new_iobref != NULL)
+        if (new_iobref)
                 iobref_unref (new_iobref);
 
         if (iobuf)
@@ -271,11 +271,11 @@ out:
 
         cbkfn (&rpcreq, NULL, 0, frame);
 
-        if (new_iobref != NULL) {
+        if (new_iobref)
                 iobref_unref (new_iobref);
-        }
 
-        iobuf_unref (iobuf);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
         return 0;
 }

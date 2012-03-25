@@ -432,8 +432,6 @@ nlm4svc_submit_reply (rpcsvc_request_t *req, void *arg, nlm4_serializer sfunc)
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
-        iobuf_unref (iob);
-        iobref_unref (iobref);
         if (ret == -1) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "Reply submission failed");
                 goto ret;
@@ -441,6 +439,11 @@ nlm4svc_submit_reply (rpcsvc_request_t *req, void *arg, nlm4_serializer sfunc)
 
         ret = 0;
 ret:
+        if (iob)
+                iobuf_unref (iob);
+        if (iobref)
+                iobref_unref (iobref);
+
         return ret;
 }
 
@@ -1040,6 +1043,11 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
                 goto ret;
         }
 ret:
+        if (iobref)
+                iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
+
         rpc_clnt_unref (rpc_clnt);
         nfs3_call_state_wipe (cs);
         return;

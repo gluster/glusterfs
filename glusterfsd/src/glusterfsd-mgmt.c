@@ -101,7 +101,6 @@ glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
         outmsg->iov_len = retlen;
 ret:
         if (retlen == -1) {
-                iobuf_unref (iob);
                 iob = NULL;
         }
 
@@ -122,7 +121,6 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
                 GF_ASSERT (req);
                 goto out;
         }
-
 
         if (!iobref) {
                 iobref = iobref_new ();
@@ -149,7 +147,6 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
          * we can safely unref the iob in the hope that RPC layer must have
          * ref'ed the iob on receiving into the txlist.
          */
-        iobuf_unref (iob);
         if (ret == -1) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Reply submission failed");
                 goto out;
@@ -157,10 +154,11 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
 
         ret = 0;
 out:
+        if (iob)
+                iobuf_unref (iob);
 
-        if (new_iobref) {
+        if (new_iobref && iobref)
                 iobref_unref (iobref);
-        }
 
         return ret;
 }
