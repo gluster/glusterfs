@@ -113,6 +113,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/marker/src/Makefile
                 xlators/features/read-only/Makefile
                 xlators/features/read-only/src/Makefile
+                xlators/features/compress/Makefile
+                xlators/features/compress/src/Makefile
                 xlators/features/mac-compat/Makefile
                 xlators/features/mac-compat/src/Makefile
                 xlators/features/quiesce/Makefile
@@ -483,6 +485,17 @@ fi
 AC_SUBST(SYNCDAEMON_COMPILE)
 AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
+
+# CDC xlator - check if libz is present if so enable HAVE_LIB_Z
+echo -n "checking if libz is present... "
+
+PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],
+                  [echo "yes (features requiring zlib enabled)"  AC_DEFINE(HAVE_LIB_Z, 1, [define if zlib is present])],
+                  [echo "no"] )
+
+AC_SUBST(LIBZ_CFLAGS)
+AC_SUBST(LIBZ_LIBS)
+# end CDC xlator secion
 
 # check for systemtap/dtrace
 BUILD_SYSTEMTAP=no
