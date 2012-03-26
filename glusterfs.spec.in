@@ -296,9 +296,12 @@ if [ -d /etc/glusterd ]; then
 fi
 
 if [ -d /var/lib/glusterd/vols ]; then
-    #for each dir under vols, backup non-fuse .vol files  as .Vol.old
-    for file in `find /var/lib/glusterd/vols -type f ! -name *-fuse.vol `; do
-        grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old
+    # Rename old volfiles in an RPM-standard way.  These aren't actually
+    # considered package config files, so %config doesn't work for them.
+    for file in $(find /var/lib/glusterd/vols -name '*.vol'); do
+        newfile=${file}.rpmsave
+        echo "warning: ${file} saved as ${newfile}"
+        cp ${file} ${newfile}
     done
 fi
 
