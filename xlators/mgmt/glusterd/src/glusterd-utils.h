@@ -57,6 +57,9 @@ typedef struct glusterd_voldict_ctx_ {
         char    *val_name;
 } glusterd_voldict_ctx_t;
 
+int
+glusterd_compare_lines (const void *a, const void *b);
+
 typedef int (*glusterd_condition_func) (glusterd_volinfo_t *volinfo,
                                         glusterd_brickinfo_t *brickinfo,
                                         void *ctx);
