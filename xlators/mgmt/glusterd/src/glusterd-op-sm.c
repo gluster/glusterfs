@@ -2127,6 +2127,32 @@ out:
 }
 
 static int
+glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,  glusterd_commit_hook_type_t type)
+{
+        glusterd_conf_t *priv                   = NULL;
+        char            hookdir[PATH_MAX]       = {0, };
+        char            scriptdir[PATH_MAX]     = {0, };
+        char            type_subdir[256]        = {0, };
+        char            *cmd_subdir             = NULL;
+
+        priv = THIS->private;
+        if (type == GD_COMMIT_HOOK_PRE)
+                strcpy (type_subdir, "pre");
+        else if (type == GD_COMMIT_HOOK_POST)
+                strcpy (type_subdir, "post");
+
+        cmd_subdir = glusterd_store_get_hooks_cmd_subdir (op);
+        if (strlen (cmd_subdir) == 0)
+                return -1;
+
+        GLUSTERD_GET_HOOKS_DIR (hookdir, GLUSTERD_HOOK_VER, priv);
+        snprintf (scriptdir, sizeof (scriptdir), "%s/%s/%s",
+                  hookdir, cmd_subdir, type_subdir);
+
+        return glusterd_store_run_hooks (scriptdir, op_ctx);
+}
+
+static int
 glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
@@ -2145,18 +2171,23 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        op = glusterd_op_get_op ();
+        op      = glusterd_op_get_op ();
+        op_dict = glusterd_op_get_ctx ();
+
         ret = glusterd_op_build_payload (&dict);
 
         if (ret)
                 goto out;
 
+        glusterd_op_commit_hook (op, op_dict, GD_COMMIT_HOOK_PRE);
         ret = glusterd_op_commit_perform (op, dict, &op_errstr, NULL); //rsp_dict invalid for source
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Commit failed");
                 opinfo.op_errstr = op_errstr;
                 goto out;
         }
+
+        glusterd_op_commit_hook (op, op_dict, GD_COMMIT_HOOK_POST);
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
@@ -2196,7 +2227,6 @@ out:
 
         if (!opinfo.pending_count) {
                 if (op == GD_OP_REPLACE_BRICK) {
-                        op_dict = glusterd_op_get_ctx ();
                         ret = glusterd_op_start_rb_timer (op_dict);
 
                 } else {
@@ -2579,11 +2609,11 @@ static int
 glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                       ret        = 0;
-        glusterd_req_ctx_t       *req_ctx = NULL;
+        glusterd_req_ctx_t       *req_ctx    = NULL;
         int32_t                   status     = 0;
         char                     *op_errstr  = NULL;
         dict_t                   *dict       = NULL;
-        dict_t                   *rsp_dict = NULL;
+        dict_t                   *rsp_dict   = NULL;
 
         GF_ASSERT (ctx);
 
@@ -2594,6 +2624,8 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         rsp_dict = glusterd_op_init_commit_rsp_dict (req_ctx->op);
         if (NULL == rsp_dict)
                 return -1;
+
+        glusterd_op_commit_hook (req_ctx->op, dict, GD_COMMIT_HOOK_PRE);
 
         if (GD_OP_CLEARLOCKS_VOLUME == req_ctx->op) {
                 /*clear locks should be run only on
@@ -2607,6 +2639,10 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         if (status) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Commit failed: %d", status);
+        } else {
+                /* On successful commit */
+                glusterd_op_commit_hook (req_ctx->op, dict,
+                                         GD_COMMIT_HOOK_POST);
         }
 
         ret = glusterd_op_commit_send_resp (req_ctx->req, req_ctx->op,
