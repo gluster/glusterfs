@@ -970,6 +970,50 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
 
+#ifdef HAVE_LIB_Z
+        /* Compressor-decompressor xlator options
+         * defaults used from xlator/feature/compress/src/cdc.h
+         */
+        { .key         = "features.compress",
+          .voltype     = "features/cdc",
+          .option      = "!compress",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 2,
+          .description = "enable/disable compression translator"
+        },
+        { .key         = "compress.mode",
+          .voltype     = "features/cdc",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "compress.window-size",
+          .voltype     = "features/cdc",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "compress.mem-level",
+          .voltype     = "features/cdc",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "compress.min-size",
+          .voltype     = "features/cdc",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "compress.compression-level",
+          .voltype     = "features/cdc",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "compress.debug",
+          .voltype     = "features/cdc",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+ #endif
+
         /* Quota xlator options */
         { .key        = VKEY_FEATURES_LIMIT_USAGE,
           .voltype    = "features/quota",
