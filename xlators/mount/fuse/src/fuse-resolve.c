@@ -239,6 +239,19 @@ fuse_resolve_parent_simple (fuse_state_t *state)
 		/* no graph switches since */
 		loc->parent = inode_ref (parent);
 		loc->inode = inode_grep (state->itable, parent, loc->name);
+
+                /* nodeid for root is 1 and we blindly take the latest graph's
+                 * table->root as the parhint and because of this there is
+                 * ambiguity whether the entry should have existed or not, and
+                 * we took the conservative approach of assuming entry should
+                 * have been there even though it need not have (bug #804592).
+                 */
+                if ((loc->inode == NULL)
+                    && __is_root_gfid (parent->gfid)) {
+                        /* non decisive result - entry missing */
+                        return -1;
+                }
+
 		/* decisive result - resolution success */
 		return 0;
 	}
