@@ -947,8 +947,10 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
 
-        if (frame)
+        if (frame) {
                 local = frame->local;
+                frame->local = NULL;
+        }
 
         if (local) {
                 dict = local->dict;
@@ -988,6 +990,7 @@ out:
                 free (rsp.dict.dict_val);
         if (local)
                 cli_local_wipe (local);
+
         return ret;
 }
 
@@ -1027,8 +1030,10 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
 
-        if (frame)
+        if (frame) {
                 local = frame->local;
+                frame->local = NULL;
+        }
 
         if (local) {
                 local_dict = local->dict;
@@ -1742,6 +1747,9 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        if (frame)
+                frame->local = NULL;
+
         if (local) {
                 dict_unref (local->dict);
                 cli_local_wipe (local);
@@ -2951,8 +2959,8 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->dict                 = dict_ref (dict);
-        frame->local                = local;
+        local->dict  = dict_ref (dict);
+        frame->local = local;
 
         ret = dict_get_int32 (dict, "operation", &op);
         if (ret) {
@@ -5496,6 +5504,8 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
                 gf_log ("cli", GF_LOG_ERROR, "status all failed");
         if (ret && dict)
                 dict_unref (dict);
+        if (frame)
+                frame->local = NULL;
         return ret;
 }
 
