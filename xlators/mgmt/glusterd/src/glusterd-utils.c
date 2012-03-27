@@ -2951,7 +2951,6 @@ glusterd_shd_stop ()
         return glusterd_nodesvc_stop ("glustershd", SIGTERM);
 }
 
-/* Only NFS server for now */
 int
 glusterd_add_node_to_dict (char *server, dict_t *dict, int count)
 {
@@ -2966,17 +2965,20 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count)
                                       sizeof (pidfile));
         running = glusterd_is_service_running (pidfile, &pid);
 
-        /* For nfs servers setting
-         * brick<n>.hostname = "NFS server"
+        /* For nfs-servers/self-heal-daemon setting
+         * brick<n>.hostname = "NFS Server" / "Self-heal Daemon"
          * brick<n>.path = uuid
          * brick<n>.port = 0
          *
-         * This might be confusing, but cli display's the name of
+         * This might be confusing, but cli displays the name of
          * the brick as hostname+path, so this will make more sense
          * when output.
          */
         snprintf (key, sizeof (key), "brick%d.hostname", count);
-        ret = dict_set_str (dict, key, "NFS Server");
+        if (!strcmp (server, "nfs"))
+                ret = dict_set_str (dict, key, "NFS Server");
+        else if (!strcmp (server, "glustershd"))
+                ret = dict_set_str (dict, key, "Self-heal Daemon");
         if (ret)
                 goto out;
 

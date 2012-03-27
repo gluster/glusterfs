@@ -1559,9 +1559,14 @@ cli_print_brick_status (cli_volume_status_t *status)
                         printf ("%s", p);
                         while (num_tabs-- != 0)
                                 printf ("\t");
-                        cli_out ("%d\t%c\t%s",
-                                 status->port, status->online?'Y':'N',
-                                 status->pid_str);
+                        if (status->port)
+                                cli_out ("%d\t%c\t%s",
+                                         status->port, status->online?'Y':'N',
+                                         status->pid_str);
+                        else
+                                cli_out ("%s\t%c\t%s",
+                                         "N/A", status->online?'Y':'N',
+                                         status->pid_str);
                         bricklen = 0;
                 }
         }
@@ -1838,7 +1843,7 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_top_cbk,
            "volume top operations"},
 
-        { "volume status [all | <VOLNAME> [nfs|<BRICK>]]"
+        { "volume status [all | <VOLNAME> [nfs|shd|<BRICK>]]"
           " [detail|clients|mem|inode|fd|callpool]",
           cli_cmd_volume_status_cbk,
           "display status of all or specified volume(s)/brick"},

@@ -1905,6 +1905,8 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                         if (cmd == GF_CLI_STATUS_NONE) {
                                 if (!strcmp (words[3], "nfs")) {
                                         cmd |= GF_CLI_STATUS_NFS;
+                                } else if (!strcmp (words[3], "shd")) {
+                                        cmd |= GF_CLI_STATUS_SHD;
                                 } else {
                                         cmd = GF_CLI_STATUS_BRICK;
                                         ret = dict_set_str (dict, "brick",
@@ -1940,12 +1942,24 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                         goto out;
 
                 if (!strcmp (words[3], "nfs")) {
-                        if (cmd == GF_CLI_STATUS_FD) {
-                                cli_out ("FD status not available for NFS");
+                        if (cmd == GF_CLI_STATUS_FD ||
+                            cmd == GF_CLI_STATUS_DETAIL) {
+                                cli_out ("Detail/FD status not available"
+                                         " for NFS Servers");
                                 ret = -1;
                                 goto out;
                         }
                         cmd |= GF_CLI_STATUS_NFS;
+                } else if (!strcmp (words[3], "shd")){
+                        if (cmd == GF_CLI_STATUS_FD ||
+                            cmd == GF_CLI_STATUS_CLIENTS ||
+                            cmd == GF_CLI_STATUS_DETAIL) {
+                                cli_out ("Detail/FD/Clients status not "
+                                         "available for Self-heal Daemons");
+                                ret = -1;
+                                goto out;
+                        }
+                        cmd |= GF_CLI_STATUS_SHD;
                 } else {
                         cmd |= GF_CLI_STATUS_BRICK;
                         ret = dict_set_str (dict, "brick", (char *)words[3]);

@@ -962,33 +962,35 @@ glusterfs_command_done  (int ret, call_frame_t *sync_frame, void *data)
 }
 
 int
-glusterfs_handle_nfs_status (rpcsvc_request_t *req)
+glusterfs_handle_node_status (rpcsvc_request_t *req)
 {
         int                     ret = -1;
-        gd1_mgmt_brick_op_req   nfs_req = {0,};
+        gd1_mgmt_brick_op_req   node_req = {0,};
         gd1_mgmt_brick_op_rsp   rsp = {0,};
         glusterfs_ctx_t         *ctx = NULL;
         glusterfs_graph_t       *active = NULL;
         xlator_t                *any = NULL;
-        xlator_t                *nfs = NULL;
+        xlator_t                *node = NULL;
         xlator_t                *subvol = NULL;
         dict_t                  *dict = NULL;
         dict_t                  *output = NULL;
         char                    *volname = NULL;
+        char                    *node_name = NULL;
+        char                    *subvol_name = NULL;
         uint32_t                cmd = 0;
         char                    *msg = NULL;
 
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &nfs_req,
+        if (!xdr_to_generic (req->msg[0], &node_req,
             (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
         dict = dict_new ();
-        ret = dict_unserialize (nfs_req.input.input_val,
-                                nfs_req.input.input_len, &dict);
+        ret = dict_unserialize (node_req.input.input_val,
+                                node_req.input.input_len, &dict);
         if (ret < 0) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to unserialize "
                         "req buffer to dictionary");
@@ -1012,19 +1014,47 @@ glusterfs_handle_nfs_status (rpcsvc_request_t *req)
         active = ctx->active;
         any = active->first;
 
-        nfs = xlator_search_by_name (any, "nfs-server");
-        if (!nfs) {
+        if ((cmd & GF_CLI_STATUS_NFS) != 0)
+                ret = gf_asprintf (&node_name, "%s", "nfs-server");
+        else if ((cmd & GF_CLI_STATUS_SHD) != 0)
+                ret = gf_asprintf (&node_name, "%s", "glustershd");
+        else {
                 ret = -1;
-                gf_log (THIS->name, GF_LOG_ERROR, "nfs-server xlator is not"
-                        " loaded");
+                goto out;
+        }
+        if (ret == -1) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to set node xlator name");
                 goto out;
         }
 
-        subvol = xlator_search_by_name (nfs, volname);
+        node = xlator_search_by_name (any, node_name);
+        if (!node) {
+                ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "%s xlator is not loaded",
+                        node_name);
+                goto out;
+        }
+
+        if ((cmd & GF_CLI_STATUS_NFS) != 0)
+                ret = gf_asprintf (&subvol_name, "%s", volname);
+        else if ((cmd & GF_CLI_STATUS_SHD) != 0)
+                ret = gf_asprintf (&subvol_name, "%s-replicate-0", volname);
+        else {
+                ret = -1;
+                goto out;
+        }
+        if (ret == -1) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to set node xlator name");
+                goto out;
+        }
+
+        subvol = xlator_search_by_name (node, subvol_name);
         if (!subvol) {
                 ret = -1;
                 gf_log (THIS->name, GF_LOG_ERROR, "%s xlator is not loaded",
-                        volname);
+                        subvol_name);
                 goto out;
         }
 
@@ -1037,13 +1067,17 @@ glusterfs_handle_nfs_status (rpcsvc_request_t *req)
                         break;
 
                 case GF_CLI_STATUS_CLIENTS:
+                        // clients not availbale for SHD
+                        if ((cmd & GF_CLI_STATUS_SHD) != 0)
+                                break;
+
                         ret = dict_set_str (output, "volname", volname);
                         if (ret) {
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "Error setting volname to dict");
                                 goto out;
                         }
-                        ret = nfs->dumpops->priv_to_dict (nfs, output);
+                        ret = node->dumpops->priv_to_dict (node, output);
                         break;
 
                 case GF_CLI_STATUS_INODE:
@@ -1090,12 +1124,16 @@ glusterfs_handle_nfs_status (rpcsvc_request_t *req)
 out:
         if (dict)
                 dict_unref (dict);
-        if (nfs_req.input.input_val)
-                free (nfs_req.input.input_val);
+        if (node_req.input.input_val)
+                free (node_req.input.input_val);
         if (msg)
                 GF_FREE (msg);
         if (rsp.output.output_val)
                 GF_FREE (rsp.output.output_val);
+        if (node_name)
+                GF_FREE (node_name);
+        if (subvol_name)
+                GF_FREE (subvol_name);
 
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1224,11 +1262,11 @@ glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
         case GLUSTERD_BRICK_XLATOR_DEFRAG:
                 ret = glusterfs_handle_defrag (req);
                 break;
-        case GLUSTERD_NFS_PROFILE:
+        case GLUSTERD_NODE_PROFILE:
                 ret = glusterfs_handle_nfs_profile (req);
                 break;
-        case GLUSTERD_NFS_STATUS:
-                ret = glusterfs_handle_nfs_status (req);
+        case GLUSTERD_NODE_STATUS:
+                ret = glusterfs_handle_node_status (req);
         default:
                 break;
         }
@@ -1287,8 +1325,8 @@ rpcsvc_actor_t glusterfs_actors[] = {
         [GLUSTERD_BRICK_XLATOR_OP] = { "TRANSLATOR OP", GLUSTERD_BRICK_XLATOR_OP, glusterfs_handle_rpc_msg, NULL, NULL, 0},
         [GLUSTERD_BRICK_STATUS] = {"STATUS", GLUSTERD_BRICK_STATUS, glusterfs_handle_rpc_msg, NULL, NULL, 0},
         [GLUSTERD_BRICK_XLATOR_DEFRAG] = { "TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_rpc_msg, NULL, NULL, 0},
-        [GLUSTERD_NFS_PROFILE] = {"NFS PROFILE", GLUSTERD_NFS_PROFILE, glusterfs_handle_rpc_msg, NULL, NULL, 0},
-        [GLUSTERD_NFS_STATUS] = {"NFS STATUS", GLUSTERD_NFS_STATUS, glusterfs_handle_rpc_msg, NULL, NULL, 0}
+        [GLUSTERD_NODE_PROFILE] = {"NFS PROFILE", GLUSTERD_NODE_PROFILE, glusterfs_handle_rpc_msg, NULL, NULL, 0},
+        [GLUSTERD_NODE_STATUS] = {"NFS STATUS", GLUSTERD_NODE_STATUS, glusterfs_handle_rpc_msg, NULL, NULL, 0}
 };
 
 struct rpcsvc_program glusterfs_mop_prog = {
