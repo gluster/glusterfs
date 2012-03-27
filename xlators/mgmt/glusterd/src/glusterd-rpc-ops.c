@@ -1010,19 +1010,22 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
         data_t                          *new_value = NULL;
         char                            brick_key[1024] = {0,};
         char                            new_key[1024] = {0,};
+        int32_t                         index = 0;
         int32_t                         ret = 0;
 
-        if (!strcmp (key, "count") || !strcmp (key, "cmd"))
+        if (!strcmp (key, "count") || !strcmp (key, "cmd") ||
+            !strcmp (key, "brick-index-max") || !strcmp (key, "other-count"))
                 return;
 
         rsp_ctx = data;
         new_value = data_copy (value);
         GF_ASSERT (new_value);
 
-        if (rsp_ctx->nfs) {
-                sscanf (key, "brick%*d.%s", brick_key);
+        sscanf (key, "brick%d.%s", &index, brick_key);
+
+        if (index > rsp_ctx->brick_index_max) {
                 snprintf (new_key, sizeof (new_key), "brick%d.%s",
-                          rsp_ctx->count, brick_key);
+                          index + rsp_ctx->other_count, brick_key);
         } else
                 strncpy (new_key, key, sizeof (new_key));
 
@@ -1039,39 +1042,56 @@ glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
 {
         int                             ret = 0;
         glusterd_status_rsp_conv_t      rsp_ctx = {0};
-        int32_t                         brick_count = 0;
-        int32_t                         count = 0;
-        int32_t                         cmd = 0;
+        int32_t                         node_count = 0;
+        int32_t                         rsp_node_count = 0;
+        int32_t                         brick_index_max = -1;
+        int32_t                         other_count = 0;
+        int32_t                         rsp_other_count = 0;
         dict_t                          *ctx_dict = NULL;
         glusterd_op_t                   op = GD_OP_NONE;
 
         GF_ASSERT (rsp_dict);
 
-        ret = dict_get_int32 (rsp_dict, "count", &brick_count);
+        ret = dict_get_int32 (rsp_dict, "count", &rsp_node_count);
         if (ret) {
                 ret = 0; //no bricks in the rsp
                 goto out;
         }
 
-        ret = dict_get_int32 (rsp_dict, "cmd", &cmd);
-        if (ret)
+        ret = dict_get_int32 (rsp_dict, "other-count", &rsp_other_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to get other count from rsp_dict");
                 goto out;
+        }
 
         op = glusterd_op_get_op ();
         GF_ASSERT (GD_OP_STATUS_VOLUME == op);
         ctx_dict = glusterd_op_get_ctx (op);
 
-        ret = dict_get_int32 (ctx_dict, "count", &count);
-        rsp_ctx.count = count;
+        ret = dict_get_int32 (ctx_dict, "count", &node_count);
+        ret = dict_get_int32 (ctx_dict, "brick-index-max", &brick_index_max);
+        ret = dict_get_int32 (ctx_dict, "other-count", &other_count);
+
+        rsp_ctx.count = node_count;
+        rsp_ctx.brick_index_max = brick_index_max;
+        rsp_ctx.other_count = other_count;
         rsp_ctx.dict = ctx_dict;
-        if (cmd & GF_CLI_STATUS_NFS)
-                rsp_ctx.nfs = _gf_true;
-        else
-                rsp_ctx.nfs = _gf_false;
 
         dict_foreach (rsp_dict, glusterd_volume_status_add_peer_rsp, &rsp_ctx);
 
-        ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
+        ret = dict_set_int32 (ctx_dict, "count", node_count + rsp_node_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update node count");
+                goto out;
+        }
+
+        ret = dict_set_int32 (ctx_dict, "other-count",
+                              (other_count + rsp_other_count));
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update other-count");
 out:
         return ret;
 }
@@ -1867,8 +1887,10 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                 if (!dummy_frame)
                         continue;
 
-                if (pending_node->type == GD_NODE_NFS)
-                        ret = glusterd_nfs_op_build_payload
+                if ((pending_node->type == GD_NODE_NFS) ||
+                    ((pending_node->type == GD_NODE_SHD) &&
+                    (req_ctx->op == GD_OP_STATUS_VOLUME)))
+                        ret = glusterd_node_op_build_payload
                                 (req_ctx->op,
                                  (gd1_mgmt_brick_op_req **)&req,
                                  req_ctx->dict);

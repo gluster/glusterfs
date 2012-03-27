@@ -189,7 +189,8 @@ out:
 
 int
 cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
-                                  int   brick_index, int *online)
+                                  int   brick_index, int *online,
+                                  gf_boolean_t *node_present)
 {
         int             ret = -1;
         char            *hostname = NULL;
@@ -201,8 +202,12 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
 
         snprintf (key, sizeof (key), "brick%d.hostname", brick_index);
         ret = dict_get_str (dict, key, &hostname);
-        if (ret)
+        if (ret) {
+                *node_present = _gf_false;
                 goto out;
+        }
+        *node_present = _gf_true;
+
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"hostname",
                                                "%s", hostname);
         XML_RET_CHECK_AND_GOTO (ret, out);
@@ -1282,8 +1287,12 @@ cli_xml_output_vol_status (dict_t *dict, int op_ret, int op_errno,
         xmlBufferPtr            buf = NULL;
         char                    *volname = NULL;
         int                     brick_count = 0;
+        int                     brick_index_max = -1;
+        int                     other_count = 0;
+        int                     index_max = 0;
         uint32_t                cmd = GF_CLI_STATUS_NONE;
         int                     online = 0;
+        gf_boolean_t            node_present = _gf_true;
         int                     i;
 
         ret = cli_begin_xml_output (&writer, &buf);
@@ -1308,7 +1317,7 @@ cli_xml_output_vol_status (dict_t *dict, int op_ret, int op_errno,
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret)
                 goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"brickCount",
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"nodeCount",
                                                "%d", brick_count);
         if (ret)
                 goto out;
@@ -1317,15 +1326,28 @@ cli_xml_output_vol_status (dict_t *dict, int op_ret, int op_errno,
         if (ret)
                 goto out;
 
-        for (i = 0; i < brick_count; i++) {
-                /* <brick> */
-                ret = xmlTextWriterStartElement (writer, (xmlChar *)"brick");
+        ret = dict_get_int32 (dict, "brick-index-max", &brick_index_max);
+        if (ret)
+                goto out;
+        ret = dict_get_int32 (dict, "other-count", &other_count);
+        if (ret)
+                goto out;
+
+        index_max = brick_index_max + other_count;
+
+        for (i = 0; i <= index_max; i++) {
+                /* <node> */
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"node");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 ret = cli_xml_output_vol_status_common (writer, dict, i,
-                                                        &online);
-                if (ret)
-                        goto out;
+                                                        &online, &node_present);
+                if (ret) {
+                        if (node_present)
+                                goto out;
+                        else
+                                continue;
+                }
 
                 switch (cmd & GF_CLI_STATUS_MASK) {
                 case GF_CLI_STATUS_DETAIL:
@@ -1384,7 +1406,7 @@ cli_xml_output_vol_status (dict_t *dict, int op_ret, int op_errno,
                         break;
 
                 }
-                /* </brick> */
+                /* </node> */
                 ret = xmlTextWriterEndElement (writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
