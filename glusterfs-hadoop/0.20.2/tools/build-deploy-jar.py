@@ -172,9 +172,12 @@ if __name__ == '__main__':
         elif k in ("-h", "--henv"):
             copyHadoopEnv = True
         else:
-            assert False, "unhandled option"
+            pass
 
-    assert not hadoop_dir == None, "hadoop directory missing"
+    if hadoop_dir == None:
+        print 'hadoop directory missing'
+        usage()
+        sys.exit(1)
 
     os.chdir(os.path.dirname(sys.argv[0]) + '/..')
     targetdir = './target/'
