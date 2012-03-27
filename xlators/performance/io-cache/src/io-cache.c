@@ -37,9 +37,6 @@ int ioc_log2_page_size;
 uint32_t
 ioc_get_priority (ioc_table_t *table, const char *path);
 
-uint32_t
-ioc_get_priority (ioc_table_t *table, const char *path);
-
 struct volume_options options[];
 
 
@@ -1867,13 +1864,22 @@ void
 ioc_inode_dump (ioc_inode_t *ioc_inode, char *prefix)
 {
 
-       if ((ioc_inode == NULL) || (prefix == NULL)) {
+        char    *path = NULL;
+
+        if ((ioc_inode == NULL) || (prefix == NULL)) {
                 goto out;
         }
 
         ioc_inode_lock (ioc_inode);
         {
                 gf_proc_dump_write ("inode.weight", "%d", ioc_inode->weight);
+                inode_path (ioc_inode->inode, NULL, &path);
+                if (path) {
+                        gf_proc_dump_write ("path", "%s", path);
+                        GF_FREE (path);
+                }
+                gf_proc_dump_write ("uuid", "%s", uuid_utoa
+                                    (ioc_inode->inode->gfid));
                 __ioc_cache_dump (ioc_inode, prefix);
                 __ioc_inode_waitq_dump (ioc_inode, prefix);
         }
