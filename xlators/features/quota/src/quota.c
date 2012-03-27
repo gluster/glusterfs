@@ -580,15 +580,19 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        int32_t            ret    = -1;
-        char               found  = 0;
-        quota_local_t     *local  = NULL;
-        quota_inode_ctx_t *ctx    = NULL;
-        quota_dentry_t    *dentry = NULL;
-        int64_t           *size   = 0;
-        uint64_t           value  = 0;
+        int32_t            ret        = -1;
+        char               found      = 0;
+        quota_local_t     *local      = NULL;
+        quota_inode_ctx_t *ctx        = NULL;
+        quota_dentry_t    *dentry     = NULL;
+        int64_t           *size       = 0;
+        uint64_t           value      = 0;
+        limits_t          *limit_node = NULL;
+        quota_priv_t      *priv       = NULL;
 
         local = frame->local;
+
+        priv = this->private;
 
         inode_ctx_get (inode, this, &value);
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
@@ -599,6 +603,18 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            || (IA_ISLNK (buf->ia_type))))) {
                 goto unwind;
         }
+
+        LOCK (&priv->lock);
+        {
+                list_for_each_entry (limit_node, &priv->limit_head,
+                                     limit_list) {
+                        if (strcmp (local->loc.path, limit_node->path) == 0) {
+                                uuid_copy (limit_node->gfid, buf->ia_gfid);
+                                break;
+                        }
+                }
+        }
+        UNLOCK (&priv->lock);
 
         ret = quota_inode_ctx_get (local->loc.inode, local->limit, this, dict,
                                    buf, &ctx, 1);
@@ -3012,22 +3028,23 @@ quota_forget (xlator_t *this, inode_t *inode)
 
 
 int
-quota_parse_limits (quota_priv_t *priv, xlator_t *this, dict_t *xl_options)
+quota_parse_limits (quota_priv_t *priv, xlator_t *this, dict_t *xl_options,
+                    struct list_head *old_list)
 {
         int32_t       ret       = -1;
         char         *str       = NULL;
         char         *str_val   = NULL;
-        char         *path      = NULL;
+        char         *path      = NULL, *saveptr = NULL;
         uint64_t      value     = 0;
-        limits_t     *quota_lim = NULL;
+        limits_t     *quota_lim = NULL, *old = NULL;
 
         ret = dict_get_str (xl_options, "limit-set", &str);
 
         if (str) {
-                path = strtok (str, ":");
+                path = strtok_r (str, ":", &saveptr);
 
                 while (path) {
-                        str_val = strtok (NULL, ",");
+                        str_val = strtok_r (NULL, ",", &saveptr);
 
                         ret = gf_string2bytesize (str_val, &value);
                         if (ret != 0)
@@ -3042,20 +3059,40 @@ quota_parse_limits (quota_priv_t *priv, xlator_t *this, dict_t *xl_options)
                         gf_log (this->name, GF_LOG_INFO, "%s:%"PRId64,
                                 quota_lim->path, quota_lim->value);
 
-                        list_add_tail (&quota_lim->limit_list,
-                                       &priv->limit_head);
+                        if (old_list != NULL) {
+                                list_for_each_entry (old, old_list,
+                                                     limit_list) {
+                                        if (strcmp (old->path, quota_lim->path)
+                                            == 0) {
+                                                uuid_copy (quota_lim->gfid,
+                                                           old->gfid);
+                                                break;
+                                        }
+                                }
+                        }
 
-                        path = strtok (NULL, ":");
+                        LOCK (&priv->lock);
+                        {
+                                list_add_tail (&quota_lim->limit_list,
+                                               &priv->limit_head);
+                        }
+                        UNLOCK (&priv->lock);
+
+                        path = strtok_r (NULL, ":", &saveptr);
                 }
         } else {
                 gf_log (this->name, GF_LOG_INFO,
                         "no \"limit-set\" option provided");
         }
 
-        list_for_each_entry (quota_lim, &priv->limit_head, limit_list) {
-                gf_log (this->name, GF_LOG_INFO, "%s:%"PRId64, quota_lim->path,
-                        quota_lim->value);
+        LOCK (&priv->lock);
+        {
+                list_for_each_entry (quota_lim, &priv->limit_head, limit_list) {
+                        gf_log (this->name, GF_LOG_INFO, "%s:%"PRId64,
+                                quota_lim->path, quota_lim->value);
+                }
         }
+        UNLOCK (&priv->lock);
 
         ret = 0;
 err:
@@ -3086,9 +3123,11 @@ init (xlator_t *this)
 
         INIT_LIST_HEAD (&priv->limit_head);
 
+        LOCK_INIT (&priv->lock);
+
         this->private = priv;
 
-        ret = quota_parse_limits (priv, this, this->options);
+        ret = quota_parse_limits (priv, this, this->options, NULL);
 
         if (ret) {
                 goto err;
@@ -3110,29 +3149,116 @@ err:
 }
 
 
+void
+__quota_reconfigure_inode_ctx (xlator_t *this, inode_t *inode, limits_t *limit)
+{
+        int                ret = -1;
+        quota_inode_ctx_t *ctx = NULL;
+
+        GF_VALIDATE_OR_GOTO ("quota", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+        GF_VALIDATE_OR_GOTO (this->name, limit, out);
+
+        ret = quota_inode_ctx_get (inode, limit->value, this, NULL, NULL, &ctx,
+                                   1);
+        if ((ret == -1) || (ctx == NULL)) {
+                gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
+                        "context in inode(gfid:%s)",
+                        uuid_utoa (inode->gfid));
+                goto out;
+        }
+
+        LOCK (&ctx->lock);
+        {
+                ctx->limit = limit->value;
+        }
+        UNLOCK (&ctx->lock);
+
+out:
+        return;
+}
+
+
+void
+__quota_reconfigure (xlator_t *this, inode_table_t *itable, limits_t *limit)
+{
+        inode_t *inode = NULL;
+
+        if ((this == NULL) || (itable == NULL) || (limit == NULL)) {
+                goto out;
+        }
+
+        if (!uuid_is_null (limit->gfid)) {
+                inode = inode_find (itable, limit->gfid);
+        } else {
+                inode = inode_resolve (itable, limit->path);
+        }
+
+        if (inode != NULL) {
+                __quota_reconfigure_inode_ctx (this, inode, limit);
+        }
+
+out:
+        return;
+}
+
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-        int32_t          ret    = -1;
-        quota_priv_t    *priv   = NULL;
-        limits_t        *limit  = NULL;
-        limits_t        *next   = NULL;
+        int32_t           ret   = -1;
+        quota_priv_t     *priv  = NULL;
+        limits_t         *limit = NULL, *next = NULL, *new = NULL;
+        struct list_head  head  = {0, };
+        xlator_t         *top   = NULL;
+        char              found = 0;
 
         priv = this->private;
 
-        list_for_each_entry_safe (limit, next, &priv->limit_head, limit_list) {
-                list_del (&limit->limit_list);
+        INIT_LIST_HEAD (&head);
 
-                GF_FREE (limit);
+        LOCK (&priv->lock);
+        {
+                list_splice_init (&priv->limit_head, &head);
         }
+        UNLOCK (&priv->lock);
 
-        ret = quota_parse_limits (priv, this, options);
+        ret = quota_parse_limits (priv, this, options, &head);
         if (ret == -1) {
                 gf_log ("quota", GF_LOG_WARNING,
                         "quota reconfigure failed, "
                         "new changes will not take effect");
                 goto out;
         }
+
+        LOCK (&priv->lock);
+        {
+                list_for_each_entry (limit, &priv->limit_head, limit_list) {
+                        top = ((glusterfs_ctx_t *)this->ctx)->active->top;
+
+                        __quota_reconfigure (this, top->itable, limit);
+                }
+
+                list_for_each_entry_safe (limit, next, &head, limit_list) {
+                        found = 0;
+                        list_for_each_entry (new, &priv->limit_head,
+                                             limit_list) {
+                                if (strcmp (new->path, limit->path) == 0) {
+                                        found = 1;
+                                        break;
+                                }
+                        }
+
+                        if (!found) {
+                                limit->value = -1;
+                                __quota_reconfigure (this, top->itable, limit);
+                        }
+
+                        list_del_init (&limit->limit_list);
+                        GF_FREE (limit);
+                }
+        }
+        UNLOCK (&priv->lock);
 
         GF_OPTION_RECONF ("timeout", priv->timeout, options, int64, out);
 

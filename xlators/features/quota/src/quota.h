@@ -154,16 +154,18 @@ struct quota_local {
 typedef struct quota_local quota_local_t;
 
 struct quota_priv {
-        int64_t  timeout;
-        struct list_head limit_head;
+        int64_t           timeout;
+        struct list_head  limit_head;
+        gf_lock_t         lock;
 };
 typedef struct quota_priv quota_priv_t;
 
 struct limits {
         struct list_head  limit_list;
         char             *path;
-        int64_t          value;
+        int64_t           value;
+        uuid_t            gfid;
 };
-typedef struct limits limits_t;
+typedef struct limits     limits_t;
 
 uint64_t cn = 1;
