@@ -945,6 +945,13 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         dict_t                  *options = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
+        gf_answer_t             answer = GF_ANSWER_NO;
+
+        const char *question = "Changing the 'stripe count' of the volume is "
+                "not a supported feature. In some cases it may result in data "
+                "loss on the volume. Also there may be issues with regular "
+                "filesystem operations on the volume after the change. Do you "
+                "really want to continue with 'stripe' count option ? ";
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -956,6 +963,17 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
+        }
+
+        /* TODO: there are challenges in supporting changing of
+           stripe-count, untill it is properly supported give warning to user */
+        if (dict_get (options, "stripe-count")) {
+                answer = cli_cmd_get_confirmation (state, question);
+
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
+                        goto out;
+                }
         }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_ADD_BRICK];
