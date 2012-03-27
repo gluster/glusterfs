@@ -24,6 +24,7 @@
 
 #define __XOPEN_SOURCE 500
 
+#include <openssl/md5.h>
 #include <stdint.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -42,7 +43,6 @@
 #endif /* HAVE_LINKAT */
 
 #include "glusterfs.h"
-#include "md5.h"
 #include "checksum.h"
 #include "dict.h"
 #include "logging.h"
@@ -3739,13 +3739,13 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         int ret = 0;
 
         int32_t weak_checksum = 0;
-        uint8_t strong_checksum[MD5_DIGEST_LEN];
+        unsigned char strong_checksum[MD5_DIGEST_LENGTH];
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
-        memset (strong_checksum, 0, MD5_DIGEST_LEN);
+        memset (strong_checksum, 0, MD5_DIGEST_LENGTH);
         buf = GF_CALLOC (1, len, gf_posix_mt_char);
 
         if (!buf) {
@@ -3773,8 +3773,8 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        weak_checksum = gf_rsync_weak_checksum (buf, len);
-        gf_rsync_strong_checksum (buf, len, strong_checksum);
+        weak_checksum = gf_rsync_weak_checksum ((unsigned char *) buf, (size_t) len);
+        gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) len, (unsigned char *) strong_checksum);
 
         GF_FREE (buf);
 

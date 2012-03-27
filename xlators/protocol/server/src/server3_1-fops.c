@@ -23,13 +23,14 @@
 #include "config.h"
 #endif
 
+#include <openssl/md5.h>
+
 #include "server.h"
 #include "server-helpers.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
 #include "compat-errno.h"
 
-#include "md5.h"
 #include "xdr-nfs3.h"
 
 
@@ -1471,7 +1472,7 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp.weak_checksum = weak_checksum;
 
                 rsp.strong_checksum.strong_checksum_val = (char *)strong_checksum;
-                rsp.strong_checksum.strong_checksum_len = MD5_DIGEST_LEN;
+                rsp.strong_checksum.strong_checksum_len = MD5_DIGEST_LENGTH;
         }
         if (op_ret == -1)
                 gf_log (this->name, GF_LOG_INFO,

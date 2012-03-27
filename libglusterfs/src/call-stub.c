@@ -22,9 +22,9 @@
 #include "config.h"
 #endif
 
+#include <openssl/md5.h>
 #include <inttypes.h>
 
-#include "md5.h"
 #include "call-stub.h"
 #include "mem-types.h"
 
@@ -2124,7 +2124,7 @@ fop_rchecksum_cbk_stub (call_frame_t *frame,
                         weak_checksum;
 
                 stub->args.rchecksum_cbk.strong_checksum =
-                        memdup (strong_checksum, MD5_DIGEST_LEN);
+                        memdup (strong_checksum, MD5_DIGEST_LENGTH);
         }
         if (xdata)
                 stub->xdata = dict_ref (xdata);

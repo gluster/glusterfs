@@ -198,14 +198,18 @@ fi
 
 AC_CHECK_TOOL([LD],[ld])
 
+AC_CHECK_LIB([crypto], [MD5], , AC_MSG_ERROR([OpenSSL crypto library is required to build glusterfs]))
+
 AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
-		 
+
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
 
 AC_CHECK_HEADERS([sys/xattr.h])
 
 AC_CHECK_HEADERS([sys/extattr.h])
+
+AC_CHECK_HEADERS([openssl/md5.h])
 
 case $host_os in
   darwin*)
@@ -481,7 +485,7 @@ case $host_os in
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
-	fi				      
+	fi
 	BUILD_FUSE_CLIENT=no
 	;;
      darwin*)
@@ -522,7 +526,7 @@ AC_SUBST(CONTRIBDIR)
 INCLUDES='-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/uuid'
 AC_SUBST(INCLUDES)
 
-AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")	
+AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
 AC_OUTPUT
 

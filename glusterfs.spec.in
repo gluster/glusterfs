@@ -48,11 +48,12 @@ Requires(postun): /sbin/service
 
 BuildRequires: bison flex
 BuildRequires: gcc make automake libtool
-BuildRequires: ncurses-devel readline-devel
+BuildRequires: ncurses-devel readline-devel openssl-devel
 BuildRequires: python-ctypes
 %if 0%{?suse_version}
 BuildRequires: python-devel
 %endif
+Requires: openssl
 
 Obsoletes:        %{name}-libs <= 2.0.0
 Obsoletes:        %{name}-common < %{version}-%{release}
@@ -139,6 +140,7 @@ Summary:          Clustered file-system server
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
+Requires:         openssl
 
 %description server
 GlusterFS is a clustered file-system capable of scaling to several

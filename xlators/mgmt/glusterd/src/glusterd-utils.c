@@ -21,6 +21,7 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
+#include <openssl/md5.h>
 #include <inttypes.h>
 
 #include "globals.h"
@@ -32,7 +33,6 @@
 #include "timer.h"
 #include "defaults.h"
 #include "compat.h"
-#include "md5.h"
 #include "run.h"
 #include "compat-errno.h"
 #include "statedump.h"
@@ -80,6 +80,17 @@
 
 char    *glusterd_sock_dir = "/tmp";
 static glusterd_lock_t lock;
+
+static void
+md5_wrapper(const unsigned char *data, size_t len, char *md5)
+{
+        unsigned short i = 0;
+        unsigned short lim = MD5_DIGEST_LENGTH*2+1;
+        unsigned char scratch[MD5_DIGEST_LENGTH] = {0,};
+        MD5(data, len, scratch);
+        for (; i < MD5_DIGEST_LENGTH; i++)
+                snprintf(md5 + i * 2, lim-i*2, "%02x", scratch[i]); 
+}
 
 int32_t
 glusterd_get_lock_owner (uuid_t *uuid)
@@ -1036,14 +1047,14 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
 {
         char                    export_path[PATH_MAX] = {0,};
         char                    sock_filepath[PATH_MAX] = {0,};
-        char                    md5_sum[MD5_DIGEST_LEN*2+1] = {0,};
+        char                    md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};
         char                    volume_dir[PATH_MAX] = {0,};
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
         int                     expected_file_len = 0;
 
         expected_file_len = strlen (glusterd_sock_dir) + strlen ("/") +
-                            MD5_DIGEST_LEN*2 + strlen (".socket") + 1;
+                            MD5_DIGEST_LENGTH*2 + strlen (".socket") + 1;
         GF_ASSERT (len >= expected_file_len);
         this = THIS;
         GF_ASSERT (this);
@@ -1054,9 +1065,7 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, export_path);
         snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
                   volume_dir, brickinfo->hostname, export_path);
-        _get_md5_str (md5_sum, sizeof (md5_sum),
-                              (uint8_t*)sock_filepath, strlen (sock_filepath));
-
+        md5_wrapper ((unsigned char *) sock_filepath, strlen(sock_filepath), md5_sum);
         snprintf (sockpath, len, "%s/%s.socket", glusterd_sock_dir, md5_sum);
 }
 
@@ -2678,12 +2687,11 @@ glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
                                       char *socketpath, int len)
 {
         char                    sockfilepath[PATH_MAX] = {0,};
-        char                    md5_str[PATH_MAX] = {0,};
+        char                    md5_str[MD5_DIGEST_LENGTH*2+1] = {0,};
 
         snprintf (sockfilepath, sizeof (sockfilepath), "%s/run-%s",
                   rundir, uuid_utoa (uuid));
-        _get_md5_str (md5_str, sizeof (md5_str),
-                      (uint8_t *)sockfilepath, sizeof (sockfilepath));
+        md5_wrapper ((unsigned char *) sockfilepath, strlen (sockfilepath), md5_str);
         snprintf (socketpath, len, "%s/%s.socket", glusterd_sock_dir,
                   md5_str);
         return 0;

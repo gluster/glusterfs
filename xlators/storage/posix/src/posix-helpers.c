@@ -38,7 +38,6 @@
 #endif /* GF_BSD_HOST_OS */
 
 #include "glusterfs.h"
-#include "md5.h"
 #include "checksum.h"
 #include "dict.h"
 #include "logging.h"

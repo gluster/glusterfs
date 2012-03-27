@@ -18,6 +18,7 @@
 */
 
 
+#include <openssl/md5.h>
 #include "glusterfs.h"
 #include "afr.h"
 #include "xlator.h"
@@ -33,7 +34,6 @@
 #include "compat-errno.h"
 #include "compat.h"
 #include "byte-order.h"
-#include "md5.h"
 
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
@@ -239,7 +239,7 @@ sh_loop_frame_create (call_frame_t *sh_frame, xlator_t *this,
                                                gf_afr_mt_char);
         if (!new_loop_sh->write_needed)
                 goto out;
-        new_loop_sh->checksum = GF_CALLOC (priv->child_count, MD5_DIGEST_LEN,
+        new_loop_sh->checksum = GF_CALLOC (priv->child_count, MD5_DIGEST_LENGTH,
                                            gf_afr_mt_uint8_t);
         if (!new_loop_sh->checksum)
                 goto out;
@@ -590,8 +590,8 @@ sh_diff_checksum_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
                 sh->op_failed = 1;
         } else {
-                memcpy (loop_sh->checksum + child_index * MD5_DIGEST_LEN,
-                        strong_checksum, MD5_DIGEST_LEN);
+                memcpy (loop_sh->checksum + child_index * MD5_DIGEST_LENGTH,
+                        strong_checksum, MD5_DIGEST_LENGTH);
         }
 
         call_count = afr_frame_return (loop_frame);
@@ -601,9 +601,9 @@ sh_diff_checksum_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
                         if (sh->sources[i] || !sh_local->child_up[i])
                                 continue;
 
-                        if (memcmp (loop_sh->checksum + (i * MD5_DIGEST_LEN),
-                                    loop_sh->checksum + (sh->source * MD5_DIGEST_LEN),
-                                    MD5_DIGEST_LEN)) {
+                        if (memcmp (loop_sh->checksum + (i * MD5_DIGEST_LENGTH),
+                                    loop_sh->checksum + (sh->source * MD5_DIGEST_LENGTH),
+                                    MD5_DIGEST_LENGTH)) {
                                 /*
                                   Checksums differ, so this block
                                   must be written to this sink

@@ -20,8 +20,10 @@
 #ifndef __CHECKSUM_H__
 #define __CHECKSUM_H__
 
-uint32_t gf_rsync_weak_checksum (char *buf, int32_t len);
+uint32_t
+gf_rsync_weak_checksum (unsigned char *buf, size_t len);
 
-void gf_rsync_strong_checksum (char *buf, int32_t len, uint8_t *sum);
+void
+gf_rsync_strong_checksum (unsigned char *buf, size_t len, unsigned char *sum);
 
 #endif /* __CHECKSUM_H__ */
