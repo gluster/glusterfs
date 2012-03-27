@@ -660,6 +660,50 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
         return inode;
 }
 
+
+inode_t *
+inode_resolve (inode_table_t *table, char *path)
+{
+        char    *tmp   = NULL, *bname = NULL, *str = NULL, *saveptr = NULL;
+        inode_t *inode = NULL, *parent = NULL;
+
+        if ((path == NULL) || (table == NULL)) {
+                goto out;
+        }
+
+        parent = inode_ref (table->root);
+        str = tmp = gf_strdup (path);
+
+        while (1) {
+                bname = strtok_r (str, "/", &saveptr);
+                if (bname == NULL) {
+                        break;
+                }
+
+                if (inode != NULL) {
+                        inode_unref (inode);
+                }
+
+                inode = inode_grep (table, parent, bname);
+                if (inode == NULL) {
+                        break;
+                }
+
+                if (parent != NULL) {
+                        inode_unref (parent);
+                }
+
+                parent = inode_ref (inode);
+                str = NULL;
+        }
+
+        inode_unref (parent);
+        GF_FREE (tmp);
+out:
+        return inode;
+}
+
+
 int
 inode_grep_for_gfid (inode_table_t *table, inode_t *parent, const char *name,
                      uuid_t gfid, ia_type_t *type)

@@ -180,6 +180,9 @@ int
 inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 uint64_t *value2);
 
+inode_t *
+inode_resolve (inode_table_t *table, char *path);
+
 #define __inode_ctx_set(i,x,v_p) __inode_ctx_set2(i,x,v_p,0)
 #define inode_ctx_set(i,x,v_p) inode_ctx_set2(i,x,v_p,0)
 
