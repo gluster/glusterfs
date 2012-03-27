@@ -1283,13 +1283,6 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         frame->local = local;
 
-        if (!(valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME))) {
-                STACK_WIND (frame, wb_setattr_cbk, FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->setattr, loc, stbuf,
-                            valid, xdata);
-                goto out;
-        }
-
         if (loc->inode) {
                 /*
                   FIXME: fd_lookup extends life of fd till the execution
@@ -1340,7 +1333,7 @@ unwind:
         if (stub) {
                 call_stub_destroy (stub);
         }
-out:
+
         return 0;
 }
 
