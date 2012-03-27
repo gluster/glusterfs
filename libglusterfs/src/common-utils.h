@@ -482,8 +482,6 @@ char *uuid_utoa_r (uuid_t uuid, char *dst);
 char *lkowner_utoa (gf_lkowner_t *lkowner);
 char *lkowner_utoa_r (gf_lkowner_t *lkowner, char *dst, int len);
 
-void _get_md5_str (char *out_str, size_t outlen,
-                   const uint8_t *input, int n);
 void gf_array_insertionsort (void *a, int l, int r, size_t elem_size,
                              gf_cmp cmp);
 int gf_is_str_int (const char *value);

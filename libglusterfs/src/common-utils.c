@@ -52,7 +52,6 @@
 #include "glusterfs.h"
 #include "stack.h"
 #include "globals.h"
-#include "md5.h"
 #include "lkowner.h"
 
 #ifndef AI_ADDRCONFIG
@@ -1784,19 +1783,6 @@ lkowner_utoa_r (gf_lkowner_t *lkowner, char *dst, int len)
                 return NULL;
         lkowner_unparse (lkowner, dst, len);
         return dst;
-}
-
-void _get_md5_str (char *out_str, size_t outlen,
-                   const uint8_t *input, int n)
-{
-        uint8_t out[MD5_DIGEST_LEN] = {0};
-        int     j = 0;
-
-        GF_ASSERT (outlen >= (2*MD5_DIGEST_LEN + 1));
-        get_md5 (out, input, n);
-        for (j = 0; j < MD5_DIGEST_LEN; j++)
-                snprintf(out_str + j * 2, outlen-j*2, "%02x", out[j]);
-
 }
 
 void* gf_array_elem (void *a, int index, size_t elem_size)

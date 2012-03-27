@@ -15,7 +15,6 @@ noinst_HEADERS = server-protocol.h server-helpers.h server-mem-types.h \
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles \
-	-I$(top_srcdir)/contrib/md5/ \
 	-DDATADIR=\"$(localstatedir)\" -DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
 	$(GF_CFLAGS) -I$(top_srcdir)/xlators/protocol/legacy/lib/src \

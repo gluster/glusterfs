@@ -18,7 +18,6 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall    \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
 	$(GF_CFLAGS) -I$(top_srcdir)/xlators/protocol/lib/src   \
 	-I$(top_srcdir)/rpc/rpc-lib/src/       \
-	-I$(top_srcdir)/rpc/xdr/src/       \
-	-I$(top_srcdir)/contrib/md5/
+	-I$(top_srcdir)/rpc/xdr/src/
 
 CLEANFILES = *~

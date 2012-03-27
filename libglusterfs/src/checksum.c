@@ -17,12 +17,10 @@
   <http://www.gnu.org/licenses/>.
 */
 
-#include <inttypes.h>
+#include <openssl/md5.h>
+#include <stdint.h>
 
 #include "glusterfs.h"
-#include "md5.h"
-#include "checksum.h"
-
 
 /*
  * The "weak" checksum required for the rsync algorithm,
@@ -31,22 +29,26 @@
  *
  * "a simple 32 bit checksum that can be upadted from either end
  *  (inspired by Mark Adler's Adler-32 checksum)"
+ *
+ * Note: these functions are only called to compute checksums on
+ * pathnames; they don't need to handle arbitrarily long strings of
+ * data. Thus int32_t and uint32_t are sufficient
  */
 
 uint32_t
-gf_rsync_weak_checksum (char *buf1, int32_t len)
+gf_rsync_weak_checksum (unsigned char *buf, size_t len)
 {
-        int32_t i;
+        int32_t i = 0;
         uint32_t s1, s2;
 
-        signed char *buf = (signed char *) buf1;
         uint32_t csum;
 
         s1 = s2 = 0;
-        for (i = 0; i < (len-4); i+=4) {
-                s2 += 4*(s1 + buf[i]) + 3*buf[i+1] + 2*buf[i+2] + buf[i+3];
-
-                s1 += buf[i+0] + buf[i+1] + buf[i+2] + buf[i+3];
+        if (len >= 4) {
+                for (; i < (len-4); i+=4) {
+                        s2 += 4*(s1 + buf[i]) + 3*buf[i+1] + 2*buf[i+2] + buf[i+3];
+                        s1 += buf[i+0] + buf[i+1] + buf[i+2] + buf[i+3];
+                }
         }
 
         for (; i < len; i++) {
@@ -66,13 +68,7 @@ gf_rsync_weak_checksum (char *buf1, int32_t len)
  */
 
 void
-gf_rsync_strong_checksum (char *buf, int32_t len, uint8_t *sum)
+gf_rsync_strong_checksum (unsigned char *data, size_t len, unsigned char *md5)
 {
-        md_context m;
-
-        md5_begin (&m);
-        md5_update (&m, (unsigned char *) buf, len);
-        md5_result (&m, (unsigned char *) sum);
-
-        return;
+        MD5(data, len, md5);
 }
