@@ -134,6 +134,9 @@ client_register_grace_timer (xlator_t *this, clnt_conf_t *conf)
                 } else {
                         gf_log (this->name, GF_LOG_INFO,
                                 "Registering a grace timer");
+
+                        conf->grace_timer_needed = _gf_false;
+
                         conf->grace_timer =
                                 gf_timer_call_after (this->ctx,
                                                      conf->grace_tv,
