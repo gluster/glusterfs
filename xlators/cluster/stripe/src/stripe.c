@@ -1122,7 +1122,9 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
         local->op_ret = -1;
         loc_copy (&local->loc, loc);
         local->xflag = xflag;
-        local->xdata = dict_ref (xdata);
+
+        if (xdata)
+            local->xdata = dict_ref (xdata);
 
         frame->local = local;
         local->call_count = priv->child_count;
