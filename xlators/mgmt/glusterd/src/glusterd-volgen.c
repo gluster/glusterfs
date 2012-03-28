@@ -45,6 +45,11 @@
 #include "glusterd-utils.h"
 #include "run.h"
 
+#define AUTH_ALLOW_MAP_KEY "auth.allow"
+#define AUTH_REJECT_MAP_KEY "auth.reject"
+#define AUTH_ALLOW_OPT_KEY "auth.addr.*.allow"
+#define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
+
 
 /* dispatch table for VOLUME SET
  * -----------------------------
@@ -160,8 +165,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"network.tcp-window-size",              "protocol/server",           NULL, NULL, NO_DOC, 0},
         {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, NO_DOC, 0},
-        {"auth.allow",                           "protocol/server",           "!server-auth", "*", DOC, 0},
-        {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC, 0},
+        {AUTH_ALLOW_MAP_KEY,                     "protocol/server",           "!server-auth", "*", DOC, 0},
+        {AUTH_REJECT_MAP_KEY,                    "protocol/server",           "!server-auth", NULL, DOC, 0},
         {"transport.keepalive",                  "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0},
         {"server.allow-insecure",                "protocol/server",           "rpc-auth-allow-insecure", NULL, NO_DOC, 0},
 
@@ -209,7 +214,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0},
         {"features.quota-timeout",               "features/quota",            "timeout", "0", DOC, 0},
-        {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, NO_DOC, 0},
+        {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, DOC, 0},
         {"features.lock-heal",                   "protocol/client",           "lk-heal", NULL, DOC, 0},
         {"features.lock-heal",                   "protocol/server",           "lk-heal", NULL, DOC, 0},
         {"client.grace-timeout",                 "protocol/client",           "grace-timeout", NULL, DOC, 0},
@@ -1967,25 +1972,30 @@ get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
         GF_ASSERT (key);
 
 
-        if (vme->option) {
-                if  (vme->option[0] == '!') {
-                        *key = vme->option + 1;
-                        if (!*key[0])
-                                ret = -1;
+        if (!strcmp (vme->key, AUTH_ALLOW_MAP_KEY))
+                *key = gf_strdup (AUTH_ALLOW_OPT_KEY);
+        else if (!strcmp (vme->key, AUTH_REJECT_MAP_KEY))
+                *key = gf_strdup (AUTH_REJECT_OPT_KEY);
+        else {
+                if (vme->option) {
+                        if  (vme->option[0] == '!') {
+                                *key = vme->option + 1;
+                                if (!*key[0])
+                                        ret = -1;
+                        } else {
+                                *key = vme->option;
+                        }
                 } else {
-                        *key = vme->option;
-                }
-        } else  {
-                *key = strchr (vme->key, '.');
-                if (*key) {
-                        (*key) ++;
-                        if (!*key[0])
+                        *key = strchr (vme->key, '.');
+                        if (*key) {
+                                (*key) ++;
+                                if (!*key[0])
+                                        ret = -1;
+                        } else {
                                 ret = -1;
-                } else {
-                        ret = -1;
+                        }
                 }
         }
-
         if (ret)
                 gf_log ("glusterd", GF_LOG_ERROR, "Wrong entry found in  "
                         "glusterd_volopt_map entry %s", vme->key);
@@ -2067,6 +2077,10 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                                         vme->key, def_val, descr);
                         strcat (output_string, tmp_str);
                 }
+
+                if (!strcmp (key, AUTH_ALLOW_OPT_KEY) ||
+                    !strcmp (key, AUTH_REJECT_OPT_KEY))
+                        GF_FREE (key);
         }
 
 #if (HAVE_LIB_XML)
