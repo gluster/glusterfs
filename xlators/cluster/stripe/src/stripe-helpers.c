@@ -461,7 +461,8 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
 
                 if (stripe_opt->block_size < STRIPE_MIN_BLOCK_SIZE) {
                         gf_log (this->name, GF_LOG_ERROR, "Invalid Block-size: "
-                                "%s. Should be atleast 512 bytes", num);
+                                "%s. Should be atleast %llu bytes", num,
+                                STRIPE_MIN_BLOCK_SIZE);
                         goto out;
                 }
                 if (stripe_opt->block_size % 512) {
