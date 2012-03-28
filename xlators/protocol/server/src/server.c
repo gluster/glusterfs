@@ -1184,7 +1184,9 @@ struct volume_options options[] = {
         },
         { .key           = {"statedump-path"},
           .type          = GF_OPTION_TYPE_PATH,
-          .default_value = "/tmp"
+          .default_value = "/tmp",
+          .description = "Specifies directory in which gluster should save its"
+                         " statedumps. By default it is the /tmp directory"
         },
         { .key   = {"lk-heal"},
           .type  = GF_OPTION_TYPE_BOOL,
@@ -1204,10 +1206,16 @@ struct volume_options options[] = {
          * for the sake of validation during volume set from cli            */
 
         { .key   = {"auth.addr.*.allow"},
-          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .description = "Allow a comma separated list of addresses and/or "
+                         "hostnames to connect to the server. By default, all"
+                         " connections are allowed."
         },
         { .key   = {"auth.addr.*.reject"},
-          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .description = "Reject a comma separated list of addresses and/or "
+                         "hostnames to connect to the server. By default, all"
+                         " connections are allowed."
         },
 
         { .key   = {NULL} },
