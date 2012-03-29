@@ -4119,6 +4119,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
         call_frame_t       *lookup_frame = NULL;
         dht_local_t        *lookup_local = NULL;
         dht_local_t        *local = NULL;
+        dict_t             *xattrs = NULL;
 
         local = frame->local;
 
@@ -4137,6 +4138,21 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                    be treated as non-empty
                 */
                 return 0;
+        }
+
+        xattrs = dict_new ();
+        if (!xattrs) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                return -1;
+        }
+
+        ret = dict_set_uint32 (xattrs, DHT_LINKFILE_KEY, 256);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set linkto key"
+                        " in dict");
+                if (xattrs)
+                        dict_unref (xattrs);
+                return -1;
         }
 
         list_for_each_entry (trav, &entries->list, list) {
@@ -4182,12 +4198,18 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
 
                 STACK_WIND (lookup_frame, dht_rmdir_lookup_cbk,
                             src, src->fops->lookup,
-                            &lookup_local->loc, NULL);
+                            &lookup_local->loc, xattrs);
                 ret++;
         }
 
+        if (xattrs)
+                dict_unref (xattrs);
+
         return ret;
 err:
+        if (xattrs)
+                dict_unref (xattrs);
+
         DHT_STACK_DESTROY (lookup_frame);
         return 0;
 }
