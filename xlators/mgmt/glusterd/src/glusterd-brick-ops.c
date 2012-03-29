@@ -133,6 +133,15 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
                                 volinfo->volname);
                         ret = 0;
                         goto out;
+                } else {
+                        snprintf (err_str, err_len, "Incorrect number of "
+                                  "bricks (%d) supplied for changing volume's "
+                                  "stripe count to %d, need at least %d bricks",
+                                  (total_bricks - volinfo->brick_count),
+                                  stripe_count,
+                                  (volinfo->replica_count * stripe_count));
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
+                        goto out;
                 }
                 break;
         case GF_CLUSTER_TYPE_STRIPE:
@@ -213,6 +222,16 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
                                 "'stripe' to 'replicate-stripe'",
                                 volinfo->volname);
                         ret = 0;
+                        goto out;
+                } else {
+                        snprintf (err_str, err_len, "Incorrect number of "
+                                  "bricks (%d) supplied for changing volume's "
+                                  "replica count to %d, need at least %d "
+                                  "bricks",
+                                  (total_bricks - volinfo->brick_count),
+                                  replica_count, (volinfo->dist_leaf_count *
+                                                  replica_count));
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
                         goto out;
                 }
                 break;
