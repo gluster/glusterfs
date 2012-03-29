@@ -3649,7 +3649,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         if (ret)
                 goto out;
 
-        mtab = setmntent (_PATH_MNTTAB, "r");
+        mtab = setmntent (_PATH_MOUNTED, "r");
         entry = getmntent (mtab);
 
         while (1) {

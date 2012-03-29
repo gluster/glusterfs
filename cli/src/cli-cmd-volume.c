@@ -1439,7 +1439,6 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 status->block_size = 0;
         }
 
-#ifdef GF_LINUX_HOST_OS
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", i);
         ret = dict_get_str (dict, key, &(status->mount_options));
@@ -1453,41 +1452,28 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 ret = 0;
                 status->fs_name = NULL;
         }
-#endif
 
-        if (status->fs_name && (IS_EXT_FS(status->fs_name) ||
-            !strcmp (status->fs_name, "xfs"))) {
-
-#ifdef GF_LINUX_HOST_OS
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "brick%d.inode_size", i);
-                ret = dict_get_str (dict, key, &(status->inode_size));
-                if (ret)
-                        status->inode_size = NULL;
-#endif
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "brick%d.total_inodes", i);
-                ret = dict_get_uint64 (dict, key,
-                                       &(status->total_inodes));
-                if (ret)
-                        status->total_inodes = 0;
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "brick%d.free_inodes", i);
-                ret = dict_get_uint64 (dict, key, &(status->free_inodes));
-                if (ret) {
-                        ret = 0;
-                        status->free_inodes = 0;
-                }
-
-        } else {
-#ifdef GF_LINUX_HOST_OS
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.inode_size", i);
+        ret = dict_get_str (dict, key, &(status->inode_size));
+        if (ret)
                 status->inode_size = NULL;
-#endif
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.total_inodes", i);
+        ret = dict_get_uint64 (dict, key,
+                        &(status->total_inodes));
+        if (ret)
                 status->total_inodes = 0;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.free_inodes", i);
+        ret = dict_get_uint64 (dict, key, &(status->free_inodes));
+        if (ret) {
+                ret = 0;
                 status->free_inodes = 0;
         }
+
 
  out:
         return ret;
