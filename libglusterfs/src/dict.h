@@ -99,6 +99,9 @@ struct _dict {
         char           *extra_free;
         char           *extra_stdfree;
         gf_lock_t       lock;
+        data_pair_t    *members_internal;
+        data_pair_t     free_pair;
+        gf_boolean_t    free_pair_in_use;
 };
 
 
@@ -164,8 +167,6 @@ data_t *get_new_data ();
 data_t * data_copy (data_t *old);
 dict_t *get_new_dict_full (int size_hint);
 dict_t *get_new_dict ();
-
-data_pair_t *get_new_data_pair ();
 
 void dict_foreach (dict_t *this,
 		   void (*fn)(dict_t *this,
