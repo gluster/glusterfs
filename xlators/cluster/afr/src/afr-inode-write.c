@@ -348,6 +348,7 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
         int                     ret = 0;
         int                     i   = 0;
         afr_fd_ctx_t            *fd_ctx = NULL;
+        inode_t                 *inode = NULL;
         gf_boolean_t            need_self_heal = _gf_false;
         int                     *need_open = NULL;
         int                     need_open_count = 0;
@@ -360,7 +361,10 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
 
         GF_ASSERT (local->fd);
 
-        if (fd_is_anonymous (local->fd)) {
+        inode = local->fd->inode;
+        //gfid is not set in rebalance, that case needs to be handled.
+        if (fd_is_anonymous (local->fd) ||
+            !inode || uuid_is_null (inode->gfid)) {
                 fop_continue = _gf_true;
                 goto out;
         }
