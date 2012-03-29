@@ -2017,7 +2017,7 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
         int                      ret = -1;
         char                    *def_val = NULL;
         char                    *descr = NULL;
-        char                     output_string[8192] = {0, };
+        char                     output_string[16384] = {0, };
         char                    *output = NULL;
         char                     tmp_str[1024] = {0, };
         dict_t                  *ctx = NULL;
