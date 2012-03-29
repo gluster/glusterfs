@@ -3197,16 +3197,17 @@ out:
 int32_t
 qr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-               struct iatt *postparent)
+               struct iatt *postparent, dict_t *xdata)
 {
         QR_STACK_UNWIND (unlink, frame, op_ret, op_errno, preparent,
-                         postparent);
+                         postparent, xdata);
         return 0;
 }
 
 
 int32_t
-qr_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
+qr_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
+                  dict_t *xdata)
 {
         qr_local_t  *local      = NULL;
         uint32_t     open_count = 0;
@@ -3229,7 +3230,7 @@ qr_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         STACK_WIND (frame, qr_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, loc);
+                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
 
 out:
         return 0;
@@ -3237,7 +3238,8 @@ out:
 
 
 int32_t
-qr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
+qr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
+           dict_t *xdata)
 {
         qr_dentry_t      *dentry     = NULL;
         int32_t           op_errno   = -1, ret = -1, op_ret = -1;
@@ -3317,7 +3319,8 @@ qr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                                 if (!fdctx->opened) {
                                         stub = fop_unlink_stub (frame,
                                                                 qr_unlink_helper,
-                                                                loc);
+                                                                loc, xflag,
+                                                                xdata);
                                         if (stub == NULL) {
                                                 op_ret = -1;
                                                 op_errno = ENOMEM;
@@ -3371,18 +3374,18 @@ qr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
                 STACK_WIND (open_frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open,
-                            loc, fdctx->flags, fdctx->fd, fdctx->wbflags);
+                            loc, fdctx->flags, fdctx->fd, fdctx->xdata);
         }
 
         return 0;
 
 unwind:
-        QR_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL);
+        QR_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 
 wind:
         STACK_WIND (frame, qr_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, loc);
+                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
 }
 

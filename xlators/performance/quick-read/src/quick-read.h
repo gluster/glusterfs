@@ -55,6 +55,7 @@ struct qr_fd_ctx {
         struct list_head  inode_list;
         struct list_head  tmp_list;
         fd_t             *fd;
+        dict_t           *xdata;
 };
 typedef struct qr_fd_ctx qr_fd_ctx_t;
 
