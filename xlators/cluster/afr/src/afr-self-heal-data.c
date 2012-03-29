@@ -909,7 +909,7 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                         afr_sh_data_fail (frame, this);
                         goto out;
                 }
-                if (IA_ISREG (buf->ia_type))
+                if (IA_ISREG (sh->type))
                         afr_sh_data_fix (frame, this);
                 else
                         afr_sh_data_special_file_fix (frame, this);
