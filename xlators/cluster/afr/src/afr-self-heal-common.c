@@ -912,9 +912,10 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 
         afr_sh_reset (frame, this);
         if (local->govinda_gOvinda || sh->op_failed) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "split brain found, aborting selfheal of %s",
-                        local->loc.path);
+                if (local->govinda_gOvinda)
+                        gf_log (this->name, GF_LOG_INFO,
+                                "split brain found, aborting selfheal of %s",
+                                local->loc.path);
                 sh->op_failed = 1;
                 sh->completion_cbk (frame, this);
         } else {
