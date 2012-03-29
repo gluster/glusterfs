@@ -3535,17 +3535,40 @@ glusterd_get_brick_root (char *path, char **mount_point)
         return -1;
 }
 
+static char*
+glusterd_parse_inode_size (char *stream, char *pattern)
+{
+        char *needle = NULL;
+        char *trail  = NULL;
+
+        needle = strstr (stream, pattern);
+        if (!needle)
+                goto out;
+
+        needle = nwstrtail (needle, pattern);
+
+        trail = needle;
+        while (trail && isdigit (*trail)) trail++;
+        if (trail)
+                *trail = '\0';
+
+out:
+        return needle;
+}
+
 static int
 glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 {
         int             ret               = -1;
-        int             fd                = -1;
         char            key[1024]         = {0};
         char            buffer[4096]      = {0};
-        char            cmd_str[4096]     = {0};
         char           *inode_size        = NULL;
         char           *device            = NULL;
         char           *fs_name           = NULL;
+        char           *cur_word          = NULL;
+        char           *pattern           = NULL;
+        char           *trail             = NULL;
+        runner_t        runner            = {0, };
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", count);
@@ -3559,26 +3582,18 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         if (ret)
                 goto out;
 
+        runinit (&runner);
+        runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         /* get inode size for xfs or ext2/3/4 */
         if (!strcmp (fs_name, "xfs")) {
 
-                snprintf (cmd_str, sizeof (cmd_str),
-                          "xfs_info %s | "
-                          "grep isize | "
-                          "cut -d ' ' -f 2-  | "
-                          "cut -d '=' -f 2 | "
-                          "cut -d ' ' -f 1 "
-                          "> /tmp/gf_status.txt ",
-                          device);
+                runner_add_args (&runner, "xfs_info", device, NULL);
+                pattern = "isize=";
 
         } else if (IS_EXT_FS(fs_name)) {
 
-                snprintf (cmd_str, sizeof (cmd_str),
-                          "tune2fs -l %s | "
-                          "grep -i 'inode size' | "
-                          "awk '{print $3}' "
-                          "> /tmp/gf_status.txt ",
-                          device);
+                runner_add_args (&runner, "tune2fs", "-l", device, NULL);
+                pattern = "Inode size:";
 
         } else {
                 ret = 0;
@@ -3588,7 +3603,7 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                 goto out;
         }
 
-        ret = runcmd ("/bin/sh", "-c", cmd_str, NULL);
+        ret = runner_start (&runner);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "could not get inode "
                         "size for %s : %s package missing", fs_name,
@@ -3597,33 +3612,42 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                 goto out;
         }
 
-        fd = open ("/tmp/gf_status.txt", O_RDONLY);
-        unlink ("/tmp/gf_status.txt");
-        if (fd < 0) {
-                ret = -1;
+        for (;;) {
+                if (fgets (buffer, sizeof (buffer),
+                    runner_chio (&runner, STDOUT_FILENO)) == NULL)
+                        break;
+                trail = strrchr (buffer, '\n');
+                if (trail)
+                        *trail = '\0';
+
+                cur_word = glusterd_parse_inode_size (buffer, pattern);
+                if (cur_word)
+                        break;
+        }
+
+        ret = runner_end (&runner);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "%s exited with non-zero "
+                        "exit status", ((!strcmp (fs_name, "xfs")) ?
+                        "xfs_info" : "tune2fs"));
                 goto out;
         }
-        memset (buffer, 0, sizeof (buffer));
-        ret = read (fd, buffer, sizeof (buffer));
-        if (ret < 2) {
+        if (!cur_word) {
                 ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to retrieve inode "
+                        "size using %s",
+                        (!strcmp (fs_name, "xfs")? "xfs_info": "tune2fs"));
                 goto out;
         }
+
+        inode_size = gf_strdup (cur_word);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.inode_size", count);
 
-        inode_size = get_nth_word (buffer, 1);
-        if (!inode_size) {
-                ret = -1;
-                goto out;
-        }
-
         ret = dict_set_dynstr (dict, key, inode_size);
 
  out:
-        if (fd >= 0)
-                close (fd);
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to get inode size");
         return ret;
