@@ -29,16 +29,6 @@
 #include "byte-order.h"
 #include "globals.h"
 
-data_pair_t *
-get_new_data_pair ()
-{
-        data_pair_t *data_pair_ptr = NULL;
-
-        data_pair_ptr = mem_get0 (THIS->ctx->dict_pair_pool);
-
-        return data_pair_ptr;
-}
-
 data_t *
 get_new_data ()
 {
@@ -63,11 +53,32 @@ get_new_dict_full (int size_hint)
         }
 
         dict->hash_size = size_hint;
-        dict->members = mem_get0 (THIS->ctx->dict_pair_pool);
-
-        if (!dict->members) {
-                mem_put (dict);
-                return NULL;
+        if (size_hint == 1) {
+                /*
+                 * This is the only case we ever see currently.  If we ever
+                 * need to support resizing the hash table, the resize function
+                 * will have to take into account the possibility that
+                 * "members" is not separately allocated (i.e. don't just call
+                 * realloc() blindly.
+                 */
+                dict->members = &dict->members_internal;
+        }
+        else {
+                /*
+                 * We actually need to allocate space for size_hint *pointers*
+                 * but we actually allocate space for one *structure*.  Since
+                 * a data_pair_t consists of five pointers, we're wasting four
+                 * pointers' worth for N=1, and will overrun what we allocated
+                 * for N>5.  If anybody ever starts using size_hint, we'll need
+                 * to fix this.
+                 */
+                GF_ASSERT (size_hint <=
+                           (sizeof(data_pair_t) / sizeof(data_pair_t *)));
+                dict->members = mem_get0 (THIS->ctx->dict_pair_pool);
+                if (!dict->members) {
+                        mem_put (dict);
+                        return NULL;
+                }
         }
 
         LOCK_INIT (&dict->lock);
@@ -251,22 +262,36 @@ _dict_set (dict_t *this,
                 /* Indicates duplicate key */
                 return 0;
         }
-        pair = mem_get0 (THIS->ctx->dict_pair_pool);
-        if (!pair) {
-                return -1;
+        if (this->free_pair_in_use) {
+                pair = mem_get0 (THIS->ctx->dict_pair_pool);
+                if (!pair) {
+                        return -1;
+                }
+        }
+        else {
+                pair = &this->free_pair;
+                this->free_pair_in_use = _gf_true;
         }
 
-        pair->key = (char *) GF_CALLOC (1, strlen (key) + 1,
-                                        gf_common_mt_char);
-        if (!pair->key) {
-                mem_put (pair);
-
-                if (key_free)
-                        GF_FREE (key);
-                return -1;
+        if (key_free) {
+                /* It's ours.  Use it. */
+                pair->key = key;
+                key_free = 0;
         }
-
-        strcpy (pair->key, key);
+        else {
+                pair->key = (char *) GF_CALLOC (1, strlen (key) + 1,
+                                                gf_common_mt_char);
+                if (!pair->key) {
+                        if (pair == &this->free_pair) {
+                                this->free_pair_in_use = _gf_false;
+                        }
+                        else {
+                                mem_put (pair);
+                        }
+                        return -1;
+                }
+                strcpy (pair->key, key);
+        }
         pair->value = data_ref (value);
 
         pair->hash_next = this->members[hashval];
@@ -363,7 +388,12 @@ dict_del (dict_t *this, char *key)
                                 pair->next->prev = pair->prev;
 
                         GF_FREE (pair->key);
-                        mem_put (pair);
+                        if (pair == &this->free_pair) {
+                                this->free_pair_in_use = _gf_false;
+                        }
+                        else {
+                                mem_put (pair);
+                        }
                         this->count--;
                         break;
                 }
@@ -394,11 +424,15 @@ dict_destroy (dict_t *this)
                 pair = pair->next;
                 data_unref (prev->value);
                 GF_FREE (prev->key);
-                mem_put (prev);
+                if (prev != &this->free_pair) {
+                        mem_put (prev);
+                }
                 prev = pair;
         }
 
-        mem_put (this->members);
+        if (this->members != &this->members_internal) {
+                mem_put (this->members);
+        }
 
         if (this->extra_free)
                 GF_FREE (this->extra_free);
