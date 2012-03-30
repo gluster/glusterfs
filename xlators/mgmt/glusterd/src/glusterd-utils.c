@@ -68,11 +68,15 @@
 #include <sys/sockio.h>
 #endif
 
-#define MOUNT_PROGRAM 100005
-#define NFS_PROGRAM 100003
-#define NFSV3_VERSION 3
-#define MOUNTV3_VERSION 3
-#define MOUNTV1_VERSION 1
+#define NFS_PROGRAM         100003
+#define NFSV3_VERSION       3
+
+#define MOUNT_PROGRAM       100005
+#define MOUNTV3_VERSION     3
+#define MOUNTV1_VERSION     1
+
+#define NLM_PROGRAM         100021
+#define NLMV4_VERSION       4
 
 char    *glusterd_sock_dir = "/tmp";
 static glusterd_lock_t lock;
@@ -2922,6 +2926,11 @@ glusterd_nfs_pmap_deregister ()
                 gf_log ("", GF_LOG_INFO, "De-registered NFSV3 successfully");
         else
                 gf_log ("", GF_LOG_ERROR, "De-register NFSV3 is unsuccessful");
+
+        if (pmap_unset (NLM_PROGRAM, NLMV4_VERSION))
+                gf_log ("", GF_LOG_INFO, "De-registered NLM v4 successfully");
+        else
+                gf_log ("", GF_LOG_ERROR, "De-registration of NLM v4 failed");
 
 }
 
