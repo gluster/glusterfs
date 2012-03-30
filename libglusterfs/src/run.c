@@ -422,7 +422,7 @@ TBANNER (const char *txt)
 }
 
 int
-main ()
+main (int argc, char **argv)
 {
         runner_t runner;
         char buf[80];
@@ -430,6 +430,8 @@ main ()
         int ret;
         int fd;
         long pathmax = pathconf ("/", _PC_PATH_MAX);
+        struct timeval tv = {0,};
+        struct timeval *tvp = NULL;
 
         wdbuf = malloc (pathmax);
         assert (wdbuf);
@@ -478,6 +480,13 @@ main ()
         if (ret != 0)
                 printf (" %d [%s]", errno, strerror (errno));
         putchar ('\n');
+
+        if (argc > 1) {
+                tv.tv_sec = strtoul (argv[1], NULL, 10);
+                if (tv.tv_sec > 0)
+                        tvp = &tv;
+                select (0, 0, 0, 0, tvp);
+        }
 
         return 0;
 }
