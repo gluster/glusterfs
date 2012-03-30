@@ -364,9 +364,11 @@ runner_end (runner_t *runner)
 
         ret = runner_end_reuse (runner);
 
-        for (p = runner->argv; *p; p++)
-                GF_FREE (*p);
-        GF_FREE (runner->argv);
+        if (runner->argv) {
+                for (p = runner->argv; *p; p++)
+                        GF_FREE (*p);
+                GF_FREE (runner->argv);
+        }
         for (i = 0; i < 3; i++)
                 close (runner->chfd[i]);
 
@@ -379,10 +381,8 @@ runner_run_generic (runner_t *runner, int (*rfin)(runner_t *runner))
         int ret = 0;
 
         ret = runner_start (runner);
-        if (ret != 0)
-                return -1;
 
-        return rfin (runner) ? -1 : 0;
+        return -(rfin (runner) || ret);
 }
 
 int
