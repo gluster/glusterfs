@@ -510,7 +510,8 @@ int nsm_monitor(char *host)
 out:
         GF_FREE(nsm_mon.mon_id.mon_name);
         GF_FREE(nsm_mon.mon_id.my_id.my_name);
-        clnt_destroy(clnt);
+        if (clnt != NULL)
+                clnt_destroy(clnt);
         return retstat;
 }
 
