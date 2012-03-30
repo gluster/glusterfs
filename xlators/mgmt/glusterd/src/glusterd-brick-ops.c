@@ -275,8 +275,10 @@ out:
 }
 
 static int
-gd_rmbr_validate_replica_count (glusterd_volinfo_t *volinfo, int32_t replica_count,
-                                int32_t brick_count, char *err_str)
+gd_rmbr_validate_replica_count (glusterd_volinfo_t *volinfo,
+                                int32_t replica_count,
+                                int32_t brick_count, char *err_str,
+                                size_t err_len)
 {
         int ret = -1;
         int replica_nodes = 0;
@@ -284,7 +286,7 @@ gd_rmbr_validate_replica_count (glusterd_volinfo_t *volinfo, int32_t replica_cou
         switch (volinfo->type) {
         case GF_CLUSTER_TYPE_NONE:
         case GF_CLUSTER_TYPE_STRIPE:
-                snprintf (err_str, 2048,
+                snprintf (err_str, err_len,
                           "replica count (%d) option given for non replicate "
                           "volume %s", replica_count, volinfo->volname);
                 gf_log (THIS->name, GF_LOG_WARNING, "%s", err_str);
@@ -294,7 +296,7 @@ gd_rmbr_validate_replica_count (glusterd_volinfo_t *volinfo, int32_t replica_cou
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 /* in remove brick, you can only reduce the replica count */
                 if (replica_count > volinfo->replica_count) {
-                        snprintf (err_str, 2048,
+                        snprintf (err_str, err_len,
                                   "given replica count (%d) option is more "
                                   "than volume %s's replica count (%d)",
                                   replica_count, volinfo->volname,
@@ -303,15 +305,30 @@ gd_rmbr_validate_replica_count (glusterd_volinfo_t *volinfo, int32_t replica_cou
                         goto out;
                 }
                 if (replica_count == volinfo->replica_count) {
+                        /* This means the 'replica N' option on CLI was
+                           redundant. Check if the total number of bricks given
+                           for removal is same as 'dist_leaf_count' */
+                        if (brick_count % volinfo->dist_leaf_count) {
+                                snprintf (err_str, err_len,
+                                          "number of bricks provided (%d) is "
+                                          "not valid. need at least %d "
+                                          "(or %dxN)", brick_count,
+                                          volinfo->dist_leaf_count,
+                                          volinfo->dist_leaf_count);
+                                gf_log (THIS->name, GF_LOG_WARNING, "%s",
+                                        err_str);
+                                goto out;
+                        }
                         ret = 1;
                         goto out;
                 }
 
-                replica_nodes = ((volinfo->brick_count / volinfo->replica_count) *
+                replica_nodes = ((volinfo->brick_count /
+                                  volinfo->replica_count) *
                                  (volinfo->replica_count - replica_count));
 
                 if (brick_count % replica_nodes) {
-                        snprintf (err_str, 2048,
+                        snprintf (err_str, err_len,
                                   "need %d(xN) bricks for reducing replica "
                                   "count of the volume from %d to %d",
                                   replica_nodes, volinfo->replica_count,
@@ -624,19 +641,23 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "request to change replica-count to %d", replica_count);
                 ret = gd_rmbr_validate_replica_count (volinfo, replica_count,
-                                                      count, err_str);
+                                                      count, err_str,
+                                                      sizeof (err_str));
                 if (ret < 0) {
-                        /* logging and error msg are done in above function itself */
+                        /* logging and error msg are done in above function
+                           itself */
                         goto out;
                 }
                 dict_del (dict, "replica-count");
                 if (ret) {
                         replica_count = 0;
                 } else {
-                        ret = dict_set_int32 (dict, "replica-count", replica_count);
+                        ret = dict_set_int32 (dict, "replica-count",
+                                              replica_count);
                         if (ret) {
                                 gf_log (THIS->name, GF_LOG_WARNING,
-                                        "failed to set the replica_count in dict");
+                                        "failed to set the replica_count "
+                                        "in dict");
                                 goto out;
                         }
                 }
@@ -656,14 +677,15 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 	/* Do not allow remove-brick if the volume is plain stripe */
 	if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE) &&
             (volinfo->brick_count == volinfo->stripe_count)) {
-                snprintf (err_str, 2048, "Removing brick from a plain stripe is not allowed");
+                snprintf (err_str, 2048,
+                          "Removing brick from a plain stripe is not allowed");
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                 ret = -1;
                 goto out;
 	}
 
-	/* Do not allow remove-brick if the bricks given is less than the replica count
-	   or stripe count */
+	/* Do not allow remove-brick if the bricks given is less than
+           the replica count or stripe count */
         if (!replica_count && (volinfo->type != GF_CLUSTER_TYPE_NONE) &&
             !(volinfo->brick_count <= volinfo->dist_leaf_count)) {
                 if (volinfo->dist_leaf_count &&
@@ -680,7 +702,8 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 	if (!replica_count &&
             (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) &&
             (volinfo->brick_count == volinfo->dist_leaf_count)) {
-                snprintf (err_str, 2048, "Removing bricks from stripe-replicate"
+                snprintf (err_str, 2048,
+                          "Removing bricks from stripe-replicate"
                           " configuration is not allowed without reducing "
                           "replica or stripe count explicitly.");
                 gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
