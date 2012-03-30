@@ -800,6 +800,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                 __destroy_lock (conf);
 
                                 __destroy_lock (lock);
+                                INIT_LIST_HEAD (&sum->list);
                                 __insert_and_merge (pl_inode, sum);
 
                                 return;
