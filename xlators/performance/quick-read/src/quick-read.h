@@ -74,13 +74,6 @@ struct qr_local {
 };
 typedef struct qr_local qr_local_t;
 
-struct qr_dentry {
-        char             *name;
-        uuid_t            pargfid;
-        struct list_head  unlink_list;
-};
-typedef struct qr_dentry qr_dentry_t;
-
 struct qr_inode {
         dict_t           *xattr;
         inode_t          *inode;
@@ -119,7 +112,6 @@ typedef struct qr_inode_table qr_inode_table_t;
 struct qr_private {
         qr_conf_t         conf;
         qr_inode_table_t  table;
-        struct mem_pool  *dentry_pool;
 };
 typedef struct qr_private qr_private_t;
 
