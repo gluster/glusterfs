@@ -241,7 +241,6 @@ __qr_inode_alloc (xlator_t *this, char *path, inode_t *inode)
         }
 
         INIT_LIST_HEAD (&qr_inode->lru);
-        INIT_LIST_HEAD (&qr_inode->unlinked_dentries);
         INIT_LIST_HEAD (&qr_inode->fd_list);
 
         priority = qr_get_priority (&priv->conf, path);
@@ -259,7 +258,6 @@ out:
 void
 __qr_inode_free (qr_inode_t *qr_inode)
 {
-        qr_dentry_t *dentry = NULL, *tmp_dentry = NULL;
         qr_fd_ctx_t *fdctx  = NULL, *tmp_fdctx  = NULL;
 
         GF_VALIDATE_OR_GOTO ("quick-read", qr_inode, out);
@@ -272,14 +270,6 @@ __qr_inode_free (qr_inode_t *qr_inode)
 
         LOCK (&qr_inode->inode->lock);
         {
-                list_for_each_entry_safe (dentry, tmp_dentry,
-                                          &qr_inode->unlinked_dentries,
-                                          unlink_list) {
-                        list_del_init (&dentry->unlink_list);
-                        GF_FREE (dentry->name);
-                        mem_put (dentry);
-                }
-
                 list_for_each_entry_safe (fdctx, tmp_fdctx, &qr_inode->fd_list,
                                           inode_list) {
                         list_del_init (&fdctx->inode_list);
@@ -690,7 +680,6 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         qr_local_t       *local          = NULL;
         qr_private_t     *priv           = NULL;
         qr_inode_table_t *table          = NULL;
-        qr_dentry_t      *dentry         = NULL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
@@ -791,22 +780,9 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
                 LOCK (&fd->inode->lock);
                 {
-                        list_for_each_entry (dentry,
-                                             &qr_inode->unlinked_dentries,
-                                             unlink_list) {
-                                if ((strcmp (dentry->name, loc->name) == 0)
-                                    && (uuid_compare (dentry->pargfid,
-                                                      loc->pargfid) == 0)) {
-                                        op_ret = -1;
-                                        op_errno = ENOENT;
-                                        goto unlock;
-                                }
-                        }
-
                         list_add_tail (&qr_fd_ctx->inode_list,
                                        &qr_inode->fd_list);
                 }
-        unlock:
                 UNLOCK (&fd->inode->lock);
         }
 
@@ -3174,26 +3150,6 @@ ret:
 }
 
 
-static qr_dentry_t *
-qr_dentry_new (xlator_t *this)
-{
-        qr_dentry_t  *dentry = NULL;
-        qr_private_t *priv   = NULL;
-
-        priv = this->private;
-
-        dentry = mem_get0 (priv->dentry_pool);
-        if (dentry == NULL) {
-                goto out;
-        }
-
-        INIT_LIST_HEAD (&dentry->unlink_list);
-
-out:
-        return dentry;
-}
-
-
 int32_t
 qr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *preparent,
@@ -3241,7 +3197,6 @@ int32_t
 qr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
            dict_t *xdata)
 {
-        qr_dentry_t      *dentry     = NULL;
         int32_t           op_errno   = -1, ret = -1, op_ret = -1;
         uint64_t          value      = 0;
         struct list_head  fd_list    = {0, };
@@ -3271,20 +3226,8 @@ qr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         frame->local = local;
 
-        dentry = qr_dentry_new (this);
-        if (dentry == NULL) {
-                op_errno = ENOMEM;
-                goto unwind;
-        }
-
-        dentry->name = gf_strdup (loc->name);
-        uuid_copy (dentry->pargfid, loc->pargfid);
-
         LOCK (&loc->inode->lock);
         {
-                list_add_tail (&dentry->unlink_list,
-                               &qr_inode->unlinked_dentries);
-
                 list_for_each_entry (fdctx, &qr_inode->fd_list, inode_list) {
                         __fd_ref (fdctx->fd);
                         list_add_tail (&fdctx->tmp_list, &fd_list);
@@ -3860,14 +3803,6 @@ init (xlator_t *this)
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to create local_t's memory pool");
-                goto out;
-        }
-
-        priv->dentry_pool = mem_pool_new (qr_dentry_t, 1024);
-        if (priv->dentry_pool == NULL) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to create dentry memory pool");
                 goto out;
         }
 
