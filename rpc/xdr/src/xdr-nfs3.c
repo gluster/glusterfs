@@ -19,6 +19,7 @@
 
 #include "xdr-nfs3.h"
 #include "mem-pool.h"
+#include "xdr-common.h"
 
 #if GF_DARWIN_HOST_OS
 #define xdr_u_quad_t xdr_u_int64_t

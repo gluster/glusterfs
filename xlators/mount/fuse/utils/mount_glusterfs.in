@@ -85,7 +85,7 @@ start_glusterfs ()
 --volfile-server-transport=$transport");
 	else
 	    cmd_line=$(echo "$cmd_line \
---volfile-server=$server_ip \
+--volfile-server=$server_ip");
 	fi
     else
 	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
@@ -173,6 +173,7 @@ main ()
     
     [ -r "$volfile_loc" ] || {
         server_ip=$(echo "$volfile_loc" | sed -n 's/\([a-zA-Z0-9:.\-]*\):.*/\1/p');
+        volume_id=$(echo "$volfile_loc" | sed -n 's/[a-zA-Z0-9:.\-]*:\(.*\)/\1/p');
 	volfile_loc="";
     }
     # following line is product of love towards sed

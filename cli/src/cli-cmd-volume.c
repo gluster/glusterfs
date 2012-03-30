@@ -1460,11 +1460,13 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         if (!status->total)
                 goto out;
 
+#ifdef GF_LINUX_HOST_OS
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", i);
         ret = dict_get_str (dict, key, &(status->device));
         if (ret)
                 status->device = NULL;
+#endif
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.block_size", i);

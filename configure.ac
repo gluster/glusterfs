@@ -394,6 +394,11 @@ dnl Linux, Solaris, Cygwin
 AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec])
 dnl FreeBSD, NetBSD
 AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
+case $host_os in
+	*netbsd*)
+	CFLAGS=-D_INCOMPLETE_XOPEN_C063
+	;;
+esac
 AC_CHECK_FUNC([linkat], [have_linkat=yes])
 if test "x${have_linkat}" = "xyes"; then
    AC_DEFINE(HAVE_LINKAT, 1, [define if found linkat])
@@ -474,8 +479,9 @@ case $host_os in
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
 	fi
-	GF_FUSE_LDADD="-liconv -lperfuse"
-	BUILD_FUSE_CLIENT=no
+	GF_FUSE_LDADD="-lperfuse"
+	BUILD_FUSE_CLIENT=yes
+	LEXLIB=""
 	;;
      *bsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
