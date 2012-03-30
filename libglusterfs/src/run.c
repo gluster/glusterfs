@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <assert.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 

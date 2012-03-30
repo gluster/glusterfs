@@ -24,6 +24,9 @@
 #include <sys/sysctl.h>
 #endif
 
+#ifndef GF_REQUEST_MAXGROUPS
+#define GF_REQUEST_MAXGROUPS    16
+#endif /* GF_REQUEST_MAXGROUPS */
 
 static void
 fuse_resolve_wipe (fuse_resolve_t *resolve)
