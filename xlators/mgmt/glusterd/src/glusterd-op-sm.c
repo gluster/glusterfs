@@ -690,7 +690,7 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                 if (!glusterd_is_volume_replicate (volinfo)) {
                         ret = -1;
                         snprintf (msg, sizeof (msg),
-                                  "Volume %s is not a replicate volume",
+                                  "Volume %s is not of type replicate",
                                   volname);
                         gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                         goto out;

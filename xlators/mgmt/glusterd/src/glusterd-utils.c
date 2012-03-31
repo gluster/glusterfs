@@ -1579,29 +1579,26 @@ _add_volinfo_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
 }
 
 int32_t
-glusterd_add_bricks_hname_path_to_dict (dict_t *dict)
+glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
+                                        glusterd_volinfo_t *volinfo)
 {
-        char                    *volname = NULL;
-        glusterd_volinfo_t      *volinfo = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
         int                     ret = 0;
         char                    key[256] = {0};
         int                     index = 0;
 
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
-                goto out;
-        }
 
-        ret  = glusterd_volinfo_find (volname, &volinfo);
-        if (ret)
-                goto out;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 snprintf (key, sizeof (key), "%d-hostname", index);
                 ret = dict_set_str (dict, key, brickinfo->hostname);
+                if (ret)
+                        goto out;
+
                 snprintf (key, sizeof (key), "%d-path", index);
                 ret = dict_set_str (dict, key, brickinfo->path);
+                if (ret)
+                        goto out;
+
                 index++;
         }
 out:
