@@ -1205,18 +1205,11 @@ afr_sh_entry_impunge_hardlink_cbk (call_frame_t *impunge_frame, void *cookie,
                                    struct iatt *postparent, dict_t *xdata)
 {
         int              call_count        = 0;
-        call_frame_t    *frame             = NULL;
-        afr_local_t     *impunge_local     = NULL;
-        afr_local_t     *local             = NULL;
-        afr_self_heal_t *impunge_sh        = NULL;
-        afr_self_heal_t *sh                = NULL;
-
-        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
-                                frame, local, sh);
 
         call_count = afr_frame_return (impunge_frame);
         if (call_count == 0)
-                sh->impunge_done (frame, this, op_ret, op_errno);
+                afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                op_ret, op_errno);
 
         return 0;
 }
