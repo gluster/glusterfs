@@ -450,6 +450,8 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
         glusterd_op_t                   cli_op = GD_OP_HEAL_VOLUME;
         char                            *volname = NULL;
         glusterd_volinfo_t              *volinfo = NULL;
+        xlator_t                        *this = NULL;
+        char                            *op_errstr = NULL;
 
         GF_ASSERT (req);
 
@@ -460,6 +462,8 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        this = THIS;
+
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
                 dict  = dict_new ();
@@ -468,7 +472,7 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         goto out;
@@ -479,21 +483,28 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+                gf_log (this->name, GF_LOG_ERROR, "failed to get volname");
+                gf_asprintf (&op_errstr, "Unable to find volume name");
                 goto out;
         }
-        gf_log ("glusterd", GF_LOG_INFO, "Received heal vol req "
+
+        gf_log (this->name, GF_LOG_INFO, "Received heal vol req "
                 "for volume %s", volname);
 
-        ret = glusterd_add_bricks_hname_path_to_dict (dict);
-        if (ret)
-                goto out;
         ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_asprintf (&op_errstr, "Volume %s does not exist", volname);
+                goto out;
+        }
+
+        ret = glusterd_add_bricks_hname_path_to_dict (dict, volinfo);
         if (ret)
                 goto out;
+
         ret = dict_set_int32 (dict, "count", volinfo->brick_count);
         if (ret)
                 goto out;
+
         ret = glusterd_op_begin (req, GD_OP_HEAL_VOLUME, dict);
 
         gf_cmd_log ("volume heal","on volname: %s %s", volname,
@@ -506,9 +517,13 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret)
+        if (ret) {
+                if (!op_errstr)
+                        op_errstr = gf_strdup ("operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
+                                                     NULL, op_errstr);
+                GF_FREE (op_errstr);
+        }
 
         return ret;
 }
@@ -1043,8 +1058,8 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
 
         if (!glusterd_is_volume_replicate (volinfo)) {
                 ret = -1;
-                snprintf (msg, sizeof (msg), "Volume %s is not a replicate "
-                          "type volume", volname);
+                snprintf (msg, sizeof (msg), "Volume %s is not of type "
+                          "replicate", volname);
                 *op_errstr = gf_strdup (msg);
                 gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 goto out;

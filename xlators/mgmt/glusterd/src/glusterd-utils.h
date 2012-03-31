@@ -416,7 +416,8 @@ int
 glusterd_restart_rebalance (glusterd_conf_t *conf);
 
 int32_t
-glusterd_add_bricks_hname_path_to_dict (dict_t *dict);
+glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
+                                        glusterd_volinfo_t *volinfo);
 
 int
 glusterd_add_node_to_dict (char *server, dict_t *dict, int count);
