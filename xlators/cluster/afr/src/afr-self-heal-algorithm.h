@@ -20,7 +20,6 @@
 #ifndef __AFR_SELF_HEAL_ALGORITHM_H__
 #define __AFR_SELF_HEAL_ALGORITHM_H__
 
-
 typedef int (*afr_sh_algo_fn) (call_frame_t *frame,
                                xlator_t *this);
 
