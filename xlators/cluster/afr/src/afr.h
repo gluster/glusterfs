@@ -261,6 +261,7 @@ typedef struct {
 
         afr_sh_algo_private_t *private;
 
+        struct afr_sh_algorithm  *algo;
         afr_lock_cbk_t data_lock_success_handler;
         afr_lock_cbk_t data_lock_failure_handler;
         int (*completion_cbk) (call_frame_t *frame, xlator_t *this);

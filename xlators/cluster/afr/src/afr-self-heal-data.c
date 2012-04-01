@@ -492,12 +492,16 @@ sh_algo_from_name (xlator_t *this, char *name)
 
 
 static int
-sh_zero_byte_files_exist (afr_self_heal_t *sh, int child_count)
+sh_zero_byte_files_exist (afr_local_t *local, int child_count)
 {
-        int i;
-        int ret = 0;
+        int             i = 0;
+        int             ret = 0;
+        afr_self_heal_t *sh = NULL;
 
+        sh = &local->self_heal;
         for (i = 0; i < child_count; i++) {
+                if (!local->child_up[i] || sh->child_errno[i])
+                        continue;
                 if (sh->buf[i].ia_size == 0) {
                         ret = 1;
                         break;
@@ -524,8 +528,7 @@ afr_sh_data_pick_algo (call_frame_t *frame, xlator_t *this)
         if (algo == NULL) {
                 /* option not set, so fall back on heuristics */
 
-                if ((local->enoent_count != 0)
-                    || sh_zero_byte_files_exist (sh, priv->child_count)
+                if (sh_zero_byte_files_exist (local, priv->child_count)
                     || (sh->file_size <= (priv->data_self_heal_window_size *
                                           this->ctx->page_size))) {
 
@@ -568,6 +571,7 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 
         sh_algo = afr_sh_data_pick_algo (frame, this);
 
+        sh->algo = sh_algo;
         sh_algo->fn (frame, this);
 
         return 0;
@@ -944,8 +948,6 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         afr_reset_children (sh->success_children, priv->child_count);
-        memset (sh->child_errno, 0,
-                sizeof (*sh->child_errno) * priv->child_count);
         sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 child = fstat_children[i];
