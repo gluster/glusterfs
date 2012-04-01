@@ -97,14 +97,6 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
 
-    if [ -n "$log_server" ]; then
-        if [ -n "$log_server_port" ]; then
-            cmd_line=$(echo "$cmd_line \
---log-server=$log_server \
---log-server-port=$log_server_port");
-        fi
-    fi
-
     if [ -z "$volfile_loc" ]; then
         if  [ -n "$server_ip" ]; then
             if [ -n "$server_port" ]; then
@@ -249,43 +241,54 @@ main ()
 {
     helper=$(echo "$@" | sed -n 's/.*\--[ ]*\([^ ]*\).*/\1/p');
 
-    options=$(echo "$@" | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
-
-    new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
-
-    [ -n "$new_log_level" ] && {
-	log_level_str="$new_log_level";
-    }
-
-    log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
-
-    read_only=$(echo "$options" | sed -n 's/.*\(ro\)[^,]*.*/\1/p');
-
-    acl=$(echo "$options" | sed -n 's/.*\(acl\)[^,]*.*/\1/p');
-
-    worm=$(echo "$options" | sed -n 's/.*\(worm\)[^,]*.*/\1/p');
-
-    transport=$(echo "$options" | sed -n 's/.*transport=\([^,]*\).*/\1/p');
-
-    direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
-
-    volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
-
-    volume_id=$(echo "$options" | sed -n 's/.*volume_id=\([^,]*\).*/\1/p');
-
-    volfile_check=$(echo "$options" | sed -n 's/.*volfile-check=\([^,]*\).*/\1/p');
-
-    volfile_max_fetch_attempts=$(echo "$options" | sed -n 's/.*fetch-attempts=\([^,]*\).*/\1/p');
-
-    server_port=$(echo "$options" | sed -n 's/.*server-port=\([^,]*\).*/\1/p');
-
-    backupvolfile_server=$(echo "$options" | sed -n 's/.*backupvolfile-server=\([^,]*\).*/\1/p');
-
-    log_server=$(echo "$options" | sed -n 's/.*log-server=\([^,]*\).*/\1/p');
-
-    log_server_port=$(echo "$options" | sed -n 's/.*log-server-port=\([^,]*\).*/\1/p');
-
-    volfile_loc="$1";
+    in_opt="no"
+    pos_args=0
+    for opt in "$@"; do
+        if [ "$in_opt" = "yes" ]; then
+            for pair in $(echo "$opt" | tr "," " "); do
+                # Handle options without values.
+                case "$pair" in
+                    "ro")       read_only=1 ;;
+                    "acl")      acl=1 ;;
+                    "worm")     worm=1 ;;
+                    # "mount -t glusterfs" sends this, but it's useless.
+                    "rw")       ;;
+                    *)
+                        read key value < <(echo "$pair" | tr "=" " ")
+                        # Handle options with values.
+                        case "$key" in
+                            "log-level")        new_log_level=$value ;;
+                            "log-file")         log_file=$value ;;
+                            "transport")        transport=$value ;;
+                            "direct-io-mode")   direct_io_mode=$value ;;
+                            "volume-name")      volume_name=$value ;;
+                            "volume-id")        volume_id=$value ;;
+                            "volfile-check")    volfile_check=$value ;;
+                            "server-port")      server_port=$value ;;
+                            "fetch-attempts")
+                                volfile_max_fetch_attempts=$value ;;
+                            "backupvolfile-server")
+                                backupvolfile_server=$value ;;
+                            *) echo "unknown option $key (ignored)" ;;
+                        esac
+                esac
+            done
+            in_opt="no"
+        elif [ "$opt" = "-o" ]; then
+            in_opt="yes"
+        else
+            case $pos_args in
+                0)      volfile_loc=$opt ;;
+                1)      mount_point=$opt ;;
+                *)      echo "extra arguments at end (ignored)" ;;
+            esac
+            pos_args=$((pos_args+1))
+        fi
+    done
+    if [ $in_opt = "yes" -o $pos_args -lt 2 ]; then
+        usage
+        exit 1
+    fi
 
     [ -r "$volfile_loc" ] || {
         server_ip=$(echo "$volfile_loc" | sed -n 's/\([a-zA-Z0-9:.\-]*\):.*/\1/p');
@@ -296,22 +299,6 @@ main ()
 	volfile_loc="";
     }
 
-    new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
-        -e 's/[,]*log-level=[^,]*//' \
-        -e 's/[,]*volume-name=[^,]*//' \
-        -e 's/[,]*direct-io-mode=[^,]*//' \
-        -e 's/[,]*volfile-check=[^,]*//' \
-        -e 's/[,]*transport=[^,]*//' \
-        -e 's/[,]*backupvolfile-server=[^,]*//' \
-        -e 's/[,]*server-port=[^,]*//' \
-        -e 's/[,]*volume-id=[^,]*//' \
-        -e 's/[,]*fetch-attempts=[^,]*//' \
-        -e 's/[,]*log-server=[^,]*//' \
-        -e 's/[,]*ro[^,]*//' \
-        -e 's/[,]*acl[^,]*//' \
-        -e 's/[,]*worm[^,]*//' \
-        -e 's/[,]*log-server-port=[^,]*//');
-
     #
     [ -n "$helper" ] && {
         cmd_line=$(echo "$cmd_line --$helper");
@@ -319,16 +306,9 @@ main ()
         exit 0;
     }
 
-    mount_point=""
-    for arg in "$@"; do
-        [ -d "$arg" ] && {
-            mount_point=$arg
-        }
-    done
-
     # No need to do a ! -d test, it is taken care while initializing the
     # variable mount_point
-    [ -z "$mount_point" ] && {
+    [ -z "$mount_point" -o ! -d "$mount_point" ] && {
         echo "ERROR: Mount point does not exist."
         usage;
         exit 0;
@@ -342,8 +322,6 @@ main ()
     fi
 
     check_recursive_mount "$@";
-
-    fs_options=$(echo "$fs_options,$new_fs_options");
 
     # Append fuse.glusterfs to PRUNEFS variable in updatedb.conf(5). updatedb(8)
     # should not index files under GlusterFS, indexing will slow down GlusteFS
