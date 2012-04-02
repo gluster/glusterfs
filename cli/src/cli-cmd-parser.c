@@ -1801,9 +1801,17 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         }
 
         if ((blk_size > 0) ^ (count > 0)) {
+                cli_out ("Need to give both 'bs' and 'count'");
+                ret = -1;
+                goto out;
+        } else if (((uint64_t)blk_size * count) > (10 * GF_UNIT_GB)) {
+                cli_out ("'bs * count' value %"PRIu64" is greater than "
+                         "maximum allowed value of 10GB",
+                         ((uint64_t)blk_size * count));
                 ret = -1;
                 goto out;
         }
+
         *options = dict;
 out:
         if (ret && dict)
