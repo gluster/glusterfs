@@ -487,7 +487,8 @@ int nsm_monitor(char *host)
         clnt = clnt_create("localhost", SM_PROG, SM_VERS, "tcp");
         if(!clnt)
         {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Clnt_create()");
+                gf_log (GF_NLM, GF_LOG_ERROR, "%s",
+                        clnt_spcreateerror ("Clnt_create()"));
                 goto out;
         }
 
