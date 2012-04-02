@@ -315,7 +315,7 @@ is_md_cache_iatt_valid (xlator_t *this, struct md_cache *mdc)
 
         LOCK (&mdc->lock);
         {
-                if (now > (mdc->ia_time + conf->timeout))
+                if (now >= (mdc->ia_time + conf->timeout))
                         ret = _gf_false;
         }
         UNLOCK (&mdc->lock);
@@ -337,7 +337,7 @@ is_md_cache_xatt_valid (xlator_t *this, struct md_cache *mdc)
 
         LOCK (&mdc->lock);
         {
-                if (now > (mdc->xa_time + conf->timeout))
+                if (now >= (mdc->xa_time + conf->timeout))
                         ret = _gf_false;
         }
         UNLOCK (&mdc->lock);
