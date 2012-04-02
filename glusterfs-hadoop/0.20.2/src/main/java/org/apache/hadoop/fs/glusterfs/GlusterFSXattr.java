@@ -327,7 +327,6 @@ public class GlusterFSXattr {
                                 }
                         }
 
-                        rsize = replicas.get(0).size();
                         stripeSize = meta.get("block-size");
 
                         nrAllocs = (int) (((len - start) / stripeSize) + 1);
@@ -349,6 +348,8 @@ public class GlusterFSXattr {
                                         stripeEnd = start + len - 1;
                                         done = true;
                                 }
+
+                                rsize = replicas.get(counter).size();
 
                                 if (hnts == null)
                                         repl[allocCtr] = new GlusterFSBrickRepl(rsize, stripeStart, (stripeEnd - stripeStart));
