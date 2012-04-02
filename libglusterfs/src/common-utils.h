@@ -81,6 +81,11 @@ void trap (void);
          !strcmp (fs_name, "ext3") || \
          !strcmp (fs_name, "ext4"))
 
+/* Defining this here as it is needed by glusterd for setting
+ * nfs port in volume status.
+ */
+#define GF_NFS3_PORT    38467
+
 enum _gf_boolean
 {
 	_gf_false = 0,

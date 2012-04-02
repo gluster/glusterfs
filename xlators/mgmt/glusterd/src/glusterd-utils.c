@@ -2958,13 +2958,15 @@ glusterd_shd_stop ()
 }
 
 int
-glusterd_add_node_to_dict (char *server, dict_t *dict, int count)
+glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
+                           dict_t *vol_opts)
 {
         int                     ret = -1;
         glusterd_conf_t         *priv = THIS->private;
         char                    pidfile[PATH_MAX] = {0,};
         gf_boolean_t            running = _gf_false;
         int                     pid = -1;
+        int                     port = 0;
         char                    key[1024] = {0,};
 
         glusterd_get_nodesvc_pidfile (server, priv->workdir, pidfile,
@@ -2996,7 +2998,19 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count)
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.port", count);
-        ret = dict_set_int32 (dict, key, 0);
+        /* Port is available only for the NFS server.
+         * Self-heal daemon doesn't provide any port for access
+         * by entities other than gluster.
+         */
+        if (!strcmp (server, "nfs")) {
+                if (dict_get (vol_opts, "nfs.port")) {
+                        ret = dict_get_int32 (vol_opts, "nfs.port", &port);
+                        if (ret)
+                                goto out;
+                } else
+                        port = GF_NFS3_PORT;
+        }
+        ret = dict_set_int32 (dict, key, port);
         if (ret)
                 goto out;
 
