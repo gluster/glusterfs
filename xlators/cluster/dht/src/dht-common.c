@@ -190,11 +190,15 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                 }
         } else {
                 ret = dht_layout_normalize (this, &local->loc, layout);
-
-                if (ret != 0) {
+                if ((ret < 0) || ((ret > 0) && (local->op_ret != 0))) {
+                        /* either the layout is incorrect or the directory is
+                         * not found even in one subvolume.
+                         */
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "normalizing failed on %s",
-                                local->loc.path);
+                                "normalizing failed on %s "
+                                "(overlaps/holes present: %s, "
+                                "ENOENT errors: %d)", local->loc.path,
+                                (ret < 0) ? "yes" : "no", (ret > 0) ? ret : 0);
                         op_errno = EINVAL;
                         goto out;
                 }
