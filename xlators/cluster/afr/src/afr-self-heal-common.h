@@ -122,4 +122,7 @@ afr_sh_reset (call_frame_t *frame, xlator_t *this);
 void
 afr_children_intersection_get (int32_t *set1, int32_t *set2,
                                int *intersection, unsigned int child_count);
+int
+afr_get_no_xattr_dir_read_child (xlator_t *this, int32_t *success_children,
+                                 struct iatt *bufs);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */

@@ -542,6 +542,28 @@ out:
 }
 
 int
+afr_get_no_xattr_dir_read_child (xlator_t *this, int32_t *success_children,
+                                 struct iatt *bufs)
+{
+        afr_private_t *priv = NULL;
+        int            i = 0;
+        int            child = -1;
+        int            read_child = -1;
+
+        priv = this->private;
+        for (i = 0; i < priv->child_count; i++) {
+                child = success_children[i];
+                if (child < 0)
+                        break;
+                if (read_child < 0)
+                        read_child = child;
+                else if (bufs[read_child].ia_size < bufs[child].ia_size)
+                        read_child = child;
+        }
+        return read_child;
+}
+
+int
 afr_sh_mark_zero_size_file_as_sink (struct iatt *bufs, int32_t *success_children,
                                     int child_count, int32_t *sources)
 {
@@ -1268,7 +1290,8 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         loc_t           *loc = NULL;
         int32_t         subvol_status = 0;
         afr_transaction_type txn_type = AFR_DATA_TRANSACTION;
-        gf_boolean_t    data_split_brain = _gf_false;
+        gf_boolean_t    split_brain = _gf_false;
+        int             read_child = -1;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -1293,11 +1316,25 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_INFO, "No sources for dir of %s,"
                         " in missing entry self-heal, continuing with the rest"
                         " of the self-heals", local->loc.path);
-                if ((txn_type == AFR_DATA_TRANSACTION) &&
-                    (subvol_status & SPLIT_BRAIN)) {
-                        data_split_brain = _gf_true;
-                        sh->sources[sh->success_children[0]] = 1;
-                        nsources = 1;
+                if (subvol_status & SPLIT_BRAIN) {
+                        split_brain = _gf_true;
+                        switch (txn_type) {
+                        case AFR_DATA_TRANSACTION:
+                                nsources = 1;
+                                sh->sources[sh->success_children[0]] = 1;
+                                break;
+                        case AFR_ENTRY_TRANSACTION:
+                                read_child = afr_get_no_xattr_dir_read_child
+                                                          (this,
+                                                           sh->success_children,
+                                                           sh->buf);
+                                sh->sources[read_child] = 1;
+                                nsources = 1;
+                                break;
+                        default:
+                                op_errno = EIO;
+                                goto out;
+                        }
                 } else {
                         op_errno = EIO;
                         goto out;
@@ -1318,7 +1355,7 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         sh->type = sh->buf[sh->source].ia_type;
         if (uuid_is_null (loc->inode->gfid))
                 uuid_copy (loc->gfid, sh->buf[sh->source].ia_gfid);
-        if (data_split_brain) {
+        if (split_brain) {
                 afr_sh_missing_entries_finish (frame, this);
         } else {
                 sh_missing_entries_create (frame, this);
