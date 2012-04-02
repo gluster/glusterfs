@@ -736,7 +736,6 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t               *dict = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
-        int                     index = 0;
 #ifdef GF_SOLARIS_HOST_OS
         cli_out ("Command not supported on Solaris");
         goto out;
@@ -757,7 +756,12 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
         if (wordcount == 4) {
-                index = 3;
+                if (strcmp (words[3], "start") && strcmp (words[3], "stop") &&
+                    strcmp (words[3], "status")) {
+                            cli_usage_out (word->pattern);
+                            parse_error = 1;
+                            goto out;
+                    }
         } else {
                 if (strcmp (words[3], "fix-layout") &&
                     strcmp (words[3], "start")) {
@@ -765,15 +769,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         parse_error = 1;
                         goto out;
                 }
-                index = 4;
         }
-
-	if (strcmp (words[index], "start") && strcmp (words[index], "stop") &&
-            strcmp (words[index], "status") && strcmp (words[index], "force")) {
-	        cli_usage_out (word->pattern);
-		parse_error = 1;
-		goto out;
-	}
 
         ret = dict_set_str (dict, "volname", (char *)words[2]);
         if (ret)
