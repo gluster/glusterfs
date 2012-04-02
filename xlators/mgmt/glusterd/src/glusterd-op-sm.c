@@ -1450,14 +1450,15 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         vol_opts = volinfo->dict;
 
         if ((cmd & GF_CLI_STATUS_NFS) != 0) {
-                ret = glusterd_add_node_to_dict ("nfs", rsp_dict, 0);
+                ret = glusterd_add_node_to_dict ("nfs", rsp_dict, 0, vol_opts);
                 if (ret)
                         goto out;
                 other_count++;
                 node_count++;
 
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
-                ret = glusterd_add_node_to_dict ("glustershd", rsp_dict, 0);
+                ret = glusterd_add_node_to_dict ("glustershd", rsp_dict, 0,
+                                                 vol_opts);
                 if (ret)
                         goto out;
                 other_count++;
@@ -1513,7 +1514,8 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         if (!nfs_disabled) {
                                 ret = glusterd_add_node_to_dict ("nfs",
                                                                  rsp_dict,
-                                                                 other_index);
+                                                                 other_index,
+                                                                 vol_opts);
                                 if (ret)
                                         goto out;
                                 other_index++;
@@ -1528,7 +1530,8 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                             && shd_enabled) {
                                 ret = glusterd_add_node_to_dict ("glustershd",
                                                                  rsp_dict,
-                                                                 other_index);
+                                                                 other_index,
+                                                                 vol_opts);
                                 if (ret)
                                         goto out;
                                 other_count++;

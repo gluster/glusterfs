@@ -420,7 +420,8 @@ glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
                                         glusterd_volinfo_t *volinfo);
 
 int
-glusterd_add_node_to_dict (char *server, dict_t *dict, int count);
+glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
+                           dict_t *vol_opts);
 
 char *
 glusterd_uuid_to_hostname (uuid_t uuid);
