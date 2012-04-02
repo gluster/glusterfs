@@ -1060,7 +1060,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         uuid_t                   node_uuid      = {0,};
         int                      readdir_operrno = 0;
 
-        gf_log (this->name, GF_LOG_INFO, "migate data called on %s",
+        gf_log (this->name, GF_LOG_INFO, "migrate data called on %s",
                 loc->path);
         fd = fd_create (loc->inode, defrag->pid);
         if (!fd) {
@@ -1478,6 +1478,8 @@ out:
                 defrag->is_exiting = 1;
         }
         UNLOCK (&defrag->lock);
+
+        xlator_notify (this, GF_EVENT_PARENT_DOWN, this);
 
         if (defrag)
                 GF_FREE (defrag);
