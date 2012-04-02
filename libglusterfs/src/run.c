@@ -31,6 +31,7 @@
 #include <dirent.h>
 #include <assert.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
 
 #ifdef RUN_STANDALONE
 #define GF_CALLOC(n, s, t) calloc(n, s)
@@ -293,7 +294,11 @@ runner_start (runner_t *runner)
                         } else
                                 ret = -1;
 #else
-                        for (i = 3; i < 65536; i++) {
+                        struct rlimit rl;
+                        ret = getrlimit (RLIMIT_NOFILE, &rl);
+                        GF_ASSERT (ret == 0);
+
+                        for (i = 3; i < rl.rlim_cur; i++) {
                                 if (i != xpi[1])
                                         close (i);
                         }
