@@ -571,7 +571,6 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
         uint32_t     down = 0;
         uint32_t     misc = 0;
 
-
         ret = dht_layout_sort (layout);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
@@ -599,23 +598,27 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
                                 "found anomalies in %s. holes=%d overlaps=%d",
                                 loc->path, holes, overlaps);
                 }
-                ret = 1;
+                ret = -1;
         }
 
         for (i = 0; i < layout->cnt; i++) {
-                /* TODO During DHT selfheal rewrite (almost) find a better place to
-                 * detect this - probably in dht_layout_anomalies()
+                /* TODO During DHT selfheal rewrite (almost) find a better place
+                 * to detect this - probably in dht_layout_anomalies()
                  */
                 if (layout->list[i].err > 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "path=%s err=%s on subvol=%s",
-                                loc->path, strerror (layout->list[i].err),
-                                (layout->list[i].xlator ?
-                                 layout->list[i].xlator->name : "<>"));
-                        if (layout->list[i].err == ENOENT)
-                                ret = 1;
+                        gf_log_callingfn (this->name, GF_LOG_DEBUG,
+                                          "path=%s err=%s on subvol=%s",
+                                          loc->path,
+                                          strerror (layout->list[i].err),
+                                          (layout->list[i].xlator ?
+                                           layout->list[i].xlator->name
+                                           : "<>"));
+                        if ((layout->list[i].err == ENOENT) && (ret >= 0)) {
+                                ret++;
+                        }
                 }
         }
+
 
 out:
         return ret;
