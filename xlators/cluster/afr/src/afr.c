@@ -416,6 +416,7 @@ init (xlator_t *this)
         if (!this->itable)
                 goto out;
         priv->root_inode = inode_ref (this->itable->root);
+        GF_OPTION_INIT ("node-uuid", priv->shd.node_uuid, str, out);
 
         ret = 0;
 out:
@@ -605,6 +606,10 @@ struct volume_options options[] = {
           .description = "If quorum-type is \"fixed\" only allow writes if "
                          "this many bricks or present.  Other quorum types "
                          "will OVERWRITE this value.",
+        },
+        { .key  = {"node-uuid"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Local glusterd uuid string",
         },
         { .key  = {NULL} },
 };

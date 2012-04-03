@@ -2808,6 +2808,7 @@ glusterd_nodesvc_start (char *server)
         char                    rundir[PATH_MAX]           = {0,};
         char                    sockfpath[PATH_MAX] = {0,};
         char                    volfileid[256]             = {0};
+        char                    glusterd_uuid_option[1024] = {0};
 #ifdef DEBUG
         char                    valgrind_logfile[PATH_MAX] = {0};
 #endif
@@ -2867,6 +2868,12 @@ glusterd_nodesvc_start (char *server)
                          "-l", logfile,
                          "-S", sockfpath, NULL);
 
+        if (!strcmp (server, "glustershd")) {
+                snprintf (glusterd_uuid_option, sizeof (glusterd_uuid_option),
+                          "*replicate*.node-uuid=%s", uuid_utoa (priv->uuid));
+                runner_add_args (&runner, "--xlator-option",
+                                 glusterd_uuid_option, NULL);
+        }
         runner_log (&runner, "", GF_LOG_DEBUG,
                     "Starting the nfs/glustershd services");
 
