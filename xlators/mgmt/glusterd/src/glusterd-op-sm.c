@@ -3016,7 +3016,7 @@ _heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
         volinfo = rsp_ctx->volinfo;
         brick_id = rxl_id * volinfo->replica_count + rxl_child_id;
 
-        if (!strcmp (rxl_child_end, "status")) {
+        if (!strcmp (rxl_child_end, "-status")) {
                 brickinfo = glusterd_get_brickinfo_by_position (volinfo,
                                                                 brick_id);
                 if (!brickinfo)
