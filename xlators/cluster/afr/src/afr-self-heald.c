@@ -545,7 +545,8 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
                 ret = _do_self_heal_on_local_subvols (this, FULL, output);
                 break;
         case GF_AFR_OP_INDEX_SUMMARY:
-                ret = _get_index_summary_on_local_subvols (this, output);
+                (void)_get_index_summary_on_local_subvols (this, output);
+                ret = 0;
                 break;
         case GF_AFR_OP_HEALED_FILES:
                 ret = _add_all_subvols_eh_to_dict (this, shd->healed, output);
