@@ -1389,7 +1389,7 @@ mq_release_parent_lock (call_frame_t *frame, void *cookie,
         UNLOCK (&ctx->lock);
 
         if (local->parent_loc.inode == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Invalid parent inode.");
                 goto err;
         }
@@ -2452,7 +2452,7 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
 
         if (local->parent_loc.inode == NULL) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Inode is NULL, so can't stackwind.");
                 goto out;
         }

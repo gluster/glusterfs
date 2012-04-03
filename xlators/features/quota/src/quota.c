@@ -89,7 +89,7 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
 
         parent = inode_parent (inode, 0, NULL);
         if (!parent) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "cannot find parent for inode (gfid:%s)",
                         uuid_utoa (inode->gfid));
                 goto err;
@@ -98,7 +98,7 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "cannot construct path for inode (gfid:%s)",
                         uuid_utoa (inode->gfid));
                 goto err;
@@ -388,7 +388,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 }
 
                 if (parent == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "cannot find parent for inode (gfid:%s), hence "
                                 "aborting enforcing quota-limits and continuing"
                                 " with the fop", uuid_utoa (_inode->gfid));
@@ -774,7 +774,7 @@ quota_update_size (xlator_t *this, inode_t *inode, char *name, uuid_t par,
 
                 parent = inode_parent (_inode, trav_uuid, name);
                 if (parent == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "cannot find parent for inode (gfid:%s), hence "
                                 "aborting size updation of parents",
                                 uuid_utoa (_inode->gfid));
