@@ -225,7 +225,8 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->stbuf      = *buf;
                                 local->postparent = *postparent;
                                 local->inode = inode_ref (inode);
-                                local->xdata = dict_ref (xdata);
+                                if (xdata)
+                                        local->xdata = dict_ref (xdata);
                                 if (local->xattr) {
                                         stripe_aggregate_xattr (local->xdata,
                                                                 local->xattr);
@@ -1848,7 +1849,8 @@ stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         }
         local->op_ret = -1;
         local->call_count = priv->child_count;
-        local->xdata = dict_ref (xdata);
+        if (xdata)
+                local->xdata = dict_ref (xdata);
         local->mode  = mode;
         local->umask = umask;
         loc_copy (&local->loc, loc);
@@ -2297,7 +2299,8 @@ stripe_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         local->flags = flags;
         local->mode = mode;
         local->umask = umask;
-        local->xattr = dict_ref (xdata);
+        if (xdata)
+                local->xattr = dict_ref (xdata);
 
         local->call_count = priv->child_count;
         /* Send a setxattr request to nodes where the
