@@ -272,7 +272,8 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
         local->op         = FTRUNCATE;
         local->offset     = offset;
         local->fd         = fd_ref (fd);
-        local->xdata      = dict_ref (xdata);
+        if (xdata)
+                local->xdata = dict_ref (xdata);
 
         frame->local = local;
 
