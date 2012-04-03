@@ -769,7 +769,8 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         }
 
         if (sh->background && sh->unwind) {
-                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno);
+                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
+                            sh->op_failed);
                 sh->unwound = _gf_true;
         }
 

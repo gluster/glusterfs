@@ -277,7 +277,7 @@ out:
 
 void
 _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
-                       int32_t op_ret, int32_t op_errno,
+                       int32_t op_ret, int32_t op_errno, dict_t *xattr_rsp,
                        afr_crawl_data_t *crawl_data)
 {
         int              ret = 0;
@@ -286,6 +286,8 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
         eh_t             *eh = NULL;
         char             *path = NULL;
         shd_event_t      *event = NULL;
+        int32_t          sh_failed = 0;
+        gf_boolean_t     split_brain = 0;
 
         priv = this->private;
         shd  = &priv->shd;
@@ -307,9 +309,12 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
                 }
         }
 
-        if (op_ret < 0 && op_errno == EIO)
+        if (xattr_rsp)
+                ret = dict_get_int32 (xattr_rsp, "sh-failed", &sh_failed);
+        split_brain = afr_is_split_brain (this, child->inode);
+        if ((op_ret < 0 && op_errno == EIO) || split_brain)
                 eh = shd->split_brain;
-        else if (op_ret < 0)
+        else if ((op_ret < 0) || sh_failed)
                 eh = shd->heal_failed;
         else
                 eh = shd->healed;
@@ -338,6 +343,7 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
 {
         struct iatt      parentbuf = {0};
         int              ret = 0;
+        dict_t           *xattr_rsp = NULL;
 
         if (uuid_is_null (child->gfid))
                 gf_log (this->name, GF_LOG_DEBUG, "lookup %s", child->path);
@@ -346,8 +352,11 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
                         uuid_utoa (child->gfid));
 
         ret = syncop_lookup (this, child, NULL,
-                             iattr, NULL, &parentbuf);
-        _crawl_post_sh_action (this, parent, child, ret, errno, crawl_data);
+                             iattr, &xattr_rsp, &parentbuf);
+        _crawl_post_sh_action (this, parent, child, ret, errno, xattr_rsp,
+                               crawl_data);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
         return ret;
 }
 

@@ -2048,7 +2048,8 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
 
         if (!sh->unwound && sh->unwind) {
-                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno);
+                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
+                            sh->op_failed);
         }
 
         if (sh->background) {
@@ -2187,7 +2188,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
 out:
         if (op_errno) {
-                orig_sh->unwind (frame, this, -1, op_errno);
+                orig_sh->unwind (frame, this, -1, op_errno, 1);
                 if (sh_frame)
                         AFR_STACK_DESTROY (sh_frame);
         }
