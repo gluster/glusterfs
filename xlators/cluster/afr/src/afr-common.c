@@ -1301,7 +1301,8 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
                       void (*gfid_sh_success_cbk) (call_frame_t *sh_frame,
                                                    xlator_t *this),
                       int (*unwind) (call_frame_t *frame, xlator_t *this,
-                                     int32_t op_ret, int32_t op_errno))
+                                     int32_t op_ret, int32_t op_errno,
+                                     int32_t sh_failed))
 {
         afr_local_t             *local = NULL;
         char                    sh_type_str[256] = {0,};
@@ -1527,9 +1528,12 @@ afr_lookup_set_self_heal_params (afr_local_t *local, xlator_t *this)
 
 int
 afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
-                             int32_t op_ret, int32_t op_errno)
+                             int32_t op_ret, int32_t op_errno,
+                             int32_t sh_failed)
 {
         afr_local_t *local = NULL;
+        int         ret    = -1;
+        dict_t      *xattr = NULL;
 
         local = frame->local;
 
@@ -1544,6 +1548,13 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
         }
 
         afr_lookup_done_success_action (frame, this, _gf_true);
+        xattr = local->cont.lookup.xattr;
+        if (xattr) {
+                ret = dict_set_int32 (xattr, "sh-failed", sh_failed);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
+                                "sh-failed to %d", local->loc.path, sh_failed);
+        }
 out:
         AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                           local->cont.lookup.inode, &local->cont.lookup.buf,

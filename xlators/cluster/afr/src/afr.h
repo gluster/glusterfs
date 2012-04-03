@@ -191,7 +191,7 @@ typedef struct {
            background, this function will be called as soon as possible. */
 
         int (*unwind) (call_frame_t *frame, xlator_t *this, int32_t op_ret,
-                       int32_t op_errno);
+                       int32_t op_errno, int32_t sh_failed);
 
         /* End of external interface members */
 
@@ -1016,7 +1016,8 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
                       void (*gfid_sh_success_cbk) (call_frame_t *sh_frame,
                                                    xlator_t *this),
                       int (*unwind) (call_frame_t *frame, xlator_t *this,
-                                     int32_t op_ret, int32_t op_errno));
+                                     int32_t op_ret, int32_t op_errno,
+                                     int32_t sh_failed));
 int
 afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
               int need_open_count, int *need_open);

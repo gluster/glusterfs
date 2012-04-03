@@ -51,7 +51,7 @@
 
 int
 afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this, int32_t op_ret,
-                           int32_t op_errno)
+                           int32_t op_errno, int32_t sh_failed)
 {
         afr_local_t *local  = NULL;
 
