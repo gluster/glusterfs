@@ -1065,6 +1065,10 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
+
         if (glusterd_is_rb_ongoing (volinfo)) {
                 snprintf (msg, sizeof (msg), "Replace brick is in progress on "
                           "volume %s. Please retry after replace-brick "
@@ -1200,6 +1204,10 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                 gf_log ("", GF_LOG_ERROR, "Volume %s does not exist", volname);
                 goto out;
         }
+
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
 
         if (glusterd_is_rb_ongoing (volinfo)) {
                 snprintf (msg, sizeof (msg), "Replace brick is in progress on "

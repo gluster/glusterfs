@@ -830,6 +830,10 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
@@ -902,6 +906,10 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         }
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
                 goto out;
 
@@ -1003,6 +1011,10 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
+
         if (glusterd_is_volume_started (volinfo)) {
                 snprintf (msg, sizeof (msg), "Volume %s has been started."
                           "Volume needs to be stopped before deletion.",
@@ -1055,6 +1067,10 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 *op_errstr = gf_strdup (msg);
                 goto out;
         }
+
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
 
         if (!glusterd_is_volume_replicate (volinfo)) {
                 ret = -1;
@@ -1142,6 +1158,10 @@ glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
+
         is_running = glusterd_is_volume_started (volinfo);
         if (!is_running) {
                 snprintf (msg, sizeof(msg), "Volume %s is not in a started"
@@ -1208,6 +1228,10 @@ glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr)
                 *op_errstr = gf_strdup (msg);
                 goto out;
         }
+
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
 
         if (!glusterd_is_volume_started (volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume %s is not started",
