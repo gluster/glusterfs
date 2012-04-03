@@ -105,6 +105,7 @@ typedef struct afr_self_heald_ {
         eh_t             *healed;
         eh_t             *heal_failed;
         eh_t             *split_brain;
+        char             *node_uuid;
 } afr_self_heald_t;
 
 typedef struct _afr_private {
