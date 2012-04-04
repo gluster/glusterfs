@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import stat
+import random
 import signal
 import logging
 import errno
@@ -336,6 +337,7 @@ class GMaster(object):
         except OSError:
             self.add_failjob(path, 'local-entries-fail')
             return
+        random.shuffle(dem)
         try:
             des = self.slave.server.entries(path)
         except OSError:
