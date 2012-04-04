@@ -41,22 +41,32 @@ typedef enum {
         GF_OPTION_TYPE_MAX,
 } volume_option_type_t;
 
+typedef enum {
+        GF_OPT_VALIDATE_BOTH = 0,
+        GF_OPT_VALIDATE_MIN,
+        GF_OPT_VALIDATE_MAX,
+} opt_validate_type_t;
 
 #define ZR_VOLUME_MAX_NUM_KEY    4
 #define ZR_OPTION_MAX_ARRAY_SIZE 64
 
 /* Each translator should define this structure */
 typedef struct volume_options {
-        char                *key[ZR_VOLUME_MAX_NUM_KEY];
+        char                    *key[ZR_VOLUME_MAX_NUM_KEY];
         /* different key, same meaning */
-        volume_option_type_t type;
-        int64_t              min;  /* 0 means no range */
-        int64_t              max;  /* 0 means no range */
-        char                *value[ZR_OPTION_MAX_ARRAY_SIZE];
+        volume_option_type_t    type;
+        int64_t                 min;  /* 0 means no range */
+        int64_t                 max;  /* 0 means no range */
+        char                    *value[ZR_OPTION_MAX_ARRAY_SIZE];
         /* If specified, will check for one of
            the value from this array */
-        char                *default_value;
-        char                *description; /* about the key */
+        char                    *default_value;
+        char                    *description; /* about the key */
+        /* Required for int options where only the min value
+         * is given and is 0. This will cause validation not to
+         * happen
+         */
+        opt_validate_type_t     validate;
 } volume_option_t;
 
 
