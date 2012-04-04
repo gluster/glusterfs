@@ -6,7 +6,7 @@ import fcntl
 import shutil
 import logging
 from threading import Lock, Thread as baseThread
-from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, EINTR
+from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED, EINTR, errorcode
 from signal import SIGTERM, SIGKILL
 from time import sleep
 import select as oselect
@@ -174,8 +174,8 @@ def log_raise_exception(excont):
             if hasattr(gconf, 'transport'):
                 gconf.transport.wait()
                 gconf.transport.terminate_geterr()
-        elif isinstance(exc, OSError) and exc.errno == ENOTCONN:
-            logging.error('glusterfs session went down')
+        elif isinstance(exc, OSError) and exc.errno in (ENOTCONN, ECONNABORTED):
+            logging.error('glusterfs session went down [%s]', errorcode[exc.errno])
         else:
             logtag = "FAIL"
         if not logtag and logging.getLogger().isEnabledFor(logging.DEBUG):
