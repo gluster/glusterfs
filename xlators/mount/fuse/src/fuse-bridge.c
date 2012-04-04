@@ -72,6 +72,25 @@ out:
 }
 
 
+fuse_fd_ctx_t *
+fuse_fd_ctx_get (xlator_t *this, fd_t *fd)
+{
+        fuse_fd_ctx_t *fdctx = NULL;
+        uint64_t       value = 0;
+        int            ret   = 0;
+
+        ret = fd_ctx_get (fd, this, &value);
+        if (ret < 0) {
+                goto out;
+        }
+
+        fdctx = (fuse_fd_ctx_t *) (unsigned long)value;
+
+out:
+        return fdctx;
+}
+
+
 /*
  * iov_out should contain a fuse_out_header at zeroth position.
  * The error value of this header is sent to kernel.
@@ -587,7 +606,6 @@ fuse_fd_inherit_directio (xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
         int32_t        ret    = 0;
         fuse_fd_ctx_t *fdctx  = NULL, *tmp_fdctx = NULL;
         fd_t          *tmp_fd = NULL;
-        uint64_t       val    = 0;
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR ("glusterfs-fuse", this, out, ret,
                                         -EINVAL);
@@ -604,14 +622,11 @@ fuse_fd_inherit_directio (xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
 
         tmp_fd = fd_lookup (fd->inode, 0);
         if (tmp_fd) {
-                ret = fd_ctx_get (tmp_fd, this, &val);
-                if (!ret) {
-                        tmp_fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
-                        if (tmp_fdctx) {
-                                foo->open_flags &= ~FOPEN_DIRECT_IO;
-                                foo->open_flags |= (tmp_fdctx->open_flags
-                                                    & FOPEN_DIRECT_IO);
-                        }
+                tmp_fdctx = fuse_fd_ctx_get (this, fd);
+                if (tmp_fdctx) {
+                        foo->open_flags &= ~FOPEN_DIRECT_IO;
+                        foo->open_flags |= (tmp_fdctx->open_flags
+                                            & FOPEN_DIRECT_IO);
                 }
         }
 
@@ -3528,11 +3543,11 @@ int
 fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
                  xlator_t *new_subvol)
 {
-        int      ret                = -1;
-        loc_t    loc                = {0, };
-        char     create_in_progress = 0;
-        inode_t *old_inode          = NULL;
-        int      flags              = 0;
+        int            ret                = -1;
+        loc_t          loc                = {0, };
+        char           create_in_progress = 0;
+        inode_t       *old_inode          = NULL;
+        int            flags              = 0;
 
         /* could've used pthread_cond_wait, but that requires a cond variable to
          * be mainted for each fd and that is a bit too much overhead.
@@ -3573,6 +3588,7 @@ fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
 
         ret = fuse_nameless_lookup (new_subvol, fd->inode->gfid, &loc);
         if (ret < 0) {
+                ret = -2;
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "name-less lookup of gfid (%s) failed (%s)",
                         uuid_utoa (fd->inode->gfid), strerror (errno));
@@ -3635,6 +3651,8 @@ fuse_handle_opened_fds (xlator_t *this, xlator_t *old_subvol,
         fdtable_t      *fdtable   = NULL;
         int             i         = 0;
         fd_t           *fd        = NULL;
+        int32_t         ret       = 0;
+        fuse_fd_ctx_t  *fdctx     = NULL;
 
         priv = this->private;
 
@@ -3645,8 +3663,28 @@ fuse_handle_opened_fds (xlator_t *this, xlator_t *old_subvol,
                 for (i = 0; i < count; i++) {
                         fd = fdentries[i].fd;
                         if (fd != NULL) {
-                                fuse_migrate_fd (this, fd, old_subvol,
-                                                 new_subvol);
+                                ret = fuse_migrate_fd (this, fd, old_subvol,
+                                                       new_subvol);
+                                if (ret < 0) {
+                                        if (ret == -1) {
+                                                fdctx = fuse_fd_ctx_check_n_create (fd, this);
+                                                if (fdctx != NULL) {
+                                                        fdctx->migration_failed = 1;
+                                                }
+                                        } else {
+                                                /* nameless lookup has failed,
+                                                 * it can be identified using
+                                                 * fd->inode->table->xl
+                                                 * != active_subvol. so, do
+                                                 * nothing
+                                                 */
+                                        }
+                                } else {
+                                        fdctx = fuse_fd_ctx_get (this, fd);
+                                        if (fdctx != NULL) {
+                                                fdctx->migration_failed = 0;
+                                        }
+                                }
                         }
                 }
 

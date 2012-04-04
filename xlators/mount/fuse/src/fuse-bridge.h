@@ -328,6 +328,7 @@ typedef struct {
 
 typedef struct fuse_fd_ctx {
         uint32_t  open_flags;
+        char      migration_failed;
         fd_t     *fd;
 } fuse_fd_ctx_t;
 
