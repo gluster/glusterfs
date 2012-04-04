@@ -524,6 +524,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min  = 0,
           .default_value = "16",
+          .validate = GF_OPT_VALIDATE_MIN,
         },
         { .key  = {"data-self-heal"},
           .type = GF_OPTION_TYPE_STR,

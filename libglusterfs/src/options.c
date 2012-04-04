@@ -71,7 +71,8 @@ xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
                 goto out;
         }
 
-        if ((opt->min == 0) && (opt->max == 0)) {
+        if ((opt->min == 0) && (opt->max == 0) &&
+            (opt->validate == GF_OPT_VALIDATE_BOTH)) {
                 gf_log (xl->name, GF_LOG_TRACE,
                         "no range check required for 'option %s %s'",
                         key, value);
@@ -79,7 +80,25 @@ xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
                 goto out;
         }
 
-        if ((inputll < opt->min) || (inputll > opt->max)) {
+        if ((opt->validate == GF_OPT_VALIDATE_MIN)) {
+                if (inputll < opt->min) {
+                        snprintf (errstr, 256,
+                                  "'%lld' in 'option %s %s' is smaller than "
+                                  "minimum value '%"PRId64"'", inputll, key,
+                                  value, opt->min);
+                        gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                        goto out;
+                }
+        } else if ((opt->validate == GF_OPT_VALIDATE_MAX)) {
+                if ((inputll > opt->max)) {
+                        snprintf (errstr, 256,
+                                  "'%lld' in 'option %s %s' is greater than "
+                                  "maximum value '%"PRId64"'", inputll, key,
+                                  value, opt->max);
+                        gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                        goto out;
+                }
+        } else if ((inputll < opt->min) || (inputll > opt->max)) {
                 snprintf (errstr, 256,
                           "'%lld' in 'option %s %s' is out of range "
                           "[%"PRId64" - %"PRId64"]",
@@ -126,7 +145,6 @@ xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
                        snprintf (errstr, 256, "Cache size %"PRId64" is out of "
                                  "range [%"PRId64" - %"PRId64"]",
                                  size, opt->min, opt->max);
-                       //*op_errstr = gf_strdup (errstr);
                        gf_log (xl->name, GF_LOG_WARNING, "%s", errstr);
                        ret = 0;
                        goto out;
