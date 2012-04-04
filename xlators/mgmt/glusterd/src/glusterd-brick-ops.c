@@ -1250,14 +1250,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
         case GF_OP_CMD_PAUSE:
         case GF_OP_CMD_ABORT:
-        {
-                if (!volinfo->decommission_in_progress) {
-                        errstr = gf_strdup("remove-brick is not in progress");
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", errstr);
-                        goto out;
-                }
                 break;
-        }
 
         case GF_OP_CMD_COMMIT:
                 if (volinfo->decommission_in_progress) {
@@ -1523,13 +1516,29 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 }
 
                 /* Fall back to the old volume file */
-                list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+                list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
+                                          brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;
                         brickinfo->decommissioned = 0;
                 }
+                ret = glusterd_create_volfiles_and_notify_services (volinfo);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to create volfiles");
+                        goto out;
+                }
+
+                ret = glusterd_store_volinfo (volinfo,
+                                             GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to store volinfo");
+                        goto out;
+                }
+
                 ret = 0;
-                break;
+                goto out;
         }
 
         case GF_OP_CMD_START:

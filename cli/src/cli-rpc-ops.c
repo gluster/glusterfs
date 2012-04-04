@@ -1557,6 +1557,9 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp                      rsp   = {0,};
         int                             ret   = -1;
         char                            msg[1024] = {0,};
+        gf1_op_commands                 cmd = GF_OP_CMD_NONE;
+        dict_t                         *dict = NULL;
+        char                           *cmd_str = "unknown";
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1568,12 +1571,47 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        dict = dict_new ();
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "failed to unserialize rsp to dict");
+                goto out;
+        }
+        ret = dict_get_int32 (dict, "command", (int32_t *)&cmd);
+        if (ret) {
+                 gf_log ("", GF_LOG_ERROR, "failed to get command");
+                 goto out;
+        }
+
+        switch (cmd) {
+
+        case GF_OP_CMD_START:
+                cmd_str = "start";
+                break;
+        case GF_OP_CMD_COMMIT:
+                cmd_str = "commit";
+                break;
+        case GF_OP_CMD_ABORT:
+                cmd_str = "abort";
+                break;
+        case GF_OP_CMD_PAUSE:
+                cmd_str = "pause";
+                break;
+        case GF_OP_CMD_COMMIT_FORCE:
+                cmd_str = "commit force";
+                break;
+        default:
+                cmd_str = "unkown";
+                break;
+        }
+
         gf_log ("cli", GF_LOG_INFO, "Received resp to remove brick");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
-                snprintf (msg, sizeof (msg), "Remove Brick %s",
+                snprintf (msg, sizeof (msg), "Remove Brick %s %s", cmd_str,
                           (rsp.op_ret) ? "unsuccessful": "successful");
 
 #if (HAVE_LIB_XML)
@@ -1595,6 +1633,9 @@ out:
                 free (rsp.dict.dict_val);
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
+        if (dict)
+                dict_unref(dict);
+
         return ret;
 }
 
