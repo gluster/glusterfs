@@ -736,7 +736,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
 
         nsources = afr_build_sources (this, sh->xattr, sh->buf, sh->pending_matrix,
                                       sh->sources, sh->success_children,
-                                      AFR_DATA_TRANSACTION, NULL, _gf_false);
+                                      AFR_DATA_TRANSACTION, NULL, _gf_true);
         if ((nsources == 0) && !sh->sync_done) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "No self-heal needed for %s",
