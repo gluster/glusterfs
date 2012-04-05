@@ -43,6 +43,7 @@
 #include "rpc-clnt.h"
 #include "nsm-xdr.h"
 #include "nlmcbk-xdr.h"
+#include "run.h"
 #include <unistd.h>
 #include <rpc/pmap_clnt.h>
 #include <rpc/rpc.h>
@@ -1828,6 +1829,25 @@ nlm4svc_init(xlator_t *nfsx)
         INIT_LIST_HEAD(&nlm_client_list);
         LOCK_INIT (&nlm_client_list_lk);
 
+        /* unlink sm-notify.pid so that when we restart rpc.statd/sm-notify
+         * it thinks that the machine has restarted and sends NOTIFY to clients.
+         */
+        ret = unlink ("/var/run/sm-notify.pid");
+        if (ret == -1 && errno != ENOENT) {
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink sm-notify");
+                goto err;
+        }
+        /* temporary work around to restart statd, not distro/OS independant.
+         * Need to figure out a more graceful way
+         */
+        ret = runcmd ("killall", "-9", "rpc.statd", NULL);
+        /* if ret == -1, do nothing - case statd was not already running  */
+
+        ret = runcmd ("rpc.statd", NULL);
+        if (ret == -1) {
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to start rpc.statd");
+                goto err;
+        }
         pthread_create (&thr, NULL, nsm_thread, (void*)NULL);
 
         timeout.tv_sec = nlm_grace_period;
