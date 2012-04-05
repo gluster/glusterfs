@@ -137,7 +137,7 @@ afr_examine_dir_readdir_cbk (call_frame_t *frame, void *cookie,
         }
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                entry_cksum = gf_rsync_weak_checksum (entry->d_name,
+                entry_cksum = gf_rsync_weak_checksum ((unsigned char *)entry->d_name,
                                                       strlen (entry->d_name));
                 local->cont.opendir.checksum[child_index] ^= entry_cksum;
         }
