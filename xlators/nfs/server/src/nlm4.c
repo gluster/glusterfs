@@ -255,6 +255,27 @@ nlm4_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req)
         return cs;
 }
 
+int
+nlm_monitor (char *caller_name)
+{
+        nlm_client_t *nlmclnt = NULL;
+        int monitor = -1;
+
+        LOCK (&nlm_client_list_lk);
+        list_for_each_entry (nlmclnt, &nlm_client_list, nlm_clients) {
+                if (!strcmp(caller_name, nlmclnt->caller_name)) {
+                        monitor = nlmclnt->nsm_monitor;
+                        nlmclnt->nsm_monitor = 1;
+                        break;
+                }
+        }
+        UNLOCK (&nlm_client_list_lk);
+        if (monitor == -1) {
+                gf_log (GF_NLM, GF_LOG_ERROR, "%s was not found in the nlmclnt list", caller_name);
+        }
+        return monitor;
+}
+
 rpc_clnt_t *
 nlm_get_rpc_clnt (char *caller_name)
 {
@@ -465,15 +486,17 @@ nlm4_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-int nsm_monitor(char *host)
+void *
+nsm_monitor(void *arg)
 {
         CLIENT *clnt = NULL;
         enum clnt_stat ret;
         struct mon nsm_mon;
         struct sm_stat_res res;
         struct timeval tout = { 5, 0 };
-        int retstat = -1;
+        char *host = NULL;
 
+        host = arg;
         nsm_mon.mon_id.mon_name = gf_strdup(host);
         nsm_mon.mon_id.my_id.my_name = gf_strdup("localhost");
         nsm_mon.mon_id.my_id.my_prog = NLMCBK_PROGRAM;
@@ -508,13 +531,13 @@ int nsm_monitor(char *host)
                         clnt_sperrno(ret));
                 goto out;
         }
-        retstat = 0;
+
 out:
         GF_FREE(nsm_mon.mon_id.mon_name);
         GF_FREE(nsm_mon.mon_id.my_id.my_name);
         if (clnt != NULL)
                 clnt_destroy(clnt);
-        return retstat;
+        return NULL;
 }
 
 nlm_client_t *
@@ -873,7 +896,6 @@ nlm4_establish_callback (void *csarg)
         glusterfs_this_set (cs->nfsx);
 
         caller_name = cs->args.nlm4_lockargs.alock.caller_name;
-        nsm_monitor (caller_name);
 
         rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sa, sizeof (sa));
         sockaddr = (struct sockaddr*) &sa;
@@ -1228,19 +1250,26 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nlm4_stats                      stat = nlm4_denied;
         nfs3_call_state_t              *cs = NULL;
         int                             transit_cnt = -1;
+        char                            *caller_name = NULL;
+        pthread_t thr;
 
         cs = frame->local;
-
+        caller_name = cs->args.nlm4_lockargs.alock.caller_name;
         transit_cnt = nlm_dec_transit_count (cs->fd,
-                                             cs->args.nlm4_lockargs.alock.caller_name);
+                                             caller_name);
         if (op_ret == -1) {
                 if (transit_cnt == 0)
                         nlm_search_and_delete (cs->fd,
-                                               cs->args.nlm4_lockargs.alock.caller_name);
+                                               caller_name);
                 stat = nlm4_errno_to_nlm4stat (op_errno);
                 goto err;
-        } else
+        } else {
                 stat = nlm4_granted;
+                if (!nlm_monitor (caller_name)) {
+                        /* FIXME: handle nsm_monitor failure */
+                        pthread_create (&thr, NULL, nsm_monitor, (void*)caller_name);
+                }
+        }
 
 err:
         if (cs->args.nlm4_lockargs.block) {
