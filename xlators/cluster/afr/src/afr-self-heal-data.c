@@ -62,15 +62,6 @@ int
 afr_sh_data_finish (call_frame_t *frame, xlator_t *this);
 
 int
-afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this,
-                      afr_fxattrop_cbk_t fxattrop_cbk);
-
-int
-afr_post_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
-                               xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               dict_t *xattr, dict_t *xdata);
-
-int
 afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
@@ -659,12 +650,22 @@ afr_sh_inode_set_read_ctx (afr_self_heal_t *sh, xlator_t *this)
 {
         afr_private_t   *priv = NULL;
         int             ret = 0;
+        int             i = 0;
 
         priv = this->private;
         sh->source = afr_sh_select_source (sh->sources, priv->child_count);
         if (sh->source < 0) {
                 ret = -1;
                 goto out;
+        }
+
+        /* detect changes not visible through pending flags -- JIC */
+        for (i = 0; i < priv->child_count; i++) {
+                if (i == sh->source || sh->child_errno[i])
+                        continue;
+
+                if (SIZE_DIFFERS (&sh->buf[i], &sh->buf[sh->source]))
+                        sh->sources[i] = 0;
         }
 
         afr_reset_children (sh->fresh_children, priv->child_count);
@@ -676,15 +677,54 @@ out:
         return ret;
 }
 
-int
+void
 afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
+{
+        int              source = 0;
+        afr_local_t     *local      = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_private_t   *priv = NULL;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+
+        source     = sh->source;
+        sh->block_size = this->ctx->page_size;
+        sh->file_size  = sh->buf[source].ia_size;
+
+        if (FILE_HAS_HOLES (&sh->buf[source]))
+                sh->file_has_holes = 1;
+
+        if (sh->background && sh->unwind && !sh->unwound) {
+                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
+                            sh->op_failed);
+                sh->unwound = _gf_true;
+        }
+
+        afr_sh_mark_source_sinks (frame, this);
+        if (sh->active_sinks == 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "no active sinks for performing self-heal on file %s",
+                        local->loc.path);
+                afr_sh_data_finish (frame, this);
+                return;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "self-healing file %s from subvolume %s to %d other",
+                local->loc.path, priv->children[sh->source]->name,
+                sh->active_sinks);
+        afr_sh_data_trim_sinks (frame, this);
+}
+
+int
+afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local      = NULL;
         afr_self_heal_t *sh = NULL;
         afr_private_t   *priv = NULL;
         int              nsources = 0;
-        int              source = 0;
-        int              i = 0;
         int              ret = 0;
 
         local = frame->local;
@@ -697,7 +737,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         nsources = afr_build_sources (this, sh->xattr, sh->buf, sh->pending_matrix,
                                       sh->sources, sh->success_children,
                                       AFR_DATA_TRANSACTION, NULL, _gf_false);
-        if (nsources == 0) {
+        if ((nsources == 0) && !sh->sync_done) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "No self-heal needed for %s",
                         local->loc.path);
@@ -729,7 +769,6 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                         "the preferred subvolume.", local->loc.path);
 
                 local->govinda_gOvinda = 1;
-
                 afr_sh_data_fail (frame, this);
                 return 0;
         }
@@ -743,43 +782,11 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        source     = sh->source;
-        sh->block_size = this->ctx->page_size;
-        sh->file_size  = sh->buf[source].ia_size;
-
-        if (FILE_HAS_HOLES (&sh->buf[source]))
-                sh->file_has_holes = 1;
-
-        /* detect changes not visible through pending flags -- JIC */
-        for (i = 0; i < priv->child_count; i++) {
-                if (i == source || sh->child_errno[i])
-                        continue;
-
-                if (SIZE_DIFFERS (&sh->buf[i], &sh->buf[source]))
-                        sh->sources[i] = 0;
+        if (sh->sync_done) {
+                afr_sh_data_setattr (frame, this);
+        } else {
+                afr_sh_data_fix (frame, this);
         }
-
-        if (sh->background && sh->unwind) {
-                sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
-                            sh->op_failed);
-                sh->unwound = _gf_true;
-        }
-
-        afr_sh_mark_source_sinks (frame, this);
-        if (sh->active_sinks == 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "no active sinks for performing self-heal on file %s",
-                        local->loc.path);
-                afr_sh_data_finish (frame, this);
-                return 0;
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG,
-                "self-healing file %s from subvolume %s to %d other",
-                local->loc.path, priv->children[sh->source]->name,
-                sh->active_sinks);
-        afr_sh_data_trim_sinks (frame, this);
-
         return 0;
 }
 
@@ -906,7 +913,7 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                         goto out;
                 }
                 if (IA_ISREG (sh->type))
-                        afr_sh_data_fix (frame, this);
+                        afr_sh_data_fxattrop_fstat_done (frame, this);
                 else
                         afr_sh_data_special_file_fix (frame, this);
         }
@@ -939,6 +946,7 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
         call_count = sh->success_count;
         local->call_count = call_count;
 
+        memset (sh->buf, 0, sizeof (*sh->buf) * priv->child_count);
         afr_reset_children (sh->success_children, priv->child_count);
         sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
@@ -996,45 +1004,6 @@ afr_sh_common_fxattrop_resp_handler (call_frame_t *frame, void *cookie,
 }
 
 int
-afr_post_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
-                               xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               dict_t *xattr, dict_t *xdata)
-{
-        int             call_count  = -1;
-        int             ret = 0;
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-
-        afr_sh_common_fxattrop_resp_handler (frame, cookie, this, op_ret,
-                                             op_errno, xattr);
-
-        local = frame->local;
-        sh = &local->self_heal;
-        call_count = afr_frame_return (frame);
-        if (call_count)
-                goto out;
-
-        if (!afr_sh_data_proceed (sh->success_count)) {
-                gf_log (this->name, GF_LOG_ERROR, "%s, inspecting change log "
-                        "succeeded on < %d children", local->loc.path,
-                        AFR_SH_MIN_PARTICIPANTS);
-                afr_sh_data_fail (frame, this);
-                goto out;
-         }
-         (void) afr_build_sources (this, sh->xattr, NULL,
-                                   sh->pending_matrix,
-                                   sh->sources, sh->success_children,
-                                   AFR_DATA_TRANSACTION, NULL, _gf_false);
-         ret = afr_sh_inode_set_read_ctx (sh, this);
-         if (ret)
-                 afr_sh_data_fail (frame, this);
-         else
-                 afr_sh_set_timestamps (frame, this);
-out:
-         return 0;
-}
-
-int
 afr_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
                           xlator_t *this, int32_t op_ret, int32_t op_errno,
                           dict_t *xattr, dict_t *xdata)
@@ -1066,8 +1035,7 @@ out:
 
 
 int
-afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this,
-                      afr_fxattrop_cbk_t fxattrop_cbk)
+afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
 {
         afr_self_heal_t *sh    = NULL;
         afr_local_t     *local = NULL;
@@ -1119,7 +1087,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this,
         sh->success_count = 0;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
-                        STACK_WIND_COOKIE (frame, fxattrop_cbk,
+                        STACK_WIND_COOKIE (frame, afr_sh_data_fxattrop_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->fxattrop,
@@ -1154,7 +1122,7 @@ afr_sh_data_big_lock_success (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
 
         sh->data_lock_held = _gf_true;
-        afr_sh_data_fxattrop (frame, this, afr_sh_data_fxattrop_cbk);
+        afr_sh_data_fxattrop (frame, this);
         return 0;
 }
 
@@ -1253,7 +1221,8 @@ afr_post_sh_big_lock_success (call_frame_t *frame, xlator_t *this)
         sh_loop_finish (sh->old_loop_frame, this);
         sh->old_loop_frame = NULL;
         sh->data_lock_held = _gf_true;
-        afr_sh_data_fxattrop (frame, this, afr_post_sh_data_fxattrop_cbk);
+        sh->sync_done = _gf_true;
+        afr_sh_data_fxattrop (frame, this);
         return 0;
 }
 

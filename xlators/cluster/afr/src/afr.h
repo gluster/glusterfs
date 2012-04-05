@@ -234,6 +234,7 @@ typedef struct {
 
         int   op_failed;
 
+        gf_boolean_t sync_done;
         gf_boolean_t data_lock_held;
         gf_boolean_t eof_reached;
         fd_t  *healing_fd;
