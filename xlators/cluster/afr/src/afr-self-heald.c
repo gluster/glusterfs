@@ -578,28 +578,43 @@ afr_poll_self_heal (void *data)
         long             child = (long)data;
         gf_timer_t       *old_timer = NULL;
         gf_timer_t       *new_timer = NULL;
+        shd_pos_t        pos_data = {0};
+        int              ret = 0;
 
         this = THIS;
         priv = this->private;
         shd = &priv->shd;
 
-        _do_self_heal_on_subvol (this, child, INDEX);
+        if (shd->pos[child] == AFR_POS_UNKNOWN) {
+                pos_data.this = this;
+                pos_data.child = child;
+                ret = synctask_new (this->ctx->env,
+                                    afr_syncop_find_child_position,
+                                    NULL, NULL, &pos_data);
+                if (!ret)
+                        shd->pos[child] = pos_data.pos;
+        }
+        if (shd->enabled && (shd->pos[child] == AFR_POS_LOCAL))
+                _do_self_heal_on_subvol (this, child, INDEX);
         timeout.tv_sec = AFR_POLL_TIMEOUT;
         timeout.tv_usec = 0;
         //notify and previous timer should be synchronized.
         LOCK (&priv->lock);
         {
                 old_timer = shd->timer[child];
+                if (shd->pos[child] == AFR_POS_REMOTE)
+                        goto unlock;
                 shd->timer[child] = gf_timer_call_after (this->ctx, timeout,
                                                          afr_poll_self_heal,
                                                          data);
                 new_timer = shd->timer[child];
         }
+unlock:
         UNLOCK (&priv->lock);
 
         if (old_timer)
                 gf_timer_call_cancel (this->ctx, old_timer);
-        if (!new_timer) {
+        if (!new_timer && (shd->pos[child] != AFR_POS_REMOTE)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "Could not create self-heal polling timer for %s",
                         priv->children[child]->name);
@@ -620,7 +635,7 @@ afr_local_child_poll_self_heal  (int ret, call_frame_t *sync_frame, void *data)
         priv = pos_data->this->private;
         shd = &priv->shd;
         shd->pos[pos_data->child] = pos_data->pos;
-        if (pos_data->pos == AFR_POS_LOCAL)
+        if (pos_data->pos != AFR_POS_REMOTE)
                 afr_poll_self_heal ((void*)(long)pos_data->child);
 out:
         GF_FREE (data);
