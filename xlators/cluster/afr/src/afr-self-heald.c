@@ -72,6 +72,24 @@ _crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data);
 int
 afr_syncop_find_child_position (void *data);
 
+static int
+_loc_assign_gfid_path (loc_t *loc)
+{
+        int  ret = -1;
+        char gfid_path[64] = {0};
+
+        if (loc->inode && !uuid_is_null (loc->inode->gfid)) {
+                ret = inode_path (loc->inode, NULL, (char**)&loc->path);
+        } else if (!uuid_is_null (loc->gfid)) {
+                snprintf (gfid_path, sizeof (gfid_path), "<gfid:%s>",
+                          uuid_utoa (loc->gfid));
+                loc->path = gf_strdup (gfid_path);
+                if (loc->path)
+                        ret = 0;
+        }
+        return ret;
+}
+
 void
 shd_cleanup_event (void *event)
 {
@@ -345,11 +363,7 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
         int              ret = 0;
         dict_t           *xattr_rsp = NULL;
 
-        if (uuid_is_null (child->gfid))
-                gf_log (this->name, GF_LOG_DEBUG, "lookup %s", child->path);
-        else
-                gf_log (this->name, GF_LOG_DEBUG, "lookup %s",
-                        uuid_utoa (child->gfid));
+        gf_log (this->name, GF_LOG_DEBUG, "lookup %s", child->path);
 
         ret = syncop_lookup (this, child, NULL,
                              iattr, &xattr_rsp, &parentbuf);
@@ -773,17 +787,20 @@ int
 afr_crawl_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent,
                            gf_dirent_t *entry, afr_crawl_data_t *crawl_data)
 {
-        int           ret = 0;
+        int           ret = -1;
         afr_private_t *priv = NULL;
 
         priv = this->private;
         if (crawl_data->crawl == FULL) {
                 ret = afr_build_child_loc (this, child, parent, entry->d_name);
         } else {
-                child->path = "";
                 child->inode = inode_new (priv->root_inode->table);
+                if (!child->inode)
+                        goto out;
                 uuid_parse (entry->d_name, child->gfid);
+                ret = _loc_assign_gfid_path (child);
         }
+out:
         return ret;
 }
 
@@ -817,8 +834,6 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                         continue;
                 }
 
-                if (crawl_data->crawl == INDEX)
-                        entry_loc.path = NULL;//HACK
                 loc_wipe (&entry_loc);
                 ret = afr_crawl_build_child_loc (this, &entry_loc, parentloc,
                                                  entry, crawl_data);
@@ -836,10 +851,8 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
 
                 link_inode = inode_link (entry_loc.inode, NULL, NULL, &iattr);
                 if (link_inode == NULL) {
-                        char uuidbuf[64];
                         gf_log (this->name, GF_LOG_ERROR, "inode link failed "
-                                "on the inode (%s)",
-                                uuid_utoa_r (entry_loc.gfid, uuidbuf));
+                                "on the inode (%s)",entry_loc.path);
                         ret = -1;
                         goto out;
                 }
@@ -854,10 +867,7 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
         }
         ret = 0;
 out:
-        if (crawl_data->crawl == INDEX)
-                entry_loc.path = NULL;
-        if (entry_loc.path)
-                loc_wipe (&entry_loc);
+        loc_wipe (&entry_loc);
         return ret;
 }
 
@@ -876,10 +886,10 @@ _crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data)
 
         GF_ASSERT (loc->inode);
 
-        if (loc->path)
+        if (crawl_data->crawl == FULL)
                 gf_log (this->name, GF_LOG_DEBUG, "crawling %s", loc->path);
         else
-                gf_log (this->name, GF_LOG_DEBUG, "crawling %s",
+                gf_log (this->name, GF_LOG_DEBUG, "crawling INDEX %s",
                         uuid_utoa (loc->gfid));
 
         while (1) {
