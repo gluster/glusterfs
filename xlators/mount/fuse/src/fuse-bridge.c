@@ -364,6 +364,9 @@ fuse_lookup_resume (fuse_state_t *state)
                         "%"PRIu64": LOOKUP %s", state->finh->unique,
                         state->loc.path);
                 state->loc.inode = inode_new (state->loc.parent->table);
+                if (uuid_is_null (state->gfid))
+                        uuid_generate (state->gfid);
+                fuse_gfid_set (state);
         }
 
         FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
