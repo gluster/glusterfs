@@ -172,7 +172,7 @@ _get_path_from_gfid_loc (xlator_t *this, xlator_t *readdir_xl, loc_t *child,
                 goto out;
         ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to get path for "
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get path for "
                         "gfid %s", uuid_utoa (child->gfid));
                 goto out;
         }
@@ -327,7 +327,7 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
         ret = eh_save_history (eh, event);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "%s:Failed to save to "
-                        "eh, (%d, %s)", path, op_ret, strerror (op_errno));
+                        "event history, (%d, %s)", path, op_ret, strerror (op_errno));
                 goto out;
         }
         ret = 0;
@@ -692,8 +692,11 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                 ret = syncop_lookup (readdir_xl, dirloc, NULL,
                                      &iattr, NULL, &parent);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "lookup failed on "
-                                "index dir on %s", readdir_xl->name);
+                        if (errno != ENOENT) {
+                                gf_log (this->name, GF_LOG_ERROR, "lookup "
+                                        "failed on index dir on %s - (%s)",
+                                        readdir_xl->name, strerror (errno));
+                        }
                         goto out;
                 }
                 inode_link (dirloc->inode, NULL, NULL, &iattr);
@@ -928,15 +931,15 @@ afr_find_child_position (xlator_t *this, int child, afr_child_pos_t *pos)
         ret = syncop_getxattr (priv->children[child], &loc, &xattr_rsp,
                                GF_XATTR_NODE_UUID_KEY);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "getxattr failed on %s",
-                        priv->children[child]->name);
+                gf_log (this->name, GF_LOG_ERROR, "getxattr failed on %s - "
+                        "(%s)", priv->children[child]->name, strerror (errno));
                 goto out;
         }
 
         ret = dict_get_str (xattr_rsp, GF_XATTR_NODE_UUID_KEY, &node_uuid);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "node-uuid key not found on "
-                        "child %d", child);
+                        "child %s", priv->children[child]->name);
                 goto out;
         }
 
@@ -945,7 +948,7 @@ afr_find_child_position (xlator_t *this, int child, afr_child_pos_t *pos)
         else
                 *pos = AFR_POS_REMOTE;
 
-        gf_log (this->name, GF_LOG_INFO, "child %s is %s",
+        gf_log (this->name, GF_LOG_DEBUG, "child %s is %s",
                 priv->children[child]->name, position_str_get (*pos));
 out:
         if (ret)
@@ -999,7 +1002,7 @@ afr_dir_crawl (void *data)
                 gf_log (this->name, GF_LOG_ERROR, "Crawl failed on %s",
                         readdir_xl->name);
         else
-                gf_log (this->name, GF_LOG_INFO, "Crawl completed "
+                gf_log (this->name, GF_LOG_DEBUG, "Crawl completed "
                         "on %s", readdir_xl->name);
         if (crawl_data->crawl == INDEX)
                 dirloc.path = NULL;
@@ -1094,7 +1097,7 @@ afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl,
         crawl_data->crawl = crawl;
         crawl_data->op_data = op_data;
         crawl_data->crawl_flags = crawl_flags;
-        gf_log (this->name, GF_LOG_INFO, "starting crawl %d for %s",
+        gf_log (this->name, GF_LOG_DEBUG, "starting crawl %d for %s",
                 crawl_data->crawl, priv->children[idx]->name);
 
         if (exclusive)
