@@ -2805,18 +2805,20 @@ quota_fremovexattr (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+
 int32_t
 quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct statvfs *buf,
                   dict_t *xdata)
 {
-	inode_t            *root_inode = NULL;
-        quota_priv_t       *priv       = NULL;
-        uint64_t            value      = 0;
-        quota_inode_ctx_t  *ctx        = NULL;
-        limits_t           *limit_node = NULL;
-	int64_t             usage      = -1;
-	int64_t             avail      = -1;
+	inode_t           *root_inode = NULL;
+        quota_priv_t      *priv       = NULL;
+        uint64_t           value      = 0;
+        quota_inode_ctx_t *ctx        = NULL;
+        limits_t          *limit_node = NULL;
+	int64_t            usage      = -1;
+	int64_t            avail      = -1;
+        int64_t            blocks     = 0;
 
 	root_inode = cookie;
 
@@ -2851,7 +2853,12 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         list_for_each_entry (limit_node, &priv->limit_head, limit_list) {
 		/* Notice that this only works for volume-level quota. */
                 if (strcmp (limit_node->path, "/") == 0) {
-			buf->f_blocks = limit_node->value / buf->f_bsize;
+                        blocks = limit_node->value / buf->f_bsize;
+                        if (usage > blocks) {
+                                break;
+                        }
+
+			buf->f_blocks = blocks;
 			avail = buf->f_blocks - usage;
 			if (buf->f_bfree > avail) {
 				buf->f_bfree = avail;
