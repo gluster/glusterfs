@@ -5261,6 +5261,8 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
         if (!glusterd_is_service_running (pidfile, &pid)) {
                 glusterd_handle_defrag_start (volinfo, op_errstr, len, cmd,
                                               cbk);
+        } else {
+                glusterd_rebalance_rpc_create (volinfo, priv, cmd);
         }
 
         return ret;
