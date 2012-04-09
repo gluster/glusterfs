@@ -1884,6 +1884,7 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
         int                     ret = -1;
         char                    *addrtok = NULL;
         char                    *addrstr = NULL;
+        char                    *dup_addrstr = NULL;
         char                    *svptr = NULL;
 
         if ((!options) || (!clstr))
@@ -1903,7 +1904,8 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
                 goto err;
         }
 
-        addrtok = strtok_r (addrstr, ",", &svptr);
+        dup_addrstr = gf_strdup (addrstr);
+        addrtok = strtok_r (dup_addrstr, ",", &svptr);
         while (addrtok) {
 
                 /* CASEFOLD not present on Solaris */
@@ -1920,6 +1922,8 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
 
         ret = -1;
 err:
+        if (dup_addrstr)
+                GF_FREE (dup_addrstr);
 
         return ret;
 }
