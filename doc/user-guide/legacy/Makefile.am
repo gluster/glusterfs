@@ -1,3 +1,3 @@
 info_TEXINFOS = user-guide.texi
-CLEANFILES = *~ 
+CLEANFILES = *~
 DISTCLEANFILES = .deps/*.P *.info *vti

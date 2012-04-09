@@ -21,24 +21,24 @@ as key/value pair inside the glusterfs_storage.db.
 * internal data cache
 ---------------------
 
-  db does not provide a way to find out the size of the value corresponding to a key. 
-so, bdb makes DB->get() call for key and takes the length of the value returned. 
+  db does not provide a way to find out the size of the value corresponding to a key.
+so, bdb makes DB->get() call for key and takes the length of the value returned.
 since DB->get() also returns file contents for key, bdb maintains an internal cache and
 stores the file contents in the cache.
   every directory maintains a seperate cache.
-  
+
 * inode number transformation
 -----------------------------
 
-  bdb allocates a inode number to each file and directory on its own. bdb maintains a 
+  bdb allocates a inode number to each file and directory on its own. bdb maintains a
 global counter and increments it after allocating inode number for each file
 (regular, symlink or directory). NOTE: bdb does not guarantee persistent inode numbers.
 
 * checkpoint thread
 -------------------
 
-  bdb creates a checkpoint thread at the time of init(). checkpoint thread does a 
-periodic checkpoint on the DB_ENV. checkpoint is the mechanism, provided by db, to 
+  bdb creates a checkpoint thread at the time of init(). checkpoint thread does a
+periodic checkpoint on the DB_ENV. checkpoint is the mechanism, provided by db, to
 forcefully commit the logged transactions to the storage.
 
 NOTES ABOUT FOPS:
@@ -48,7 +48,7 @@ lookup() -
  1> do lstat() on the path, if lstat fails, we assume that the file being looked up
     is either a regular file or doesn't exist.
  2> lookup in the DB of parent directory for key corresponding to path. if key exists,
-    return key, with. 
+    return key, with.
     NOTE: 'struct stat' stat()ed from DB file is used as a container for 'struct stat'
            of the regular file. st_ino, st_size, st_blocks are updated with file's values.
 
@@ -58,7 +58,7 @@ readv() -
 
 writev():
  1> flush any cached content of this file.
- 2> do a DB->put(), with DB_DBT_PARTIAL flag. 
+ 2> do a DB->put(), with DB_DBT_PARTIAL flag.
     NOTE: DB_DBT_PARTIAL is used to do partial update of a value in DB.
 
 readdir():

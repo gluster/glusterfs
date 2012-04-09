@@ -27,7 +27,7 @@ purpose. The comment should be descriptive without being overly verbose.
 \textsl{Good}:
 
 \begin{verbatim}
-        DBTYPE      access_mode;    /* access mode for accessing 
+        DBTYPE      access_mode;    /* access mode for accessing
                                      * the databases, can be
                                      * DB_HASH, DB_BTREE
                                      * (option access-mode <mode>)
@@ -69,7 +69,7 @@ Never use a non-constant expression as the initialization value for a variable.
 
 \section*{$\bullet$ Validate all arguments to a function}
 All pointer arguments to a function must be checked for \texttt{NULL}.
-A macro named \texttt{VALIDATE} (in \texttt{common-utils.h}) 
+A macro named \texttt{VALIDATE} (in \texttt{common-utils.h})
 takes one argument, and if it is \texttt{NULL}, writes a log message and
 jumps to a label called \texttt{err} after setting op\_ret and op\_errno
 appropriately. It is recommended to use this template.
@@ -142,8 +142,8 @@ for success or failure.
 \begin{verbatim}
         op_ret = close (_fd);
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "close on file %s failed (%s)", real_path, 
+                gf_log (this->name, GF_LOG_ERROR,
+                        "close on file %s failed (%s)", real_path,
                         strerror (errno));
                 op_errno = errno;
                 goto out;
@@ -157,9 +157,9 @@ memory allocation fails, the call should be unwound and an error
 returned to the user.
 
 \section*{$\bullet$ Use result args and reserve the return value to indicate success or failure}
-The return value of every functions must indicate success or failure (unless 
-it is impossible for the function to fail --- e.g., boolean functions). If 
-the function needs to return additional data, it must be returned using a 
+The return value of every functions must indicate success or failure (unless
+it is impossible for the function to fail --- e.g., boolean functions). If
+the function needs to return additional data, it must be returned using a
 result (pointer) argument.
 
 \vspace{2ex}
@@ -192,11 +192,11 @@ Unless impossible, use the length-limited versions of the string functions.
 \end{verbatim}
 
 \section*{$\bullet$ No dead or commented code}
-There must be no dead code (code to which control can never be passed) or 
+There must be no dead code (code to which control can never be passed) or
 commented out code in the codebase.
 
 \section*{$\bullet$ Only one unwind and return per function}
-There must be only one exit out of a function. \texttt{UNWIND} and return 
+There must be only one exit out of a function. \texttt{UNWIND} and return
 should happen at only point in the function.
 
 \section*{$\bullet$ Function length or Keep functions small}
@@ -305,7 +305,7 @@ documentation.
 \end{verbatim}
 
 \subsection*{Indicating critical sections}
-To clearly show regions of code which execute with locks held, use 
+To clearly show regions of code which execute with locks held, use
 the following format:
 
 \begin{verbatim}
@@ -324,7 +324,7 @@ point, \texttt{out}.  At that point, the code should detect the error
 that has occured and do appropriate cleanup.
 
 \begin{verbatim}
-int32_t 
+int32_t
 sample_fop (call_frame_t *frame, xlator_t *this, ...)
 {
         char *            var1     = NULL;
@@ -337,13 +337,13 @@ sample_fop (call_frame_t *frame, xlator_t *this, ...)
         VALIDATE_OR_GOTO (this, out);
 
         /* other validations */
-        
+
         dir = opendir (...);
 
         if (dir == NULL) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, 
-                        "opendir failed on %s (%s)", loc->path, 
+                gf_log (this->name, GF_LOG_ERROR,
+                        "opendir failed on %s (%s)", loc->path,
                         strerror (op_errno));
                 goto out;
         }
@@ -367,8 +367,8 @@ sample_fop (call_frame_t *frame, xlator_t *this, ...)
                 if (dir) {
                         closedir (dir);
                         dir = NULL;
-                }     
-        
+                }
+
                 if (pfd) {
                         if (pfd->path)
                                 FREE (pfd->path);

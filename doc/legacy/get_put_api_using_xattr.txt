@@ -16,7 +16,7 @@ internals:
 * posix handling setxattr/getxattr
   - setxattr
      posix setxattr does a open with O_CREAT|O_TRUNC on the <path>/<name>, writes value of the setxattr as data into the file and closes the file. when data is null, posix setxattr avoids doing write. file is closed after write.
-     
+
   - getxattr
      posix getxattr does open with O_RDONLY on the <path>/<name>, reads the complete content of the file. file is closed after read.
 

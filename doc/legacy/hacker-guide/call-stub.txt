@@ -2,8 +2,8 @@ creating a call stub and pausing a call
 ---------------------------------------
 libglusterfs provides seperate API to pause each of the fop. parameters to each API is
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
-       NOTE: @fn should exactly take the same type and number of parameters that 
+@fn    - procedure to call during call_resume().
+       NOTE: @fn should exactly take the same type and number of parameters that
              the corresponding regular fop takes.
 rest will be the regular parameters to corresponding fop.
 
@@ -17,7 +17,7 @@ specific parameters.
 here is the list of stub creation APIs for xlator fops.
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @loc       - pointer to location structure.
              NOTE: @loc will be copied to a different location, with inode_ref() to
 	           @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -30,7 +30,7 @@ fop_lookup_stub (call_frame_t *frame,
 		 int32_t need_xattr);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -41,7 +41,7 @@ fop_stat_stub (call_frame_t *frame,
 	       loc_t *loc);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to lk fop.
          NOTE: @fd is stored with a fd_ref().
 call_stub_t *
@@ -50,7 +50,7 @@ fop_fstat_stub (call_frame_t *frame,
 		fd_t *fd);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to @loc->inode and
 	       @loc->parent, if not NULL. also @loc->path will be copied to a different location.
@@ -62,7 +62,7 @@ fop_chmod_stub (call_frame_t *frame,
 		mode_t mode);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to lk fop.
          NOTE: @fd is stored with a fd_ref().
 @mode  - mode parameter for fchmod fop.
@@ -73,7 +73,7 @@ fop_fchmod_stub (call_frame_t *frame,
 		 mode_t mode);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to @loc->inode and
 	       @loc->parent, if not NULL. also @loc->path will be copied to a different location.
@@ -87,7 +87,7 @@ fop_chown_stub (call_frame_t *frame,
 		gid_t gid);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to lk fop.
          NOTE: @fd is stored with a fd_ref().
 @uid   - uid parameter to fchown.
@@ -100,7 +100,7 @@ fop_fchown_stub (call_frame_t *frame,
 		 gid_t gid);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -113,7 +113,7 @@ fop_truncate_stub (call_frame_t *frame,
 		   off_t off);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to lk fop.
          NOTE: @fd is stored with a fd_ref().
 @off   - offset parameter to ftruncate fop.
@@ -124,7 +124,7 @@ fop_ftruncate_stub (call_frame_t *frame,
 		    off_t off);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -137,7 +137,7 @@ fop_utimens_stub (call_frame_t *frame,
 		  struct timespec tv[2]);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -150,7 +150,7 @@ fop_access_stub (call_frame_t *frame,
 		 int32_t mask);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -163,7 +163,7 @@ fop_readlink_stub (call_frame_t *frame,
 		   size_t size);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -178,7 +178,7 @@ fop_mknod_stub (call_frame_t *frame,
 		dev_t rdev);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -191,7 +191,7 @@ fop_mkdir_stub (call_frame_t *frame,
 		mode_t mode);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -202,7 +202,7 @@ fop_unlink_stub (call_frame_t *frame,
 		 loc_t *loc);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -213,7 +213,7 @@ fop_rmdir_stub (call_frame_t *frame,
 		loc_t *loc);
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @linkname - linkname parameter to symlink fop.
 @loc      - pointer to location structure.
             NOTE: @loc will be copied to a different location, with inode_ref() to
@@ -226,10 +226,10 @@ fop_symlink_stub (call_frame_t *frame,
 		  loc_t *loc);
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @oldloc   - pointer to location structure.
-            NOTE: @oldloc will be copied to a different location, with inode_ref() to 
-	          @oldloc->inode and @oldloc->parent, if not NULL. also @oldloc->path will 
+            NOTE: @oldloc will be copied to a different location, with inode_ref() to
+	          @oldloc->inode and @oldloc->parent, if not NULL. also @oldloc->path will
 		  be copied to a different location, if not NULL.
 @newloc   - pointer to location structure.
             NOTE: @newloc will be copied to a different location, with inode_ref() to
@@ -242,7 +242,7 @@ fop_rename_stub (call_frame_t *frame,
 		 loc_t *newloc);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc     - pointer to location structure.
            NOTE: @loc will be copied to a different location, with inode_ref() to
 	         @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -255,7 +255,7 @@ fop_link_stub (call_frame_t *frame,
 	       const char *newpath);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -272,7 +272,7 @@ fop_create_stub (call_frame_t *frame,
 		 mode_t mode, fd_t *fd);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @flags - flags parameter to open fop.
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
@@ -286,7 +286,7 @@ fop_open_stub (call_frame_t *frame,
 	       fd_t *fd);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to lk fop.
          NOTE: @fd is stored with a fd_ref().
 @size  - size parameter to readv fop.
@@ -299,10 +299,10 @@ fop_readv_stub (call_frame_t *frame,
 		off_t off);
 
 @frame  - call frame which has to be used to resume the call at call_resume().
-@fn     - procedure to call during call_resume(). 
+@fn     - procedure to call during call_resume().
 @fd     - file descriptor parameter to lk fop.
           NOTE: @fd is stored with a fd_ref().
-@vector - vector parameter to writev fop. 
+@vector - vector parameter to writev fop.
 	  NOTE: @vector is iov_dup()ed while creating stub. and frame->root->req_refs
                 dictionary is dict_ref()ed.
 @count  - count parameter to writev fop.
@@ -316,7 +316,7 @@ fop_writev_stub (call_frame_t *frame,
 		 off_t off);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to flush fop.
          NOTE: @fd is stored with a fd_ref().
 call_stub_t *
@@ -326,7 +326,7 @@ fop_flush_stub (call_frame_t *frame,
 
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @fd       - file descriptor parameter to lk fop.
             NOTE: @fd is stored with a fd_ref().
 @datasync - datasync parameter to fsync fop.
@@ -337,7 +337,7 @@ fop_fsync_stub (call_frame_t *frame,
 		int32_t datasync);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to @loc->inode and
 	       @loc->parent, if not NULL. also @loc->path will be copied to a different location.
@@ -346,11 +346,11 @@ fop_fsync_stub (call_frame_t *frame,
 call_stub_t *
 fop_opendir_stub (call_frame_t *frame,
 		  fop_opendir_t fn,
-		  loc_t *loc, 
+		  loc_t *loc,
 		  fd_t *fd);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to getdents fop.
          NOTE: @fd is stored with a fd_ref().
 @size  - size parameter to getdents fop.
@@ -365,7 +365,7 @@ fop_getdents_stub (call_frame_t *frame,
 		   int32_t flag);
 
 @frame   - call frame which has to be used to resume the call at call_resume().
-@fn      - procedure to call during call_resume(). 
+@fn      - procedure to call during call_resume().
 @fd      - file descriptor parameter to setdents fop.
            NOTE: @fd is stored with a fd_ref().
 @flags   - flags parameter to setdents fop.
@@ -379,7 +379,7 @@ fop_setdents_stub (call_frame_t *frame,
 		   int32_t count);
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @fd       - file descriptor parameter to setdents fop.
             NOTE: @fd is stored with a fd_ref().
 @datasync - datasync parameter to fsyncdir fop.
@@ -390,7 +390,7 @@ fop_fsyncdir_stub (call_frame_t *frame,
 		   int32_t datasync);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -401,9 +401,9 @@ fop_statfs_stub (call_frame_t *frame,
 		 loc_t *loc);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
-         NOTE: @loc will be copied to a different location, with inode_ref() to 
+         NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
 	       copied to a different location.
 @dict  - dict parameter to setxattr fop.
@@ -416,7 +416,7 @@ fop_setxattr_stub (call_frame_t *frame,
 		   int32_t flags);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -429,7 +429,7 @@ fop_getxattr_stub (call_frame_t *frame,
 		   const char *name);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -443,7 +443,7 @@ fop_removexattr_stub (call_frame_t *frame,
 		      const char *name);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to lk fop.
          NOTE: @fd is stored with a fd_ref().
 @cmd   - command parameter to lk fop.
@@ -457,13 +457,13 @@ fop_lk_stub (call_frame_t *frame,
 	     struct flock *lock);
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @fd       - fd parameter to gf_lk fop.
 	    NOTE: @fd is fd_ref()ed while creating stub, if not NULL.
 @cmd      - cmd parameter to gf_lk fop.
 @lock     - lock paramater to gf_lk fop.
 	    NOTE: @lock is copied to a different memory location while creating
-	          stub. 
+	          stub.
 call_stub_t *
 fop_gf_lk_stub (call_frame_t *frame,
 		fop_gf_lk_t fn,
@@ -472,7 +472,7 @@ fop_gf_lk_stub (call_frame_t *frame,
 		struct flock *lock);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @fd    - file descriptor parameter to readdir fop.
          NOTE: @fd is stored with a fd_ref().
 @size  - size parameter to readdir fop.
@@ -485,7 +485,7 @@ fop_readdir_stub (call_frame_t *frame,
 		  off_t off);
 
 @frame - call frame which has to be used to resume the call at call_resume().
-@fn    - procedure to call during call_resume(). 
+@fn    - procedure to call during call_resume().
 @loc   - pointer to location structure.
          NOTE: @loc will be copied to a different location, with inode_ref() to
 	       @loc->inode and @loc->parent, if not NULL. also @loc->path will be
@@ -498,7 +498,7 @@ fop_checksum_stub (call_frame_t *frame,
 		   int32_t flags);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @inode     - inode parameter to @fn.
@@ -516,7 +516,7 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     struct stat *buf,
 		     dict_t *dict);
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -529,7 +529,7 @@ fop_stat_cbk_stub (call_frame_t *frame,
 		   struct stat *buf);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -542,7 +542,7 @@ fop_fstat_cbk_stub (call_frame_t *frame,
 		    struct stat *buf);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -555,7 +555,7 @@ fop_chmod_cbk_stub (call_frame_t *frame,
 		    struct stat *buf);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -568,7 +568,7 @@ fop_fchmod_cbk_stub (call_frame_t *frame,
 		     struct stat *buf);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -582,7 +582,7 @@ fop_chown_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -596,7 +596,7 @@ fop_fchown_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -610,7 +610,7 @@ fop_truncate_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -624,7 +624,7 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -638,7 +638,7 @@ fop_utimens_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -649,7 +649,7 @@ fop_access_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @path      - path parameter to @fn.
@@ -663,7 +663,7 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @inode     - inode parameter to @fn.
@@ -680,7 +680,7 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @inode     - inode parameter to @fn.
@@ -697,7 +697,7 @@ fop_mkdir_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -708,7 +708,7 @@ fop_unlink_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -719,7 +719,7 @@ fop_rmdir_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @inode     - inode parameter to @fn.
@@ -736,7 +736,7 @@ fop_symlink_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -750,7 +750,7 @@ fop_rename_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @inode     - inode parameter to @fn.
@@ -766,7 +766,7 @@ fop_link_cbk_stub (call_frame_t *frame,
 		   struct stat *buf);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @fd        - fd parameter to @fn.
@@ -786,7 +786,7 @@ fop_create_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @fd        - fd parameter to @fn.
@@ -800,10 +800,10 @@ fop_open_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
-@vector    - vector parameter to @fn.	
+@vector    - vector parameter to @fn.
 	     NOTE: @vector is copied to a different memory location, if not NULL. also
 	           frame->root->rsp_refs is dict_ref()ed.
 @stbuf     - stbuf parameter to @fn.
@@ -819,7 +819,7 @@ fop_readv_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @stbuf     - stbuf parameter to @fn.
@@ -833,7 +833,7 @@ fop_writev_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -843,7 +843,7 @@ fop_flush_cbk_stub (call_frame_t *frame,
 		    int32_t op_errno);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -854,7 +854,7 @@ fop_fsync_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @fd        - fd parameter to @fn.
@@ -868,7 +868,7 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @entries   - entries parameter to @fn.
@@ -883,7 +883,7 @@ fop_getdents_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -893,7 +893,7 @@ fop_setdents_cbk_stub (call_frame_t *frame,
 		       int32_t op_errno);
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -904,7 +904,7 @@ fop_fsyncdir_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @buf       - buf parameter to @fn.
@@ -918,7 +918,7 @@ fop_statfs_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -929,7 +929,7 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 @value     - value dictionary parameter to @fn.
@@ -943,7 +943,7 @@ fop_getxattr_cbk_stub (call_frame_t *frame,
 
 
 @frame     - call frame which has to be used to resume the call at call_resume().
-@fn        - procedure to call during call_resume(). 
+@fn        - procedure to call during call_resume().
 @op_ret    - op_ret parameter to @fn.
 @op_errno  - op_errno parameter to @fn.
 call_stub_t *
@@ -954,12 +954,12 @@ fop_removexattr_cbk_stub (call_frame_t *frame,
 
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @op_ret   - op_ret parameter to @fn.
 @op_errno - op_errno parameter to @fn.
 @lock     - lock parameter to @fn.
 	    NOTE: @lock is copied to a different memory location while creating
-	          stub. 
+	          stub.
 call_stub_t *
 fop_lk_cbk_stub (call_frame_t *frame,
 		 fop_lk_cbk_t fn,
@@ -968,12 +968,12 @@ fop_lk_cbk_stub (call_frame_t *frame,
 		 struct flock *lock);
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @op_ret   - op_ret parameter to @fn.
 @op_errno - op_errno parameter to @fn.
 @lock     - lock parameter to @fn.
 	    NOTE: @lock is copied to a different memory location while creating
-	          stub. 
+	          stub.
 call_stub_t *
 fop_gf_lk_cbk_stub (call_frame_t *frame,
 		    fop_gf_lk_cbk_t fn,
@@ -983,7 +983,7 @@ fop_gf_lk_cbk_stub (call_frame_t *frame,
 
 
 @frame    - call frame which has to be used to resume the call at call_resume().
-@fn       - procedure to call during call_resume(). 
+@fn       - procedure to call during call_resume().
 @op_ret   - op_ret parameter to @fn.
 @op_errno - op_errno parameter to @fn.
 @entries  - entries parameter to @fn.
@@ -996,14 +996,14 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 
 
 @frame         - call frame which has to be used to resume the call at call_resume().
-@fn            - procedure to call during call_resume(). 
+@fn            - procedure to call during call_resume().
 @op_ret        - op_ret parameter to @fn.
 @op_errno      - op_errno parameter to @fn.
 @file_checksum - file_checksum parameter to @fn.
-                 NOTE: file_checksum will be copied to a different memory location 
+                 NOTE: file_checksum will be copied to a different memory location
 		       while creating stub.
 @dir_checksum  - dir_checksum parameter to @fn.
-                 NOTE: file_checksum will be copied to a different memory location 
+                 NOTE: file_checksum will be copied to a different memory location
 		       while creating stub.
 call_stub_t *
 fop_checksum_cbk_stub (call_frame_t *frame,
@@ -1025,9 +1025,9 @@ resuming a call:
         in  stub->args.<operation>.<fd_t-or-inode_t-or-dict_t>. so, if any fd_t, dict_t or
 	inode_t pointers are assigned at stub->args.<operation>.<fd_t-or-inode_t-or-dict_t> after
 	fop_<operation>_stub() call, they must be <fd_t-or-inode_t-or-dict_t>_ref()ed.
-	
+
 	call_resume does not STACK_DESTROY() for any fop.
-	
+
   if stub->fn is NULL, call_resume does STACK_WIND() or STACK_UNWIND() using the stub->frame.
 
   return - call resume fails only if stub is NULL. call resume fails with errno set to EINVAL.

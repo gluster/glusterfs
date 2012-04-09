@@ -5,7 +5,7 @@
 Before understanding replicate, one must understand two internal FOPs:
 
 GF_FILE_LK:
-  This is exactly like fcntl(2) locking, except the locks are in a 
+  This is exactly like fcntl(2) locking, except the locks are in a
   separate domain from locks held by applications.
 
 GF_DIR_LK (loc_t *loc, char *basename):
@@ -17,7 +17,7 @@ GF_DIR_LK (loc_t *loc, char *basename):
   If one wishes to lock *all* the names under a particular directory,
   supply the basename argument as NULL.
 
-  The locks can either be read locks or write locks; consult the 
+  The locks can either be read locks or write locks; consult the
   function prototype for more details.
 
 Both these operations are implemented by the features/locks (earlier
@@ -79,7 +79,7 @@ Each of the four major groups has its own algorithm:
 
  All operations are done in parallel unless specified otherwise.
 
- (1) Send a GF_FILE_LK request on all children for a write lock on 
+ (1) Send a GF_FILE_LK request on all children for a write lock on
      the appropriate region
             (for metadata operations: entire file (0, 0)
              for writev: (offset, offset+size of buffer))
@@ -87,11 +87,11 @@ Each of the four major groups has its own algorithm:
      - If a lock request fails on a child:
          unlock all children
          try to acquire a blocking lock (F_SETLKW) on each child, serially.
-	 
+
 	 If this fails (due to ENOTCONN or EINVAL):
            Consider this child as dead for rest of transaction.
 
- (2) Mark all children as "pending" on all (alive) children 
+ (2) Mark all children as "pending" on all (alive) children
      (see below for meaning of "pending").
 
      - If it fails on any child:
@@ -105,7 +105,7 @@ Each of the four major groups has its own algorithm:
  (4) Unmark all successful children as not "pending" on all nodes.
 
  (5) Unlock region on all (alive) children.
-     
+
  -----------
  - dir-write
  -----------
@@ -121,11 +121,11 @@ Each of the four major groups has its own algorithm:
  The "pending" number is like a journal entry. A pending entry is an
  array of 32-bit integers stored in network byte-order as the extended
  attribute of an inode (which can be a directory as well).
- 
+
  There are three keys corresponding to three types of pending operations:
 
  - AFR_METADATA_PENDING
-     There are some metadata operations pending on this inode (perms, ctime/mtime, 
+     There are some metadata operations pending on this inode (perms, ctime/mtime,
      xattr, etc.).
 
  - AFR_DATA_PENDING
@@ -134,7 +134,7 @@ Each of the four major groups has its own algorithm:
  - AFR_ENTRY_PENDING
      There are some directory operations pending on this directory
      (create, unlink, etc.).
-    
+
 -----------
 * Self heal
 -----------
@@ -155,7 +155,7 @@ Each of the four major groups has its own algorithm:
      other is directory):
      - Announce to the user via log that a split-brain situation has been
        detected, and do nothing.
- 
+
  - On open, gather extended attribute data:
    - Consider the file with the highest AFR_DATA_PENDING number as
      the definitive one and replicate its contents on all other
@@ -190,7 +190,7 @@ Thus, if lookup on c1 returns an inode number "2", it is scaled to "4"
 This way we ensure that there is never a collision of inode numbers from
 two different children.
 
-This reduction of inode space doesn't really reduce the usability of 
+This reduction of inode space doesn't really reduce the usability of
 replicate since even if we assume replicate has 1024 children (which would be a
 highly unusual scenario), each child still has a 54-bit inode space.
 

@@ -1,5 +1,5 @@
 # This spec file should be used for testing before any release
-# 
+#
 
 # Namespace posix
 volume brick-ns
