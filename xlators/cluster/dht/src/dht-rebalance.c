@@ -1479,8 +1479,6 @@ out:
         }
         UNLOCK (&defrag->lock);
 
-        xlator_notify (this, GF_EVENT_PARENT_DOWN, this);
-
         if (defrag)
                 GF_FREE (defrag);
 
