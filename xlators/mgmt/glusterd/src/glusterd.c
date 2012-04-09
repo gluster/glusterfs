@@ -755,6 +755,7 @@ init (xlator_t *this)
         char               voldir [PATH_MAX] = {0,};
         char               dirname [PATH_MAX];
         char               cmd_log_filename [PATH_MAX] = {0,};
+        char               hooks_dir [PATH_MAX] = {0,};
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
 
@@ -978,7 +979,8 @@ init (xlator_t *this)
         if (ret < 0)
                 goto out;
 
-        if (first_time) {
+        GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
+        if (stat (hooks_dir, &buf)) {
                 ret = glusterd_store_create_hooks_directory (dirname);
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
