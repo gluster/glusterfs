@@ -3341,20 +3341,13 @@ out:
         return ret;
 }
 
-void *
-glusterd_brick_restart_proc (void *data)
+int
+glusterd_restart_bricks (glusterd_conf_t *conf)
 {
-        glusterd_conf_t      *conf           = NULL;
         glusterd_volinfo_t   *volinfo        = NULL;
         glusterd_brickinfo_t *brickinfo      = NULL;
         gf_boolean_t          start_nodesvcs = _gf_false;
-
-        conf = data;
-
-        GF_ASSERT (conf);
-
-        /* set the proper 'THIS' value as it is new thread */
-        THIS = conf->xl;
+        int                   ret            = 0;
 
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 /* If volume status is not started, do not proceed */
@@ -3369,24 +3362,6 @@ glusterd_brick_restart_proc (void *data)
 
         if (start_nodesvcs)
                 glusterd_nodesvcs_handle_graph_change (NULL);
-
-        return NULL;
-}
-
-int
-glusterd_restart_bricks (glusterd_conf_t *conf)
-{
-        int ret = 0;
-
-        conf->xl = THIS;
-        ret = pthread_create (&conf->brick_thread, NULL,
-                              glusterd_brick_restart_proc,
-                              conf);
-        if (ret != 0) {
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "pthread_create() failed (%s)",
-                        strerror (errno));
-        }
 
         return ret;
 }
