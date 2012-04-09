@@ -36,7 +36,7 @@ Automatic File Replication (replicate) in GlusterFS
 \end_layout
 
 \begin_layout Author
-Vikas Gorur 
+Vikas Gorur
 \family typewriter
 \size larger
 <vikas@gluster.com>
@@ -77,7 +77,7 @@ The replicate translator of GlusterFS aims to keep identical copies of a file
 \end_layout
 
 \begin_layout Standard
-In the rest of the document the terms 
+In the rest of the document the terms
 \begin_inset Quotes eld
 \end_inset
 
@@ -85,7 +85,7 @@ subvolume
 \begin_inset Quotes erd
 \end_inset
 
- and 
+ and
 \begin_inset Quotes eld
 \end_inset
 
@@ -167,7 +167,7 @@ end{verbatim}
 
 \begin_layout Standard
 This defines an replicate volume with two subvolumes, brick1, and brick2.
- For replicate to work properly, it is essential that its subvolumes support 
+ For replicate to work properly, it is essential that its subvolumes support
 \series bold
 extended attributes
 \series default
@@ -177,7 +177,7 @@ extended attributes
 \end_layout
 
 \begin_layout Standard
-The storage volumes used as backend for replicate 
+The storage volumes used as backend for replicate
 \emph on
 must
 \emph default
@@ -262,7 +262,7 @@ replicate divides all filesystem write operations into three classes:
 \begin_layout Itemize
 
 \series bold
-data: 
+data:
 \series default
 Operations that modify the contents of a file (write, truncate).
 \end_layout
@@ -270,7 +270,7 @@ Operations that modify the contents of a file (write, truncate).
 \begin_layout Itemize
 
 \series bold
-metadata: 
+metadata:
 \series default
 Operations that modify attributes of a file or directory (permissions, ownership
 , etc.).
@@ -279,7 +279,7 @@ Operations that modify attributes of a file or directory (permissions, ownership
 \begin_layout Itemize
 
 \series bold
-entry: 
+entry:
 \series default
 Operations that create or delete directory entries (mkdir, create, rename,
  rmdir, unlink, etc.).
@@ -345,7 +345,7 @@ Self-Heal
 \begin_layout Standard
 replicate automatically tries to fix any inconsistencies it detects among different
  copies of a file.
- It uses information in the change log to determine which copy is the 
+ It uses information in the change log to determine which copy is the
 \begin_inset Quotes eld
 \end_inset
 
@@ -357,7 +357,7 @@ correct
 \end_layout
 
 \begin_layout Standard
-Self-heal is triggered when a file or directory is first 
+Self-heal is triggered when a file or directory is first
 \begin_inset Quotes eld
 \end_inset
 
@@ -374,7 +374,7 @@ If the entry being accessed is a directory:
 \end_layout
 
 \begin_layout Itemize
-The contents of the 
+The contents of the
 \begin_inset Quotes eld
 \end_inset
 
@@ -412,7 +412,7 @@ It may happen that one replicate client can access only some of the servers in
  a cluster and another replicate client can access the remaining servers.
  Or it may happen that in a cluster of two servers, one server goes down
  and comes back up, but the other goes down immediately.
- Both these scenarios result in a 
+ Both these scenarios result in a
 \begin_inset Quotes eld
 \end_inset
 
@@ -425,7 +425,7 @@ split-brain
 
 \begin_layout Standard
 In a split-brain situation, there will be two or more copies of a file,
- all of which are 
+ all of which are
 \begin_inset Quotes eld
 \end_inset
 
@@ -484,12 +484,12 @@ split-brain
 ).
  This means if a discrepancy is noticed in the attributes or content of
  a file, the copy on the `favorite-child' will be considered the definitive
- version and its contents will 
+ version and its contents will
 \emph on
-overwrite 
+overwrite
 \emph default
 the contents of all other copies.
- Use this option with caution! It is possible to 
+ Use this option with caution! It is possible to
 \emph on
 lose data
 \emph default
@@ -502,7 +502,7 @@ Self-heal options
 \end_layout
 
 \begin_layout Standard
-Setting any of these options to 
+Setting any of these options to
 \begin_inset Quotes eld
 \end_inset
 
@@ -549,7 +549,7 @@ If any of these options is turned off, it disables writing of change log
  entries for that class of file operations.
  That is, steps 2 and 4 of the write algorithm (see above) are not done.
  Note that if the change log is not written, the self-heal algorithm cannot
- determine the 
+ determine the
 \begin_inset Quotes eld
 \end_inset
 
@@ -557,7 +557,7 @@ correct
 \begin_inset Quotes erd
 \end_inset
 
- version of a file and hence self-heal will only be able to fix 
+ version of a file and hence self-heal will only be able to fix
 \begin_inset Quotes eld
 \end_inset
 
@@ -602,7 +602,7 @@ These options let you specify the number of lock servers to use for each
  The default values are satisfactory in most cases.
  If you are extra paranoid, you may want to increase the values.
  However, be very cautious if you set the data- or entry- lock server counts
- to zero, since this can result in 
+ to zero, since this can result in
 \emph on
 lost data.
 
@@ -610,11 +610,11 @@ lost data.
  For example, if you set the data-lock-server-count to zero, and two application
 s write to the same region of a file, there is a possibility that none of
  your servers will have all the data.
- In other words, the copies will be 
+ In other words, the copies will be
 \emph on
 inconsistent
 \emph default
-, and 
+, and
 \emph on
 incomplete
 \emph default

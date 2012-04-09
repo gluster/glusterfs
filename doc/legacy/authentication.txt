@@ -48,7 +48,7 @@
       protocol/client:
 	option remote-subvolume foo-brick
 	* Client is connecting from a.b.c.d
-      
+
       protocol/server:
 	option auth.addr.foo-brick.allow a.b.c.d,e.f.g.h,i.j.k.l #, other ip addresses from which clients are allowed to connect to foo-brick
 
@@ -79,19 +79,19 @@
   * reject only "user shoo from a.b.c.d"
     protcol/client:
 	option remote-subvolume shoo-brick
-    
+
     protocol/server:
 	# observe that no "option auth.login.shoo-brick.allow shoo" given
 	# Also other users from a.b.c.d have to be explicitly allowed using auth.login.shoo-brick.allow ...
 	option auth.addr.shoo-brick.allow !a.b.c.d
 
-  * reject only "user shoo" from a.b.c.d i.e., user shoo from a.b.c.d has to be rejected. 
+  * reject only "user shoo" from a.b.c.d i.e., user shoo from a.b.c.d has to be rejected.
     * same as reject only "user shoo from a.b.c.d" above, but rules have to be added whether to allow ip addresses (and users from those ips) other than a.b.c.d
 
 ****************************************************************************************************
 
 * ip or username/password based authentication
-  
+
   * allow user foo or clients from a.b.c.d
     protocol/client:
 	option remote-subvolume foo-brick
@@ -104,7 +104,7 @@
   * reject user shoo or clients from a.b.c.d
     protocol/client:
 	option remote-subvolume shoo-brick
-   
+
     protocol/server:
 	option auth.login.shoo-brick.allow <usernames other than shoo>
 	#for each username mentioned in the above <usernames other than shoo> list, specify password as below

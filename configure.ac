@@ -126,8 +126,6 @@ AC_CONFIG_FILES([Makefile
                 cli/Makefile
                 cli/src/Makefile
 		doc/Makefile
-		doc/examples/Makefile
-		doc/hacker-guide/Makefile
 		extras/Makefile
 		extras/init.d/Makefile
 		extras/init.d/glusterd.plist

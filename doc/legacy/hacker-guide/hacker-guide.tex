@@ -31,7 +31,7 @@ most part.
 
 \chapter{Major components}
 \section{libglusterfs}
-\texttt{libglusterfs} contains supporting code used by all the other components. 
+\texttt{libglusterfs} contains supporting code used by all the other components.
 The important files here are:
 
 \texttt{dict.c}: This is an implementation of a serializable dictionary type. It is
@@ -165,8 +165,8 @@ First we include the requisite headers.
 #include "logging.h"
 
 /*
- * This is a rot13 ``encryption'' xlator. It rot13's data when 
- * writing to disk and rot13's it back when reading it. 
+ * This is a rot13 ``encryption'' xlator. It rot13's data when
+ * writing to disk and rot13's it back when reading it.
  * This xlator is meant as an example, not for production
  *  use ;) (hence no error-checking)
  */
@@ -178,7 +178,7 @@ letters. Any other byte is passed through as it is.
 
 \begin{verbatim}
 /* We only handle lower case letters for simplicity */
-static void 
+static void
 rot13 (char *buf, int len)
 {
   int i;
@@ -252,12 +252,12 @@ rot13_writev (call_frame_t *frame,
               xlator_t *this,
               dict_t *ctx,
               struct iovec *vector,
-              int32_t count, 
+              int32_t count,
               off_t offset)
 {
   rot13_iovec (vector, count);
 
-  STACK_WIND (frame, 
+  STACK_WIND (frame,
               rot13_writev_cbk,
               FIRST_CHILD (this),
               FIRST_CHILD (this)->fops->writev,
@@ -267,9 +267,9 @@ rot13_writev (call_frame_t *frame,
 
 \end{verbatim}
 
-Every xlator must define two functions and two external symbols. The functions are 
+Every xlator must define two functions and two external symbols. The functions are
 \texttt{init} and \texttt{fini}, and the symbols are \texttt{fops} and \texttt{mops}.
-The \texttt{init} function is called when the xlator is loaded by GlusterFS, and 
+The \texttt{init} function is called when the xlator is loaded by GlusterFS, and
 contains code for the xlator to initialize itself. Note that if an xlator is present
 multiple times in the spec tree, the \texttt{init} function will be called each time
 the xlator is loaded.
@@ -279,7 +279,7 @@ int32_t
 init (xlator_t *this)
 {
   if (!this->children) {
-    gf_log ("rot13", GF_LOG_ERROR, 
+    gf_log ("rot13", GF_LOG_ERROR,
             "FATAL: rot13 should have exactly one child");
     return -1;
   }
@@ -291,7 +291,7 @@ init (xlator_t *this)
 
 \begin{verbatim}
 
-void 
+void
 fini (xlator_t *this)
 {
   return;

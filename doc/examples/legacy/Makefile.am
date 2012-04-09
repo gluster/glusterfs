@@ -5,4 +5,4 @@ docdir = $(datadir)/doc/$(PACKAGE_NAME)
 Examplesdir = $(docdir)/examples
 Examples_DATA = $(EXTRA)
 
-CLEANFILES = 
+CLEANFILES =

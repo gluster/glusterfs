@@ -23,7 +23,7 @@ Documentation License''.
 @title GlusterFS 2.0 User Guide [DRAFT]
 @subtitle January 15, 2008
 @author http://gluster.org/core-team.php
-@author @email{@b{Gluster}} 
+@author @email{@b{Gluster}}
 @page
 @vskip 0pt plus 1filll
 @insertcopying
@@ -36,78 +36,78 @@ Documentation License''.
 
 @insertcopying
 @menu
-* Acknowledgements::            
-* Introduction::                
-* Installation and Invocation::  
-* Concepts::                    
-* Translators::                 
-* Usage Scenarios::             
-* Troubleshooting::             
-* GNU Free Documentation Licence::  
-* Index::                       
+* Acknowledgements::
+* Introduction::
+* Installation and Invocation::
+* Concepts::
+* Translators::
+* Usage Scenarios::
+* Troubleshooting::
+* GNU Free Documentation Licence::
+* Index::
 
 @detailmenu
  --- The Detailed Node Listing ---
 
 Installation and Invocation
 
-* Pre requisites::              
-* Getting GlusterFS::           
-* Building::                    
-* Running GlusterFS::           
-* A Tutorial Introduction::     
+* Pre requisites::
+* Getting GlusterFS::
+* Building::
+* Running GlusterFS::
+* A Tutorial Introduction::
 
 Running GlusterFS
 
-* Server::                      
-* Client::                      
+* Server::
+* Client::
 
 Concepts
 
-* Filesystems in Userspace::                
-* Translator::                  
-* Volume specification file::   
+* Filesystems in Userspace::
+* Translator::
+* Volume specification file::
 
 Translators
 
-* Storage Translators::         
-* Client and Server Translators::  
-* Clustering Translators::      
-* Performance Translators::     
-* Features Translators::        
+* Storage Translators::
+* Client and Server Translators::
+* Clustering Translators::
+* Performance Translators::
+* Features Translators::
 
 Storage Translators
 
-* POSIX::        
+* POSIX::
 
 Client and Server Translators
 
-* Transport modules::           
-* Client protocol::             
-* Server protocol::             
+* Transport modules::
+* Client protocol::
+* Server protocol::
 
 Clustering Translators
 
-* Unify::                       
-* Replicate::  
-* Stripe::                      
+* Unify::
+* Replicate::
+* Stripe::
 
 Performance Translators
 
-* Read Ahead::                  
-* Write Behind::                
-* IO Threads::                  
-* IO Cache::                    
+* Read Ahead::
+* Write Behind::
+* IO Threads::
+* IO Cache::
 
-Features Translators 
+Features Translators
 
-* POSIX Locks::                 
-* Fixed ID::                    
+* POSIX Locks::
+* Fixed ID::
 
 Miscellaneous Translators
 
-* ROT-13::                      
-* Trace::                       
+* ROT-13::
+* Trace::
 
 @end detailmenu
 @end menu
@@ -120,7 +120,7 @@ Miscellaneous Translators
 @node Acknowledgements
 @unnumbered Acknowledgements
 GlusterFS continues to be a wonderful and enriching experience for all
-of us involved. 
+of us involved.
 
 GlusterFS development would not have been possible at this pace if
 not for our enthusiastic users. People from around the world have
@@ -142,7 +142,7 @@ Jacques Mattheij - for Europe mirror.
 Patrick Negri - for TCP non-blocking connect.
 @flushright
 http://gluster.org/core-team.php (@email{list-hacking@@gluster.com})
-@email{@b{Gluster}} 
+@email{@b{Gluster}}
 @end flushright
 
 @node Introduction
@@ -166,7 +166,7 @@ Need for distributed filesystems
 @end itemize
 
 @section Contacting us
-You can reach us through the mailing list @strong{gluster-devel} 
+You can reach us through the mailing list @strong{gluster-devel}
 (@email{gluster-devel@@nongnu.org}).
 @cindex GlusterFS mailing list
 
@@ -197,11 +197,11 @@ You can also email us at @email{support@@gluster.com}.
 @chapter Installation and Invocation
 
 @menu
-* Pre requisites::              
-* Getting GlusterFS::           
-* Building::                    
-* Running GlusterFS::           
-* A Tutorial Introduction::     
+* Pre requisites::
+* Getting GlusterFS::
+* Building::
+* Running GlusterFS::
+* A Tutorial Introduction::
 @end menu
 
 @node Pre requisites
@@ -247,7 +247,7 @@ our patched version of the @acronym{FUSE} kernel module. See Patched FUSE for de
 
 @subsection Patched FUSE
 
-The GlusterFS project maintains a patched version of @acronym{FUSE} meant to be used 
+The GlusterFS project maintains a patched version of @acronym{FUSE} meant to be used
 with GlusterFS. The patches increase GlusterFS performance. It is recommended that
 all users use the patched @acronym{FUSE}.
 
@@ -311,7 +311,7 @@ $ cd glusterfs-<version>
 
 If you checked out the source from the Arch repository, you'll need
 to run @command{./autogen.sh} first. Note that you'll need to have
-Autoconf and Automake installed for this. 
+Autoconf and Automake installed for this.
 
 Run @command{configure}.
 
@@ -371,8 +371,8 @@ paths with the prefix.
 @section Running GlusterFS
 
 @menu
-* Server::                      
-* Client::                      
+* Server::
+* Client::
 @end menu
 
 @node Server
@@ -386,7 +386,7 @@ of the GlusterFS server program and all the command-line options accepted by it.
 @cartouche
 @table @code
 Basic Options
-@item -f, --volfile=<path>   
+@item -f, --volfile=<path>
       Use the volume file as the volume specification.
 
 @item -s, --volfile-server=<hostname>
@@ -396,7 +396,7 @@ Basic Options
       Specify the path for the log file.
 
 @item -L, --log-level=<level>
-      Set the log level for the server. Log level should be one of @acronym{DEBUG}, 
+      Set the log level for the server. Log level should be one of @acronym{DEBUG},
 @acronym{WARNING}, @acronym{ERROR}, @acronym{CRITICAL}, or @acronym{NONE}.
 
 Advanced Options
@@ -404,10 +404,10 @@ Advanced Options
       Run in debug mode. This option sets --no-daemon, --log-level to DEBUG and
       --log-file to console.
 
-@item  -N, --no-daemon            
+@item  -N, --no-daemon
       Run glusterfsd as a foreground process.
 
-@item  -p, --pid-file=<path>      
+@item  -p, --pid-file=<path>
       Path for the @acronym{PID} file.
 
 @item --volfile-id=<key>
@@ -423,13 +423,13 @@ Advanced Options
       Add/override a translator option for a volume with specified value.
 
 Miscellaneous Options
-@item  -?, --help                 
+@item  -?, --help
        Show this help text.
 
-@item  --usage                
+@item  --usage
        Display a short usage message.
 
-@item  -V, --version              
+@item  -V, --version
        Show version information.
 @end table
 @end cartouche
@@ -464,7 +464,7 @@ The command-line options are detailed below.
 @table @code
 
 Basic Options
-@item -f, --volfile=<path>   
+@item -f, --volfile=<path>
       Use the volume file as the volume specification.
 
 @item -s, --volfile-server=<hostname>
@@ -474,7 +474,7 @@ Basic Options
       Specify the path for the log file.
 
 @item -L, --log-level=<level>
-      Set the log level for the server. Log level should be one of @acronym{DEBUG}, 
+      Set the log level for the server. Log level should be one of @acronym{DEBUG},
 @acronym{WARNING}, @acronym{ERROR}, @acronym{CRITICAL}, or @acronym{NONE}.
 
 Advanced Options
@@ -482,10 +482,10 @@ Advanced Options
       Run in debug mode. This option sets --no-daemon, --log-level to DEBUG and
       --log-file to console.
 
-@item  -N, --no-daemon            
+@item  -N, --no-daemon
       Run @command{glusterfs} as a foreground process.
 
-@item  -p, --pid-file=<path>      
+@item  -p, --pid-file=<path>
       Path for the @acronym{PID} file.
 
 @item --volfile-id=<key>
@@ -512,14 +512,14 @@ Advanced Options
        automatically if kernel supports big writes (>= 2.6.26).
 
 @item  -e, --entry-timeout=<n>
-       Entry timeout for directory entries in the kernel, in seconds. 
+       Entry timeout for directory entries in the kernel, in seconds.
        Defaults to 1 second.
 
 Missellaneous Options
-@item  -?, --help                 
+@item  -?, --help
        Show this help information.
 
-@item  -V, --version              
+@item  -V, --version
        Show version information.
 @end table
 @end cartouche
@@ -527,7 +527,7 @@ Missellaneous Options
 @node A Tutorial Introduction
 @section A Tutorial Introduction
 
-This section will show you how to quickly get GlusterFS up and running. We'll 
+This section will show you how to quickly get GlusterFS up and running. We'll
 configure GlusterFS as a simple network filesystem, with one server and one client.
 In this mode of usage, GlusterFS can serve as a replacement for NFS.
 
@@ -545,18 +545,18 @@ be run on the server will be shown with the prompt:
 Our goal is to make a directory on the @emph{server} (say, @command{/export})
 accessible to the @emph{client}.
 
-First of all, get GlusterFS installed on both the machines, as described in the 
+First of all, get GlusterFS installed on both the machines, as described in the
 previous sections. Make sure you have the @acronym{FUSE} kernel module loaded. You
-can ensure this by running: 
+can ensure this by running:
 
 @example
 [root@@server]# modprobe fuse
 @end example
 
 Before we can run the GlusterFS client or server programs, we need to write
-two files called @emph{volume specifications} (equivalently refered to as @emph{volfiles}). 
+two files called @emph{volume specifications} (equivalently refered to as @emph{volfiles}).
 The volfile describes the @emph{translator tree} on a node. The next chapter will
-explain the concepts of `translator' and `volume specification' in detail. For now, 
+explain the concepts of `translator' and `volume specification' in detail. For now,
 just assume that the volfile is like an NFS @command{/etc/export} file.
 
 On the server, create a text file somewhere (we'll assume the path
@@ -572,7 +572,7 @@ end-volume
 volume server
   type protocol/server
   subvolumes colon-o
-  option transport-type tcp     
+  option transport-type tcp
   option auth.addr.colon-o.allow *
 end-volume
 @end example
@@ -625,9 +625,9 @@ working as a network file system.
 @chapter Concepts
 
 @menu
-* Filesystems in Userspace::                
-* Translator::                  
-* Volume specification file::   
+* Filesystems in Userspace::
+* Translator::
+* Volume specification file::
 @end menu
 
 @node Filesystems in Userspace
@@ -639,16 +639,16 @@ is a kernel module/library that allows us to write a filesystem
 completely in userspace.
 
 @acronym{FUSE} consists of a kernel module which interacts with the userspace
-implementation using a device file @code{/dev/fuse}. When a process 
+implementation using a device file @code{/dev/fuse}. When a process
 makes a syscall on a @acronym{FUSE} filesystem, @acronym{VFS} hands the request to the
 @acronym{FUSE} module, which writes the request to @code{/dev/fuse}. The
 userspace implementation polls @code{/dev/fuse}, and when a request arrives,
 processes it and writes the result back to @code{/dev/fuse}. The kernel then
-reads from the device file and returns the result to the user process. 
+reads from the device file and returns the result to the user process.
 
 In case of GlusterFS, the userspace program is the GlusterFS client.
 The control flow is shown in the diagram below. The GlusterFS client
-services the request by sending it to the server, which in turn 
+services the request by sending it to the server, which in turn
 hands it to the local @acronym{POSIX} filesystem.
 
 @center @image{fuse,44pc,,,.pdf}
@@ -752,7 +752,7 @@ or ``forty-two''.
 line is considered the value; it is up to the translator to parse it.
 
 @item @emph{subvolume1}, @emph{subvolume2}, @dots{}
-  Volume names of sub-volumes. The sub-volumes must already have been defined earlier 
+  Volume names of sub-volumes. The sub-volumes must already have been defined earlier
 in the file.
 @end table
 
@@ -797,11 +797,11 @@ end-volume
 @chapter Translators
 
 @menu
-* Storage Translators::         
-* Client and Server Translators::  
-* Clustering Translators::      
-* Performance Translators::     
-* Features Translators::        
+* Storage Translators::
+* Client and Server Translators::
+* Clustering Translators::
+* Performance Translators::
+* Features Translators::
 * Miscellaneous Translators::
 @end menu
 
@@ -823,12 +823,12 @@ Other storage backends are planned for the future. One of the possibilities is a
 Amazon S3 translator. Amazon S3 is an unlimited online storage service accessible
 through a web services @acronym{API}. The S3 translator will allow you to access
 the storage as a normal @acronym{POSIX} filesystem.
-@footnote{Some more discussion about this can be found at: 
+@footnote{Some more discussion about this can be found at:
 
 http://developer.amazonwebservices.com/connect/message.jspa?messageID=52873}
 
 @menu
-* POSIX::        
+* POSIX::
 * BDB::
 @end menu
 
@@ -843,14 +843,14 @@ filesystem as its ``backend'' to actually store files and
 directories. This can be any filesystem that supports extended
 attributes (@acronym{EXT3}, ReiserFS, @acronym{XFS}, ...). Extended
 attributes are used by some translators to store metadata, for
-example, by the replicate and stripe translators. See 
+example, by the replicate and stripe translators. See
 @ref{Replicate} and @ref{Stripe}, respectively for details.
 
 @cartouche
 @table @code
 @item directory <path>
 The directory on the local filesystem which is to be used for storage.
-@end table               
+@end table
 @end cartouche
 
 @node BDB
@@ -862,7 +862,7 @@ type storage/bdb
 The @command{BDB} translator uses a @acronym{Berkeley DB} database as its
 ``backend'' to actually store files as key-value pair in the database and
 directories as regular @acronym{POSIX} directories. Note that @acronym{BDB}
-does not provide extended attribute support for regular files. Do not use 
+does not provide extended attribute support for regular files. Do not use
 @acronym{BDB} as storage translator while using any translator that demands
 extended attributes on ``backend''.
 
@@ -892,9 +892,9 @@ translator tree over the network or access a remote GlusterFS
 server. These two translators implement GlusterFS's network protocol.
 
 @menu
-* Transport modules::           
-* Client protocol::             
-* Server protocol::             
+* Transport modules::
+* Client protocol::
+* Server protocol::
 @end menu
 
 @node Transport modules
@@ -962,7 +962,7 @@ This module accepts the same options as @command{tcp}
 
 @cindex infiniband transport
 
-InfiniBand is a scalable switched fabric interconnect mechanism 
+InfiniBand is a scalable switched fabric interconnect mechanism
 primarily used in high-performance computing. InfiniBand can deliver
 data throughput of the order of 10 Gbit/s, with latencies of 4-5 ms.
 
@@ -970,7 +970,7 @@ The @command{ib-verbs} transport accesses the InfiniBand hardware through
 the ``verbs'' @acronym{API}, which is the lowest level of software access possible
 and which gives the highest performance. On InfiniBand hardware, it is always
 best to use @command{ib-verbs}. Use @command{ib-sdp} only if you cannot get
-@command{ib-verbs} working for some reason. 
+@command{ib-verbs} working for some reason.
 
 The @command{ib-verbs} client module accepts the following options:
 
@@ -1049,7 +1049,7 @@ translator tree.
 
 @item transport-type [tcp,ib-sdp,ib-verbs] (tcp)
 The transport type to use. You should use the client versions of all the
-transport modules (@command{tcp}, @command{ib-sdp}, 
+transport modules (@command{tcp}, @command{ib-sdp},
 @command{ib-verbs}).
 @item remote-subvolume <volume_name> *
 The name of the volume on the remote host to attach to. Note that
@@ -1075,7 +1075,7 @@ remote GlusterFS clients.
 @table @code
 @item client-volume-filename <path> (<CONFDIR>/glusterfs-client.vol)
 The volume specification file to use for the client. This is the file the
-client will receive when it is invoked with the @command{--server} option 
+client will receive when it is invoked with the @command{--server} option
 (@ref{Client}).
 
 @item transport-type [tcp,ib-verbs,ib-sdp] (tcp)
@@ -1106,9 +1106,9 @@ translator allows a file to be spread across many server nodes. The following se
 look at each of these translators in detail.
 
 @menu
-* Unify::                       
-* Replicate::  
-* Stripe::                      
+* Unify::
+* Replicate::
+* Stripe::
 @end menu
 
 @node Unify
@@ -1121,7 +1121,7 @@ type cluster/unify
 
 The unify translator presents a `unified' view of all its sub-volumes. That is,
 it makes the union of all its sub-volumes appear as a single volume. It is the
-unify translator that gives GlusterFS the ability to access an arbitrarily 
+unify translator that gives GlusterFS the ability to access an arbitrarily
 large amount of storage.
 
 For unify to work correctly, certain invariants need to be maintained across
@@ -1144,7 +1144,7 @@ Looking at the second requirement, you might wonder how one can
 accomplish storing redundant copies of a file, if no file can exist
 multiple times.  To answer, we must remember that these invariants are
 from @emph{unify's perspective}.  A translator such as replicate at a lower
-level in the translator tree than unify may subvert this picture. 
+level in the translator tree than unify may subvert this picture.
 
 The first invariant might seem quite tedious to ensure. We shall see
 later that this is not so, since unify's @emph{self-heal} mechanism
@@ -1241,8 +1241,8 @@ are allowed. For example: @command{option alu.limits.min-free-disk 5GB}.
 @item alu.read-usage.exit-threshold <%> (5)
 @item alu.open-files-usage.entry-threshold <n> (1000)
 @item alu.open-files-usage.exit-threshold <n> (100)
-@item alu.limits.min-free-disk <%> 
-@item alu.limits.max-open-files <n> 
+@item alu.limits.min-free-disk <%>
+@item alu.limits.max-open-files <n>
 @end table
 @end cartouche
 
@@ -1259,7 +1259,7 @@ files are mostly similar in size and I/O access pattern, this
 scheduler is a good choice. RR scheduler checks for free disk space
 on the server before scheduling, so you can know when to add
 another server node. The default value of min-free-disk is 5% and is
-checked on file creation calls, with atleast 10 seconds (by default) 
+checked on file creation calls, with atleast 10 seconds (by default)
 elapsing between two checks.
 
 Options:
@@ -1315,7 +1315,7 @@ than a specified amount (5% by default) then @acronym{NUFA} schedules files
 among the other child volumes in a round-robin fashion.
 
 @acronym{NUFA} is named after the similar strategy used for memory access,
-@acronym{NUMA}@footnote{Non-Uniform Memory Access: 
+@acronym{NUMA}@footnote{Non-Uniform Memory Access:
 @indicateurl{http://en.wikipedia.org/wiki/Non-Uniform_Memory_Access}}.
 
 @cartouche
@@ -1325,7 +1325,7 @@ Minimum disk space that must be free (local or remote) for @acronym{NUFA} to sch
 file to it.
 @item nufa.refresh-interval <t> (10 seconds)
 Time between two successive free disk space checks.
-@item nufa.local-volume-name <volume> 
+@item nufa.local-volume-name <volume>
 The name of the volume corresponding to the local system. This volume must be
 one of the children of the unify volume. This option is mandatory.
 @end table
@@ -1397,13 +1397,13 @@ end-volume
 @end example
 
 This sample configuration will replicate all directories and files on
-brick1, brick2 and brick3. 
+brick1, brick2 and brick3.
 
 All the read operations happen from the first alive child. If all the
 three sub-volumes are up, reads will be done from brick1; if brick1 is
 down read will be done from brick2. In case read() was being done on
 brick1 and it goes down, replicate transparently falls back to
-brick2. 
+brick2.
 
 The next release of GlusterFS will add the following features:
 @itemize
@@ -1496,7 +1496,7 @@ type cluster/stripe
 The stripe translator distributes the contents of a file over its
 sub-volumes.  It does this by creating a file equal in size to the
 total size of the file on each of its sub-volumes. It then writes only
-a part of the file to each sub-volume, leaving the rest of it empty. 
+a part of the file to each sub-volume, leaving the rest of it empty.
 These empty regions are called `holes' in Unix terminology. The holes
 do not consume any disk space.
 
@@ -1504,14 +1504,14 @@ The diagram below makes this clear.
 
 @center @image{stripe,44pc,,,.pdf}
 
-You can configure stripe so that only filenames matching a pattern 
-are striped. You can also configure the size of the data to be stored 
+You can configure stripe so that only filenames matching a pattern
+are striped. You can also configure the size of the data to be stored
 on each sub-volume.
 
 @cartouche
 @table @code
 @item block-size <pattern>:<size>  (*:0 no striping)
-Distribute files matching @command{<pattern>} over the sub-volumes, 
+Distribute files matching @command{<pattern>} over the sub-volumes,
 storing at least @command{<size>} on each sub-volume. For example,
 
 @example
@@ -1530,9 +1530,9 @@ different sizes for different file name patterns.
 @section Performance Translators
 
 @menu
-* Read Ahead::                  
-* Write Behind::                
-* IO Threads::                  
+* Read Ahead::
+* Write Behind::
+* IO Threads::
 * IO Cache::
 * Booster::
 @end menu
@@ -1547,9 +1547,9 @@ type performance/read-ahead
 The read-ahead translator pre-fetches data in advance on every read.
 This benefits applications that mostly process files in sequential order,
 since the next block of data will already be available by the time the
-application is done with the current one. 
+application is done with the current one.
 
-Additionally, the read-ahead translator also behaves as a read-aggregator. 
+Additionally, the read-ahead translator also behaves as a read-aggregator.
 Many small read operations are combined and issued as fewer, larger read
 requests to the server.
 
@@ -1557,7 +1557,7 @@ Read-ahead deals in ``pages'' as the unit of data fetched. The page size
 is configurable, as is the ``page count'', which is the number of pages
 that are pre-fetched.
 
-Read-ahead is best used with InfiniBand (using the ib-verbs transport). 
+Read-ahead is best used with InfiniBand (using the ib-verbs transport).
 On FastEthernet and Gigabit Ethernet networks,
 GlusterFS can achieve the link-maximum throughput even without
 read-ahead, making it quite superflous.
@@ -1577,7 +1577,7 @@ The unit of data that is pre-fetched.
 The number of pages that are pre-fetched.
 @item force-atime-update [on|off|yes|no] (off|no)
 Whether to force an access time (atime) update on the file on every read. Without
-this, the atime will be slightly imprecise, as it will reflect the time when 
+this, the atime will be slightly imprecise, as it will reflect the time when
 the read-ahead translator read the data, not when the application actually read it.
 @end table
 @end cartouche
@@ -1596,7 +1596,7 @@ write-behind translator, successive write requests can be pipelined.
 This mode of write-behind operation is best used on the client side, to
 enable decreased write latency for the application.
 
-The write-behind translator can also aggregate write requests. If the 
+The write-behind translator can also aggregate write requests. If the
 @command{aggregate-size} option is specified, then successive writes upto that
 size are accumulated and written in a single operation. This mode of operation
 is best used on the server side, as this will decrease the disk's head movement
@@ -1659,7 +1659,7 @@ It caches data upto @command{cache-size} bytes. The cache is maintained as
 a prioritized least-recently-used (@acronym{LRU}) list, with priorities determined
 by user-specified patterns to match filenames.
 
-When the IO cache translator detects a write operation, the 
+When the IO cache translator detects a write operation, the
 cache for that file is flushed.
 
 The IO cache translator periodically verifies the consistency of
@@ -1715,11 +1715,11 @@ can start your application as:
 The booster translator accepts no options.
 
 @node Features Translators
-@section Features Translators 
+@section Features Translators
 
 @menu
-* POSIX Locks::                 
-* Fixed ID::                    
+* POSIX Locks::
+* Fixed ID::
 @end menu
 
 @node POSIX Locks
@@ -1783,8 +1783,8 @@ The @acronym{GID} to send to the server
 @section Miscellaneous Translators
 
 @menu
-* ROT-13::                      
-* Trace::                       
+* ROT-13::
+* Trace::
 @end menu
 
 @node ROT-13
@@ -1799,7 +1799,7 @@ contents using the @acronym{ROT-13} algorithm. @acronym{ROT-13} is a trivial
 algorithm that rotates each alphabet by thirteen places. Thus, 'A' becomes 'N',
 'B' becomes 'O', and 'Z' becomes 'M'.
 
-It goes without saying that you shouldn't use this translator if you need 
+It goes without saying that you shouldn't use this translator if you need
 @emph{real} encryption (a future release of GlusterFS will have real encryption
 translators).
 
@@ -1816,7 +1816,7 @@ Whether to decrypt on read
 @subsection Trace
 @cindex trace (translator)
 @example
-type debug/trace     
+type debug/trace
 @end example
 
 The trace translator is intended for debugging purposes. When loaded, it
@@ -1827,23 +1827,23 @@ level of DEBUG (See @ref{Running GlusterFS}) for trace to work.
 Sample trace output (lines have been wrapped for readability):
 @cartouche
 @example
-2007-10-30 00:08:58 D [trace.c:1579:trace_opendir] trace: callid: 68 
-(*this=0x8059e40, loc=0x8091984 @{path=/iozone3_283, inode=0x8091f00@}, 
+2007-10-30 00:08:58 D [trace.c:1579:trace_opendir] trace: callid: 68
+(*this=0x8059e40, loc=0x8091984 @{path=/iozone3_283, inode=0x8091f00@},
  fd=0x8091d50)
 
-2007-10-30 00:08:58 D [trace.c:630:trace_opendir_cbk] trace: 
+2007-10-30 00:08:58 D [trace.c:630:trace_opendir_cbk] trace:
 (*this=0x8059e40, op_ret=4, op_errno=1, fd=0x8091d50)
 
-2007-10-30 00:08:58 D [trace.c:1602:trace_readdir] trace: callid: 69 
+2007-10-30 00:08:58 D [trace.c:1602:trace_readdir] trace: callid: 69
 (*this=0x8059e40, size=4096, offset=0 fd=0x8091d50)
 
-2007-10-30 00:08:58 D [trace.c:215:trace_readdir_cbk] trace: 
+2007-10-30 00:08:58 D [trace.c:215:trace_readdir_cbk] trace:
 (*this=0x8059e40, op_ret=0, op_errno=0, count=4)
 
-2007-10-30 00:08:58 D [trace.c:1624:trace_closedir] trace: callid: 71 
+2007-10-30 00:08:58 D [trace.c:1624:trace_closedir] trace: callid: 71
 (*this=0x8059e40, *fd=0x8091d50)
 
-2007-10-30 00:08:58 D [trace.c:809:trace_closedir_cbk] trace: 
+2007-10-30 00:08:58 D [trace.c:809:trace_closedir_cbk] trace:
 (*this=0x8059e40, op_ret=0, op_errno=1)
 @end example
 @end cartouche
@@ -1871,7 +1871,7 @@ scheduling on a single storage volume. Alternatively users can choose
 to have two separate volumes and hence two mount points, but the
 applications may demand a single storage system to host both.
 
-This document explains how to mix file level scheduling with stripe. 
+This document explains how to mix file level scheduling with stripe.
 
 @subsection Configuration Brief
 
@@ -1904,17 +1904,17 @@ addresses / access control fields to match your environment.
            type storage/posix
            option directory /export/for-unify
    end-volume
- 
+
    volume posix-stripe
            type storage/posix
            option directory /export/for-stripe
    end-volume
- 
+
    volume posix-namespace
            type storage/posix
            option directory /export/for-namespace
    end-volume
-  
+
    volume server
            type protocol/server
            option transport-type tcp
@@ -1963,7 +1963,7 @@ addresses / access control fields to match your environment.
      option remote-host 192.168.1.4
      option remote-subvolume posix-unify
    end-volume
- 
+
    volume client-stripe-1
      type protocol/client
      option transport-type tcp
@@ -1991,13 +1991,13 @@ addresses / access control fields to match your environment.
      option remote-host 192.168.1.4
      option remote-subvolume posix-stripe
    end-volume
-  
+
    volume unify
      type cluster/unify
      option scheduler rr
      subvolumes cluster-unify-1 cluster-unify-2 cluster-unify-3 cluster-unify-4
    end-volume
- 
+
    volume stripe
      type cluster/stripe
      option block-size *.img:2MB # All files ending with .img are striped with 2MB stripe block size.
@@ -2046,13 +2046,13 @@ concludes with the suggested procedure to report bugs in GlusterFS.
 @subsection Server errors
 
 @example
-glusterfsd: FATAL: could not open specfile: 
+glusterfsd: FATAL: could not open specfile:
 '/etc/glusterfs/glusterfsd.vol'
 @end example
 
-The GlusterFS server expects the volume specification file to be 
+The GlusterFS server expects the volume specification file to be
 at @command{/etc/glusterfs/glusterfsd.vol}. The example
-specification file will be installed as 
+specification file will be installed as
 @command{/etc/glusterfs/glusterfsd.vol.sample}. You need to edit
 it and rename it, or provide a different specification file using
 the @command{--spec-file} command line option (See @ref{Server}).
@@ -2060,7 +2060,7 @@ the @command{--spec-file} command line option (See @ref{Server}).
 @vskip 4ex
 
 @example
-gf_log_init: failed to open logfile "/usr/var/log/glusterfs/glusterfsd.log" 
+gf_log_init: failed to open logfile "/usr/var/log/glusterfs/glusterfsd.log"
              (Permission denied)
 @end example
 
@@ -2072,7 +2072,7 @@ file using the @command{--log-file} option (See @ref{Server}).
 @subsection Client errors
 
 @example
-fusermount: failed to access mountpoint /mnt: 
+fusermount: failed to access mountpoint /mnt:
             Transport endpoint is not connected
 @end example
 
@@ -2114,7 +2114,7 @@ port instead.
 @vskip 4ex
 
 @example
-gf_log_init: failed to open logfile "/usr/var/log/glusterfs/glusterfs.log" 
+gf_log_init: failed to open logfile "/usr/var/log/glusterfs/glusterfs.log"
              (Permission denied)
 @end example
 

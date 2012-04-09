@@ -130,7 +130,7 @@ suggestions.  A huge thanks to them all.
 
    Patrick Negri - for TCP non-blocking connect.
         http://gluster.org/core-team.php (<list-hacking@gluster.com>)
-                                                          Gluster 
+                                                          Gluster
 
 
 File: user-guide.info,  Node: Introduction,  Next: Installation and Invocation,  Prev: Acknowledgements,  Up: Top
@@ -160,15 +160,15 @@ makes them all appear to be a part of the same filesystem.
 =================
 
 You can reach us through the mailing list *gluster-devel*
-(<gluster-devel@nongnu.org>).  
+(<gluster-devel@nongnu.org>).
 
    You can also find many of the developers on IRC, on the `#gluster'
-channel on Freenode (<irc.freenode.net>).  
+channel on Freenode (<irc.freenode.net>).
 
    The GlusterFS documentation wiki is also useful:
 <http://gluster.org/docs/index.php/GlusterFS>
 
-   For commercial support, you can contact Gluster at: 
+   For commercial support, you can contact Gluster at:
 
      3194 Winding Vista Common
      Fremont, CA 94539
@@ -907,7 +907,7 @@ and the client.
      Whether to make the connection attempt asynchronous.
 
 `remote-port <n> (24007)'
-     Server port to connect to.  
+     Server port to connect to.
 
 `remote-host <hostname> *'
      Hostname or IP address of the server. If the host name resolves to
@@ -952,7 +952,7 @@ always best to use `ib-verbs'. Use `ib-sdp' only if you cannot get
      Whether to make the connection attempt asynchronous.
 
 `remote-port <n> (24007)'
-     Server port to connect to.  
+     Server port to connect to.
 
 `remote-host <hostname> *'
      Hostname or IP address of the server. If the host name resolves to
@@ -2057,7 +2057,7 @@ the `--log-file' option (See *note Client::).
 =======================
 
 `modprobe fuse' fails with: "Unknown symbol in module, or unknown
-parameter".  
+parameter".
 
    If you are using fuse-2.6.x on Redhat Enterprise Linux Work Station 4
 and Advanced Server 4 with 2.6.9-42.ELlargesmp, 2.6.9-42.ELsmp,

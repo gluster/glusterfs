@@ -9,7 +9,7 @@ further locks will be requested within the same universal set.
 
 So, for example, when cluster/replicate locks a region before
 writing to it, lock-ahead would instead lock the entire file.
-On further writes, lock-ahead can immediately return success for 
+On further writes, lock-ahead can immediately return success for
 the lock requests, since the entire file has been previously locked.
 
 To avoid starvation of other clients/mountpoints, we employ a
@@ -50,7 +50,7 @@ lock:
     send lock-notify fop
     hold universal lock and return
       (set inode context, add subset to it, save loc_t or fd)
-    
+
     if this fails:
       forward the lock request
 
