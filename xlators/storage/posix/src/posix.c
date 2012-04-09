@@ -60,6 +60,7 @@
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
 
+extern char *marker_xattrs[];
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -3101,7 +3102,9 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                                                             this->name,GF_LOG_WARNING,
                                                             "Extended attributes not "
                                                             "supported by filesystem");
-                                } else  {
+                                } else if (op_errno != ENOENT ||
+                                           !posix_special_xattr (marker_xattrs,
+                                                                 trav->key)) {
                                         if (loc)
                                                 gf_log (this->name, GF_LOG_ERROR,
                                                         "getxattr failed on %s while doing "
