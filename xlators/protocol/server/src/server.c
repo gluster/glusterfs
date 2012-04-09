@@ -539,6 +539,7 @@ validate_auth_options (xlator_t *this, dict_t *dict)
         xlator_list_t *trav = NULL;
         data_pair_t   *pair = NULL;
         char          *tail = NULL;
+        char          *tmp_addr_list = NULL;
         char          *addr = NULL;
         char          *tmp_str = NULL;
 
@@ -574,7 +575,8 @@ validate_auth_options (xlator_t *this, dict_t *dict)
                                      goto out;
                                 }
 
-                                addr = strtok_r (pair->value->data, ",",
+                                tmp_addr_list = gf_strdup (pair->value->data);
+                                addr = strtok_r (tmp_addr_list, ",",
                                                 &tmp_str);
                                 if (!addr)
                                         addr = pair->value->data;
@@ -600,6 +602,8 @@ validate_auth_options (xlator_t *this, dict_t *dict)
                                                 addr = NULL;
                                 }
 
+                                GF_FREE (tmp_addr_list);
+                                tmp_addr_list = NULL;
                         }
 
                 }
@@ -615,6 +619,8 @@ validate_auth_options (xlator_t *this, dict_t *dict)
         }
 
 out:
+        if (tmp_addr_list)
+                GF_FREE (tmp_addr_list);
         return error;
 }
 

@@ -754,24 +754,37 @@ mnt3_check_client_net (struct mount3_state *ms, rpcsvc_request_t *req,
                        xlator_t *targetxl)
 {
 
-        rpcsvc_t        *svc = NULL;
-        int             ret = -1;
+        rpcsvc_t                *svc = NULL;
+        rpc_transport_t         *trans = NULL;
+        struct sockaddr_storage sastorage = {0,};
+        char                    peer[RPCSVC_PEER_STRLEN] = {0,};
+        int                     ret = -1;
 
         if ((!ms) || (!req) || (!targetxl))
                 return -1;
 
         svc = rpcsvc_request_service (req);
+
+        trans = rpcsvc_request_transport (req);
+        ret = rpcsvc_transport_peeraddr (trans, peer, RPCSVC_PEER_STRLEN,
+                                         &sastorage, sizeof (sastorage));
+        if (ret != 0) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to get peer addr: %s",
+                        gai_strerror (ret));
+        }
+
         ret = rpcsvc_transport_peer_check (svc->options, targetxl->name,
-                                           rpcsvc_request_transport (req));
+                                           trans);
         if (ret == RPCSVC_AUTH_REJECT) {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Peer not allowed");
+                gf_log (GF_MNT, GF_LOG_INFO, "Peer %s  not allowed", peer);
                 goto err;
         }
 
         ret = rpcsvc_transport_privport_check (svc, targetxl->name,
                                                rpcsvc_request_transport (req));
         if (ret == RPCSVC_AUTH_REJECT) {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Unprivileged port not allowed");
+                gf_log (GF_MNT, GF_LOG_INFO, "Peer %s rejected. Unprivileged "
+                        "port not allowed", peer);
                 goto err;
         }
 
