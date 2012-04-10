@@ -174,7 +174,7 @@ sh_loop_lock_success (call_frame_t *loop_frame, xlator_t *this)
         sh_loop_finish (loop_sh->old_loop_frame, this);
         loop_sh->old_loop_frame = NULL;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Aquired lock for range %"PRIu64
+        gf_log (this->name, GF_LOG_DEBUG, "Acquired lock for range %"PRIu64
                 " %"PRIu64, loop_sh->offset, loop_sh->block_size);
         loop_sh->data_lock_held = _gf_true;
         loop_sh->sh_data_algo_start (loop_frame, this);

@@ -414,7 +414,7 @@ server_setvolume (rpcsvc_request_t *req)
         ret = dict_get_uint32 (params, "clnt-lk-version", &lk_version);
         if (ret < 0) {
                 ret = dict_set_str (reply, "ERROR",
-                                    "lock state verison not supplied");
+                                    "lock state version not supplied");
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "failed to set error msg");

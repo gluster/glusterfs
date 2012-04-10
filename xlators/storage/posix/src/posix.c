@@ -3937,7 +3937,7 @@ init (xlator_t *this)
                 if (op_ret == 16) {
                         if (uuid_compare (old_uuid, dict_uuid)) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "mismatching volume-id (%s) recieved. "
+                                        "mismatching volume-id (%s) received. "
                                         "already is a part of volume %s ",
                                         tmp_data->data, uuid_utoa (old_uuid));
                                 ret = -1;

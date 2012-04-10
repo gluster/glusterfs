@@ -395,7 +395,7 @@ _crawl_proceed (xlator_t *this, int child, int crawl_flags, char **reason)
         shd  = &priv->shd;
         if (!shd->enabled) {
                 msg = "Self-heal daemon is not enabled";
-                gf_log (this->name, GF_LOG_ERROR, msg);
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
         if (!priv->child_up[child]) {

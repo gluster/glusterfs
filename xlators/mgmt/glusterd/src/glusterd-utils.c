@@ -4398,7 +4398,7 @@ check_xattr:
                 if (uuid_compare (old_uuid, uuid)) {
                         uuid_utoa_r (old_uuid, old_uuid_buf);
                         gf_log (THIS->name, GF_LOG_WARNING,
-                                "%s: mismatching volume-id (%s) recieved. "
+                                "%s: mismatching volume-id (%s) received. "
                                 "already is a part of volume %s ",
                                 path, uuid_utoa (uuid), old_uuid_buf);
                         snprintf (msg, sizeof (msg), "'%s:%s' has been part of "
@@ -4962,7 +4962,7 @@ glusterd_set_dump_options (char *dumpoptions_path, char *options,
                 goto out;
         }
         dup_options = gf_strdup (options);
-        gf_log ("", GF_LOG_INFO, "Recieved following statedump options: %s",
+        gf_log ("", GF_LOG_INFO, "Received following statedump options: %s",
                 dup_options);
         option = strtok_r (dup_options, " ", &tmpptr);
         while (option) {

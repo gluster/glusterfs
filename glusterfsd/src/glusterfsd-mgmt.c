@@ -1210,7 +1210,7 @@ glusterfs_handle_nfs_profile (rpcsvc_request_t *req)
                                            (size_t *)&rsp.output.output_len);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to serialize ouput dict to rsp");
+                        "Failed to serialize output dict to rsp");
                 goto out;
         }
 

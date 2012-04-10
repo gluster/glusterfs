@@ -3422,7 +3422,7 @@ done:
                 ret = -1;
                 snprintf (msg, sizeof (msg), "%s off and %s on is not "
                           "valid configuration", wb_key, el_key);
-                gf_log ("glusterd", GF_LOG_ERROR, msg);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
                 if (op_errstr)
                         *op_errstr = gf_strdup (msg);
                 goto out;

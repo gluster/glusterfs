@@ -108,7 +108,7 @@ Xattr = _MetaXattr()
 
 class Popen(subprocess.Popen):
     """customized subclass of subprocess.Popen with a ring
-    buffer for children error ouput"""
+    buffer for children error output"""
 
     @classmethod
     def init_errhandler(cls):
