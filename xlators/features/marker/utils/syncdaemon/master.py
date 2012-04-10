@@ -391,7 +391,7 @@ class GMaster(object):
                         self.sendmark(e, xte)
                         return True
                     else:
-                        logging.error("failed to sync " + e)
+                        logging.warn("failed to sync " + e)
                 self.add_job(path, 'reg', regjob, e, xte, pb)
             elif stat.S_ISDIR(mo):
                 adct['mode'] = mo
