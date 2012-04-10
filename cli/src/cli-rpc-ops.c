@@ -329,7 +329,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                                                    NULL);
                         if (ret)
                                 gf_log ("cli", GF_LOG_ERROR,
-                                        "Error ouputting to xml");
+                                        "Error outputting to xml");
                         goto out;
                 }
 #endif
@@ -5383,7 +5383,7 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                         continue;
 
                 /* Brick/not-brick is handled seperately here as all
-                 * types of nodes are contained in the default ouput
+                 * types of nodes are contained in the default output
                  */
                 memset (status.brick, 0, PATH_MAX + 255);
                 if (!strcmp (hostname, "NFS Server") ||
@@ -5888,7 +5888,7 @@ gf_cli3_1_statedump_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
                 goto out;
         }
-        gf_log ("cli", GF_LOG_DEBUG, "Recieved response to statedump");
+        gf_log ("cli", GF_LOG_DEBUG, "Received response to statedump");
         if (rsp.op_ret)
                 snprintf (msg, sizeof(msg), "%s", rsp.op_errstr);
         else

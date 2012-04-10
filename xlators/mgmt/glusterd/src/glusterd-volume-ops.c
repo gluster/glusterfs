@@ -579,7 +579,7 @@ glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
         }
 
 
-        gf_log ("glusterd", GF_LOG_INFO, "Recieved statedump request for "
+        gf_log ("glusterd", GF_LOG_INFO, "Received statedump request for "
                 "volume %s with options %s", volname, options);
 
         ret = glusterd_op_begin (req, GD_OP_STATEDUMP_VOLUME, dict);
