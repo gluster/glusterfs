@@ -128,6 +128,8 @@ struct cli_local {
         } get_vol;
 
         dict_t          *dict;
+        /* Marker for volume status all */
+        gf_boolean_t    all;
 #if (HAVE_LIB_XML)
         xmlTextWriterPtr        writer;
         xmlBufferPtr            buf;

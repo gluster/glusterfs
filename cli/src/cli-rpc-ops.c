@@ -5275,6 +5275,8 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t                         *dict            = NULL;
         gf_cli_rsp                      rsp             = {0,};
         cli_volume_status_t             status          = {0};
+        cli_local_t                    *local           = NULL;
+        char                            msg[1024]       = {0,};
 
         if (req->rpc_status == -1)
                 goto out;
@@ -5287,10 +5289,32 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_DEBUG, "Received response to status cmd");
 
-        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_out ("%s", rsp.op_errstr);
-        else if (rsp.op_ret)
-                cli_out ("Unable to obtain volume status information.");
+        local = ((call_frame_t *)myframe)->local;
+
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, ""))
+                        snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+                else
+                        snprintf (msg, sizeof (msg), "Unable to obtain volume "
+                                  "status information.");
+
+#if (HAVE_LIB_XML)
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                       cli_xml_output_str ("volStatus", msg, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                       ret = 0;
+                       goto out;
+                }
+#endif
+                cli_out ("%s", msg);
+                if (local && local->all) {
+                        ret = 0;
+                        cli_out (" ");
+                } else
+                        ret = -1;
+
+                goto out;
+        }
 
         dict = dict_new ();
         if (!dict)
@@ -5307,8 +5331,13 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
 
         if ((cmd & GF_CLI_STATUS_ALL)) {
-                ((call_frame_t *)myframe)->local = dict;
-                ret = 0;
+                if (local) {
+                        local->dict = dict;
+                        ret = 0;
+                } else {
+                        gf_log ("cli", GF_LOG_ERROR, "local not found");
+                        ret = -1;
+                }
                 goto out;
         }
 
@@ -5375,7 +5404,7 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret)
                 goto out;
 
-        cli_out ("\nStatus of volume: %s", volname);
+        cli_out ("Status of volume: %s", volname);
 
         if ((cmd & GF_CLI_STATUS_DETAIL) == 0) {
                 cli_out ("Gluster process\t\t\t\t\t\tPort\tOnline\tPid");
@@ -5445,7 +5474,7 @@ gf_cli3_1_status_cbk (struct rpc_req *req, struct iovec *iov,
                         cli_print_brick_status (&status);
                 }
         }
-
+        cli_out (" ");
 cont:
         ret = rsp.op_ret;
 
@@ -5500,17 +5529,27 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
         char            *volname      = NULL;
         dict_t          *vol_dict     = NULL;
         dict_t          *dict         = NULL;
+        cli_local_t     *local        = NULL;
 
         dict = (dict_t *)data;
         ret = dict_get_uint32 (dict, "cmd", &cmd);
         if (ret)
                 goto out;
 
+        local = cli_local_get ();
+        if (!local) {
+                ret = -1;
+                gf_log ("cli", GF_LOG_ERROR, "Failed to allocate local");
+                goto out;
+        }
+        frame->local = local;
+        local->all = _gf_true;
+
         ret = gf_cli3_1_status_volume (frame, this, data);
         if (ret)
                 goto out;
 
-        vol_dict =  (dict_t *)(frame->local);
+        vol_dict =  local->dict;
 
         ret = dict_get_int32 (vol_dict, "vol_count", &vol_count);
         if (ret) {
