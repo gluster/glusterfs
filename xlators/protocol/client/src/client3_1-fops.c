@@ -2433,9 +2433,12 @@ client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s",
+                        "remote operation failed: %s (%s -> %s)",
                         strerror (gf_error_to_errno (rsp.op_errno)),
-                        (local) ? local->loc.path : "--");
+                        (local) ? ((local->loc.path)? local->loc.path :
+                                   uuid_utoa (local->loc.inode->gfid)) : "--",
+                        (local) ? ((local->loc2.path)? local->loc2.path :
+                                   local->loc2.name) : "--");
         }
 
         CLIENT_STACK_UNWIND (link, frame, rsp.op_ret,
@@ -3549,6 +3552,7 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         }
 
         loc_copy (&local->loc, args->oldloc);
+        loc_copy (&local->loc2, args->newloc);
         frame->local = local;
 
         req.newbname = (char *)args->newloc->name;
