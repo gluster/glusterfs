@@ -92,6 +92,11 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req, const char *path)
                                 path, priv->pending_key[i]);
                 /* 3 = data+metadata+entry */
         }
+        ret = dict_set_int32 (xattr_req, GF_GFIDLESS_LOOKUP, 1);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: failed to set gfidless "
+                        "lookup", path);
+        }
 }
 
 int
