@@ -1190,16 +1190,17 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         ret = syncop_getxattr (this, &entry_loc, &dict,
                                                GF_XATTR_LINKINFO_KEY);
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_TRACE, "getxattr "
-                                        "failed for %s", entry_loc.path);
+                                gf_log (this->name, GF_LOG_TRACE, "failed to "
+                                        "get link-to key for %s",
+                                        entry_loc.path);
                                 continue;
                         }
 
                         ret = syncop_setxattr (this, &entry_loc, migrate_data,
                                                0);
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR, "setxattr "
-                                        "failed for %s", entry_loc.path);
+                                gf_log (this->name, GF_LOG_ERROR, "migrate-data"
+                                        " failed for %s", entry_loc.path);
 
                         if (ret == -1) {
                                 op_errno = errno;
@@ -1208,7 +1209,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                                 if (!ret)
                                         gf_log (this->name, GF_LOG_DEBUG,
-                                                "setxattr on %s failed: %s",
+                                                "migrate-data on %s failed: %s",
                                                 entry_loc.path,
                                                 strerror (op_errno));
                                 else if (ret == 1)
