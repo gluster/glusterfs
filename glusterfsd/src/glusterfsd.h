@@ -40,11 +40,16 @@
 #define ARGP_LOG_LEVEL_CRITICAL_OPTION    "CRITICAL"
 #define ARGP_LOG_LEVEL_ERROR_OPTION       "ERROR"
 #define ARGP_LOG_LEVEL_WARNING_OPTION     "WARNING"
-#define ARGP_LOG_LEVEL_INFO_OPTION      "INFO"
+#define ARGP_LOG_LEVEL_INFO_OPTION        "INFO"
 #define ARGP_LOG_LEVEL_DEBUG_OPTION       "DEBUG"
 
 #define ENABLE_NO_DAEMON_MODE     1
 #define ENABLE_DEBUG_MODE         1
+
+#define GF_MEMPOOL_COUNT_OF_DICT_T        4096
+/* Considering 4 key/value pairs in a dictionary on an average */
+#define GF_MEMPOOL_COUNT_OF_DATA_T        (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
+#define GF_MEMPOOL_COUNT_OF_DATA_PAIR_T   (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 
 enum argp_option_keys {
         ARGP_VOLFILE_SERVER_KEY           = 's',
