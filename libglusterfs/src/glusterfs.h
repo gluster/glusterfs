@@ -106,6 +106,7 @@
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
 
+#define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
 #define RB_PUMP_CMD_START       "glusterfs.pump.start"
 #define RB_PUMP_CMD_PAUSE       "glusterfs.pump.pause"

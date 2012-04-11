@@ -109,6 +109,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         char *      real_path          = NULL;
         char *      par_path           = NULL;
         struct iatt postparent         = {0,};
+        int32_t     gfidless           = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -127,14 +128,19 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        op_ret = dict_get_int32 (xdata, GF_GFIDLESS_LOOKUP, &gfidless);
+        op_ret = -1;
         if (uuid_is_null (loc->pargfid)) {
                 /* nameless lookup */
                 MAKE_INODE_HANDLE (real_path, this, loc, &buf);
         } else {
                 MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
-                if (uuid_is_null (loc->inode->gfid))
+                if (uuid_is_null (loc->inode->gfid)) {
                         posix_gfid_set (this, real_path, loc, xdata);
+                        MAKE_ENTRY_HANDLE (real_path, par_path, this,
+                                           loc, &buf);
+                }
         }
 
         op_errno = errno;
@@ -172,11 +178,11 @@ out:
         if (xattr)
                 dict_ref (xattr);
 
-        if (!op_ret && uuid_is_null (buf.ia_gfid)) {
+        if (!op_ret && !gfidless && uuid_is_null (buf.ia_gfid)) {
                 gf_log (this->name, GF_LOG_ERROR, "buf->ia_gfid is null for "
                         "%s", (real_path) ? real_path: "");
                 op_ret = -1;
-                op_errno = ENOENT;
+                op_errno = ENODATA;
         }
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno,
                              (loc)?loc->inode:NULL, &buf, xattr, &postparent);
