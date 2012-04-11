@@ -41,6 +41,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 #include "run.h"
+#include "glusterd-volgen.h"
 
 #include "syscall.h"
 #include "cli1-xdr.h"
@@ -596,6 +597,9 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                msg[2048] = {0};
         glusterd_volinfo_t *volinfo   = NULL;
         glusterd_conf_t    *priv      = NULL;
+        glusterd_brickinfo_t *brickinfo = NULL;
+        glusterd_brickinfo_t *tmp      = NULL;
+        gf_boolean_t        volfile_update = _gf_false;
 
         priv = THIS->private;
 
@@ -626,6 +630,38 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                     cmd, NULL);
                  break;
         case GF_DEFRAG_CMD_STOP:
+                /* Fall back to the old volume file in case of decommission*/
+                list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
+                                          brick_list) {
+                        if (!brickinfo->decommissioned)
+                                continue;
+                        brickinfo->decommissioned = 0;
+                        volfile_update = _gf_true;
+                }
+
+                if (volfile_update == _gf_false) {
+                        ret = 0;
+                        break;
+                }
+
+                ret = glusterd_create_volfiles_and_notify_services (volinfo);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to create volfiles");
+                        goto out;
+                }
+
+                ret = glusterd_store_volinfo (volinfo,
+                                             GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to store volinfo");
+                        goto out;
+                }
+
+                ret = 0;
+                break;
+
         case GF_DEFRAG_CMD_STATUS:
                 break;
         default:

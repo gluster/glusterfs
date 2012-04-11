@@ -35,7 +35,7 @@
         GF_OP_CMD_NONE = 0,
         GF_OP_CMD_START,
         GF_OP_CMD_COMMIT,
-        GF_OP_CMD_ABORT,
+        GF_OP_CMD_STOP,
         GF_OP_CMD_STATUS,
         GF_OP_CMD_COMMIT_FORCE
 } ;
