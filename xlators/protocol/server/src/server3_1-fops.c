@@ -3437,6 +3437,10 @@ server_release (rpcsvc_request_t *req)
         }
 
         conn = req->trans->xl_private;
+        if (!conn) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
@@ -3462,6 +3466,11 @@ server_releasedir (rpcsvc_request_t *req)
         }
 
         conn = req->trans->xl_private;
+        if (!conn) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
@@ -3818,15 +3827,12 @@ server_setxattr (rpcsvc_request_t *req)
         server_state_t      *state                 = NULL;
         dict_t              *dict                  = NULL;
         call_frame_t        *frame                 = NULL;
-        server_connection_t *conn                  = NULL;
         gfs3_setxattr_req    args                  = {{0,},};
         int32_t              ret                   = -1;
         int32_t              op_errno = 0;
 
         if (!req)
                 return ret;
-
-        conn = req->trans->xl_private;
 
         args.dict.dict_val = alloca (req->msg[0].iov_len);
 
@@ -3894,7 +3900,6 @@ server_fsetxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state                = NULL;
         dict_t              *dict                 = NULL;
-        server_connection_t *conn                 = NULL;
         call_frame_t        *frame                = NULL;
         gfs3_fsetxattr_req   args                 = {{0,},};
         int32_t              ret                  = -1;
@@ -3902,8 +3907,6 @@ server_fsetxattr (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        conn = req->trans->xl_private;
 
         args.dict.dict_val = alloca (req->msg[0].iov_len);
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fsetxattr_req)) {
@@ -3968,7 +3971,6 @@ server_fxattrop (rpcsvc_request_t *req)
 {
         dict_t              *dict                 = NULL;
         server_state_t      *state                = NULL;
-        server_connection_t *conn                 = NULL;
         call_frame_t        *frame                = NULL;
         gfs3_fxattrop_req    args                 = {{0,},};
         int32_t              ret                  = -1;
@@ -3976,8 +3978,6 @@ server_fxattrop (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        conn = req->trans->xl_private;
 
         args.dict.dict_val = alloca (req->msg[0].iov_len);
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_fxattrop_req)) {
@@ -4043,7 +4043,6 @@ server_xattrop (rpcsvc_request_t *req)
 {
         dict_t              *dict                  = NULL;
         server_state_t      *state                 = NULL;
-        server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_xattrop_req     args                  = {{0,},};
         int32_t              ret                   = -1;
@@ -4051,8 +4050,6 @@ server_xattrop (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        conn = req->trans->xl_private;
 
         args.dict.dict_val = alloca (req->msg[0].iov_len);
 
@@ -5325,7 +5322,6 @@ int
 server_lk (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
         gfs3_lk_req          args  = {{0,},};
         int                  ret   = -1;
@@ -5333,8 +5329,6 @@ server_lk (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        conn = req->trans->xl_private;
 
         if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_lk_req)) {
                 //failed to decode msg;
@@ -5401,7 +5395,7 @@ server_lk (rpcsvc_request_t *req)
                 state->flock.l_type = F_UNLCK;
                 break;
         default:
-                gf_log (conn->bound_xl->name, GF_LOG_ERROR,
+                gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
                         "fd - %"PRId64" (%s): Unknown lock type: %"PRId32"!",
                         state->resolve.fd_no,
                         uuid_utoa (state->fd->inode->gfid), state->type);
@@ -5500,15 +5494,12 @@ int
 server_lookup (rpcsvc_request_t *req)
 {
         call_frame_t        *frame    = NULL;
-        server_connection_t *conn     = NULL;
         server_state_t      *state    = NULL;
         gfs3_lookup_req      args     = {{0,},};
         int                  ret      = -1;
         int                  op_errno = 0;
 
         GF_VALIDATE_OR_GOTO ("server", req, err);
-
-        conn = req->trans->xl_private;
 
         args.bname           = alloca (req->msg[0].iov_len);
         args.xdata.xdata_val = alloca (req->msg[0].iov_len);
