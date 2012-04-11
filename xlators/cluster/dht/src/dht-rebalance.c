@@ -784,6 +784,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform setattr on %s (%s)",
                         loc->path, to->name, strerror (errno));
+                goto out;
         }
 
         /* Because 'futimes' is not portable */
@@ -804,6 +805,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_WARNING,             \
                         "%s: failed to perform setattr on %s (%s)",
                         loc->path, from->name, strerror (errno));
+                goto out;
         }
 
         /* Do a stat and check the gfid before unlink */
@@ -812,6 +814,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to do a stat on %s (%s)",
                         loc->path, from->name, strerror (errno));
+                goto out;
         }
 
         if (uuid_compare (empty_iatt.ia_gfid, loc->gfid) == 0) {
@@ -821,6 +824,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: failed to perform unlink on %s (%s)",
                                 loc->path, from->name, strerror (errno));
+                        goto out;
                 }
         }
 
@@ -1272,8 +1276,11 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 goto out;
         }
 
-        if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)
-                gf_defrag_migrate_data (this, defrag, loc, migrate_data);
+        if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
+                ret = gf_defrag_migrate_data (this, defrag, loc, migrate_data);
+                if (ret)
+                        goto out;
+        }
 
         gf_log (this->name, GF_LOG_TRACE, "fix layout called on %s", loc->path);
 
@@ -1598,7 +1605,8 @@ gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output)
 
         defrag->defrag_status = GF_DEFRAG_STATUS_STOPPED;
 
-        gf_defrag_status_get (defrag, output);
+        if (output)
+                gf_defrag_status_get (defrag, output);
         ret = 0;
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
