@@ -849,7 +849,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         char    *tmp_brick = NULL;
         char    *tmp_brick1 = NULL;
         char    *type_opword[] = { "replica", NULL };
-        char    *opwords[] = { "start", "commit", "pause", "abort", "status",
+        char    *opwords[] = { "start", "commit", "abort", "status",
                                "force", NULL };
         char    *w = NULL;
         int32_t  command = GF_OP_CMD_NONE;
@@ -911,8 +911,6 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         command = GF_OP_CMD_COMMIT;
                         if (question)
                                 *question = 1;
-                } else if (!strcmp ("pause", w)) {
-                        command = GF_OP_CMD_PAUSE;
                 } else if (!strcmp ("abort", w)) {
                         command = GF_OP_CMD_ABORT;
                 } else if (!strcmp ("status", w)) {

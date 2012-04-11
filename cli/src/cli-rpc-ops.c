@@ -1595,9 +1595,6 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         case GF_OP_CMD_ABORT:
                 cmd_str = "abort";
                 break;
-        case GF_OP_CMD_PAUSE:
-                cmd_str = "pause";
-                break;
         case GF_OP_CMD_COMMIT_FORCE:
                 cmd_str = "commit force";
                 break;

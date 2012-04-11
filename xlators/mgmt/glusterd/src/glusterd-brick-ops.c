@@ -1256,7 +1256,6 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                 break;
         }
 
-        case GF_OP_CMD_PAUSE:
         case GF_OP_CMD_ABORT:
                 break;
 
@@ -1492,23 +1491,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_STATUS:
                 ret = 0;
                 goto out;
-
-        case GF_OP_CMD_PAUSE:
-        {
-                if (volinfo->decommission_in_progress) {
-                        if (volinfo->defrag) {
-                                LOCK (&volinfo->defrag->lock);
-
-                                //volinfo->defrag_status = GF_DEFRAG_STATUS_PAUSED;
-
-                                UNLOCK (&volinfo->defrag->lock);
-                        }
-                }
-
-                /* no need to update anything */
-                ret = 0;
-                goto out;
-        }
 
         case GF_OP_CMD_ABORT:
         {
