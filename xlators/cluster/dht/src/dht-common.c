@@ -4568,7 +4568,11 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 if (conf->assert_no_child_down) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Received CHILD_DOWN. Exiting");
-                        kill (getpid(), SIGTERM);
+                        if (conf->defrag) {
+                                gf_defrag_stop (conf->defrag, NULL);
+                        } else {
+                                kill (getpid(), SIGTERM);
+                        }
                 }
 
                 for (i = 0; i < conf->subvolume_cnt; i++) {
