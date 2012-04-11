@@ -2084,6 +2084,9 @@ fini (xlator_t *this)
         return;
 }
 
+struct xlator_fops cbks = {
+};
+
 struct xlator_fops fops = {
 	.lookup      = error_gen_lookup,
 	.stat        = error_gen_stat,
