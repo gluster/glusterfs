@@ -1660,6 +1660,13 @@ valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc)
         int is_wildcard = 0;
 
         tmp = gf_strdup (address);
+
+        /* To prevent cases where last character is '.' */
+        if (!isdigit (tmp[length - 1]) && (tmp[length - 1] != '*')) {
+                ret = 0;
+                goto out;
+        }
+
         prev = tmp;
         prev = strtok_r (tmp, ".", &ptr);
 
