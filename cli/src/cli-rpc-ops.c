@@ -1592,9 +1592,6 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         case GF_OP_CMD_COMMIT:
                 cmd_str = "commit";
                 break;
-        case GF_OP_CMD_ABORT:
-                cmd_str = "abort";
-                break;
         case GF_OP_CMD_COMMIT_FORCE:
                 cmd_str = "commit force";
                 break;
@@ -2897,7 +2894,8 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        if (command != GF_OP_CMD_STATUS) {
+        if ((command != GF_OP_CMD_STATUS) &&
+            (command != GF_OP_CMD_STOP)) {
 
                 ret = dict_allocate_and_serialize (dict,
                                                    &req.dict.dict_val,
@@ -2927,7 +2925,10 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                cmd |= GF_DEFRAG_CMD_STATUS;
+                if (command == GF_OP_CMD_STATUS)
+                        cmd |= GF_DEFRAG_CMD_STATUS;
+                else
+                        cmd |= GF_DEFRAG_CMD_STOP;
 
                 ret = dict_set_int32 (req_dict, "rebalance-command", (int32_t) cmd);
                 if (ret) {

@@ -1256,7 +1256,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                 break;
         }
 
-        case GF_OP_CMD_ABORT:
+        case GF_OP_CMD_STOP:
+                ret = 0;
                 break;
 
         case GF_OP_CMD_COMMIT:
@@ -1459,9 +1460,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         int32_t             replica_count  = 0;
         glusterd_brickinfo_t *brickinfo    = NULL;
         glusterd_brickinfo_t *tmp          = NULL;
-        glusterd_conf_t      *priv         = NULL;
-        char                  pidfile[PATH_MAX];
-
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1492,19 +1490,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 ret = 0;
                 goto out;
 
-        case GF_OP_CMD_ABORT:
+        case GF_OP_CMD_STOP:
         {
-                if (volinfo->decommission_in_progress) {
-                        priv = THIS->private;
-                        if (!priv)
-                                return ret;
-
-                        GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
-
-                        glusterd_service_stop ("rebalance", pidfile, SIGTERM, 1);
-
-                }
-
                 /* Fall back to the old volume file */
                 list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
                                           brick_list) {
