@@ -849,6 +849,15 @@ fini (xlator_t *this)
 int32_t
 nfs_forget (xlator_t *this, inode_t *inode)
 {
+        uint64_t           ctx        = 0;
+        struct list_head  *head       = NULL;
+
+        if (inode_ctx_del (inode, this, &ctx))
+                return -1;
+
+        head = (struct list_head *)ctx;
+        GF_FREE (head);
+
         return 0;
 }
 
