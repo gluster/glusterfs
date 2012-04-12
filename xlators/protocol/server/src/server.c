@@ -673,7 +673,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                  */
                 pthread_mutex_lock (&conf->mutex);
                 {
-                        list_del (&xprt->list);
+                        list_del_init (&xprt->list);
                 }
                 pthread_mutex_unlock (&conf->mutex);
 

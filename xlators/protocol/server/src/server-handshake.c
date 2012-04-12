@@ -567,7 +567,7 @@ server_setvolume (rpcsvc_request_t *req)
 
                 gf_log (this->name, GF_LOG_INFO,
                         "accepted client from %s (version: %s)",
-                        (peerinfo) ? peerinfo->identifier : "<>",
+                        conn->id,
                         (clnt_version) ? clnt_version : "old");
                 op_ret = 0;
                 conn->bound_xl = xl;
@@ -578,7 +578,7 @@ server_setvolume (rpcsvc_request_t *req)
         } else {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Cannot authenticate client from %s %s",
-                        (peerinfo) ? peerinfo->identifier : "<>",
+                        conn->id,
                         (clnt_version) ? clnt_version : "old");
 
                 op_ret = -1;
