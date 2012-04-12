@@ -517,6 +517,20 @@ xdr_to_nlm4_unlockargs (struct iovec inmsg, nlm4_unlockargs *args)
 }
 
 ssize_t
+xdr_to_nlm4_shareargs (struct iovec inmsg, nlm4_shareargs *args)
+{
+        return xdr_to_generic (inmsg, (void*)args,
+                               (xdrproc_t)xdr_nlm4_shareargs);
+}
+
+ssize_t
+xdr_serialize_nlm4_shareres (struct iovec outmsg, nlm4_shareres *res)
+{
+        return xdr_serialize_generic (outmsg, (void *)res,
+                                      (xdrproc_t)xdr_nlm4_shareres);
+}
+
+ssize_t
 xdr_serialize_nlm4_testargs (struct iovec outmsg, nlm4_testargs *args)
 {
         return xdr_serialize_generic (outmsg, (void*)args,
@@ -530,3 +544,9 @@ xdr_to_nlm4_res (struct iovec inmsg, nlm4_res *args)
                                (xdrproc_t)xdr_nlm4_res);
 }
 
+ssize_t
+xdr_to_nlm4_freeallargs (struct iovec inmsg, nlm4_freeallargs *args)
+{
+        return xdr_to_generic (inmsg, (void*)args,
+                               (xdrproc_t)xdr_nlm4_freeallargs);
+}

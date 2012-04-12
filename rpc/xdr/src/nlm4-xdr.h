@@ -183,6 +183,13 @@ struct nlm4_shareres {
 };
 typedef struct nlm4_shareres nlm4_shareres;
 
+struct nlm4_freeallargs {
+        char *name;
+        u_int32_t state;
+};
+typedef struct nlm4_freeallargs nlm4_freeallargs;
+
+
 #define NLM4_NULL          0
 #define NLM4_TEST          1
 #define NLM4_LOCK          2
@@ -229,6 +236,7 @@ extern  bool_t xdr_nlm4_cancargs (XDR *, nlm4_cancargs*);
 extern  bool_t xdr_nlm4_unlockargs (XDR *, nlm4_unlockargs*);
 extern  bool_t xdr_nlm4_shareargs (XDR *, nlm4_shareargs*);
 extern  bool_t xdr_nlm4_shareres (XDR *, nlm4_shareres*);
+extern  bool_t xdr_nlm4_freeallargs (XDR *, nlm4_freeallargs*);
 
 #else /* K&R C */
 extern bool_t xdr_netobj ();
@@ -248,6 +256,7 @@ extern bool_t xdr_nlm4_cancargs ();
 extern bool_t xdr_nlm4_unlockargs ();
 extern bool_t xdr_nlm4_shareargs ();
 extern bool_t xdr_nlm4_shareres ();
+extern bool_t xdr_nlm4_freeallargs ();
 
 #endif /* K&R C */
 

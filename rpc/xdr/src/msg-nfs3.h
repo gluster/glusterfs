@@ -203,9 +203,18 @@ extern ssize_t
 xdr_to_nlm4_unlockargs (struct iovec inmsg, nlm4_unlockargs *args);
 
 extern ssize_t
+xdr_to_nlm4_shareargs (struct iovec inmsg, nlm4_shareargs *args);
+
+extern ssize_t
+xdr_serialize_nlm4_shareres (struct iovec outmsg, nlm4_shareres *res);
+
+extern ssize_t
 xdr_serialize_nlm4_testargs (struct iovec outmsg, nlm4_testargs *args);
 
 extern ssize_t
 xdr_to_nlm4_res (struct iovec inmsg, nlm4_res *args);
+
+extern ssize_t
+xdr_to_nlm4_freeallargs (struct iovec inmsg, nlm4_freeallargs *args);
 
 #endif

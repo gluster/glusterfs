@@ -154,6 +154,7 @@ typedef union args_ {
         nlm4_unlockargs nlm4_unlockargs;
         nlm4_shareargs nlm4_shareargs;
         nlm4_shareres nlm4_shareres;
+        nlm4_freeallargs nlm4_freeallargs;
 } args;
 
 
@@ -230,6 +231,7 @@ struct nfs3_local {
         nlm4_lkowner_t          lkowner;
         char                    cookiebytes[1024];
         struct nfs3_fh          lockfh;
+        int                     monitor;
         rpc_transport_t         *trans;
         call_frame_t            *frame;
 };
