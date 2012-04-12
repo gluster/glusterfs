@@ -1202,9 +1202,11 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                         ret = syncop_setxattr (this, &entry_loc, migrate_data,
                                                0);
-                        if (ret)
+                        if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "migrate-data"
                                         " failed for %s", entry_loc.path);
+                                defrag->total_failures +=1;
+                        }
 
                         if (ret == -1) {
                                 op_errno = errno;
@@ -1548,6 +1550,7 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         uint64_t files  = 0;
         uint64_t size   = 0;
         uint64_t lookup = 0;
+        uint64_t failures = 0;
 
         if (!defrag)
                 goto out;
@@ -1559,6 +1562,7 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         files  = defrag->total_files;
         size   = defrag->total_data;
         lookup = defrag->num_files_lookedup;
+        failures = defrag->total_failures;
 
         if (!dict)
                 goto log;
@@ -1582,9 +1586,12 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         if (ret)
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set status");
+
+        ret = dict_set_uint64 (dict, "failures", failures);
 log:
         gf_log (THIS->name, GF_LOG_INFO, "Files migrated: %"PRIu64", size: %"
-                PRIu64", lookups: %"PRIu64, files, size, lookup);
+                PRIu64", lookups: %"PRIu64", failures: %"PRIu64, files, size,
+                lookup, failures);
 
 
 out:

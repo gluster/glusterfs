@@ -290,6 +290,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         volinfo->rebalance_files = 0;
         volinfo->rebalance_data = 0;
         volinfo->lookedup_files = 0;
+        volinfo->rebalance_failures = 0;
 
         volinfo->defrag_cmd = cmd;
         glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);

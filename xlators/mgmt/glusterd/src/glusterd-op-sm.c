@@ -3187,6 +3187,7 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         char                            buf[1024] = {0,};
         char                            *node_str = NULL;
         glusterd_conf_t                 *priv = NULL;
+        uint64_t                        failures = 0;
 
         priv = THIS->private;
         GF_ASSERT (req_dict);
@@ -3224,12 +3225,19 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                 gf_log (THIS->name, GF_LOG_TRACE,
                         "failed to get status");
 
+        ret = dict_get_uint64 (rsp_dict, "failures", &failures);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "failed to get failure count");
+
         if (files)
                 volinfo->rebalance_files = files;
         if (size)
                 volinfo->rebalance_data = size;
         if (lookup)
                 volinfo->lookedup_files = lookup;
+        if (failures)
+                volinfo->rebalance_failures = failures;
 
         if (!op_ctx) {
                 dict_copy (rsp_dict, op_ctx);
@@ -3282,6 +3290,13 @@ populate:
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set status");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "failures-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebalance_failures);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set failure count");
 
 out:
         return ret;
