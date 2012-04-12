@@ -1208,6 +1208,20 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
                                 "failed to set node-uuid");
                 }
         }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "failures-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "failures-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set failure count");
+                }
+        }
+
         ret = 0;
 
 out:

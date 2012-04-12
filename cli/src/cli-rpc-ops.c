@@ -1016,6 +1016,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                    *node_uuid = NULL;
         char                     key[256] = {0,};
         int32_t                  i = 1;
+        uint64_t                 failures = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1114,10 +1115,10 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto done;
                 }
         }
-        cli_out ("%40s %16s %13s %13s %14s", "Node", "Rebalanced-files",
-                 "size", "scanned", "status");
-        cli_out ("%40s %16s %13s %13s %14s", "---------", "-----------",
-                 "-----------", "-----------", "------------");
+        cli_out ("%40s %16s %13s %13s %13s %14s", "Node", "Rebalanced-files",
+                 "size", "scanned", "failures","status");
+        cli_out ("%40s %16s %13s %13s %13s %14s", "---------", "-----------",
+                 "-----------", "-----------", "-----------", "------------");
 
         do {
                 snprintf (key, 256, "node-uuid-%d", i);
@@ -1154,6 +1155,13 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_log (THIS->name, GF_LOG_TRACE,
                                 "failed to get status");
 
+                memset (key, 0, 256);
+                snprintf (key, 256, "failures-%d", i);
+                ret = dict_get_uint64 (dict, key, &failures);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "failed to get failures count");
+
                 switch (status_rcd) {
                 case GF_DEFRAG_STATUS_NOT_STARTED:
                         status = "not started";
@@ -1171,8 +1179,9 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         status = "failed";
                         break;
                 }
-                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%14s", node_uuid, files,
-                        size, lookup, status);
+                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%13"PRId64
+                         " %14s", node_uuid, files, size, lookup, failures,
+                         status);
                 i++;
         } while (i <= counter);
 
@@ -1421,6 +1430,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                  counter = 0;
         char                    *node_uuid = 0;
         gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
+        uint64_t                 failures = 0;
 
 
         if (-1 == req->rpc_status) {
@@ -1466,10 +1476,10 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 
-        cli_out ("%40s %16s %13s %13s %14s", "Node", "Rebalanced-files",
-                 "size", "scanned", "status");
-        cli_out ("%40s %16s %13s %13s %14s", "---------", "-----------",
-                 "-----------", "-----------", "------------");
+        cli_out ("%40s %16s %13s %13s %13s %14s", "Node", "Rebalanced-files",
+                 "size", "scanned", "failures", "status");
+        cli_out ("%40s %16s %13s %13s %13s %14s", "---------", "-----------",
+                 "-----------", "-----------", "-----------", "------------");
 
         do {
                 snprintf (key, 256, "node-uuid-%d", i);
@@ -1506,6 +1516,12 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_log (THIS->name, GF_LOG_TRACE,
                                 "failed to get status");
 
+                snprintf (key, 256, "failures-%d", i);
+                ret = dict_get_uint64 (dict, key, &failures);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "Failed to get failure on files");
+
                 switch (status_rcd) {
                 case GF_DEFRAG_STATUS_NOT_STARTED:
                         status = "not started";
@@ -1523,8 +1539,9 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                         status = "failed";
                         break;
                 }
-                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%14s", node_uuid, files,
-                        size, lookup, status);
+                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%13"PRId64
+                        " %14s", node_uuid, files, size, lookup, failures,
+                        status);
                 i++;
         } while (i <= counter);
 

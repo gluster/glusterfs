@@ -166,6 +166,7 @@ struct glusterd_defrag_info_ {
         uint64_t                     total_files;
         uint64_t                     total_data;
         uint64_t                     num_files_lookedup;
+        uint64_t                     total_failures;
         gf_lock_t                    lock;
         int                          cmd;
         pthread_t                    th;
@@ -226,6 +227,7 @@ struct glusterd_volinfo_ {
         uint64_t                lookedup_files;
         glusterd_defrag_info_t  *defrag;
         gf_cli_defrag_type      defrag_cmd;
+        uint64_t                rebalance_failures;
 
         /* Replace brick status */
         gf_rb_status_t          rb_status;
