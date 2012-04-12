@@ -223,8 +223,8 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
 # Clean up the examples we want to include as %%doc
-%{__cp} -a doc/examples examples
-%{__rm} -f examples/Makefile*
+#%{__cp} -a doc/examples examples
+#%{__rm} -f examples/Makefile*
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -340,7 +340,7 @@ fi
 
 %files server
 %defattr(-,root,root,-)
-%doc examples/ doc/glusterfs*.vol.sample
+#%doc examples/ doc/glusterfs*.vol.sample
 %config(noreplace) %{_sysconfdir}/glusterfs
 %{_sharedstatedir}/glusterd
 %{_sysconfdir}/init.d/glusterd
