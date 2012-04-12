@@ -1890,9 +1890,6 @@ out:
         return 0;
 }
 
-#define ALIGN_BUF(ptr,bound) ((void *)((unsigned long)(ptr + bound - 1) & \
-                                       (unsigned long)(~(bound - 1))))
-
 int
 posix_readv (call_frame_t *frame, xlator_t *this,
              fd_t *fd, size_t size, off_t offset, uint32_t flags, dict_t *xdata)
@@ -2055,7 +2052,7 @@ __posix_writev (int fd, struct iovec *vector, int count, off_t startoff,
         internal_off = startoff;
         for (idx = 0; idx < count; idx++) {
                 /* page aligned buffer */
-                buf = ALIGN_BUF (alloc_buf, align);
+                buf = GF_ALIGN_BUF (alloc_buf, align);
 
                 memcpy (buf, vector[idx].iov_base, vector[idx].iov_len);
 

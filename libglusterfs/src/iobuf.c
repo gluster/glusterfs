@@ -317,6 +317,31 @@ out:
         return;
 }
 
+static void
+iobuf_create_stdalloc_arena (struct iobuf_pool *iobuf_pool)
+{
+        struct iobuf_arena *iobuf_arena = NULL;
+
+        /* No locking required here as its called only once during init */
+        iobuf_arena = GF_CALLOC (sizeof (*iobuf_arena), 1,
+                                 gf_common_mt_iobuf_arena);
+        if (!iobuf_arena)
+                goto err;
+
+        INIT_LIST_HEAD (&iobuf_arena->list);
+        INIT_LIST_HEAD (&iobuf_arena->active.list);
+        INIT_LIST_HEAD (&iobuf_arena->passive.list);
+
+        iobuf_arena->iobuf_pool = iobuf_pool;
+
+        iobuf_arena->page_size = 0x7fffffff;
+
+        list_add_tail (&iobuf_arena->list,
+                       &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX]);
+
+err:
+        return;
+}
 
 struct iobuf_pool *
 iobuf_pool_new (void)
@@ -333,7 +358,7 @@ iobuf_pool_new (void)
                 goto out;
 
         pthread_mutex_init (&iobuf_pool->mutex, NULL);
-        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
+        for (i = 0; i <= IOBUF_ARENA_MAX_INDEX; i++) {
                 INIT_LIST_HEAD (&iobuf_pool->arenas[i]);
                 INIT_LIST_HEAD (&iobuf_pool->filled[i]);
                 INIT_LIST_HEAD (&iobuf_pool->purge[i]);
@@ -350,6 +375,9 @@ iobuf_pool_new (void)
 
                 arena_size += page_size * num_pages;
         }
+
+        /* Need an arena to handle all the bigger iobuf requests */
+        iobuf_create_stdalloc_arena (iobuf_pool);
 
         iobuf_pool->arena_size = arena_size;
 out:
@@ -509,6 +537,51 @@ out:
 }
 
 struct iobuf *
+iobuf_get_from_stdalloc (struct iobuf_pool *iobuf_pool, size_t page_size)
+{
+        struct iobuf       *iobuf       = NULL;
+        struct iobuf_arena *iobuf_arena = NULL;
+        struct iobuf_arena *trav        = NULL;
+        int                 ret         = -1;
+
+        /* The first arena in the 'MAX-INDEX' will always be used for misc */
+        list_for_each_entry (trav, &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX],
+                             list) {
+                iobuf_arena = trav;
+                break;
+        }
+
+        iobuf = GF_CALLOC (1, sizeof (*iobuf), gf_common_mt_iobuf);
+        if (!iobuf)
+                goto out;
+
+        /* 4096 is the alignment */
+        iobuf->free_ptr = GF_CALLOC (1, ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
+                                     gf_common_mt_char);
+        if (!iobuf->free_ptr)
+                goto out;
+
+        iobuf->ptr = GF_ALIGN_BUF (iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
+        iobuf->iobuf_arena = iobuf_arena;
+        LOCK_INIT (&iobuf->lock);
+
+        /* Hold a ref because you are allocating and using it */
+        iobuf->ref = 1;
+
+        ret = 0;
+out:
+        if (ret && iobuf) {
+                if (iobuf->free_ptr)
+                        GF_FREE (iobuf->free_ptr);
+                GF_FREE (iobuf);
+                iobuf = NULL;
+        }
+
+        return iobuf;
+}
+
+
+struct iobuf *
 iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size)
 {
         struct iobuf       *iobuf        = NULL;
@@ -521,11 +594,17 @@ iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size)
 
         rounded_size = gf_iobuf_get_pagesize (page_size);
         if (rounded_size == -1) {
-                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
-                        "iobufs in arena being requested is greater than max "
-                        "available", page_size);
+                /* make sure to provide the requested buffer with standard
+                   memory allocations */
+                iobuf = iobuf_get_from_stdalloc (iobuf_pool, page_size);
+
+                gf_log ("iobuf", GF_LOG_DEBUG, "request for iobuf of size %zu "
+                        "is serviced using standard calloc() (%p) as it "
+                        "exceeds the maximum available buffer size",
+                        page_size, iobuf);
+
                 iobuf_pool->request_misses++;
-                return NULL;
+                return iobuf;
         }
 
         pthread_mutex_lock (&iobuf_pool->mutex);
@@ -594,9 +673,13 @@ __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
 
         index = gf_iobuf_get_arena_index (iobuf_arena->page_size);
         if (index == -1) {
-                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
-                        "iobufs in arena being added is greater than max "
-                        "available", iobuf_arena->page_size);
+                gf_log ("iobuf", GF_LOG_DEBUG, "freeing the iobuf (%p) "
+                        "allocated with standard calloc()", iobuf);
+
+                /* free up properly without bothering about lists and all */
+                LOCK_DESTROY (&iobuf->lock);
+                GF_FREE (iobuf->free_ptr);
+                GF_FREE (iobuf);
                 return;
         }
 

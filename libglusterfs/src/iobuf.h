@@ -40,6 +40,11 @@
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
+#define GF_ALIGN_BUF(ptr,bound) ((void *)((unsigned long)(ptr + bound - 1) & \
+                                          (unsigned long)(~(bound - 1))))
+
+#define GF_IOBUF_ALIGN_SIZE 512
+
 /* one allocatable unit for the consumers of the IOBUF API */
 /* each unit hosts @page_size bytes of memory */
 struct iobuf;
@@ -71,6 +76,9 @@ struct iobuf {
         int                  ref;  /* 0 == passive, >0 == active */
 
         void                *ptr;  /* usable memory region by the consumer */
+
+        void                *free_ptr; /* in case of stdalloc, this is the
+                                          one to be freed */
 };
 
 
