@@ -577,7 +577,8 @@ loc_copy (loc_t *dst, loc_t *src)
                 if (!dst->path)
                         goto out;
 
-                dst->name = strrchr (dst->path, '/');
+                if (src->name)
+                        dst->name = strrchr (dst->path, '/');
                 if (dst->name)
                         dst->name++;
         }
