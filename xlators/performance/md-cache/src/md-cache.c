@@ -491,8 +491,6 @@ mdc_inode_xatt_update (xlator_t *this, inode_t *inode, dict_t *dict)
                 else
                         dict_copy (dict, mdc->xattr);
 
-                mdc->xattr = dict_ref (dict);
-
                 time (&mdc->xa_time);
         }
         UNLOCK (&mdc->lock);
