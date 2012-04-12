@@ -228,6 +228,17 @@ xdr_nlm4_shareres (XDR *xdrs, nlm4_shareres *objp)
 	return TRUE;
 }
 
+bool_t
+xdr_nlm4_freeallargs (XDR *xdrs, nlm4_freeallargs *objp)
+{
+        if (!xdr_string (xdrs, &objp->name, LM_MAXSTRLEN))
+                return FALSE;
+        if (!xdr_uint32_t (xdrs, &objp->state))
+                return FALSE;
+        return TRUE;
+}
+
+
 /*
 bool_t
 xdr_nlm_sm_status (XDR *xdrs, nlm_sm_status *objp)

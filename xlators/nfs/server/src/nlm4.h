@@ -60,10 +60,20 @@ typedef struct nlm_client {
         pid_t uniq;
         struct list_head nlm_clients;
         struct list_head fdes;
+        struct list_head shares;
         struct rpc_clnt *rpc_clnt;
         char *caller_name;
         int nsm_monitor;
 } nlm_client_t;
+
+typedef struct nlm_share {
+        struct list_head     client_list;
+        struct list_head     inode_list;
+        gf_lkowner_t         lkowner;
+        inode_t             *inode;
+        fsh_mode             mode;
+        fsh_access           access;
+} nlm_share_t;
 
 typedef struct nlm_fde {
         struct list_head fde_list;

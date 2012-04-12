@@ -74,7 +74,7 @@ struct nlm4_holder {
 };
 
 struct nlm4_lock {
-	string caller_name<MAXNAMELEN>;
+	string caller_name<LM_MAXSTRLEN>;
 	netobj fh;
 	netobj oh;
 	u_int32_t svid;
@@ -83,7 +83,7 @@ struct nlm4_lock {
 };
 
 struct nlm4_share {
-	string caller_name<MAXNAMELEN>;
+	string caller_name<LM_MAXSTRLEN>;
 	netobj fh;
 	netobj oh;
 	fsh_mode mode;
@@ -144,6 +144,11 @@ struct	nlm4_shareres {
 	netobj	cookie;
 	nlm4_stats	stat;
 	int	sequence;
+};
+
+struct  nlm4_freeallargs {
+        string       name<LM_MAXSTRLEN>;   /* client hostname */
+        uint32       state;                /* unused */
 };
 
 /*
