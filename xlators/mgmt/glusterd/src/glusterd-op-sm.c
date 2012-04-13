@@ -45,6 +45,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
+#include "glusterd-hooks.h"
 #include "glusterd-volgen.h"
 #include "syscall.h"
 #include "cli1-xdr.h"
@@ -2281,7 +2282,7 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,  glusterd_commit_hook
         else if (type == GD_COMMIT_HOOK_POST)
                 strcpy (type_subdir, "post");
 
-        cmd_subdir = glusterd_store_get_hooks_cmd_subdir (op);
+        cmd_subdir = glusterd_hooks_get_hooks_cmd_subdir (op);
         if (strlen (cmd_subdir) == 0)
                 return -1;
 
@@ -2289,7 +2290,7 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,  glusterd_commit_hook
         snprintf (scriptdir, sizeof (scriptdir), "%s/%s/%s",
                   hookdir, cmd_subdir, type_subdir);
 
-        return glusterd_store_run_hooks (scriptdir, op_ctx);
+        return glusterd_hooks_run_hooks (scriptdir, op_ctx);
 }
 
 static int

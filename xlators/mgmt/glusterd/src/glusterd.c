@@ -44,6 +44,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
+#include "glusterd-hooks.h"
 #include "glusterd-utils.h"
 #include "common-utils.h"
 #include "run.h"
@@ -981,7 +982,7 @@ init (xlator_t *this)
 
         GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
         if (stat (hooks_dir, &buf)) {
-                ret = glusterd_store_create_hooks_directory (dirname);
+                ret = glusterd_hooks_create_hooks_directory (dirname);
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Unable to create hooks directory ");
