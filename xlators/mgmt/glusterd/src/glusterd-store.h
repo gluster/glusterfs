@@ -74,10 +74,6 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_PEER_HOSTNAME  "hostname"
 #define GLUSTERD_STORE_KEY_PEER_STATE     "state"
 
-#define GLUSTERD_GET_HOOKS_DIR(path, version, priv) \
-        snprintf (path, PATH_MAX, "%s/hooks/%d", priv->workdir,\
-                  version);
-
 #define glusterd_for_each_entry(entry, dir) \
         do {\
                 entry = NULL;\
@@ -100,14 +96,6 @@ typedef enum {
         GD_STORE_ENOMEM,
         GD_STORE_STAT_FAILED
 } glusterd_store_op_errno_t;
-
-#define GLUSTERD_HOOK_VER       1
-typedef enum glusterd_commit_hook_type {
-        GD_COMMIT_HOOK_NONE = 0,
-        GD_COMMIT_HOOK_PRE,
-        GD_COMMIT_HOOK_POST,
-        GD_COMMIT_HOOK_MAX
-} glusterd_commit_hook_type_t;
 
 int32_t
 glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t ac);
@@ -152,13 +140,4 @@ glusterd_perform_volinfo_version_action (glusterd_volinfo_t *volinfo,
                                          glusterd_volinfo_ver_ac_t ac);
 gf_boolean_t
 glusterd_store_is_valid_brickpath (char *volname, char *brick);
-
-int
-glusterd_store_create_hooks_directory (char *basedir);
-
-char *
-glusterd_store_get_hooks_cmd_subdir (glusterd_op_t op);
-
-int
-glusterd_store_run_hooks (char *hooks_path, dict_t *op_ctx);
 #endif
