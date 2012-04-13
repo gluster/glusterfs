@@ -2489,9 +2489,9 @@ out:
 int
 init (xlator_t *this)
 {
-        iot_conf_t      *conf = NULL;
-        int              ret = -1;
-        int              i = 0;
+        iot_conf_t *conf = NULL;
+        int         ret  = -1;
+        int         i    = 0;
 
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads", GF_LOG_ERROR,
@@ -2553,13 +2553,15 @@ init (xlator_t *this)
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot initialize worker threads, exiting init");
-                GF_FREE (conf);
                 goto out;
         }
 
 	this->private = conf;
         ret = 0;
 out:
+        if (ret)
+                GF_FREE (conf);
+
 	return ret;
 }
 

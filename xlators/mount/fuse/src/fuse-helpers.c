@@ -392,6 +392,10 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
         }
         ret = 0;
 fail:
+        /* this should not happen as inode_path returns -1 when buf is NULL
+           for sure */
+        if (path && !loc->path)
+                GF_FREE (path);
         return ret;
 }
 

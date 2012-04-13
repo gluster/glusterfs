@@ -4470,7 +4470,7 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
         cky = (long) cookie;
 
-        if (!local->xsel) {
+        if (local->xsel[0] == '\0') {
                 gf_log (this->name, GF_LOG_ERROR, "Empty xattr in cbk");
                 return ret;
         }

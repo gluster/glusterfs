@@ -209,13 +209,13 @@ fail:
                 rsp.op_errno = cookie;
 
         if (!rsp.spec)
-                rsp.spec = "";
+                rsp.spec = strdup ("");
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_gf_getspec_rsp);
         if (args.key)
                 free (args.key);//malloced by xdr
-        if (rsp.spec && (strcmp (rsp.spec, "")))
+        if (rsp.spec)
                 free (rsp.spec);
 
         return 0;

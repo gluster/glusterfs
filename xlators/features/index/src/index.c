@@ -1079,6 +1079,9 @@ init (xlator_t *this)
         }
         ret = 0;
 out:
+        if (!this->private && priv)
+                GF_FREE (priv);
+
         return ret;
 }
 

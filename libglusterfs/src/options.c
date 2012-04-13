@@ -252,7 +252,8 @@ xlator_option_validate_str (xlator_t *xl, const char *key, const char *value,
  #endif
         }
 
-        if ((i <= ZR_OPTION_MAX_ARRAY_SIZE) && (!opt->value[i])) {
+        if (((i < ZR_OPTION_MAX_ARRAY_SIZE) && (!opt->value[i])) ||
+            (i == ZR_OPTION_MAX_ARRAY_SIZE)) {
                 /* enter here only if
                  * 1. reached end of opt->value array and haven't
                  *    validated input
@@ -720,7 +721,7 @@ xlator_volume_option_get_list (volume_opt_list_t *vol_list, const char *key)
         } else
                 opt = vol_list->given_opt;
 
-        for (index = 0; opt[index].key && opt[index].key[0]; index++) {
+        for (index = 0; opt[index].key[0]; index++) {
                 for (i = 0; i < ZR_VOLUME_MAX_NUM_KEY; i++) {
                         cmp_key = opt[index].key[i];
                         if (!cmp_key)

@@ -143,8 +143,6 @@ data_destroy (data_t *data)
                                 else
                                         GF_FREE (data->data);
                         }
-                        if (data->vec)
-                                GF_FREE (data->vec);
                 }
 
                 data->len = 0xbabababa;
@@ -174,12 +172,6 @@ data_copy (data_t *old)
                         if (!newdata->data)
                                 goto err_out;
                 }
-                if (old->vec) {
-                        newdata->vec = memdup (old->vec, old->len * (sizeof (void *) +
-                                                                     sizeof (size_t)));
-                        if (!newdata->vec)
-                                goto err_out;
-                }
         }
 
         LOCK_INIT (&newdata->lock);
@@ -189,8 +181,6 @@ err_out:
 
         if (newdata->data)
                 FREE (newdata->data);
-        if (newdata->vec)
-                FREE (newdata->vec);
         mem_put (newdata);
 
         return NULL;
@@ -504,236 +494,6 @@ data_ref (data_t *this)
         UNLOCK (&this->lock);
 
         return this;
-}
-
-/*
-  Serialization format:
-  ----
-  Count:8
-  Key_len:8:Value_len:8
-  Key
-  Value
-  .
-  .
-  .
-*/
-
-int32_t
-dict_serialized_length_old (dict_t *this)
-{
-
-        if (!this) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        int32_t len = 9; /* count + \n */
-        int32_t count = this->count;
-        data_pair_t *pair = this->members_list;
-
-        while (count) {
-                len += 18;
-                len += strlen (pair->key) + 1;
-                if (pair->value->vec) {
-                        int i;
-                        for (i=0; i<pair->value->len; i++) {
-                                len += pair->value->vec[i].iov_len;
-                        }
-                } else {
-                        len += pair->value->len;
-                }
-                pair = pair->next;
-                count--;
-        }
-
-        return len;
-}
-
-int32_t
-dict_serialize_old (dict_t *this, char *buf)
-{
-        if (!this || !buf) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        data_pair_t *pair = this->members_list;
-        int32_t count = this->count;
-        uint64_t dcount = this->count;
-
-        // FIXME: magic numbers
-
-        sprintf (buf, "%08"PRIx64"\n", dcount);
-        buf += 9;
-        while (count) {
-                uint64_t keylen = strlen (pair->key) + 1;
-                uint64_t vallen = pair->value->len;
-
-                sprintf (buf, "%08"PRIx64":%08"PRIx64"\n", keylen, vallen);
-                buf += 18;
-                memcpy (buf, pair->key, keylen);
-                buf += keylen;
-                memcpy (buf, pair->value->data, pair->value->len);
-                buf += pair->value->len;
-                pair = pair->next;
-                count--;
-        }
-        return (0);
-}
-
-
-dict_t *
-dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
-{
-        int32_t ret = 0;
-        int32_t cnt = 0;
-
-        if (!buf || !fill || !(*fill)) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "buf is NULL");
-                return NULL;
-        }
-
-        uint64_t count;
-        ret = sscanf (buf, "%"SCNx64"\n", &count);
-        (*fill)->count = 0;
-
-        if (!ret){
-                gf_log ("dict", GF_LOG_ERROR, "sscanf on buf failed");
-                goto err;
-        }
-        buf += 9;
-
-        if (count == 0) {
-                gf_log ("dict", GF_LOG_ERROR, "count == 0");
-                goto err;
-        }
-
-        for (cnt = 0; cnt < count; cnt++) {
-                data_t *value = NULL;
-                char *key = NULL;
-                uint64_t key_len, value_len;
-
-                ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
-                if (ret != 2) {
-                        gf_log ("dict", GF_LOG_ERROR,
-                                "sscanf for key_len and value_len failed");
-                        goto err;
-                }
-                buf += 18;
-
-                key = buf;
-                buf += key_len;
-
-                value = get_new_data ();
-                value->len = value_len;
-                value->data = buf;
-                value->is_static = 1;
-                buf += value_len;
-
-                dict_set (*fill, key, value);
-        }
-
-        goto ret;
-
-err:
-        GF_FREE (*fill);
-        *fill = NULL;
-
-ret:
-        return *fill;
-}
-
-
-int32_t
-dict_iovec_len (dict_t *this)
-{
-        if (!this) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        int32_t len = 0;
-        data_pair_t *pair = this->members_list;
-
-        len++; /* initial header */
-        while (pair) {
-                len++; /* pair header */
-                len++; /* key */
-
-                if (pair->value->vec)
-                        len += pair->value->len;
-                else
-                        len++;
-                pair = pair->next;
-        }
-
-        return len;
-}
-
-int32_t
-dict_to_iovec (dict_t *this,
-               struct iovec *vec,
-               int32_t count)
-{
-        if (!this || !vec) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        int32_t i = 0;
-        data_pair_t *pair = this->members_list;
-
-        vec[0].iov_len = 9;
-        if (vec[0].iov_base)
-                sprintf (vec[0].iov_base,
-                         "%08"PRIx64"\n",
-                         (int64_t)this->count);
-        i++;
-
-        while (pair) {
-                int64_t keylen = strlen (pair->key) + 1;
-                int64_t vallen = 0;
-
-                if (pair->value->vec) {
-                        int i;
-
-                        for (i=0; i<pair->value->len; i++) {
-                                vallen += pair->value->vec[i].iov_len;
-                        }
-                } else {
-                        vallen = pair->value->len;
-                }
-
-                vec[i].iov_len = 18;
-                if (vec[i].iov_base)
-                        sprintf (vec[i].iov_base,
-                                 "%08"PRIx64":%08"PRIx64"\n",
-                                 keylen,
-                                 vallen);
-                i++;
-
-                vec[i].iov_len = keylen;
-                vec[i].iov_base = pair->key;
-                i++;
-
-                if (pair->value->vec) {
-                        int k;
-
-                        for (k=0; k<pair->value->len; k++) {
-                                vec[i].iov_len = pair->value->vec[k].iov_len;
-                                vec[i].iov_base = pair->value->vec[k].iov_base;
-                                i++;
-                        }
-                } else {
-                        vec[i].iov_len = pair->value->len;
-                        vec[i].iov_base = pair->value->data;
-                        i++;
-                }
-
-                pair = pair->next;
-        }
-
-        return 0;
 }
 
 data_t *
@@ -2354,7 +2114,6 @@ _dict_serialized_length (dict_t *this)
         int ret            = -EINVAL;
         int count          = 0;
         int len            = 0;
-        int i              = 0;
         data_pair_t * pair = NULL;
 
         len = DICT_HDR_LEN;
@@ -2389,27 +2148,14 @@ _dict_serialized_length (dict_t *this)
                         goto out;
                 }
 
-                if (pair->value->vec) {
-                        for (i = 0; i < pair->value->len; i++) {
-                                if (pair->value->vec[i].iov_len < 0) {
-                                        gf_log ("dict", GF_LOG_ERROR,
-                                                "iov_len (%"GF_PRI_SIZET") < 0!",
-                                                pair->value->vec[i].iov_len);
-                                        goto out;
-                                }
-
-                                len += pair->value->vec[i].iov_len;
-                        }
-                } else {
-                        if (pair->value->len < 0) {
-                                gf_log ("dict", GF_LOG_ERROR,
-                                        "value->len (%d) < 0",
-                                        pair->value->len);
-                                goto out;
-                        }
-
-                        len += pair->value->len;
+                if (pair->value->len < 0) {
+                        gf_log ("dict", GF_LOG_ERROR,
+                                "value->len (%d) < 0",
+                                pair->value->len);
+                        goto out;
                 }
+
+                len += pair->value->len;
 
                 pair = pair->next;
                 count--;

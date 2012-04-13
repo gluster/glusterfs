@@ -837,7 +837,9 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("error");
                 goto out;
         }
 
@@ -846,7 +848,9 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("xdr decoding failed");
                 goto out;
         }
 
@@ -918,7 +922,7 @@ out:
                 glusterd_op_sm ();
         }
 
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
+        if (rsp.op_errstr)
                 free (rsp.op_errstr); //malloced by xdr
         if (dict) {
                 if (!dict->extra_stdfree && rsp.dict.dict_val)
@@ -1268,17 +1272,21 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("error");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log ("", GF_LOG_ERROR, "xdr decoding error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("xdr decoding error");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
@@ -1395,7 +1403,7 @@ out:
 
         if (dict)
                 dict_unref (dict);
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
+        if (rsp.op_errstr)
                 free (rsp.op_errstr); //malloced by xdr
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
@@ -1788,7 +1796,9 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("error");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
@@ -1857,7 +1867,7 @@ out:
 
         if (ret && dict)
                 dict_unref (dict);
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
+        if (rsp.op_errstr)
                 free (rsp.op_errstr); //malloced by xdr
         GLUSTERD_STACK_DESTROY (frame);
         return ret;

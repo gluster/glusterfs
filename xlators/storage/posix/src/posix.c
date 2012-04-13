@@ -1032,15 +1032,15 @@ int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int xflag, dict_t *xdata)
 {
-        int32_t                  op_ret    = -1;
-        int32_t                  op_errno  = 0;
-        char                    *real_path = NULL;
-        char                    *par_path = NULL;
-        int32_t                  fd = -1;
-        struct iatt            stbuf;
-        struct posix_private    *priv      = NULL;
-        struct iatt            preparent = {0,};
-        struct iatt            postparent = {0,};
+        int32_t               op_ret     = -1;
+        int32_t               op_errno   = 0;
+        char                 *real_path  = NULL;
+        char                 *par_path   = NULL;
+        int32_t               fd         = -1;
+        struct iatt           stbuf      = {0,};
+        struct posix_private *priv       = NULL;
+        struct iatt           preparent  = {0,};
+        struct iatt           postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -3748,27 +3748,22 @@ int32_t
 posix_rchecksum (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, off_t offset, int32_t len, dict_t *xdata)
 {
-        char *buf = NULL;
-
-        int       _fd      = -1;
-
-        struct posix_fd *pfd  = NULL;
-
-        int op_ret   = -1;
-        int op_errno = 0;
-
-        int ret = 0;
-
-        int32_t weak_checksum = 0;
-        unsigned char strong_checksum[MD5_DIGEST_LENGTH];
+        char            *buf           = NULL;
+        int              _fd           = -1;
+        struct posix_fd *pfd           = NULL;
+        int              op_ret        = -1;
+        int              op_errno      = 0;
+        int              ret           = 0;
+        int32_t          weak_checksum = 0;
+        unsigned char    strong_checksum[MD5_DIGEST_LENGTH];
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
         memset (strong_checksum, 0, MD5_DIGEST_LENGTH);
-        buf = GF_CALLOC (1, len, gf_posix_mt_char);
 
+        buf = GF_CALLOC (1, len, gf_posix_mt_char);
         if (!buf) {
                 op_errno = ENOMEM;
                 goto out;
@@ -3797,12 +3792,14 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         weak_checksum = gf_rsync_weak_checksum ((unsigned char *) buf, (size_t) len);
         gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) len, (unsigned char *) strong_checksum);
 
-        GF_FREE (buf);
-
         op_ret = 0;
 out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
                              weak_checksum, strong_checksum, NULL);
+
+        if (buf)
+                GF_FREE (buf);
+
         return 0;
 }
 

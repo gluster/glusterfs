@@ -83,8 +83,10 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         if (ret) {
                 ret = glusterd_xfer_friend_add_resp (req, rhost, port, -1,
                                                      GF_PROBE_UNKNOWN_PEER);
-                if (friend_req->vols.vols_val)
+                if (friend_req->vols.vols_val) {
                         free (friend_req->vols.vols_val);
+                        friend_req->vols.vols_val = NULL;
+                }
                 goto out;
         }
 

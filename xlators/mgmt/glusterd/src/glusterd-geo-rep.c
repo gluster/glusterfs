@@ -524,7 +524,7 @@ gsync_status (char *master, char *slave, int *status)
         int  fd                = -1;
 
         fd = gsyncd_getpidfile (master, slave, pidfile);
-        if (fd == -2)
+        if ((fd == -2) || (fd == -1))
                 return -1;
 
         *status = gsync_status_byfd (fd);
@@ -1118,7 +1118,7 @@ stop_gsync (char *master, char *slave, char **msg)
         GF_ASSERT (THIS->private);
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
-        if (pfd == -2) {
+        if ((pfd == -2) || (pfd == -1)) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" stop validation "
                         " failed for %s & %s", master, slave);
                 ret = -1;
@@ -1160,7 +1160,8 @@ stop_gsync (char *master, char *slave, char **msg)
         ret = 0;
 
 out:
-        close (pfd);
+        if ((pfd != -2) && (pfd != -1))
+                close (pfd);
         return ret;
 }
 
@@ -1652,7 +1653,7 @@ glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
 
-        if (pfd == -2) {
+        if ((pfd == -2) || (pfd == -1)) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" log-rotate validation "
                         " failed for %s & %s", master, slave);
                 goto out;
@@ -1669,12 +1670,13 @@ glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
                 goto out;
         }
 
-        close(pfd);
 
         *pid = strtol (buff, NULL, 10);
         ret = 0;
 
- out:
+out:
+        if ((pfd != -2) && (pfd != -1))
+                close(pfd);
         return ret;
 }
 

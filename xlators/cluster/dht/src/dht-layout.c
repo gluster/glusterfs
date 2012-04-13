@@ -280,6 +280,9 @@ dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
 
         if (disk_layout_p)
                 *disk_layout_p = disk_layout;
+        else
+                GF_FREE (disk_layout);
+
         ret = 0;
 
 out:

@@ -650,9 +650,12 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         ret = 0;
 
  out:
-        close (dfd0);
-        close (dfd);
-        close (dfd2);
+        if (dfd0 != -1)
+                close (dfd0);
+        if (dfd != -1)
+                close (dfd);
+        if (dfd2 != -1)
+                close (dfd2);
 
         return ret;
 }
