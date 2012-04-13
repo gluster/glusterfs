@@ -504,6 +504,10 @@ fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
                 if (strcmp (okey, UNPRIV_XA_NS".glusterfs.pathinfo") == 0)
                         need_flip = _gf_true;
                 break;
+
+                /* This is never true for fuse mount, as defrag uses syncops */
+        case GF_CLIENT_PID_DEFRAG:
+                goto out;
         }
 
         if (need_flip) {
