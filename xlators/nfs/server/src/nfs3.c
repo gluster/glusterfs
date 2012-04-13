@@ -1357,6 +1357,8 @@ nfs3_lookup_resume (void *carg)
 
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
+        cs->parent = cs->resolvefh;
+
 	if (cs->hardresolved) {
 		stat = NFS3_OK;
 		nfs3_fh_build_child_fh (&cs->parent, &cs->stbuf, &newfh);
@@ -1364,7 +1366,6 @@ nfs3_lookup_resume (void *carg)
 	}
 
         nfs_request_user_init (&nfu, cs->req);
-        cs->parent = cs->resolvefh;
         ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                           nfs3svc_lookup_cbk, cs);
         if (ret < 0)
