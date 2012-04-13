@@ -300,7 +300,7 @@ glusterd_unlock (uuid_t uuid)
 
         glusterd_get_lock_owner (&owner);
 
-        if (NULL == owner) {
+        if (uuid_is_null (owner)) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Cluster lock not held!");
                 goto out;
         }

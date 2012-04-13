@@ -4601,8 +4601,10 @@ cleanup_exit:
                 GF_FREE (fsname);
         if (priv) {
                 GF_FREE (priv->mount_point);
-                close (priv->fd);
-                close (priv->fuse_dump_fd);
+                if (priv->fd != -1)
+                        close (priv->fd);
+                if (priv->fuse_dump_fd != -1)
+                        close (priv->fuse_dump_fd);
                 GF_FREE (priv);
         }
         if (mnt_args)

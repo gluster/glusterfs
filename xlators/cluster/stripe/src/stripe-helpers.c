@@ -440,7 +440,6 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                 stripe_opt = GF_CALLOC (1, sizeof (struct stripe_options),
                                         gf_stripe_mt_stripe_options);
                 if (!stripe_opt) {
-                        GF_FREE (dup_str);
                         goto out;
                 }
 
@@ -486,10 +485,15 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
 
                 stripe_str = strtok_r (NULL, ",", &tmp_str);
                 GF_FREE (dup_str);
+                dup_str = NULL;
         }
 
         ret = 0;
 out:
+
+        if (dup_str)
+                GF_FREE (dup_str);
+
         return ret;
 }
 

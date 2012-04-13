@@ -1077,12 +1077,17 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
 
         handle->fd = open (handle->path, O_RDWR);
 
+        if (handle->fd == -1) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
+                        handle->path, strerror (errno));
+                goto out;
+        }
         if (!handle->read)
                 handle->read = fdopen (handle->fd, "r");
 
         if (!handle->read) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %d",
-                        handle->path, errno);
+                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
+                        handle->path, strerror (errno));
                 goto out;
         }
 

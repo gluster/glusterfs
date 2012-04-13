@@ -1588,7 +1588,7 @@ cli_print_brick_status (cli_volume_status_t *status)
         while (bricklen > 0) {
                 if (bricklen > fieldlen) {
                         i++;
-                        strncpy (buf, p, fieldlen);
+                        strncpy (buf, p, min (fieldlen, (sizeof (buf)-1)));
                         buf[strlen(buf) + 1] = '\0';
                         cli_out ("%s", buf);
                         p = status->brick + i * fieldlen;

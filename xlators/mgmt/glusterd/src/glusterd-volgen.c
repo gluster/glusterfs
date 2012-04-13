@@ -2569,7 +2569,7 @@ nfs_option_handler (volgen_graph_t *graph,
 
                 ret = xlator_set_option (xl, vme->key, vme->value);
         }*/
-        if ( !volinfo || !volinfo->volname)
+        if (!volinfo || (volinfo->volname[0] == '\0'))
                 return 0;
 
         if (! strcmp (vme->option, "!rpc-auth.addr.*.allow")) {

@@ -706,6 +706,9 @@ done:
                 local->layout = new_layout;
         }
 
+        if (fix_array)
+                GF_FREE (fix_array);
+
         return new_layout;
 }
 

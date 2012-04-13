@@ -1369,8 +1369,7 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                         remote_error ? remote_error : strerror (op_errno));
                 errno = op_errno;
                 if (remote_error &&
-                   (strncmp ("Authentication failed",remote_error,
-                             sizeof (remote_error)) == 0)) {
+                    (strcmp ("Authentication failed", remote_error) == 0)) {
                         auth_fail = _gf_true;
                         op_ret = 0;
                 }

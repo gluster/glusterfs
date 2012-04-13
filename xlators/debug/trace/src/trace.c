@@ -473,6 +473,9 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 preoldparentstr, postoldparentstr,
                                 prenewparentstr, postnewparentstr);
 
+                        if (statstr)
+                                GF_FREE (statstr);
+
                         if (preoldparentstr)
                                 GF_FREE (preoldparentstr);
 
