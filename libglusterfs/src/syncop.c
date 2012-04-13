@@ -357,7 +357,7 @@ syncenv_scale (struct syncenv *env)
 		if (env->procs > env->runcount)
 			goto unlock;
 
-		thmax = max (env->runcount, SYNCENV_PROC_MAX);
+		thmax = min (env->runcount, SYNCENV_PROC_MAX);
 		for (i = env->procs; i < thmax; i++) {
 			env->proc[i].env = env;
 			ret = pthread_create (&env->proc[i].processor, NULL,
