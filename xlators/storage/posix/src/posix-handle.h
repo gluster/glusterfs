@@ -148,4 +148,6 @@ int posix_handle_init (xlator_t *this);
 int posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
                                       char *real_path);
 
+int
+posix_handle_trash_init (xlator_t *this);
 #endif /* !_POSIX_HANDLE_H */
