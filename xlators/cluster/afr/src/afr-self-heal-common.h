@@ -52,7 +52,7 @@ afr_mark_sources (xlator_t *this, int32_t *sources, int32_t **pending_matrix,
                   int32_t *success_children, int32_t *subvol_status);
 
 int
-afr_sh_delta_to_xattr (afr_private_t *priv,
+afr_sh_delta_to_xattr (xlator_t *this,
                        int32_t *delta_matrix[], dict_t *xattr[],
 		       int child_count, afr_transaction_type type);
 

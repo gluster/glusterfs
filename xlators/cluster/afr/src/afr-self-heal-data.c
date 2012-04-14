@@ -421,7 +421,7 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-        afr_sh_delta_to_xattr (priv, sh->delta_matrix, erase_xattr,
+        afr_sh_delta_to_xattr (this, sh->delta_matrix, erase_xattr,
                                priv->child_count, AFR_DATA_TRANSACTION);
 
         GF_ASSERT (call_count);

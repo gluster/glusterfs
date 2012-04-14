@@ -798,6 +798,8 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         priv = this->private;
 
         afr_matrix_cleanup (local->pending, priv->child_count);
+        afr_matrix_cleanup (local->transaction.txn_changelog,
+                            priv->child_count);
 
         if (local->internal_lock.locked_nodes)
                 GF_FREE (local->internal_lock.locked_nodes);
@@ -813,7 +815,6 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
 
         GF_FREE (local->transaction.pre_op);
-        GF_FREE (local->transaction.child_errno);
         GF_FREE (local->transaction.eager_lock);
 
         GF_FREE (local->transaction.basename);
@@ -3924,12 +3925,10 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->pending)
                 goto out;
 
-        local->transaction.child_errno =
-                GF_CALLOC (sizeof (*local->transaction.child_errno),
-                           priv->child_count,
-                           gf_afr_mt_int32_t);
-        local->transaction.erase_pending = 1;
-
+        local->transaction.txn_changelog = afr_matrix_create (priv->child_count,
+                                                           AFR_NUM_CHANGE_LOGS);
+        if (!local->transaction.txn_changelog)
+                goto out;
         ret = 0;
 out:
         return ret;
