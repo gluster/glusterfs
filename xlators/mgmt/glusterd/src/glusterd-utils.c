@@ -4354,7 +4354,6 @@ glusterd_brick_create_path (char *host, char *path, uuid_t uuid, mode_t mode,
         struct  stat st_buf = {0};
         uuid_t  gfid = {0,};
         uuid_t  old_uuid = {0,};
-        char    old_uuid_buf[64] = {0,};
 
         ret = stat (path, &st_buf);
         if ((!ret) && (!S_ISDIR (st_buf.st_mode))) {
@@ -4429,30 +4428,18 @@ check_xattr:
         /* This 'key' is set when the volume is started for the first time */
         ret = sys_lgetxattr (path, "trusted.glusterfs.volume-id",
                              old_uuid, 16);
-        if (ret == 16) {
-                if (uuid_compare (old_uuid, uuid)) {
-                        uuid_utoa_r (old_uuid, old_uuid_buf);
-                        gf_log (THIS->name, GF_LOG_WARNING,
-                                "%s: mismatching volume-id (%s) received. "
-                                "already is a part of volume %s ",
-                                path, uuid_utoa (uuid), old_uuid_buf);
-                        snprintf (msg, sizeof (msg), "'%s:%s' has been part of "
-                                  "a deleted volume with id %s. Please "
-                                  "re-create the brick directory.",
-                                  host, path, old_uuid_buf);
-                        ret = -1;
-                        goto out;
-                }
-        } else if (ret != -1) {
-                /* Wrong 'volume-id' is set, it should be error */
+        if (ret >= 0) {
+                snprintf (msg, sizeof (msg), "'%s:%s' has been part of "
+                          "a volume with id %s. Please re-create the brick "
+                          "directory.", host, path, uuid_utoa (old_uuid));
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 ret = -1;
-                snprintf (msg, sizeof (msg), "'%s:%s' has wrong entry"
-                          "for 'volume-id'.", host, path);
                 goto out;
+
         } else if ((ret == -1) && (errno != ENODATA)) {
-                /* Wrong 'volume-id' is set, it should be error */
                 snprintf (msg, sizeof (msg), "'%s:%s' : failed to fetch "
                           "'volume-id' (%s)", host, path, strerror (errno));
+                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 goto out;
 
         }
