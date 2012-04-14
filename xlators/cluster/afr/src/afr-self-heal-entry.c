@@ -694,9 +694,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         name = entry->d_name;
 
         if ((strcmp (name, ".") == 0)
-            || (strcmp (name, "..") == 0)
-            || ((strcmp (local->loc.path, "/") == 0)
-                && (strcmp (name, GF_REPLICATE_TRASH_DIR) == 0))) {
+            || (strcmp (name, "..") == 0)) {
 
                 gf_log (this->name, GF_LOG_TRACE,
                         "skipping inspection of %s under %s",
@@ -1941,9 +1939,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         sh->impunge_done = afr_sh_entry_impunge_entry_done;
 
         if ((strcmp (entry->d_name, ".") == 0)
-            || (strcmp (entry->d_name, "..") == 0)
-            || ((strcmp (local->loc.path, "/") == 0)
-                && (strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR) == 0))) {
+            || (strcmp (entry->d_name, "..") == 0)) {
 
                 gf_log (this->name, GF_LOG_TRACE,
                         "skipping inspection of %s under %s",

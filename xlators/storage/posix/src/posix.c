@@ -3536,10 +3536,6 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                         break;
                 }
 
-                if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
-                    && (!strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)))
-                        continue;
-
 #ifdef __NetBSD__
 	       /*
 		* NetBSD with UFS1 backend uses backing files for
@@ -4068,20 +4064,6 @@ init (xlator_t *this)
         _private->base_path = gf_strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
 
-        _private->trash_path = GF_CALLOC (1, _private->base_path_length
-                                          + strlen ("/")
-                                          + strlen (GF_REPLICATE_TRASH_DIR)
-                                          + 1,
-                                          gf_posix_mt_trash_path);
-
-        if (!_private->trash_path) {
-                ret = -1;
-                goto out;
-        }
-
-        strncpy (_private->trash_path, _private->base_path, _private->base_path_length);
-        strcat (_private->trash_path, "/" GF_REPLICATE_TRASH_DIR);
-
         LOCK_INIT (&_private->lock);
 
         ret = dict_get_str (this->options, "hostname", &_private->hostname);
@@ -4213,6 +4195,14 @@ init (xlator_t *this)
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Posix handle setup failed");
+                ret = -1;
+                goto out;
+        }
+
+        op_ret = posix_handle_trash_init (this);
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Posix landfill setup failed");
                 ret = -1;
                 goto out;
         }

@@ -468,24 +468,6 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
                  xlator_t *this, int32_t op_ret, int32_t op_errno,
                  gf_dirent_t *entries, dict_t *xdata)
 {
-        afr_local_t *   local       = NULL;
-        gf_dirent_t *   entry       = NULL;
-        gf_dirent_t *   tmp         = NULL;
-
-        local = frame->local;
-
-        if (op_ret == -1)
-                goto out;
-
-        list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                if ((local->fd->inode == local->fd->inode->table->root)
-                    && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
-                        list_del_init (&entry->list);
-                        GF_FREE (entry);
-                }
-        }
-
-out:
         AFR_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries, NULL);
 
         return 0;
@@ -502,8 +484,6 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t **      children        = NULL;
         int32_t          next_call_child = -1;
         int              ret             = 0;
-        gf_dirent_t *    entry           = NULL;
-        gf_dirent_t *    tmp             = NULL;
         int32_t          *last_index     = NULL;
         int32_t          read_child      = -1;
         int32_t         *fresh_children   = NULL;
@@ -564,16 +544,6 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            local->cont.readdir.size, 0,
                                            local->cont.readdir.dict);
                         return 0;
-                }
-        }
-
-        if (op_ret != -1) {
-                list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                        if ((local->fd->inode == local->fd->inode->table->root)
-                            && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
-                                list_del_init (&entry->list);
-                                GF_FREE (entry);
-                        }
                 }
         }
 

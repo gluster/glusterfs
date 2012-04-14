@@ -34,9 +34,11 @@
 #include "posix-handle.h"
 #include "posix.h"
 #include "xlator.h"
+#include "syscall.h"
 
 
 #define HANDLE_PFX ".glusterfs"
+#define TRASH_DIR "landfill"
 
 #define UUID0_STR "00000000-0000-0000-0000-000000000000"
 #define SLEN(str) (sizeof(str) - 1)
@@ -393,6 +395,107 @@ posix_handle_init (xlator_t *this)
         return 0;
 }
 
+gf_boolean_t
+posix_does_old_trash_exists (char *old_trash)
+{
+        uuid_t                gfid = {0};
+        gf_boolean_t          exists = _gf_false;
+        struct stat           stbuf = {0};
+        int                   ret = 0;
+
+        ret = lstat (old_trash, &stbuf);
+        if ((ret == 0) && S_ISDIR (stbuf.st_mode)) {
+                ret = sys_lgetxattr (old_trash, "trusted.gfid", gfid, 16);
+                if ((ret < 0) && (errno == ENODATA))
+                        exists = _gf_true;
+        }
+        return exists;
+}
+
+int
+posix_handle_new_trash_init (xlator_t *this, char *trash)
+{
+        int                     ret = 0;
+        struct stat             stbuf = {0};
+
+        ret = lstat (trash, &stbuf);
+        switch (ret) {
+        case -1:
+                if (errno == ENOENT) {
+                        ret = mkdir (trash, 0755);
+                        if (ret != 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Creating directory %s failed: %s",
+                                        trash, strerror (errno));
+                        }
+                } else {
+                        gf_log (this->name, GF_LOG_ERROR, "Checking for %s "
+                                "failed: %s", trash, strerror (errno));
+                }
+                break;
+        case 0:
+                if (!S_ISDIR (stbuf.st_mode)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Not a directory: %s", trash);
+                        ret = -1;
+                }
+                break;
+        default:
+                break;
+        }
+        return ret;
+}
+
+int
+posix_mv_old_trash_into_new_trash (xlator_t *this, char *old, char *new)
+{
+        char                  dest_old[PATH_MAX] = {0};
+        int                   ret = 0;
+        uuid_t                dest_name = {0};
+
+        if (!posix_does_old_trash_exists (old))
+                goto out;
+        uuid_generate (dest_name);
+        snprintf (dest_old, sizeof (dest_old), "%s/%s", new,
+                  uuid_utoa (dest_name));
+        ret = rename (old, dest_old);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Not able to move "
+                        "%s -> %s (%s)", old, dest_old, strerror (errno));
+        }
+out:
+        return ret;
+}
+
+int
+posix_handle_trash_init (xlator_t *this)
+{
+        int                   ret = -1;
+        struct posix_private  *priv = NULL;
+        char                  old_trash[PATH_MAX] = {0};
+
+        priv = this->private;
+
+        priv->trash_path = GF_CALLOC (1, priv->base_path_length + strlen ("/")
+                                      + strlen (HANDLE_PFX) + strlen ("/")
+                                      + strlen (TRASH_DIR) + 1,
+                                      gf_posix_mt_trash_path);
+
+        if (!priv->trash_path)
+                goto out;
+
+        strncpy (priv->trash_path, priv->base_path, priv->base_path_length);
+        strcat (priv->trash_path, "/" HANDLE_PFX "/" TRASH_DIR);
+        ret = posix_handle_new_trash_init (this, priv->trash_path);
+        if (ret)
+                goto out;
+        snprintf (old_trash, sizeof (old_trash), "%s/.landfill",
+                  priv->base_path);
+        ret = posix_mv_old_trash_into_new_trash (this, old_trash,
+                                                 priv->trash_path);
+out:
+        return ret;
+}
 
 int
 posix_handle_mkdir_hashes (xlator_t *this, const char *newpath)

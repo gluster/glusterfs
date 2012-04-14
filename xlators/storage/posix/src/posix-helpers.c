@@ -833,7 +833,7 @@ posix_janitor_thread_proc (void *data)
                 time (&now);
                 if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "janitor cleaning out /" GF_REPLICATE_TRASH_DIR);
+                                "janitor cleaning out %s", priv->trash_path);
 
                         nftw (priv->trash_path,
                               janitor_walker,
