@@ -515,6 +515,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
         int            piggyback = 0;
         int            index = 0;
         int            nothing_failed = 1;
+        int32_t        changelog = 0;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -562,8 +563,10 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
         if (local->optimistic_change_log &&
             local->transaction.type != AFR_DATA_TRANSACTION) {
                 /* if nothing_failed, then local->pending[..] == {0 .. 0} */
-                for (i = 0; i < priv->child_count; i++)
-                        local->pending[i][index]++;
+                for (i = 0; i < priv->child_count; i++) {
+                        changelog = ntoh32 (local->pending[i][index]);
+                        local->pending[i][index] = hton32 (changelog + 1);
+                }
         }
 
         for (i = 0; i < priv->child_count; i++) {
