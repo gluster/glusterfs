@@ -190,7 +190,7 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
         if (call_count == 0)
                 need_unwind = 1;
 
-        afr_sh_delta_to_xattr (priv, sh->delta_matrix, erase_xattr,
+        afr_sh_delta_to_xattr (this, sh->delta_matrix, erase_xattr,
                                priv->child_count, AFR_ENTRY_TRANSACTION);
 
         local->call_count = call_count;
@@ -1125,7 +1125,8 @@ afr_sh_entry_impunge_perform_xattrop (call_frame_t *impunge_frame,
                 goto out;
         }
 
-        afr_set_pending_dict (priv, xattr, impunge_local->pending);
+        afr_set_pending_dict (priv, xattr, impunge_local->pending, active_src,
+                              LOCAL_LAST);
 
         STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
                            (void *) (long) active_src,

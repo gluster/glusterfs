@@ -670,12 +670,7 @@ typedef struct _afr_local {
 
                 afr_transaction_type type;
 
-                int success_count;
-                int erase_pending;
-                int failure_count;
-
-                int last_tried;
-                int32_t *child_errno;
+                int32_t         **txn_changelog;//changelog after pre+post ops
                 unsigned char   *pre_op;
 
                 call_frame_t *main_frame;

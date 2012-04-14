@@ -23,7 +23,6 @@
                                       of RENAME */
 #define LOCKED_LOWER    0x2        /* for lower_path of RENAME */
 
-
 afr_fd_ctx_t *
 __afr_fd_ctx_get (fd_t *fd, xlator_t *this)
 {
@@ -267,62 +266,40 @@ __fop_changelog_needed (call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending)
+afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
+                      int child, afr_xattrop_type_t op)
 {
         int i = 0;
         int ret = 0;
 
+        if (op == LOCAL_FIRST) {
+                ret = dict_set_static_bin (xattr, priv->pending_key[child],
+                                           pending[child],
+                                   AFR_NUM_CHANGE_LOGS * sizeof (int32_t));
+                if (ret)
+                        goto out;
+        }
         for (i = 0; i < priv->child_count; i++) {
+                if (i == child)
+                        continue;
                 ret = dict_set_static_bin (xattr, priv->pending_key[i],
                                            pending[i],
-                                AFR_NUM_CHANGE_LOGS * sizeof (int32_t));
+                                   AFR_NUM_CHANGE_LOGS * sizeof (int32_t));
                 /* 3 = data+metadata+entry */
 
                 if (ret < 0)
                         goto out;
         }
-
-out:
-        return ret;
-}
-
-
-static int
-afr_set_piggyback_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
-                        afr_transaction_type type)
-{
-        int i = 0;
-        int ret = 0;
-        int *arr = NULL;
-        int index = 0;
-        size_t pending_xattr_size = 3 * sizeof (int32_t);
-        /* 3 = data+metadata+entry */
-
-        index = afr_index_for_transaction_type (type);
-
-        for (i = 0; i < priv->child_count; i++) {
-                arr = GF_CALLOC (1, pending_xattr_size,
-                                 gf_afr_mt_char);
-                if (!arr) {
-                        ret = -1;
-                        goto out;
-                }
-
-                memcpy (arr, pending[i], pending_xattr_size);
-
-                arr[index] = hton32 (ntoh32(arr[index]) + 1);
-
-                ret = dict_set_bin (xattr, priv->pending_key[i],
-                                    arr, pending_xattr_size);
-
-                if (ret < 0)
+        if (op == LOCAL_LAST) {
+                ret = dict_set_static_bin (xattr, priv->pending_key[child],
+                                           pending[child],
+                                   AFR_NUM_CHANGE_LOGS * sizeof (int32_t));
+                if (ret)
                         goto out;
         }
-
 out:
         return ret;
 }
-
 
 int
 afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
@@ -491,12 +468,65 @@ afr_changelog_post_op_call_count (afr_transaction_type type,
         return call_count;
 }
 
+void
+afr_compute_txn_changelog (afr_local_t *local, afr_private_t *priv)
+{
+        int             i = 0;
+        int             index = 0;
+        int32_t         postop = 0;
+        int32_t         preop = 1;
+        int32_t         **txn_changelog = NULL;
+
+        txn_changelog = local->transaction.txn_changelog;
+        index = afr_index_for_transaction_type (local->transaction.type);
+        for (i = 0; i < priv->child_count; i++) {
+                postop = ntoh32 (local->pending[i][index]);
+                txn_changelog[i][index] = hton32 (postop + preop);
+        }
+}
+
+afr_xattrop_type_t
+afr_get_postop_xattrop_type (int32_t **pending, int optimized, int child,
+                             afr_transaction_type type)
+{
+        int                     index = 0;
+        afr_xattrop_type_t      op = LOCAL_LAST;
+
+        index = afr_index_for_transaction_type (type);
+        if (optimized && !pending[child][index])
+                op = LOCAL_FIRST;
+        return op;
+}
+
+void
+afr_set_postop_dict (afr_local_t *local, xlator_t *this, dict_t *xattr,
+                     int optimized, int child)
+{
+        int32_t                 **txn_changelog = NULL;
+        int32_t                 **changelog = NULL;
+        afr_private_t           *priv = NULL;
+        int                     ret = 0;
+        afr_xattrop_type_t      op = LOCAL_LAST;
+
+        priv = this->private;
+        txn_changelog = local->transaction.txn_changelog;
+        op = afr_get_postop_xattrop_type (local->pending, optimized, child,
+                                          local->transaction.type);
+        if (optimized)
+                changelog = txn_changelog;
+        else
+                changelog = local->pending;
+        ret = afr_set_pending_dict (priv, xattr, changelog, child, op);
+        if (ret < 0)
+                gf_log (this->name, GF_LOG_INFO,
+                        "failed to set pending entry");
+}
+
 int
 afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t * priv = this->private;
         afr_internal_lock_t *int_lock = NULL;
-        int ret        = 0;
         int i          = 0;
         int call_count = 0;
 
@@ -506,7 +536,6 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
         int            piggyback = 0;
         int            index = 0;
         int            nothing_failed = 1;
-        int32_t        changelog = 0;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -550,26 +579,15 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-        index = afr_index_for_transaction_type (local->transaction.type);
-        if (local->optimistic_change_log &&
-            local->transaction.type != AFR_DATA_TRANSACTION) {
-                /* if nothing_failed, then local->pending[..] == {0 .. 0} */
-                for (i = 0; i < priv->child_count; i++) {
-                        changelog = ntoh32 (local->pending[i][index]);
-                        local->pending[i][index] = hton32 (changelog + 1);
-                }
-        }
+        afr_compute_txn_changelog (local , priv);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->transaction.pre_op[i])
                         continue;
-                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
 
-                if (ret < 0)
-                        gf_log (this->name, GF_LOG_INFO,
-                                "failed to set pending entry");
-
-
+                if (local->transaction.type != AFR_DATA_TRANSACTION)
+                        afr_set_postop_dict (local, this, xattr[i],
+                                             local->optimistic_change_log, i);
                 switch (local->transaction.type) {
                 case AFR_DATA_TRANSACTION:
                 {
@@ -593,10 +611,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                         }
                         UNLOCK (&local->fd->lock);
 
-                        if (piggyback && !nothing_failed)
-                                ret = afr_set_piggyback_dict (priv, xattr[i],
-                                                              local->pending,
-                                                              local->transaction.type);
+                        afr_set_postop_dict (local, this, xattr[i],
+                                             piggyback, i);
 
                         if (nothing_failed && piggyback) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
@@ -616,7 +632,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 break;
                 case AFR_METADATA_TRANSACTION:
                 {
-                        if (nothing_failed) {
+                        if (nothing_failed && local->optimistic_change_log) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
                                                            this, 1, 0, xattr[i],
                                                            NULL);
@@ -642,7 +658,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
                 case AFR_ENTRY_RENAME_TRANSACTION:
                 {
-                        if (nothing_failed) {
+                        if (nothing_failed && local->optimistic_change_log) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
                                                            this, 1, 0, xattr[i],
                                                            NULL);
@@ -666,17 +682,14 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                   value
                 */
 
-                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
-
-                if (ret < 0)
-                        gf_log (this->name, GF_LOG_INFO,
-                                "failed to set pending entry");
+                afr_set_postop_dict (local, this, xattr[i],
+                                     local->optimistic_change_log, i);
 
                 /* fall through */
 
                 case AFR_ENTRY_TRANSACTION:
                 {
-                        if (nothing_failed) {
+                        if (nothing_failed && local->optimistic_change_log) {
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
                                                            this, 1, 0, xattr[i],
                                                            NULL);
@@ -820,7 +833,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
         for (i = 0; i < priv->child_count; i++) {
                 if (!locked_nodes[i])
                         continue;
-                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
+                ret = afr_set_pending_dict (priv, xattr[i], local->pending,
+                                            i, LOCAL_FIRST);
 
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_INFO,
@@ -929,7 +943,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                   value
                 */
 
-                ret = afr_set_pending_dict (priv, xattr[i], local->pending);
+                ret = afr_set_pending_dict (priv, xattr[i], local->pending,
+                                            i, LOCAL_FIRST);
 
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_INFO,
@@ -1267,7 +1282,6 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index
         __mark_child_dead (local->pending, priv->child_count,
                            child_index, local->transaction.type);
 }
-
 
 int
 afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)

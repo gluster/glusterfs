@@ -847,20 +847,24 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
 
 
 int
-afr_sh_delta_to_xattr (afr_private_t *priv,
+afr_sh_delta_to_xattr (xlator_t *this,
                        int32_t *delta_matrix[], dict_t *xattr[],
                        int child_count, afr_transaction_type type)
 {
-        int      i       = 0;
-        int      j       = 0;
-        int      k       = 0;
-        int      ret     = 0;
-        int32_t *pending = NULL;
+        int              i       = 0;
+        int              j       = 0;
+        int              k       = 0;
+        int              ret     = 0;
+        int32_t         *pending = NULL;
+        int32_t         *local_pending = NULL;
+        afr_private_t   *priv = NULL;
 
+        priv = this->private;
         for (i = 0; i < child_count; i++) {
                 if (!xattr[i])
                         continue;
 
+                local_pending = NULL;
                 for (j = 0; j < child_count; j++) {
                         pending = GF_CALLOC (sizeof (int32_t), 3,
                                              gf_afr_mt_int32_t);
@@ -873,12 +877,28 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
 
                         pending[k] = hton32 (delta_matrix[i][j]);
 
+                        if (j == i) {
+                                local_pending = pending;
+                                continue;
+                        }
                         ret = dict_set_bin (xattr[i], priv->pending_key[j],
                                             pending,
-                                            3 * sizeof (int32_t));
-                        if (ret < 0)
-                                gf_log (THIS->name, GF_LOG_WARNING,
+                                        AFR_NUM_CHANGE_LOGS * sizeof (int32_t));
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "Unable to set dict value.");
+                                GF_FREE (pending);
+                        }
+                }
+                if (local_pending) {
+                        ret = dict_set_bin (xattr[i], priv->pending_key[i],
+                                            local_pending,
+                                        AFR_NUM_CHANGE_LOGS * sizeof (int32_t));
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Unable to set dict value.");
+                                GF_FREE (local_pending);
+                        }
                 }
         }
         return 0;
