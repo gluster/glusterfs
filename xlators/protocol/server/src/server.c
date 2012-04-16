@@ -797,7 +797,7 @@ server_init_grace_timer (xlator_t *this, dict_t *options,
         GF_VALIDATE_OR_GOTO (this->name, options, out);
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        conf->lk_heal = _gf_true;
+        conf->lk_heal = _gf_false;
 
         ret = dict_get_str (options, "lk-heal", &lk_heal);
         if (!ret)
@@ -1196,6 +1196,7 @@ struct volume_options options[] = {
         },
         { .key   = {"lk-heal"},
           .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
         },
         {.key  = {"grace-timeout"},
          .type = GF_OPTION_TYPE_INT,
