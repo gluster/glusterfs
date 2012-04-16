@@ -173,11 +173,15 @@ nfs_add_all_initiators (struct nfs_state *nfs)
                 goto ret;
         }
 
-        ret = nfs_add_initer (&nfs->versions, nlm4svc_init);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
-                        " initializer");
-                goto ret;
+        if (nfs->enable_nlm == _gf_true) {
+                ret = nfs_add_initer (&nfs->versions, nlm4svc_init);
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
+                                " initializer");
+                        goto ret;
+                }
+        } else {
+                gf_log (GF_NFS, GF_LOG_INFO, "NLM is manually disabled");
         }
 
         ret = 0;
@@ -568,6 +572,20 @@ nfs_init_state (xlator_t *this)
 
                 if (boolt == _gf_true)
                         nfs->dynamicvolumes = GF_NFS_DVM_ON;
+        }
+
+        nfs->enable_nlm = _gf_true;
+        if (!dict_get_str (this->options, "nfs.nlm", &optstr)) {
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse"
+                                " bool string");
+                        goto free_foppool;
+                }
+
+                if (boolt == _gf_false)
+                        nfs->enable_nlm = _gf_false;
         }
 
         nfs->enable_ino32 = 0;
@@ -1145,6 +1163,14 @@ struct volume_options options[] = {
           .description = "This option is used to start or stop NFS server"
                          "for individual volume."
         },
+
+        { .key  = {"nfs.nlm"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "This option, if set to 'off', disables NLM server "
+                         "by not registering the service with the portmapper."
+                         " Set it to 'on' to re-enable it. Default value: 'on'"
+        },
+
         { .key  = {NULL} },
 };
 

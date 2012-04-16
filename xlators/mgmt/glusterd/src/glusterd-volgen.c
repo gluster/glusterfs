@@ -210,6 +210,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.volume-access",                    "nfs/server",                "!nfs3.*.volume-access", NULL, DOC, 0},
         {"nfs.export-dir",                       "nfs/server",                "!nfs3.*.export-dir", NULL, DOC, 0},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
+        {"nfs.nlm",                              "nfs/server",                "nfs.nlm", NULL, GLOBAL_DOC, 0},
 
         {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0},
@@ -2865,6 +2866,10 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 goto out;
         }
         ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
+        if (ret)
+                goto out;
+
+        ret = xlator_set_option (nfsxl, "nfs.nlm", "on");
         if (ret)
                 goto out;
 
