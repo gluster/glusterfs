@@ -31,7 +31,7 @@ is_num()
 
 rebase_changes()
 {
-    git fetch;
+    git fetch origin;
 
     GIT_EDITOR=$0 git rebase -i origin/$branch;
 }
