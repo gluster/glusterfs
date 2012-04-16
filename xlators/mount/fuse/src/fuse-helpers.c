@@ -450,7 +450,7 @@ fuse_do_flip_xattr_ns (char *okey, const char *nns, char **nkey)
         return ret;
 }
 
-int
+static int
 fuse_xattr_alloc_default (char *okey, char **nkey)
 {
         int ret = 0;
@@ -469,28 +469,12 @@ fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
 {
         int             ret       = 0;
         gf_boolean_t    need_flip = _gf_false;
-        gf_client_pid_t npid      = 0;
 
-        npid = priv->client_pid;
-        if (gf_client_pid_check (npid)) {
-                ret = fuse_xattr_alloc_default (okey, nkey);
-                goto out;
-        }
-
-        switch (npid) {
-                /*
-                 * These two cases will never execute as we check the
-                 * pid range above, but are kept to keep the compiler
-                 * happy.
-                 */
-        case GF_CLIENT_PID_MAX:
-        case GF_CLIENT_PID_MIN:
-                goto out;
-
+        switch (priv->client_pid) {
         case GF_CLIENT_PID_GSYNCD:
                 /* valid xattr(s): *xtime, volume-mark* */
                 gf_log("glusterfs-fuse", GF_LOG_DEBUG, "PID: %d, checking xattr(s): "
-                       "volume-mark*, *xtime", npid);
+                       "volume-mark*, *xtime", priv->client_pid);
                 if ( (strcmp (okey, UNPRIV_XA_NS".glusterfs.volume-mark") == 0)
                      || (fnmatch (UNPRIV_XA_NS".glusterfs.volume-mark.*", okey, FNM_PERIOD) == 0)
                      || (fnmatch (UNPRIV_XA_NS".glusterfs.*.xtime", okey, FNM_PERIOD) == 0) )
@@ -500,14 +484,10 @@ fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
         case GF_CLIENT_PID_HADOOP:
                 /* valid xattr(s): pathinfo */
                 gf_log("glusterfs-fuse", GF_LOG_DEBUG, "PID: %d, checking xattr(s): "
-                       "pathinfo", npid);
+                       "pathinfo", priv->client_pid);
                 if (strcmp (okey, UNPRIV_XA_NS".glusterfs.pathinfo") == 0)
                         need_flip = _gf_true;
                 break;
-
-                /* This is never true for fuse mount, as defrag uses syncops */
-        case GF_CLIENT_PID_DEFRAG:
-                goto out;
         }
 
         if (need_flip) {
@@ -518,6 +498,6 @@ fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
                 /* if we cannot match, continue with what we got */
                 ret = fuse_xattr_alloc_default (okey, nkey);
         }
- out:
+
         return ret;
 }

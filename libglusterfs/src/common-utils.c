@@ -2017,14 +2017,6 @@ get_mem_size ()
 	return memsize;
 }
 
-
-int
-gf_client_pid_check (gf_client_pid_t npid)
-{
-        return ( (npid > GF_CLIENT_PID_MIN) && (npid < GF_CLIENT_PID_MAX) )
-                ? 0 : -1;
-}
-
 /* Strips all whitespace characters in a string and returns length of new string
  * on success
  */

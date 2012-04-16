@@ -202,7 +202,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         int             ret = -1;
         iot_pri_t       pri = IOT_PRI_MAX - 1;
 
-        if (frame->root->pid < 0) {
+        if (frame->root->pid < GF_CLIENT_PID_MAX) {
                 pri = IOT_PRI_LEAST;
                 goto out;
         }
