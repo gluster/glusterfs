@@ -3245,6 +3245,10 @@ qr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
                         LOCK (&fdctx->lock);
                         {
+                                if (qr_inode->stbuf.ia_nlink == 1) {
+                                        fdctx->disabled = 1;
+                                }
+
                                 if ((fdctx->opened)
                                     || (strcmp (loc->path, fdctx->path) != 0)) {
                                         list_del (&fdctx->tmp_list);
