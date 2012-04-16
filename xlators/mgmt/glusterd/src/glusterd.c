@@ -589,6 +589,11 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 ret = -1;
                 goto out;
         }
+        if (!(st.st_mode & (S_IXGRP|S_IXOTH))) {
+                gf_log ("", GF_LOG_WARNING,
+                        "permissions on mountbroker-root directory %s are "
+                        "probably too strict", mountbroker_root);
+        }
 
         dfd0 = dup (dfd);
 
@@ -616,6 +621,11 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                                 "directory are too liberal");
                         ret = -1;
                         goto out;
+                }
+                if (!(st.st_mode & (S_IXGRP|S_IXOTH))) {
+                        gf_log ("", GF_LOG_WARNING,
+                                "permissions on ancestors of mountbroker-root "
+                                "directory are probably too strict");
                 }
 
                 close (dfd);
