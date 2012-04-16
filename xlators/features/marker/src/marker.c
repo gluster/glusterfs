@@ -358,9 +358,15 @@ marker_specific_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (strcmp (local->loc.path, "/") == 0) {
-                done = 1;
-                goto out;
+        if (local) {
+                if (local->loc.path && strcmp (local->loc.path, "/") == 0) {
+                        done = 1;
+                        goto out;
+                }
+                if (__is_root_gfid (local->loc.gfid)) {
+                        done = 1;
+                        goto out;
+                }
         }
 
         ret = marker_trav_parent (local);
