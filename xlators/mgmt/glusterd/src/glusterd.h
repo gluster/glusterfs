@@ -637,6 +637,8 @@ int glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags);
 int glusterd_op_statedump_volume_args_get (dict_t *dict, char **volname,
                                            char **options, int *option_cnt);
 
+int glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
+                                char **master, char **slave);
 /* Synctask part */
 int32_t glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
                                     void *dict);

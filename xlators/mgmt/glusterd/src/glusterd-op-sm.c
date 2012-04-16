@@ -387,6 +387,10 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
+
         for ( count = 1; ret != 1 ; count++ ) {
                 global_opt = _gf_false;
                 sprintf (str, "key%d", count);
@@ -1788,16 +1792,50 @@ out:
         return ret;
 }
 
+static int
+glusterd_dict_set_volid (dict_t *dict, char *volname, char **op_errstr)
+{
+        int                     ret = -1;
+        glusterd_volinfo_t      *volinfo = NULL;
+        char                    *volid = NULL;
+        char                    msg[1024] = {0,};
+
+        if (!dict || !volname)
+                goto out;
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist",
+                          volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+        volid = gf_strdup (uuid_utoa (volinfo->volume_id));
+        if (!volid) {
+                ret = -1;
+                goto out;
+        }
+        ret = dict_set_dynstr (dict, "vol-id", volid);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to set volume id in dictionary");
+                goto out;
+        }
+out:
+        return ret;
+}
+
 int
-glusterd_op_build_payload (dict_t **req)
+glusterd_op_build_payload (dict_t **req, char **op_errstr)
 {
         int                     ret = -1;
         void                    *ctx = NULL;
         dict_t                  *req_dict = NULL;
         glusterd_op_t           op = GD_OP_NONE;
         char                    *volname = NULL;
-        char                    *volid = NULL;
-        glusterd_volinfo_t      *volinfo = NULL;
+        uint32_t                status_cmd = GF_CLI_STATUS_NONE;
+        char                    *errstr = NULL;
 
         GF_ASSERT (req);
 
@@ -1819,34 +1857,38 @@ glusterd_op_build_payload (dict_t **req)
                         {
                                 dict_t  *dict = ctx;
                                 ++glusterfs_port;
-                                ret = dict_set_int32 (dict, "port", glusterfs_port);
+                                ret = dict_set_int32 (dict, "port",
+                                                      glusterfs_port);
                                 if (ret)
                                         goto out;
                                 dict_copy (dict, req_dict);
                         }
                         break;
 
-                case GD_OP_DELETE_VOLUME:
-                case GD_OP_START_VOLUME:
-                case GD_OP_STOP_VOLUME:
-                case GD_OP_ADD_BRICK:
-                case GD_OP_REPLACE_BRICK:
-                case GD_OP_SET_VOLUME:
-                case GD_OP_RESET_VOLUME:
-                case GD_OP_REMOVE_BRICK:
-                case GD_OP_LOG_ROTATE:
-                case GD_OP_SYNC_VOLUME:
-                case GD_OP_QUOTA:
                 case GD_OP_GSYNC_SET:
-                case GD_OP_PROFILE_VOLUME:
-                case GD_OP_STATUS_VOLUME:
-                case GD_OP_REBALANCE:
-                case GD_OP_HEAL_VOLUME:
-                case GD_OP_STATEDUMP_VOLUME:
-                case GD_OP_CLEARLOCKS_VOLUME:
-                case GD_OP_DEFRAG_BRICK_VOLUME:
                         {
-                                dict_t  *dict = ctx;
+                                dict_t *dict = ctx;
+                                ret = glusterd_op_gsync_args_get (dict,
+                                                                  &errstr,
+                                                                  &volname,
+                                                                  NULL);
+                                if (ret) {
+                                        gf_log (THIS->name, GF_LOG_ERROR,
+                                                "%s", errstr);
+                                        goto out;
+                                }
+
+                                ret = glusterd_dict_set_volid (dict, volname,
+                                                               op_errstr);
+                                if (ret)
+                                        goto out;
+                                dict_copy (dict, req_dict);
+                        }
+                        break;
+
+                case GD_OP_SET_VOLUME:
+                        {
+                                dict_t *dict = ctx;
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
                                         gf_log (THIS->name, GF_LOG_CRITICAL,
@@ -1854,25 +1896,64 @@ glusterd_op_build_payload (dict_t **req)
                                                 "operation ctx");
                                         goto out;
                                 }
-                                ret = glusterd_volinfo_find (volname, &volinfo);
+                                if (strcmp (volname, "help") &&
+                                    strcmp (volname, "help-xml")) {
+                                        ret = glusterd_dict_set_volid
+                                                (dict, volname, op_errstr);
+                                        if (ret)
+                                                goto out;
+                                }
+                                dict_copy (dict, req_dict);
+                        }
+                        break;
+
+                case GD_OP_STATUS_VOLUME:
+                        {
+                                dict_t *dict = ctx;
+                                ret = dict_get_uint32 (dict, "cmd",
+                                                       &status_cmd);
                                 if (ret) {
                                         gf_log (THIS->name, GF_LOG_ERROR,
-                                                "volume %s not present in "
-                                                "the cluster", volname);
+                                                "Status command not present "
+                                                "in op ctx");
                                         goto out;
                                 }
-                                volid = gf_strdup (uuid_utoa (volinfo->volume_id));
-                                if (!volid) {
-                                        ret = -1;
-                                        goto out;
+                                if (GF_CLI_STATUS_ALL & status_cmd) {
+                                        dict_copy (dict, req_dict);
+                                        break;
                                 }
-                                ret = dict_set_dynstr (dict, "vol-id", volid);
+                        }
+
+                case GD_OP_DELETE_VOLUME:
+                case GD_OP_START_VOLUME:
+                case GD_OP_STOP_VOLUME:
+                case GD_OP_ADD_BRICK:
+                case GD_OP_REPLACE_BRICK:
+                case GD_OP_RESET_VOLUME:
+                case GD_OP_REMOVE_BRICK:
+                case GD_OP_LOG_ROTATE:
+                case GD_OP_SYNC_VOLUME:
+                case GD_OP_QUOTA:
+                case GD_OP_PROFILE_VOLUME:
+                case GD_OP_REBALANCE:
+                case GD_OP_HEAL_VOLUME:
+                case GD_OP_STATEDUMP_VOLUME:
+                case GD_OP_CLEARLOCKS_VOLUME:
+                case GD_OP_DEFRAG_BRICK_VOLUME:
+                        {
+                                dict_t *dict = ctx;
+                                ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
-                                        gf_log (THIS->name, GF_LOG_ERROR,
-                                                "Failed to set volume id in "
-                                                "dictionary");
+                                        gf_log (THIS->name, GF_LOG_CRITICAL,
+                                                "volname is not present in "
+                                                "operation ctx");
                                         goto out;
                                 }
+
+                                ret = glusterd_dict_set_volid (dict, volname,
+                                                               op_errstr);
+                                if (ret)
+                                        goto out;
                                 dict_copy (dict, req_dict);
                         }
                         break;
@@ -1908,9 +1989,12 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         op = glusterd_op_get_op ();
 
-        ret = glusterd_op_build_payload (&dict);
-        if (ret)
+        ret = glusterd_op_build_payload (&dict, &op_errstr);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Building payload failed");
+                opinfo.op_errstr = op_errstr;
                 goto out;
+        }
 
         /* rsp_dict NULL from source */
         ret = glusterd_op_stage_validate (op, dict, &op_errstr, NULL);
@@ -2230,10 +2314,12 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         op      = glusterd_op_get_op ();
         op_dict = glusterd_op_get_ctx ();
 
-        ret = glusterd_op_build_payload (&dict);
-
-        if (ret)
+        ret = glusterd_op_build_payload (&dict, &op_errstr);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Building payload failed");
+                opinfo.op_errstr = op_errstr;
                 goto out;
+        }
 
         glusterd_op_commit_hook (op, op_dict, GD_COMMIT_HOOK_PRE);
         ret = glusterd_op_commit_perform (op, dict, &op_errstr, NULL); //rsp_dict invalid for source
@@ -4003,6 +4089,7 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
         xlator_t                        *this = NULL;
         glusterd_op_t                   op = GD_OP_NONE;
         glusterd_req_ctx_t              *req_ctx = NULL;
+        char                            *op_errstr = NULL;
 
         this = THIS;
         priv = this->private;
@@ -4015,9 +4102,13 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                 op = glusterd_op_get_op ();
                 req_ctx->op = op;
                 uuid_copy (req_ctx->uuid, priv->uuid);
-                ret = glusterd_op_build_payload (&req_ctx->dict);
-                if (ret)//TODO:what to do??
+                ret = glusterd_op_build_payload (&req_ctx->dict, &op_errstr);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Building payload failed");
+                        opinfo.op_errstr = op_errstr;
                         goto out;
+                }
         }
 
         proc = &priv->gfs_mgmt->proctable[GLUSTERD_BRICK_OP];
