@@ -30,6 +30,19 @@
 #include "cli.h"
 #include "list.h"
 
+#define CLI_STACK_DESTROY(_frame)                                       \
+        do {                                                            \
+                if (_frame) {                                           \
+                        if (_frame->local) {                            \
+                                gf_log ("cli", GF_LOG_DEBUG, "frame->local " \
+                                        "is not NULL (%p)", _frame->local); \
+                                cli_local_wipe (_frame->local);         \
+                                _frame->local = NULL;                   \
+                        }                                               \
+                        STACK_DESTROY (_frame->root);                   \
+                }                                                       \
+        } while (0);
+
 typedef enum {
         GF_ANSWER_YES = 1,
         GF_ANSWER_NO  = 2

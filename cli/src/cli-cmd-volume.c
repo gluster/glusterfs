@@ -104,9 +104,8 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Getting Volume information failed!");
         }
-        frame->local = NULL;
-        if (frame)
-                STACK_DESTROY (frame->root);
+
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 
@@ -175,8 +174,8 @@ out:
 
         if (dict)
                 dict_unref (dict);
-        if (frame)
-                STACK_DESTROY (frame->root);
+
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -404,8 +403,7 @@ out:
                         cli_out ("Volume create failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -458,8 +456,7 @@ out:
                         cli_out ("Volume delete failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -538,8 +535,7 @@ out:
                         cli_out ("Volume start failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -661,8 +657,7 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -720,8 +715,7 @@ out:
                         cli_out ("Volume rename on '%s' failed", (char *)words[2]);
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -814,8 +808,7 @@ out:
                         cli_out ("Volume rebalance failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -860,8 +853,7 @@ out:
                         cli_out ("Volume reset failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 
@@ -907,8 +899,7 @@ out:
                         cli_out ("Volume profile failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 
@@ -954,8 +945,7 @@ out:
                         cli_out ("Volume set failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 
@@ -1019,8 +1009,7 @@ out:
                         cli_out ("Volume add-brick failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1074,8 +1063,7 @@ out:
         if (ret && parse_err == 0)
                 cli_out ("Quota command failed");
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 
@@ -1136,8 +1124,7 @@ out:
         if (options)
                 dict_unref (options);
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 
@@ -1188,8 +1175,7 @@ out:
                         cli_out ("Volume replace-brick failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1244,8 +1230,7 @@ out:
                         cli_out ("Volume top failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 
@@ -1293,8 +1278,7 @@ out:
                         cli_out ("Volume log rotate failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1398,8 +1382,7 @@ out:
         if (ret && parse_err == 0)
                 cli_out (GEOREP" command failed");
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1447,8 +1430,7 @@ cli_cmd_volume_status_cbk (struct cli_state *state,
         if (dict)
                 dict_unref (dict);
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1677,8 +1659,7 @@ out:
         if (options)
                 dict_unref (options);
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1732,8 +1713,7 @@ out:
                         cli_out ("Volume statedump failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1763,8 +1743,7 @@ out:
                         cli_out ("Volume list failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -1820,8 +1799,7 @@ out:
                         cli_out ("Volume clear-locks failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }

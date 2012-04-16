@@ -96,8 +96,8 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Peer probe failed");
         }
-        if (frame)
-                STACK_DESTROY (frame->root);
+
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -164,8 +164,7 @@ out:
                         cli_out ("Peer detach failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
@@ -203,8 +202,7 @@ out:
                         cli_out ("Peer status failed");
         }
 
-        if (frame)
-                STACK_DESTROY (frame->root);
+        CLI_STACK_DESTROY (frame);
 
         return ret;
 }
