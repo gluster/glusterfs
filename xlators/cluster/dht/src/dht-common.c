@@ -1707,10 +1707,12 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dict_t      *dict          = NULL;
         int32_t      alloc_len     = 0;
         int32_t      plen          = 0;
+        call_frame_t *prev         = NULL;
 
         local = frame->local;
+        prev = cookie;
 
-        if (op_ret != -1) {
+        if (op_ret >= 0) {
                 ret = dict_get_str (xattr, local->xsel, &value_got);
                 if (!ret) {
                         alloc_len = strlen (value_got);
@@ -1742,12 +1744,23 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                                 strcat (local->xattr_val, value_got);
                         }
+                        local->op_ret = 0;
                 }
+        } else {
+                local->op_ret = -1;
+                local->op_errno = op_errno;
+                gf_log (this->name, GF_LOG_ERROR, "Subvolume %s returned -1 "
+                        "(%s)", prev->this->name, strerror (op_errno));
         }
 
  out:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
+
+                if (local->op_ret == -1) {
+                        goto unwind;
+                }
+
                 if (local->layout->cnt > 1) {
                         /* Set it for directory */
                         fill_layout_info (local->layout, layout_buf);
@@ -1806,8 +1819,8 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_log ("this->name", GF_LOG_ERROR, "Unable to find hashed_subvol"
                 " for path %s", local->xattr_val);
-
-        DHT_STACK_UNWIND (getxattr, frame, -1, op_errno, dict, xdata);
+unwind:
+        DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, NULL);
         return 0;
 }
 
