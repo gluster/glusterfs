@@ -191,7 +191,7 @@ int32_t
 glusterd_op_set_op (glusterd_op_t op);
 
 int
-glusterd_op_build_payload (dict_t **req);
+glusterd_op_build_payload (dict_t **req, char **op_errstr);
 
 int32_t
 glusterd_op_stage_validate (glusterd_op_t op, dict_t *req, char **op_errstr,

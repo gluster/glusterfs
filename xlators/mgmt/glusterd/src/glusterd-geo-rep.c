@@ -987,7 +987,7 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
 }
 
 
-static int
+int
 glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
                             char **master, char **slave)
 {
@@ -995,21 +995,23 @@ glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
         int             ret = -1;
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
-        GF_ASSERT (master);
-        GF_ASSERT (slave);
 
-        ret = dict_get_str (dict, "master", master);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "master not found");
-                *op_errstr = gf_strdup ("master not found");
-                goto out;
+        if (master) {
+                ret = dict_get_str (dict, "master", master);
+                if (ret < 0) {
+                        gf_log ("", GF_LOG_WARNING, "master not found");
+                        *op_errstr = gf_strdup ("master not found");
+                        goto out;
+                }
         }
 
-        ret = dict_get_str (dict, "slave", slave);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "slave not found");
-                *op_errstr = gf_strdup ("slave not found");
-                goto out;
+        if (slave) {
+                ret = dict_get_str (dict, "slave", slave);
+                if (ret < 0) {
+                        gf_log ("", GF_LOG_WARNING, "slave not found");
+                        *op_errstr = gf_strdup ("slave not found");
+                        goto out;
+                }
         }
 
 
