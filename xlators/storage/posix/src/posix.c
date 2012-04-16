@@ -1120,6 +1120,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         int32_t op_errno  = 0;
         char *  real_path = NULL;
         char *  par_path = NULL;
+        char *  gfid_str = NULL;
         struct iatt   preparent = {0,};
         struct iatt   postparent = {0,};
         struct iatt   stbuf;
@@ -1159,12 +1160,13 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         }
 
         if (flags) {
-                uint32_t hashval = 0;
-                char *tmp_path = alloca (strlen (priv->trash_path) + 16);
+                gfid_str = uuid_utoa (stbuf.ia_gfid);
+                char *tmp_path = alloca (strlen (priv->trash_path) +
+                                         strlen ("/") +
+                                         strlen (gfid_str) + 1);
 
                 mkdir (priv->trash_path, 0755);
-                hashval = gf_dm_hashfn (real_path, strlen (real_path));
-                sprintf (tmp_path, "%s/%u", priv->trash_path, hashval);
+                sprintf (tmp_path, "%s/%s", priv->trash_path, gfid_str);
                 op_ret = rename (real_path, tmp_path);
         } else {
                 op_ret = rmdir (real_path);
