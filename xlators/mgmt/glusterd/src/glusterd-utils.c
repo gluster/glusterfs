@@ -77,6 +77,7 @@
 
 #define NLM_PROGRAM         100021
 #define NLMV4_VERSION       4
+#define NLMV1_VERSION       1
 
 char    *glusterd_sock_dir = "/tmp";
 static glusterd_lock_t lock;
@@ -2946,6 +2947,11 @@ glusterd_nfs_pmap_deregister ()
                 gf_log ("", GF_LOG_INFO, "De-registered NLM v4 successfully");
         else
                 gf_log ("", GF_LOG_ERROR, "De-registration of NLM v4 failed");
+
+        if (pmap_unset (NLM_PROGRAM, NLMV1_VERSION))
+                gf_log ("", GF_LOG_INFO, "De-registered NLM v1 successfully");
+        else
+                gf_log ("", GF_LOG_ERROR, "De-registration of NLM v1 failed");
 
 }
 
