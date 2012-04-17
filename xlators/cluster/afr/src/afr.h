@@ -435,6 +435,7 @@ typedef struct _afr_local {
                 } statfs;
 
                 struct {
+                        uint32_t parent_entrylk;
                         uuid_t  gfid_req;
                         inode_t *inode;
                         struct iatt buf;

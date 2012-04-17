@@ -128,6 +128,13 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
                         loc->path, GLUSTERFS_ENTRYLK_COUNT);
         }
 
+        ret = dict_set_uint32 (local->xattr_req, GLUSTERFS_PARENT_ENTRYLK, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: Unable to set dict value for %s",
+                        loc->path, GLUSTERFS_PARENT_ENTRYLK);
+        }
+
         ret = dict_get_ptr (local->xattr_req, "gfid-req", gfid_req);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1114,6 +1121,7 @@ afr_lookup_update_lk_counts (afr_local_t *local, xlator_t *this,
         uint32_t inodelk_count = 0;
         uint32_t entrylk_count = 0;
         int      ret           = -1;
+        uint32_t parent_entrylk = 0;
 
         GF_ASSERT (local);
         GF_ASSERT (this);
@@ -1129,6 +1137,10 @@ afr_lookup_update_lk_counts (afr_local_t *local, xlator_t *this,
                                &entrylk_count);
         if (ret == 0)
                 local->entrylk_count += entrylk_count;
+        ret = dict_get_uint32 (xattr, GLUSTERFS_PARENT_ENTRYLK,
+                               &parent_entrylk);
+        if (!ret)
+                local->cont.lookup.parent_entrylk += parent_entrylk;
 }
 
 static void
@@ -1694,20 +1706,15 @@ afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
         int32_t             read_child = -1;
         int32_t             ret        = -1;
         afr_local_t         *local     = NULL;
-        afr_private_t       *priv      = NULL;
         gf_boolean_t        fresh_lookup = _gf_false;
 
         local   = frame->local;
-        priv    = this->private;
         fresh_lookup = local->cont.lookup.fresh_lookup;
 
         if (local->loc.parent == NULL)
                 fail_conflict = _gf_true;
 
-        if (afr_conflicting_iattrs (local->cont.lookup.bufs,
-                                     local->cont.lookup.success_children,
-                                     priv->child_count, local->loc.path,
-                                     this->name)) {
+        if (afr_lookup_conflicting_entries (local, this)) {
                 if (fail_conflict == _gf_false)
                         ret = 0;
                 goto out;
@@ -1739,6 +1746,84 @@ out:
         return ret;
 }
 
+int
+afr_lookup_get_latest_subvol (afr_local_t *local, xlator_t *this)
+{
+        afr_private_t *priv = NULL;
+        int32_t       *success_children = NULL;
+        struct iatt   *bufs = NULL;
+        int           i = 0;
+        int           child = 0;
+        int           lsubvol = -1;
+
+        priv = this->private;
+        success_children = local->cont.lookup.success_children;
+        bufs = local->cont.lookup.bufs;
+        for (i = 0; i < priv->child_count; i++) {
+                child = success_children[i];
+                if (child == -1)
+                        break;
+                if (uuid_is_null (bufs[child].ia_gfid))
+                        continue;
+                if (lsubvol < 0) {
+                        lsubvol = child;
+                } else if (bufs[lsubvol].ia_ctime < bufs[child].ia_ctime) {
+                        lsubvol = child;
+                } else if ((bufs[lsubvol].ia_ctime == bufs[child].ia_ctime) &&
+                  (bufs[lsubvol].ia_ctime_nsec < bufs[child].ia_ctime_nsec)) {
+                        lsubvol = child;
+                }
+        }
+        return lsubvol;
+}
+
+void
+afr_lookup_mark_other_entries_stale (afr_local_t *local, xlator_t *this,
+                                     int subvol)
+{
+        afr_private_t *priv = NULL;
+        int32_t       *success_children = NULL;
+        struct iatt   *bufs = NULL;
+        int           i = 0;
+        int           child = 0;
+
+        priv = this->private;
+        success_children = local->cont.lookup.success_children;
+        bufs = local->cont.lookup.bufs;
+        memcpy (local->fresh_children, success_children,
+                sizeof (*success_children) * priv->child_count);
+        for (i = 0; i < priv->child_count; i++) {
+                child = local->fresh_children[i];
+                if (child == -1)
+                        break;
+                if (child == subvol)
+                        continue;
+                if (uuid_is_null (bufs[child].ia_gfid) &&
+                    (bufs[child].ia_type == bufs[subvol].ia_type))
+                        continue;
+                afr_children_rm_child (success_children, child,
+                                       priv->child_count);
+                local->success_count--;
+        }
+        afr_reset_children (local->fresh_children, priv->child_count);
+}
+
+void
+afr_succeed_lookup_on_latest_iatt (afr_local_t *local, xlator_t *this)
+{
+        int    lsubvol = 0;
+
+        if (!afr_lookup_conflicting_entries (local, this))
+                goto out;
+
+        lsubvol = afr_lookup_get_latest_subvol (local, this);
+        if (lsubvol < 0)
+                goto out;
+        afr_lookup_mark_other_entries_stale (local, this, lsubvol);
+out:
+        return;
+}
+
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this)
 {
@@ -1757,6 +1842,10 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 
         if (local->op_ret < 0)
                 goto unwind;
+
+        if (local->cont.lookup.parent_entrylk && local->success_count > 1)
+                afr_succeed_lookup_on_latest_iatt (local, this);
+
         gfid_miss_count = afr_lookup_gfid_missing_count (local, this);
         up_children_count = afr_up_children_count (local->child_up,
                                                    priv->child_count);
