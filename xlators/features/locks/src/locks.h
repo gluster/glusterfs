@@ -165,6 +165,7 @@ typedef struct {
         gf_boolean_t   entrylk_count_req;
         gf_boolean_t   inodelk_count_req;
         gf_boolean_t   posixlk_count_req;
+        gf_boolean_t   parent_entrylk_req;
 
         /* used by {f,}truncate */
         loc_t  loc;

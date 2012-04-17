@@ -1508,6 +1508,24 @@ out:
 }
 
 void
+pl_parent_entrylk_xattr_fill (xlator_t *this, inode_t *parent,
+                              char *basename, dict_t *dict)
+{
+        uint32_t         entrylk = 0;
+        int             ret     = -1;
+
+        if (!parent || !basename || !strlen (basename))
+                goto out;
+        entrylk = check_entrylk_on_basename (this, parent, basename);
+out:
+        ret = dict_set_uint32 (dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_PARENT_ENTRYLK);
+        }
+}
+
+void
 pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
                        dict_t *dict)
 {
@@ -1570,12 +1588,14 @@ pl_lookup_cbk (call_frame_t *frame,
 
         GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
 
-        if (op_ret) {
+        if (op_ret)
                 goto out;
-        }
 
         local = frame->local;
 
+        if (local->parent_entrylk_req)
+                pl_parent_entrylk_xattr_fill (this, local->loc.parent,
+                                              (char*)local->loc.name, xdata);
         if (local->entrylk_count_req)
                 pl_entrylk_xattr_fill (this, inode, xdata);
         if (local->inodelk_count_req)
@@ -1584,12 +1604,15 @@ pl_lookup_cbk (call_frame_t *frame,
                 pl_posixlk_xattr_fill (this, inode, xdata);
 
 
+out:
+        local = frame->local;
         frame->local = NULL;
 
-        if (local != NULL)
+        if (local != NULL) {
+                loc_wipe (&local->loc);
                 mem_put (local);
+        }
 
-out:
         STACK_UNWIND_STRICT (
                      lookup,
                      frame,
@@ -1625,9 +1648,12 @@ pl_lookup (call_frame_t *frame,
                         local->inodelk_count_req = 1;
                 if (dict_get (xdata, GLUSTERFS_POSIXLK_COUNT))
                         local->posixlk_count_req = 1;
+                if (dict_get (xdata, GLUSTERFS_PARENT_ENTRYLK))
+                        local->parent_entrylk_req = 1;
         }
 
         frame->local = local;
+        loc_copy (&local->loc, loc);
 
         STACK_WIND (frame,
                     pl_lookup_cbk,

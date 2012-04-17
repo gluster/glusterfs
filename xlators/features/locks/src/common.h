@@ -149,4 +149,6 @@ pl_verify_reservelk (xlator_t *this, pl_inode_t *pl_inode,
                      posix_lock_t *lock, int can_block);
 int
 pl_reserve_unlock (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *reqlock);
+uint32_t
+check_entrylk_on_basename (xlator_t *this, inode_t *parent, char *basename);
 #endif /* __COMMON_H__ */
