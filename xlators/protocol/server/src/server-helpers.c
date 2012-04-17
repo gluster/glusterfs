@@ -1405,7 +1405,7 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
         uint64_t          total_write = 0;
 
         conf = frame->this->private;
-        if (!conf)
+        if (!conf || !dict)
                 return 0;
 
         for (pair = dict->members_list; pair; pair = pair->next) {
