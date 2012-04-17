@@ -180,8 +180,6 @@ nfs_add_all_initiators (struct nfs_state *nfs)
                                 " initializer");
                         goto ret;
                 }
-        } else {
-                gf_log (GF_NFS, GF_LOG_INFO, "NLM is manually disabled");
         }
 
         ret = 0;
@@ -512,6 +510,7 @@ nfs_init_state (xlator_t *this)
         unsigned int            fopspoolsize = 0;
         char                    *optstr = NULL;
         gf_boolean_t            boolt = _gf_false;
+        struct stat             stbuf = {0,};
 
         if (!this)
                 return NULL;
@@ -584,8 +583,10 @@ nfs_init_state (xlator_t *this)
                         goto free_foppool;
                 }
 
-                if (boolt == _gf_false)
+                if (boolt == _gf_false) {
+                        gf_log (GF_NFS, GF_LOG_INFO, "NLM is manually disabled");
                         nfs->enable_nlm = _gf_false;
+                }
         }
 
         nfs->enable_ino32 = 0;
@@ -708,6 +709,12 @@ nfs_init_state (xlator_t *this)
                         gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
                         goto free_foppool;
                 }
+        }
+
+        if (stat("/sbin/rpc.statd", &stbuf) == -1) {
+                gf_log (GF_NFS, GF_LOG_WARNING, "/sbin/rpc.statd not found. "
+                        "Disabling NLM");
+                nfs->enable_nlm = _gf_false;
         }
 
         nfs->rpcsvc =  rpcsvc_init (this, this->ctx, this->options, 0);
