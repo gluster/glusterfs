@@ -441,6 +441,32 @@ out:
         return ret_lock;
 }
 
+uint32_t
+check_entrylk_on_basename (xlator_t *this, inode_t *parent, char *basename)
+{
+        uint32_t        entrylk = 0;
+        pl_inode_t      *pinode = 0;
+        pl_dom_list_t   *dom = NULL;
+        pl_entry_lock_t *conf       = NULL;
+
+        pinode = pl_inode_get (this, parent);
+        if (!pinode)
+                goto out;
+        pthread_mutex_lock (&pinode->mutex);
+        {
+                list_for_each_entry (dom, &pinode->dom_list, inode_list) {
+                        conf = __lock_grantable (dom, basename, ENTRYLK_WRLCK);
+                        if (conf && conf->basename) {
+                                entrylk = 1;
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&pinode->mutex);
+
+out:
+        return entrylk;
+}
 
 void
 __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
