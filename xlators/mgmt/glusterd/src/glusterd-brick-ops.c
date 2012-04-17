@@ -1563,7 +1563,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 }
 
                 ret = glusterd_op_perform_remove_brick (volinfo, brick, force,
-                                                        (i == 1) ? &need_rebalance : NULL);
+                                                        &need_rebalance);
                 if (ret)
                         goto out;
                 i++;
