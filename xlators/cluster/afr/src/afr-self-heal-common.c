@@ -1363,6 +1363,7 @@ afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
         afr_self_heal_t *sh = NULL;
         afr_self_heal_t *expunge_sh = NULL;
         int32_t         op_errno = 0;
+        int             ret = 0;
 
         expunge_frame = copy_frame (frame);
         if (!expunge_frame) {
@@ -1377,6 +1378,12 @@ afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
         expunge_sh = &expunge_local->self_heal;
         expunge_sh->sh_frame = frame;
         loc_copy (&expunge_local->loc, &local->loc);
+        ret = afr_build_parent_loc (&expunge_sh->parent_loc,
+                                    &expunge_local->loc, &op_errno);
+        if (ret) {
+                ret = -op_errno;
+                goto out;
+        }
         sh->expunge_done = expunge_done;
         afr_sh_entry_expunge_remove (expunge_frame, this, child_index, buf,
                                      parentbuf);
