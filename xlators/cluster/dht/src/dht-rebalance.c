@@ -1527,6 +1527,8 @@ gf_defrag_start (void *data)
         if (!frame)
                 goto out;
 
+        frame->root->pid = GF_CLIENT_PID_DEFRAG;
+
         defrag->pid = frame->root->pid;
 
         defrag->defrag_status = GF_DEFRAG_STATUS_STARTED;
