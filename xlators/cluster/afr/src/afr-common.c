@@ -4109,7 +4109,6 @@ afr_priv_destroy (afr_private_t *priv)
         GF_FREE (priv->shd.pos);
         GF_FREE (priv->shd.pending);
         GF_FREE (priv->shd.inprogress);
-        GF_FREE (priv->shd.sh_times);
 //        for (i = 0; i < priv->child_count; i++)
 //                if (priv->shd.timer && priv->shd.timer[i])
 //                        gf_timer_call_cancel (this->ctx, priv->shd.timer[i]);

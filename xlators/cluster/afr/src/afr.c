@@ -406,12 +406,6 @@ init (xlator_t *this)
         if (!priv->shd.split_brain)
                 goto out;
 
-        priv->shd.sh_times = GF_CALLOC (priv->child_count,
-                                        sizeof (*priv->shd.sh_times),
-                                        gf_afr_mt_time_t);
-        if (!priv->shd.sh_times)
-                goto out;
-
         this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
         if (!this->itable)
                 goto out;
