@@ -100,7 +100,6 @@ typedef struct afr_self_heald_ {
         afr_crawl_type_t *pending;
         gf_boolean_t     *inprogress;
         afr_child_pos_t  *pos;
-        time_t           *sh_times;
         gf_timer_t       **timer;
         eh_t             *healed;
         eh_t             *heal_failed;

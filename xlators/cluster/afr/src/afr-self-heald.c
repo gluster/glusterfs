@@ -41,7 +41,6 @@ typedef enum {
 
 typedef struct shd_dump {
         dict_t   *dict;
-        time_t   sh_time;
         xlator_t *this;
         int      child;
 } shd_dump_t;
@@ -219,23 +218,20 @@ _add_event_to_dict (circular_buffer_t *cb, void *data)
         shd_event = cb->data;
         if (shd_event->child != dump_data->child)
                 goto out;
-        if (cb->tv.tv_sec >= dump_data->sh_time)
-                ret = _add_str_to_dict (dump_data->this, dump_data->dict,
-                                        dump_data->child, shd_event->path,
-                                        _gf_false);
+        ret = _add_str_to_dict (dump_data->this, dump_data->dict,
+                                dump_data->child, shd_event->path,
+                                _gf_false);
 out:
         return ret;
 }
 
 int
-_add_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict, time_t sh_time,
-                 int child)
+_add_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict, int child)
 {
         shd_dump_t dump_data = {0};
 
         dump_data.this = this;
         dump_data.dict = dict;
-        dump_data.sh_time = sh_time;
         dump_data.child = child;
         eh_dump (eh, &dump_data, _add_event_to_dict);
         return 0;
@@ -385,13 +381,6 @@ afr_crawl_done  (int ret, call_frame_t *sync_frame, void *data)
 void
 _do_self_heal_on_subvol (xlator_t *this, int child, afr_crawl_type_t crawl)
 {
-        afr_private_t   *priv = NULL;
-        afr_self_heald_t *shd = NULL;
-
-        priv = this->private;
-        shd = &priv->shd;
-
-        time (&shd->sh_times[child]);
         afr_start_crawl (this, child, crawl, _self_heal_entry,
                          NULL, _gf_true, STOP_CRAWL_ON_SINGLE_SUBVOL,
                          afr_crawl_done);
@@ -525,7 +514,7 @@ _add_all_subvols_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict)
         for (i = 0; i < priv->child_count; i++) {
                 if (shd->pos[i] != AFR_POS_LOCAL)
                         continue;
-                _add_eh_to_dict (this, eh, dict, shd->sh_times[i], i);
+                _add_eh_to_dict (this, eh, dict, i);
         }
         return 0;
 }
