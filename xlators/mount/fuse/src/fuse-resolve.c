@@ -30,6 +30,8 @@ fuse_resolve_all (fuse_state_t *state);
 int fuse_resolve_continue (fuse_state_t *state);
 int fuse_resolve_entry_simple (fuse_state_t *state);
 int fuse_resolve_inode_simple (fuse_state_t *state);
+int fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
+                     xlator_t *new_subvol);
 
 fuse_fd_ctx_t *
 fuse_fd_ctx_get (xlator_t *this, fd_t *fd);
@@ -334,29 +336,97 @@ fuse_resolve_inode (fuse_state_t *state)
         return 0;
 }
 
+
+int
+fuse_migrate_fd_task (void *data)
+{
+        int                     ret   = -1;
+        fuse_fd_ctx_t          *fdctx = NULL;
+        fuse_state_t           *state = NULL;
+
+        state = data;
+        if (state == NULL) {
+                goto out;
+        }
+
+        ret = fuse_migrate_fd (state->this, state->fd,
+                               state->fd->inode->table->xl,
+                               state->active_subvol);
+
+        fdctx = fuse_fd_ctx_check_n_create (state->this, state->fd);
+        if (fdctx != NULL) {
+                if (ret < 0) {
+                        fdctx->migration_failed = 1;
+                } else {
+                        fdctx->migration_failed = 0;
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+
+static inline int
+fuse_migrate_fd_error (xlator_t *this, fd_t *fd)
+{
+        fuse_fd_ctx_t *fdctx = NULL;
+        char           error = 0;
+
+        fdctx = fuse_fd_ctx_get (this, fd);
+        if (fdctx != NULL) {
+                if (fdctx->migration_failed) {
+                        error = 1;
+                }
+        }
+
+        return error;
+}
+
+
 static int
 fuse_resolve_fd (fuse_state_t *state)
 {
-        fuse_resolve_t *resolve       = NULL;
-	fd_t           *fd            = NULL;
-	xlator_t       *active_subvol = NULL;
-        fuse_fd_ctx_t  *fdctx         = NULL;
+        fuse_resolve_t         *resolve            = NULL;
+	fd_t                   *fd                 = NULL;
+	xlator_t               *active_subvol      = NULL;
+        int                     ret                = 0;
+        char                    fd_migration_error = 0;
 
         resolve = state->resolve_now;
 
         fd = resolve->fd;
 	active_subvol = fd->inode->table->xl;
 
-        if (state->active_subvol != active_subvol) {
+        fd_migration_error = fuse_migrate_fd_error (state->this, fd);
+        if (fd_migration_error) {
                 resolve->op_ret = -1;
                 resolve->op_errno = EBADF;
-        }
+        } else if (state->active_subvol != active_subvol) {
+                ret = synctask_new (state->this->ctx->env, fuse_migrate_fd_task,
+                                    NULL, NULL, state);
 
-        fdctx = fuse_fd_ctx_get (state->this, fd);
-        if (fdctx != NULL) {
-                if (fdctx->migration_failed) {
+                fd_migration_error = fuse_migrate_fd_error (state->this, fd);
+
+                if ((ret == -1) || fd_migration_error
+                    || (state->active_subvol != fd->inode->table->xl)) {
+                        if (ret == -1) {
+                                gf_log (state->this->name, GF_LOG_WARNING,
+                                        "starting sync-task to migrate fd (%p)"
+                                        " failed", fd);
+                        } else {
+                                gf_log (state->this->name, GF_LOG_WARNING,
+                                        "fd migration of fd (%p) failed", fd);
+                        }
+
                         resolve->op_ret = -1;
                         resolve->op_errno = EBADF;
+                } else {
+                        gf_log (state->this->name, GF_LOG_DEBUG,
+                                "fd (%p) migrated successfully in resolver",
+                                fd);
                 }
         }
 
