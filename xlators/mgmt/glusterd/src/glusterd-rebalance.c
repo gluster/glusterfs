@@ -344,8 +344,6 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_argprintf (&runner, "%s",pidfile);
         runner_add_arg (&runner, "-l");
         runner_argprintf (&runner, logfile);
-        runner_add_arg (&runner, "--client-pid");
-        runner_argprintf (&runner, "%d", GF_CLIENT_PID_DEFRAG);
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
 
