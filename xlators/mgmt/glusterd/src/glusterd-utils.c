@@ -2420,7 +2420,8 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
          * stop stale bricks. Stale volume information is going to be deleted.
          * Which deletes the valid brick information inside stale volinfo.
          * We dont want brick_rpc_notify to access already deleted brickinfo.
-         * Disconnect valid bricks.
+         * Disconnect all bricks from stale_volinfo (unconditionally), since
+         * they are being deleted subsequently.
          */
         if (glusterd_is_volume_started (stale_volinfo)) {
                 if (glusterd_is_volume_started (valid_volinfo)) {
@@ -2429,10 +2430,12 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                         //Only valid bricks will be running now.
                         (void) glusterd_volinfo_copy_brick_portinfo (valid_volinfo,
                                                                      stale_volinfo);
-                        (void) glusterd_volume_disconnect_all_bricks (stale_volinfo);
+
                 } else {
                         (void) glusterd_stop_bricks (stale_volinfo);
                 }
+
+                (void) glusterd_volume_disconnect_all_bricks (stale_volinfo);
         }
         /* Delete all the bricks and stores and vol files. They will be created
          * again by the valid_volinfo. Volume store delete should not be
