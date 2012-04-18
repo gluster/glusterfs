@@ -26,7 +26,7 @@ static int gf_fuse_xattr_enotsup_log;
 void fini (xlator_t *this_xl);
 
 fuse_fd_ctx_t *
-__fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this)
+__fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd)
 {
         uint64_t       val    = 0;
         int32_t        ret    = 0;
@@ -54,7 +54,7 @@ __fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this)
 }
 
 fuse_fd_ctx_t *
-fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this)
+fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd)
 {
         fuse_fd_ctx_t *fd_ctx = NULL;
 
@@ -64,7 +64,7 @@ fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this)
 
         LOCK (&fd->lock);
         {
-                fd_ctx = __fuse_fd_ctx_check_n_create (fd, this);
+                fd_ctx = __fuse_fd_ctx_check_n_create (this, fd);
         }
         UNLOCK (&fd->lock);
 
@@ -618,7 +618,7 @@ fuse_fd_inherit_directio (xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
         GF_VALIDATE_OR_GOTO_WITH_ERROR ("glusterfs-fuse", foo, out, ret,
                                         -EINVAL);
 
-        fdctx = fuse_fd_ctx_check_n_create (fd, this);
+        fdctx = fuse_fd_ctx_check_n_create (this, fd);
         if (!fdctx) {
                 ret = -ENOMEM;
                 goto out;
@@ -3506,6 +3506,7 @@ fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc)
         int          ret          = -1;
         dict_t      *xattr_req    = NULL;
         struct iatt  iatt         = {0, };
+        inode_t     *linked_inode = NULL;
 
         if ((loc == NULL) || (xl == NULL)) {
                 goto out;
@@ -3530,7 +3531,9 @@ fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc)
                 goto out;
         }
 
-        inode_link (loc->inode, NULL, NULL, &iatt);
+        linked_inode = inode_link (loc->inode, NULL, NULL, &iatt);
+        inode_unref (loc->inode);
+        loc->inode = linked_inode;
 
         ret = 0;
 out:
@@ -3589,13 +3592,17 @@ fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
         loc.path = "";
         loc.name = NULL;
 
-        ret = fuse_nameless_lookup (new_subvol, fd->inode->gfid, &loc);
-        if (ret < 0) {
-                ret = -2;
-                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "name-less lookup of gfid (%s) failed (%s)",
-                        uuid_utoa (fd->inode->gfid), strerror (errno));
-                goto out;
+        loc.inode = inode_find (new_subvol->itable, fd->inode->gfid);
+
+        if (loc.inode == NULL) {
+                ret = fuse_nameless_lookup (new_subvol, fd->inode->gfid, &loc);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "name-less lookup of gfid (%s) failed (%s)",
+                                uuid_utoa (fd->inode->gfid), strerror (errno));
+                        goto out;
+                }
+
         }
 
         old_inode = fd->inode;
@@ -3669,34 +3676,13 @@ fuse_handle_opened_fds (xlator_t *this, xlator_t *old_subvol,
                                 continue;
 
                         ret = fuse_migrate_fd (this, fd, old_subvol,
-                                                       new_subvol);
-                        if (ret < 0) {
-                                if (ret == -1) {
-                                        fdctx = fuse_fd_ctx_check_n_create (fd,
-                                                                         this);
-                                        if (fdctx != NULL) {
-                                                fdctx->migration_failed = 1;
-                                                gf_log_callingfn ("glusterfs-"
-                                                                  "fuse",
-                                                                  GF_LOG_ERROR,
-                                                                  "fd migration"
-                                                                  " for the fd "
-                                                                  "(%p), with"
-                                                                  "context (%p)"
-                                                                  " failed", fd,
-                                                                  fdctx);
-                                        }
+                                               new_subvol);
+
+                        fdctx = fuse_fd_ctx_check_n_create (this, fd);
+                        if (fdctx) {
+                                if (ret < 0) {
+                                        fdctx->migration_failed = 1;
                                 } else {
-                                        /* nameless lookup has failed,
-                                         * it can be identified using
-                                         * fd->inode->table->xl
-                                         * != active_subvol. so, do
-                                         * nothing
-                                         */
-                                }
-                        } else {
-                                fdctx = fuse_fd_ctx_get (this, fd);
-                                if (fdctx != NULL) {
                                         fdctx->migration_failed = 0;
                                 }
                         }
@@ -3707,6 +3693,7 @@ fuse_handle_opened_fds (xlator_t *this, xlator_t *old_subvol,
                         if (fd)
                                 fd_unref (fd);
                 }
+
                 GF_FREE (fdentries);
         }
 
