@@ -441,20 +441,22 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        if ((volinfo->rb_status ==GF_RB_STATUS_NONE) &&
+        ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
+        if (ret)
+                goto out;
+
+       if ((volinfo->rb_status ==GF_RB_STATUS_NONE) &&
             (replace_op == GF_REPLACE_OP_START ||
              replace_op == GF_REPLACE_OP_COMMIT_FORCE)) {
-                ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
+
                 volinfo->src_brick = src_brickinfo;
                 volinfo->dst_brick = dst_brickinfo;
-        } else {
-                ret = glusterd_get_rb_dst_brickinfo (volinfo, &dst_brickinfo);
         }
 
         if (glusterd_rb_check_bricks (volinfo, src_brickinfo, dst_brickinfo)) {
 
                 ret = -1;
-                *op_errstr = gf_strdup ("incorrect source or "
+                *op_errstr = gf_strdup ("Incorrect source or "
                                         "destination brick");
                 if (*op_errstr)
                         gf_log (THIS->name, GF_LOG_ERROR, "%s", *op_errstr);
