@@ -35,7 +35,7 @@
 #include <signal.h>
 
 static char *gsync_reserved_opts[] = {
-        "gluster-command",
+        "gluster-command-dir",
         "pid-file",
         "state-file",
         "session-owner",
