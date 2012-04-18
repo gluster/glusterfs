@@ -1801,24 +1801,6 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 return 0;
         }
 
-        /**
-         * XXX: We will never reach here as call_cnt will always be 1.
-         * But code is kept untouched as we may need it when hashed_subvol
-         * bug is fixed.
-         */
-        if (local->xattr_val)
-                strcat (local->xattr_val, " Link: ");
-        if (local->hashed_subvol) {
-                /* This will happen if there pending */
-                STACK_WIND (frame, dht_vgetxattr_cbk, local->hashed_subvol,
-                            local->hashed_subvol->fops->getxattr,
-                            &local->loc, local->key, NULL);
-
-                return 0;
-        }
-
-        gf_log ("this->name", GF_LOG_ERROR, "Unable to find hashed_subvol"
-                " for path %s", local->xattr_val);
 unwind:
         DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, NULL);
         return 0;
