@@ -59,6 +59,7 @@ __iot_dequeue (iot_conf_t *conf, int *pri)
                 return NULL;
 
         conf->queue_size--;
+        conf->queue_sizes[*pri]--;
         list_del_init (&stub->list);
 
         return stub;
@@ -74,6 +75,7 @@ __iot_enqueue (iot_conf_t *conf, call_stub_t *stub, int pri)
         list_add_tail (&stub->list, &conf->reqs[pri]);
 
         conf->queue_size++;
+        conf->queue_sizes[pri]++;
 
         return;
 }
@@ -2359,20 +2361,19 @@ out:
 int
 __iot_workers_scale (iot_conf_t *conf)
 {
-        int       log2 = 0;
         int       scale = 0;
         int       diff = 0;
         pthread_t thread;
         int       ret = 0;
+        int       i = 0;
 
-        log2 = log_base2 (conf->queue_size);
+        for (i = 0; i < IOT_PRI_MAX; i++)
+                scale += min (conf->queue_sizes[i], conf->ac_iot_limit[i]);
 
-        scale = log2;
-
-        if (log2 < IOT_MIN_THREADS)
+        if (scale < IOT_MIN_THREADS)
                 scale = IOT_MIN_THREADS;
 
-        if (log2 > conf->max_count)
+        if (scale > conf->max_count)
                 scale = conf->max_count;
 
         if (conf->curr_count < scale) {
