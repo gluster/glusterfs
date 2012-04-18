@@ -1711,6 +1711,7 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_ERROR, "No sources for dir "
                         "of %s, in missing entry self-heal, aborting "
                         "self-heal", local->loc.path);
+                op_errno = EIO;
                 goto out;
         }
 
@@ -1718,6 +1719,7 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
         if (source == -1) {
                 GF_ASSERT (0);
                 gf_log (this->name, GF_LOG_DEBUG, "No active sources found.");
+                op_errno = EIO;
                 goto out;
         }
         afr_get_fresh_children (sh->success_children, sh->sources,
@@ -1728,7 +1730,7 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
         return;
 
 out:
-        afr_sh_set_error (sh, EIO);
+        afr_sh_set_error (sh, op_errno);
         sh->op_failed = 1;
         afr_sh_missing_entries_finish (frame, this);
         return;
