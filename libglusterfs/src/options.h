@@ -143,7 +143,7 @@ xlator_option_init_##type (xlator_t *this, dict_t *options, char *key,  \
                 return 0;                                               \
         }                                                               \
         if (value == def_value) {                                       \
-                gf_log (this->name, GF_LOG_DEBUG,                       \
+                gf_log (this->name, GF_LOG_TRACE,                       \
                         "option %s using default value %s",             \
                         key, value);                                    \
         } else {                                                        \

@@ -81,7 +81,7 @@ xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
         }
 
         if ((opt->min == 0) && (opt->max == 0)) {
-                gf_log (xl->name, GF_LOG_DEBUG,
+                gf_log (xl->name, GF_LOG_TRACE,
                         "no range check required for 'option %s %s'",
                         key, value);
                 ret = 0;
@@ -123,7 +123,7 @@ xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
         }
 
         if ((opt->min == 0) && (opt->max == 0)) {
-                gf_log (xl->name, GF_LOG_DEBUG,
+                gf_log (xl->name, GF_LOG_TRACE,
                         "no range check required for 'option %s %s'",
                         key, value);
                 ret = 0;
@@ -336,7 +336,7 @@ xlator_option_validate_percent_or_sizet (xlator_t *xl, const char *key,
 		}
 		/* Check the range */
 		if ((opt->min == 0) && (opt->max == 0)) {
-			gf_log (xl->name, GF_LOG_DEBUG,
+			gf_log (xl->name, GF_LOG_TRACE,
 				"no range check required for "
 				"'option %s %s'",
 				key, value);
@@ -390,7 +390,7 @@ xlator_option_validate_time (xlator_t *xl, const char *key, const char *value,
         }
 
         if ((opt->min == 0) && (opt->max == 0)) {
-                gf_log (xl->name, GF_LOG_DEBUG,
+                gf_log (xl->name, GF_LOG_TRACE,
                         "no range check required for "
                         "'option %s %s'",
                         key, value);
@@ -442,7 +442,7 @@ xlator_option_validate_double (xlator_t *xl, const char *key, const char *value,
         }
 
         if ((opt->min == 0) && (opt->max == 0)) {
-                gf_log (xl->name, GF_LOG_DEBUG,
+                gf_log (xl->name, GF_LOG_TRACE,
                         "no range check required for 'option %s %s'",
                         key, value);
                 ret = 0;
