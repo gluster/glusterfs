@@ -3314,6 +3314,8 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         fctx = (stripe_fd_ctx_t *)(long)tmp_fctx;
         stripe_size = fctx->stripe_size;
 
+        STRIPE_VALIDATE_FCTX (fctx, err);
+
         if (!stripe_size) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Wrong stripe size for the file");
@@ -3458,6 +3460,8 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         fctx = (stripe_fd_ctx_t *)(long)tmp_fctx;
         stripe_size = fctx->stripe_size;
+
+        STRIPE_VALIDATE_FCTX (fctx, err);
 
         /* File has to be stripped across the child nodes */
         for (idx = 0; idx< count; idx ++) {
