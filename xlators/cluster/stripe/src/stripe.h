@@ -64,6 +64,23 @@
                 }                                               \
         } while (0)
 
+#define STRIPE_VALIDATE_FCTX(fctx, label) do {                  \
+        int     idx = 0;                                        \
+        if (!fctx) {                                            \
+                op_errno = EINVAL;                              \
+                goto label;                                     \
+        }                                                       \
+        for (idx = 0; idx < fctx->stripe_count; idx++) {        \
+                if (!fctx->xl_array[idx]) {                     \
+                        gf_log (this->name, GF_LOG_ERROR,       \
+                                "fctx->xl_array[%d] is NULL",   \
+                                idx);                           \
+                        op_errno = ESTALE;                      \
+                        goto label;                             \
+                }                                               \
+        }                                                       \
+       } while (0)
+
 typedef struct stripe_xattr_sort {
         int32_t  pos;
         int32_t  xattr_len;
