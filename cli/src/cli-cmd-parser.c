@@ -688,6 +688,10 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
 
                 count++;
 
+                ret = gf_strip_whitespace (value, strlen (value));
+                if (ret == -1)
+                        goto out;
+
                 sprintf (str, "key%d", count);
                 ret = dict_set_str (dict, str, key);
                 if (ret)
