@@ -238,23 +238,23 @@ xlator_dynload (xlator_t *xl)
         }
 
         if (!(xl->notify = dlsym (handle, "notify"))) {
-                gf_log ("xlator", GF_LOG_DEBUG,
+                gf_log ("xlator", GF_LOG_TRACE,
                         "dlsym(notify) on %s -- neglecting", dlerror ());
         }
 
         if (!(xl->dumpops = dlsym (handle, "dumpops"))) {
-                gf_log ("xlator", GF_LOG_DEBUG,
+                gf_log ("xlator", GF_LOG_TRACE,
                         "dlsym(dumpops) on %s -- neglecting", dlerror ());
         }
 
         if (!(xl->mem_acct_init = dlsym (handle, "mem_acct_init"))) {
-                gf_log (xl->name, GF_LOG_DEBUG,
+                gf_log (xl->name, GF_LOG_TRACE,
                         "dlsym(mem_acct_init) on %s -- neglecting",
                         dlerror ());
         }
 
         if (!(xl->reconfigure = dlsym (handle, "reconfigure"))) {
-                gf_log ("xlator", GF_LOG_DEBUG,
+                gf_log ("xlator", GF_LOG_TRACE,
                         "dlsym(reconfigure) on %s -- neglecting",
                         dlerror());
         }
@@ -268,7 +268,7 @@ xlator_dynload (xlator_t *xl)
 
         if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
                 dlerror ();
-                gf_log (xl->name, GF_LOG_DEBUG,
+                gf_log (xl->name, GF_LOG_TRACE,
                         "Strict option validation not enforced -- neglecting");
         }
         list_add_tail (&vol_opt->list, &xl->volume_options);
