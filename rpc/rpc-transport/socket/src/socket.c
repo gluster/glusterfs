@@ -2070,6 +2070,16 @@ socket_connect (rpc_transport_t *this, int port)
                         }
                 }
 
+                if (priv->nodelay) {
+                        ret = __socket_nodelay (priv->sock);
+
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "NODELAY on %d failed (%s)",
+                                        priv->sock, strerror (errno));
+                        }
+                }
+
                 if (!priv->bio) {
                         ret = __socket_nonblock (priv->sock);
 
