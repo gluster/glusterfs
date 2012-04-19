@@ -494,4 +494,5 @@ char *get_path_name (char *word, char **path);
 void gf_path_strip_trailing_slashes (char *path);
 uint64_t get_mem_size ();
 int gf_client_pid_check (gf_client_pid_t npid);
+int gf_strip_whitespace (char *str, int len);
 #endif /* _COMMON_UTILS_H */
