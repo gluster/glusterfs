@@ -2783,17 +2783,38 @@ glusterd_nodesvc_connect (char *server, char *socketpath) {
         dict_t                  *options = NULL;
         struct rpc_clnt         *rpc = NULL;
 
-        ret = rpc_clnt_transport_unix_options_build (&options, socketpath);
-        if (ret)
-                goto out;
-        ret = glusterd_rpc_create (&rpc, options,
-                                   glusterd_nodesvc_rpc_notify,
-                                   server);
-        if (ret)
-                goto out;
-        (void) glusterd_nodesvc_set_rpc (server, rpc);
+        rpc = glusterd_nodesvc_get_rpc (server);
+
+        if (rpc == NULL) {
+                ret = rpc_clnt_transport_unix_options_build (&options,
+                                                             socketpath);
+                if (ret)
+                        goto out;
+                ret = glusterd_rpc_create (&rpc, options,
+                                           glusterd_nodesvc_rpc_notify,
+                                           server);
+                if (ret)
+                        goto out;
+                (void) glusterd_nodesvc_set_rpc (server, rpc);
+        }
 out:
         return ret;
+}
+
+int32_t
+glusterd_nodesvc_disconnect (char *server)
+{
+        struct rpc_clnt         *rpc = NULL;
+
+        rpc = glusterd_nodesvc_get_rpc (server);
+
+        if (rpc) {
+                rpc_clnt_connection_cleanup (&rpc->conn);
+                rpc_clnt_unref (rpc);
+                (void)glusterd_nodesvc_set_rpc (server, NULL);
+        }
+
+        return 0;
 }
 
 int32_t
@@ -2910,6 +2931,31 @@ glusterd_is_nodesvc_running (char *server)
 }
 
 int32_t
+glusterd_nodesvc_unlink_socket_file (char *server)
+{
+        int             ret = 0;
+        char            sockfpath[PATH_MAX] = {0,};
+        char            rundir[PATH_MAX] = {0,};
+        glusterd_conf_t *priv = THIS->private;
+
+        glusterd_get_nodesvc_rundir (server, priv->workdir,
+                                     rundir, sizeof (rundir));
+
+        glusterd_nodesvc_set_socket_filepath (rundir, priv->uuid,
+                                              sockfpath, sizeof (sockfpath));
+
+        ret = unlink (sockfpath);
+        if (ret && (ENOENT == errno)) {
+                ret = 0;
+        } else {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to remove %s"
+                        " error: %s", sockfpath, strerror (errno));
+        }
+
+        return ret;
+}
+
+int32_t
 glusterd_nodesvc_stop (char *server, int sig)
 {
         char                    pidfile[PATH_MAX] = {0,};
@@ -2918,9 +2964,17 @@ glusterd_nodesvc_stop (char *server, int sig)
 
         if (!glusterd_is_nodesvc_running (server))
                 goto out;
+
+        (void)glusterd_nodesvc_disconnect (server);
+
         glusterd_get_nodesvc_pidfile (server, priv->workdir,
                                             pidfile, sizeof (pidfile));
         ret = glusterd_service_stop (server, pidfile, sig, _gf_true);
+
+        if (ret == 0) {
+                glusterd_nodesvc_set_running (server, _gf_false);
+                (void)glusterd_nodesvc_unlink_socket_file (server);
+        }
 out:
         return ret;
 }

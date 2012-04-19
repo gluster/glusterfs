@@ -198,6 +198,7 @@ int glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx);
 int glusterfs_volumes_init (glusterfs_ctx_t *ctx);
 int glusterfs_mgmt_init (glusterfs_ctx_t *ctx);
 int glusterfs_listener_init (glusterfs_ctx_t *ctx);
+int glusterfs_listener_stop (glusterfs_ctx_t *ctx);
 
 int
 create_fuse_mount (glusterfs_ctx_t *ctx)
@@ -798,7 +799,7 @@ cleanup_and_exit (int signum)
         ctx->cleanup_started = 1;
         glusterfs_mgmt_pmap_signout (ctx);
         if (ctx->listener) {
-                ctx->listener = NULL;
+                (void) glusterfs_listener_stop (ctx);
         }
 
         /* Call fini() of FUSE xlator first:

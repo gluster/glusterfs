@@ -1273,18 +1273,34 @@ rpcsvc_submit_message (rpcsvc_request_t *req, struct iovec *proghdr,
 
 
 int
-rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *prog)
+rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
 {
         int                     ret = -1;
-
-        if (!svc || !prog) {
+        rpcsvc_program_t        *prog = NULL;
+        if (!svc || !program) {
                 goto out;
         }
 
-        ret = rpcsvc_program_unregister_portmap (prog);
+        ret = rpcsvc_program_unregister_portmap (program);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap unregistration of"
                         " program failed");
+                goto out;
+        }
+
+        pthread_mutex_lock (&svc->rpclock);
+        {
+                list_for_each_entry (prog, &svc->programs, program) {
+                        if ((prog->prognum == program->prognum)
+                            && (prog->progver == program->progver)) {
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&svc->rpclock);
+
+        if (prog == NULL) {
+                ret = -1;
                 goto out;
         }
 
@@ -1294,7 +1310,7 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *prog)
 
         pthread_mutex_lock (&svc->rpclock);
         {
-                list_del (&prog->program);
+                list_del_init (&prog->program);
         }
         pthread_mutex_unlock (&svc->rpclock);
 
@@ -1302,8 +1318,8 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *prog)
 out:
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program unregistration failed"
-                        ": %s, Num: %d, Ver: %d, Port: %d", prog->progname,
-                        prog->prognum, prog->progver, prog->progport);
+                        ": %s, Num: %d, Ver: %d, Port: %d", program->progname,
+                        program->prognum, program->progver, program->progport);
         }
 
         return ret;
