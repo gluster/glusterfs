@@ -1232,20 +1232,6 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
                 goto out;
         }
 
-        xdr_size = xdr_sizeof ((xdrproc_t)xdr_callmsg, &request);
-
-        /* First, try to get a pointer into the buffer which the RPC
-         * layer can use.
-         */
-        request_iob = iobuf_get2 (clnt->ctx->iobuf_pool, (xdr_size + hdrsize));
-        if (!request_iob) {
-                goto out;
-        }
-
-        pagesize = iobuf_pagesize (request_iob);
-
-        record = iobuf_ptr (request_iob);  /* Now we have it. */
-
         /* Fill the rpc structure and XDR it into the buffer got above. */
         if (clnt->auth_null)
                 ret = rpc_clnt_fill_request (prognum, progver, procnum,
@@ -1259,6 +1245,20 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
                         "cannot build a rpc-request xid (%"PRIu64")", xid);
                 goto out;
         }
+
+        xdr_size = xdr_sizeof ((xdrproc_t)xdr_callmsg, &request);
+
+        /* First, try to get a pointer into the buffer which the RPC
+         * layer can use.
+         */
+        request_iob = iobuf_get2 (clnt->ctx->iobuf_pool, (xdr_size + hdrsize));
+        if (!request_iob) {
+                goto out;
+        }
+
+        pagesize = iobuf_pagesize (request_iob);
+
+        record = iobuf_ptr (request_iob);  /* Now we have it. */
 
         recordhdr = rpc_clnt_record_build_header (record, pagesize, &request,
                                                   hdrsize);
