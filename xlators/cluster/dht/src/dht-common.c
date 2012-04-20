@@ -3923,6 +3923,72 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
+dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int op_ret, int op_errno, struct iatt *preparent,
+               struct iatt *postparent, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        int           this_call_cnt = 0;
+        call_frame_t *prev = NULL;
+
+        local = frame->local;
+        prev  = cookie;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret == -1) {
+                        local->op_errno = op_errno;
+                        local->op_ret   = -1;
+                        if (op_errno != ENOENT && op_errno != EACCES) {
+                                local->need_selfheal = 1;
+                        }
+
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "rmdir on %s for %s failed (%s)",
+                                prev->this->name, local->loc.path,
+                                strerror (op_errno));
+                        goto unlock;
+                }
+
+                dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+                dht_iatt_merge (this, &local->postparent, postparent,
+                                prev->this);
+
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+               if (local->need_selfheal) {
+                        local->layout =
+                                dht_layout_get (this, local->loc.inode);
+
+                        /* TODO: neater interface needed below */
+                        local->stbuf.ia_type = local->loc.inode->ia_type;
+
+                        uuid_copy (local->gfid, local->loc.inode->gfid);
+                        dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
+                                              &local->loc, local->layout);
+               } else {
+
+                        if (local->loc.parent) {
+                                WIPE (&local->preparent);
+                                WIPE (&local->postparent);
+                        }
+
+                        DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
+                                          local->op_errno, &local->preparent,
+                                          &local->postparent, NULL);
+               }
+        }
+
+        return 0;
+}
+
+
+int
 dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
@@ -3930,6 +3996,7 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
+        int           done = 0;
 
         local = frame->local;
         prev  = cookie;
@@ -3962,7 +4029,16 @@ unlock:
 
 
         this_call_cnt = dht_frame_return (frame);
-        if (is_last_call (this_call_cnt)) {
+
+        /* if local->hashed_subvol, we are yet to wind to hashed_subvol. */
+        if (local->hashed_subvol && (this_call_cnt == 1)) {
+                done = 1;
+        } else if (!local->hashed_subvol && !this_call_cnt) {
+                done = 1;
+        }
+
+
+        if (done) {
                 if (local->need_selfheal && local->fop_succeeded) {
                         local->layout =
                                 dht_layout_get (this, local->loc.inode);
@@ -3973,7 +4049,17 @@ unlock:
                         uuid_copy (local->gfid, local->loc.inode->gfid);
                         dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
                                               &local->loc, local->layout);
-                } else {
+                } else if (this_call_cnt) {
+                        /* If non-hashed subvol's have responded, proceed */
+
+                        local->need_selfheal = 0;
+                        STACK_WIND (frame, dht_rmdir_hashed_subvol_cbk,
+                                    local->hashed_subvol,
+                                    local->hashed_subvol->fops->rmdir,
+                                    &local->loc, local->flags, NULL);
+                } else if (!this_call_cnt) {
+                        /* All subvol's have responded, proceed */
+
                         if (local->loc.parent) {
                                 WIPE (&local->preparent);
                                 WIPE (&local->postparent);
@@ -3995,6 +4081,7 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
         dht_local_t  *local = NULL;
         dht_conf_t   *conf = NULL;
         int           i = 0;
+        xlator_t     *hashed_subvol = NULL;
 
         VALIDATE_OR_GOTO (this->private, err);
 
@@ -4006,7 +4093,30 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 
         local->call_cnt = conf->subvolume_cnt;
 
+        /* first remove from non-hashed_subvol */
+        hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
+
+        if (!hashed_subvol) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to get hashed "
+                        "subvol for %s",local->loc.path);
+        } else {
+                local->hashed_subvol = hashed_subvol;
+        }
+
+        /* When DHT has only 1 child */
+        if (conf->subvolume_cnt == 1) {
+                STACK_WIND (frame, dht_rmdir_hashed_subvol_cbk,
+                            conf->subvolumes[0],
+                            conf->subvolumes[0]->fops->rmdir,
+                            &local->loc, local->flags, NULL);
+                return 0;
+        }
+
         for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (hashed_subvol &&
+                    (hashed_subvol == conf->subvolumes[i]))
+                        continue;
+
                 STACK_WIND (frame, dht_rmdir_cbk,
                             conf->subvolumes[i],
                             conf->subvolumes[i]->fops->rmdir,
