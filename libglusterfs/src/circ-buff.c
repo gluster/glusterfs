@@ -49,7 +49,6 @@ __cb_add_entry_buffer (buffer_t *buffer, void *item)
                 if (ret == -1)
                         gf_log_callingfn ("", GF_LOG_WARNING, "getting time of"
                                           "the day failed");
-
                 buffer->w_index++;
                 buffer->w_index %= buffer->size_buffer - 1;
                 //used_buffer size cannot be greater than the total buffer size
