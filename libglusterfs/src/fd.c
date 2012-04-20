@@ -598,7 +598,7 @@ __fd_create (inode_t *inode, uint64_t pid)
         if (!fd)
                 goto out;
 
-        fd->xl_count = 3 * inode->table->xl->graph->xl_count + 1;
+        fd->xl_count = inode->table->xl->graph->xl_count + 1;
 
         fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) * fd->xl_count),
                               gf_common_mt_fd_ctx);
@@ -783,9 +783,12 @@ fd_list_empty (inode_t *inode)
 int
 __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 {
-        int index = 0;
-        int ret = 0;
-        int set_idx = -1;
+        int             index   = 0, new_xl_count = 0;
+        int             ret     = 0;
+        int             set_idx = -1;
+        void           *begin   = NULL;
+        size_t          diff    = 0;
+        struct _fd_ctx *tmp     = NULL;
 
 	if (!fd || !xlator)
 		return -1;
@@ -804,9 +807,33 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
         }
 
         if (set_idx == -1) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "%p %s", fd, xlator->name);
-                ret = -1;
-                goto out;
+                set_idx = fd->xl_count;
+
+                new_xl_count = fd->xl_count + xlator->graph->xl_count;
+
+                begin = fd->_ctx;
+                tmp = GF_REALLOC (fd->_ctx,
+                                  (sizeof (struct _fd_ctx)
+                                   * new_xl_count));
+                if (tmp == NULL) {
+                        gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                          "realloc of fd->_ctx for fd "
+                                          "(ptr: %p) failed, cannot set the key"
+                                          , fd);
+                        ret = -1;
+                        goto out;
+                }
+
+                fd->_ctx = tmp;
+
+                begin += (fd->xl_count * sizeof (struct _fd_ctx));
+
+                diff = (new_xl_count - fd->xl_count )
+                        * sizeof (struct _fd_ctx);
+
+                memset (begin, 0, diff);
+
+                fd->xl_count = new_xl_count;
         }
 
         fd->_ctx[set_idx].xl_key = xlator;
