@@ -11,6 +11,7 @@ import tempfile
 import threading
 import subprocess
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR
+from select import error as selecterror
 
 from gconf import gconf
 import repce
@@ -116,18 +117,32 @@ class Popen(subprocess.Popen):
         cls.errstore = {}
         def tailer():
             while True:
-                for po in select([po.stderr for po in cls.errstore], [], []):
+                errstore = cls.errstore.copy()
+                try:
+                    poe, _ ,_ = select([po.stderr for po in errstore], [], [], 1)
+                except ValueError, selecterror:
+                    continue
+                for po in errstore:
+                    if po.stderr not in poe:
+                        next
                     po.lock.acquire()
                     try:
-                        la = cls.errstore.get(po)
+                        la = errstore.get(po)
                         if la == None:
                             continue
-                        l = os.read(po.stderr.fileno(), 1024)
+                        try:
+                            fd = po.stderr.fileno()
+                        except ValueError:  # file is already closed
+                            continue
+                        l = os.read(fd, 1024)
+                        if not l:
+                            continue
                         tots = len(l)
                         for lx in la:
                             tots += len(lx)
                         while tots > 1<<20 and la:
                             tots -= len(la.pop(0))
+                        la.append(l)
                     finally:
                         po.lock.release()
         t = syncdutils.Thread(target = tailer)
@@ -159,11 +174,11 @@ class Popen(subprocess.Popen):
 
     def errfail(self):
         """fail nicely if child did not terminate with success"""
-        filling = None
+        filling = ""
         if self.elines:
             filling = ", saying:"
-        logging.error("""command "%s" returned with %d%s""" % \
-                      (" ".join(self.args), self.returncode, filling))
+        logging.error("""command "%s" returned with %s%s""" % \
+                      (" ".join(self.args), repr(self.returncode), filling))
         for l in self.elines:
             for ll in l.rstrip().split("\n"):
                 logging.error(self.args[0] + "> " + ll.rstrip())
@@ -181,9 +196,10 @@ class Popen(subprocess.Popen):
             self.lock.release()
         if self.poll() == None:
             self.terminate()
-            if sp.poll() == None:
+            if self.poll() == None:
                 time.sleep(0.1)
-            sp.kill()
+            self.kill()
+            self.wait()
         while True:
             b = os.read(self.stderr.fileno(), 1024)
             if b:
