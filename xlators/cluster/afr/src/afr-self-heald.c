@@ -126,8 +126,8 @@ _build_index_loc (xlator_t *this, loc_t *loc, char *name, loc_t *parent)
 }
 
 int
-_add_str_to_dict (xlator_t *this, dict_t *output, int child, char *str,
-                  gf_boolean_t dyn)
+_add_path_to_dict (xlator_t *this, dict_t *output, int child, char *path,
+                   struct timeval *tv, gf_boolean_t dyn)
 {
         //subkey not used for now
         int             ret = -1;
@@ -146,15 +146,27 @@ _add_str_to_dict (xlator_t *this, dict_t *output, int child, char *str,
 
         snprintf (key, sizeof (key), "%d-%d-%"PRIu64, xl_id, child, count);
         if (dyn)
-                ret = dict_set_dynstr (output, key, str);
+                ret = dict_set_dynstr (output, key, path);
         else
-                ret = dict_set_str (output, key, str);
+                ret = dict_set_str (output, key, path);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "%s: Could not add to output",
-                        str);
+                        path);
                 goto out;
         }
 
+        if (!tv)
+                goto inc_count;
+        snprintf (key, sizeof (key), "%d-%d-%"PRIu64"-time", xl_id,
+                  child, count);
+        ret = dict_set_uint32 (output, key, tv->tv_sec);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s: Could not set time",
+                        path);
+                goto out;
+        }
+
+inc_count:
         snprintf (key, sizeof (key), "%d-%d-count", xl_id, child);
         ret = dict_set_uint64 (output, key, count + 1);
         if (ret) {
@@ -209,9 +221,9 @@ _add_event_to_dict (circular_buffer_t *cb, void *data)
         shd_event = cb->data;
         if (shd_event->child != dump_data->child)
                 goto out;
-        ret = _add_str_to_dict (dump_data->this, dump_data->dict,
-                                dump_data->child, shd_event->path,
-                                _gf_false);
+        ret = _add_path_to_dict (dump_data->this, dump_data->dict,
+                                 dump_data->child, shd_event->path, &cb->tv,
+                                 _gf_false);
 out:
         return ret;
 }
@@ -248,8 +260,8 @@ _add_summary_to_dict (xlator_t *this, afr_crawl_data_t *crawl_data,
         if (ret)
                 goto out;
 
-        ret = _add_str_to_dict (this, output, crawl_data->child, path,
-                                _gf_true);
+        ret = _add_path_to_dict (this, output, crawl_data->child, path, NULL,
+                                 _gf_true);
 out:
         if (ret && path)
                 GF_FREE (path);
