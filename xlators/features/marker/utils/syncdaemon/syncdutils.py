@@ -264,7 +264,7 @@ def eintr_wrap(func, exc, *a):
         except exc:
             ex = sys.exc_info()[1]
             if not ex.args[0] == EINTR:
-                raise GsyncdError(ex.args[1])
+                raise
 
 def select(*a):
     return eintr_wrap(oselect.select, oselect.error, *a)
