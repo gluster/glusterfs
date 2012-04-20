@@ -913,6 +913,18 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
+        /* The Hidden directory should be for housekeeping purpose and it
+           should not get created from a user request */
+        if (__is_root_gfid (loc->pargfid) &&
+            (strcmp (loc->name, GF_HIDDEN_PATH) == 0)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "mkdir issued on %s, which is not permitted",
+                        GF_HIDDEN_PATH);
+                op_errno = EPERM;
+                op_ret = -1;
+                goto out;
+        }
+
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
