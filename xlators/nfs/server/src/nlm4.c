@@ -1868,11 +1868,18 @@ nlm4svc_init(xlator_t *nfsx)
         }
         /* temporary work around to restart statd, not distro/OS independant.
          * Need to figure out a more graceful way
+         * killall will cause problems on solaris.
          */
         ret = runcmd ("killall", "-9", "rpc.statd", NULL);
         /* if ret == -1, do nothing - case statd was not already running  */
 
-        ret = runcmd ("rpc.statd", NULL);
+        ret = unlink ("/var/run/rpc.statd.pid");
+        if (ret == -1 && errno != ENOENT) {
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink rpc.statd");
+                goto err;
+        }
+
+        ret = runcmd ("/sbin/rpc.statd", NULL);
         if (ret == -1) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "unable to start rpc.statd");
                 goto err;
