@@ -134,7 +134,7 @@ glusterfs_submit_reply (rpcsvc_request_t *req, void *arg,
 
         iob = glusterfs_serialize_reply (req, arg, &rsp, xdrproc);
         if (!iob) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to serialize reply");
+                gf_log_callingfn (THIS->name, GF_LOG_ERROR, "Failed to serialize reply");
                 goto out;
         }
 
