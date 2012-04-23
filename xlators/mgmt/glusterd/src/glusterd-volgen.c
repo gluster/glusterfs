@@ -2363,7 +2363,6 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
         char                    *decommissioned_children = NULL;
         xlator_t                *dht                     = NULL;
 
-        GF_ASSERT (child_count > 1);
         clusters = volgen_graph_build_clusters (graph,  volinfo,
                                                 "cluster/distribute", "%s-dht",
                                                 child_count, child_count);
@@ -2456,12 +2455,16 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
 
 build_distribute:
         dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
-        if (dist_count > 1) {
-                ret = volgen_graph_build_dht_cluster (graph, volinfo,
-                                                      dist_count);
-                if (ret)
-                        goto out;
+        if (!dist_count) {
+                ret = -1;
+                goto out;
         }
+
+        ret = volgen_graph_build_dht_cluster (graph, volinfo,
+                                              dist_count);
+        if (ret)
+                goto out;
+
         ret = 0;
 out:
         return ret;
