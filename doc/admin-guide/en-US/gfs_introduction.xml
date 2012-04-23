@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "docbookV4.5/docbookx.dtd" []>
+<chapter>
+  <title>Introducing Gluster File System</title>
+  <para>GlusterFS is an open source, clustered file system capable of scaling to several petabytes and handling thousands of clients. GlusterFS can be flexibly combined with commodity physical, virtual, and cloud resources to deliver highly available and performant enterprise storage at a fraction of the cost of traditional solutions.</para>
+  <para>GlusterFS clusters together storage building blocks over Infiniband RDMA and/or TCP/IP interconnect, aggregating disk and memory resources and managing data in a single global namespace. GlusterFS is based on a stackable user space design, delivering exceptional performance for diverse workloads. 
+</para>
+  <figure>
+    <title>Virtualized Cloud Environments</title>
+    <mediaobject>
+      <textobject>
+        <phrase>Virtualized Cloud Environments</phrase>
+      </textobject>
+      <imageobject>
+        <imagedata align="center" fileref="images/640px-GlusterFS_3.2_Architecture.png"/>
+      </imageobject>
+    </mediaobject>
+  </figure>
+  <para>GlusterFS is designed for today&apos;s high-performance, virtualized cloud environments. Unlike traditional data centers, cloud environments require multi-tenancy along with the ability to grow or shrink resources on demand. Enterprises can scale capacity, performance, and availability on demand, with no vendor lock-in, across on-premise, public cloud, and hybrid environments.    </para>
+  <para>GlusterFS  is in production at thousands of enterprises spanning media, healthcare, government, education, web 2.0, and financial services. The following table lists the commercial offerings and its documentation location:  
+</para>
+  <informaltable frame="all">
+    <tgroup cols="2">
+      <colspec colname="c1" colwidth="16%"/>
+      <colspec colname="c2" colwidth="84%"/>
+      <thead>
+        <row>
+          <entry>Product</entry>
+          <entry>Documentation Location</entry>
+        </row>
+      </thead>
+      <tbody>
+        <row>
+          <entry>Red Hat Storage Software Appliance</entry>
+          <entry>
+            <ulink url="http://docs.redhat.com/docs/en-US/Red_Hat_Storage_Software_Appliance/index.html"/>
+          </entry>
+        </row>
+        <row>
+          <entry>Red Hat Virtual Storage Appliance</entry>
+          <entry>
+            <ulink url="http://docs.redhat.com/docs/en-US/Red_Hat_Virtual_Storage_Appliance/index.html"/>
+          </entry>
+        </row>
+        <row>
+          <entry>Red Hat Storage </entry>
+          <entry>
+            <ulink url="http://docs.redhat.com/docs/en-US/Red_Hat_Storage/index.html"/>
+          </entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </informaltable>
+</chapter>

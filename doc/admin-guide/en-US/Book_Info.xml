@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE bookinfo PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Administration_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<bookinfo id="book-Administration_Guide-Administration_Guide">
+	<title>Administration Guide</title>
+	<subtitle>Using Gluster File System <remark> Beta 3</remark> </subtitle>
+	<productname>Gluster File System</productname>
+	<productnumber>3.3</productnumber>
+	<edition>1</edition>
+	<pubsnumber>1</pubsnumber>
+	<abstract>
+		<para>
+			This guide describes Gluster File System (GlusterFS) and provides information on how to configure, operate, and manage GlusterFS.
+		</para>
+	</abstract>
+	<corpauthor>
+		<inlinemediaobject>
+			<imageobject>
+				<imagedata fileref="Common_Content/images/title_logo.svg" format="SVG" />
+			</imageobject>
+		</inlinemediaobject>
+	</corpauthor>
+	<xi:include href="Common_Content/Legal_Notice.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="Author_Group.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+</bookinfo>
+

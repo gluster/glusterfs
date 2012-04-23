@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Administration_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<book>
+	<xi:include href="Book_Info.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="Preface.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="gfs_introduction.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />	
+	<xi:include href="admin_start_stop_daemon.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_console.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_storage_pools.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_setting_volumes.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_settingup_clients.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_managing_volumes.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_geo-replication.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_directory_Quota.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_monitoring_workload.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_ACLs.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_UFO.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_Hadoop.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_troubleshooting.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="admin_commandref.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="glossary.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="Revision_History.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+</book>
+

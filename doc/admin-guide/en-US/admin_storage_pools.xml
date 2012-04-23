@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "docbookV4.5/docbookx.dtd" []>
+<chapter id="chap-Administration_Guide-Storage-pool">
+  <title>Setting up Trusted Storage Pools</title>
+  <para>Before you can configure a GlusterFS volume, you must create a trusted storage pool consisting of the storage servers that provides bricks to a volume.  </para>
+  <para>A storage pool is a trusted network of storage servers. When you start the first server, the storage pool consists of that server alone. To add additional storage servers to the storage pool, you can use the probe command from a storage server that is already trusted. </para>
+  <para><note>
+      <para>Do not self-probe the first server/localhost.</para>
+    </note></para>
+  <para>The GlusterFS service must be running on all storage servers that you want to add to the storage pool. See <xref linkend="chap-Administration_Guide-Start_Stop_Daemon"/>  for more information.</para>
+  <section id="sect-Administration_Guide-Storage_Pools-Adding_Servers">
+    <title>Adding Servers to Trusted Storage Pool</title>
+    <para>To create a trusted storage pool, add servers to the trusted storage pool</para>
+    <orderedlist>
+      <listitem>
+        <para>The hostnames used to create the storage pool must be resolvable by DNS.</para>
+        <para>To add a server to the storage pool:</para>
+        <para><command># gluster peer probe <replaceable>server</replaceable></command></para>
+        <para>For example, to create a trusted storage pool of four servers, add three servers to the storage pool from server1:</para>
+        <para><programlisting># gluster peer probe server2
+Probe successful
+
+# gluster peer probe server3
+Probe successful
+
+# gluster peer probe server4
+Probe successful
+</programlisting></para>
+      </listitem>
+      <listitem>
+        <para>Verify the peer status from the first server using the following commands:</para>
+        <para><programlisting># gluster peer status
+Number of Peers: 3
+
+Hostname: server2
+Uuid: 5e987bda-16dd-43c2-835b-08b7d55e94e5
+State: Peer in Cluster (Connected)
+
+Hostname: server3
+Uuid: 1e0ca3aa-9ef7-4f66-8f15-cbc348f29ff7
+State: Peer in Cluster (Connected)
+
+Hostname: server4
+Uuid: 3e0caba-9df7-4f66-8e5d-cbc348f29ff7
+State: Peer in Cluster (Connected)</programlisting></para>
+      </listitem>
+    </orderedlist>
+  </section>
+  <section>
+    <title>Removing Servers from the Trusted Storage Pool</title>
+    <para>To remove a server from the storage pool:</para>
+    <para><command># gluster peer detach<replaceable> server</replaceable></command></para>
+    <para> For example, to remove server4 from the trusted storage pool:</para>
+    <para><programlisting># gluster peer detach server4
+Detach successful</programlisting></para>
+  </section>
+</chapter>
