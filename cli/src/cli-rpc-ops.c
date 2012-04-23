@@ -183,7 +183,11 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 #endif
-        cli_out ("%s", msg);
+        if (!rsp.op_ret)
+                cli_out ("%s", msg);
+        else
+                cli_err ("%s", msg);
+
         ret = rsp.op_ret;
 
 out:
@@ -256,7 +260,11 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 #endif
-        cli_out ("%s", msg);
+        if (!rsp.op_ret)
+                cli_out ("%s", msg);
+        else
+                cli_err ("%s", msg);
+
         ret = rsp.op_ret;
 
 out:
