@@ -115,7 +115,6 @@ synctask_wake (struct synctask *task)
         pthread_cond_broadcast (&env->cond);
 }
 
-
 void
 synctask_wrap (struct synctask *old_task)
 {
@@ -321,7 +320,6 @@ synctask_switchto (struct synctask *task)
         }
         pthread_mutex_unlock (&env->mutex);
 }
-
 
 void *
 syncenv_processor (void *thdata)
