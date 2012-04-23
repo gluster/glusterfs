@@ -1214,6 +1214,11 @@ afr_internal_lock_finish (call_frame_t *frame, xlator_t *this)
         priv  = this->private;
         local = frame->local;
 
+        /*  Perform fops with the lk-owner from top xlator.
+         *  Eg: lk-owner of posix-lk and flush should be same,
+         *  flush cant clear the  posix-lks without that lk-owner.
+         */
+        frame->root->lk_owner = local->transaction.main_frame->root->lk_owner;
         if (__fop_changelog_needed (frame, this)) {
                 afr_changelog_pre_op (frame, this);
         } else {
