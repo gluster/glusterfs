@@ -222,6 +222,11 @@ find %{buildroot}%{_libdir} -name '*.la' -delete
 sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sharedstatedir}/glusterd|g' \
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
+# Following needed by the hooks interface
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts
+%{__install} -p -m 0644 extras/hook-scripts/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts/
+
 # Clean up the examples we want to include as %%doc
 #%{__cp} -a doc/examples examples
 #%{__rm} -f examples/Makefile*
