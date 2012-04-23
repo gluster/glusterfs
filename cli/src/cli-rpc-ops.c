@@ -6059,16 +6059,13 @@ gf_cli3_1_list_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         cli_out ("No volumes present in cluster");
                         goto out;
                 }
-                cli_out ("%d %s present in cluster", vol_count,
-                         ((vol_count == 1) ? "volume" : "volumes"));
-
                 for (i = 0; i < vol_count; i++) {
                         memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "volume%d", i);
                         ret = dict_get_str (dict, key, &volname);
                         if (ret)
                                 goto out;
-                        cli_out ("\t%d. %s", i+1, volname);
+                        cli_out ("%s", volname);
                 }
         }
 
