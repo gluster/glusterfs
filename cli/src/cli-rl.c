@@ -48,7 +48,6 @@ cli_rl_out (struct cli_state *state, const char *fmt, va_list ap)
 {
         int tmp_rl_point = rl_point;
         int            n = rl_end;
-        int            i = 0;
         int            ret = 0;
 
         if (rl_end >= 0 ) {
@@ -56,17 +55,40 @@ cli_rl_out (struct cli_state *state, const char *fmt, va_list ap)
                 rl_redisplay ();
         }
 
-        printf ("\r");
-
-        for (i = 0; i <= strlen (state->prompt); i++)
-                printf (" ");
-
-        printf ("\r");
+        printf ("\r%*s\r", (int)strlen (state->prompt), "");
 
         ret = vprintf (fmt, ap);
 
         printf ("\n");
         fflush(stdout);
+
+        if (n) {
+                rl_do_undo ();
+                rl_point = tmp_rl_point;
+                rl_reset_line_state ();
+        }
+
+        return ret;
+}
+
+int
+cli_rl_err (struct cli_state *state, const char *fmt, va_list ap)
+{
+        int tmp_rl_point = rl_point;
+        int            n = rl_end;
+        int            ret = 0;
+
+        if (rl_end >= 0 ) {
+                rl_kill_text (0, rl_end);
+                rl_redisplay ();
+        }
+
+        fprintf (stderr, "\r%*s\r", (int)strlen (state->prompt), "");
+
+        ret = vfprintf (stderr, fmt, ap);
+
+        fprintf (stderr, "\n");
+        fflush(stderr);
 
         if (n) {
                 rl_do_undo ();

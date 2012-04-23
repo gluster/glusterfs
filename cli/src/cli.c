@@ -450,9 +450,33 @@ cli_usage_out (const char *usage)
         if (!usage || usage[0] == '\0')
                 return -1;
 
-        cli_out ("Usage: %s", usage);
+        cli_err ("Usage: %s", usage);
         return 0;
 }
+
+int
+_cli_err (const char *fmt, ...)
+{
+        struct cli_state *state = NULL;
+        va_list           ap;
+        int               ret = 0;
+
+        state = global_state;
+
+        va_start (ap, fmt);
+
+#ifdef HAVE_READLINE
+        if (state->rl_enabled && !state->rl_processing)
+                return cli_rl_err(state, fmt, ap);
+#endif
+
+        ret = vfprintf (stderr, fmt, ap);
+        fprintf (stderr, "\n");
+        va_end (ap);
+
+        return ret;
+}
+
 
 int
 _cli_out (const char *fmt, ...)
