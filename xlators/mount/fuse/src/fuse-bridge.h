@@ -66,7 +66,7 @@
 
 #define MAX_FUSE_PROC_DELAY 1
 
-#define DISABLE_SELINUX 1
+//#define DISABLE_SELINUX 1
 
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
@@ -116,6 +116,9 @@ struct fuse_private {
         int                  revchan_in;
         int                  revchan_out;
         gf_boolean_t         reverse_fuse_thread_started;
+
+        /* For communicating with separate mount thread. */
+        int                  status_pipe[2];
 };
 typedef struct fuse_private fuse_private_t;
 
