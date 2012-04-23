@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. -->
+<!DOCTYPE preface PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Administration_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<preface id="pref-Administration_Guide-Preface">
+  <title>Preface</title>
+  <para>This guide describes how to configure, operate, and manage Gluster File System (GlusterFS).</para>
+  <section>
+    <title>Audience</title>
+    <para>This guide is intended for Systems Administrators interested in configuring and managing GlusterFS.</para>
+    <para>This guide assumes that you are familiar with the Linux operating system, concepts of File System, GlusterFS concepts, and GlusterFS Installation</para>
+  </section>
+  <section>
+    <title>License</title>
+    <para>The License information is available at <ulink url="http://www.redhat.com/licenses/rhel_rha_eula.html"/>.</para>
+  </section>
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Common_Content/Conventions.xml"/>
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Feedback.xml">
+    <xi:fallback xmlns:xi="http://www.w3.org/2001/XInclude">      <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Common_Content/Feedback.xml"/>
+ </xi:fallback>
+   </xi:include>
+</preface>

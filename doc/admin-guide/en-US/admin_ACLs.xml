@@ -1,0 +1,206 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "docbookV4.5/docbookx.dtd" []>
+<chapter id="chap-Administration_Guide-ACLs">
+  <title>POSIX Access Control Lists </title>
+  <para>POSIX Access Control Lists (ACLs) allows you to assign different permissions for different users or
+groups even though they do not correspond to the original owner or the owning group.
+ </para>
+  <para>For example: User john creates a file but does not want to allow anyone to do anything with this
+file, except another user, antony (even though there are other users that belong to the group john).
+</para>
+  <para>This means, in addition to the file owner, the file group, and others, additional users and groups can
+be granted or denied access by using POSIX ACLs.
+</para>
+  <section id="sect-Administration_Guide-ACLs-Activating_ACLs">
+    <title>Activating POSIX ACLs Support </title>
+    <para>To use POSIX ACLs for a file or directory, the partition of the file or directory must be mounted with
+POSIX ACLs support.
+</para>
+    <section id="sect-Administration_Guide-ACLs-Activating_ACLs-Server">
+      <title>Activating POSIX ACLs Support on Sever </title>
+      <para>To mount the backend export directories for POSIX ACLs support, use the following command:
+</para>
+      <para><command># mount -o acl <replaceable>device-name</replaceable><replaceable>partition</replaceable></command>
+</para>
+      <para>For example:
+</para>
+      <para><command># mount -o acl /dev/sda1 /export1 </command></para>
+      <para>Alternatively, if the partition is listed in the /etc/fstab file, add the following entry for the partition
+to include the POSIX ACLs option:
+</para>
+      <para><command>LABEL=/work /export1 ext3 rw, acl 14 </command></para>
+    </section>
+    <section>
+      <title>Activating POSIX ACLs Support on Client </title>
+      <para>To mount the glusterfs volumes for POSIX ACLs support, use the following command:
+</para>
+      <para><command># mount –t glusterfs -o acl <replaceable>severname:volume-id</replaceable><replaceable>mount point</replaceable></command>
+</para>
+      <para>For example:
+</para>
+      <para><command># mount -t glusterfs -o acl 198.192.198.234:glustervolume /mnt/gluster</command>
+</para>
+    </section>
+  </section>
+  <section>
+    <title>Setting POSIX ACLs </title>
+    <para>You can set two types of POSIX ACLs, that is, access ACLs and default ACLs. You can use
+access ACLs to grant permission for a specific file or directory. You can use default ACLs only
+on a directory but if a file inside that directory does not have an ACLs, it inherits the permissions of
+the default ACLs of the directory.
+</para>
+    <para>You can set ACLs for per user, per group, for users not in the user group for the file, and via the
+effective right mask.
+</para>
+    <section>
+      <title>Setting Access ACLs </title>
+      <para>You can apply access ACLs to grant permission for both files and directories.
+</para>
+      <para><emphasis role="bold">To set or modify Access ACLs</emphasis>
+</para>
+      <para>You can set or modify access ACLs use the following command:
+</para>
+      <para><command># setfacl –m <replaceable>entry type</replaceable> file </command></para>
+      <para>The ACL entry types are the POSIX ACLs representations of owner, group, and other.
+</para>
+      <para>Permissions must be a combination of the characters <command>r</command> (read), <command>w</command> (write), and <command>x</command> (execute). You must
+specify the ACL entry in the following format and can specify multiple entry types separated by
+commas.
+</para>
+      <informaltable frame="all">
+        <tgroup cols="2">
+          <colspec colname="c1"/>
+          <colspec colname="c2"/>
+          <thead>
+            <row>
+              <entry>ACL Entry</entry>
+              <entry>Description</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>u:uid:&lt;permission&gt; </entry>
+              <entry>Sets the access ACLs for a user. You can specify user name or UID </entry>
+            </row>
+            <row>
+              <entry>g:gid:&lt;permission&gt; </entry>
+              <entry>Sets the access ACLs for a group. You can specify group name or GID. </entry>
+            </row>
+            <row>
+              <entry>m:&lt;permission&gt; </entry>
+              <entry>Sets the effective rights mask. The mask is the combination of all access permissions of the owning group and all of the user and group entries. </entry>
+            </row>
+            <row>
+              <entry>o:&lt;permission&gt; </entry>
+              <entry>Sets the access ACLs for users other than the ones in the group for the file. </entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+      <para>If a file or directory already has an POSIX ACLs, and the setfacl command is used, the additional
+permissions are added to the existing POSIX ACLs or the existing rule is modified.
+</para>
+      <para>For example, to give read and write permissions to user antony:
+</para>
+      <para><command># setfacl -m u:antony:rw /mnt/gluster/data/testfile </command></para>
+    </section>
+    <section>
+      <title>Setting Default ACLs </title>
+      <para>You can apply default ACLs only to directories. They determine the permissions of a file system
+objects that inherits from its parent directory when it is created.
+</para>
+      <para>To set default ACLs
+</para>
+      <para>You can set default ACLs for files and directories using the following command:
+</para>
+      <para><command># setfacl –m –-set <replaceable>entry type directory</replaceable></command>
+</para>
+      <para>For example, to set the default ACLs for the /data directory to read for users not in the user group:
+</para>
+      <para><command># setfacl –m --set o::r /mnt/gluster/data </command></para>
+      <para><note>
+          <para>An access ACLs set for an individual file can override the default ACLs permissions.
+</para>
+        </note></para>
+      <para><emphasis role="bold">Effects of a Default ACLs </emphasis></para>
+      <para>The following are the ways in which the permissions of a directory&apos;s default ACLs are passed to the
+files and subdirectories in it:
+</para>
+      <itemizedlist>
+        <listitem>
+          <para>A subdirectory inherits the default ACLs of the parent directory both as its default ACLs and as an
+access ACLs.
+</para>
+        </listitem>
+        <listitem>
+          <para>A file inherits the default ACLs as its access ACLs.
+</para>
+        </listitem>
+      </itemizedlist>
+    </section>
+  </section>
+  <section>
+    <title>Retrieving POSIX ACLs </title>
+    <para>You can view the existing POSIX ACLs for a file or directory.
+</para>
+    <para><emphasis role="bold">To view existing POSIX ACLs </emphasis></para>
+    <itemizedlist>
+      <listitem>
+        <para>View the existing access ACLs of a file using the following command:
+</para>
+        <para><command># getfacl <replaceable>path/filename</replaceable></command>
+</para>
+        <para>For example, to view the existing POSIX ACLs for sample.jpg
+</para>
+        <programlisting># getfacl /mnt/gluster/data/test/sample.jpg
+# owner: antony
+# group: antony
+user::rw-
+group::rw-
+other::r--</programlisting>
+      </listitem>
+      <listitem>
+        <para>View the default ACLs of a directory using the following command:
+</para>
+        <para><command># getfacl <replaceable>directory name</replaceable></command></para>
+        <para>For example, to view the existing ACLs for /data/doc
+</para>
+        <programlisting># getfacl /mnt/gluster/data/doc
+# owner: antony
+# group: antony
+user::rw-
+user:john:r--
+group::r--
+mask::r--
+other::r--
+default:user::rwx
+default:user:antony:rwx
+default:group::r-x
+default:mask::rwx
+default:other::r-x</programlisting>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section>
+    <title>Removing POSIX ACLs </title>
+    <para>To remove all the permissions for a user, groups, or others, use the following command:
+</para>
+    <para><command># setfacl -x <replaceable>ACL entry type file</replaceable></command></para>
+    <para>For example, to remove all permissions from the user antony:
+</para>
+    <para><command># setfacl -x u:antony /mnt/gluster/data/test-file</command></para>
+  </section>
+  <section>
+    <title>Samba and ACLs </title>
+    <para>If you are using Samba to access GlusterFS FUSE mount, then POSIX ACLs are enabled by default.
+Samba has been compiled with the <command>--with-acl-support</command> option, so no special flags are required
+when accessing or mounting a Samba share.
+</para>
+  </section>
+  <section>
+    <title>NFS and ACLs </title>
+    <para>Currently we do not support ACLs configuration through NFS, i.e. setfacl and getfacl commands do
+not work. However, ACLs permissions set using Gluster Native Client applies on NFS mounts.
+</para>
+  </section>
+</chapter>
