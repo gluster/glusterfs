@@ -1766,6 +1766,7 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if (transaction_lk_op (local)) {
+                afr_set_lk_owner (frame, this, frame->root);
                 if (is_afr_lock_transaction (local))
                         afr_unlock_inodelk (frame, this);
                 else
@@ -2294,6 +2295,8 @@ afr_lk_transfer_datalock (call_frame_t *dst, call_frame_t *src,
                         sizeof (*src_lock->inode_locked_nodes) * child_count);
         }
 
+        dst_lock->transaction_lk_type = src_lock->transaction_lk_type;
+        dst_lock->selfheal_lk_type    = src_lock->selfheal_lk_type;
         dst_lock->inodelk_lock_count = src_lock->inodelk_lock_count;
         src_lock->inodelk_lock_count = 0;
 }
