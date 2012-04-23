@@ -1571,10 +1571,6 @@ inode_dump (inode_t *inode, char *prefix)
         int                i         = 0;
         fd_t              *fd        = NULL;
         struct _inode_ctx *inode_ctx = NULL;
-        struct  fd_wrapper {
-                fd_t *fd;
-                struct list_head next;
-        } *fd_wrapper, *tmp;
         struct list_head fd_list;
 
         if (!inode)
@@ -1605,21 +1601,12 @@ inode_dump (inode_t *inode, char *prefix)
                         }
                 }
 
-                if (list_empty (&inode->fd_list)) {
-                        goto unlock;
-                }
+		if (dump_options.xl_options.dump_fdctx != _gf_true)
+			goto unlock;
+
 
                 list_for_each_entry (fd, &inode->fd_list, inode_list) {
-                        fd_wrapper = GF_CALLOC (1, sizeof (*fd_wrapper),
-                                                gf_common_mt_char);
-                        if (fd_wrapper == NULL) {
-                                goto unlock;
-                        }
-
-                        INIT_LIST_HEAD (&fd_wrapper->next);
-                        list_add_tail (&fd_wrapper->next, &fd_list);
-
-                        fd_wrapper->fd = __fd_ref (fd);
+                        fd_ctx_dump (fd, prefix);
                 }
         }
 unlock:
@@ -1632,18 +1619,6 @@ unlock:
                                 if (xl->dumpops && xl->dumpops->inodectx)
                                         xl->dumpops->inodectx (xl, inode);
                         }
-                }
-        }
-
-        if (!list_empty (&fd_list)
-            && (dump_options.xl_options.dump_fdctx == _gf_true)) {
-                list_for_each_entry_safe (fd_wrapper, tmp, &fd_list,
-                                          next) {
-                        list_del (&fd_wrapper->next);
-                        fd_ctx_dump (fd_wrapper->fd, prefix);
-
-                        fd_unref (fd_wrapper->fd);
-                        GF_FREE (fd_wrapper);
                 }
         }
 
