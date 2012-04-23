@@ -28,11 +28,15 @@
 /* gd_syncop_* */
 #define GD_SYNCOP(rpc, stb, cbk, req, prog, procnum, xdrproc) do {      \
                 int ret = 0;                                            \
+                struct  synctask        *task = NULL;                   \
+                task = synctask_get ();                                 \
+                stb->task = task;                                       \
+                                                                        \
                 ret = gd_syncop_submit_request (rpc, req, stb,          \
                                                 prog, procnum, cbk,     \
                                                 (xdrproc_t)xdrproc);    \
                 if (!ret)                                               \
-                        __yield (stb);                                  \
+                        synctask_yield (stb->task);                     \
         } while (0)
 
 
