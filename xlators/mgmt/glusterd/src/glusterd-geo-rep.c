@@ -31,6 +31,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "run.h"
+#include "syscall.h"
 
 #include <signal.h>
 
@@ -524,12 +525,13 @@ gsync_status (char *master, char *slave, int *status)
         int  fd                = -1;
 
         fd = gsyncd_getpidfile (master, slave, pidfile);
-        if ((fd == -2) || (fd == -1))
+        if (fd == -2)
                 return -1;
 
         *status = gsync_status_byfd (fd);
 
-        close (fd);
+        sys_close (fd);
+
         return 0;
 }
 
@@ -1118,7 +1120,7 @@ stop_gsync (char *master, char *slave, char **msg)
         GF_ASSERT (THIS->private);
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
-        if ((pfd == -2) || (pfd == -1)) {
+        if (pfd == -2) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" stop validation "
                         " failed for %s & %s", master, slave);
                 ret = -1;
@@ -1133,6 +1135,9 @@ stop_gsync (char *master, char *slave, char **msg)
                 /* monitor gsyncd already dead */
                 goto out;
         }
+
+        if (pfd < 0)
+                goto out;
 
         ret = read (pfd, buf, 1024);
         if (ret > 0) {
@@ -1160,8 +1165,7 @@ stop_gsync (char *master, char *slave, char **msg)
         ret = 0;
 
 out:
-        if ((pfd != -2) && (pfd != -1))
-                close (pfd);
+        sys_close (pfd);
         return ret;
 }
 
@@ -1652,8 +1656,7 @@ glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
         char buff[1024]        = {0,};
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
-
-        if ((pfd == -2) || (pfd == -1)) {
+        if (pfd == -2) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" log-rotate validation "
                         " failed for %s & %s", master, slave);
                 goto out;
@@ -1663,6 +1666,9 @@ glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
                         " running", master, slave);
                 goto out;
         }
+
+        if (pfd < 0)
+                goto out;
 
         ret = read (pfd, buff, 1024);
         if (ret < 0) {
@@ -1675,8 +1681,7 @@ glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
         ret = 0;
 
 out:
-        if ((pfd != -2) && (pfd != -1))
-                close(pfd);
+        sys_close(pfd);
         return ret;
 }
 
