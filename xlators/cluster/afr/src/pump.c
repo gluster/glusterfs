@@ -1607,8 +1607,6 @@ pump_command_reply (call_frame_t *frame, xlator_t *this)
                 gf_log (this->name, GF_LOG_INFO,
                         "Command succeeded");
 
-        dict_unref (local->dict);
-
         AFR_STACK_UNWIND (setxattr,
                           frame,
                           local->op_ret,
