@@ -2355,6 +2355,8 @@ nlm4svc_init(xlator_t *nfsx)
         char *portstr = NULL;
         pthread_t thr;
         struct timeval timeout = {0,};
+        FILE   *pidfile = NULL;
+        pid_t   pid     = -1;
 
         nfs = (struct nfs_state*)nfsx->private;
 
@@ -2421,8 +2423,26 @@ nlm4svc_init(xlator_t *nfsx)
          * Need to figure out a more graceful way
          * killall will cause problems on solaris.
          */
-        ret = runcmd ("killall", "-9", "rpc.statd", NULL);
-        /* if ret == -1, do nothing - case statd was not already running  */
+
+        pidfile = fopen ("/var/run/rpc.statd.pid", "r");
+        if (pidfile) {
+                ret = fscanf (pidfile, "%d", &pid);
+                if (ret <= 0) {
+                        gf_log (GF_NLM, GF_LOG_WARNING, "unable to get pid of "
+                                "rpc.statd");
+                        ret = runcmd ("killall", "-9", "rpc.statd", NULL);
+                } else
+                        kill (pid, SIGKILL);
+
+                fclose (pidfile);
+        } else {
+                gf_log (GF_NLM, GF_LOG_WARNING, "opening the pid file of "
+                        "rpc.statd failed (%s)", strerror (errno));
+                /* if ret == -1, do nothing - case either statd was not
+                 * running or was running in valgrind mode
+                 */
+                ret = runcmd ("killall", "-9", "rpc.statd", NULL);
+        }
 
         ret = unlink ("/var/run/rpc.statd.pid");
         if (ret == -1 && errno != ENOENT) {

@@ -25,6 +25,8 @@
 #include "config.h"
 #endif
 
+#include <sys/types.h>
+#include <signal.h>
 #include "rpcsvc.h"
 #include "dict.h"
 #include "xlator.h"
