@@ -1081,6 +1081,25 @@ struct gf_set_lk_ver_req {
 };
 typedef struct gf_set_lk_ver_req gf_set_lk_ver_req;
 
+struct gf_event_notify_req {
+	int op;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_event_notify_req gf_event_notify_req;
+
+struct gf_event_notify_rsp {
+	int op_ret;
+	int op_errno;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_event_notify_rsp gf_event_notify_rsp;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -1172,6 +1191,8 @@ extern  bool_t xdr_gfs3_dirplist (XDR *, gfs3_dirplist*);
 extern  bool_t xdr_gfs3_readdirp_rsp (XDR *, gfs3_readdirp_rsp*);
 extern  bool_t xdr_gf_set_lk_ver_rsp (XDR *, gf_set_lk_ver_rsp*);
 extern  bool_t xdr_gf_set_lk_ver_req (XDR *, gf_set_lk_ver_req*);
+extern  bool_t xdr_gf_event_notify_req (XDR *, gf_event_notify_req*);
+extern  bool_t xdr_gf_event_notify_rsp (XDR *, gf_event_notify_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf_statfs ();
@@ -1262,6 +1283,8 @@ extern bool_t xdr_gfs3_dirplist ();
 extern bool_t xdr_gfs3_readdirp_rsp ();
 extern bool_t xdr_gf_set_lk_ver_rsp ();
 extern bool_t xdr_gf_set_lk_ver_req ();
+extern bool_t xdr_gf_event_notify_req ();
+extern bool_t xdr_gf_event_notify_rsp ();
 
 #endif /* K&R C */
 

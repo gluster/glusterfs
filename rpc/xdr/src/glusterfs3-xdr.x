@@ -683,3 +683,14 @@ struct gf_set_lk_ver_req {
        string uid<>;
        int lk_ver;
 };
+
+struct gf_event_notify_req {
+	int op;
+	opaque dict<>;
+};
+
+struct gf_event_notify_rsp {
+	int op_ret;
+	int op_errno;
+	opaque dict<>;
+};

@@ -677,3 +677,30 @@ out:
 
         return ret;
 }
+
+int32_t
+glusterd_defrag_event_notify_handle (dict_t *dict)
+{
+        glusterd_volinfo_t      *volinfo = NULL;
+        char                    *volname = NULL;
+        int32_t                  ret     = -1;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Failed to get volname");
+                return ret;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Failed to get volinfo for %s"
+                        , volname);
+                return ret;
+        }
+
+        ret = glusterd_defrag_volume_status_update (volinfo, dict);
+
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Failed to update status");
+        return ret;
+}

@@ -67,6 +67,12 @@ mgmt_cbk_spec (void *data)
         return 0;
 }
 
+
+int
+mgmt_cbk_event (void *data)
+{
+        return 0;
+}
 struct iobuf *
 glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
                            struct iovec *outmsg, xdrproc_t xdrproc)
@@ -1246,6 +1252,8 @@ out:
 
 rpcclnt_cb_actor_t gluster_cbk_actors[] = {
         [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec },
+        [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
+                                 mgmt_cbk_event},
 };
 
 
@@ -1279,6 +1287,7 @@ char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
         [GF_HNDSK_SETVOLUME]    = "SETVOLUME",
         [GF_HNDSK_GETSPEC]      = "GETSPEC",
         [GF_HNDSK_PING]         = "PING",
+        [GF_HNDSK_EVENT_NOTIFY] = "EVENTNOTIFY",
 };
 
 rpc_clnt_prog_t clnt_handshake_prog = {
@@ -1639,6 +1648,77 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         return ret;
 }
 
+int32_t
+mgmt_event_notify_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                  void *myframe)
+{
+        gf_event_notify_rsp      rsp   = {0,};
+        call_frame_t            *frame = NULL;
+        glusterfs_ctx_t         *ctx = NULL;
+        int                      ret   = 0;
+
+        frame = myframe;
+        ctx = frame->this->ctx;
+
+        if (-1 == req->rpc_status) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_event_notify_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding error");
+                ret   = -1;
+                goto out;
+        }
+
+        if (-1 == rsp.op_ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to get the rsp from server");
+                ret = -1;
+                goto out;
+        }
+out:
+        if (rsp.dict.dict_val)
+                free (rsp.dict.dict_val); //malloced by xdr
+        return ret;
+
+}
+int32_t
+glusterfs_rebalance_event_notify (dict_t *dict)
+{
+        glusterfs_ctx_t         *ctx = NULL;
+        gf_event_notify_req      req = {0,};
+        int32_t                  ret = -1;
+        cmd_args_t              *cmd_args = NULL;
+        call_frame_t            *frame = NULL;
+
+        ctx = glusterfs_ctx_get ();
+        cmd_args = &ctx->cmd_args;
+
+        frame = create_frame (THIS, ctx->pool);
+
+        req.op = GF_EN_DEFRAG_STATUS;
+
+        if (dict) {
+                ret = dict_set_str (dict, "volname", cmd_args->volfile_id);
+                if (ret)
+                        gf_log ("", GF_LOG_ERROR, "failed to set volname");
+
+                ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                                (size_t *)&req.dict.dict_len);
+        }
+
+        ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
+                                   GF_HNDSK_EVENT_NOTIFY, NULL,
+                                   (xdrproc_t)xdr_gf_event_notify_req);
+
+        if (req.dict.dict_val)
+                GF_FREE (req.dict.dict_val);
+
+        STACK_DESTROY (frame->root);
+        return ret;
+}
 
 static int
 mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
