@@ -781,6 +781,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
                     strcmp (words[4], "force"))) {
                         cli_usage_out (word->pattern);
                         parse_error = 1;
+                        ret = -1;
                         goto out;
                 }
 
