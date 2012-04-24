@@ -51,38 +51,6 @@ int32_t
 glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe);
 
-int
-glusterd_defrag_update_state (glusterd_volinfo_t *volinfo,
-                              glusterd_defrag_info_t *defrag)
-{
-        int     ret             = -1;
-        int     cmd             = 0;
-
-        GF_ASSERT (volinfo);
-        GF_ASSERT (defrag);
-
-        if (volinfo->defrag_status == GF_DEFRAG_STATUS_NOT_STARTED) {
-                goto out;
-        }
-
-        LOCK (&defrag->lock);
-        {
-                cmd = defrag->cmd;
-                if ((cmd == GF_DEFRAG_CMD_START) || (cmd ==
-                        GF_DEFRAG_CMD_START_FORCE) || (cmd ==
-                        GF_DEFRAG_CMD_START_LAYOUT_FIX))
-                        volinfo->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
-                else if (cmd == GF_DEFRAG_CMD_STOP)
-                        volinfo->defrag_status = GF_DEFRAG_STATUS_STOPPED;
-        }
-        UNLOCK (&defrag->lock);
-
-        ret = 0;
-out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
 void
 glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
 {
@@ -213,14 +181,14 @@ glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                 UNLOCK (&defrag->lock);
 
                 if (!glusterd_is_service_running (pidfile, NULL)) {
-                        glusterd_defrag_update_state (volinfo, defrag);
-                } else {
-                        volinfo->defrag_status = GF_DEFRAG_STATUS_FAILED;
-                }
-
-                /* Success or failure, Reset cmd in volinfo */
-
-                volinfo->defrag_cmd = 0;
+                        if (volinfo->defrag_status ==
+                                                     GF_DEFRAG_STATUS_STARTED) {
+                                volinfo->defrag_status =
+                                                        GF_DEFRAG_STATUS_FAILED;
+                        } else {
+                                volinfo->defrag_cmd = 0;
+                        }
+                 }
 
                 glusterd_store_volinfo (volinfo,
                                         GLUSTERD_VOLINFO_VER_AC_INCREMENT);

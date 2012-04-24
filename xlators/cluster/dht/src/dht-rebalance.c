@@ -1480,6 +1480,12 @@ gf_defrag_start_crawl (void *data)
         }
         ret = gf_defrag_fix_layout (this, defrag, &loc, fix_layout,
                                     migrate_data);
+        if ((defrag->defrag_status != GF_DEFRAG_STATUS_STOPPED) &&
+            (defrag->defrag_status != GF_DEFRAG_STATUS_FAILED)) {
+                defrag->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
+        }
+
+
 
 out:
         LOCK (&defrag->lock);
@@ -1557,6 +1563,7 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         uint64_t size   = 0;
         uint64_t lookup = 0;
         uint64_t failures = 0;
+        char     *status = "";
 
         if (!defrag)
                 goto out;
@@ -1595,6 +1602,25 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
 
         ret = dict_set_uint64 (dict, "failures", failures);
 log:
+        switch (defrag->defrag_status) {
+        case GF_DEFRAG_STATUS_NOT_STARTED:
+                status = "not started";
+                break;
+        case GF_DEFRAG_STATUS_STARTED:
+                status = "in progress";
+                break;
+        case GF_DEFRAG_STATUS_STOPPED:
+                status = "stopped";
+                break;
+        case GF_DEFRAG_STATUS_COMPLETE:
+                status = "completed";
+                break;
+        case GF_DEFRAG_STATUS_FAILED:
+                status = "failed";
+                break;
+        }
+
+        gf_log (THIS->name, GF_LOG_INFO, "Rebalance is %s", status);
         gf_log (THIS->name, GF_LOG_INFO, "Files migrated: %"PRIu64", size: %"
                 PRIu64", lookups: %"PRIu64", failures: %"PRIu64, files, size,
                 lookup, failures);
@@ -1616,12 +1642,13 @@ gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output)
                 goto out;
         }
 
+        gf_log ("", GF_LOG_INFO, "Recieved stop command on rebalance");
         defrag->defrag_status = GF_DEFRAG_STATUS_STOPPED;
 
         if (output)
                 gf_defrag_status_get (defrag, output);
         ret = 0;
 out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
