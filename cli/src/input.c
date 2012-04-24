@@ -71,11 +71,11 @@ cli_input (void *d)
                 if (len > 0 && cmd[len - 1] == '\n') //strip trailing \n
                         cmd[len - 1] = '\0';
                 ret = cli_cmd_process_line (state, cmd);
-                if (ret == -1 && state->mode & GLUSTER_MODE_ERR_FATAL)
+                if (ret != 0 && state->mode & GLUSTER_MODE_ERR_FATAL)
                         break;
         }
 
-        exit (ret);
+        exit (-ret);
 
         return NULL;
 }
