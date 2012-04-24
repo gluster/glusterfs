@@ -24,6 +24,7 @@
 #endif
 
 #include "dht-common.h"
+#include "xlator.h"
 
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
@@ -1414,6 +1415,7 @@ gf_defrag_start_crawl (void *data)
         struct iatt              parent = {0,};
         dict_t                  *fix_layout = NULL;
         dict_t                  *migrate_data = NULL;
+        dict_t                  *status = NULL;
 
         this = data;
         if (!this)
@@ -1482,7 +1484,11 @@ gf_defrag_start_crawl (void *data)
 out:
         LOCK (&defrag->lock);
         {
-                gf_defrag_status_get (defrag, NULL);
+                status = dict_new ();
+                gf_defrag_status_get (defrag, status);
+                glusterfs_rebalance_event_notify (status);
+                if (status)
+                        dict_unref (status);
                 defrag->is_exiting = 1;
         }
         UNLOCK (&defrag->lock);

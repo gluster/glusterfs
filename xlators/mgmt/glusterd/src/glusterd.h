@@ -642,5 +642,6 @@ int glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
 /* Synctask part */
 int32_t glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
                                     void *dict);
-
+int32_t
+glusterd_defrag_event_notify_handle (dict_t *dict);
 #endif

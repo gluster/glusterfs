@@ -881,4 +881,5 @@ int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 int glusterd_check_log_level (const char *value);
 int xlator_volopt_dynload (char *xlator_type, void **dl_handle,
                            volume_opt_list_t *vol_opt_handle);
+int32_t glusterfs_rebalance_event_notify (dict_t *dict);
 #endif /* _XLATOR_H */

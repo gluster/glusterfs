@@ -434,4 +434,8 @@ glusterd_is_local_brick (xlator_t *this, glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo);
 int
 glusterd_validate_volume_id (dict_t *op_dict, glusterd_volinfo_t *volinfo);
+
+int
+glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
+                                      dict_t *rsp_dict);
 #endif

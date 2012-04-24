@@ -3253,7 +3253,6 @@ out:
         return ret;
 }
 
-
 int
 glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                                  dict_t *op_ctx)
@@ -3261,16 +3260,11 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         int                             ret = 0;
         char                            *volname = NULL;
         glusterd_volinfo_t              *volinfo = NULL;
-        uint64_t                        files = 0;
-        uint64_t                        size = 0;
-        uint64_t                        lookup = 0;
-        gf_defrag_status_t              status = GF_DEFRAG_STATUS_NOT_STARTED;
         char                            key[256] = {0,};
         int32_t                         i = 0;
         char                            buf[1024] = {0,};
         char                            *node_str = NULL;
         glusterd_conf_t                 *priv = NULL;
-        uint64_t                        failures = 0;
 
         priv = THIS->private;
         GF_ASSERT (req_dict);
@@ -3286,48 +3280,16 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         if (ret)
                 goto out;
 
-        if (!rsp_dict)
-                goto populate;
-
-        ret = dict_get_uint64 (rsp_dict, "files", &files);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get file count");
-
-        ret = dict_get_uint64 (rsp_dict, "size", &size);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get size of xfer");
-
-        ret = dict_get_uint64 (rsp_dict, "lookups", &lookup);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get lookedup file count");
-        ret = dict_get_int32 (rsp_dict, "status", (int32_t *)&status);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get status");
-
-        ret = dict_get_uint64 (rsp_dict, "failures", &failures);
-        if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "failed to get failure count");
-
-        if (files)
-                volinfo->rebalance_files = files;
-        if (size)
-                volinfo->rebalance_data = size;
-        if (lookup)
-                volinfo->lookedup_files = lookup;
-        if (failures)
-                volinfo->rebalance_failures = failures;
+        if (rsp_dict) {
+                ret = glusterd_defrag_volume_status_update (volinfo,
+                                                            rsp_dict);
+        }
 
         if (!op_ctx) {
                 dict_copy (rsp_dict, op_ctx);
                 goto out;
         }
 
-populate:
         ret = dict_get_int32 (op_ctx, "count", &i);
         i++;
 
@@ -3364,12 +3326,10 @@ populate:
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set lookedup file count");
-        if (!status)
-                status = volinfo->defrag_status;
 
         memset (key, 0 , 256);
         snprintf (key, 256, "status-%d", i);
-        ret = dict_set_int32 (op_ctx, key, status);
+        ret = dict_set_int32 (op_ctx, key, volinfo->defrag_status);
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set status");
