@@ -1873,16 +1873,12 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr)
                                                                   &errstr,
                                                                   &volname,
                                                                   NULL);
-                                if (ret) {
-                                        gf_log (THIS->name, GF_LOG_ERROR,
-                                                "%s", errstr);
-                                        goto out;
+                                if (ret == 0) {
+                                        ret = glusterd_dict_set_volid
+                                                (dict, volname, op_errstr);
+                                        if (ret)
+                                                goto out;
                                 }
-
-                                ret = glusterd_dict_set_volid (dict, volname,
-                                                               op_errstr);
-                                if (ret)
-                                        goto out;
                                 dict_copy (dict, req_dict);
                         }
                         break;
