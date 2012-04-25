@@ -3185,11 +3185,10 @@ fuse_setlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "Returning EAGAIN Flock: "
                                 "start=%llu, len=%llu, pid=%llu, lk-owner=%s",
-                                (unsigned long long) lock->l_start,
-                                (unsigned long long) lock->l_len,
-                                (unsigned long long) lock->l_pid,
+                                (unsigned long long) state->lk_lock.l_start,
+                                (unsigned long long) state->lk_lock.l_len,
+                                (unsigned long long) state->lk_lock.l_pid,
                                 lkowner_utoa (&frame->root->lk_owner));
-
                 } else  {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRIu64": ERR => -1 (%s)",
