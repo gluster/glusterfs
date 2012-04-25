@@ -3051,7 +3051,7 @@ qr_lk_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         return 0;
 
 unwind:
-        QR_STACK_UNWIND (lk, frame, -1, op_errno, NULL, NULL);
+        QR_STACK_UNWIND (lk, frame, -1, op_errno, lock, xdata);
         return 0;
 }
 
