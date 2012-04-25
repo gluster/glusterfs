@@ -1836,7 +1836,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_add_brick_cbk,
           "add brick to volume <VOLNAME>"},
 
-        { "volume remove-brick <VOLNAME> [replica <COUNT>] <BRICK> ... {start|pause|abort|status|commit|force}",
+        { "volume remove-brick <VOLNAME> [replica <COUNT>] <BRICK> ... {start|stop|status|commit|force}",
           cli_cmd_volume_remove_brick_cbk,
           "remove brick from volume <VOLNAME>"},
 
