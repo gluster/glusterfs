@@ -296,11 +296,10 @@ afr_trace_inodelk_out (call_frame_t *frame, xlator_t *this,
         afr_print_verdict (op_ret, op_errno, verdict);
 
         gf_log (this->name, GF_LOG_INFO,
-                "[%s %s] [%s] Lockee={%s} Number={%llu}",
+                "[%s %s] [%s] lk-owner=%s Lockee={%s} Number={%llu}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REPLY" : "UNLOCK REPLY",
-                verdict,
-                lockee,
+                verdict, lkowner_utoa (&frame->root->lk_owner), lockee,
                 (unsigned long long) int_lock->lock_number);
 
 }
@@ -652,6 +651,10 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                         }
                         UNLOCK (&local->fd->lock);
 
+                        if (!fd_lock_owner) {
+                                afr_set_lk_owner (frame, this, local->fd);
+                                fd_lock_owner = _gf_true;
+                        }
                         if (piggyback) {
                                 afr_unlock_inodelk_cbk (frame, (void *) (long) i,
                                                         this, 1, 0, NULL);
@@ -660,10 +663,6 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                                 continue;
                         }
 
-                        if (!fd_lock_owner) {
-                                afr_set_lk_owner (frame, this, local->fd);
-                                fd_lock_owner = _gf_true;
-                        }
                         flock_use = &full_flock;
                 wind:
                         AFR_TRACE_INODELK_IN (frame, this,
@@ -1508,6 +1507,11 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                         }
                         UNLOCK (&local->fd->lock);
 
+                        if (!fd_lock_owner) {
+                                afr_set_lk_owner (frame, this, local->fd);
+                                fd_lock_owner = _gf_true;
+                        }
+
                         if (piggyback) {
                                 /* (op_ret == 1) => indicate piggybacked lock */
                                 afr_nonblocking_inodelk_cbk (frame, (void *) (long) i,
@@ -1517,10 +1521,6 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                                 continue;
                         }
                         flock_use = &full_flock;
-                        if (!fd_lock_owner) {
-                                afr_set_lk_owner (frame, this, local->fd);
-                                fd_lock_owner = _gf_true;
-                        }
                 wind:
                         AFR_TRACE_INODELK_IN (frame, this,
                                               AFR_INODELK_NB_TRANSACTION,
