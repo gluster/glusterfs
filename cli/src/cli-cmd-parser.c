@@ -74,7 +74,7 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
         brick_list_len++;
         while (brick_index < wordcount) {
                 if (validate_brick_name ((char *)words[brick_index])) {
-                        cli_out ("Wrong brick type: %s, use <HOSTNAME>:"
+                        cli_err ("Wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
@@ -86,9 +86,8 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                 }
 
                 if ((brick_list_len + strlen (words[brick_index]) + 1) > sizeof (brick_list)) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "total brick list is larger than a request "
-                                "can take (brick_count %d)", *brick_count);
+                        cli_err ("Total brick list is larger than a request. "
+                                 "Can take (brick_count %d)", *brick_count);
                         ret = -1;
                         goto out;
                 }
@@ -109,14 +108,14 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
 
                 if (!(strcmp (host_name, "localhost") &&
                       strcmp (host_name, "127.0.0.1"))) {
-                        cli_out ("Please provide a valid hostname/ip other "
+                        cli_err ("Please provide a valid hostname/ip other "
                                  "than localhost or 127.0.0.1");
                         ret = -1;
                         GF_FREE (tmp_host);
                         goto out;
                 }
                 if (!valid_internet_address (host_name, _gf_false)) {
-                        cli_out ("internet address '%s' does not conform to "
+                        cli_err ("internet address '%s' does not conform to "
                                  "standards", host_name);
                 }
                 GF_FREE (tmp_host);
@@ -131,7 +130,7 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                         strtok_r (tmp_list, " ", &tmpptr);
                         if (!(strcmp (tmp_list, words[brick_index]))) {
                                 ret = -1;
-                                cli_out ("Found duplicate"
+                                cli_err ("Found duplicate"
                                          " exports %s",words[brick_index]);
                                 goto out;
                        }
@@ -196,7 +195,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         goto out;
 
                 if (!strcmp (volname, "all")) {
-                        cli_out ("\"all\" cannot be the name of a volume.");
+                        cli_err ("\"all\" cannot be the name of a volume.");
                         goto out;
                 }
 
@@ -228,7 +227,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         switch (type) {
                         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                         case GF_CLUSTER_TYPE_REPLICATE:
-                                cli_out ("replica option given twice");
+                                cli_err ("replica option given twice");
                                 goto out;
                         case GF_CLUSTER_TYPE_NONE:
                                 type = GF_CLUSTER_TYPE_REPLICATE;
@@ -244,7 +243,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         }
                         replica_count = strtol (words[index+1], NULL, 0);
                         if (replica_count < 2) {
-                                cli_out ("replica count should be greater than 1");
+                                cli_err ("replica count should be greater"
+                                         " than 1");
                                 ret = -1;
                                 goto out;
                         }
@@ -258,7 +258,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         switch (type) {
                         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                         case GF_CLUSTER_TYPE_STRIPE:
-                                cli_out ("stripe option given twice");
+                                cli_err ("stripe option given twice");
                                 goto out;
                         case GF_CLUSTER_TYPE_NONE:
                                 type = GF_CLUSTER_TYPE_STRIPE;
@@ -273,7 +273,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         }
                         stripe_count = strtol (words[index+1], NULL, 0);
                         if (stripe_count < 2) {
-                                cli_out ("stripe count should be greater than 1");
+                                cli_err ("stripe count should be greater"
+                                         " than 1");
                                 ret = -1;
                                 goto out;
                         }
@@ -285,7 +286,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
 
                 } else if ((strcmp (w, "transport")) == 0) {
                         if (trans_type) {
-                                cli_out ("'transport' option given more"
+                                cli_err ("'transport' option given more"
                                          " than one time");
                                 goto out;
                         }
@@ -334,20 +335,20 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         /* If brick-count is not valid when replica or stripe is
            given, exit here */
         if (!brick_count) {
-                cli_out ("No bricks specified");
+                cli_err ("No bricks specified");
                 ret = -1;
                 goto out;
         }
 
         if (brick_count % sub_count) {
                 if (type == GF_CLUSTER_TYPE_STRIPE)
-                        cli_out ("number of bricks is not a multiple of "
+                        cli_err ("number of bricks is not a multiple of "
                                  "stripe count");
                 else if (type == GF_CLUSTER_TYPE_REPLICATE)
-                        cli_out ("number of bricks is not a multiple of "
+                        cli_err ("number of bricks is not a multiple of "
                                  "replica count");
                 else
-                        cli_out ("number of bricks given doesn't match "
+                        cli_err ("number of bricks given doesn't match "
                                  "required count");
 
                 ret = -1;
@@ -497,7 +498,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
 
                 if (!strcmp (volname, "all")) {
-                        cli_out ("\"all\" cannot be the name of a volume.");
+                        cli_err ("\"all\" cannot be the name of a volume.");
                         goto out;
                 }
 
@@ -543,7 +544,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
 
                 if (words[4][0] != '/') {
-                        cli_out ("Please enter absolute path");
+                        cli_err ("Please enter absolute path");
 
                         return -2;
                 }
@@ -552,14 +553,14 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
 
                 if (!words[5]) {
-                        cli_out ("Please enter the limit value to be set");
+                        cli_err ("Please enter the limit value to be set");
 
                         return -2;
                 }
 
                 ret = gf_string2bytesize (words[5], &value);
                 if (ret != 0) {
-                        cli_out ("Please enter a correct value");
+                        cli_err ("Please enter a correct value");
                         return -1;
                 }
 
@@ -578,7 +579,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 type = GF_QUOTA_OPTION_TYPE_REMOVE;
 
                 if (words[4][0] != '/') {
-                        cli_out ("Please enter absolute path");
+                        cli_err ("Please enter absolute path");
 
                         return -2;
                 }
@@ -778,7 +779,7 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 }
                 count = strtol (words[4], NULL, 0);
                 if (!count || (count < 2)) {
-                        cli_out ("replica count should be greater than 1");
+                        cli_err ("replica count should be greater than 1");
                         ret = -1;
                         goto out;
                 }
@@ -794,7 +795,7 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 }
                 count = strtol (words[4], NULL, 0);
                 if (!count || (count < 2)) {
-                        cli_out ("stripe count should be greater than 1");
+                        cli_err ("stripe count should be greater than 1");
                         ret = -1;
                         goto out;
                 }
@@ -886,7 +887,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                 }
                 count = strtol (words[4], NULL, 0);
                 if (count < 1) {
-                        cli_out ("replica count should be greater than 0 in "
+                        cli_err ("replica count should be greater than 0 in "
                                  "case of remove-brick");
                         ret = -1;
                         goto out;
@@ -962,7 +963,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
 
         while (brick_index < wordcount) {
                 if (validate_brick_name ((char *)words[brick_index])) {
-                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                        cli_err ("wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
@@ -980,7 +981,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         if (!(strcmp (tmp_brick, tmp_brick1))) {
                                 gf_log("",GF_LOG_ERROR, "Duplicate bricks"
                                        " found %s", words[brick_index]);
-                                cli_out("Duplicate bricks found %s",
+                                cli_err("Duplicate bricks found %s",
                                         words[brick_index]);
                                 ret = -1;
                                 goto out;
@@ -1056,7 +1057,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         }
 
         if (validate_brick_name ((char *)words[3])) {
-                cli_out ("wrong brick type: %s, use "
+                cli_err ("wrong brick type: %s, use "
                          "<HOSTNAME>:<export-dir-abs-path>", words[3]);
                 ret = -1;
                 goto out;
@@ -1077,7 +1078,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         }
 
         if (validate_brick_name ((char *)words[4])) {
-                cli_out ("wrong brick type: %s, use "
+                cli_err ("wrong brick type: %s, use "
                          "<HOSTNAME>:<export-dir-abs-path>", words[4]);
                 ret = -1;
                 goto out;
@@ -1186,7 +1187,7 @@ cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options)
                 delimiter = strchr (words[4], ':');
                 if (!delimiter || delimiter == words[4]
                     || *(delimiter+1) != '/') {
-                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                        cli_err ("wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[4]);
                         ret = -1;
                         goto out;
@@ -1241,8 +1242,8 @@ cli_cmd_log_level_parse (const char **words, int worcount, dict_t **options)
 
         ret = glusterd_check_log_level(words[5]);
         if (ret == -1) {
-                cli_out("Invalid log level [%s] specified", words[5]);
-                cli_out("Valid values for loglevel: (DEBUG|WARNING|ERROR"
+                cli_err("Invalid log level [%s] specified", words[5]);
+                cli_err("Valid values for loglevel: (DEBUG|WARNING|ERROR"
                         "|CRITICAL|NONE|TRACE)");
                 goto out;
         }
@@ -1302,7 +1303,7 @@ cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
                 delimiter = strchr (words[4], ':');
                 if (!delimiter || delimiter == words[4]
                     || *(delimiter+1) != '/') {
-                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                        cli_err ("wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[4]);
                         ret = -1;
                         goto out;
@@ -1353,7 +1354,7 @@ cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options)
                 delimiter = strchr (words[4], ':');
                 if (!delimiter || delimiter == words[4]
                     || *(delimiter+1) != '/') {
-                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                        cli_err ("wrong brick type: %s, use <HOSTNAME>:"
                                  "<export-dir-abs-path>", words[4]);
                         ret = -1;
                         goto out;
@@ -1735,7 +1736,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         delimiter = strchr (value, ':');
                         if (!delimiter || delimiter == value
                             || *(delimiter+1) != '/') {
-                                cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                                cli_err ("wrong brick type: %s, use <HOSTNAME>:"
                                          "<export-dir-abs-path>", value);
                                 ret = -1;
                                 goto out;
@@ -1751,7 +1752,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                         if (!ret)
                                 list_cnt = atoi (value);
                         if (ret || (list_cnt < 0) || (list_cnt > 100)) {
-                                cli_out ("list-cnt should be between 0 to 100");
+                                cli_err ("list-cnt should be between 0 to 100");
                                 ret = -1;
                                 goto out;
                         }
@@ -1761,10 +1762,11 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 blk_size = atoi (value);
                         if (ret || (blk_size <= 0)) {
                                 if (blk_size < 0)
-                                        cli_out ("block size is an invalid number");
+                                        cli_err ("block size is an invalid"
+                                                 " number");
                                 else
-                                        cli_out ("block size should be an integer "
-                                         "greater than zero");
+                                        cli_err ("block size should be an "
+                                                 "integer greater than zero");
                                 ret = -1;
                                 goto out;
                         }
@@ -1775,9 +1777,9 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 count = atoi(value);
                         if (ret || (count <= 0)) {
                                 if (count < 0)
-                                        cli_out ("count is an invalid number");
+                                        cli_err ("count is an invalid number");
                                 else
-                                        cli_out ("count should be an integer "
+                                        cli_err ("count should be an integer "
                                                  "greater than zero");
 
                                 ret = -1;
@@ -1803,11 +1805,11 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         }
 
         if ((blk_size > 0) ^ (count > 0)) {
-                cli_out ("Need to give both 'bs' and 'count'");
+                cli_err ("Need to give both 'bs' and 'count'");
                 ret = -1;
                 goto out;
         } else if (((uint64_t)blk_size * count) > (10 * GF_UNIT_GB)) {
-                cli_out ("'bs * count' value %"PRIu64" is greater than "
+                cli_err ("'bs * count' value %"PRIu64" is greater than "
                          "maximum allowed value of 10GB",
                          ((uint64_t)blk_size * count));
                 ret = -1;
@@ -1898,7 +1900,7 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 
                 if (!strcmp (words[2], "all")) {
                         if (cmd == GF_CLI_STATUS_NONE) {
-                                cli_out ("%s is not a valid status option",
+                                cli_err ("%s is not a valid status option",
                                          words[3]);
                                 ret = -1;
                                 goto out;
@@ -1933,14 +1935,14 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 
         case 5:
                 if (!strcmp (words[2], "all")) {
-                        cli_out ("Cannot specify brick/nfs for \"all\"");
+                        cli_err ("Cannot specify brick/nfs for \"all\"");
                         ret = -1;
                         goto out;
                 }
 
                 cmd = cli_cmd_get_statusop (words[4]);
                 if (cmd == GF_CLI_STATUS_NONE) {
-                        cli_out ("%s is not a valid status option",
+                        cli_err ("%s is not a valid status option",
                                  words[4]);
                         ret = -1;
                         goto out;
@@ -1954,7 +1956,7 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                 if (!strcmp (words[3], "nfs")) {
                         if (cmd == GF_CLI_STATUS_FD ||
                             cmd == GF_CLI_STATUS_DETAIL) {
-                                cli_out ("Detail/FD status not available"
+                                cli_err ("Detail/FD status not available"
                                          " for NFS Servers");
                                 ret = -1;
                                 goto out;
@@ -1964,7 +1966,7 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                         if (cmd == GF_CLI_STATUS_FD ||
                             cmd == GF_CLI_STATUS_CLIENTS ||
                             cmd == GF_CLI_STATUS_DETAIL) {
-                                cli_out ("Detail/FD/Clients status not "
+                                cli_err ("Detail/FD/Clients status not "
                                          "available for Self-heal Daemons");
                                 ret = -1;
                                 goto out;
