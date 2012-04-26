@@ -193,8 +193,8 @@ clrlk_clear_posixlk (xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
                                               F_SETLKW, &plock->user_flock,
                                               -1, EAGAIN, NULL);
 
-                                STACK_UNWIND (plock->frame, -1, EAGAIN,
-                                              &plock->user_flock);
+                                STACK_UNWIND_STRICT (lk, plock->frame, -1, EAGAIN,
+                                                     &plock->user_flock, NULL);
 
                         } else {
                                 gcount++;
@@ -223,7 +223,9 @@ clrlk_clear_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
         int                     bcount          = 0;
         int                     gcount          = 0;
         gf_boolean_t            chk_range       = _gf_false;
+        struct list_head        released;
 
+        INIT_LIST_HEAD (&released);
         if (clrlk_get_lock_range (args->opts, &ulock, &chk_range)) {
                 *op_errno = EINVAL;
                 goto out;
@@ -247,16 +249,22 @@ blkd:
                                 continue;
 
                         bcount++;
-                        list_del_init (&ilock->list);
-                        pl_trace_out (this, ilock->frame, NULL, NULL, F_SETLKW,
-                                      &ilock->user_flock, -1, EAGAIN,
-                                      ilock->volume);
-                        STACK_UNWIND_STRICT (inodelk, ilock->frame, -1,
-                                             EAGAIN);
-                        GF_FREE (ilock);
+                        list_del_init (&ilock->blocked_locks);
+                        list_add (&ilock->blocked_locks, &released);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
+
+        list_for_each_entry_safe (ilock, tmp, &released, blocked_locks) {
+                list_del_init (&ilock->blocked_locks);
+                pl_trace_out (this, ilock->frame, NULL, NULL, F_SETLKW,
+                              &ilock->user_flock, -1, EAGAIN,
+                              ilock->volume);
+                STACK_UNWIND_STRICT (inodelk, ilock->frame, -1,
+                                     EAGAIN, NULL);
+                //No need to take lock as the locks are only in one list
+                __pl_inodelk_unref (ilock);
+        }
 
         if (!(args->kind & CLRLK_GRANTED)) {
                 ret = 0;
@@ -276,14 +284,20 @@ granted:
 
                         gcount++;
                         list_del_init (&ilock->list);
-                        GF_FREE (ilock);
+                        list_add (&ilock->list, &released);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
-        grant_blocked_inode_locks (this, pl_inode, dom);
+        list_for_each_entry_safe (ilock, tmp, &released, list) {
+                list_del_init (&ilock->list);
+                //No need to take lock as the locks are only in one list
+                __pl_inodelk_unref (ilock);
+        }
+
         ret = 0;
 out:
+        grant_blocked_inode_locks (this, pl_inode, dom);
         *blkd    = bcount;
         *granted = gcount;
         return ret;
@@ -296,11 +310,13 @@ clrlk_clear_entrylk (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
 {
         pl_entry_lock_t         *elock          = NULL;
         pl_entry_lock_t         *tmp            = NULL;
-        struct list_head        removed         = {0};
         int                     bcount          = 0;
         int                     gcount          = 0;
         int                     ret             = -1;
+        struct list_head        removed;
+        struct list_head        released;
 
+        INIT_LIST_HEAD (&released);
         if (args->kind & CLRLK_BLOCKED)
                 goto blkd;
 
@@ -312,20 +328,29 @@ blkd:
         {
                 list_for_each_entry_safe (elock, tmp, &dom->blocked_entrylks,
                                           blocked_locks) {
-                        if (args->opts &&
-                            strncmp (elock->basename, args->opts,
-                                     strlen (elock->basename)))
-                                continue;
+                        if (args->opts) {
+                                if (!elock->basename ||
+                                    strcmp (elock->basename, args->opts))
+                                        continue;
+                        }
 
                         bcount++;
-                        list_del_init (&elock->domain_list);
-                        STACK_UNWIND_STRICT (entrylk, elock->frame, -1,
-                                             EAGAIN);
-                        GF_FREE ((char *) elock->basename);
-                        GF_FREE (elock);
+
+                        list_del_init (&elock->blocked_locks);
+                        list_add_tail (&elock->blocked_locks, &released);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
+
+        list_for_each_entry_safe (elock, tmp, &released, blocked_locks) {
+                list_del_init (&elock->blocked_locks);
+                entrylk_trace_out (this, elock->frame, elock->volume, NULL, NULL,
+                                   elock->basename, ENTRYLK_LOCK, elock->type,
+                                   -1, EAGAIN);
+                STACK_UNWIND_STRICT (entrylk, elock->frame, -1, EAGAIN, NULL);
+                GF_FREE ((char *) elock->basename);
+                GF_FREE (elock);
+        }
 
         if (!(args->kind & CLRLK_GRANTED)) {
                 ret = 0;
@@ -338,13 +363,11 @@ granted:
         {
                 list_for_each_entry_safe (elock, tmp, &dom->entrylk_list,
                                           domain_list) {
-                        if (!elock->basename)
-                                continue;
-
-                        if (args->opts &&
-                            strncmp (elock->basename, args->opts,
-                                     strlen (elock->basename)))
-                                continue;
+                        if (args->opts) {
+                                if (!elock->basename ||
+                                    strcmp (elock->basename, args->opts))
+                                        continue;
+                        }
 
                         gcount++;
                         list_del_init (&elock->domain_list);

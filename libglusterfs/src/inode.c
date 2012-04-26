@@ -660,6 +660,50 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
         return inode;
 }
 
+
+inode_t *
+inode_resolve (inode_table_t *table, char *path)
+{
+        char    *tmp   = NULL, *bname = NULL, *str = NULL, *saveptr = NULL;
+        inode_t *inode = NULL, *parent = NULL;
+
+        if ((path == NULL) || (table == NULL)) {
+                goto out;
+        }
+
+        parent = inode_ref (table->root);
+        str = tmp = gf_strdup (path);
+
+        while (1) {
+                bname = strtok_r (str, "/", &saveptr);
+                if (bname == NULL) {
+                        break;
+                }
+
+                if (inode != NULL) {
+                        inode_unref (inode);
+                }
+
+                inode = inode_grep (table, parent, bname);
+                if (inode == NULL) {
+                        break;
+                }
+
+                if (parent != NULL) {
+                        inode_unref (parent);
+                }
+
+                parent = inode_ref (inode);
+                str = NULL;
+        }
+
+        inode_unref (parent);
+        GF_FREE (tmp);
+out:
+        return inode;
+}
+
+
 int
 inode_grep_for_gfid (inode_table_t *table, inode_t *parent, const char *name,
                      uuid_t gfid, ia_type_t *type)
@@ -813,6 +857,14 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
 
                 if (!old_dentry || old_dentry->inode != link_inode) {
                         dentry = __dentry_create (link_inode, parent, name);
+                        if (!dentry) {
+                                gf_log_callingfn (THIS->name, GF_LOG_ERROR,
+                                                  "dentry create failed on "
+                                                  "inode %s with parent %s",
+                                                  uuid_utoa (link_inode->gfid),
+                                                  uuid_utoa (parent->gfid));
+                                return NULL;
+                        }
                         if (old_inode && __is_dentry_cyclic (dentry)) {
                                 __dentry_unset (dentry);
                                 return NULL;
@@ -1519,10 +1571,6 @@ inode_dump (inode_t *inode, char *prefix)
         int                i         = 0;
         fd_t              *fd        = NULL;
         struct _inode_ctx *inode_ctx = NULL;
-        struct  fd_wrapper {
-                fd_t *fd;
-                struct list_head next;
-        } *fd_wrapper, *tmp;
         struct list_head fd_list;
 
         if (!inode)
@@ -1553,21 +1601,12 @@ inode_dump (inode_t *inode, char *prefix)
                         }
                 }
 
-                if (list_empty (&inode->fd_list)) {
-                        goto unlock;
-                }
+		if (dump_options.xl_options.dump_fdctx != _gf_true)
+			goto unlock;
+
 
                 list_for_each_entry (fd, &inode->fd_list, inode_list) {
-                        fd_wrapper = GF_CALLOC (1, sizeof (*fd_wrapper),
-                                                gf_common_mt_char);
-                        if (fd_wrapper == NULL) {
-                                goto unlock;
-                        }
-
-                        INIT_LIST_HEAD (&fd_wrapper->next);
-                        list_add_tail (&fd_wrapper->next, &fd_list);
-
-                        fd_wrapper->fd = __fd_ref (fd);
+                        fd_ctx_dump (fd, prefix);
                 }
         }
 unlock:
@@ -1580,18 +1619,6 @@ unlock:
                                 if (xl->dumpops && xl->dumpops->inodectx)
                                         xl->dumpops->inodectx (xl, inode);
                         }
-                }
-        }
-
-        if (!list_empty (&fd_list)
-            && (dump_options.xl_options.dump_fdctx == _gf_true)) {
-                list_for_each_entry_safe (fd_wrapper, tmp, &fd_list,
-                                          next) {
-                        list_del (&fd_wrapper->next);
-                        fd_ctx_dump (fd_wrapper->fd, prefix);
-
-                        fd_unref (fd_wrapper->fd);
-                        GF_FREE (fd_wrapper);
                 }
         }
 

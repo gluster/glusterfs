@@ -44,6 +44,9 @@ typedef enum {
         GF_OPTION_TYPE_TIME,
         GF_OPTION_TYPE_DOUBLE,
         GF_OPTION_TYPE_INTERNET_ADDRESS,
+        GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+        GF_OPTION_TYPE_PRIORITY_LIST,
+        GF_OPTION_TYPE_SIZE_LIST,
         GF_OPTION_TYPE_MAX,
 } volume_option_type_t;
 
@@ -140,7 +143,7 @@ xlator_option_init_##type (xlator_t *this, dict_t *options, char *key,  \
                 return 0;                                               \
         }                                                               \
         if (value == def_value) {                                       \
-                gf_log (this->name, GF_LOG_DEBUG,                       \
+                gf_log (this->name, GF_LOG_TRACE,                       \
                         "option %s using default value %s",             \
                         key, value);                                    \
         } else {                                                        \

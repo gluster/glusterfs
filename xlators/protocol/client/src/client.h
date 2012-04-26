@@ -38,6 +38,11 @@
 #define GF_MAX_SOCKET_WINDOW_SIZE  (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE  (0)
 
+typedef enum {
+        GF_LK_HEAL_IN_PROGRESS,
+        GF_LK_HEAL_DONE,
+} lk_heal_state_t;
+
 #define CLIENT_GET_REMOTE_FD(conf, fd, remote_fd, op_errno, label)      \
         do {                                                            \
                 clnt_fd_ctx_t      *fdctx    = NULL;                    \
@@ -60,6 +65,14 @@
                 }                                                       \
         } while (0);
 
+#define CLIENT_STACK_UNWIND(op, frame, params ...) do {             \
+                clnt_local_t *__local = frame->local;               \
+                frame->local = NULL;                                \
+                STACK_UNWIND_STRICT (op, frame, params);            \
+                client_local_wipe (__local);                        \
+        } while (0)
+
+
 struct clnt_options {
         char *remote_subvolume;
         int   ping_timeout;
@@ -73,8 +86,6 @@ typedef struct clnt_conf {
         pthread_mutex_t        lock;
         int                    connecting;
         int                    connected;
-	struct timeval         last_sent;
-	struct timeval         last_received;
 
         rpc_clnt_prog_t       *fops;
         rpc_clnt_prog_t       *mgmt;
@@ -100,7 +111,12 @@ typedef struct clnt_conf {
                                               performing lock healing */
         struct timeval         grace_tv;
         gf_timer_t            *grace_timer;
-
+        gf_boolean_t           grace_timer_needed; /* The state of this flag will
+                                                      be used to decide whether
+                                                      a new grace-timer must be
+                                                      registered or not. False
+                                                      means dont register, true
+                                                      means register */
         char                   parent_down;
 } clnt_conf_t;
 
@@ -118,6 +134,7 @@ typedef struct _client_fd_ctx {
         int32_t           wbflags;
         fd_lk_ctx_t      *lk_ctx;
         pthread_mutex_t   mutex;
+        lk_heal_state_t   lk_heal_state;
         struct list_head  lock_list;     /* List of all granted locks on this fd */
 } clnt_fd_ctx_t;
 
@@ -152,13 +169,11 @@ typedef struct client_local {
 typedef struct client_args {
         loc_t              *loc;
         fd_t               *fd;
-        dict_t             *xattr_req;
         const char         *linkname;
         struct iobref      *iobref;
         struct iovec       *vector;
         dict_t             *xattr;
         struct iatt        *stbuf;
-        dict_t             *dict;
         loc_t              *oldloc;
         loc_t              *newloc;
         const char         *name;
@@ -172,7 +187,6 @@ typedef struct client_args {
         mode_t              mode;
         dev_t               rdev;
         int32_t             flags;
-        int32_t             wbflags;
         int32_t             count;
         int32_t             datasync;
         entrylk_cmd         cmd_entrylk;
@@ -180,6 +194,9 @@ typedef struct client_args {
         gf_xattrop_flags_t  optype;
         int32_t             valid;
         int32_t             len;
+
+        mode_t              umask;
+        dict_t             *xdata;
 } clnt_args_t;
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *args);
@@ -229,4 +246,6 @@ int32_t client_type_to_gf_type (short l_type);
 int client_mark_fd_bad (xlator_t *this);
 
 int client_set_lk_version (xlator_t *this);
+
+int client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
 #endif /* !_CLIENT_H */

@@ -46,7 +46,7 @@ static int
 pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
                         posix_lock_t *old_lock);
 static pl_dom_list_t *
-allocate_domain (const char *volume)
+__allocate_domain (const char *volume)
 {
         pl_dom_list_t *dom = NULL;
 
@@ -88,17 +88,19 @@ get_domain (pl_inode_t *pl_inode, const char *volume)
         GF_VALIDATE_OR_GOTO (POSIX_LOCKS, pl_inode, out);
         GF_VALIDATE_OR_GOTO (POSIX_LOCKS, volume, out);
 
-        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
-                if (strcmp (dom->domain, volume) == 0)
-                        goto found;
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
+                        if (strcmp (dom->domain, volume) == 0)
+                                goto unlock;
+                }
 
-
+                dom = __allocate_domain (volume);
+                if (dom)
+                        list_add (&dom->inode_list, &pl_inode->dom_list);
         }
-
-        dom = allocate_domain (volume);
-        if (dom)
-                list_add (&dom->inode_list, &pl_inode->dom_list);
-found:
+unlock:
+        pthread_mutex_unlock (&pl_inode->mutex);
         if (dom) {
                 gf_log (POSIX_LOCKS, GF_LOG_TRACE, "Domain %s found", volume);
         } else {
@@ -435,32 +437,36 @@ pl_inode_get (xlator_t *this, inode_t *inode)
         pl_inode_t *pl_inode = NULL;
         int         ret = 0;
 
-        ret = inode_ctx_get (inode, this,&tmp_pl_inode);
-        if (ret == 0) {
-                pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
-                goto out;
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this, &tmp_pl_inode);
+                if (ret == 0) {
+                        pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
+                        goto unlock;
+                }
+                pl_inode = GF_CALLOC (1, sizeof (*pl_inode),
+                                      gf_locks_mt_pl_inode_t);
+                if (!pl_inode) {
+                        goto unlock;
+                }
+
+                gf_log (this->name, GF_LOG_TRACE,
+                        "Allocating new pl inode");
+
+                pthread_mutex_init (&pl_inode->mutex, NULL);
+
+                INIT_LIST_HEAD (&pl_inode->dom_list);
+                INIT_LIST_HEAD (&pl_inode->ext_list);
+                INIT_LIST_HEAD (&pl_inode->rw_list);
+                INIT_LIST_HEAD (&pl_inode->reservelk_list);
+                INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
+                INIT_LIST_HEAD (&pl_inode->blocked_calls);
+
+                __inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
         }
-        pl_inode = GF_CALLOC (1, sizeof (*pl_inode),
-                              gf_locks_mt_pl_inode_t);
-        if (!pl_inode) {
-                goto out;
-        }
+unlock:
+        UNLOCK (&inode->lock);
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "Allocating new pl inode");
-
-        pthread_mutex_init (&pl_inode->mutex, NULL);
-
-        INIT_LIST_HEAD (&pl_inode->dom_list);
-        INIT_LIST_HEAD (&pl_inode->ext_list);
-        INIT_LIST_HEAD (&pl_inode->rw_list);
-        INIT_LIST_HEAD (&pl_inode->reservelk_list);
-        INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
-        INIT_LIST_HEAD (&pl_inode->blocked_calls);
-
-        inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
-
-out:
         return pl_inode;
 }
 
@@ -794,6 +800,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                 __destroy_lock (conf);
 
                                 __destroy_lock (lock);
+                                INIT_LIST_HEAD (&sum->list);
                                 __insert_and_merge (pl_inode, sum);
 
                                 return;
@@ -927,7 +934,8 @@ grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode)
                 pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
                               &lock->user_flock, 0, 0, NULL);
 
-                STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
+                STACK_UNWIND_STRICT (lk, lock->frame, 0, 0,
+                                     &lock->user_flock, NULL);
 
                 GF_FREE (lock);
         }
@@ -972,7 +980,8 @@ pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
                 pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
                               &lock->user_flock, 0, 0, NULL);
 
-                STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
+                STACK_UNWIND_STRICT (lk, lock->frame, 0, 0,
+                                     &lock->user_flock, NULL);
 
                 GF_FREE (lock);
         }

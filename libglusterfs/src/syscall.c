@@ -241,7 +241,12 @@ sys_statvfs (const char *path, struct statvfs *buf)
 int
 sys_close (int fd)
 {
-        return close (fd);
+        int ret = -1;
+
+        if (fd >= 0)
+                ret = close (fd);
+
+        return ret;
 }
 
 

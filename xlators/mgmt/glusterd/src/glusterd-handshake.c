@@ -209,22 +209,83 @@ fail:
                 rsp.op_errno = cookie;
 
         if (!rsp.spec)
-                rsp.spec = "";
+                rsp.spec = strdup ("");
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_gf_getspec_rsp);
         if (args.key)
                 free (args.key);//malloced by xdr
-        if (rsp.spec && (strcmp (rsp.spec, "")))
+        if (rsp.spec)
                 free (rsp.spec);
 
         return 0;
 }
 
+int32_t
+server_event_notify (rpcsvc_request_t *req)
+{
+        int32_t                 ret             = -1;
+        int32_t                 op_errno        =  0;
+        gf_event_notify_req     args            = {0,};
+        gf_event_notify_rsp     rsp             = {0,};
+        dict_t                 *dict            = NULL;
+        gf_boolean_t            need_rsp        = _gf_true;
 
+        if (!xdr_to_generic (req->msg[0], &args,
+            (xdrproc_t)xdr_gf_event_notify_req)) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto fail;
+        }
+
+        if (args.dict.dict_len) {
+                dict = dict_new ();
+                if (!dict)
+                        return ret;
+                ret = dict_unserialize (args.dict.dict_val,
+                                        args.dict.dict_len, &dict);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Failed to unserialize req");
+                        goto fail;
+                }
+        }
+
+        switch (args.op) {
+        case GF_EN_DEFRAG_STATUS:
+                gf_log ("", GF_LOG_INFO,
+                        "recieved defrag status updated");
+                if (dict) {
+                        glusterd_defrag_event_notify_handle (dict);
+                        need_rsp = _gf_false;
+                }
+                break;
+        default:
+                gf_log ("", GF_LOG_ERROR, "Unkown op recieved in in event "
+                        "notify");
+                ret = -1;
+                break;
+        }
+
+fail:
+        rsp.op_ret   = ret;
+
+        if (op_errno)
+                rsp.op_errno = gf_errno_to_error (op_errno);
+
+        if (need_rsp)
+                glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                       (xdrproc_t)xdr_gf_event_notify_rsp);
+        if (dict)
+                dict_unref (dict);
+        if (args.dict.dict_val)
+                free (args.dict.dict_val);//malloced by xdr
+
+        return 0;
+}
 rpcsvc_actor_t gluster_handshake_actors[] = {
         [GF_HNDSK_NULL]      = {"NULL",      GF_HNDSK_NULL,      NULL, NULL, NULL, 0},
         [GF_HNDSK_GETSPEC]   = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL, 0},
+        [GF_HNDSK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_HNDSK_EVENT_NOTIFY, server_event_notify,
+                                    NULL, NULL, 0},
 };
 
 

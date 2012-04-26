@@ -68,14 +68,15 @@ rot13_readv_cbk (call_frame_t *frame,
                  struct iovec *vector,
                  int32_t count,
 		 struct iatt *stbuf,
-                 struct iobref *iobref)
+                 struct iobref *iobref, dict_t *xdata)
 {
 	rot_13_private_t *priv = (rot_13_private_t *)this->private;
   
 	if (priv->decrypt_read)
 		rot13_iovec (vector, count);
 
-	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+                             stbuf, iobref, xdata);
 	return 0;
 }
 
@@ -84,13 +85,13 @@ rot13_readv (call_frame_t *frame,
              xlator_t *this,
              fd_t *fd,
              size_t size,
-             off_t offset, uint32_t flags)
+             off_t offset, uint32_t flags, dict_t *xdata)
 {
 	STACK_WIND (frame,
 		    rot13_readv_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->readv,
-		    fd, size, offset, flags);
+		    fd, size, offset, flags, xdata);
 	return 0;
 }
 
@@ -101,9 +102,10 @@ rot13_writev_cbk (call_frame_t *frame,
                   int32_t op_ret,
                   int32_t op_errno,
                   struct iatt *prebuf,
-		  struct iatt *postbuf)
+		  struct iatt *postbuf, dict_t *xdata)
 {
-	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
 	return 0;
 }
 
@@ -114,7 +116,7 @@ rot13_writev (call_frame_t *frame,
               struct iovec *vector,
               int32_t count,
               off_t offset, uint32_t flags,
-              struct iobref *iobref)
+              struct iobref *iobref, dict_t *xdata)
 {
 	rot_13_private_t *priv = (rot_13_private_t *)this->private;
 	if (priv->encrypt_write)
@@ -125,7 +127,7 @@ rot13_writev (call_frame_t *frame,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->writev,
 		    fd, vector, count, offset, flags,
-                    iobref);
+                    iobref, xdata);
 	return 0;
 }
 

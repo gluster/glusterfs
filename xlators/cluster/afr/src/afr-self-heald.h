@@ -42,14 +42,12 @@ typedef int (*process_entry_cbk_t) (xlator_t *this, afr_crawl_data_t *crawl_data
                               gf_dirent_t *entry, loc_t *child, loc_t *parent,
                               struct iatt *iattr);
 
-void afr_proactive_self_heal (xlator_t *this, int idx);
-
 void afr_build_root_loc (xlator_t *this, loc_t *loc);
 
 int afr_set_root_gfid (dict_t *dict);
 
 void
-afr_do_poll_self_heal (void *data);
+afr_proactive_self_heal (void *data);
 
 int
 afr_xl_op (xlator_t *this, dict_t *input, dict_t *output);

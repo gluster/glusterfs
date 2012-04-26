@@ -172,7 +172,7 @@ fdentry_t *
 __gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count)
 {
         fdentry_t *fdentries = NULL;
-        size_t     cpy       = 0;
+        int        i         = 0;
 
         if (count == NULL) {
                 gf_log_callingfn ("fd", GF_LOG_WARNING, "!count");
@@ -187,8 +187,11 @@ __gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count)
 
         *count = fdtable->max_fds;
 
-        cpy = fdtable->max_fds * sizeof (fdentry_t);
-        memcpy ((void *)fdentries, (void *)fdtable->fdentries, cpy);
+        for (i = 0; i < fdtable->max_fds; i++) {
+                if (fdtable->fdentries[i].fd != NULL) {
+                        fdentries[i].fd = fd_ref (fdtable->fdentries[i].fd);
+                }
+        }
 
 out:
         return fdentries;
@@ -721,6 +724,10 @@ __fd_anonymous (inode_t *inode)
 
         fd = __fd_lookup (inode, (uint64_t)-1);
 
+        /* if (fd); then we already have increased the refcount in
+           __fd_lookup(), so no need of one more fd_ref().
+           if (!fd); then both create and bind wont bump up the ref
+           count, so we have to call fd_ref() after bind. */
         if (!fd) {
                 fd = __fd_create (inode, (uint64_t)-1);
 
@@ -728,9 +735,9 @@ __fd_anonymous (inode_t *inode)
                         return NULL;
 
                 __fd_bind (fd);
-        }
 
-        __fd_ref (fd);
+                __fd_ref (fd);
+        }
 
         return fd;
 }

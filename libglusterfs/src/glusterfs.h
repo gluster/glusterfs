@@ -100,18 +100,23 @@
 #define GLUSTERFS_INODELK_COUNT "glusterfs.inodelk-count"
 #define GLUSTERFS_ENTRYLK_COUNT "glusterfs.entrylk-count"
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
+#define GLUSTERFS_PARENT_ENTRYLK "glusterfs.parent-entrylk"
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 #define GFID_TO_PATH_KEY "glusterfs.gfid2path"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
 
+#define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
 #define RB_PUMP_CMD_START       "glusterfs.pump.start"
 #define RB_PUMP_CMD_PAUSE       "glusterfs.pump.pause"
 #define RB_PUMP_CMD_COMMIT      "glusterfs.pump.commit"
 #define RB_PUMP_CMD_ABORT       "glusterfs.pump.abort"
 #define RB_PUMP_CMD_STATUS      "glusterfs.pump.status"
+
+#define POSIX_ACL_DEFAULT_XATTR "system.posix_acl_default"
+#define POSIX_ACL_ACCESS_XATTR "system.posix_acl_access"
 
 #define GLUSTERFS_RDMA_INLINE_THRESHOLD       (2048)
 #define GLUSTERFS_RDMA_MAX_HEADER_SIZE        (228) /* (sizeof (rdma_header_t)                 \
@@ -371,6 +376,13 @@ struct _glusterfs_ctx {
                                              mempools, used to log details of
                                              mempool in statedump */
         char                *statedump_path;
+
+        struct mem_pool    *dict_pool;
+        struct mem_pool    *dict_pair_pool;
+        struct mem_pool    *dict_data_pool;
+
+        int                 mem_accounting; /* if value is other than 0, it
+                                               will be set */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

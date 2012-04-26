@@ -30,7 +30,7 @@
 #endif
 #include "afr-common.c"
 
-#define SHD_INODE_LRU_LIMIT          100
+#define SHD_INODE_LRU_LIMIT          2048
 #define AFR_EH_HEALED_LIMIT          1024
 #define AFR_EH_HEAL_FAIL_LIMIT       1024
 #define AFR_EH_SPLIT_BRAIN_LIMIT     1024
@@ -168,6 +168,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 priv->read_child = index;
         }
 
+        GF_OPTION_RECONF ("eager-lock", priv->eager_lock, options, bool, out);
         GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
                           uint32, out);
@@ -294,6 +295,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("strict-readdir", priv->strict_readdir, bool, out);
 
+        GF_OPTION_INIT ("eager-lock", priv->eager_lock, bool, out);
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
         fix_quorum_options(this,priv,qtype);
@@ -413,6 +415,8 @@ init (xlator_t *this)
         this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
         if (!this->itable)
                 goto out;
+        priv->root_inode = inode_ref (this->itable->root);
+        GF_OPTION_INIT ("node-uuid", priv->shd.node_uuid, str, out);
 
         ret = 0;
 out:
@@ -572,6 +576,10 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },
+        { .key = {"eager-lock"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
         { .key = {"self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
@@ -598,6 +606,10 @@ struct volume_options options[] = {
           .description = "If quorum-type is \"fixed\" only allow writes if "
                          "this many bricks or present.  Other quorum types "
                          "will OVERWRITE this value.",
+        },
+        { .key  = {"node-uuid"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Local glusterd uuid string",
         },
         { .key  = {NULL} },
 };

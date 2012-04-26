@@ -30,7 +30,8 @@
 #endif /* MALLOC_H */
 
 /* We don't want gf_log in this function because it may cause
-   'deadlock' with statedump */
+   'deadlock' with statedump. This is because statedump happens
+   inside a signal handler and cannot afford to block on a lock.*/
 #ifdef gf_log
 # undef gf_log
 #endif
@@ -523,26 +524,26 @@ gf_proc_dump_parse_set_option (char *key, char *value)
         char buf[GF_DUMP_MAX_BUF_LEN];
         int ret = -1;
 
-        if (!strncasecmp (key, "all", 3)) {
+        if (!strcasecmp (key, "all")) {
                 (void)gf_proc_dump_enable_all_options ();
                 return 0;
-        } else if (!strncasecmp (key, "mem", 3)) {
+        } else if (!strcasecmp (key, "mem")) {
                 opt_key = &dump_options.dump_mem;
-        } else if (!strncasecmp (key, "iobuf", 5)) {
+        } else if (!strcasecmp (key, "iobuf")) {
                 opt_key = &dump_options.dump_iobuf;
-        } else if (!strncasecmp (key, "callpool", 8)) {
+        } else if (!strcasecmp (key, "callpool")) {
                 opt_key = &dump_options.dump_callpool;
-        } else if (!strncasecmp (key, "priv", 4)) {
+        } else if (!strcasecmp (key, "priv")) {
                 opt_key = &dump_options.xl_options.dump_priv;
-        } else if (!strncasecmp (key, "fd", 2)) {
+        } else if (!strcasecmp (key, "fd")) {
                 opt_key = &dump_options.xl_options.dump_fd;
-        } else if (!strncasecmp (key, "inode", 5)) {
+        } else if (!strcasecmp (key, "inode")) {
                 opt_key = &dump_options.xl_options.dump_inode;
-        } else if (!strncasecmp (key, "inodectx", strlen ("inodectx"))) {
+        } else if (!strcasecmp (key, "inodectx")) {
                 opt_key = &dump_options.xl_options.dump_inodectx;
-        } else if (!strncasecmp (key, "fdctx", strlen ("fdctx"))) {
+        } else if (!strcasecmp (key, "fdctx")) {
                 opt_key = &dump_options.xl_options.dump_fdctx;
-        } else if (!strncasecmp (key, "history", strlen ("history"))) {
+        } else if (!strcasecmp (key, "history")) {
                 opt_key = &dump_options.xl_options.dump_history;
         }
 
@@ -552,11 +553,9 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                           "matched key : %s\n", key);
                 ret = write (gf_dump_fd, buf, strlen (buf));
 
-                /* warning suppression */
-                if (ret >= 0) {
+                if (ret >= 0)
                         ret = -1;
-                        goto out;
-                }
+                goto out;
 
         }
 
@@ -571,7 +570,7 @@ out:
 }
 
 static int
-gf_proc_dump_options_init (char *dump_name)
+gf_proc_dump_options_init ()
 {
         int     ret = -1;
         FILE    *fp = NULL;
@@ -641,11 +640,11 @@ gf_proc_dump_info (int signum)
         } else
                 strncpy (brick_name, "glusterdump", sizeof (brick_name));
 
-        ret = gf_proc_dump_options_init (brick_name);
+        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
         if (ret < 0)
                 goto out;
 
-        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
+        ret = gf_proc_dump_options_init ();
         if (ret < 0)
                 goto out;
 
@@ -680,8 +679,9 @@ gf_proc_dump_info (int signum)
                 i++;
         }
 
-        gf_proc_dump_close ();
 out:
+        if (gf_dump_fd != -1)
+                gf_proc_dump_close ();
         gf_proc_dump_unlock ();
 
         return;

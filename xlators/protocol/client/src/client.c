@@ -116,22 +116,58 @@ out:
         return;
 }
 
+int32_t
+client_register_grace_timer (xlator_t *this, clnt_conf_t *conf)
+{
+        int32_t  ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                if (conf->grace_timer || !conf->grace_timer_needed) {
+                        gf_log (this->name, GF_LOG_TRACE,
+				"Client grace timer is already set "
+				"or a grace-timer has already time out, "
+				"not registering a new timer");
+                } else {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Registering a grace timer");
+
+                        conf->grace_timer_needed = _gf_false;
+
+                        conf->grace_timer =
+                                gf_timer_call_after (this->ctx,
+                                                     conf->grace_tv,
+                                                     client_grace_timeout,
+                                                     conf->rpc);
+                }
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
-                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
+                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
                        struct iobref *iobref,  struct iovec *rsphdr,
                        int rsphdr_count, struct iovec *rsp_payload,
                        int rsp_payload_count, struct iobref *rsp_iobref,
                        xdrproc_t xdrproc)
 {
-        int            ret         = -1;
-        clnt_conf_t   *conf        = NULL;
-        struct iovec   iov         = {0, };
-        struct iobuf  *iobuf       = NULL;
-        int            count       = 0;
-        char           start_ping  = 0;
-        struct iobref *new_iobref  = NULL;
-        ssize_t        xdr_size    = 0;
+        int             ret        = -1;
+        clnt_conf_t    *conf       = NULL;
+        struct iovec    iov        = {0, };
+        struct iobuf   *iobuf      = NULL;
+        int             count      = 0;
+        char            start_ping = 0;
+        struct iobref  *new_iobref = NULL;
+        ssize_t         xdr_size   = 0;
+        struct rpc_req  rpcreq     = {0, };
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, prog, out);
@@ -199,8 +235,8 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         }
 
         /* Send the msg */
-        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL,
-                               0, new_iobref, frame, rsphdr, rsphdr_count,
+        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
+                               NULL, 0, new_iobref, frame, rsphdr, rsphdr_count,
                                rsp_payload, rsp_payload_count, rsp_iobref);
 
         if (ret < 0) {
@@ -221,14 +257,27 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 client_start_ping ((void *) this);
 
         ret = 0;
-out:
-        if (new_iobref != NULL)
+
+        if (new_iobref)
                 iobref_unref (new_iobref);
 
         if (iobuf)
                 iobuf_unref (iobuf);
 
         return ret;
+
+out:
+        rpcreq.rpc_status = -1;
+
+        cbkfn (&rpcreq, NULL, 0, frame);
+
+        if (new_iobref)
+                iobref_unref (new_iobref);
+
+        if (iobuf)
+                iobuf_unref (iobuf);
+
+        return 0;
 }
 
 
@@ -246,7 +295,6 @@ client_releasedir (xlator_t *this, fd_t *fd)
         clnt_conf_t *conf = NULL;
         rpc_clnt_procedure_t *proc = NULL;
         clnt_args_t  args = {0,};
-        call_frame_t *frame = NULL;
 
         conf = this->private;
         if (!conf || !conf->fops)
@@ -262,11 +310,7 @@ client_releasedir (xlator_t *this, fd_t *fd)
                 goto out;
         }
         if (proc->fn) {
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame) {
-                        goto out;
-                }
-                ret = proc->fn (frame, this, &args);
+                ret = proc->fn (NULL, this, &args);
         }
 out:
         if (ret)
@@ -282,7 +326,6 @@ client_release (xlator_t *this, fd_t *fd)
         clnt_conf_t *conf = NULL;
         rpc_clnt_procedure_t *proc = NULL;
         clnt_args_t  args = {0,};
-        call_frame_t *frame = NULL;
 
         conf = this->private;
         if (!conf || !conf->fops)
@@ -297,11 +340,7 @@ client_release (xlator_t *this, fd_t *fd)
                 goto out;
         }
         if (proc->fn) {
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame) {
-                        goto out;
-                }
-                ret = proc->fn (frame, this, &args);
+                ret = proc->fn (NULL, this, &args);
         }
 out:
         if (ret)
@@ -313,7 +352,7 @@ out:
 
 int32_t
 client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
-               dict_t *xattr_req)
+               dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -325,7 +364,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
 
         args.loc = loc;
-        args.dict = xattr_req;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_LOOKUP];
         if (!proc) {
@@ -347,7 +386,7 @@ out:
 
 
 int32_t
-client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
+client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -359,6 +398,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
 
         args.loc = loc;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_STAT];
         if (!proc) {
@@ -371,14 +411,15 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (stat, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (stat, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
 
 
 int32_t
-client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
+client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                 off_t offset, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -391,6 +432,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
         args.loc    = loc;
         args.offset = offset;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_TRUNCATE];
         if (!proc) {
@@ -403,7 +445,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (truncate, frame, -1, ENOTCONN, NULL, NULL);
+                STACK_UNWIND_STRICT (truncate, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 
 	return 0;
@@ -411,7 +453,8 @@ out:
 
 
 int32_t
-client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
+client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  off_t offset, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -424,6 +467,7 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
         args.fd     = fd;
         args.offset = offset;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FTRUNCATE];
         if (!proc) {
@@ -436,7 +480,7 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOTCONN, NULL, NULL);
+                STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -444,7 +488,8 @@ out:
 
 
 int32_t
-client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
+client_access (call_frame_t *frame, xlator_t *this, loc_t *loc,
+               int32_t mask, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -457,6 +502,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         args.loc  = loc;
         args.mask = mask;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_ACCESS];
         if (!proc) {
@@ -469,7 +515,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (access, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (access, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -478,7 +524,8 @@ out:
 
 
 int32_t
-client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
+client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                 size_t size, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -491,6 +538,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
         args.loc  = loc;
         args.size = size;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_READLINK];
         if (!proc) {
@@ -503,7 +551,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (readlink, frame, -1, ENOTCONN, NULL, NULL);
+                STACK_UNWIND_STRICT (readlink, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -511,7 +559,7 @@ out:
 
 int
 client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-              dev_t rdev, dict_t *params)
+              dev_t rdev, mode_t umask, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -525,7 +573,8 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         args.loc  = loc;
         args.mode = mode;
         args.rdev = rdev;
-        args.dict = params;
+        args.umask = umask;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_MKNOD];
         if (!proc) {
@@ -539,7 +588,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 out:
         if (ret)
                 STACK_UNWIND_STRICT (mknod, frame, -1, ENOTCONN,
-                                     NULL, NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -547,7 +596,7 @@ out:
 
 int
 client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
-              mode_t mode, dict_t *params)
+              mode_t mode, mode_t umask, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -560,7 +609,8 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         args.loc  = loc;
         args.mode = mode;
-        args.dict = params;
+        args.umask = umask;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_MKDIR];
         if (!proc) {
@@ -574,7 +624,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 out:
         if (ret)
                 STACK_UNWIND_STRICT (mkdir, frame, -1, ENOTCONN,
-                                     NULL, NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -582,7 +632,8 @@ out:
 
 
 int32_t
-client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
+client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
+               int xflag, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -594,6 +645,8 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
 
         args.loc = loc;
+        args.xdata = xdata;
+        args.flags = xflag;
 
         proc = &conf->fops->proctable[GF_FOP_UNLINK];
         if (!proc) {
@@ -607,13 +660,14 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 out:
         if (ret)
                 STACK_UNWIND_STRICT (unlink, frame, -1, ENOTCONN,
-                                     NULL, NULL);
+                                     NULL, NULL, NULL);
 
 	return 0;
 }
 
 int32_t
-client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
+client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
+              dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -626,6 +680,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 
         args.loc = loc;
         args.flags = flags;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_RMDIR];
         if (!proc) {
@@ -640,7 +695,7 @@ out:
         /* think of avoiding a missing frame */
         if (ret)
                 STACK_UNWIND_STRICT (rmdir, frame, -1, ENOTCONN,
-                                     NULL, NULL);
+                                     NULL, NULL, NULL);
 
 	return 0;
 }
@@ -648,7 +703,7 @@ out:
 
 int
 client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
-                loc_t *loc, dict_t *params)
+                loc_t *loc, mode_t umask, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -661,7 +716,8 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         args.linkname = linkpath;
         args.loc      = loc;
-        args.dict     = params;
+        args.umask    = umask;
+        args.xdata    = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_SYMLINK];
         if (!proc) {
@@ -675,7 +731,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 out:
         if (ret)
                 STACK_UNWIND_STRICT (symlink, frame, -1, ENOTCONN,
-                                     NULL, NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -684,7 +740,7 @@ out:
 
 int32_t
 client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
-               loc_t *newloc)
+               loc_t *newloc, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -697,6 +753,8 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         args.oldloc = oldloc;
         args.newloc = newloc;
+        args.xdata  = xdata;
+
         proc = &conf->fops->proctable[GF_FOP_RENAME];
         if (!proc) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -709,7 +767,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 out:
         if (ret)
                 STACK_UNWIND_STRICT (rename, frame, -1, ENOTCONN,
-                                     NULL, NULL, NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -718,7 +776,7 @@ out:
 
 int32_t
 client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
-             loc_t *newloc)
+             loc_t *newloc, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -731,6 +789,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         args.oldloc = oldloc;
         args.newloc = newloc;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_LINK];
         if (!proc) {
@@ -744,7 +803,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 out:
         if (ret)
                 STACK_UNWIND_STRICT (link, frame, -1, ENOTCONN,
-                                     NULL, NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -752,8 +811,8 @@ out:
 
 
 int32_t
-client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
-               int32_t flags, mode_t mode, fd_t *fd, dict_t *params)
+client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,  int32_t flags,
+               mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -768,7 +827,8 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.flags = flags;
         args.mode = mode;
         args.fd = fd;
-        args.dict = params;
+        args.umask = umask;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_CREATE];
         if (!proc) {
@@ -782,7 +842,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
 out:
         if (ret)
                 STACK_UNWIND_STRICT (create, frame, -1, ENOTCONN,
-                                     NULL, NULL, NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -791,7 +851,7 @@ out:
 
 int32_t
 client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             int32_t flags, fd_t *fd, int32_t wbflags)
+             int32_t flags, fd_t *fd, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -805,7 +865,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc = loc;
         args.flags = flags;
         args.fd = fd;
-        args.wbflags = wbflags;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_OPEN];
         if (!proc) {
@@ -819,7 +879,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 out:
         if (ret)
-                STACK_UNWIND_STRICT (open, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (open, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -828,7 +888,7 @@ out:
 
 int32_t
 client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-              off_t offset, uint32_t flags)
+              off_t offset, uint32_t flags, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -843,6 +903,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         args.size   = size;
         args.offset = offset;
         args.flags  = flags;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_READ];
         if (!proc) {
@@ -857,7 +918,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 out:
         if (ret)
                 STACK_UNWIND_STRICT (readv, frame, -1, ENOTCONN,
-                                     NULL, 0, NULL, NULL);
+                                     NULL, 0, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -868,7 +929,7 @@ out:
 int32_t
 client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iovec *vector, int32_t count, off_t off,
-               uint32_t flags, struct iobref *iobref)
+               uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -885,6 +946,7 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.offset = off;
         args.flags  = flags;
         args.iobref = iobref;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_WRITE];
         if (!proc) {
@@ -897,14 +959,14 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (writev, frame, -1, ENOTCONN, NULL, NULL);
+                STACK_UNWIND_STRICT (writev, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 	return 0;
 }
 
 
 int32_t
-client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
+client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -916,6 +978,7 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto out;
 
         args.fd = fd;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FLUSH];
         if (!proc) {
@@ -928,7 +991,7 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (flush, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (flush, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -937,7 +1000,7 @@ out:
 
 int32_t
 client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
-              int32_t flags)
+              int32_t flags, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -950,6 +1013,7 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         args.fd    = fd;
         args.flags = flags;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSYNC];
         if (!proc) {
@@ -962,7 +1026,7 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fsync, frame, -1, ENOTCONN, NULL, NULL);
+                STACK_UNWIND_STRICT (fsync, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -970,7 +1034,7 @@ out:
 
 
 int32_t
-client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
+client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -982,6 +1046,7 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto out;
 
         args.fd = fd;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSTAT];
         if (!proc) {
@@ -994,7 +1059,7 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fstat, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (fstat, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1002,7 +1067,8 @@ out:
 
 
 int32_t
-client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
+client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
+                dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1015,6 +1081,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
         args.loc = loc;
         args.fd  = fd;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_OPENDIR];
         if (!proc) {
@@ -1027,7 +1094,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (opendir, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (opendir, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1035,7 +1102,7 @@ out:
 
 
 int32_t
-client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
+client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1048,6 +1115,7 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         args.fd    = fd;
         args.flags = flags;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSYNCDIR];
         if (!proc) {
@@ -1060,7 +1128,7 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fsyncdir, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (fsyncdir, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -1068,7 +1136,7 @@ out:
 
 
 int32_t
-client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
+client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1080,6 +1148,7 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
 
         args.loc = loc;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_STATFS];
         if (!proc) {
@@ -1092,7 +1161,7 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (statfs, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (statfs, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1218,7 +1287,7 @@ out:
 
 int32_t
 client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
-                 int32_t flags)
+                 int32_t flags, dict_t *xdata)
 {
         int                   ret         = -1;
         int                   op_ret      = -1;
@@ -1266,8 +1335,9 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
 
         args.loc   = loc;
-        args.dict  = dict;
+        args.xattr = dict;
         args.flags = flags;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_SETXATTR];
         if (!proc) {
@@ -1284,7 +1354,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
 out:
         if (need_unwind)
-                STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
+                STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
 
 	return 0;
 }
@@ -1293,7 +1363,7 @@ out:
 
 int32_t
 client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                  dict_t *dict, int32_t flags)
+                  dict_t *dict, int32_t flags, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1304,9 +1374,10 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!conf || !conf->fops)
                 goto out;
 
-        args.fd = fd;
-        args.dict = dict;
+        args.fd    = fd;
+        args.xattr = dict;
         args.flags = flags;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSETXATTR];
         if (!proc) {
@@ -1319,7 +1390,7 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fsetxattr, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (fsetxattr, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -1329,7 +1400,7 @@ out:
 
 int32_t
 client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                  const char *name)
+                  const char *name, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1342,6 +1413,7 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         args.fd = fd;
         args.name = name;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FGETXATTR];
         if (!proc) {
@@ -1354,7 +1426,7 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fgetxattr, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (fgetxattr, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1363,7 +1435,7 @@ out:
 
 int32_t
 client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                 const char *name)
+                 const char *name, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1376,6 +1448,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         args.name = name;
         args.loc  = loc;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_GETXATTR];
         if (!proc) {
@@ -1388,7 +1461,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (getxattr, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (getxattr, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1397,7 +1470,7 @@ out:
 
 int32_t
 client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                gf_xattrop_flags_t flags, dict_t *dict)
+                gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1410,7 +1483,8 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         args.loc = loc;
         args.flags = flags;
-        args.dict = dict;
+        args.xattr = dict;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_XATTROP];
         if (!proc) {
@@ -1423,7 +1497,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (xattrop, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (xattrop, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1432,7 +1506,7 @@ out:
 
 int32_t
 client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 gf_xattrop_flags_t flags, dict_t *dict)
+                 gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1445,7 +1519,8 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         args.fd = fd;
         args.flags = flags;
-        args.dict = dict;
+        args.xattr = dict;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FXATTROP];
         if (!proc) {
@@ -1458,7 +1533,7 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fxattrop, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (fxattrop, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1467,7 +1542,7 @@ out:
 
 int32_t
 client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                    const char *name)
+                    const char *name, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1480,6 +1555,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         args.name = name;
         args.loc  = loc;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_REMOVEXATTR];
         if (!proc) {
@@ -1492,14 +1568,14 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (removexattr, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (removexattr, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
 
 int32_t
 client_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                     const char *name)
+                     const char *name, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1512,6 +1588,7 @@ client_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         args.name = name;
         args.fd  = fd;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FREMOVEXATTR];
         if (!proc) {
@@ -1524,14 +1601,14 @@ client_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fremovexattr, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (fremovexattr, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
 
 int32_t
 client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-           struct gf_flock *lock)
+           struct gf_flock *lock, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1545,6 +1622,7 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         args.fd    = fd;
         args.cmd   = cmd;
         args.flock = lock;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_LK];
         if (!proc) {
@@ -1557,7 +1635,7 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (lk, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (lk, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1565,7 +1643,7 @@ out:
 
 int32_t
 client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-                loc_t *loc, int32_t cmd, struct gf_flock *lock)
+                loc_t *loc, int32_t cmd, struct gf_flock *lock, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1580,6 +1658,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.cmd    = cmd;
         args.flock  = lock;
         args.volume = volume;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_INODELK];
         if (!proc) {
@@ -1592,7 +1671,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (inodelk, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (inodelk, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -1601,7 +1680,7 @@ out:
 
 int32_t
 client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-                 fd_t *fd, int32_t cmd, struct gf_flock *lock)
+                 fd_t *fd, int32_t cmd, struct gf_flock *lock, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1616,6 +1695,7 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.cmd    = cmd;
         args.flock  = lock;
         args.volume = volume;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FINODELK];
         if (!proc) {
@@ -1628,7 +1708,7 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (finodelk, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (finodelk, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -1637,7 +1717,7 @@ out:
 int32_t
 client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
                 loc_t *loc, const char *basename, entrylk_cmd cmd,
-                entrylk_type type)
+                entrylk_type type, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1653,6 +1733,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.type         = type;
         args.volume       = volume;
         args.cmd_entrylk  = cmd;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_ENTRYLK];
         if (!proc) {
@@ -1665,7 +1746,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (entrylk, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (entrylk, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -1675,7 +1756,7 @@ out:
 int32_t
 client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
                  fd_t *fd, const char *basename, entrylk_cmd cmd,
-                 entrylk_type type)
+                 entrylk_type type, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1691,6 +1772,7 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.type         = type;
         args.volume       = volume;
         args.cmd_entrylk  = cmd;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FENTRYLK];
         if (!proc) {
@@ -1703,7 +1785,7 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOTCONN);
+                STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOTCONN, NULL);
 
 	return 0;
 }
@@ -1711,7 +1793,7 @@ out:
 
 int32_t
 client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-                  int32_t len)
+                  int32_t len, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1725,6 +1807,7 @@ client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         args.fd = fd;
         args.offset = offset;
         args.len = len;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_RCHECKSUM];
         if (!proc) {
@@ -1737,14 +1820,14 @@ client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (rchecksum, frame, -1, ENOTCONN, 0, NULL);
+                STACK_UNWIND_STRICT (rchecksum, frame, -1, ENOTCONN, 0, NULL, NULL);
 
 	return 0;
 }
 
 int32_t
 client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                size_t size, off_t off)
+                size_t size, off_t off, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1758,6 +1841,7 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.fd = fd;
         args.size = size;
         args.offset = off;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_READDIR];
         if (!proc) {
@@ -1770,7 +1854,7 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (readdir, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (readdir, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1792,7 +1876,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.fd = fd;
         args.size = size;
         args.offset = off;
-        args.dict = dict;
+        args.xdata = dict;
 
         proc = &conf->fops->proctable[GF_FOP_READDIRP];
         if (!proc) {
@@ -1805,7 +1889,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (readdirp, frame, -1, ENOTCONN, NULL);
+                STACK_UNWIND_STRICT (readdirp, frame, -1, ENOTCONN, NULL, NULL);
 
 	return 0;
 }
@@ -1813,7 +1897,7 @@ out:
 
 int32_t
 client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                struct iatt *stbuf, int32_t valid)
+                struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1827,6 +1911,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc = loc;
         args.stbuf = stbuf;
         args.valid = valid;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_SETATTR];
         if (!proc) {
@@ -1839,14 +1924,14 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (setattr, frame, -1, ENOTCONN, NULL, NULL);
+                STACK_UNWIND_STRICT (setattr, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 	return 0;
 }
 
 int32_t
 client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 struct iatt *stbuf, int32_t valid)
+                 struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1860,6 +1945,7 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.fd = fd;
         args.stbuf = stbuf;
         args.valid = valid;
+        args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSETATTR];
         if (!proc) {
@@ -1872,7 +1958,7 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
-                STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOTCONN, NULL, NULL);
+                STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -1985,13 +2071,16 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 /* Cancel grace timer if set */
                 pthread_mutex_lock (&conf->lock);
                 {
+                        conf->grace_timer_needed = _gf_true;
+
                         if (conf->grace_timer) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "Cancelling the grace timer");
 
                                 gf_timer_call_cancel (this->ctx,
                                                       conf->grace_timer);
-                                conf->grace_timer = NULL;
+
+                                conf->grace_timer      = NULL;
                         }
                 }
                 pthread_mutex_unlock (&conf->lock);
@@ -1999,24 +2088,10 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 break;
         }
         case RPC_CLNT_DISCONNECT:
-                /* client_mark_fd_bad (this); */
-
-                pthread_mutex_lock (&conf->lock);
-                {
-                        if (conf->grace_timer) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "Client grace timer is already set");
-                        } else {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "Registering a grace timer");
-                                conf->grace_timer =
-                                        gf_timer_call_after (this->ctx,
-                                                             conf->grace_tv,
-                                                             client_grace_timeout,
-                                                             conf->rpc);
-                        }
-                }
-                pthread_mutex_unlock (&conf->lock);
+                if (!conf->lk_heal)
+                        client_mark_fd_bad (this);
+                else
+                        client_register_grace_timer (this, conf);
 
                 if (!conf->skip_notify) {
                         if (conf->connected)
@@ -2164,6 +2239,9 @@ client_destroy_rpc (xlator_t *this)
                 goto out;
 
         if (conf->rpc) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&conf->rpc->conn);
+
                 conf->rpc = rpc_clnt_unref (conf->rpc);
                 ret = 0;
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -2236,11 +2314,14 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
         GF_VALIDATE_OR_GOTO (this->name, options, out);
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        conf->lk_heal = _gf_true;
+        conf->lk_heal = _gf_false;
 
         ret = dict_get_str (options, "lk-heal", &lk_heal);
         if (!ret)
                 gf_string2boolean (lk_heal, &conf->lk_heal);
+
+        gf_log (this->name, GF_LOG_DEBUG, "lk-heal = %s",
+                (conf->lk_heal) ? "on" : "off");
 
         ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
         if (!ret)
@@ -2250,8 +2331,8 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
 
         conf->grace_tv.tv_usec  = 0;
 
-        gf_log (this->name, GF_LOG_INFO, "lk-heal = %s",
-                (conf->lk_heal) ? "on" : "off");
+        gf_log (this->name, GF_LOG_DEBUG, "Client grace timeout "
+                "value = %"PRIu64, conf->grace_tv.tv_sec);
 
         ret = 0;
 out:
@@ -2322,7 +2403,6 @@ init (xlator_t *this)
         int          ret = -1;
         clnt_conf_t *conf = NULL;
 
-        /* */
         if (this->children) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: client protocol translator cannot have any "
@@ -2343,8 +2423,9 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->saved_fds);
 
         /* Initialize parameters for lock self healing*/
-        conf->lk_version  = 1;
-        conf->grace_timer = NULL;
+        conf->lk_version         = 1;
+        conf->grace_timer        = NULL;
+        conf->grace_timer_needed = _gf_true;
 
         ret = client_init_grace_timer (this, this->options, conf);
         if (ret)
@@ -2396,8 +2477,12 @@ fini (xlator_t *this)
         this->private = NULL;
 
         if (conf) {
-                if (conf->rpc)
-                       rpc_clnt_unref (conf->rpc);
+                if (conf->rpc) {
+                        /* cleanup the saved-frames before last unref */
+                        rpc_clnt_connection_cleanup (&conf->rpc->conn);
+
+                        rpc_clnt_unref (conf->rpc);
+                }
 
                 /* Saved Fds */
                 /* TODO: */
@@ -2407,6 +2492,54 @@ fini (xlator_t *this)
                 GF_FREE (conf);
         }
         return;
+}
+
+static void
+client_fd_lk_ctx_dump (xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
+{
+        gf_boolean_t            use_try_lock             = _gf_true;
+        int                     ret                      = -1;
+        int                     lock_no                  = 0;
+        fd_lk_ctx_t             *lk_ctx_ref              = NULL;
+        fd_lk_ctx_node_t        *plock                   = NULL;
+        char                    key[GF_DUMP_MAX_BUF_LEN] = {0,};
+
+        lk_ctx_ref = fd_lk_ctx_try_ref (lk_ctx);
+        if (!lk_ctx_ref)
+                return;
+
+        ret = client_fd_lk_list_empty (lk_ctx_ref, (use_try_lock = _gf_true));
+        if (ret != 0)
+                return;
+
+        ret = TRY_LOCK (&lk_ctx_ref->lock);
+        if (ret)
+                return;
+
+        gf_proc_dump_write ("------","------");
+
+        lock_no = 0;
+        list_for_each_entry (plock, &lk_ctx_ref->lk_list, next) {
+                snprintf (key, sizeof (key), "granted-posix-lock[%d]",
+                          lock_no++);
+                gf_proc_dump_write (key, "owner = %s, cmd = %s "
+                                    "fl_type = %s, fl_start = %"
+                                    PRId64", fl_end = %"PRId64
+                                    ", user_flock: l_type = %s, "
+                                    "l_start = %"PRId64", l_len = %"PRId64,
+                                    lkowner_utoa (&plock->user_flock.l_owner),
+                                    get_lk_cmd (plock->cmd),
+                                    get_lk_type (plock->fl_type),
+                                    plock->fl_start, plock->fl_end,
+                                    get_lk_type (plock->user_flock.l_type),
+                                    plock->user_flock.l_start,
+                                    plock->user_flock.l_len);
+        }
+        gf_proc_dump_write ("------","------");
+
+        UNLOCK (&lk_ctx_ref->lock);
+        fd_lk_ctx_unref (lk_ctx_ref);
+
 }
 
 int
@@ -2423,18 +2556,12 @@ client_priv_dump (xlator_t *this)
                 return -1;
 
         conf = this->private;
-        if (!conf) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "conf null in xlator");
+        if (!conf)
                 return -1;
-        }
 
         ret = pthread_mutex_trylock(&conf->lock);
-        if (ret) {
-                gf_log(this->name, GF_LOG_WARNING, "Unable to lock client %s"
-                       " errno: %d", this->name, errno);
+        if (ret)
                 return -1;
-        }
 
         gf_proc_dump_build_key(key_prefix, "xlator.protocol.client",
                                "%s.priv", this->name);
@@ -2442,13 +2569,13 @@ client_priv_dump (xlator_t *this)
         gf_proc_dump_add_section(key_prefix);
 
         list_for_each_entry(tmp, &conf->saved_fds, sfd_pos) {
-                sprintf (key, "fd.%d.remote_fd", ++i);
+                sprintf (key, "fd.%d.remote_fd", i);
                 gf_proc_dump_write(key, "%d", tmp->remote_fd);
+                client_fd_lk_ctx_dump (this, tmp->lk_ctx, i);
+                i++;
         }
 
         gf_proc_dump_write("connecting", "%d", conf->connecting);
-        gf_proc_dump_write("last_sent", "%s", ctime(&conf->last_sent.tv_sec));
-        gf_proc_dump_write("last_received", "%s", ctime(&conf->last_received.tv_sec));
 
         if (conf->rpc) {
                 gf_proc_dump_write("total_bytes_read", "%"PRIu64,
@@ -2581,10 +2708,13 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_BOOL
         },
         { .key   = {"lk-heal"},
-          .type  = GF_OPTION_TYPE_STR
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
         },
         { .key   = {"grace-timeout"},
-          .type  = GF_OPTION_TYPE_INT
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 10,
+          .max   = 1800
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,

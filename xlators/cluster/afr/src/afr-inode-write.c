@@ -70,7 +70,8 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
                 AFR_STACK_UNWIND (writev, main_frame,
                                   local->op_ret, local->op_errno,
                                   &local->cont.writev.prebuf,
-                                  &local->cont.writev.postbuf);
+                                  &local->cont.writev.postbuf,
+                                  NULL);
         }
         return 0;
 }
@@ -79,7 +80,7 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                     struct iatt *postbuf)
+                     struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         int child_index = (long) cookie;
@@ -158,7 +159,8 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
                                            local->cont.writev.count,
                                            local->cont.writev.offset,
                                            local->cont.writev.flags,
-                                           local->cont.writev.iobref);
+                                           local->cont.writev.iobref,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -231,7 +233,7 @@ out:
         if (op_ret == -1) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL, NULL, NULL);
         }
 
         return 0;
@@ -346,6 +348,7 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
         int                     ret = 0;
         int                     i   = 0;
         afr_fd_ctx_t            *fd_ctx = NULL;
+        inode_t                 *inode = NULL;
         gf_boolean_t            need_self_heal = _gf_false;
         int                     *need_open = NULL;
         int                     need_open_count = 0;
@@ -358,7 +361,10 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
 
         GF_ASSERT (local->fd);
 
-        if (fd_is_anonymous (local->fd)) {
+        inode = local->fd->inode;
+        //gfid is not set in rebalance, that case needs to be handled.
+        if (fd_is_anonymous (local->fd) ||
+            !inode || uuid_is_null (inode->gfid)) {
                 fop_continue = _gf_true;
                 goto out;
         }
@@ -442,7 +448,7 @@ out:
 int
 afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iovec *vector, int32_t count, off_t offset,
-            uint32_t flags, struct iobref *iobref)
+            uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
@@ -482,7 +488,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -512,7 +518,8 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
                 AFR_STACK_UNWIND (truncate, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.truncate.prebuf,
-                                  &local->cont.truncate.postbuf);
+                                  &local->cont.truncate.postbuf,
+                                  NULL);
         }
 
         return 0;
@@ -522,7 +529,7 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                       struct iatt *postbuf)
+                       struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -609,7 +616,8 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
                                            priv->children[i],
                                            priv->children[i]->fops->truncate,
                                            &local->loc,
-                                           local->cont.truncate.offset);
+                                           local->cont.truncate.offset,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -637,7 +645,7 @@ afr_truncate_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_truncate (call_frame_t *frame, xlator_t *this,
-              loc_t *loc, off_t offset)
+              loc_t *loc, off_t offset, dict_t *xdata)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
@@ -685,7 +693,7 @@ out:
         if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL, NULL);
         }
 
         return 0;
@@ -717,7 +725,8 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
                 AFR_STACK_UNWIND (ftruncate, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.ftruncate.prebuf,
-                                  &local->cont.ftruncate.postbuf);
+                                  &local->cont.ftruncate.postbuf,
+                                  NULL);
         }
         return 0;
 }
@@ -726,7 +735,7 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                        struct iatt *postbuf)
+                        struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -812,7 +821,9 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->ftruncate,
-                                           local->fd, local->cont.ftruncate.offset);
+                                           local->fd,
+                                           local->cont.ftruncate.offset,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -874,7 +885,8 @@ out:
         if (op_ret == -1) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, NULL,
+                                  NULL, NULL);
         }
 
         return 0;
@@ -883,7 +895,7 @@ out:
 
 int
 afr_ftruncate (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, off_t offset)
+               fd_t *fd, off_t offset, dict_t *xdata)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
@@ -922,7 +934,7 @@ out:
         if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
         }
 
         return 0;
@@ -952,7 +964,8 @@ afr_setattr_unwind (call_frame_t *frame, xlator_t *this)
                 AFR_STACK_UNWIND (setattr, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.setattr.preop_buf,
-                                  &local->cont.setattr.postop_buf);
+                                  &local->cont.setattr.postop_buf,
+                                  NULL);
         }
 
         return 0;
@@ -962,7 +975,7 @@ afr_setattr_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_setattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      struct iatt *preop, struct iatt *postop)
+                      struct iatt *preop, struct iatt *postop, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -1050,7 +1063,8 @@ afr_setattr_wind (call_frame_t *frame, xlator_t *this)
                                            priv->children[i]->fops->setattr,
                                            &local->loc,
                                            &local->cont.setattr.in_buf,
-                                           local->cont.setattr.valid);
+                                           local->cont.setattr.valid,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -1078,7 +1092,7 @@ afr_setattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_setattr (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, struct iatt *buf, int32_t valid)
+             loc_t *loc, struct iatt *buf, int32_t valid, dict_t *xdata)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
@@ -1127,7 +1141,7 @@ out:
         if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL, NULL);
         }
 
         return 0;
@@ -1155,7 +1169,8 @@ afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
                 AFR_STACK_UNWIND (fsetattr, main_frame, local->op_ret,
                                   local->op_errno,
                                   &local->cont.fsetattr.preop_buf,
-                                  &local->cont.fsetattr.postop_buf);
+                                  &local->cont.fsetattr.postop_buf,
+                                  NULL);
         }
 
         return 0;
@@ -1165,7 +1180,7 @@ afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_fsetattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
-                       struct iatt *preop, struct iatt *postop)
+                       struct iatt *preop, struct iatt *postop, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -1253,7 +1268,8 @@ afr_fsetattr_wind (call_frame_t *frame, xlator_t *this)
                                            priv->children[i]->fops->fsetattr,
                                            local->fd,
                                            &local->cont.fsetattr.in_buf,
-                                           local->cont.fsetattr.valid);
+                                           local->cont.fsetattr.valid,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -1280,7 +1296,7 @@ afr_fsetattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_fsetattr (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, struct iatt *buf, int32_t valid)
+              fd_t *fd, struct iatt *buf, int32_t valid, dict_t *xdata)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
@@ -1335,7 +1351,7 @@ out:
         if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
         }
 
         return 0;
@@ -1363,7 +1379,8 @@ afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
 
         if (main_frame) {
                 AFR_STACK_UNWIND (setxattr, main_frame,
-                                  local->op_ret, local->op_errno);
+                                  local->op_ret, local->op_errno,
+                                  NULL);
         }
         return 0;
 }
@@ -1371,7 +1388,7 @@ afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno)
+                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t      *local         = NULL;
         afr_private_t    *priv          = NULL;
@@ -1440,7 +1457,8 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
                                            priv->children[i]->fops->setxattr,
                                            &local->loc,
                                            local->cont.setxattr.dict,
-                                           local->cont.setxattr.flags);
+                                           local->cont.setxattr.flags,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -1465,7 +1483,7 @@ afr_setxattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_setxattr (call_frame_t *frame, xlator_t *this,
-              loc_t *loc, dict_t *dict, int32_t flags)
+              loc_t *loc, dict_t *dict, int32_t flags, dict_t *xdata)
 {
         afr_private_t  *priv              = NULL;
         afr_local_t    *local             = NULL;
@@ -1521,7 +1539,7 @@ out:
         if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (setxattr, frame, -1, op_errno);
+                AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
         }
 
         return 0;
@@ -1548,7 +1566,8 @@ afr_fsetxattr_unwind (call_frame_t *frame, xlator_t *this)
 
         if (main_frame) {
                 AFR_STACK_UNWIND (fsetxattr, main_frame,
-                                  local->op_ret, local->op_errno);
+                                  local->op_ret, local->op_errno,
+                                  NULL);
         }
         return 0;
 }
@@ -1556,7 +1575,7 @@ afr_fsetxattr_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_fsetxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno)
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t     *local       = NULL;
         afr_private_t   *priv        = NULL;
@@ -1625,7 +1644,8 @@ afr_fsetxattr_wind (call_frame_t *frame, xlator_t *this)
                                            priv->children[i]->fops->fsetxattr,
                                            local->fd,
                                            local->cont.fsetxattr.dict,
-                                           local->cont.fsetxattr.flags);
+                                           local->cont.fsetxattr.flags,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -1650,7 +1670,7 @@ afr_fsetxattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_fsetxattr (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, dict_t *dict, int32_t flags)
+               fd_t *fd, dict_t *dict, int32_t flags, dict_t *xdata)
 {
         afr_private_t    *priv              = NULL;
         afr_local_t      *local             = NULL;
@@ -1711,7 +1731,7 @@ out:
         if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (fsetxattr, frame, -1, op_errno);
+                AFR_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
         }
 
         return 0;
@@ -1741,7 +1761,8 @@ afr_removexattr_unwind (call_frame_t *frame, xlator_t *this)
 
         if (main_frame) {
                 AFR_STACK_UNWIND (removexattr, main_frame,
-                                  local->op_ret, local->op_errno);
+                                  local->op_ret, local->op_errno,
+                                  NULL);
         }
         return 0;
 }
@@ -1749,7 +1770,7 @@ afr_removexattr_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_removexattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno)
+                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -1817,7 +1838,8 @@ afr_removexattr_wind (call_frame_t *frame, xlator_t *this)
                                            priv->children[i],
                                            priv->children[i]->fops->removexattr,
                                            &local->loc,
-                                           local->cont.removexattr.name);
+                                           local->cont.removexattr.name,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -1843,7 +1865,7 @@ afr_removexattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_removexattr (call_frame_t *frame, xlator_t *this,
-                 loc_t *loc, const char *name)
+                 loc_t *loc, const char *name, dict_t *xdata)
 {
         afr_private_t   *priv              = NULL;
         afr_local_t     *local             = NULL;
@@ -1899,7 +1921,7 @@ out:
         if (ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (removexattr, frame, -1, op_errno);
+                AFR_STACK_UNWIND (removexattr, frame, -1, op_errno, NULL);
         }
 
         return 0;
@@ -1924,7 +1946,8 @@ afr_fremovexattr_unwind (call_frame_t *frame, xlator_t *this)
 
         if (main_frame) {
                 AFR_STACK_UNWIND (fremovexattr, main_frame,
-                                  local->op_ret, local->op_errno);
+                                  local->op_ret, local->op_errno,
+                                  NULL);
         }
         return 0;
 }
@@ -1932,7 +1955,7 @@ afr_fremovexattr_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_fremovexattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno)
+                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
@@ -2000,7 +2023,8 @@ afr_fremovexattr_wind (call_frame_t *frame, xlator_t *this)
                                            priv->children[i],
                                            priv->children[i]->fops->fremovexattr,
                                            local->fd,
-                                           local->cont.removexattr.name);
+                                           local->cont.removexattr.name,
+                                           NULL);
 
                         if (!--call_count)
                                 break;
@@ -2026,7 +2050,7 @@ afr_fremovexattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_fremovexattr (call_frame_t *frame, xlator_t *this,
-                  fd_t *fd, const char *name)
+                  fd_t *fd, const char *name, dict_t *xdata)
 {
         afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
@@ -2086,7 +2110,7 @@ out:
         if (op_ret == -1) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
-                AFR_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno);
+                AFR_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, NULL);
         }
 
         return 0;

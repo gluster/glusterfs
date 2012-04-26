@@ -108,7 +108,7 @@ Xattr = _MetaXattr()
 
 class Popen(subprocess.Popen):
     """customized subclass of subprocess.Popen with a ring
-    buffer for children error ouput"""
+    buffer for children error output"""
 
     @classmethod
     def init_errhandler(cls):
@@ -204,7 +204,7 @@ class Server(object):
     and classmethods and is used directly, without instantiation.)
     """
 
-    GX_NSPACE = (privileged() and "trusted" or "user") + ".glusterfs"
+    GX_NSPACE = (privileged() and "trusted" or "system") + ".glusterfs"
     NTV_FMTSTR = "!" + "B"*19 + "II"
     FRGN_XTRA_FMT = "I"
     FRGN_FMTSTR = NTV_FMTSTR + FRGN_XTRA_FMT

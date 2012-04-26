@@ -27,7 +27,6 @@
 #include "xlator.h"
 #include "dht-common.h"
 
-
 #define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,cnt,path)    do {       \
                 layout->list[i].start = srt;                            \
                 layout->list[i].stop  = srt + chunk - 1;                \
@@ -37,7 +36,6 @@
                         layout->list[i].start, layout->list[i].stop,    \
                         layout->list[i].xlator->name, path);            \
         } while (0)
-
 
 static inline uint32_t
 dht_find_overlap (int idx, int cnk_idx, uint32_t start, uint32_t stop,
@@ -82,7 +80,7 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 
         local = frame->local;
         local->selfheal.dir_cbk (frame, NULL, frame->this, ret,
-                                 local->op_errno);
+                                 local->op_errno, NULL);
 
         return 0;
 }
@@ -90,7 +88,7 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 
 int
 dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int op_ret, int op_errno)
+                            int op_ret, int op_errno, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
@@ -143,6 +141,11 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
         subvol = layout->list[i].xlator;
         this = frame->this;
 
+        GF_VALIDATE_OR_GOTO ("", this, err);
+        GF_VALIDATE_OR_GOTO (this->name, layout, err);
+        GF_VALIDATE_OR_GOTO (this->name, local, err);
+        GF_VALIDATE_OR_GOTO (this->name, subvol, err);
+
         xattr = get_new_dict ();
         if (!xattr) {
                 goto err;
@@ -178,7 +181,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 
         STACK_WIND (frame, dht_selfheal_dir_xattr_cbk,
                     subvol, subvol->fops->setxattr,
-                    loc, xattr, 0);
+                    loc, xattr, 0, NULL);
 
         dict_unref (xattr);
 
@@ -192,7 +195,7 @@ err:
                 GF_FREE (disk_layout);
 
         dht_selfheal_dir_xattr_cbk (frame, subvol, frame->this,
-                                    -1, ENOMEM);
+                                    -1, ENOMEM, NULL);
         return 0;
 }
 
@@ -270,7 +273,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 int
 dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               int op_ret, int op_errno, struct iatt *statpre,
-                              struct iatt *statpost)
+                              struct iatt *statpost, dict_t *xdata)
 {
         dht_local_t   *local = NULL;
         dht_layout_t  *layout = NULL;
@@ -324,7 +327,7 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                         STACK_WIND (frame, dht_selfheal_dir_setattr_cbk,
                                     layout->list[i].xlator,
                                     layout->list[i].xlator->fops->setattr,
-                                    loc, stbuf, valid);
+                                    loc, stbuf, valid, NULL);
                 }
         }
 
@@ -335,7 +338,8 @@ int
 dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             int op_ret, int op_errno,
                             inode_t *inode, struct iatt *stbuf,
-                            struct iatt *preparent, struct iatt *postparent)
+                            struct iatt *preparent, struct iatt *postparent,
+                            dict_t *xdata)
 {
         dht_local_t   *local = NULL;
         dht_layout_t  *layout = NULL;
@@ -381,6 +385,46 @@ out:
         return 0;
 }
 
+void
+dht_selfheal_dir_mkdir_setacl (dict_t *xattr, dict_t *dict)
+{
+        data_t          *acl_default = NULL;
+        data_t          *acl_access = NULL;
+        xlator_t        *this = NULL;
+        int     ret = -1;
+
+        GF_ASSERT (xattr);
+        GF_ASSERT (dict);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        acl_default = dict_get (xattr, POSIX_ACL_DEFAULT_XATTR);
+
+        if (!acl_default) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "ACL_DEFAULT xattr not present");
+                goto cont;
+        }
+        ret = dict_set (dict, POSIX_ACL_DEFAULT_XATTR, acl_default);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Could not set ACL_DEFAULT xattr");
+cont:
+        acl_access = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
+        if (!acl_access) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "ACL_ACCESS xattr not present");
+                goto out;
+        }
+        ret = dict_set (dict, POSIX_ACL_ACCESS_XATTR, acl_access);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Could not set ACL_ACCESS xattr");
+
+out:
+        return;
+}
 
 int
 dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
@@ -414,16 +458,19 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "%s: failed to set gfid in dict", loc->path);
         } else if (local->params) {
                 /* Send the dictionary from higher layers directly */
                 dict = dict_ref (local->params);
         }
+        /* Set acls */
+        if (local->xattr && dict)
+                dht_selfheal_dir_mkdir_setacl (local->xattr, dict);
 
         if (!dict)
                 gf_log (this->name, GF_LOG_WARNING,
-                        "dict is NULL, need to make sure gfid's are same");
+                        "dict is NULL, need to make sure gfids are same");
 
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err == ENOENT || force) {
@@ -437,7 +484,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                                     loc,
                                     st_mode_from_ia (local->stbuf.ia_prot,
                                                      local->stbuf.ia_type),
-                                    dict);
+                                    0, dict);
                 }
         }
 
@@ -659,6 +706,9 @@ done:
                 local->layout = new_layout;
         }
 
+        if (fix_array)
+                GF_FREE (fix_array);
+
         return new_layout;
 }
 
@@ -830,14 +880,14 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         local->selfheal.layout = dht_layout_ref (this, layout);
 
         if (down) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "%d subvolumes down -- not fixing", down);
                 ret = 0;
                 goto sorry_no_fix;
         }
 
         if (misc) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "%d subvolumes have unrecoverable errors", misc);
                 ret = 0;
                 goto sorry_no_fix;
@@ -847,7 +897,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "not able to form layout for the directory");
                 goto sorry_no_fix;
         }

@@ -54,7 +54,6 @@
 #include "posix-mem-types.h"
 #include "posix-handle.h"
 
-
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -159,4 +158,5 @@ int posix_fd_ctx_get_off (fd_t *fd, xlator_t *this, struct posix_fd **pfd,
                           off_t off);
 void posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf);
 
+gf_boolean_t posix_special_xattr (char **pattern, char *key);
 #endif /* _POSIX_H */

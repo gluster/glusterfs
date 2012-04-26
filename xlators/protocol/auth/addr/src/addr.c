@@ -226,14 +226,14 @@ out:
 
 struct volume_options options[] = {
         { .key   = {"auth.addr.*.allow"},
-          .type  = GF_OPTION_TYPE_ANY
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
         },
         { .key   = {"auth.addr.*.reject"},
-          .type  = GF_OPTION_TYPE_ANY
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
         },
         /* Backword compatibility */
         { .key   = {"auth.ip.*.allow"},
-          .type  = GF_OPTION_TYPE_ANY
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
         },
         { .key = {NULL} }
 };

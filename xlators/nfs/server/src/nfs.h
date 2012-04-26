@@ -85,6 +85,7 @@ struct nfs_state {
         int                     enable_ino32;
         unsigned int            override_portnum;
         int                     allow_insecure;
+        int                     enable_nlm;
         struct rpc_clnt         *rpc_clnt;
 };
 

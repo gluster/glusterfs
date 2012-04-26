@@ -26,6 +26,32 @@
 #include "fd.h"
 
 
+int
+client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t try_lock)
+{
+        int  ret = 1;
+
+        if (!lk_ctx) {
+                ret = -1;
+                goto out;
+        }
+
+        if (try_lock) {
+                ret = TRY_LOCK (&lk_ctx->lock);
+                if (ret != 0) {
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                LOCK (&lk_ctx->lock);
+        }
+
+        ret = list_empty (&lk_ctx->lk_list);
+        UNLOCK (&lk_ctx->lock);
+out:
+        return ret;
+}
+
 clnt_fd_ctx_t *
 this_fd_del_ctx (fd_t *file, xlator_t *this)
 {
@@ -115,7 +141,7 @@ client_local_wipe (clnt_local_t *local)
                         iobref_unref (local->iobref);
                 }
 
-                 mem_put (local);
+                mem_put (local);
         }
 
         return 0;
@@ -229,6 +255,7 @@ clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
         while (trav) {
                 trav = trav->nextentry;
                 /* on client, the rpc lib allocates this */
+                free (prev->dict.dict_val);
                 free (prev->name);
                 free (prev);
                 prev = trav;

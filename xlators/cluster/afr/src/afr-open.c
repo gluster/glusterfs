@@ -123,7 +123,7 @@ out:
 int
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                        struct iatt *postbuf)
+                        struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t * local = frame->local;
         afr_private_t *priv = NULL;
@@ -132,7 +132,7 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (afr_open_only_data_self_heal (priv->data_self_heal))
                 afr_perform_data_self_heal (frame, this);
         AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
-                          local->fd);
+                          local->fd, xdata);
         return 0;
 }
 
@@ -140,7 +140,7 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_open_cbk (call_frame_t *frame, void *cookie,
               xlator_t *this, int32_t op_ret, int32_t op_errno,
-              fd_t *fd)
+              fd_t *fd, dict_t *xdata)
 {
         afr_local_t *  local       = NULL;
         int            ret         = 0;
@@ -162,8 +162,7 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
                         local->success_count++;
 
                         ret = afr_child_fd_ctx_set (this, fd, child_index,
-                                                    local->cont.open.flags,
-                                                    local->cont.open.wbflags);
+                                                    local->cont.open.flags);
                         if (ret) {
                                 local->op_ret = -1;
                                 local->op_errno = -ret;
@@ -181,12 +180,12 @@ unlock:
                     && (local->op_ret >= 0)) {
                         STACK_WIND (frame, afr_open_ftruncate_cbk,
                                     this, this->fops->ftruncate,
-                                    fd, 0);
+                                    fd, 0, NULL);
                 } else {
                         if (afr_open_only_data_self_heal (priv->data_self_heal))
                                 afr_perform_data_self_heal (frame, this);
                         AFR_STACK_UNWIND (open, frame, local->op_ret,
-                                          local->op_errno, local->fd);
+                                          local->op_errno, local->fd, xdata);
                 }
         }
 
@@ -195,7 +194,7 @@ unlock:
 
 int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-          fd_t *fd, int32_t wbflags)
+          fd_t *fd, dict_t *xdata)
 {
         afr_private_t * priv       = NULL;
         afr_local_t *   local      = NULL;
@@ -236,7 +235,6 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         loc_copy (&local->loc, loc);
 
         local->cont.open.flags   = flags;
-        local->cont.open.wbflags = wbflags;
 
         local->fd = fd_ref (fd);
 
@@ -245,7 +243,7 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                         STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->open,
-                                           loc, wind_flags, fd, wbflags);
+                                           loc, wind_flags, fd, xdata);
 
                         if (!--call_count)
                                 break;
@@ -255,7 +253,7 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         ret = 0;
 out:
         if (ret < 0)
-                AFR_STACK_UNWIND (open, frame, -1, op_errno, fd);
+                AFR_STACK_UNWIND (open, frame, -1, op_errno, fd, xdata);
 
         return 0;
 }
@@ -308,7 +306,7 @@ afr_resume_calls (xlator_t *this, struct list_head *list)
 
 int
 afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, fd_t *fd)
+                         int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         afr_local_t           *local       = NULL;
         afr_private_t         *priv        = NULL;
@@ -429,7 +427,8 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                                            (void*) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->opendir,
-                                           &open_local->loc, open_local->fd);
+                                           &open_local->loc, open_local->fd,
+                                           NULL);
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "opening fd for file %s on subvolume %s",
@@ -440,7 +439,7 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                                            priv->children[i],
                                            priv->children[i]->fops->open,
                                            &open_local->loc, fd_ctx->flags,
-                                           open_local->fd, fd_ctx->wbflags);
+                                           open_local->fd, NULL);
                 }
 
         }

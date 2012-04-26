@@ -38,7 +38,6 @@
 #endif /* GF_BSD_HOST_OS */
 
 #include "glusterfs.h"
-#include "md5.h"
 #include "checksum.h"
 #include "dict.h"
 #include "logging.h"
@@ -55,7 +54,7 @@
 #include "timer.h"
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
-
+#include <fnmatch.h>
 
 typedef struct {
         xlator_t    *this;
@@ -65,6 +64,10 @@ typedef struct {
         loc_t       *loc;
 } posix_xattr_filler_t;
 
+char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
+                         "trusted.glusterfs.*.xtime",
+                         NULL};
+
 static char* posix_ignore_xattrs[] = {
         "gfid-req",
         GLUSTERFS_ENTRYLK_COUNT,
@@ -72,6 +75,25 @@ static char* posix_ignore_xattrs[] = {
         GLUSTERFS_POSIXLK_COUNT,
         NULL
 };
+
+gf_boolean_t
+posix_special_xattr (char **pattern, char *key)
+{
+        int          i    = 0;
+        gf_boolean_t flag = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("posix", pattern, out);
+        GF_VALIDATE_OR_GOTO ("posix", key, out);
+
+        for (i = 0; pattern[i]; i++) {
+                if (!fnmatch (pattern[i], key, 0)) {
+                        flag = _gf_true;
+                        break;
+                }
+        }
+out:
+        return flag;
+}
 
 static gf_boolean_t
 posix_xattr_ignorable (char *key, posix_xattr_filler_t *filler)
@@ -639,7 +661,9 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                                     this->name,GF_LOG_WARNING,
                                                     "Extended attributes not "
                                                     "supported");
-                        } else if (errno == ENOENT) {
+                        } else if (errno == ENOENT &&
+                                   !posix_special_xattr (marker_xattrs,
+                                                         trav->key)) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "setxattr on %s failed: %s", real_path,
                                         strerror (errno));
@@ -1024,4 +1048,3 @@ posix_fd_ctx_get_off (fd_t *fd, xlator_t *this, struct posix_fd **pfd,
 {
         return posix_fd_ctx_get (fd, this, pfd);
 }
-

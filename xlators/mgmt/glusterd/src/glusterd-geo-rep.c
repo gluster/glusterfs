@@ -31,11 +31,12 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "run.h"
+#include "syscall.h"
 
 #include <signal.h>
 
 static char *gsync_reserved_opts[] = {
-        "gluster-command",
+        "gluster-command-dir",
         "pid-file",
         "state-file",
         "session-owner",
@@ -529,7 +530,8 @@ gsync_status (char *master, char *slave, int *status)
 
         *status = gsync_status_byfd (fd);
 
-        close (fd);
+        sys_close (fd);
+
         return 0;
 }
 
@@ -987,7 +989,7 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
 }
 
 
-static int
+int
 glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
                             char **master, char **slave)
 {
@@ -995,21 +997,23 @@ glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
         int             ret = -1;
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
-        GF_ASSERT (master);
-        GF_ASSERT (slave);
 
-        ret = dict_get_str (dict, "master", master);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "master not found");
-                *op_errstr = gf_strdup ("master not found");
-                goto out;
+        if (master) {
+                ret = dict_get_str (dict, "master", master);
+                if (ret < 0) {
+                        gf_log ("", GF_LOG_WARNING, "master not found");
+                        *op_errstr = gf_strdup ("master not found");
+                        goto out;
+                }
         }
 
-        ret = dict_get_str (dict, "slave", slave);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "slave not found");
-                *op_errstr = gf_strdup ("slave not found");
-                goto out;
+        if (slave) {
+                ret = dict_get_str (dict, "slave", slave);
+                if (ret < 0) {
+                        gf_log ("", GF_LOG_WARNING, "slave not found");
+                        *op_errstr = gf_strdup ("slave not found");
+                        goto out;
+                }
         }
 
 
@@ -1132,6 +1136,9 @@ stop_gsync (char *master, char *slave, char **msg)
                 goto out;
         }
 
+        if (pfd < 0)
+                goto out;
+
         ret = read (pfd, buf, 1024);
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
@@ -1158,7 +1165,7 @@ stop_gsync (char *master, char *slave, char **msg)
         ret = 0;
 
 out:
-        close (pfd);
+        sys_close (pfd);
         return ret;
 }
 
@@ -1649,7 +1656,6 @@ glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
         char buff[1024]        = {0,};
 
         pfd = gsyncd_getpidfile (master, slave, pidfile);
-
         if (pfd == -2) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" log-rotate validation "
                         " failed for %s & %s", master, slave);
@@ -1661,18 +1667,21 @@ glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
                 goto out;
         }
 
+        if (pfd < 0)
+                goto out;
+
         ret = read (pfd, buff, 1024);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" cannot read pid from pid-file");
                 goto out;
         }
 
-        close(pfd);
 
         *pid = strtol (buff, NULL, 10);
         ret = 0;
 
- out:
+out:
+        sys_close(pfd);
         return ret;
 }
 

@@ -81,6 +81,11 @@ void trap (void);
          !strcmp (fs_name, "ext3") || \
          !strcmp (fs_name, "ext4"))
 
+/* Defining this here as it is needed by glusterd for setting
+ * nfs port in volume status.
+ */
+#define GF_NFS3_PORT    38467
+
 enum _gf_boolean
 {
 	_gf_false = 0,
@@ -99,7 +104,7 @@ enum _gf_client_pid
         GF_CLIENT_PID_MAX    =  0,
         GF_CLIENT_PID_GSYNCD = -1,
         GF_CLIENT_PID_HADOOP = -2,
-        GF_CLIENT_PID_MIN    = -3
+        GF_CLIENT_PID_DEFRAG = -3,
 };
 
 typedef enum _gf_boolean gf_boolean_t;
@@ -465,9 +470,9 @@ void skip_word (char **str);
 char *get_nth_word (const char *str, int n);
 
 char valid_host_name (char *address, int length);
-char valid_ipv4_address (char *address, int length);
-char valid_ipv6_address (char *address, int length);
-char valid_internet_address (char *address);
+char valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc);
+char valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc);
+char valid_internet_address (char *address, gf_boolean_t wildcard_acc);
 char valid_ipv4_wildcard_check (char *address);
 char valid_ipv6_wildcard_check (char *address);
 char valid_wildcard_internet_address (char *address);
@@ -477,8 +482,6 @@ char *uuid_utoa_r (uuid_t uuid, char *dst);
 char *lkowner_utoa (gf_lkowner_t *lkowner);
 char *lkowner_utoa_r (gf_lkowner_t *lkowner, char *dst, int len);
 
-void _get_md5_str (char *out_str, size_t outlen,
-                   const uint8_t *input, int n);
 void gf_array_insertionsort (void *a, int l, int r, size_t elem_size,
                              gf_cmp cmp);
 int gf_is_str_int (const char *value);
@@ -489,5 +492,5 @@ char *get_host_name (char *word, char **host);
 char *get_path_name (char *word, char **path);
 void gf_path_strip_trailing_slashes (char *path);
 uint64_t get_mem_size ();
-int gf_client_pid_check (gf_client_pid_t npid);
+int gf_strip_whitespace (char *str, int len);
 #endif /* _COMMON_UTILS_H */

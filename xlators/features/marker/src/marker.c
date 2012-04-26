@@ -65,23 +65,25 @@ marker_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-		uuid_copy (loc->gfid, loc->inode->gfid);
+                if (uuid_is_null (loc->gfid)) {
+                        uuid_copy (loc->gfid, loc->inode->gfid);
+                }
         }
 
         if (parent)
                 loc->parent = inode_ref (parent);
 
-        loc->path = gf_strdup (path);
-        if (!loc->path) {
-                gf_log ("loc fill", GF_LOG_ERROR, "strdup failed");
-                goto loc_wipe;
-        }
+        if (path) {
+                loc->path = gf_strdup (path);
+                if (!loc->path) {
+                        gf_log ("loc fill", GF_LOG_ERROR, "strdup failed");
+                        goto loc_wipe;
+                }
 
-        loc->name = strrchr (loc->path, '/');
-        if (loc->name)
-                loc->name++;
-        else
-                goto loc_wipe;
+                loc->name = strrchr (loc->path, '/');
+                if (loc->name)
+                        loc->name++;
+        }
 
         ret = 0;
 loc_wipe:
@@ -107,7 +109,7 @@ marker_inode_loc_fill (inode_t *inode, loc_t *loc)
         if (ret < 0)
                 goto err;
 
-        ret = marker_loc_fill (loc, inode, NULL, resolvedpath);
+        ret = marker_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0)
                 goto err;
 
@@ -224,13 +226,14 @@ stat_stampfile (xlator_t *this, marker_conf_t *priv,
 
 int32_t
 marker_getxattr_stampfile_cbk (call_frame_t *frame, xlator_t *this,
-                               const char *name, struct volume_mark *vol_mark)
+                               const char *name, struct volume_mark *vol_mark,
+                               dict_t *xdata)
 {
         int32_t   ret  = -1;
         dict_t   *dict = NULL;
 
         if (vol_mark == NULL){
-                STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM, NULL);
+                STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM, NULL, NULL);
 
                 goto out;
         }
@@ -243,7 +246,7 @@ marker_getxattr_stampfile_cbk (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to set key %s",
                         name);
 
-        STACK_UNWIND_STRICT (getxattr, frame, 0, 0, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, 0, 0, dict, xdata);
 
         dict_unref (dict);
 out:
@@ -267,14 +270,15 @@ call_from_special_client (call_frame_t *frame, xlator_t *this, const char *name)
 
         stat_stampfile (this, priv, &vol_mark);
 
-        marker_getxattr_stampfile_cbk (frame, this, name, vol_mark);
+        marker_getxattr_stampfile_cbk (frame, this, name, vol_mark, NULL);
 out:
         return ret;
 }
 
 int32_t
 marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *dict)
+                     int32_t op_ret, int32_t op_errno, dict_t *dict,
+                     dict_t *xdata)
 {
         if (cookie) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -282,13 +286,13 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 dict_foreach (dict, marker_filter_quota_xattr, NULL);
         }
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
         return 0;
 }
 
 int32_t
 marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                 const char *name)
+                 const char *name, dict_t *xdata)
 {
         gf_boolean_t   ret    = _gf_false;
         marker_conf_t *priv   = NULL;
@@ -315,7 +319,7 @@ wind:
                 STACK_WIND_COOKIE (frame, marker_getxattr_cbk, (void *)cookie,
                                    FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->getxattr, loc,
-                                   name);
+                                   name, xdata);
         }
 
         return 0;
@@ -340,7 +344,7 @@ marker_setxattr_done (call_frame_t *frame)
 
 int
 marker_specific_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                              int32_t op_ret, int32_t op_errno)
+                              int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         int32_t         ret   = 0;
         int32_t         done  = 0;
@@ -354,9 +358,15 @@ marker_specific_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (strcmp (local->loc.path, "/") == 0) {
-                done = 1;
-                goto out;
+        if (local) {
+                if (local->loc.path && strcmp (local->loc.path, "/") == 0) {
+                        done = 1;
+                        goto out;
+                }
+                if (__is_root_gfid (local->loc.gfid)) {
+                        done = 1;
+                        goto out;
+                }
         }
 
         ret = marker_trav_parent (local);
@@ -414,7 +424,8 @@ marker_start_setxattr (call_frame_t *frame, xlator_t *this)
         }
 
         STACK_WIND (frame, marker_specific_setxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setxattr, &local->loc, dict, 0);
+                    FIRST_CHILD(this)->fops->setxattr, &local->loc, dict, 0,
+                    NULL);
 
         ret = 0;
 out:
@@ -457,7 +468,8 @@ marker_xtime_update_marks (xlator_t *this, marker_local_t *local)
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
-        if (local->pid == -1)
+        if ((local->pid == GF_CLIENT_PID_GSYNCD) ||
+            (local->pid == GF_CLIENT_PID_DEFRAG))
                 goto out;
 
         marker_gettimeofday (local);
@@ -474,7 +486,7 @@ int32_t
 marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
-                  struct iatt *postparent)
+                  struct iatt *postparent, dict_t *xdata)
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
@@ -489,7 +501,7 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode,
-                             buf, preparent, postparent);
+                             buf, preparent, postparent, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -510,7 +522,7 @@ out:
 
 int
 marker_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-              dict_t *params)
+              mode_t umask, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -531,12 +543,12 @@ marker_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto err;
 wind:
         STACK_WIND (frame, marker_mkdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->mkdir, loc, mode, params);
+                    FIRST_CHILD(this)->fops->mkdir, loc, mode, umask, xdata);
 
         return 0;
 err:
         STACK_UNWIND_STRICT (mkdir, frame, -1, ENOMEM, NULL,
-                             NULL, NULL, NULL);
+                             NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -545,7 +557,7 @@ int32_t
 marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
-                   struct iatt *postparent)
+                   struct iatt *postparent, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -560,7 +572,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
-                             preparent, postparent);
+                             preparent, postparent, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -581,7 +593,7 @@ out:
 
 int32_t
 marker_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-               mode_t mode, fd_t *fd, dict_t *params)
+               mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -602,12 +614,12 @@ marker_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto err;
 wind:
         STACK_WIND (frame, marker_create_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->create, loc, flags, mode, fd,
-                    params);
+                    FIRST_CHILD(this)->fops->create, loc, flags, mode, umask,
+                    fd, xdata);
         return 0;
 err:
         STACK_UNWIND_STRICT (create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
-                             NULL);
+                             NULL, NULL);
 
         return 0;
 }
@@ -616,7 +628,7 @@ err:
 int32_t
 marker_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                   struct iatt *postbuf)
+                   struct iatt *postbuf, dict_t *xdata)
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
@@ -630,7 +642,8 @@ marker_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         frame->local = NULL;
 
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -656,7 +669,7 @@ marker_writev (call_frame_t *frame,
                struct iovec *vector,
                int32_t count,
                off_t offset, uint32_t flags,
-               struct iobref *iobref)
+               struct iobref *iobref, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -678,10 +691,10 @@ marker_writev (call_frame_t *frame,
 wind:
         STACK_WIND (frame, marker_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
-                    flags, iobref);
+                    flags, iobref, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -690,7 +703,7 @@ err:
 int32_t
 marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                  struct iatt *postparent)
+                  struct iatt *postparent, dict_t *xdata)
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
@@ -705,7 +718,7 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent,
-                             postparent);
+                             postparent, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -724,7 +737,8 @@ out:
 }
 
 int32_t
-marker_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
+marker_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
+              dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -745,10 +759,10 @@ marker_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
                 goto err;
 wind:
         STACK_WIND (frame, marker_rmdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rmdir, loc, flags);
+                    FIRST_CHILD(this)->fops->rmdir, loc, flags, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (rmdir, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (rmdir, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -757,7 +771,7 @@ err:
 int32_t
 marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                   struct iatt *postparent)
+                   struct iatt *postparent, dict_t *xdata)
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
@@ -772,7 +786,7 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
-                             postparent);
+                             postparent, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -793,7 +807,8 @@ out:
 
 int32_t
 marker_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, struct iatt *buf)
+                        int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                        dict_t *xdata)
 {
         marker_local_t *local = NULL;
 
@@ -810,18 +825,20 @@ marker_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->ia_nlink = buf->ia_nlink;
 
         STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, &local->loc);
+                    FIRST_CHILD(this)->fops->unlink, &local->loc, local->xflag,
+                    NULL);
         return 0;
 err:
         frame->local = NULL;
-        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL, NULL);
         marker_local_unref (local);
         return 0;
 }
 
 
 int32_t
-marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
+marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
+               dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -833,7 +850,7 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto unlink_wind;
 
         local = mem_get0 (this->local_pool);
-
+        local->xflag = xflag;
         MARKER_INIT_LOCAL (frame, local);
 
         ret = loc_copy (&local->loc, loc);
@@ -845,16 +862,16 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 uuid_copy (loc->gfid, loc->inode->gfid);
 
         STACK_WIND (frame, marker_unlink_stat_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->stat, loc);
+                    FIRST_CHILD(this)->fops->stat, loc, xdata);
         return 0;
 
 unlink_wind:
         STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, loc);
+                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
 err:
         frame->local = NULL;
-        STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL, NULL);
         marker_local_unref (local);
         return 0;
 }
@@ -864,7 +881,7 @@ int32_t
 marker_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, struct iatt *preparent,
-                 struct iatt *postparent)
+                 struct iatt *postparent, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -879,7 +896,7 @@ marker_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
-                             preparent, postparent);
+                             preparent, postparent, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -898,7 +915,8 @@ out:
 }
 
 int32_t
-marker_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
+marker_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+             dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -919,10 +937,11 @@ marker_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 goto err;
 wind:
         STACK_WIND (frame, marker_link_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->link, oldloc, newloc);
+                    FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
+                             NULL);
 
         return 0;
 }
@@ -930,7 +949,7 @@ err:
 
 int32_t
 marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno)
+                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         marker_local_t *local  = NULL, *oplocal = NULL;
         loc_t           newloc = {0, };
@@ -960,7 +979,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->stub = NULL;
         } else if (local->err != 0) {
                 STACK_UNWIND_STRICT (rename, frame, -1, local->err, NULL, NULL,
-                                     NULL, NULL, NULL);
+                                     NULL, NULL, NULL, NULL);
         }
 
         mq_reduce_parent_size (this, &oplocal->loc, oplocal->contribution);
@@ -996,7 +1015,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 marker_rename_release_newp_lock (call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
-                                 int32_t op_errno)
+                                 int32_t op_errno, dict_t *xdata)
 {
         marker_local_t  *local = NULL, *oplocal = NULL;
         struct gf_flock  lock  = {0, };
@@ -1017,7 +1036,7 @@ marker_rename_release_newp_lock (call_frame_t *frame, void *cookie,
         }
 
         if (local->next_lock_on == NULL) {
-                marker_rename_done (frame, NULL, this, 0, 0);
+                marker_rename_done (frame, NULL, this, 0, 0, NULL);
                 goto out;
         }
 
@@ -1031,7 +1050,7 @@ marker_rename_release_newp_lock (call_frame_t *frame, void *cookie,
                     marker_rename_done,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
-                    this->name, &local->parent_loc, F_SETLKW, &lock);
+                    this->name, &local->parent_loc, F_SETLKW, &lock, NULL);
 
 out:
         return 0;
@@ -1041,7 +1060,7 @@ out:
 int32_t
 marker_rename_release_oldp_lock (call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
-                                 int32_t op_errno)
+                                 int32_t op_errno, dict_t *xdata)
 {
         marker_local_t  *local = NULL, *oplocal = NULL;
         struct gf_flock  lock  = {0, };
@@ -1067,7 +1086,7 @@ marker_rename_release_oldp_lock (call_frame_t *frame, void *cookie,
                     marker_rename_release_newp_lock,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
-                    this->name, &oplocal->parent_loc, F_SETLKW, &lock);
+                    this->name, &oplocal->parent_loc, F_SETLKW, &lock, NULL);
         return 0;
 }
 
@@ -1076,7 +1095,8 @@ int32_t
 marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
                    struct iatt *preoldparent, struct iatt *postoldparent,
-                   struct iatt *prenewparent, struct iatt *postnewparent)
+                   struct iatt *prenewparent, struct iatt *postnewparent,
+                   dict_t *xdata)
 {
         marker_conf_t  *priv                 = NULL;
         marker_local_t *local                = NULL;
@@ -1111,7 +1131,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 stub = fop_rename_cbk_stub (frame, default_rename_cbk, op_ret,
                                             op_errno, buf, preoldparent,
                                             postoldparent, prenewparent,
-                                            postnewparent);
+                                            postnewparent, xdata);
                 if (stub == NULL) {
                         local->err = ENOMEM;
                         goto quota_err;
@@ -1141,7 +1161,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, marker_rename_release_oldp_lock,
                                    frame->cookie, FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->removexattr,
-                                   &newloc, contri_key);
+                                   &newloc, contri_key, NULL);
 
                 loc_wipe (&newloc);
         } else {
@@ -1149,7 +1169,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
                                      preoldparent, postoldparent, prenewparent,
-                                     postnewparent);
+                                     postnewparent, xdata);
 
                 if ((op_ret < 0) || (local == NULL)) {
                         goto out;
@@ -1172,15 +1192,14 @@ out:
         return 0;
 
 quota_err:
-        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
+        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0, NULL);
         return 0;
 }
 
 
 int32_t
 marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, dict_t *dict)
-
+                  int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         marker_local_t       *local           = NULL, *oplocal = NULL;
         char                  contri_key[512] = {0, };
@@ -1219,12 +1238,12 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
 
         STACK_WIND (frame, marker_rename_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rename, &oplocal->loc,
-                    &local->loc);
+                    &local->loc, NULL);
 
         return 0;
 
 err:
-        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
+        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0, NULL);
         return 0;
 }
 
@@ -1232,7 +1251,7 @@ err:
 int32_t
 marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
-                                 int32_t op_errno, dict_t *dict)
+                                 int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         marker_local_t *local           = NULL, *oplocal = NULL;
         char            contri_key[512] = {0, };
@@ -1284,14 +1303,14 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                 STACK_WIND_COOKIE (frame, marker_do_rename,
                                    frame->cookie, FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->getxattr,
-                                   &local->loc, contri_key);
+                                   &local->loc, contri_key, NULL);
         } else {
-                marker_do_rename (frame, NULL, this, 0, 0, NULL);
+                marker_do_rename (frame, NULL, this, 0, 0, NULL, NULL);
         }
 
         return 0;
 err:
-        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
+        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0, NULL);
         return 0;
 }
 
@@ -1299,7 +1318,7 @@ err:
 int32_t
 marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
-                                 int32_t op_errno)
+                                 int32_t op_errno, dict_t *xdata)
 {
         marker_local_t *local           = NULL, *oplocal = NULL;
         char            contri_key[512] = {0, };
@@ -1338,20 +1357,20 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
         STACK_WIND_COOKIE (frame, marker_get_newpath_contribution,
                            frame->cookie, FIRST_CHILD(this),
                            FIRST_CHILD(this)->fops->getxattr,
-                           &oplocal->loc, contri_key);
+                           &oplocal->loc, contri_key, NULL);
         return 0;
 
 quota_err:
-        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
+        marker_rename_release_oldp_lock (frame, NULL, this, 0, 0, NULL);
         return 0;
 
 lock_err:
         if ((local->next_lock_on == NULL)
             || (local->next_lock_on == &local->parent_loc)) {
                 local->next_lock_on = NULL;
-                marker_rename_release_oldp_lock (frame, NULL, this, 0, 0);
+                marker_rename_release_oldp_lock (frame, NULL, this, 0, 0, NULL);
         } else {
-                marker_rename_release_newp_lock (frame, NULL, this, 0, 0);
+                marker_rename_release_newp_lock (frame, NULL, this, 0, 0, NULL);
         }
 
         return 0;
@@ -1360,7 +1379,7 @@ lock_err:
 
 int32_t
 marker_rename_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno)
+                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         marker_local_t  *local = NULL, *oplocal = NULL;
         loc_t           *loc   = NULL;
@@ -1395,22 +1414,22 @@ marker_rename_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->inodelk,
                             this->name, local->next_lock_on,
-                            F_SETLKW, &lock);
+                            F_SETLKW, &lock, NULL);
         } else {
-                marker_get_oldpath_contribution (frame, 0, this, 0, 0);
+                marker_get_oldpath_contribution (frame, 0, this, 0, 0, NULL);
         }
 
         return 0;
 
 err:
-        marker_rename_done (frame, NULL, this, 0, 0);
+        marker_rename_done (frame, NULL, this, 0, 0, NULL);
         return 0;
 }
 
 
 int32_t
 marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
-               loc_t *newloc)
+               loc_t *newloc, dict_t *xdata)
 {
         int32_t         ret              = 0;
         marker_local_t *local            = NULL;
@@ -1479,18 +1498,18 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
                     this->name, lock_on,
-                    F_SETLKW, &lock);
+                    F_SETLKW, &lock, NULL);
 
         return 0;
 
 rename_wind:
         STACK_WIND (frame, marker_rename_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rename, oldloc, newloc);
+                    FIRST_CHILD(this)->fops->rename, oldloc, newloc, xdata);
 
         return 0;
 err:
         STACK_UNWIND_STRICT (rename, frame, -1, ENOMEM, NULL,
-                             NULL, NULL, NULL, NULL);
+                             NULL, NULL, NULL, NULL, NULL);
 
         return 0;
 }
@@ -1499,7 +1518,7 @@ err:
 int32_t
 marker_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                     struct iatt *postbuf)
+                     struct iatt *postbuf, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -1514,7 +1533,7 @@ marker_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
-                             postbuf);
+                             postbuf, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -1534,7 +1553,8 @@ out:
 }
 
 int32_t
-marker_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
+marker_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+                 dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -1555,10 +1575,10 @@ marker_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 goto err;
 wind:
         STACK_WIND (frame, marker_truncate_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->truncate, loc, offset);
+                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -1567,7 +1587,7 @@ err:
 int32_t
 marker_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                      struct iatt *postbuf)
+                      struct iatt *postbuf, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -1582,7 +1602,7 @@ marker_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
-                             postbuf);
+                             postbuf, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -1601,7 +1621,8 @@ out:
 }
 
 int32_t
-marker_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
+marker_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                  dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -1622,10 +1643,10 @@ marker_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 goto err;
 wind:
         STACK_WIND (frame, marker_ftruncate_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->ftruncate, fd, offset);
+                    FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -1635,7 +1656,7 @@ int32_t
 marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
-                    struct iatt *postparent)
+                    struct iatt *postparent, dict_t *xdata)
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
@@ -1650,7 +1671,7 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
-                             preparent, postparent);
+                             preparent, postparent, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -1670,7 +1691,7 @@ out:
 
 int
 marker_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
-                loc_t *loc, dict_t *params)
+                loc_t *loc, mode_t umask, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -1691,11 +1712,12 @@ marker_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
                 goto err;
 wind:
         STACK_WIND (frame, marker_symlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->symlink, linkpath, loc, params);
+                    FIRST_CHILD(this)->fops->symlink, linkpath, loc, umask,
+                    xdata);
         return 0;
 err:
         STACK_UNWIND_STRICT (symlink, frame, -1, ENOMEM, NULL,
-                             NULL, NULL, NULL);
+                             NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1704,7 +1726,7 @@ int32_t
 marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
-                  struct iatt *postparent)
+                  struct iatt *postparent, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -1719,7 +1741,7 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode,
-                             buf, preparent, postparent);
+                             buf, preparent, postparent, xdata);
 
         if (op_ret == -1 ||  local == NULL)
                 goto out;
@@ -1740,7 +1762,7 @@ out:
 
 int
 marker_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-              dev_t rdev, dict_t *parms)
+              dev_t rdev, mode_t umask, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -1763,11 +1785,12 @@ marker_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto err;
 wind:
         STACK_WIND (frame, marker_mknod_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, parms);
+                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, umask,
+                    xdata);
         return 0;
 err:
         STACK_UNWIND_STRICT (mknod, frame, -1, ENOMEM, NULL,
-                             NULL, NULL, NULL);
+                             NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1827,7 +1850,7 @@ call_from_sp_client_to_reset_tmfile (call_frame_t *frame,
                 op_errno = EINVAL;
         }
 out:
-        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
 
         return 0;
 }
@@ -1835,7 +1858,7 @@ out:
 
 int32_t
 marker_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno)
+                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -1849,7 +1872,7 @@ marker_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         frame->local = NULL;
 
-        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -1866,7 +1889,7 @@ out:
 
 int32_t
 marker_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
-                 int32_t flags)
+                 int32_t flags, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -1891,10 +1914,10 @@ marker_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto err;
 wind:
         STACK_WIND (frame, marker_setxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setxattr, loc, dict, flags);
+                    FIRST_CHILD(this)->fops->setxattr, loc, dict, flags, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (setxattr, frame, -1, ENOMEM);
+        STACK_UNWIND_STRICT (setxattr, frame, -1, ENOMEM, NULL);
 
         return 0;
 }
@@ -1902,7 +1925,7 @@ err:
 
 int32_t
 marker_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno)
+                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -1916,7 +1939,7 @@ marker_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         frame->local = NULL;
 
-        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -1933,7 +1956,7 @@ out:
 
 int32_t
 marker_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
-                  int32_t flags)
+                  int32_t flags, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -1958,10 +1981,10 @@ marker_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                 goto err;
 wind:
         STACK_WIND (frame, marker_fsetxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags);
+                    FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (fsetxattr, frame, -1, ENOMEM);
+        STACK_UNWIND_STRICT (fsetxattr, frame, -1, ENOMEM, NULL);
 
         return 0;
 }
@@ -1970,7 +1993,7 @@ err:
 int32_t
 marker_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *statpre,
-                     struct iatt *statpost)
+                     struct iatt *statpost, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -1985,7 +2008,7 @@ marker_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, statpre,
-                             statpost);
+                             statpost, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -2003,7 +2026,7 @@ out:
 
 int32_t
 marker_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 struct iatt *stbuf, int32_t valid)
+                 struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -2024,10 +2047,10 @@ marker_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto err;
 wind:
         STACK_WIND (frame, marker_fsetattr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fsetattr, fd, stbuf, valid);
+                    FIRST_CHILD (this)->fops->fsetattr, fd, stbuf, valid, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2036,7 +2059,7 @@ err:
 int32_t
 marker_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *statpre,
-                    struct iatt *statpost)
+                    struct iatt *statpost, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -2054,7 +2077,7 @@ marker_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, statpre,
-                             statpost);
+                             statpost, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -2071,7 +2094,7 @@ out:
 
 int32_t
 marker_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                struct iatt *stbuf, int32_t valid)
+                struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -2092,10 +2115,10 @@ marker_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
 wind:
         STACK_WIND (frame, marker_setattr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid);
+                    FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (setattr, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2103,7 +2126,7 @@ err:
 
 int32_t
 marker_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno)
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
@@ -2117,7 +2140,7 @@ marker_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         frame->local = NULL;
 
-        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xdata);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -2134,7 +2157,7 @@ out:
 
 int32_t
 marker_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                    const char *name)
+                    const char *name, dict_t *xdata)
 {
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
@@ -2155,10 +2178,10 @@ marker_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
 wind:
         STACK_WIND (frame, marker_removexattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->removexattr, loc, name);
+                    FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (removexattr, frame, -1, ENOMEM);
+        STACK_UNWIND_STRICT (removexattr, frame, -1, ENOMEM, NULL);
 
         return 0;
 }
@@ -2237,7 +2260,8 @@ err:
 
 int
 marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, gf_dirent_t *entries)
+                     int op_ret, int op_errno, gf_dirent_t *entries,
+                     dict_t *xdata)
 {
         gf_dirent_t *entry = NULL;
 
@@ -2249,7 +2273,7 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 unwind:
-        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
 
         return 0;
 }

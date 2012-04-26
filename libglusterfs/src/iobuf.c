@@ -524,6 +524,7 @@ iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size)
                 gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
                         "iobufs in arena being requested is greater than max "
                         "available", page_size);
+                iobuf_pool->request_misses++;
                 return NULL;
         }
 
@@ -967,6 +968,8 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
                            iobuf_pool->arena_size);
         gf_proc_dump_write("iobuf_pool.arena_cnt", "%d",
                            iobuf_pool->arena_cnt);
+        gf_proc_dump_write("iobuf_pool.request_misses", "%"PRId64,
+                           iobuf_pool->request_misses);
 
         for (j = 0; j < IOBUF_ARENA_MAX_INDEX; j++) {
                 list_for_each_entry (trav, &iobuf_pool->arenas[j], list) {

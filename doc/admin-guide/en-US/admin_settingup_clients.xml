@@ -1,0 +1,511 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Administration_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-Administration_Guide-GlusterFS_Client">
+  <title>Accessing Data - Setting Up GlusterFS Client</title>
+  <para>You can access gluster volumes in  multiple ways. You can use Gluster Native Client method for high concurrency, performance and transparent failover in GNU/Linux clients. You can also use NFS v3 to access gluster volumes. Extensive testing has be done on GNU/Linux clients and NFS implementation in other operating system, such as  FreeBSD, and Mac OS X, as well as Windows 7 (Professional and Up) and Windows Server 2003. Other NFS client implementations may work with gluster NFS server.</para>
+  <para>You can use CIFS to  access volumes when using Microsoft Windows as well as SAMBA clients. For this access method, Samba packages need to be present on the client side. </para>
+  <section id="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Native">
+    <title>Gluster Native Client</title>
+    <para>The Gluster Native Client is a FUSE-based client running in user space. Gluster Native Client is the recommended method for accessing volumes when high concurrency and high write performance is required.</para>
+    <para>This section introduces the Gluster Native Client and explains how to install the software on client machines. This section also describes how to mount volumes on clients (both manually and automatically) and how to verify that the volume has mounted successfully. </para>
+    <section>
+      <title>Installing the Gluster Native Client</title>
+      <para>Before you begin installing the Gluster Native Client, you need to verify that the FUSE module is loaded on the client and has access to the required modules as follows: </para>
+      <orderedlist>
+        <listitem>
+          <para>Add the FUSE loadable kernel module (LKM) to the Linux kernel:</para>
+          <para><command># modprobe fuse</command></para>
+        </listitem>
+        <listitem>
+          <para>Verify that the FUSE module is loaded:</para>
+          <para><command># dmesg | grep -i fuse </command></para>
+          <para><command>fuse init (API version 7.13)</command></para>
+        </listitem>
+      </orderedlist>
+      <section id="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Native-RPM">
+        <title>Installing on Red Hat Package Manager (RPM) Distributions </title>
+        <para>To install Gluster Native Client on RPM distribution-based systems</para>
+        <orderedlist>
+          <listitem>
+            <para>Install required prerequisites on the client using the following command:</para>
+            <para><command>$ sudo yum -y install openssh-server wget fuse fuse-libs openib libibverbs</command></para>
+          </listitem>
+          <listitem>
+            <para>Ensure that TCP and UDP ports 24007 and 24008 are open on all Gluster servers. Apart from these ports, you need to open one port for each brick starting from port 24009. For example: if you have five bricks, you need to have ports 24009 to 24013 open.</para>
+            <para>You can use the following chains with iptables:</para>
+            <para><code>$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT </code></para>
+            <para><code>$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT</code></para>
+            <para><note>
+                <para>If you already have iptable chains, make sure that the above ACCEPT rules precede the DROP rules. This can be achieved by providing a lower rule number than the DROP rule.</para>
+              </note></para>
+          </listitem>
+          <listitem>
+            <para>Download the latest glusterfs,  glusterfs-fuse, and glusterfs-rdma RPM files to each client. The glusterfs package contains the Gluster Native Client. The glusterfs-fuse package contains the FUSE translator required for mounting on client systems and the glusterfs-rdma packages contain OpenFabrics verbs RDMA module for Infiniband.</para>
+            <para>You can download the software at <ulink url="http://bits.gluster.com/gluster/glusterfs/3.3.0qa30/x86_64/"/>.</para>
+          </listitem>
+          <listitem>
+            <para>Install Gluster Native Client on the client.</para>
+            <para><command>$ sudo rpm -i glusterfs-3.3.0qa30-1.x86_64.rpm </command></para>
+            <para><command>$ sudo rpm -i glusterfs-fuse-3.3.0qa30-1.x86_64.rpm </command></para>
+            <para><command>$ sudo rpm -i glusterfs-rdma-3.3.0qa30-1.x86_64.rpm</command></para>
+            <para><note>
+                <para>The RDMA module is only required when using Infiniband.</para>
+              </note></para>
+          </listitem>
+        </orderedlist>
+      </section>
+      <section condition="gfs">
+        <title>Installing on Debian-based Distributions</title>
+        <para>To install Gluster Native Client on Debian-based distributions</para>
+        <orderedlist>
+          <listitem>
+            <para>Install OpenSSH Server on each client using the following command:</para>
+            <para><command>$ sudo apt-get install openssh-server vim wget</command></para>
+          </listitem>
+          <listitem>
+            <para>Download the latest GlusterFS .deb file and checksum to each client.</para>
+            <para>You can download the software at <ulink url="http://www.gluster.org/download/"/>.</para>
+          </listitem>
+          <listitem>
+            <para>For each .deb file, get the checksum (using the following command) and compare it against the checksum for that file in the md5sum file.</para>
+            <para>
+<command>$ md5sum GlusterFS_DEB_file.deb </command></para>
+            <para>The md5sum of the packages is available at: <ulink url="http://download.gluster.com/pub/gluster/glusterfs"/></para>
+          </listitem>
+          <listitem>
+            <para>Uninstall GlusterFS v3.1 (or an earlier version) from the client using the following command:
+</para>
+            <para><command>$ sudo dpkg -r glusterfs </command></para>
+            <para>(Optional) Run  <command>$ sudo dpkg -purge glusterfs </command>to purge the configuration files.</para>
+          </listitem>
+          <listitem>
+            <para>Install Gluster Native Client on the client using the following command:
+</para>
+            <para><command>$ sudo dpkg -i GlusterFS_DEB_file </command></para>
+            <para>For example:
+</para>
+            <para><command>$ sudo dpkg -i glusterfs-3.3.x.deb </command></para>
+          </listitem>
+          <listitem>
+            <para>Ensure that TCP and UDP ports  24007 and 24008 are open on all Gluster servers. Apart from these ports, you need to open one port for each brick starting from port 24009. For example: if you have five bricks, you need to have ports 24009 to 24013 open.
+</para>
+            <para>You can use the following chains with iptables:
+</para>
+            <para><code>$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT </code></para>
+            <para><code>$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT</code></para>
+            <para><note>
+                <para>If you already have iptable chains, make sure that the above ACCEPT rules precede the DROP rules. This can be achieved by providing a lower rule number than the DROP rule.</para>
+              </note></para>
+          </listitem>
+        </orderedlist>
+      </section>
+      <section>
+        <title>Performing a Source Installation</title>
+        <para>To build and install Gluster Native Client from the source code</para>
+        <orderedlist>
+          <listitem>
+            <para>Create a new directory using the following commands:</para>
+            <para><command># mkdir glusterfs </command></para>
+            <para><command># cd glusterfs</command></para>
+          </listitem>
+          <listitem>
+            <para>Download the source code.
+</para>
+            <para>You can download the source at <ulink url="http://www.gluster.org/download/"/>.</para>
+          </listitem>
+          <listitem>
+            <para>Extract the source code using the following command:
+</para>
+            <para><command># tar -xvzf SOURCE-FILE </command></para>
+          </listitem>
+          <listitem>
+            <para>Run the configuration utility using the following command:
+</para>
+            <para><code># ./configure </code></para>
+            <para><code>GlusterFS configure summary </code></para>
+            <para><code>================== </code></para>
+            <para><code>FUSE client : yes </code></para>
+            <para><code>Infiniband verbs : yes </code></para>
+            <para><code>epoll IO multiplex : yes </code></para>
+            <para><code>argp-standalone : no </code></para>
+            <para><code>fusermount : no </code></para>
+            <para><code>readline : yes</code></para>
+            <para>The configuration summary shows the components that will be built with Gluster Native Client.</para>
+          </listitem>
+          <listitem>
+            <para>Build the Gluster Native Client software using the following commands:
+</para>
+            <para><command># make </command></para>
+            <para><command># make install</command></para>
+          </listitem>
+          <listitem>
+            <para>Verify that the correct version of Gluster Native Client is installed, using the following command:
+</para>
+            <para><command># glusterfs –-version</command></para>
+          </listitem>
+        </orderedlist>
+      </section>
+    </section>
+    <section id="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Mounting_Volumes">
+      <title>Mounting Volumes</title>
+      <para>After installing the Gluster Native Client, you need to mount Gluster volumes to access data. There are two methods you can choose: </para>
+      <itemizedlist>
+        <listitem>
+          <para><xref linkend="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Manuall"/></para>
+        </listitem>
+        <listitem>
+          <para><xref linkend="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Automatic"/></para>
+        </listitem>
+      </itemizedlist>
+      <para>After mounting a volume, you can test the mounted volume using the procedure described in <xref linkend="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Native-Testing"/>. </para>
+      <para><note>
+          <para>Server names selected during creation of Volumes should be resolvable in the client machine. You can use appropriate /etc/hosts entries or DNS server to resolve server names to IP addresses. </para>
+        </note></para>
+      <section id="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Manuall">
+        <title>Manually Mounting Volumes</title>
+        <para>To manually mount a Gluster volume </para>
+        <itemizedlist>
+          <listitem>
+            <para>To mount a volume, use the following command:
+</para>
+            <para><command># mount -t glusterfs HOSTNAME-OR-IPADDRESS:/VOLNAME MOUNTDIR</command>
+</para>
+            <para>For example:
+</para>
+            <para><command># mount -t glusterfs server1:/test-volume /mnt/glusterfs</command></para>
+            <note>
+              <para>The server specified in the mount command is only used to fetch the gluster configuration volfile describing the volume name. Subsequently, the client will communicate directly with the servers mentioned in the volfile (which might not even include the one used for mount). 
+
+</para>
+              <para>If you see a usage message like &quot;Usage: mount.glusterfs&quot;, mount usually requires you to create a directory to be used as the mount point. Run &quot;mkdir /mnt/glusterfs&quot; before you attempt to run the mount command listed above.</para>
+            </note>
+          </listitem>
+        </itemizedlist>
+        <para><emphasis role="bold">Mounting Options</emphasis></para>
+        <para>You can specify the following options when using the <command>mount -t glusterfs</command> command. Note that you need to separate all options with commas. 
+
+</para>
+        <para>backupvolfile-server=server-name</para>
+        <para>volfile-max-fetch-attempts=number of attempts</para>
+        <para>log-level=loglevel
+</para>
+        <para>log-file=logfile
+</para>
+        <para>transport=transport-type
+</para>
+        <para>direct-io-mode=[enable|disable]
+
+</para>
+        <para>For example: 
+</para>
+        <para><code># mount -t glusterfs -o backupvolfile-server=volfile_server2 --volfile-max-fetch-attempts=2 log-level=WARNING,log-file=/var/log/gluster.log server1:/test-volume /mnt/glusterfs</code></para>
+        <para>If <option>backupvolfile-server</option>  option is added while mounting fuse client, when the first
+volfile server fails, then the server specified in <option>backupvolfile-server</option> option is used as volfile server to mount
+the client.</para>
+        <para>In <code>--volfile-max-fetch-attempts=X</code> option, specify the number of attempts to fetch volume files while mounting a volume. This option is useful when you mount a server with multiple IP addresses or  when round-robin DNS is configured for the server-name.. </para>
+      </section>
+      <section id="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Automatic" dir="lro">
+        <title>Automatically Mounting Volumes</title>
+        <para>You can configure your system to automatically mount the Gluster volume each time your system starts. </para>
+        <para>The server specified in the mount command is only used to fetch the gluster configuration volfile describing the volume name. Subsequently, the client will communicate directly with the servers mentioned in the volfile (which might not even include the one used for mount). </para>
+        <para><emphasis role="bold">To automatically mount a Gluster volume</emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>To mount a volume, edit the /etc/fstab file and add the following line:
+</para>
+            <para><command>HOSTNAME-OR-IPADDRESS:/VOLNAME MOUNTDIR glusterfs defaults,_netdev 0 0 </command></para>
+            <para>For example:
+</para>
+            <para><code>server1:/test-volume /mnt/glusterfs glusterfs defaults,_netdev 0 0</code></para>
+          </listitem>
+        </itemizedlist>
+        <para><emphasis role="bold">Mounting Options </emphasis></para>
+        <para>You can specify the following options when updating the /etc/fstab file. Note that you need to separate all options with commas. 
+
+</para>
+        <para>log-level=loglevel
+</para>
+        <para>log-file=logfile
+</para>
+        <para>transport=transport-type
+</para>
+        <para>direct-io-mode=[enable|disable]
+
+</para>
+        <para>For example:
+</para>
+        <para><code>HOSTNAME-OR-IPADDRESS:/VOLNAME MOUNTDIR glusterfs defaults,_netdev,log-level=WARNING,log-file=/var/log/gluster.log 0 0 </code></para>
+      </section>
+      <section id="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Native-Testing">
+        <title>Testing Mounted Volumes</title>
+        <para>To test mounted volumes</para>
+        <itemizedlist>
+          <listitem>
+            <para>Use the following command:
+</para>
+            <para><command># mount </command></para>
+            <para>If the gluster volume was successfully mounted, the output of the mount command on the client will be similar to this example:
+
+</para>
+            <para><code>server1:/test-volume on /mnt/glusterfs type fuse.glusterfs (rw,allow_other,default_permissions,max_read=131072</code></para>
+          </listitem>
+        </itemizedlist>
+        <itemizedlist>
+          <listitem>
+            <para>Use the following command:
+</para>
+            <para><command># df</command>
+</para>
+            <para>The output of df command on the client will display the aggregated storage space from all the bricks in a volume similar to this example:
+</para>
+            <para><code># df -h /mnt/glusterfs Filesystem Size Used Avail Use% Mounted on server1:/test-volume 28T 22T 5.4T 82% /mnt/glusterfs</code></para>
+          </listitem>
+          <listitem>
+            <para>Change to the directory and list the contents by entering the following:
+</para>
+            <para><command># cd MOUNTDIR </command></para>
+            <para><command># ls</command></para>
+          </listitem>
+          <listitem>
+            <para>For example,</para>
+            <para><code># cd /mnt/glusterfs </code></para>
+            <para><code># ls</code></para>
+          </listitem>
+        </itemizedlist>
+      </section>
+    </section>
+  </section>
+  <section id="sect-Administration_Guide-GlusterFS_Client-NFS">
+    <title>NFS</title>
+    <para>You can use NFS v3 to access to gluster volumes. Extensive testing has be done on GNU/Linux clients and NFS implementation in other operating system, such as  FreeBSD, and Mac OS X, as well as Windows 7 (Professional and Up), Windows Server 2003, and others, may work with gluster NFS server implementation.  </para>
+    <para>GlusterFS now  includes network lock manager (NLM) v4. NLM enables applications on NFSv3 clients to do record locking on files on NFS server.  It is started automatically whenever the NFS server is run.</para>
+    <para condition="gfs">You must install nfs-common package on both servers and clients (only for Debian-based) distribution.</para>
+    <para>This section describes how to use NFS to mount Gluster volumes (both manually and automatically) and how to verify that the volume has been mounted successfully. </para>
+    <section>
+      <title>Using NFS to Mount Volumes</title>
+      <para>You can use either of the following methods to mount Gluster volumes: </para>
+      <para><itemizedlist>
+          <listitem>
+            <para><xref linkend="sect-Administration_Guide-GlusterFS_Client-NFS-Manual"/></para>
+          </listitem>
+          <listitem>
+            <para><xref linkend="sect-Administration_Guide-GlusterFS_Client-NFS-Automatic"/></para>
+          </listitem>
+        </itemizedlist></para>
+      <para condition="gfs"><emphasis role="bold">Prerequisite</emphasis>: Install nfs-common package on both servers and clients (only for Debian-based distribution), using the following command: </para>
+      <para condition="gfs"><command>$ sudo aptitude install nfs-common </command></para>
+      <para>After mounting a volume, you can test the mounted volume using the procedure described in <xref linkend="sect-Administration_Guide-GlusterFS_Client-NFS-Testing"/>. </para>
+      <section id="sect-Administration_Guide-GlusterFS_Client-NFS-Manual">
+        <title>Manually Mounting Volumes Using NFS </title>
+        <para>To manually mount a Gluster volume using NFS </para>
+        <itemizedlist>
+          <listitem>
+            <para>To mount a volume, use the following command:
+</para>
+            <para><command># mount -t nfs -o vers=3 HOSTNAME-OR-IPADDRESS:/VOLNAME MOUNTDIR</command>
+</para>
+            <para>For example:</para>
+            <para><command># mount -t nfs -o vers=3 server1:/test-volume /mnt/glusterfs</command></para>
+            <para><note>
+                <para> Gluster NFS server does not support UDP. If the NFS client you are using defaults to connecting using UDP, the following message appears: 
+</para>
+                <para><code>requested NFS version or transport protocol is not supported</code>. </para>
+              </note></para>
+            <para><emphasis role="bold">To connect using TCP</emphasis></para>
+          </listitem>
+          <listitem>
+            <para>Add the following option to the mount command:
+</para>
+            <para><command>-o mountproto=tcp </command></para>
+            <para>For example:
+</para>
+            <para><command># mount -o mountproto=tcp -t nfs server1:/test-volume /mnt/glusterfs</command></para>
+          </listitem>
+        </itemizedlist>
+        <para><emphasis role="bold">To mount Gluster NFS server from a Solaris client </emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>Use the following command:
+</para>
+            <para><command># mount -o proto=tcp,vers=3 nfs://HOSTNAME-OR-IPADDRESS:38467/VOLNAME MOUNTDIR</command></para>
+            <para>
+For example:</para>
+            <para><command> # mount -o proto=tcp,vers=3 nfs://server1:38467/test-volume /mnt/glusterfs</command></para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section id="sect-Administration_Guide-GlusterFS_Client-NFS-Automatic">
+        <title>Automatically Mounting Volumes Using NFS</title>
+        <para>You can configure your system to automatically mount Gluster volumes using NFS each time the system starts.</para>
+        <para><emphasis role="bold">To automatically mount a Gluster volume using NFS </emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>To mount a volume, edit the /etc/fstab file and add the following line:</para>
+            <para><command>HOSTNAME-OR-IPADDRESS:/VOLNAME MOUNTDIR nfs defaults,_netdev,vers=3 0 0</command></para>
+            <para>For example,</para>
+            <para><command>server1:/test-volume /mnt/glusterfs nfs defaults,_netdev,vers=3 0 0</command></para>
+            <note>
+              <para>Gluster NFS server does not support UDP. If the NFS client you are using defaults to connecting using UDP, the following message appears: </para>
+              <para><command>requested NFS version or transport protocol is not supported.</command></para>
+            </note>
+            <para/>
+            <para>To connect using TCP </para>
+          </listitem>
+          <listitem>
+            <para>Add the following entry in /etc/fstab file :</para>
+            <para><command>HOSTNAME-OR-IPADDRESS:/VOLNAME MOUNTDIR nfs defaults,_netdev,mountproto=tcp 0 0</command></para>
+            <para>For example,</para>
+            <para><command>server1:/test-volume /mnt/glusterfs nfs defaults,_netdev,mountproto=tcp 0 0</command></para>
+          </listitem>
+        </itemizedlist>
+        <para><emphasis role="bold">To automount NFS mounts</emphasis></para>
+        <para>Gluster supports *nix standard method of automounting NFS mounts. Update the /etc/auto.master and /etc/auto.misc and restart the autofs service. After that, whenever a user or process attempts to access the directory it will be mounted in the background. </para>
+      </section>
+      <section id="sect-Administration_Guide-GlusterFS_Client-NFS-Testing">
+        <title>Testing Volumes Mounted Using NFS</title>
+        <para>You can confirm that Gluster directories are mounting successfully. </para>
+        <para><emphasis role="bold">To test mounted volumes</emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>Use the mount command by entering the following:</para>
+            <para><command># mount</command></para>
+            <para>For example, the output of the mount command on the client will display an entry like the following:</para>
+            <para><command>server1:/test-volume on /mnt/glusterfs type nfs (rw,vers=3,addr=server1)</command></para>
+          </listitem>
+        </itemizedlist>
+        <itemizedlist>
+          <listitem>
+            <para>Use the df command by entering the following:</para>
+            <para><command># df</command></para>
+            <para>For example, the output of df command on the client will display the aggregated storage space from all the bricks in a volume.</para>
+            <para><screen># df -h /mnt/glusterfs 
+Filesystem              Size Used Avail Use% Mounted on 
+server1:/test-volume    28T  22T  5.4T  82%  /mnt/glusterfs</screen></para>
+          </listitem>
+          <listitem>
+            <para>Change to the directory and list the contents by entering the following:</para>
+            <para><command># cd MOUNTDIR</command></para>
+            <para><command># ls</command></para>
+            <para>For example,</para>
+            <para><command>
+                <command># cd /mnt/glusterfs</command>
+              </command></para>
+            <para><command># ls</command></para>
+          </listitem>
+        </itemizedlist>
+      </section>
+    </section>
+  </section>
+  <section id="sect-Administration_Guide-GlusterFS_Client-CIFS">
+    <title>CIFS</title>
+    <para>You can use CIFS to access to volumes when using Microsoft Windows as well as SAMBA clients. For this access method, Samba packages need to be present on the client side. You can export glusterfs mount point as the samba export, and then mount it using CIFS protocol.</para>
+    <para>This section describes how to mount CIFS shares on Microsoft Windows-based clients (both manually and automatically) and how to verify that the volume has mounted successfully.</para>
+    <para><note>
+        <para> CIFS access using the Mac OS X Finder is not supported, however, you can use the Mac OS X command line to access Gluster volumes using CIFS.</para>
+      </note></para>
+    <section>
+      <title>Using CIFS to Mount Volumes</title>
+      <para>You can use either of the following methods to mount Gluster volumes: </para>
+      <itemizedlist>
+        <listitem>
+          <para><xref linkend="sect-Administration_Guide-GlusterFS_Client-CIFS-Manual"/></para>
+        </listitem>
+        <listitem>
+          <para><xref linkend="sect-Administration_Guide-GlusterFS_Client-CIFS-Automatic"/></para>
+        </listitem>
+      </itemizedlist>
+      <para>After mounting a volume, you can test the mounted volume using the procedure described in <xref linkend="sect-Administration_Guide-GlusterFS_Client-CIFS-Testing"/>.</para>
+      <para>You can also use Samba for exporting Gluster Volumes through CIFS protocol.</para>
+      <section>
+        <title>Exporting Gluster Volumes Through Samba</title>
+        <para>We recommend you to use Samba for exporting Gluster volumes through the CIFS protocol. </para>
+        <para><emphasis role="bold">To export volumes through CIFS protocol </emphasis></para>
+        <orderedlist>
+          <listitem>
+            <para>Mount a Gluster volume. For more information on mounting volumes, see <xref linkend="sect-Administration_Guide-Test_Chapter-GlusterFS_Client-Mounting_Volumes"/>.</para>
+          </listitem>
+          <listitem>
+            <para>Setup Samba configuration to export the mount point of the Gluster volume.</para>
+            <para>For example, if a Gluster volume is mounted on /mnt/gluster, you must edit smb.conf file to enable exporting this through CIFS. Open smb.conf file in an editor and add the following lines for a simple configuration:</para>
+            <para>[glustertest] 
+             </para>
+            <para>   comment = For testing a Gluster volume exported through CIFS
+             </para>
+            <para>  path = /mnt/glusterfs
+             </para>
+            <para>  read only = no
+             </para>
+            <para>  guest ok = yes</para>
+          </listitem>
+        </orderedlist>
+        <para>Save the changes and start the smb service using your systems init scripts (/etc/init.d/smb [re]start).</para>
+        <para><note>
+            <para>To be able mount from any server in the trusted storage pool, you must repeat these steps on each Gluster node. For more advanced configurations, see Samba documentation. </para>
+          </note></para>
+      </section>
+      <section id="sect-Administration_Guide-GlusterFS_Client-CIFS-Manual">
+        <title>Manually Mounting Volumes Using CIFS </title>
+        <para>You can manually mount Gluster volumes using CIFS on Microsoft Windows-based client machines. </para>
+        <para><emphasis role="bold">To manually mount a Gluster volume using CIFS </emphasis></para>
+        <orderedlist>
+          <listitem>
+            <para>Using Windows Explorer, choose <emphasis role="bold">Tools &gt; Map Network Drive…</emphasis> from the menu. The <emphasis role="bold">Map Network Drive </emphasis>window appears. </para>
+          </listitem>
+          <listitem>
+            <para>Choose the drive letter using the <emphasis role="bold">Drive</emphasis> drop-down list. </para>
+          </listitem>
+          <listitem>
+            <para>Click <emphasis role="bold">Browse</emphasis>, select the volume to map to the network drive, and click <emphasis role="bold">OK</emphasis>. </para>
+          </listitem>
+          <listitem>
+            <para>Click <emphasis role="bold">Finish.</emphasis></para>
+          </listitem>
+        </orderedlist>
+        <para>The network drive (mapped to the volume) appears in the Computer window.</para>
+        <para><emphasis role="bold">Alternatively, to manually mount a Gluster volume using CIFS.</emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>Click <emphasis role="bold">Start &gt; Run</emphasis> and enter the following:</para>
+            <para><command>
+                <code>\\SERVERNAME\VOLNAME</code>
+              </command></para>
+            <para>For example:</para>
+            <para><command>
+                <code>\\server1\test-volume</code>
+              </command></para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section id="sect-Administration_Guide-GlusterFS_Client-CIFS-Automatic">
+        <title>Automatically Mounting Volumes Using CIFS</title>
+        <para>You can configure your system to automatically mount Gluster volumes using CIFS on Microsoft Windows-based clients each time the system starts.</para>
+        <para><emphasis role="bold">To automatically mount a Gluster volume using CIFS</emphasis></para>
+        <para>The network drive (mapped to the volume) appears in the Computer window and is reconnected each time the system starts.</para>
+        <orderedlist>
+          <listitem>
+            <para>Using Windows Explorer, choose <emphasis role="bold">Tools &gt; Map Network Drive…</emphasis> from the menu. The <emphasis role="bold">Map Network Drive </emphasis>window appears. </para>
+          </listitem>
+          <listitem>
+            <para>Choose the drive letter using the <emphasis role="bold">Drive</emphasis> drop-down list. </para>
+          </listitem>
+          <listitem>
+            <para>Click <emphasis role="bold">Browse</emphasis>, select the volume to map to the network drive, and click <emphasis role="bold">OK</emphasis>. </para>
+          </listitem>
+          <listitem>
+            <para>Click the <emphasis role="bold">Reconnect</emphasis> at logon checkbox.</para>
+          </listitem>
+          <listitem>
+            <para>Click <emphasis role="bold">Finish.</emphasis></para>
+          </listitem>
+        </orderedlist>
+      </section>
+      <section id="sect-Administration_Guide-GlusterFS_Client-CIFS-Testing">
+        <title>Testing Volumes Mounted Using CIFS</title>
+        <para>You can confirm that Gluster directories are mounting successfully by navigating to the directory using Windows Explorer. </para>
+      </section>
+    </section>
+  </section>
+</chapter>

@@ -117,6 +117,8 @@ struct marker_local{
 
         quota_inode_ctx_t    *ctx;
         inode_contribution_t *contri;
+
+        int xflag;
 };
 typedef struct marker_local marker_local_t;
 

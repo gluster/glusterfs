@@ -31,6 +31,8 @@ int fuse_resolve_continue (fuse_state_t *state);
 int fuse_resolve_entry_simple (fuse_state_t *state);
 int fuse_resolve_inode_simple (fuse_state_t *state);
 
+fuse_fd_ctx_t *
+fuse_fd_ctx_get (xlator_t *this, fd_t *fd);
 
 static int
 fuse_resolve_loc_touchup (fuse_state_t *state)
@@ -330,9 +332,10 @@ fuse_resolve_inode (fuse_state_t *state)
 static int
 fuse_resolve_fd (fuse_state_t *state)
 {
-        fuse_resolve_t  *resolve    = NULL;
-	fd_t            *fd         = NULL;
-	xlator_t        *active_subvol = NULL;
+        fuse_resolve_t *resolve       = NULL;
+	fd_t           *fd            = NULL;
+	xlator_t       *active_subvol = NULL;
+        fuse_fd_ctx_t  *fdctx         = NULL;
 
         resolve = state->resolve_now;
 
@@ -342,6 +345,17 @@ fuse_resolve_fd (fuse_state_t *state)
         if (state->active_subvol != active_subvol) {
                 resolve->op_ret = -1;
                 resolve->op_errno = EBADF;
+        }
+
+        fdctx = fuse_fd_ctx_get (state->this, fd);
+        if (fdctx != NULL) {
+                if (fdctx->migration_failed) {
+                        resolve->op_ret = -1;
+                        resolve->op_errno = EBADF;
+                }
+        }
+
+        if ((resolve->op_ret == -1) && (resolve->op_errno == EBADF)) {
                 gf_log ("fuse-resolve", GF_LOG_WARNING, "migration of fd (%p) "
                         "did not complete, failing fop with EBADF", fd);
         }
@@ -362,15 +376,15 @@ fuse_gfid_set (fuse_state_t *state)
         if (uuid_is_null (state->gfid))
                 goto out;
 
-        if (!state->dict)
-                state->dict = dict_new ();
+        if (!state->xdata)
+                state->xdata = dict_new ();
 
-        if (!state->dict) {
+        if (!state->xdata) {
                 ret = -1;
                 goto out;
         }
 
-        ret = dict_set_static_bin (state->dict, "gfid-req",
+        ret = dict_set_static_bin (state->xdata, "gfid-req",
                                    state->gfid, sizeof (state->gfid));
 out:
         return ret;

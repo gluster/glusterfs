@@ -57,7 +57,8 @@ static int32_t apple_xattr_len[] = {
 
 int32_t
 maccomp_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *dict)
+                      int32_t op_ret, int32_t op_errno, dict_t *dict,
+                      dict_t *xdata)
 {
         intptr_t ax = (intptr_t)this->private;
         int i = 0;
@@ -80,7 +81,7 @@ maccomp_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
          }
 
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
 
         return 0;
 }
@@ -88,7 +89,7 @@ maccomp_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 maccomp_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                  const char *name)
+                  const char *name, dict_t *xdata)
 {
         intptr_t ax = GF_XATTR_NONE;
         int i = 0;
@@ -109,14 +110,14 @@ maccomp_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         STACK_WIND (frame, maccomp_getxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr,
-                    loc, name);
+                    loc, name, xdata);
         return 0;
 }
 
 
 int32_t
 maccomp_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                   const char *name)
+                   const char *name, dict_t *xdata)
 {
         intptr_t ax = GF_XATTR_NONE;
         int i = 0;
@@ -137,21 +138,21 @@ maccomp_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         STACK_WIND (frame, maccomp_getxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fgetxattr,
-                    fd, name);
+                    fd, name, xdata);
         return 0;
 }
 
 
 int32_t
 maccomp_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno)
+                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         intptr_t ax = (intptr_t)this->private;
 
         if (op_ret == -1 && ax != GF_XATTR_NONE)
                 op_ret = op_errno = 0;
 
-        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xdata);
 
         return 0;
 }
@@ -159,7 +160,7 @@ maccomp_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 maccomp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
-                  int32_t flags)
+                  int32_t flags, dict_t *xdata)
 {
         intptr_t ax = GF_XATTR_NONE;
         int i = 0;
@@ -177,14 +178,14 @@ maccomp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         STACK_WIND (frame, maccomp_setxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
-                    loc, dict, flags);
+                    loc, dict, flags, xdata);
         return 0;
 }
 
 
 int32_t
 maccomp_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
-                   int32_t flags)
+                   int32_t flags, dict_t *xdata)
 {
         intptr_t ax = GF_XATTR_NONE;
         int i = 0;
@@ -202,7 +203,7 @@ maccomp_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         STACK_WIND (frame, maccomp_setxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsetxattr,
-                    fd, dict, flags);
+                    fd, dict, flags, xdata);
         return 0;
 }
 

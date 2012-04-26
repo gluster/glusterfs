@@ -39,7 +39,6 @@
 #include <sys/statvfs.h>
 
 #define GF_NFS3                 GF_NFS"-nfsv3"
-#define GF_NFS3_PORT            38467
 
 #define GF_NFS3_DEFAULT_MEMFACTOR       15
 #define GF_NFS3_IOBPOOL_MULT            GF_NFS_CONCURRENT_OPS_MULT

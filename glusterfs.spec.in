@@ -48,11 +48,12 @@ Requires(postun): /sbin/service
 
 BuildRequires: bison flex
 BuildRequires: gcc make automake libtool
-BuildRequires: ncurses-devel readline-devel
+BuildRequires: ncurses-devel readline-devel openssl-devel
 BuildRequires: python-ctypes
 %if 0%{?suse_version}
 BuildRequires: python-devel
 %endif
+Requires: openssl
 
 Obsoletes:        %{name}-libs <= 2.0.0
 Obsoletes:        %{name}-common < %{version}-%{release}
@@ -139,6 +140,7 @@ Summary:          Clustered file-system server
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
+Requires:         openssl
 
 %description server
 GlusterFS is a clustered file-system capable of scaling to several
@@ -220,9 +222,14 @@ find %{buildroot}%{_libdir} -name '*.la' -delete
 sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sharedstatedir}/glusterd|g' \
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
+# Following needed by the hooks interface
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts
+%{__install} -p -m 0644 extras/hook-scripts/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts/
+
 # Clean up the examples we want to include as %%doc
-%{__cp} -a doc/examples examples
-%{__rm} -f examples/Makefile*
+#%{__cp} -a doc/examples examples
+#%{__rm} -f examples/Makefile*
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -230,12 +237,18 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %post
 /sbin/ldconfig
 
+# Copy the 'glusterfs-logrotate' file at the right place
+if [ -d /etc/logrotate.d ]; then
+   cp %{_docdir}/%{name}-%{version}/glusterfs-logrotate /etc/logrotate.d/glusterfs
+fi
+
 %postun
 /sbin/ldconfig
 
 %files
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
+%doc extras/glusterfs-logrotate
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
@@ -290,9 +303,12 @@ if [ -d /etc/glusterd ]; then
 fi
 
 if [ -d /var/lib/glusterd/vols ]; then
-    #for each dir under vols, backup non-fuse .vol files  as .Vol.old
-    for file in `find /var/lib/glusterd/vols -type f ! -name *-fuse.vol `; do
-        grep ".vol" $file &> /dev/null && fname=`basename $file .vol` && dname=`dirname $file` && cp $file $dname/$fname.Vol.old
+    # Rename old volfiles in an RPM-standard way.  These aren't actually
+    # considered package config files, so %config doesn't work for them.
+    for file in $(find /var/lib/glusterd/vols -name '*.vol'); do
+        newfile=${file}.rpmsave
+        echo "warning: ${file} saved as ${newfile}"
+        cp ${file} ${newfile}
     done
 fi
 
@@ -329,7 +345,7 @@ fi
 
 %files server
 %defattr(-,root,root,-)
-%doc examples/ doc/glusterfs*.vol.sample
+#%doc examples/ doc/glusterfs*.vol.sample
 %config(noreplace) %{_sysconfdir}/glusterfs
 %{_sharedstatedir}/glusterd
 %{_sysconfdir}/init.d/glusterd

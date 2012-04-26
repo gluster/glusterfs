@@ -1077,12 +1077,17 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
 
         handle->fd = open (handle->path, O_RDWR);
 
+        if (handle->fd == -1) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
+                        handle->path, strerror (errno));
+                goto out;
+        }
         if (!handle->read)
                 handle->read = fdopen (handle->fd, "r");
 
         if (!handle->read) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %d",
-                        handle->path, errno);
+                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
+                        handle->path, strerror (errno));
                 goto out;
         }
 
@@ -1269,8 +1274,10 @@ glusterd_store_uuid ()
         char            path[PATH_MAX] = {0,};
         int32_t         ret = -1;
         glusterd_store_handle_t *handle = NULL;
+        xlator_t       *this    = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
         snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
                   GLUSTERD_INFO_FILE);
@@ -1279,8 +1286,8 @@ glusterd_store_uuid ()
                 ret = glusterd_store_handle_new (path, &handle);
 
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to get store"
-                                " handle!");
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to get store handle!");
                         goto out;
                 }
 
@@ -1289,7 +1296,15 @@ glusterd_store_uuid ()
                 handle = priv->handle;
         }
 
-        handle->fd = open (handle->path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+        /* make glusterd's uuid available for users */
+        ret = chmod (handle->path, 0644);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "chmod error for %s: %s",
+                        GLUSTERD_INFO_FILE, strerror (errno));
+                goto out;
+        }
+
+        handle->fd = open (handle->path, O_RDWR | O_CREAT | O_TRUNC, 0644);
         if (handle->fd <= 0) {
                 ret = -1;
                 goto out;
@@ -1298,8 +1313,8 @@ glusterd_store_uuid ()
                                          uuid_utoa (priv->uuid));
 
         if (ret) {
-                gf_log ("", GF_LOG_CRITICAL, "Storing uuid failed"
-                        "ret = %d", ret);
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Storing uuid failed ret = %d", ret);
                 goto out;
         }
 
@@ -1309,7 +1324,7 @@ out:
                 close (handle->fd);
                 handle->fd = 0;
         }
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 

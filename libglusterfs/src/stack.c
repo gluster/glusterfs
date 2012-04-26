@@ -109,6 +109,7 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         gf_proc_dump_write("gid", "%d", call_stack->gid);
         gf_proc_dump_write("pid", "%d", call_stack->pid);
         gf_proc_dump_write("unique", "%Ld", call_stack->unique);
+        gf_proc_dump_write("lk-owner", "%s", lkowner_utoa (&call_stack->lk_owner));
 
         if (call_stack->type == GF_OP_TYPE_FOP)
                 gf_proc_dump_write("op", "%s", gf_fop_list[call_stack->op]);

@@ -116,6 +116,11 @@ free_state (server_state_t *state)
                 state->dict = NULL;
         }
 
+        if (state->xdata) {
+                dict_unref (state->xdata);
+                state->xdata = NULL;
+        }
+
         if (state->volume)
                 GF_FREE ((void *)state->volume);
 
@@ -133,14 +138,14 @@ free_state (server_state_t *state)
 
 
 int
-gf_add_locker (struct _lock_table *table, const char *volume,
+gf_add_locker (server_connection_t *conn, const char *volume,
                loc_t *loc, fd_t *fd, pid_t pid, gf_lkowner_t *owner,
                glusterfs_fop_t type)
 {
         int32_t         ret = -1;
         struct _locker *new = NULL;
+        struct _lock_table *table = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", table, out);
         GF_VALIDATE_OR_GOTO ("server", volume, out);
 
         new = GF_CALLOC (1, sizeof (struct _locker), gf_server_mt_locker_t);
@@ -160,21 +165,22 @@ gf_add_locker (struct _lock_table *table, const char *volume,
         new->pid   = pid;
         new->owner = *owner;
 
-        LOCK (&table->lock);
+        pthread_mutex_lock (&conn->lock);
         {
+                table = conn->ltable;
                 if (type == GF_FOP_ENTRYLK)
                         list_add_tail (&new->lockers, &table->entrylk_lockers);
                 else
                         list_add_tail (&new->lockers, &table->inodelk_lockers);
         }
-        UNLOCK (&table->lock);
+        pthread_mutex_unlock (&conn->lock);
 out:
         return ret;
 }
 
 
 int
-gf_del_locker (struct _lock_table *table, const char *volume,
+gf_del_locker (server_connection_t *conn, const char *volume,
                loc_t *loc, fd_t *fd, gf_lkowner_t *owner,
                glusterfs_fop_t type)
 {
@@ -183,14 +189,15 @@ gf_del_locker (struct _lock_table *table, const char *volume,
         int32_t            ret = -1;
         struct list_head  *head = NULL;
         struct list_head   del;
+        struct _lock_table *table = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", table, out);
         GF_VALIDATE_OR_GOTO ("server", volume, out);
 
         INIT_LIST_HEAD (&del);
 
-        LOCK (&table->lock);
+        pthread_mutex_lock (&conn->lock);
         {
+                table = conn->ltable;
                 if (type == GF_FOP_ENTRYLK) {
                         head = &table->entrylk_lockers;
                 } else {
@@ -209,7 +216,7 @@ gf_del_locker (struct _lock_table *table, const char *volume,
                                 list_move_tail (&locker->lockers, &del);
                 }
         }
-        UNLOCK (&table->lock);
+        pthread_mutex_unlock (&conn->lock);
 
         tmp = NULL;
         locker = NULL;
@@ -241,14 +248,13 @@ gf_lock_table_new (void)
         }
         INIT_LIST_HEAD (&new->entrylk_lockers);
         INIT_LIST_HEAD (&new->inodelk_lockers);
-        LOCK_INIT (&new->lock);
 out:
         return new;
 }
 
 static int
 server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno)
+                int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         int             ret   = -1;
         server_state_t *state = NULL;
@@ -291,16 +297,10 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         INIT_LIST_HEAD (&inodelk_lockers);
         INIT_LIST_HEAD (&entrylk_lockers);
 
-        LOCK (&ltable->lock);
-        {
-                list_splice_init (&ltable->inodelk_lockers,
-                                  &inodelk_lockers);
+        list_splice_init (&ltable->inodelk_lockers,
+                          &inodelk_lockers);
 
-                list_splice_init (&ltable->entrylk_lockers, &entrylk_lockers);
-        }
-        UNLOCK (&ltable->lock);
-
-        LOCK_DESTROY (&ltable->lock);
+        list_splice_init (&ltable->entrylk_lockers, &entrylk_lockers);
         GF_FREE (ltable);
 
         flock.l_type  = F_UNLCK;
@@ -339,7 +339,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->finodelk,
                                     locker->volume,
-                                    locker->fd, F_SETLK, &flock);
+                                    locker->fd, F_SETLK, &flock, NULL);
                         fd_unref (locker->fd);
                 } else {
                         gf_log (this->name, GF_LOG_INFO, "inodelk released "
@@ -348,7 +348,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->inodelk,
                                     locker->volume,
-                                    &(locker->loc), F_SETLK, &flock);
+                                    &(locker->loc), F_SETLK, &flock, NULL);
                         loc_wipe (&locker->loc);
                 }
 
@@ -387,7 +387,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     bound_xl->fops->fentrylk,
                                     locker->volume,
                                     locker->fd, NULL,
-                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
                         fd_unref (locker->fd);
                 } else {
                         gf_log (this->name, GF_LOG_INFO, "entrylk released "
@@ -397,7 +397,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     bound_xl->fops->entrylk,
                                     locker->volume,
                                     &(locker->loc), NULL,
-                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
+                                    ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
                         loc_wipe (&locker->loc);
                 }
 
@@ -416,7 +416,7 @@ out:
 static int
 server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
                                      xlator_t *this, int32_t op_ret,
-                                     int32_t op_errno)
+                                     int32_t op_errno, dict_t *xdata)
 {
         int32_t ret = -1;
         fd_t *fd = NULL;
@@ -489,7 +489,7 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
 
                         STACK_WIND (tmp_frame,
                                     server_connection_cleanup_flush_cbk,
-                                    bound_xl, bound_xl->fops->flush, fd);
+                                    bound_xl, bound_xl->fops->flush, fd, NULL);
                 }
         }
 
@@ -511,15 +511,17 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO ("server", conn, out);
-        GF_VALIDATE_OR_GOTO ("server", fdentries, out);
-        GF_VALIDATE_OR_GOTO ("server", ltable, out);
+
+        if (!ltable && !fdentries)
+                goto out;
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL) {
                 goto out;
         }
 
-        saved_ret = do_lock_table_cleanup (this, conn, frame, ltable);
+        if (ltable)
+                saved_ret = do_lock_table_cleanup (this, conn, frame, ltable);
 
         if (fdentries != NULL) {
                 ret = do_fd_cleanup (this, conn, frame, fdentries, fd_count);
@@ -541,24 +543,26 @@ out:
 
 
 int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn)
+server_connection_cleanup (xlator_t *this, server_connection_t *conn,
+                           int32_t flags)
 {
         struct _lock_table *ltable = NULL;
         fdentry_t          *fdentries = NULL;
         uint32_t            fd_count = 0;
         int                 ret = 0;
 
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", conn, out);
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, conn, out);
+        GF_VALIDATE_OR_GOTO (this->name, flags, out);
 
         pthread_mutex_lock (&conn->lock);
         {
-                if (conn->ltable) {
+                if (conn->ltable && (flags & INTERNAL_LOCKS)) {
                         ltable = conn->ltable;
                         conn->ltable = gf_lock_table_new ();
                 }
 
-                if (conn->fdtable)
+                if (conn->fdtable && (flags & POSIX_LOCKS))
                         fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
                                                                &fd_count);
         }
@@ -606,16 +610,11 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 INIT_LIST_HEAD (&entrylk_lockers);
 
                 if (ltable) {
-                        LOCK (&ltable->lock);
-                        {
-                                list_splice_init (&ltable->inodelk_lockers,
-                                                  &inodelk_lockers);
+                        list_splice_init (&ltable->inodelk_lockers,
+                                          &inodelk_lockers);
 
-                                list_splice_init (&ltable->entrylk_lockers,
-                                                  &entrylk_lockers);
-                        }
-                        UNLOCK (&ltable->lock);
-                        LOCK_DESTROY (&ltable->lock);
+                        list_splice_init (&ltable->entrylk_lockers,
+                                          &entrylk_lockers);
                         GF_FREE (ltable);
                 }
 
@@ -648,7 +647,6 @@ server_conn_unref (server_connection_t *conn)
                 conn->ref--;
 
                 if (!conn->ref) {
-                        list_del_init (&conn->list);
                         todel = conn;
                 }
         }
@@ -691,6 +689,7 @@ server_connection_get (xlator_t *this, const char *id)
                 list_for_each_entry (trav, &conf->conns, list) {
                         if (!strncmp (trav->id, id, strlen (id))) {
                                 conn = trav;
+                                conn->bind_ref++;
                                 goto unlock;
                         }
                 }
@@ -706,6 +705,8 @@ server_connection_get (xlator_t *this, const char *id)
                 conn->fdtable = gf_fd_fdtable_alloc ();
                 conn->ltable  = gf_lock_table_new ();
                 conn->this    = this;
+                conn->bind_ref = 1;
+                conn->ref     = 1;//when bind_ref becomes 0 it calls conn_unref
                 pthread_mutex_init (&conn->lock, NULL);
                 list_add (&conn->list, &conf->conns);
 
@@ -713,11 +714,38 @@ server_connection_get (xlator_t *this, const char *id)
 unlock:
         pthread_mutex_unlock (&conf->mutex);
 out:
-        if (conn)
-                server_conn_ref (conn);
         return conn;
 }
 
+server_connection_t*
+server_connection_put (xlator_t *this, server_connection_t *conn,
+                       gf_boolean_t *detached)
+{
+        server_conf_t       *conf = NULL;
+        gf_boolean_t        unref = _gf_false;
+
+        if (detached)
+                *detached = _gf_false;
+        conf = this->private;
+        pthread_mutex_lock (&conf->mutex);
+        {
+                conn->bind_ref--;
+                if (!conn->bind_ref) {
+                        list_del_init (&conn->list);
+                        unref = _gf_true;
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+        if (unref) {
+                gf_log (this->name, GF_LOG_INFO, "Shutting down connection %s",
+                        conn->id);
+                if (detached)
+                        *detached = _gf_true;
+                server_conn_unref (conn);
+                conn = NULL;
+        }
+        return conn;
+}
 
 static call_frame_t *
 server_alloc_frame (rpcsvc_request_t *req)
@@ -1351,10 +1379,14 @@ gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)
 
         if (fnmatch ("*list*mount*point*", key, 0) == 0) {
                 /* list all the client protocol connecting to this process */
-                list_for_each_entry (xprt, &conf->xprt_list, list) {
-                        gf_log ("mount-point-list", GF_LOG_INFO,
-                                "%s", xprt->peerinfo.identifier);
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                                gf_log ("mount-point-list", GF_LOG_INFO,
+                                        "%s", xprt->peerinfo.identifier);
+                        }
                 }
+                pthread_mutex_unlock (&conf->mutex);
         }
 
         /* Add more options/keys here */
@@ -1373,7 +1405,7 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
         uint64_t          total_write = 0;
 
         conf = frame->this->private;
-        if (!conf)
+        if (!conf || !dict)
                 return 0;
 
         for (pair = dict->members_list; pair; pair = pair->next) {

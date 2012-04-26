@@ -56,6 +56,7 @@ struct synctask {
         struct syncenv     *env;
         xlator_t           *xl;
         call_frame_t       *frame;
+        call_frame_t       *opframe;
         synctask_cbk_t      synccbk;
         synctask_fn_t       syncfn;
 	synctask_state_t    state;
@@ -63,7 +64,6 @@ struct synctask {
         void               *stack;
         int                 woken;
         int                 slept;
-        int                 complete;
 	int                 ret;
 
         ucontext_t          ctx;
@@ -111,54 +111,30 @@ struct syncargs {
         int                 count;
         struct iobref      *iobref;
         char               *buffer;
+        dict_t             *xdata;
+
+        /* some more _cbk needs */
+        uuid_t              uuid;
+        char               *errstr;
+        dict_t             *dict;
 
         /* do not touch */
-        pthread_mutex_t     mutex;
-        char                complete;
-        pthread_cond_t      cond;
         struct synctask    *task;
 };
 
-
-#define __yield(args) do {                                              \
-                if (args->task) {                                       \
-                        synctask_yield (args->task);                    \
-                } else {                                                \
-                        pthread_mutex_lock (&args->mutex);              \
-                        {                                               \
-                                while (!args->complete)                 \
-                                        pthread_cond_wait (&args->cond, \
-                                                           &args->mutex); \
-                        }                                               \
-                        pthread_mutex_unlock (&args->mutex);            \
-                                                                        \
-                        pthread_mutex_destroy (&args->mutex);           \
-                        pthread_cond_destroy (&args->cond);             \
-                }                                                       \
-        } while (0)
-
-
-#define __wake(args) do {                                               \
-                if (args->task) {                                       \
-                        synctask_wake (args->task);                     \
-                } else {                                                \
-                        pthread_mutex_lock (&args->mutex);              \
-                        {                                               \
-                                args->complete = 1;                     \
-                                pthread_cond_broadcast (&args->cond);   \
-                        }                                               \
-                        pthread_mutex_unlock (&args->mutex);            \
-                }                                                       \
-        } while (0)
+#define __wake(args) synctask_wake(args->task)
 
 
 #define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
-                call_frame_t    *frame = NULL;                          \
+                struct  synctask        *task = NULL;                   \
                                                                         \
-                frame = syncop_create_frame ();                         \
+                task = synctask_get ();                                 \
+                stb->task = task;                                       \
                                                                         \
-                STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol, op, params); \
-                __yield (stb);                                          \
+                STACK_WIND_COOKIE (task->opframe, cbk, (void *)stb,     \
+                                   subvol, op, params);                 \
+                synctask_yield (stb->task);                             \
+                STACK_RESET (task->opframe->root);                      \
         } while (0)
 
 
@@ -169,7 +145,6 @@ void syncenv_destroy (struct syncenv *);
 void syncenv_scale (struct syncenv *env);
 
 int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, call_frame_t* frame, void *);
-void synctask_zzzz (struct synctask *task);
 void synctask_wake (struct synctask *task);
 void synctask_yield (struct synctask *task);
 

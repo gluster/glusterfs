@@ -72,7 +72,7 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret)
                 goto out;
 
-        ret = valid_internet_address ((char *) words[2]);
+        ret = valid_internet_address ((char *) words[2], _gf_false);
         if (ret == 1) {
                 ret = 0;
         } else {
@@ -96,6 +96,9 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Peer probe failed");
         }
+
+        CLI_STACK_DESTROY (frame);
+
         return ret;
 }
 
@@ -161,6 +164,8 @@ out:
                         cli_out ("Peer detach failed");
         }
 
+        CLI_STACK_DESTROY (frame);
+
         return ret;
 }
 
@@ -196,6 +201,9 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Peer status failed");
         }
+
+        CLI_STACK_DESTROY (frame);
+
         return ret;
 }
 

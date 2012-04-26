@@ -45,6 +45,11 @@
 #include "glusterd-utils.h"
 #include "run.h"
 
+#define AUTH_ALLOW_MAP_KEY "auth.allow"
+#define AUTH_REJECT_MAP_KEY "auth.reject"
+#define AUTH_ALLOW_OPT_KEY "auth.addr.*.allow"
+#define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
+
 
 /* dispatch table for VOLUME SET
  * -----------------------------
@@ -109,22 +114,23 @@ struct volopt_map_entry {
 
 static struct volopt_map_entry glusterd_volopt_map[] = {
 
-        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0},
-        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0},
-	{"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0},
+        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
+        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0    },
+        {"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0    },
 
-        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon", NULL, NO_DOC, 0},
-        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.self-heal-window-size",        "cluster/replicate",  "data-self-heal-window-size", NULL, DOC, 0},
-        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0},
-        {"cluster.data-self-heal-algorithm",     "cluster/replicate",  "data-self-heal-algorithm", NULL,DOC, 0},
+        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
+        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
+        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, NO_DOC, 0     },
+        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC, 0},
+        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
+        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm", NULL,DOC, 0},
+        {"cluster.eager-lock",                   "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, NO_DOC, 0},
         {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, NO_DOC, 0},
 
@@ -148,6 +154,10 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.flush-behind",             "performance/write-behind",  "flush-behind", NULL, DOC, 0},
 
         {"performance.io-thread-count",          "performance/io-threads",    "thread-count", DOC, 0},
+        {"performance.high-prio-threads",        "performance/io-threads",    NULL, DOC, 0},
+        {"performance.normal-prio-threads",      "performance/io-threads",    NULL, DOC, 0},
+        {"performance.low-prio-threads",         "performance/io-threads",    NULL, DOC, 0},
+        {"performance.least-prio-threads",       "performance/io-threads",    NULL, DOC, 0},
         {"performance.disk-usage-limit",         "performance/quota",         NULL, NULL, NO_DOC, 0},
         {"performance.min-free-disk-limit",      "performance/quota",         NULL, NULL, NO_DOC, 0},
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC},
@@ -159,8 +169,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"network.tcp-window-size",              "protocol/server",           NULL, NULL, NO_DOC, 0},
         {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, NO_DOC, 0},
-        {"auth.allow",                           "protocol/server",           "!server-auth", "*", DOC, 0},
-        {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC, 0},
+        {AUTH_ALLOW_MAP_KEY,                     "protocol/server",           "!server-auth", "*", DOC, 0},
+        {AUTH_REJECT_MAP_KEY,                    "protocol/server",           "!server-auth", NULL, DOC, 0},
         {"transport.keepalive",                  "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0},
         {"server.allow-insecure",                "protocol/server",           "rpc-auth-allow-insecure", NULL, NO_DOC, 0},
 
@@ -170,6 +180,14 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC, 0},
         {VKEY_PERF_STAT_PREFETCH,                "performance/md-cache",      "!perf", "on", NO_DOC, 0},
         {"performance.client-io-threads",        "performance/io-threads",    "!perf", "off", NO_DOC, 0},
+
+        {"performance.nfs.write-behind",         "performance/write-behind",  "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.read-ahead",           "performance/read-ahead",    "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.io-cache",             "performance/io-cache",      "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.quick-read",           "performance/quick-read",    "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.stat-prefetch",        "performance/md-cache",      "!nfsperf", "off", NO_DOC, 0},
+        {"performance.nfs.io-threads",           "performance/io-threads",    "!nfsperf", "off", NO_DOC, 0},
+
         {VKEY_MARKER_XTIME,                      "features/marker",           "xtime", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_MARKER_XTIME,                      "features/marker",           "!xtime", "off", NO_DOC, OPT_FLAG_FORCE},
         {"debug.trace",                          "debug/trace",               "!debug","off", NO_DOC, 0},
@@ -185,7 +203,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC, 0},
 
         {"nfs.rpc-auth-unix",                    "nfs/server",                "!rpc-auth.auth-unix.*", NULL, DOC, 0},
-        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth.null.*", NULL, DOC, 0},
+        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth-null.*", NULL, DOC, 0},
         {"nfs.rpc-auth-allow",                   "nfs/server",                "!rpc-auth.addr.*.allow", NULL, DOC, 0},
         {"nfs.rpc-auth-reject",                  "nfs/server",                "!rpc-auth.addr.*.reject", NULL, DOC, 0},
         {"nfs.ports-insecure",                   "nfs/server",                "!rpc-auth.ports.*.insecure", NULL, DOC, 0},
@@ -196,14 +214,17 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.volume-access",                    "nfs/server",                "!nfs3.*.volume-access", NULL, DOC, 0},
         {"nfs.export-dir",                       "nfs/server",                "!nfs3.*.export-dir", NULL, DOC, 0},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
+        {"nfs.nlm",                              "nfs/server",                "nfs.nlm", NULL, GLOBAL_DOC, 0},
 
         {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0},
         {"features.quota-timeout",               "features/quota",            "timeout", "0", DOC, 0},
-        {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, NO_DOC, 0},
-        {"client.lk-heal",                       "protocol/client",           "lk-heal", NULL, DOC, 0},
-        {"client.grace-timeout",                 "protocol/client",           "grace-timeout", NULL, DOC, 0},
-        {"server.grace-timeout",                 "protocol/server",           "grace-timeout", NULL, DOC, 0},
+        {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, DOC, 0},
+        {"features.lock-heal",                   "protocol/client",           "lk-heal", NULL, DOC, 0},
+        {"features.lock-heal",                   "protocol/server",           "lk-heal", NULL, DOC, 0},
+        {"features.grace-timeout",               "protocol/client",           "grace-timeout", NULL, DOC, 0},
+        {"features.grace-timeout",               "protocol/server",           "grace-timeout", NULL, DOC, 0},
+        {"feature.read-only",                    "features/read-only",        "!read-only", "off", DOC, 0},
         {NULL,                                                                }
 };
 
@@ -1708,6 +1729,15 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
+        /* Check for read-only volume option, and add it to the graph */
+        if (dict_get_str_boolean (set_dict, "feature.read-only", 0)) {
+                xl = volgen_graph_add (graph, "features/read-only", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         xl = volgen_graph_add_as (graph, "debug/io-stats", path);
         if (!xl)
                 return -1;
@@ -1767,6 +1797,29 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         volname = param;
 
         if (strcmp (vme->option, "!perf") != 0)
+                return 0;
+
+        if (gf_string2boolean (vme->value, &enabled) == -1)
+                return -1;
+        if (!enabled)
+                return 0;
+
+        if (volgen_graph_add (graph, vme->voltype, volname))
+                return 0;
+        else
+                return -1;
+}
+
+static int
+nfsperfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+        char *volname = NULL;
+        gf_boolean_t enabled = _gf_false;
+
+        volname = param;
+
+        if (strcmp (vme->option, "!nfsperf") != 0)
                 return 0;
 
         if (gf_string2boolean (vme->value, &enabled) == -1)
@@ -1924,25 +1977,30 @@ get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
         GF_ASSERT (key);
 
 
-        if (vme->option) {
-                if  (vme->option[0] == '!') {
-                        *key = vme->option + 1;
-                        if (!*key[0])
-                                ret = -1;
+        if (!strcmp (vme->key, AUTH_ALLOW_MAP_KEY))
+                *key = gf_strdup (AUTH_ALLOW_OPT_KEY);
+        else if (!strcmp (vme->key, AUTH_REJECT_MAP_KEY))
+                *key = gf_strdup (AUTH_REJECT_OPT_KEY);
+        else {
+                if (vme->option) {
+                        if  (vme->option[0] == '!') {
+                                *key = vme->option + 1;
+                                if (!*key[0])
+                                        ret = -1;
+                        } else {
+                                *key = vme->option;
+                        }
                 } else {
-                        *key = vme->option;
-                }
-        } else  {
-                *key = strchr (vme->key, '.');
-                if (*key) {
-                        (*key) ++;
-                        if (!*key[0])
+                        *key = strchr (vme->key, '.');
+                        if (*key) {
+                                (*key) ++;
+                                if (!*key[0])
+                                        ret = -1;
+                        } else {
                                 ret = -1;
-                } else {
-                        ret = -1;
+                        }
                 }
         }
-
         if (ret)
                 gf_log ("glusterd", GF_LOG_ERROR, "Wrong entry found in  "
                         "glusterd_volopt_map entry %s", vme->key);
@@ -1951,7 +2009,6 @@ get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
 
         return ret;
 }
-
 
 int
 glusterd_get_volopt_content (gf_boolean_t xml_out)
@@ -1965,7 +2022,7 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
         int                      ret = -1;
         char                    *def_val = NULL;
         char                    *descr = NULL;
-        char                     output_string[8192] = {0, };
+        char                     output_string[16384] = {0, };
         char                    *output = NULL;
         char                     tmp_str[1024] = {0, };
         dict_t                  *ctx = NULL;
@@ -2025,6 +2082,10 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                                         vme->key, def_val, descr);
                         strcat (output_string, tmp_str);
                 }
+
+                if (!strcmp (key, AUTH_ALLOW_OPT_KEY) ||
+                    !strcmp (key, AUTH_REJECT_OPT_KEY))
+                        GF_FREE (key);
         }
 
 #if (HAVE_LIB_XML)
@@ -2407,9 +2468,10 @@ static int
 client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        int                      ret                = 0;
-        xlator_t                *xl                 = NULL;
-        char                    *volname            = NULL;
+        int       ret      = 0;
+        xlator_t *xl       = NULL;
+        char     *volname  = NULL;
+        data_t   *tmp_data = NULL;
 
         volname = volinfo->volname;
         ret = volgen_graph_build_clients (graph, volinfo, set_dict, param);
@@ -2432,8 +2494,16 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-        ret = volgen_graph_set_options_generic (graph, set_dict, volname,
-                                                &perfxl_option_handler);
+        /* Logic to make sure NFS doesn't have performance translators by
+           default for a volume */
+        tmp_data = dict_get (set_dict, "nfs-volume-file");
+        if (!tmp_data)
+                ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                                                        &perfxl_option_handler);
+        else
+                ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                                                        &nfsperfxl_option_handler);
+
         if (ret)
                 goto out;
 
@@ -2499,7 +2569,7 @@ nfs_option_handler (volgen_graph_t *graph,
 
                 ret = xlator_set_option (xl, vme->key, vme->value);
         }*/
-        if ( !volinfo || !volinfo->volname)
+        if (!volinfo || (volinfo->volname[0] == '\0'))
                 return 0;
 
         if (! strcmp (vme->option, "!rpc-auth.addr.*.allow")) {
@@ -2529,7 +2599,7 @@ nfs_option_handler (volgen_graph_t *graph,
         }
 
         if (! strcmp (vme->option, "!rpc-auth.auth-unix.*")) {
-                ret = gf_asprintf (&aa, "rpc-auth.auth.unix.%s",
+                ret = gf_asprintf (&aa, "rpc-auth.auth-unix.%s",
                                         volinfo->volname);
 
                 if (ret != -1) {
@@ -2540,8 +2610,8 @@ nfs_option_handler (volgen_graph_t *graph,
                 if (ret)
                         return -1;
         }
-        if (! strcmp (vme->option, "!rpc-auth.auth.null.*")) {
-                ret = gf_asprintf (&aa, "rpc-auth.auth.null.%s",
+        if (! strcmp (vme->option, "!rpc-auth.auth-null.*")) {
+                ret = gf_asprintf (&aa, "rpc-auth.auth-null.%s",
                                         volinfo->volname);
 
                 if (ret != -1) {
@@ -2803,6 +2873,10 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
         if (ret)
                 goto out;
 
+        ret = xlator_set_option (nfsxl, "nfs.nlm", "on");
+        if (ret)
+                goto out;
+
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
@@ -2856,6 +2930,10 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
                 ret = dict_set_uint32 (set_dict, "trusted-client",
                                        GF_CLIENT_TRUSTED);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str (set_dict, "nfs-volume-file", "yes");
                 if (ret)
                         goto out;
 
@@ -3312,6 +3390,57 @@ out:
 }
 
 int
+validate_wb_eagerlock (glusterd_volinfo_t *volinfo, dict_t *val_dict,
+                       char **op_errstr)
+{
+        int          ret = -1;
+        gf_boolean_t wb_val = _gf_false;
+        gf_boolean_t el_val = _gf_false;
+        char         msg[2048] = {0};
+        char         *wb_key = NULL;
+        char         *el_key = NULL;
+
+        wb_key = "performance.write-behind";
+        el_key = "cluster.eager-lock";
+        ret = dict_get_str_boolean (val_dict, wb_key, -1);
+        if (ret < 0)
+                goto check_eager_lock;
+        wb_val = ret;
+        ret = glusterd_volinfo_get_boolean (volinfo, el_key);
+        if (ret < 0)
+                goto out;
+        el_val = ret;
+        goto done;
+
+check_eager_lock:
+        ret = dict_get_str_boolean (val_dict, el_key, -1);
+        if (ret < 0) {
+                ret = 0; //Keys of intereset to this fn are not present.
+                goto out;
+        }
+        el_val = ret;
+        ret = glusterd_volinfo_get_boolean (volinfo, wb_key);
+        if (ret < 0)
+                goto out;
+        wb_val = ret;
+        goto done;
+
+done:
+        ret = 0;
+        if (!wb_val && el_val) {
+                ret = -1;
+                snprintf (msg, sizeof (msg), "%s off and %s on is not "
+                          "valid configuration", wb_key, el_key);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+out:
+        return ret;
+}
+
+int
 validate_clientopts (glusterd_volinfo_t *volinfo,
                      dict_t *val_dict,
                      char **op_errstr)
@@ -3455,6 +3584,10 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
                         "Could not Validate  bricks");
                 goto out;
         }
+
+        ret = validate_wb_eagerlock (volinfo, val_dict, op_errstr);
+        if (ret)
+                goto out;
 
         ret = validate_clientopts (volinfo, val_dict, op_errstr);
         if (ret) {

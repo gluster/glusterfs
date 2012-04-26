@@ -30,7 +30,9 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <assert.h>
+#include <signal.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
 
 #ifdef RUN_STANDALONE
 #define GF_CALLOC(n, s, t) calloc(n, s)
@@ -293,7 +295,11 @@ runner_start (runner_t *runner)
                         } else
                                 ret = -1;
 #else
-                        for (i = 3; i < 65536; i++) {
+                        struct rlimit rl;
+                        ret = getrlimit (RLIMIT_NOFILE, &rl);
+                        GF_ASSERT (ret == 0);
+
+                        for (i = 3; i < rl.rlim_cur; i++) {
                                 if (i != xpi[1])
                                         close (i);
                         }
@@ -364,9 +370,11 @@ runner_end (runner_t *runner)
 
         ret = runner_end_reuse (runner);
 
-        for (p = runner->argv; *p; p++)
-                GF_FREE (*p);
-        GF_FREE (runner->argv);
+        if (runner->argv) {
+                for (p = runner->argv; *p; p++)
+                        GF_FREE (*p);
+                GF_FREE (runner->argv);
+        }
         for (i = 0; i < 3; i++)
                 close (runner->chfd[i]);
 
@@ -379,10 +387,8 @@ runner_run_generic (runner_t *runner, int (*rfin)(runner_t *runner))
         int ret = 0;
 
         ret = runner_start (runner);
-        if (ret != 0)
-                return -1;
 
-        return rfin (runner) ? -1 : 0;
+        return -(rfin (runner) || ret);
 }
 
 int
@@ -422,7 +428,7 @@ TBANNER (const char *txt)
 }
 
 int
-main ()
+main (int argc, char **argv)
 {
         runner_t runner;
         char buf[80];
@@ -430,6 +436,8 @@ main ()
         int ret;
         int fd;
         long pathmax = pathconf ("/", _PC_PATH_MAX);
+        struct timeval tv = {0,};
+        struct timeval *tvp = NULL;
 
         wdbuf = malloc (pathmax);
         assert (wdbuf);
@@ -478,6 +486,13 @@ main ()
         if (ret != 0)
                 printf (" %d [%s]", errno, strerror (errno));
         putchar ('\n');
+
+        if (argc > 1) {
+                tv.tv_sec = strtoul (argv[1], NULL, 10);
+                if (tv.tv_sec > 0)
+                        tvp = &tv;
+                select (0, 0, 0, 0, tvp);
+        }
 
         return 0;
 }

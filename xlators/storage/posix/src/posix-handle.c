@@ -27,7 +27,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <libgen.h>
+#ifdef GF_LINUX_HOST_OS
 #include <alloca.h>
+#endif
 
 #include "posix-handle.h"
 #include "posix.h"

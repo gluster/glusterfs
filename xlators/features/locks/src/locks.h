@@ -65,6 +65,7 @@ typedef struct __posix_lock posix_lock_t;
 struct __pl_inode_lock {
         struct list_head   list;
         struct list_head   blocked_locks; /* list_head pointing to blocked_inodelks */
+        int                ref;
 
         short              fl_type;
         off_t              fl_start;
@@ -164,11 +165,13 @@ typedef struct {
         gf_boolean_t   entrylk_count_req;
         gf_boolean_t   inodelk_count_req;
         gf_boolean_t   posixlk_count_req;
+        gf_boolean_t   parent_entrylk_req;
 
         /* used by {f,}truncate */
         loc_t  loc;
         fd_t  *fd;
         off_t  offset;
+        dict_t *xdata;
         enum {TRUNCATE, FTRUNCATE} op;
 } pl_local_t;
 

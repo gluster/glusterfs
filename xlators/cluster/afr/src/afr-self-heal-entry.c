@@ -111,7 +111,7 @@ afr_sh_entry_finish (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
                                 xlator_t *this, int32_t op_ret,
-                                int32_t op_errno, dict_t *xattr)
+                                int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
         long                 i          = 0;
         int                  call_count = 0;
@@ -216,7 +216,8 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
                                    priv->children[i],
                                    priv->children[i]->fops->xattrop,
                                    &local->loc,
-                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i]);
+                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i],
+                                   NULL);
                 if (!--call_count)
                         break;
         }
@@ -344,7 +345,8 @@ int
 afr_sh_entry_expunge_parent_setattr_cbk (call_frame_t *expunge_frame,
                                          void *cookie, xlator_t *this,
                                          int32_t op_ret, int32_t op_errno,
-                                         struct iatt *preop, struct iatt *postop)
+                                         struct iatt *preop, struct iatt *postop,
+                                         dict_t *xdata)
 {
         afr_private_t   *priv          = NULL;
         afr_local_t     *expunge_local = NULL;
@@ -380,7 +382,7 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
                                  xlator_t *this,
                                  int32_t op_ret, int32_t op_errno,
                                  struct iatt *preparent,
-                                 struct iatt *postparent)
+                                 struct iatt *postparent, dict_t *xdata)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *expunge_local = NULL;
@@ -415,7 +417,7 @@ afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
                            priv->children[active_src]->fops->setattr,
                            &expunge_sh->parent_loc,
                            &expunge_sh->parentbuf,
-                           valid);
+                           valid, NULL);
 
         return 0;
 }
@@ -439,7 +441,7 @@ afr_sh_entry_expunge_unlink (call_frame_t *expunge_frame, xlator_t *this,
                            (void *) (long) active_src,
                            priv->children[active_src],
                            priv->children[active_src]->fops->unlink,
-                           &expunge_local->loc);
+                           &expunge_local->loc, 0, NULL);
 
         return 0;
 }
@@ -464,7 +466,7 @@ afr_sh_entry_expunge_rmdir (call_frame_t *expunge_frame, xlator_t *this,
                            (void *) (long) active_src,
                            priv->children[active_src],
                            priv->children[active_src]->fops->rmdir,
-                           &expunge_local->loc, 1);
+                           &expunge_local->loc, 1, NULL);
 
         return 0;
 }
@@ -588,7 +590,7 @@ afr_sh_entry_expunge_purge (call_frame_t *expunge_frame, xlator_t *this,
                            (void *) (long) active_src,
                            priv->children[active_src],
                            priv->children[active_src]->fops->lookup,
-                           &expunge_local->loc, 0);
+                           &expunge_local->loc, NULL);
 
         return 0;
 }
@@ -747,7 +749,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
                            (void *) (long) source,
                            priv->children[source],
                            priv->children[source]->fops->lookup,
-                           &expunge_local->loc, 0);
+                           &expunge_local->loc, NULL);
 
         ret = 0;
 out:
@@ -762,7 +764,7 @@ int
 afr_sh_entry_expunge_readdir_cbk (call_frame_t *frame, void *cookie,
                                   xlator_t *this,
                                   int32_t op_ret, int32_t op_errno,
-                                  gf_dirent_t *entries)
+                                  gf_dirent_t *entries, dict_t *xdata)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *local  = NULL;
@@ -923,7 +925,8 @@ int
 afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
                                   xlator_t *this,
                                   int32_t op_ret, int32_t op_errno,
-                                  struct iatt *preop, struct iatt *postop)
+                                  struct iatt *preop, struct iatt *postop,
+                                  dict_t *xdata)
 {
         int              call_count = 0;
         afr_private_t   *priv = NULL;
@@ -960,7 +963,8 @@ int
 afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *setattr_frame,
                                          void *cookie, xlator_t *this,
                                          int32_t op_ret, int32_t op_errno,
-                                         struct iatt *preop, struct iatt *postop)
+                                         struct iatt *preop, struct iatt *postop,
+                                         dict_t *xdata)
 {
         int             call_count = 0;
         afr_local_t     *setattr_local = NULL;
@@ -1024,7 +1028,7 @@ afr_sh_entry_impunge_setattr (call_frame_t *impunge_frame, xlator_t *this)
                                    (void *) (long) i, priv->children[i],
                                    priv->children[i]->fops->setattr,
                                    &setattr_local->loc,
-                                   &impunge_sh->parentbuf, valid);
+                                   &impunge_sh->parentbuf, valid, NULL);
 
                 valid = GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
                         GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
@@ -1033,7 +1037,7 @@ afr_sh_entry_impunge_setattr (call_frame_t *impunge_frame, xlator_t *this)
                                    (void *) (long) i, priv->children[i],
                                    priv->children[i]->fops->setattr,
                                    &impunge_local->loc,
-                                   &impunge_sh->entrybuf, valid);
+                                   &impunge_sh->entrybuf, valid, NULL);
                 call_count--;
         }
         GF_ASSERT (!call_count);
@@ -1049,7 +1053,7 @@ int
 afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
                                   xlator_t *this,
                                   int32_t op_ret, int32_t op_errno,
-                                  dict_t *xattr)
+                                  dict_t *xattr, dict_t *xdata)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
@@ -1136,7 +1140,7 @@ afr_sh_entry_impunge_perform_xattrop (call_frame_t *impunge_frame,
                            (void *) (long) active_src,
                            priv->children[active_src],
                            priv->children[active_src]->fops->xattrop,
-                           &impunge_local->loc, GF_XATTROP_ADD_ARRAY, xattr);
+                           &impunge_local->loc, GF_XATTROP_ADD_ARRAY, xattr, NULL);
 
         if (xattr)
                 dict_unref (xattr);
@@ -1153,7 +1157,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
                                   int32_t op_ret, int32_t op_errno,
                                   inode_t *inode, struct iatt *stbuf,
                                   struct iatt *preparent,
-                                  struct iatt *postparent)
+                                  struct iatt *postparent, dict_t *xdata)
 {
         int              call_count       = 0;
         afr_private_t   *priv             = NULL;
@@ -1198,21 +1202,14 @@ afr_sh_entry_impunge_hardlink_cbk (call_frame_t *impunge_frame, void *cookie,
                                    xlator_t *this, int32_t op_ret,
                                    int32_t op_errno, inode_t *inode,
                                    struct iatt *buf, struct iatt *preparent,
-                                   struct iatt *postparent)
+                                   struct iatt *postparent, dict_t *xdata)
 {
         int              call_count        = 0;
-        call_frame_t    *frame             = NULL;
-        afr_local_t     *impunge_local     = NULL;
-        afr_local_t     *local             = NULL;
-        afr_self_heal_t *impunge_sh        = NULL;
-        afr_self_heal_t *sh                = NULL;
-
-        AFR_INIT_SH_FRAME_VALS (impunge_frame, impunge_local, impunge_sh,
-                                frame, local, sh);
 
         call_count = afr_frame_return (impunge_frame);
         if (call_count == 0)
-                sh->impunge_done (frame, this, op_ret, op_errno);
+                afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                op_ret, op_errno);
 
         return 0;
 }
@@ -1243,7 +1240,7 @@ afr_sh_entry_impunge_hardlink (call_frame_t *impunge_frame, xlator_t *this,
                            (void *) (long) child_index,
                            priv->children[child_index],
                            priv->children[child_index]->fops->link,
-                           &oldloc, loc);
+                           &oldloc, loc, NULL);
         loc_wipe (&oldloc);
 
         return 0;
@@ -1342,7 +1339,7 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
                            &impunge_local->loc,
                            st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
                            makedev (ia_major (stbuf->ia_rdev),
-                                    ia_minor (stbuf->ia_rdev)), dict);
+                                    ia_minor (stbuf->ia_rdev)), 0, dict);
 
         if (dict)
                 dict_unref (dict);
@@ -1389,7 +1386,7 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
                            priv->children[child_index]->fops->mkdir,
                            &impunge_local->loc,
                            st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
-                           dict);
+                           0, dict);
 
         if (dict)
                 dict_unref (dict);
@@ -1436,7 +1433,7 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
                            (void *) (long) child_index,
                            priv->children[child_index],
                            priv->children[child_index]->fops->symlink,
-                           linkname, &impunge_local->loc, dict);
+                           linkname, &impunge_local->loc, 0, dict);
 
         if (dict)
                 dict_unref (dict);
@@ -1450,7 +1447,7 @@ afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
                                          void *cookie, xlator_t *this,
                                          int32_t op_ret, int32_t op_errno,
                                          struct iatt *preparent,
-                                         struct iatt *postparent)
+                                         struct iatt *postparent, dict_t *xdata)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
@@ -1511,7 +1508,7 @@ afr_sh_entry_impunge_symlink_unlink (call_frame_t *impunge_frame, xlator_t *this
                            (void *) (long) child_index,
                            priv->children[child_index],
                            priv->children[child_index]->fops->unlink,
-                           &impunge_local->loc);
+                           &impunge_local->loc, 0, NULL);
 
         return 0;
 }
@@ -1521,7 +1518,7 @@ int
 afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cookie,
                                         xlator_t *this,
                                         int32_t op_ret, int32_t op_errno,
-                                        const char *linkname, struct iatt *sbuf)
+                                        const char *linkname, struct iatt *sbuf, dict_t *xdata)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
@@ -1603,7 +1600,7 @@ afr_sh_entry_impunge_readlink_sink (call_frame_t *impunge_frame, xlator_t *this,
                            (void *) (long) child_index,
                            priv->children[child_index],
                            priv->children[child_index]->fops->readlink,
-                           &impunge_local->loc, 4096);
+                           &impunge_local->loc, 4096, NULL);
 
         return 0;
 }
@@ -1613,7 +1610,7 @@ int
 afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
                                    xlator_t *this,
                                    int32_t op_ret, int32_t op_errno,
-                                   const char *linkname, struct iatt *sbuf)
+                                   const char *linkname, struct iatt *sbuf, dict_t *xdata)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
@@ -1677,7 +1674,7 @@ afr_sh_entry_impunge_readlink (call_frame_t *impunge_frame, xlator_t *this,
                            (void *) (long) child_index,
                            priv->children[active_src],
                            priv->children[active_src]->fops->readlink,
-                           &impunge_local->loc, 4096);
+                           &impunge_local->loc, 4096, NULL);
 
         return 0;
 }
@@ -1919,7 +1916,8 @@ afr_sh_entry_common_lookup_done (call_frame_t *impunge_frame, xlator_t *this,
                 afr_sh_common_lookup (impunge_frame, this, &impunge_local->loc,
                                       afr_sh_entry_common_lookup_done, gfid,
                                       AFR_LOOKUP_FAIL_CONFLICTS |
-                                      AFR_LOOKUP_FAIL_MISSING_GFIDS);
+                                      AFR_LOOKUP_FAIL_MISSING_GFIDS,
+                                      NULL);
         } else {
                 afr_sh_entry_call_impunge_recreate (impunge_frame, this);
         }
@@ -1985,7 +1983,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 
         afr_sh_common_lookup (impunge_frame, this, &impunge_local->loc,
                               afr_sh_entry_common_lookup_done, NULL,
-                              AFR_LOOKUP_FAIL_CONFLICTS);
+                              AFR_LOOKUP_FAIL_CONFLICTS, NULL);
 
         op_ret = 0;
 out:
@@ -2003,7 +2001,7 @@ int
 afr_sh_entry_impunge_readdir_cbk (call_frame_t *frame, void *cookie,
                                   xlator_t *this,
                                   int32_t op_ret, int32_t op_errno,
-                                  gf_dirent_t *entries)
+                                  gf_dirent_t *entries, dict_t *xdata)
 {
         afr_private_t   *priv = NULL;
         afr_local_t     *local  = NULL;
@@ -2076,7 +2074,7 @@ afr_sh_entry_impunge_subvol (call_frame_t *frame, xlator_t *this)
         STACK_WIND (frame, afr_sh_entry_impunge_readdir_cbk,
                     priv->children[active_src],
                     priv->children[active_src]->fops->readdirp,
-                    sh->healing_fd, sh->block_size, sh->offset, 0);
+                    sh->healing_fd, sh->block_size, sh->offset, NULL);
 
         return 0;
 }
@@ -2122,7 +2120,7 @@ afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this)
 
 int
 afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, fd_t *fd)
+                          int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         afr_local_t     *local = NULL;
         afr_self_heal_t *sh = NULL;
@@ -2216,7 +2214,7 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
                                    (void *) (long) source,
                                    priv->children[source],
                                    priv->children[source]->fops->opendir,
-                                   &local->loc, fd);
+                                   &local->loc, fd, NULL);
                 call_count--;
         }
 
@@ -2233,7 +2231,7 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
                                    (void *) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->opendir,
-                                   &local->loc, fd);
+                                   &local->loc, fd, NULL);
 
                 if (!--call_count)
                         break;
@@ -2382,7 +2380,8 @@ afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
                 afr_sh_common_lookup (frame, this, &local->loc,
                                       afr_sh_entry_fix, NULL,
                                       AFR_LOOKUP_FAIL_CONFLICTS |
-                                      AFR_LOOKUP_FAIL_MISSING_GFIDS);
+                                      AFR_LOOKUP_FAIL_MISSING_GFIDS,
+                                      NULL);
         }
 
         return 0;

@@ -144,7 +144,10 @@ dht_priv_dump (xlator_t *this)
                                    conf->du_stats->avail_inodes);
                 gf_proc_dump_write("du_stats.log", "%lu", conf->du_stats->log);
         }
-        gf_proc_dump_write("last_stat_fetch", "%s", ctime(&conf->last_stat_fetch.tv_sec));
+
+        if (conf->last_stat_fetch.tv_sec)
+                gf_proc_dump_write("last_stat_fetch", "%s",
+                                    ctime(&conf->last_stat_fetch.tv_sec));
 
         UNLOCK(&conf->subvolume_lock);
 
@@ -359,6 +362,7 @@ init (xlator_t *this)
         int                              i              = 0;
         gf_defrag_info_t                *defrag         = NULL;
         int                              cmd            = 0;
+        char                            *node_uuid      = NULL;
 
 
         GF_VALIDATE_OR_GOTO ("dht", this, err);
@@ -390,6 +394,19 @@ init (xlator_t *this)
                 LOCK_INIT (&defrag->lock);
 
                 defrag->is_exiting = 0;
+
+                ret = dict_get_str (this->options, "node-uuid", &node_uuid);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "node-uuid not "
+                                "specified");
+                        goto err;
+                }
+
+                if (uuid_parse (node_uuid, defrag->node_uuid)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Cannot parse "
+                                "glusterd node uuid");
+                        goto err;
+                }
 
                 defrag->cmd = cmd;
 
@@ -590,6 +607,9 @@ struct volume_options options[] = {
         },
         { .key  = {"rebalance-cmd"},
           .type = GF_OPTION_TYPE_INT,
+        },
+        { .key = {"node-uuid"},
+          .type = GF_OPTION_TYPE_STR,
         },
 
         { .key  = {NULL} },

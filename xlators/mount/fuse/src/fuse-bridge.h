@@ -66,7 +66,7 @@
 
 #define MAX_FUSE_PROC_DELAY 1
 
-#define DISABLE_SELINUX 1
+//#define DISABLE_SELINUX 1
 
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
@@ -116,6 +116,9 @@ struct fuse_private {
         int                  revchan_in;
         int                  revchan_out;
         gf_boolean_t         reverse_fuse_thread_started;
+
+        /* For communicating with separate mount thread. */
+        int                  status_pipe[2];
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -123,9 +126,6 @@ struct fuse_graph_switch_args {
         xlator_t        *this;
         xlator_t        *old_subvol;
         xlator_t        *new_subvol;
-        pthread_cond_t   cond;
-        pthread_mutex_t  lock;
-        char             complete;
 };
 typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
@@ -297,7 +297,8 @@ typedef struct {
         size_t            size;
         unsigned long     nlookup;
         fd_t             *fd;
-        dict_t           *dict;
+        dict_t           *xattr;
+        dict_t           *xdata;
         char             *name;
         char              is_revalidate;
         gf_boolean_t      truncate_needed;
@@ -318,6 +319,7 @@ typedef struct {
         int            mask;
         dev_t          rdev;
         mode_t         mode;
+        mode_t         umask;
         struct iatt    attr;
         struct gf_flock   lk_lock;
         struct iovec   vector;
@@ -329,6 +331,7 @@ typedef struct {
 
 typedef struct fuse_fd_ctx {
         uint32_t  open_flags;
+        char      migration_failed;
         fd_t     *fd;
 } fuse_fd_ctx_t;
 
@@ -347,8 +350,6 @@ inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);
 int fuse_gfid_set (fuse_state_t *state);
 int fuse_flip_xattr_ns (struct fuse_private *priv, char *okey, char **nkey);
-int fuse_flip_user_to_trusted (char *okey, char **nkey);
-int fuse_xattr_alloc_default (char *okey, char **nkey);
 fuse_fd_ctx_t * __fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
 fuse_fd_ctx_t * fuse_fd_ctx_check_n_create (fd_t *fd, xlator_t *this);
 

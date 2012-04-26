@@ -30,6 +30,7 @@
 
 #include "glusterfs.h"
 #include "xlator.h"
+#include "run.h"
 #include "logging.h"
 #include "call-stub.h"
 #include "fd.h"
@@ -84,6 +85,7 @@ typedef enum glusterd_store_ver_ac_{
                         }\
                 }\
         } while (0); \
+
 
 typedef enum {
         GD_STORE_SUCCESS,

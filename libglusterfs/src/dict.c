@@ -36,14 +36,15 @@
 #include "logging.h"
 #include "compat.h"
 #include "byte-order.h"
+#include "globals.h"
 
 data_pair_t *
 get_new_data_pair ()
 {
         data_pair_t *data_pair_ptr = NULL;
 
-        data_pair_ptr = (data_pair_t *) GF_CALLOC (1, sizeof (data_pair_t),
-                                                   gf_common_mt_data_pair_t);
+        data_pair_ptr = mem_get0 (THIS->ctx->dict_pair_pool);
+
         return data_pair_ptr;
 }
 
@@ -52,7 +53,7 @@ get_new_data ()
 {
         data_t *data = NULL;
 
-        data = (data_t *) GF_CALLOC (1, sizeof (data_t), gf_common_mt_data_t);
+        data = mem_get0 (THIS->ctx->dict_data_pool);
         if (!data) {
                 return NULL;
         }
@@ -64,18 +65,17 @@ get_new_data ()
 dict_t *
 get_new_dict_full (int size_hint)
 {
-        dict_t *dict = GF_CALLOC (1, sizeof (dict_t), gf_common_mt_dict_t);
+        dict_t *dict = mem_get0 (THIS->ctx->dict_pool);
 
         if (!dict) {
                 return NULL;
         }
 
         dict->hash_size = size_hint;
-        dict->members = GF_CALLOC (size_hint, sizeof (data_pair_t *),
-                                   gf_common_mt_data_pair_t);
+        dict->members = mem_get0 (THIS->ctx->dict_pair_pool);
 
         if (!dict->members) {
-                GF_FREE (dict);
+                mem_put (dict);
                 return NULL;
         }
 
@@ -143,13 +143,11 @@ data_destroy (data_t *data)
                                 else
                                         GF_FREE (data->data);
                         }
-                        if (data->vec)
-                                GF_FREE (data->vec);
                 }
 
                 data->len = 0xbabababa;
                 if (!data->is_const)
-                        GF_FREE (data);
+                        mem_put (data);
         }
 }
 
@@ -162,9 +160,7 @@ data_copy (data_t *old)
                 return NULL;
         }
 
-        data_t *newdata = (data_t *) GF_CALLOC (1, sizeof (*newdata),
-                                                gf_common_mt_data_t);
-
+        data_t *newdata = mem_get0 (THIS->ctx->dict_data_pool);
         if (!newdata) {
                 return NULL;
         }
@@ -176,12 +172,6 @@ data_copy (data_t *old)
                         if (!newdata->data)
                                 goto err_out;
                 }
-                if (old->vec) {
-                        newdata->vec = memdup (old->vec, old->len * (sizeof (void *) +
-                                                                     sizeof (size_t)));
-                        if (!newdata->vec)
-                                goto err_out;
-                }
         }
 
         LOCK_INIT (&newdata->lock);
@@ -191,9 +181,7 @@ err_out:
 
         if (newdata->data)
                 FREE (newdata->data);
-        if (newdata->vec)
-                FREE (newdata->vec);
-        GF_FREE (newdata);
+        mem_put (newdata);
 
         return NULL;
 }
@@ -272,8 +260,7 @@ _dict_set (dict_t *this,
                 /* Indicates duplicate key */
                 return 0;
         }
-        pair = (data_pair_t *) GF_CALLOC (1, sizeof (*pair),
-                                          gf_common_mt_data_pair_t);
+        pair = mem_get0 (THIS->ctx->dict_pair_pool);
         if (!pair) {
                 return -1;
         }
@@ -281,7 +268,7 @@ _dict_set (dict_t *this,
         pair->key = (char *) GF_CALLOC (1, strlen (key) + 1,
                                         gf_common_mt_char);
         if (!pair->key) {
-                GF_FREE (pair);
+                mem_put (pair);
 
                 if (key_free)
                         GF_FREE (key);
@@ -385,7 +372,7 @@ dict_del (dict_t *this, char *key)
                                 pair->next->prev = pair->prev;
 
                         GF_FREE (pair->key);
-                        GF_FREE (pair);
+                        mem_put (pair);
                         this->count--;
                         break;
                 }
@@ -416,11 +403,11 @@ dict_destroy (dict_t *this)
                 pair = pair->next;
                 data_unref (prev->value);
                 GF_FREE (prev->key);
-                GF_FREE (prev);
+                mem_put (prev);
                 prev = pair;
         }
 
-        GF_FREE (this->members);
+        mem_put (this->members);
 
         if (this->extra_free)
                 GF_FREE (this->extra_free);
@@ -428,7 +415,7 @@ dict_destroy (dict_t *this)
                 free (this->extra_stdfree);
 
         if (!this->is_static)
-                GF_FREE (this);
+                mem_put (this);
 
         return;
 }
@@ -507,236 +494,6 @@ data_ref (data_t *this)
         UNLOCK (&this->lock);
 
         return this;
-}
-
-/*
-  Serialization format:
-  ----
-  Count:8
-  Key_len:8:Value_len:8
-  Key
-  Value
-  .
-  .
-  .
-*/
-
-int32_t
-dict_serialized_length_old (dict_t *this)
-{
-
-        if (!this) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        int32_t len = 9; /* count + \n */
-        int32_t count = this->count;
-        data_pair_t *pair = this->members_list;
-
-        while (count) {
-                len += 18;
-                len += strlen (pair->key) + 1;
-                if (pair->value->vec) {
-                        int i;
-                        for (i=0; i<pair->value->len; i++) {
-                                len += pair->value->vec[i].iov_len;
-                        }
-                } else {
-                        len += pair->value->len;
-                }
-                pair = pair->next;
-                count--;
-        }
-
-        return len;
-}
-
-int32_t
-dict_serialize_old (dict_t *this, char *buf)
-{
-        if (!this || !buf) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        data_pair_t *pair = this->members_list;
-        int32_t count = this->count;
-        uint64_t dcount = this->count;
-
-        // FIXME: magic numbers
-
-        sprintf (buf, "%08"PRIx64"\n", dcount);
-        buf += 9;
-        while (count) {
-                uint64_t keylen = strlen (pair->key) + 1;
-                uint64_t vallen = pair->value->len;
-
-                sprintf (buf, "%08"PRIx64":%08"PRIx64"\n", keylen, vallen);
-                buf += 18;
-                memcpy (buf, pair->key, keylen);
-                buf += keylen;
-                memcpy (buf, pair->value->data, pair->value->len);
-                buf += pair->value->len;
-                pair = pair->next;
-                count--;
-        }
-        return (0);
-}
-
-
-dict_t *
-dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
-{
-        int32_t ret = 0;
-        int32_t cnt = 0;
-
-        if (!buf || !fill || !(*fill)) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "buf is NULL");
-                return NULL;
-        }
-
-        uint64_t count;
-        ret = sscanf (buf, "%"SCNx64"\n", &count);
-        (*fill)->count = 0;
-
-        if (!ret){
-                gf_log ("dict", GF_LOG_ERROR, "sscanf on buf failed");
-                goto err;
-        }
-        buf += 9;
-
-        if (count == 0) {
-                gf_log ("dict", GF_LOG_ERROR, "count == 0");
-                goto err;
-        }
-
-        for (cnt = 0; cnt < count; cnt++) {
-                data_t *value = NULL;
-                char *key = NULL;
-                uint64_t key_len, value_len;
-
-                ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
-                if (ret != 2) {
-                        gf_log ("dict", GF_LOG_ERROR,
-                                "sscanf for key_len and value_len failed");
-                        goto err;
-                }
-                buf += 18;
-
-                key = buf;
-                buf += key_len;
-
-                value = get_new_data ();
-                value->len = value_len;
-                value->data = buf;
-                value->is_static = 1;
-                buf += value_len;
-
-                dict_set (*fill, key, value);
-        }
-
-        goto ret;
-
-err:
-        GF_FREE (*fill);
-        *fill = NULL;
-
-ret:
-        return *fill;
-}
-
-
-int32_t
-dict_iovec_len (dict_t *this)
-{
-        if (!this) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        int32_t len = 0;
-        data_pair_t *pair = this->members_list;
-
-        len++; /* initial header */
-        while (pair) {
-                len++; /* pair header */
-                len++; /* key */
-
-                if (pair->value->vec)
-                        len += pair->value->len;
-                else
-                        len++;
-                pair = pair->next;
-        }
-
-        return len;
-}
-
-int32_t
-dict_to_iovec (dict_t *this,
-               struct iovec *vec,
-               int32_t count)
-{
-        if (!this || !vec) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
-                return -1;
-        }
-
-        int32_t i = 0;
-        data_pair_t *pair = this->members_list;
-
-        vec[0].iov_len = 9;
-        if (vec[0].iov_base)
-                sprintf (vec[0].iov_base,
-                         "%08"PRIx64"\n",
-                         (int64_t)this->count);
-        i++;
-
-        while (pair) {
-                int64_t keylen = strlen (pair->key) + 1;
-                int64_t vallen = 0;
-
-                if (pair->value->vec) {
-                        int i;
-
-                        for (i=0; i<pair->value->len; i++) {
-                                vallen += pair->value->vec[i].iov_len;
-                        }
-                } else {
-                        vallen = pair->value->len;
-                }
-
-                vec[i].iov_len = 18;
-                if (vec[i].iov_base)
-                        sprintf (vec[i].iov_base,
-                                 "%08"PRIx64":%08"PRIx64"\n",
-                                 keylen,
-                                 vallen);
-                i++;
-
-                vec[i].iov_len = keylen;
-                vec[i].iov_base = pair->key;
-                i++;
-
-                if (pair->value->vec) {
-                        int k;
-
-                        for (k=0; k<pair->value->len; k++) {
-                                vec[i].iov_len = pair->value->vec[k].iov_len;
-                                vec[i].iov_base = pair->value->vec[k].iov_base;
-                                i++;
-                        }
-                } else {
-                        vec[i].iov_len = pair->value->len;
-                        vec[i].iov_base = pair->value->data;
-                        i++;
-                }
-
-                pair = pair->next;
-        }
-
-        return 0;
 }
 
 data_t *
@@ -1088,6 +845,8 @@ data_to_int32 (data_t *data)
 int16_t
 data_to_int16 (data_t *data)
 {
+	int16_t value = 0;
+
         if (!data) {
                 gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return -1;
@@ -1100,7 +859,18 @@ data_to_int16 (data_t *data)
         memcpy (str, data->data, data->len);
         str[data->len] = '\0';
 
-        return strtol (str, NULL, 0);
+	errno = 0;
+	value = strtol (str, NULL, 0);
+
+	if ((SHRT_MAX > value) || (SHRT_MIN < value)) {
+		errno = ERANGE;
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+				  "Error in data conversion: "
+				  "detected overflow");
+                return -1;
+	}
+
+        return (int16_t)value;
 }
 
 
@@ -1127,7 +897,8 @@ data_to_int8 (data_t *data)
 	if ((SCHAR_MAX > value) || (SCHAR_MIN < value)) {
 		errno = ERANGE;
                 gf_log_callingfn ("dict", GF_LOG_WARNING,
-				  "Error in data conversion: detected overflow");
+				  "Error in data conversion: "
+				  "detected overflow");
                 return -1;
 	}
 
@@ -1169,6 +940,8 @@ data_to_uint32 (data_t *data)
 uint16_t
 data_to_uint16 (data_t *data)
 {
+	uint16_t value = 0;
+
         if (!data)
                 return -1;
 
@@ -1179,7 +952,18 @@ data_to_uint16 (data_t *data)
         memcpy (str, data->data, data->len);
         str[data->len] = '\0';
 
-        return strtol (str, NULL, 0);
+	errno = 0;
+	value = strtol (str, NULL, 0);
+
+	if ((USHRT_MAX - value) < 0) {
+		errno = ERANGE;
+		gf_log_callingfn ("dict", GF_LOG_WARNING,
+				  "Error in data conversion: "
+				  "overflow detected");
+		return -1;
+	}
+
+        return (uint16_t)value;
 }
 
 uint8_t
@@ -2330,7 +2114,6 @@ _dict_serialized_length (dict_t *this)
         int ret            = -EINVAL;
         int count          = 0;
         int len            = 0;
-        int i              = 0;
         data_pair_t * pair = NULL;
 
         len = DICT_HDR_LEN;
@@ -2365,27 +2148,14 @@ _dict_serialized_length (dict_t *this)
                         goto out;
                 }
 
-                if (pair->value->vec) {
-                        for (i = 0; i < pair->value->len; i++) {
-                                if (pair->value->vec[i].iov_len < 0) {
-                                        gf_log ("dict", GF_LOG_ERROR,
-                                                "iov_len (%"GF_PRI_SIZET") < 0!",
-                                                pair->value->vec[i].iov_len);
-                                        goto out;
-                                }
-
-                                len += pair->value->vec[i].iov_len;
-                        }
-                } else {
-                        if (pair->value->len < 0) {
-                                gf_log ("dict", GF_LOG_ERROR,
-                                        "value->len (%d) < 0",
-                                        pair->value->len);
-                                goto out;
-                        }
-
-                        len += pair->value->len;
+                if (pair->value->len < 0) {
+                        gf_log ("dict", GF_LOG_ERROR,
+                                "value->len (%d) < 0",
+                                pair->value->len);
+                        goto out;
                 }
+
+                len += pair->value->len;
 
                 pair = pair->next;
                 count--;
@@ -2825,4 +2595,41 @@ dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
         UNLOCK (&this->lock);
 out:
         return ret;
+}
+
+void
+dict_dump (dict_t *this)
+{
+        int          ret     = 0;
+        int          dumplen = 0;
+        data_pair_t *trav    = NULL;
+        char         dump[64*1024]; /* This is debug only, hence
+                                       performance should not matter */
+
+        if (!this) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict NULL");
+                goto out;
+        }
+
+        dump[0] = '\0'; /* the array is not initialized to '\0' */
+
+        /* There is a possibility of issues if data is binary, ignore it
+           for now as debugging is more important */
+        for (trav = this->members_list; trav; trav = trav->next) {
+                ret = snprintf (&dump[dumplen], ((64*1024) - dumplen - 1),
+                                "(%s:%s)", trav->key, trav->value->data);
+                if ((ret == -1) || !ret)
+                        break;
+
+                dumplen += ret;
+                /* snprintf doesn't append a trailing '\0', add it here */
+                dump[dumplen] = '\0';
+        }
+
+        if (dumplen)
+                gf_log_callingfn ("dict", GF_LOG_INFO,
+                                  "dict=%p (%s)", this, dump);
+
+out:
+        return;
 }

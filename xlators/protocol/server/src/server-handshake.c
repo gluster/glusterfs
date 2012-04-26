@@ -414,7 +414,7 @@ server_setvolume (rpcsvc_request_t *req)
         ret = dict_get_uint32 (params, "clnt-lk-version", &lk_version);
         if (ret < 0) {
                 ret = dict_set_str (reply, "ERROR",
-                                    "lock state verison not supplied");
+                                    "lock state version not supplied");
                 if (ret < 0)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "failed to set error msg");
@@ -431,12 +431,14 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
+        gf_log (this->name, GF_LOG_DEBUG, "Connected to %s", conn->id);
         cancelled = server_cancel_conn_timer (this, conn);
-        if (cancelled)
-                server_conn_unref (conn);
+        if (cancelled)//Do connection_put on behalf of grace-timer-handler.
+                server_connection_put (this, conn, NULL);
         if (conn->lk_version != 0 &&
             conn->lk_version != lk_version) {
-                (void) server_connection_cleanup (this, conn);
+                (void) server_connection_cleanup (this, conn,
+                                                  INTERNAL_LOCKS | POSIX_LOCKS);
         }
 
         if (req->trans->xl_private != conn)
@@ -565,7 +567,7 @@ server_setvolume (rpcsvc_request_t *req)
 
                 gf_log (this->name, GF_LOG_INFO,
                         "accepted client from %s (version: %s)",
-                        (peerinfo) ? peerinfo->identifier : "<>",
+                        conn->id,
                         (clnt_version) ? clnt_version : "old");
                 op_ret = 0;
                 conn->bound_xl = xl;
@@ -576,7 +578,7 @@ server_setvolume (rpcsvc_request_t *req)
         } else {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Cannot authenticate client from %s %s",
-                        (peerinfo) ? peerinfo->identifier : "<>",
+                        conn->id,
                         (clnt_version) ? clnt_version : "old");
 
                 op_ret = -1;
@@ -723,7 +725,7 @@ server_set_lk_version (rpcsvc_request_t *req)
 
         conn = server_connection_get (this, args.uid);
         conn->lk_version = args.lk_ver;
-        server_conn_unref (conn);
+        server_connection_put (this, conn, NULL);
 
         rsp.lk_ver   = args.lk_ver;
 
@@ -733,6 +735,11 @@ fail:
         rsp.op_errno = op_errno;
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_set_lk_ver_rsp);
+
+        if (args.uid != NULL) {
+                free (args.uid);
+        }
+
         return 0;
 }
 

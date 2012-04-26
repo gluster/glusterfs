@@ -34,12 +34,12 @@
 static void
 init (dict_t *this, char *key, data_t *value, void *data)
 {
-        void *handle = NULL;
-        char *auth_file = NULL;
-        auth_handle_t *auth_handle = NULL;
-        auth_fn_t authenticate = NULL;
-        int *error = NULL;
-        int  ret = 0;
+        void          *handle       = NULL;
+        char          *auth_file    = NULL;
+        auth_handle_t *auth_handle  = NULL;
+        auth_fn_t      authenticate = NULL;
+        int           *error        = NULL;
+        int            ret          = 0;
 
         /* It gets over written */
         error = data;
@@ -78,6 +78,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
                 gf_log ("authenticate", GF_LOG_ERROR,
                         "dlsym(gf_auth) on %s\n", dlerror ());
                 dict_set (this, key, data_from_dynptr (NULL, 0));
+                dlclose (handle);
                 *error = -1;
                 return;
         }
@@ -87,10 +88,17 @@ init (dict_t *this, char *key, data_t *value, void *data)
         if (!auth_handle) {
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 *error = -1;
+                dlclose (handle);
                 return;
         }
         auth_handle->vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                                           gf_common_mt_volume_opt_list_t);
+        if (!auth_handle->vol_opt) {
+                dict_set (this, key, data_from_dynptr (NULL, 0));
+                *error = -1;
+                dlclose (handle);
+                return;
+        }
         auth_handle->vol_opt->given_opt = dlsym (handle, "options");
         if (auth_handle->vol_opt->given_opt == NULL) {
                 gf_log ("authenticate", GF_LOG_DEBUG,

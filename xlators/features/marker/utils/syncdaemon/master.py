@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import stat
+import random
 import signal
 import logging
 import errno
@@ -336,6 +337,7 @@ class GMaster(object):
         except OSError:
             self.add_failjob(path, 'local-entries-fail')
             return
+        random.shuffle(dem)
         try:
             des = self.slave.server.entries(path)
         except OSError:
@@ -389,7 +391,7 @@ class GMaster(object):
                         self.sendmark(e, xte)
                         return True
                     else:
-                        logging.error("failed to sync " + e)
+                        logging.warn("failed to sync " + e)
                 self.add_job(path, 'reg', regjob, e, xte, pb)
             elif stat.S_ISDIR(mo):
                 adct['mode'] = mo

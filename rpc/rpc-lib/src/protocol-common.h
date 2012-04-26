@@ -74,6 +74,7 @@ enum gf_handshake_procnum {
         GF_HNDSK_GETSPEC,
         GF_HNDSK_PING,
         GF_HNDSK_SET_LK_VER,
+        GF_HNDSK_EVENT_NOTIFY,
         GF_HNDSK_MAXVALUE,
 };
 
@@ -118,6 +119,7 @@ enum gf_cbk_procnum {
         GF_CBK_NULL = 0,
         GF_CBK_FETCHSPEC,
         GF_CBK_INO_FLUSH,
+        GF_CBK_EVENT_NOTIFY,
         GF_CBK_MAXVALUE,
 };
 
@@ -186,6 +188,8 @@ enum glusterd_brick_procnum {
         GLUSTERD_BRICK_STATUS,
         GLUSTERD_BRICK_OP,
         GLUSTERD_BRICK_XLATOR_DEFRAG,
+        GLUSTERD_NODE_PROFILE,
+        GLUSTERD_NODE_STATUS,
         GLUSTERD_BRICK_MAXVALUE,
 };
 
@@ -198,8 +202,14 @@ typedef enum {
         GF_AFR_OP_HEAL_FAILED_FILES,
         GF_AFR_OP_SPLIT_BRAIN_FILES
 } gf_xl_afr_op_t ;
+
+enum gf_hdsk_event_notify_op {
+        GF_EN_DEFRAG_STATUS,
+        GF_EN_MAX,
+};
+
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
-#define GLUSTER_HNDSK_VERSION    1   /* 0.0.1 */
+#define GLUSTER_HNDSK_VERSION    2   /* 0.0.1 */
 
 #define GLUSTER_PMAP_PROGRAM     34123456
 #define GLUSTER_PMAP_VERSION     1

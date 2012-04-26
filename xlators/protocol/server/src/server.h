@@ -35,6 +35,11 @@
 #define GF_MAX_SOCKET_WINDOW_SIZE  (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE  (0)
 
+typedef enum {
+        INTERNAL_LOCKS = 1,
+        POSIX_LOCKS = 2,
+} server_lock_flags_t;
+
 typedef struct _server_state server_state_t;
 
 struct _locker {
@@ -49,7 +54,6 @@ struct _locker {
 struct _lock_table {
         struct list_head  inodelk_lockers;
         struct list_head  entrylk_lockers;
-        gf_lock_t         lock;
         size_t            count;
 };
 
@@ -60,6 +64,7 @@ struct _server_connection {
         struct list_head    list;
         char               *id;
         int                 ref;
+        int                 bind_ref;
         pthread_mutex_t     lock;
         fdtable_t          *fdtable;
         struct _lock_table *ltable;
@@ -75,6 +80,10 @@ typedef struct _server_connection server_connection_t;
 server_connection_t *
 server_connection_get (xlator_t *this, const char *id);
 
+server_connection_t *
+server_connection_put (xlator_t *this, server_connection_t *conn,
+                       gf_boolean_t *detached);
+
 server_connection_t*
 server_conn_unref (server_connection_t *conn);
 
@@ -82,7 +91,8 @@ server_connection_t*
 server_conn_ref (server_connection_t *conn);
 
 int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn);
+server_connection_cleanup (xlator_t *this, server_connection_t *conn,
+                           int32_t flags);
 
 int server_null (rpcsvc_request_t *req);
 
@@ -98,6 +108,8 @@ struct server_conf {
         int                     inode_lru_limit;
         gf_boolean_t            verify_volfile;
         gf_boolean_t            trace;
+        gf_boolean_t            lk_heal; /* If true means lock self
+                                            heal is on else off. */
         char                   *conf_dir;
         struct _volfile_ctx    *volfile;
         struct timeval          grace_tv;
@@ -185,6 +197,9 @@ struct _server_state {
         struct gf_flock      flock;
         const char       *volume;
         dir_entry_t      *entry;
+
+        dict_t           *xdata;
+        mode_t            umask;
 };
 
 extern struct rpcsvc_program gluster_handshake_prog;

@@ -38,7 +38,8 @@
 
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
                                        xlator_t     *this,
-                                       int32_t       op_ret, int32_t op_errno);
+                                       int32_t       op_ret, int32_t op_errno,
+                                       dict_t *xdata);
 typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, call_frame_t *frame,
                                     int              ret);
 
@@ -74,7 +75,6 @@ typedef enum {
 struct dht_rebalance_ {
         xlator_t            *from_subvol;
         xlator_t            *target_node;
-        int32_t              wbflags;
         off_t                offset;
         size_t               size;
         int32_t              flags;
@@ -83,6 +83,7 @@ struct dht_rebalance_ {
         struct iovec        *vector;
         struct iatt          stbuf;
         dht_defrag_cbk_fn_t  target_op_fn;
+        dict_t              *xdata;
 };
 
 struct dht_local {
@@ -142,6 +143,7 @@ struct dht_local {
         int32_t flags;
         mode_t  mode;
         dev_t   rdev;
+        mode_t  umask;
 
         /* need for file-info */
         char   *xattr_val;
@@ -166,6 +168,7 @@ struct dht_local {
         glusterfs_fop_t      fop;
 
         struct dht_rebalance_ rebalance;
+
 };
 typedef struct dht_local dht_local_t;
 
@@ -201,6 +204,7 @@ struct gf_defrag_info_ {
         uint64_t                     total_files;
         uint64_t                     total_data;
         uint64_t                     num_files_lookedup;
+        uint64_t                     total_failures;
         gf_lock_t                    lock;
         int                          cmd;
         pthread_t                    th;
@@ -210,6 +214,7 @@ struct gf_defrag_info_ {
         uint32_t                     is_exiting;
         pid_t                        pid;
         inode_t                     *root_inode;
+        uuid_t                       node_uuid;
 
 };
 
@@ -396,9 +401,6 @@ dht_selfheal_restore (call_frame_t       *frame, dht_selfheal_dir_cbk_t cbk,
 int
 dht_layout_sort_volname (dht_layout_t *layout);
 
-int dht_rename (call_frame_t *frame, xlator_t *this,
-                loc_t *oldloc, loc_t *newloc);
-
 int dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc);
 
 gf_boolean_t dht_is_subvol_filled (xlator_t *this, xlator_t *subvol);
@@ -406,7 +408,7 @@ xlator_t *dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol);
 int       dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx);
 
 int dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode);
-int           dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout);
+int           dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout);;
 void          dht_layout_unref (xlator_t *this, dht_layout_t *layout);
 dht_layout_t *dht_layout_ref (xlator_t *this, dht_layout_t *layout);
 xlator_t     *dht_first_up_subvol (xlator_t *this);
@@ -421,7 +423,8 @@ int                                     dht_rename_cleanup (call_frame_t *frame)
 int dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t           op_ret, int32_t op_errno,
                           inode_t          *inode, struct iatt *stbuf,
-                          struct iatt      *preparent, struct iatt *postparent);
+                          struct iatt      *preparent, struct iatt *postparent,
+                          dict_t *xdata);
 
 int dht_fix_directory_layout (call_frame_t *frame,
                               dht_selfheal_dir_cbk_t  dir_cbk,
@@ -444,73 +447,73 @@ int32_t dht_lookup (call_frame_t *frame,
 
 int32_t dht_stat (call_frame_t *frame,
                   xlator_t *this,
-                  loc_t    *loc);
+                  loc_t    *loc, dict_t *xdata);
 
 int32_t dht_fstat (call_frame_t *frame,
                    xlator_t *this,
-                   fd_t     *fd);
+                   fd_t     *fd, dict_t *xdata);
 
 int32_t dht_truncate (call_frame_t *frame,
                       xlator_t *this,
                       loc_t    *loc,
-                      off_t     offset);
+                      off_t     offset, dict_t *xdata);
 
 int32_t dht_ftruncate (call_frame_t *frame,
                        xlator_t *this,
                        fd_t     *fd,
-                       off_t     offset);
+                       off_t     offset, dict_t *xdata);
 
 int32_t dht_access (call_frame_t *frame,
                     xlator_t *this,
                     loc_t    *loc,
-                    int32_t   mask);
+                    int32_t   mask, dict_t *xdata);
 
 int32_t dht_readlink (call_frame_t *frame,
                       xlator_t *this,
                       loc_t    *loc,
-                      size_t    size);
+                      size_t    size, dict_t *xdata);
 
-int32_t dht_mknod (call_frame_t *frame, xlator_t *this,
-                   loc_t    *loc, mode_t mode, dev_t rdev, dict_t *params);
+int32_t dht_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                   mode_t mode, dev_t rdev, mode_t umask, dict_t *xdata);
 
 int32_t dht_mkdir (call_frame_t *frame, xlator_t *this,
-                   loc_t    *loc, mode_t mode, dict_t *params);
+                   loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata);
 
 int32_t dht_unlink (call_frame_t *frame,
                     xlator_t *this,
-                    loc_t    *loc);
+                    loc_t    *loc, int xflag, dict_t *xdata);
 
 int32_t dht_rmdir (call_frame_t *frame, xlator_t *this,
-                   loc_t    *loc, int flags);
+                   loc_t    *loc, int flags, dict_t *xdata);
 
 int32_t dht_symlink (call_frame_t   *frame, xlator_t *this,
-                     const char *linkpath, loc_t *loc, dict_t *params);
+                     const char *linkpath, loc_t *loc, mode_t umask,
+                     dict_t *xdata);
 
 int32_t dht_rename (call_frame_t *frame,
                     xlator_t *this,
                     loc_t    *oldloc,
-                    loc_t    *newloc);
+                    loc_t    *newloc, dict_t *xdata);
 
 int32_t dht_link (call_frame_t *frame,
                   xlator_t *this,
                   loc_t    *oldloc,
-                  loc_t    *newloc);
+                  loc_t    *newloc, dict_t *xdata);
 
 int32_t dht_create (call_frame_t *frame, xlator_t *this,
                     loc_t    *loc, int32_t flags, mode_t mode,
-                    fd_t     *fd, dict_t *params);
+                    mode_t umask, fd_t     *fd, dict_t *params);
 
 int32_t dht_open (call_frame_t *frame,
                   xlator_t *this,
                   loc_t    *loc,
-                  int32_t   flags, fd_t *fd,
-                  int32_t   wbflags);
+                  int32_t   flags, fd_t *fd, dict_t *xdata);
 
 int32_t dht_readv (call_frame_t *frame,
                    xlator_t *this,
                    fd_t     *fd,
                    size_t    size,
-                   off_t     offset, uint32_t flags);
+                   off_t     offset, uint32_t flags, dict_t *xdata);
 
 int32_t dht_writev (call_frame_t      *frame,
                     xlator_t      *this,
@@ -519,87 +522,87 @@ int32_t dht_writev (call_frame_t      *frame,
                     int32_t        count,
                     off_t          offset,
                     uint32_t       flags,
-                    struct iobref *iobref);
+                    struct iobref *iobref, dict_t *xdata);
 
 int32_t dht_flush (call_frame_t *frame,
                    xlator_t *this,
-                   fd_t     *fd);
+                   fd_t     *fd, dict_t *xdata);
 
 int32_t dht_fsync (call_frame_t *frame,
                    xlator_t *this,
                    fd_t     *fd,
-                   int32_t   datasync);
+                   int32_t   datasync, dict_t *xdata);
 
 int32_t dht_opendir (call_frame_t *frame,
                      xlator_t *this,
-                     loc_t    *loc, fd_t *fd);
+                     loc_t    *loc, fd_t *fd, dict_t *xdata);
 
 int32_t dht_fsyncdir (call_frame_t *frame,
                       xlator_t *this,
                       fd_t     *fd,
-                      int32_t   datasync);
+                      int32_t   datasync, dict_t *xdata);
 
 int32_t dht_statfs (call_frame_t *frame,
                     xlator_t *this,
-                    loc_t    *loc);
+                    loc_t    *loc, dict_t *xdata);
 
 int32_t dht_setxattr (call_frame_t *frame,
                       xlator_t *this,
                       loc_t    *loc,
                       dict_t   *dict,
-                      int32_t   flags);
+                      int32_t   flags, dict_t *xdata);
 
 int32_t dht_getxattr (call_frame_t   *frame,
                       xlator_t   *this,
                       loc_t      *loc,
-                      const char *name);
+                      const char *name, dict_t *xdata);
 
 int32_t dht_fsetxattr (call_frame_t *frame,
                        xlator_t *this,
                        fd_t     *fd,
                        dict_t   *dict,
-                       int32_t   flags);
+                       int32_t   flags, dict_t *xdata);
 
 int32_t dht_fgetxattr (call_frame_t   *frame,
                        xlator_t   *this,
                        fd_t       *fd,
-                       const char *name);
+                       const char *name, dict_t *xdata);
 
 int32_t dht_removexattr (call_frame_t   *frame,
                          xlator_t   *this,
                          loc_t      *loc,
-                         const char *name);
+                         const char *name, dict_t *xdata);
 int32_t dht_fremovexattr (call_frame_t   *frame,
                           xlator_t   *this,
                           fd_t      *fd,
-                          const char *name);
+                          const char *name, dict_t *xdata);
 
 int32_t dht_lk (call_frame_t        *frame,
                 xlator_t        *this,
                 fd_t            *fd,
                 int32_t          cmd,
-                struct gf_flock *flock);
+                struct gf_flock *flock, dict_t *xdata);
 
 int32_t dht_inodelk (call_frame_t *frame, xlator_t *this,
                      const char      *volume, loc_t *loc, int32_t cmd,
-                     struct gf_flock *flock);
+                     struct gf_flock *flock, dict_t *xdata);
 
 int32_t dht_finodelk (call_frame_t        *frame, xlator_t *this,
                       const char      *volume, fd_t *fd, int32_t cmd,
-                      struct gf_flock *flock);
+                      struct gf_flock *flock, dict_t *xdata);
 
 int32_t dht_entrylk (call_frame_t    *frame, xlator_t *this,
                      const char  *volume, loc_t *loc, const char *basename,
-                     entrylk_cmd  cmd, entrylk_type type);
+                     entrylk_cmd  cmd, entrylk_type type, dict_t *xdata);
 
 int32_t dht_fentrylk (call_frame_t    *frame, xlator_t *this,
                       const char  *volume, fd_t *fd, const char *basename,
-                      entrylk_cmd  cmd, entrylk_type type);
+                      entrylk_cmd  cmd, entrylk_type type, dict_t *xdata);
 
 int32_t dht_readdir (call_frame_t  *frame,
                      xlator_t *this,
                      fd_t     *fd,
-                     size_t    size, off_t off);
+                     size_t    size, off_t off, dict_t *xdata);
 
 int32_t dht_readdirp (call_frame_t *frame,
                       xlator_t *this,
@@ -610,19 +613,19 @@ int32_t dht_xattrop (call_frame_t           *frame,
                      xlator_t           *this,
                      loc_t              *loc,
                      gf_xattrop_flags_t  flags,
-                     dict_t             *dict);
+                     dict_t             *dict, dict_t *xdata);
 
 int32_t dht_fxattrop (call_frame_t *frame,
                       xlator_t           *this,
                       fd_t               *fd,
                       gf_xattrop_flags_t  flags,
-                      dict_t             *dict);
+                      dict_t             *dict, dict_t *xdata);
 
 int32_t dht_forget (xlator_t *this, inode_t *inode);
 int32_t dht_setattr (call_frame_t  *frame, xlator_t *this, loc_t *loc,
-                     struct iatt   *stbuf, int32_t valid);
+                     struct iatt   *stbuf, int32_t valid, dict_t *xdata);
 int32_t dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                      struct iatt  *stbuf, int32_t valid);
+                      struct iatt  *stbuf, int32_t valid, dict_t *xdata);
 
 int32_t dht_notify (xlator_t *this, int32_t event, void *data, ...);
 
@@ -646,11 +649,12 @@ int dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
                     fd_t *fd, inode_t *inode, struct iatt *stbuf,
-                    struct iatt *preparent, struct iatt *postparent);
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata);
 int dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno,
                      inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
-                     struct iatt *postparent);
+                     struct iatt *postparent, dict_t *xdata);
 
 int
 gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);

@@ -57,6 +57,9 @@
 #include "defaults.c"
 #include "common-utils.h"
 
+#include "globals.h"
+#include "glusterd-syncop.h"
+
 static int
 glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
                             char *hostname, int port,
@@ -80,8 +83,10 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         if (ret) {
                 ret = glusterd_xfer_friend_add_resp (req, rhost, port, -1,
                                                      GF_PROBE_UNKNOWN_PEER);
-                if (friend_req->vols.vols_val)
+                if (friend_req->vols.vols_val) {
                         free (friend_req->vols.vols_val);
+                        friend_req->vols.vols_val = NULL;
+                }
                 goto out;
         }
 
@@ -944,6 +949,7 @@ out:
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
+
         return ret;
 }
 
@@ -956,8 +962,6 @@ glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx)
 
         return ret;
 }
-
-
 
 int
 glusterd_handle_reset_volume (rpcsvc_request_t *req)
@@ -1667,6 +1671,12 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
                 gf_log ("", GF_LOG_INFO, "Received uuid: %s, hostname:%s",
                                 uuid_buf, hostname);
 
+                if (uuid_is_null (uuid)) {
+                        gf_log (this->name, GF_LOG_WARNING, "Updates mustn't "
+                                "contain peer with 'null' uuid");
+                        continue;
+                }
+
                 if (!uuid_compare (uuid, priv->uuid)) {
                         gf_log ("", GF_LOG_INFO, "Received my uuid as Friend");
                         i++;
@@ -1774,7 +1784,7 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
                                      (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO, "Responded to %s, op_ret: %d, "
-                "op_errno: %d, ret: %d", probe_req.hostname,
+                "op_errno: %d, ret: %d", remote_hostname,
                 rsp.op_ret, rsp.op_errno, ret);
 
 out:
@@ -2129,12 +2139,14 @@ glusterd_friend_add (const char *hoststr, int port,
                      glusterd_peerctx_args_t *args)
 {
         int                     ret = 0;
+        xlator_t               *this = NULL;
         glusterd_conf_t        *conf = NULL;
         glusterd_peerctx_t     *peerctx = NULL;
         dict_t                 *options = NULL;
         gf_boolean_t            handover = _gf_false;
 
-        conf = THIS->private;
+        this = THIS;
+        conf = this->private;
         GF_ASSERT (conf);
         GF_ASSERT (hoststr);
 
@@ -2158,11 +2170,21 @@ glusterd_friend_add (const char *hoststr, int port,
         if (ret)
                 goto out;
 
+        if (!restore) {
+                ret = glusterd_store_peerinfo (*friend);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                                "peerinfo");
+
+                        goto out;
+                }
+        }
+        list_add_tail (&(*friend)->uuid_list, &conf->peers);
         ret = glusterd_rpc_create (&(*friend)->rpc, options,
                                    glusterd_peer_rpc_notify,
                                    peerctx);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "failed to create rpc for"
+                gf_log (this->name, GF_LOG_ERROR, "failed to create rpc for"
                         " peer %s", (char*)hoststr);
                 goto out;
         }
@@ -2174,7 +2196,7 @@ out:
                         *friend = NULL;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "connect returned %d", ret);
+        gf_log (this->name, GF_LOG_INFO, "connect returned %d", ret);
         return ret;
 }
 
@@ -2737,12 +2759,13 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
-glusterd_shd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                         rpc_clnt_event_t event,
-                         void *data)
+glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                             rpc_clnt_event_t event,
+                             void *data)
 {
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
+        char                    *server = NULL;
         int                     ret = 0;
 
         this = THIS;
@@ -2750,17 +2773,21 @@ glusterd_shd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         conf = this->private;
         GF_ASSERT (conf);
 
+        server = mydata;
+        if (!server)
+                return 0;
+
         switch (event) {
         case RPC_CLNT_CONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
-                (void) glusterd_shd_set_running (_gf_true);
+                (void) glusterd_nodesvc_set_running (server, _gf_true);
                 ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
                 break;
 
         case RPC_CLNT_DISCONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
-                (void) glusterd_shd_set_running (_gf_false);
+                (void) glusterd_nodesvc_set_running (server, _gf_false);
                 break;
 
         default:
@@ -2831,15 +2858,6 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         {
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
-                ret = glusterd_store_peerinfo (peerinfo);
-                if (ret) {
-                        ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to store "
-                                "peerinfo");
-                        break;
-                }
-
-                list_add_tail (&peerinfo->uuid_list, &conf->peers);
 
                 ret = glusterd_peer_handshake (this, rpc, peerctx);
                 if (ret)

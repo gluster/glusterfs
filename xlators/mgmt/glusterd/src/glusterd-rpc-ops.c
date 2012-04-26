@@ -111,11 +111,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 }
                 break;
         }
-        case GD_OP_HEAL_VOLUME:
-        {
-                glusterd_add_bricks_hname_path_to_dict (ctx);
-                break;
-        }
         case GD_OP_PROFILE_VOLUME:
         {
                 if (ctx && dict_get_int32 (ctx, "count", &count)) {
@@ -153,6 +148,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_SET_VOLUME:
         case GD_OP_LIST_VOLUME:
         case GD_OP_CLEARLOCKS_VOLUME:
+        case GD_OP_HEAL_VOLUME:
         {
                 /*nothing specific to be done*/
                 break;
@@ -488,21 +484,31 @@ int32_t
 glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                               int count, void *myframe)
 {
-        int                           ret   = -1;
-        int32_t                       op_ret = 0;
-        char                          str[50] = {0,};
+        int                           ret    = -1;
+        gd1_mgmt_friend_update_rsp    rsp    = {{0}, };
+        xlator_t                      *this  = NULL;
 
         GF_ASSERT (req);
+        this = THIS;
 
         if (-1 == req->rpc_status) {
+                gf_log (this->name, GF_LOG_ERROR, "RPC Error");
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Received %s from uuid: %s",
-                (op_ret)?"RJT":"ACC", str);
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to serialize friend"
+                        " update repsonse");
+                goto out;
+        }
 
+        ret = 0;
 out:
+        gf_log (this->name, GF_LOG_INFO, "Received %s from uuid: %s",
+                (ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
+
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -831,7 +837,9 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("error");
                 goto out;
         }
 
@@ -840,7 +848,9 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("xdr decoding failed");
                 goto out;
         }
 
@@ -912,7 +922,7 @@ out:
                 glusterd_op_sm ();
         }
 
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
+        if (rsp.op_errstr)
                 free (rsp.op_errstr); //malloced by xdr
         if (dict) {
                 if (!dict->extra_stdfree && rsp.dict.dict_val)
@@ -1002,16 +1012,28 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
 {
         glusterd_status_rsp_conv_t      *rsp_ctx = NULL;
         data_t                          *new_value = NULL;
+        char                            brick_key[1024] = {0,};
+        char                            new_key[1024] = {0,};
+        int32_t                         index = 0;
         int32_t                         ret = 0;
 
-        if (strcmp (key, "count") == 0)
+        if (!strcmp (key, "count") || !strcmp (key, "cmd") ||
+            !strcmp (key, "brick-index-max") || !strcmp (key, "other-count"))
                 return;
 
         rsp_ctx = data;
         new_value = data_copy (value);
         GF_ASSERT (new_value);
 
-        ret = dict_set (rsp_ctx->dict, key, new_value);
+        sscanf (key, "brick%d.%s", &index, brick_key);
+
+        if (index > rsp_ctx->brick_index_max) {
+                snprintf (new_key, sizeof (new_key), "brick%d.%s",
+                          index + rsp_ctx->other_count, brick_key);
+        } else
+                strncpy (new_key, key, sizeof (new_key));
+
+        ret = dict_set (rsp_ctx->dict, new_key, new_value);
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "Unable to set key: %s in dict",
                         key);
@@ -1024,16 +1046,26 @@ glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
 {
         int                             ret = 0;
         glusterd_status_rsp_conv_t      rsp_ctx = {0};
-        int32_t                         brick_count = 0;
-        int32_t                         count = 0;
+        int32_t                         node_count = 0;
+        int32_t                         rsp_node_count = 0;
+        int32_t                         brick_index_max = -1;
+        int32_t                         other_count = 0;
+        int32_t                         rsp_other_count = 0;
         dict_t                          *ctx_dict = NULL;
         glusterd_op_t                   op = GD_OP_NONE;
 
         GF_ASSERT (rsp_dict);
 
-        ret = dict_get_int32 (rsp_dict, "count", &brick_count);
+        ret = dict_get_int32 (rsp_dict, "count", &rsp_node_count);
         if (ret) {
                 ret = 0; //no bricks in the rsp
+                goto out;
+        }
+
+        ret = dict_get_int32 (rsp_dict, "other-count", &rsp_other_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to get other count from rsp_dict");
                 goto out;
         }
 
@@ -1041,12 +1073,29 @@ glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
         GF_ASSERT (GD_OP_STATUS_VOLUME == op);
         ctx_dict = glusterd_op_get_ctx (op);
 
-        ret = dict_get_int32 (ctx_dict, "count", &count);
-        rsp_ctx.count = count;
+        ret = dict_get_int32 (ctx_dict, "count", &node_count);
+        ret = dict_get_int32 (ctx_dict, "brick-index-max", &brick_index_max);
+        ret = dict_get_int32 (ctx_dict, "other-count", &other_count);
+
+        rsp_ctx.count = node_count;
+        rsp_ctx.brick_index_max = brick_index_max;
+        rsp_ctx.other_count = other_count;
         rsp_ctx.dict = ctx_dict;
+
         dict_foreach (rsp_dict, glusterd_volume_status_add_peer_rsp, &rsp_ctx);
 
-        ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
+        ret = dict_set_int32 (ctx_dict, "count", node_count + rsp_node_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update node count");
+                goto out;
+        }
+
+        ret = dict_set_int32 (ctx_dict, "other-count",
+                              (other_count + rsp_other_count));
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update other-count");
 out:
         return ret;
 }
@@ -1059,6 +1108,13 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
         glusterd_op_t  op       = GD_OP_NONE;
         uint64_t       value    = 0;
         int32_t        value32  = 0;
+        char          *volname  = NULL;
+        glusterd_volinfo_t *volinfo = NULL;
+        char           key[256] = {0,};
+        int32_t        index    = 0;
+        int32_t        i        = 0;
+        char          *node_uuid = NULL;
+        char          *node_uuid_str = NULL;
 
         GF_ASSERT (rsp_dict);
 
@@ -1071,66 +1127,109 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
         if (!ctx_dict)
                 goto out;
 
-        ret = dict_get_uint64 (rsp_dict, "files", &value);
+        ret = dict_get_int32 (ctx_dict, "count", &i);
+        i++;
+        ret = dict_set_int32 (ctx_dict, "count", i);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Failed to set index");
+
+        ret = dict_get_str (ctx_dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (rsp_dict, "count", &index);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "failed to get index");
+
+        snprintf (key, 256, "files-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                ret = dict_set_uint64 (ctx_dict, "files", value);
+                memset (key, 0, 256);
+                snprintf (key, 256, "files-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set the file count");
                 }
         }
 
-        ret = dict_get_uint64 (rsp_dict, "size", &value);
+        memset (key, 0, 256);
+        snprintf (key, 256, "size-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                ret = dict_set_uint64 (ctx_dict, "size", value);
+                memset (key, 0, 256);
+                snprintf (key, 256, "size-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set the size of migration");
                 }
         }
 
-        ret = dict_get_uint64 (rsp_dict, "lookups", &value);
+        memset (key, 0, 256);
+        snprintf (key, 256, "lookups-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                ret = dict_set_uint64 (ctx_dict, "lookups", value);
+                memset (key, 0, 256);
+                snprintf (key, 256, "lookups-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set lookuped file count");
                 }
         }
 
-        ret = dict_get_int32 (rsp_dict, "status", &value32);
+        memset (key, 0, 256);
+        snprintf (key, 256, "status-%d", index);
+        ret = dict_get_int32 (rsp_dict, key, &value32);
         if (!ret) {
-                ret = dict_set_int32 (ctx_dict, "status", value32);
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_set_int32 (ctx_dict, key, value32);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set status");
                 }
         }
 
+        memset (key, 0, 256);
+        snprintf (key, 256, "node-uuid-%d", index);
+        ret = dict_get_str (rsp_dict, key, &node_uuid);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "node-uuid-%d", i);
+                node_uuid_str = gf_strdup (node_uuid);
+                ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set node-uuid");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "failures-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "failures-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set failure count");
+                }
+        }
+
+        ret = 0;
+
 out:
         return ret;
-}
-
-void
-_heal_volume_add_peer_rsp (dict_t *peer_dict, char *key, data_t *value,
-                           void *data)
-{
-        int                             max_brick = 0;
-        int                             peer_max_brick = 0;
-        int                             ret = 0;
-        dict_t                          *ctx_dict = data;
-
-
-
-        ret = dict_get_int32 (ctx_dict, "count", &max_brick);
-        ret = dict_get_int32 (peer_dict, "count", &peer_max_brick);
-        if (peer_max_brick > max_brick)
-                ret = dict_set_int32 (ctx_dict, "count", peer_max_brick);
-        else
-                ret = dict_set_int32 (ctx_dict, "count", max_brick);
-        dict_del (peer_dict, "count");
-        dict_copy (peer_dict, ctx_dict);
-        return;
 }
 
 int
@@ -1149,7 +1248,7 @@ glusterd_volume_heal_use_rsp_dict (dict_t *rsp_dict)
 
         if (!ctx_dict)
                 goto out;
-        dict_foreach (rsp_dict, _heal_volume_add_peer_rsp, ctx_dict);
+        dict_copy (rsp_dict, ctx_dict);
 out:
         return ret;
 }
@@ -1173,17 +1272,21 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("error");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log ("", GF_LOG_ERROR, "xdr decoding error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("xdr decoding error");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
@@ -1273,6 +1376,9 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
                 case GD_OP_REBALANCE:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
+                        ret = glusterd_volume_rebalance_use_rsp_dict (dict);
+                        if (ret)
+                                goto out;
                 break;
 
                 case GD_OP_HEAL_VOLUME:
@@ -1297,7 +1403,7 @@ out:
 
         if (dict)
                 dict_unref (dict);
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
+        if (rsp.op_errstr)
                 free (rsp.op_errstr); //malloced by xdr
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
@@ -1690,7 +1796,9 @@ glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "error";
+                /* use standard allocation because to keep uniformity
+                   in freeing it */
+                rsp.op_errstr = strdup ("error");
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
@@ -1759,7 +1867,7 @@ out:
 
         if (ret && dict)
                 dict_unref (dict);
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
+        if (rsp.op_errstr)
                 free (rsp.op_errstr); //malloced by xdr
         GLUSTERD_STACK_DESTROY (frame);
         return ret;
@@ -1778,6 +1886,7 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
         glusterd_pending_node_t         *pending_node;
         glusterd_req_ctx_t              *req_ctx = NULL;
         struct rpc_clnt                 *rpc = NULL;
+        dict_t                          *op_ctx = NULL;
 
         if (!this) {
                 ret = -1;
@@ -1802,10 +1911,19 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                 if (!dummy_frame)
                         continue;
 
-                ret = glusterd_brick_op_build_payload (req_ctx->op,
-                                                       pending_node->node,
-                                                       (gd1_mgmt_brick_op_req **)&req,
-                                                       req_ctx->dict);
+                if ((pending_node->type == GD_NODE_NFS) ||
+                    ((pending_node->type == GD_NODE_SHD) &&
+                    (req_ctx->op == GD_OP_STATUS_VOLUME)))
+                        ret = glusterd_node_op_build_payload
+                                (req_ctx->op,
+                                 (gd1_mgmt_brick_op_req **)&req,
+                                 req_ctx->dict);
+                else
+                        ret = glusterd_brick_op_build_payload
+                                (req_ctx->op, pending_node->node,
+                                 (gd1_mgmt_brick_op_req **)&req,
+                                 req_ctx->dict);
+
                 if (ret)
                         goto out;
 
@@ -1814,6 +1932,26 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
 
                 rpc = glusterd_pending_node_get_rpc (pending_node);
                 if (!rpc) {
+                        if (pending_node->type == GD_NODE_REBALANCE) {
+                                opinfo.brick_pending_count = 0;
+                                ret = 0;
+                                if (req) {
+                                        if (req->input.input_val)
+                                                GF_FREE (req->input.input_val);
+                                        GF_FREE (req);
+                                        req = NULL;
+                                }
+                                GLUSTERD_STACK_DESTROY (dummy_frame);
+
+                                op_ctx = glusterd_op_get_ctx ();
+                                if (!op_ctx)
+                                        goto out;
+                                glusterd_defrag_volume_node_rsp (req_ctx->dict,
+                                                                 NULL, op_ctx);
+
+                                goto out;
+                        }
+
                         ret = -1;
                         gf_log (this->name, GF_LOG_ERROR, "Brick Op failed "
                                 "due to rpc failure.");

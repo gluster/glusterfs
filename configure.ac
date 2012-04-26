@@ -102,8 +102,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/Makefile
 		xlators/features/locks/Makefile
 		xlators/features/locks/src/Makefile
-		xlators/features/trash/Makefile
-		xlators/features/trash/src/Makefile
 		xlators/features/quota/Makefile
 		xlators/features/quota/src/Makefile
                 xlators/features/marker/Makefile
@@ -128,8 +126,6 @@ AC_CONFIG_FILES([Makefile
                 cli/Makefile
                 cli/src/Makefile
 		doc/Makefile
-		doc/examples/Makefile
-		doc/hacker-guide/Makefile
 		extras/Makefile
 		extras/init.d/Makefile
 		extras/init.d/glusterd.plist
@@ -137,6 +133,7 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-Redhat
                 extras/init.d/glusterd-SuSE
 		extras/benchmarking/Makefile
+                extras/hook-scripts/Makefile
 		contrib/fuse-util/Makefile
 		contrib/uuid/uuid_types.h
                 xlators/nfs/Makefile
@@ -200,14 +197,18 @@ fi
 
 AC_CHECK_TOOL([LD],[ld])
 
+AC_CHECK_LIB([crypto], [MD5], , AC_MSG_ERROR([OpenSSL crypto library is required to build glusterfs]))
+
 AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
-		 
+
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
 
 AC_CHECK_HEADERS([sys/xattr.h])
 
 AC_CHECK_HEADERS([sys/extattr.h])
+
+AC_CHECK_HEADERS([openssl/md5.h])
 
 case $host_os in
   darwin*)
@@ -393,6 +394,11 @@ dnl Linux, Solaris, Cygwin
 AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec])
 dnl FreeBSD, NetBSD
 AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
+case $host_os in
+	*netbsd*)
+	CFLAGS=-D_INCOMPLETE_XOPEN_C063
+	;;
+esac
 AC_CHECK_FUNC([linkat], [have_linkat=yes])
 if test "x${have_linkat}" = "xyes"; then
    AC_DEFINE(HAVE_LINKAT, 1, [define if found linkat])
@@ -473,8 +479,9 @@ case $host_os in
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
 	fi
-	GF_FUSE_LDADD="-liconv -lperfuse"
-	BUILD_FUSE_CLIENT=no
+	GF_FUSE_LDADD="-lperfuse"
+	BUILD_FUSE_CLIENT=yes
+	LEXLIB=""
 	;;
      *bsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
@@ -483,7 +490,7 @@ case $host_os in
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
-	fi				      
+	fi
 	BUILD_FUSE_CLIENT=no
 	;;
      darwin*)
@@ -524,7 +531,7 @@ AC_SUBST(CONTRIBDIR)
 INCLUDES='-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/uuid'
 AC_SUBST(INCLUDES)
 
-AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")	
+AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
 AC_OUTPUT
 

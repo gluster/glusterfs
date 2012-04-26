@@ -137,11 +137,8 @@ struct gfs3_mknod_req {
 	char pargfid[16];
 	u_quad_t dev;
 	u_int mode;
+	u_int umask;
 	char *bname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -165,11 +162,8 @@ typedef struct gfs3_mknod_rsp gfs3_mknod_rsp;
 struct gfs3_mkdir_req {
 	char pargfid[16];
 	u_int mode;
+	u_int umask;
 	char *bname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -193,6 +187,7 @@ typedef struct gfs3_mkdir_rsp gfs3_mkdir_rsp;
 struct gfs3_unlink_req {
 	char pargfid[16];
 	char *bname;
+	u_int xflags;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -214,7 +209,7 @@ typedef struct gfs3_unlink_rsp gfs3_unlink_rsp;
 
 struct gfs3_rmdir_req {
 	char pargfid[16];
-	int flags;
+	int xflags;
 	char *bname;
 	struct {
 		u_int xdata_len;
@@ -238,11 +233,8 @@ typedef struct gfs3_rmdir_rsp gfs3_rmdir_rsp;
 struct gfs3_symlink_req {
 	char pargfid[16];
 	char *bname;
+	u_int umask;
 	char *linkname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -339,7 +331,6 @@ typedef struct gfs3_truncate_rsp gfs3_truncate_rsp;
 struct gfs3_open_req {
 	char gfid[16];
 	u_int flags;
-	u_int wbflags;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -389,10 +380,6 @@ struct gfs3_lookup_req {
 	u_int flags;
 	char *bname;
 	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-	struct {
 		u_int xdata_len;
 		char *xdata_val;
 	} xdata;
@@ -404,10 +391,6 @@ struct gfs3_lookup_rsp {
 	int op_errno;
 	struct gf_iatt stat;
 	struct gf_iatt postparent;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -789,11 +772,8 @@ struct gfs3_create_req {
 	char pargfid[16];
 	u_int flags;
 	u_int mode;
+	u_int umask;
 	char *bname;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
 	struct {
 		u_int xdata_len;
 		char *xdata_val;
@@ -1101,6 +1081,25 @@ struct gf_set_lk_ver_req {
 };
 typedef struct gf_set_lk_ver_req gf_set_lk_ver_req;
 
+struct gf_event_notify_req {
+	int op;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_event_notify_req gf_event_notify_req;
+
+struct gf_event_notify_rsp {
+	int op_ret;
+	int op_errno;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_event_notify_rsp gf_event_notify_rsp;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -1192,6 +1191,8 @@ extern  bool_t xdr_gfs3_dirplist (XDR *, gfs3_dirplist*);
 extern  bool_t xdr_gfs3_readdirp_rsp (XDR *, gfs3_readdirp_rsp*);
 extern  bool_t xdr_gf_set_lk_ver_rsp (XDR *, gf_set_lk_ver_rsp*);
 extern  bool_t xdr_gf_set_lk_ver_req (XDR *, gf_set_lk_ver_req*);
+extern  bool_t xdr_gf_event_notify_req (XDR *, gf_event_notify_req*);
+extern  bool_t xdr_gf_event_notify_rsp (XDR *, gf_event_notify_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf_statfs ();
@@ -1282,6 +1283,8 @@ extern bool_t xdr_gfs3_dirplist ();
 extern bool_t xdr_gfs3_readdirp_rsp ();
 extern bool_t xdr_gf_set_lk_ver_rsp ();
 extern bool_t xdr_gf_set_lk_ver_req ();
+extern bool_t xdr_gf_event_notify_req ();
+extern bool_t xdr_gf_event_notify_rsp ();
 
 #endif /* K&R C */
 

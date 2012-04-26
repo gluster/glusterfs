@@ -50,6 +50,8 @@
 
 #include "xdr-rpcclnt.h"
 
+#define ACL_PROGRAM 100227
+
 struct rpcsvc_program gluster_dump_prog;
 
 #define rpcsvc_alloc_request(svc, request)                              \
@@ -170,7 +172,11 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
 
         if (!found) {
                 if (err != PROG_MISMATCH) {
-                        gf_log (GF_RPCSVC, GF_LOG_WARNING,
+                        /* log in DEBUG when nfs clients try to see if
+                         * ACL requests are accepted by nfs server
+                         */
+                        gf_log (GF_RPCSVC, (req->prognum == ACL_PROGRAM) ?
+                                GF_LOG_DEBUG : GF_LOG_WARNING,
                                 "RPC program not available (req %u %u)",
                                 req->prognum, req->progver);
                         err = PROG_UNAVAIL;
@@ -307,7 +313,9 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
         req->msg[0] = progmsg;
         req->iobref = iobref_ref (msg->iobref);
         if (msg->vectored) {
-                for (i = 1; i < msg->count; i++) {
+                /* msg->vector[2] is defined in structure. prevent a
+                   out of bound access */
+                for (i = 1; i < min (msg->count, 2); i++) {
                         req->msg[i] = msg->vector[i];
                 }
         }
@@ -1108,7 +1116,7 @@ rpcsvc_error_reply (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        gf_log_callingfn ("", GF_LOG_WARNING, "sending a RPC error reply");
+        gf_log_callingfn ("", GF_LOG_DEBUG, "sending a RPC error reply");
 
         /* At this point the req should already have been filled with the
          * appropriate RPC error numbers.
@@ -1265,18 +1273,34 @@ rpcsvc_submit_message (rpcsvc_request_t *req, struct iovec *proghdr,
 
 
 int
-rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *prog)
+rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
 {
         int                     ret = -1;
-
-        if (!svc || !prog) {
+        rpcsvc_program_t        *prog = NULL;
+        if (!svc || !program) {
                 goto out;
         }
 
-        ret = rpcsvc_program_unregister_portmap (prog);
+        ret = rpcsvc_program_unregister_portmap (program);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap unregistration of"
                         " program failed");
+                goto out;
+        }
+
+        pthread_mutex_lock (&svc->rpclock);
+        {
+                list_for_each_entry (prog, &svc->programs, program) {
+                        if ((prog->prognum == program->prognum)
+                            && (prog->progver == program->progver)) {
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&svc->rpclock);
+
+        if (prog == NULL) {
+                ret = -1;
                 goto out;
         }
 
@@ -1286,7 +1310,7 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *prog)
 
         pthread_mutex_lock (&svc->rpclock);
         {
-                list_del (&prog->program);
+                list_del_init (&prog->program);
         }
         pthread_mutex_unlock (&svc->rpclock);
 
@@ -1294,8 +1318,8 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *prog)
 out:
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program unregistration failed"
-                        ": %s, Num: %d, Ver: %d, Port: %d", prog->progname,
-                        prog->prognum, prog->progver, prog->progport);
+                        ": %s, Num: %d, Ver: %d, Port: %d", program->progname,
+                        program->prognum, program->progver, program->progport);
         }
 
         return ret;
@@ -1878,6 +1902,7 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
         int                     ret = -1;
         char                    *addrtok = NULL;
         char                    *addrstr = NULL;
+        char                    *dup_addrstr = NULL;
         char                    *svptr = NULL;
 
         if ((!options) || (!clstr))
@@ -1897,7 +1922,8 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
                 goto err;
         }
 
-        addrtok = strtok_r (addrstr, ",", &svptr);
+        dup_addrstr = gf_strdup (addrstr);
+        addrtok = strtok_r (dup_addrstr, ",", &svptr);
         while (addrtok) {
 
                 /* CASEFOLD not present on Solaris */
@@ -1914,6 +1940,8 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
 
         ret = -1;
 err:
+        if (dup_addrstr)
+                GF_FREE (dup_addrstr);
 
         return ret;
 }
@@ -2156,7 +2184,9 @@ rpcsvc_transport_peer_check_addr (dict_t *options, char *volname,
         int     aret = RPCSVC_AUTH_DONTCARE;
         int     rjret = RPCSVC_AUTH_REJECT;
         char    clstr[RPCSVC_PEER_STRLEN];
+        char   *tmp   = NULL;
         struct sockaddr_storage sastorage = {0,};
+        struct sockaddr        *sockaddr  = NULL;
 
         if (!trans)
                 return ret;
@@ -2168,6 +2198,17 @@ rpcsvc_transport_peer_check_addr (dict_t *options, char *volname,
                         "%s", gai_strerror (ret));
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
+        }
+
+        sockaddr = (struct sockaddr *) &sastorage;
+        switch (sockaddr->sa_family) {
+
+        case AF_INET:
+        case AF_INET6:
+                tmp = strrchr (clstr, ':');
+                if (tmp)
+                        *tmp = '\0';
+                break;
         }
 
         aret = rpcsvc_transport_peer_check_allow (options, volname, clstr);
@@ -2248,8 +2289,7 @@ rpcsvc_transport_check_volume_general (dict_t *options, rpc_transport_t *trans)
         addrchk = rpcsvc_transport_peer_check_addr (options, NULL, trans);
 
         if (namelookup)
-                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk,
-                                                               namechk);
+                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk, namechk);
         else
                 ret = addrchk;
 
@@ -2385,14 +2425,15 @@ rpcsvc_volume_allowed (dict_t *options, char *volname)
                 goto out;
         }
 
-        if (!dict_get (options, srchstr)) {
-                GF_FREE (srchstr);
-                srchstr = globalrule;
-                ret = dict_get_str (options, srchstr, &addrstr);
-        } else
+        if (!dict_get (options, srchstr))
+                ret = dict_get_str (options, globalrule, &addrstr);
+        else
                 ret = dict_get_str (options, srchstr, &addrstr);
 
 out:
+        if (srchstr)
+                GF_FREE (srchstr);
+
         return addrstr;
 }
 

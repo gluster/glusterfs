@@ -176,7 +176,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
 
         ret = dht_hash_compute (layout->type, name, &hash);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "hash computation failed for type=%d name=%s",
                         layout->type, name);
                 goto out;
@@ -191,7 +191,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
         }
 
         if (!subvol) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_WARNING,
                         "no subvolume for hash (value) = %u", hash);
         }
 
@@ -280,6 +280,9 @@ dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
 
         if (disk_layout_p)
                 *disk_layout_p = disk_layout;
+        else
+                GF_FREE (disk_layout);
+
         ret = 0;
 
 out:
@@ -309,7 +312,7 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 
         cnt  = ntoh32 (disk_layout[0]);
         if (cnt != 1) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "disk layout has invalid count %d", cnt);
                 return -1;
         }
@@ -385,7 +388,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         ret = dht_disk_layout_merge (this, layout, i, disk_layout_raw,
 				     disk_layout_len);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "layout merge from subvolume %s failed",
                         subvol->name);
                 goto out;
@@ -571,7 +574,6 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
         uint32_t     down = 0;
         uint32_t     misc = 0;
 
-
         ret = dht_layout_sort (layout);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
@@ -599,23 +601,27 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
                                 "found anomalies in %s. holes=%d overlaps=%d",
                                 loc->path, holes, overlaps);
                 }
-                ret = 1;
+                ret = -1;
         }
 
         for (i = 0; i < layout->cnt; i++) {
-                /* TODO During DHT selfheal rewrite (almost) find a better place to
-                 * detect this - probably in dht_layout_anomalies()
+                /* TODO During DHT selfheal rewrite (almost) find a better place
+                 * to detect this - probably in dht_layout_anomalies()
                  */
                 if (layout->list[i].err > 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "path=%s err=%s on subvol=%s",
-                                loc->path, strerror (layout->list[i].err),
-                                (layout->list[i].xlator ?
-                                 layout->list[i].xlator->name : "<>"));
-                        if (layout->list[i].err == ENOENT)
-                                ret = 1;
+                        gf_log_callingfn (this->name, GF_LOG_DEBUG,
+                                          "path=%s err=%s on subvol=%s",
+                                          loc->path,
+                                          strerror (layout->list[i].err),
+                                          (layout->list[i].xlator ?
+                                           layout->list[i].xlator->name
+                                           : "<>"));
+                        if ((layout->list[i].err == ENOENT) && (ret >= 0)) {
+                                ret++;
+                        }
                 }
         }
+
 
 out:
         return ret;
@@ -681,7 +687,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         count  = ntoh32 (disk_layout[0]);
         if (count != 1) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_ERROR,
                         "%s - disk layout has invalid count %d",
                         loc->path, count);
                 ret = -1;

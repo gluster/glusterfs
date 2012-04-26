@@ -444,22 +444,36 @@ out:
         return ret;
 }
 
+static gf_boolean_t
+glusterd_should_update_peer (glusterd_peerinfo_t *peerinfo,
+                             glusterd_peerinfo_t *cur_peerinfo)
+{
+        gf_boolean_t is_valid = _gf_false;
+
+        if ((peerinfo == cur_peerinfo) ||
+            (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED))
+                is_valid = _gf_true;
+
+        return is_valid;
+}
+
 static int
 glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 {
-        int                           ret         = 0;
-        glusterd_peerinfo_t          *peerinfo    = NULL;
-        rpc_clnt_procedure_t         *proc        = NULL;
-        xlator_t                     *this        = NULL;
-        glusterd_friend_update_ctx_t  ev_ctx      = {{0}};
-        glusterd_conf_t              *priv        = NULL;
-        dict_t                       *friends     = NULL;
-        char                          key[100]    = {0,};
-        char                         *dup_buf     = NULL;
-        int32_t                       count       = 0;
+        int                           ret               = 0;
+        glusterd_peerinfo_t          *cur_peerinfo      = NULL;
+        glusterd_peerinfo_t          *peerinfo          = NULL;
+        rpc_clnt_procedure_t         *proc              = NULL;
+        xlator_t                     *this              = NULL;
+        glusterd_friend_update_ctx_t  ev_ctx            = {{0}};
+        glusterd_conf_t              *priv              = NULL;
+        dict_t                       *friends           = NULL;
+        char                          key[100]          = {0,};
+        char                         *dup_buf           = NULL;
+        int32_t                       count             = 0;
 
         GF_ASSERT (event);
-        peerinfo = event->peerinfo;
+        cur_peerinfo = event->peerinfo;
 
         this = THIS;
         priv = this->private;
@@ -478,6 +492,9 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                if (!glusterd_should_update_peer (peerinfo, cur_peerinfo))
+                        continue;
+
                 count++;
                 snprintf (key, sizeof (key), "friend%d.uuid", count);
                 dup_buf = gf_strdup (uuid_utoa (peerinfo->uuid));
@@ -498,6 +515,9 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 if (!peerinfo->connected || !peerinfo->peer)
+                        continue;
+
+                if (!glusterd_should_update_peer (peerinfo, cur_peerinfo))
                         continue;
 
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);

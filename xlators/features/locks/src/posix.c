@@ -102,7 +102,7 @@ out:
 int
 pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                 struct iatt *postbuf)
+                 struct iatt *postbuf, dict_t *xdata)
 {
         pl_local_t *local = NULL;
 
@@ -111,8 +111,13 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->op == TRUNCATE)
                 loc_wipe (&local->loc);
 
+        if (local->xdata)
+                dict_unref (local->xdata);
+        if (local->fd)
+                fd_unref (local->fd);
+
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
-                             prebuf, postbuf);
+                             prebuf, postbuf, xdata);
         return 0;
 }
 
@@ -153,7 +158,8 @@ truncate_allowed (pl_inode_t *pl_inode,
 
 static int
 truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *buf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   dict_t *xdata)
 {
         posix_locks_private_t *priv = NULL;
         pl_local_t            *local = NULL;
@@ -197,12 +203,12 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         case TRUNCATE:
                 STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->truncate,
-                            &local->loc, local->offset);
+                            &local->loc, local->offset, local->xdata);
                 break;
         case FTRUNCATE:
                 STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->ftruncate,
-                            local->fd, local->offset);
+                            local->fd, local->offset, local->xdata);
                 break;
         }
 
@@ -213,15 +219,19 @@ unwind:
                 "error: %s", op_ret, strerror (op_errno));
         if (local->op == TRUNCATE)
                 loc_wipe (&local->loc);
+        if (local->xdata)
+                dict_unref (local->xdata);
+        if (local->fd)
+                fd_unref (local->fd);
 
-        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, buf, NULL);
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, buf, NULL, xdata);
         return 0;
 }
 
 
 int
 pl_truncate (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, off_t offset)
+             loc_t *loc, off_t offset, dict_t *xdata)
 {
         pl_local_t *local = NULL;
 
@@ -231,18 +241,20 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
         local->op         = TRUNCATE;
         local->offset     = offset;
         loc_copy (&local->loc, loc);
+        if (xdata)
+                local->xdata = dict_ref (xdata);
 
         frame->local = local;
 
         STACK_WIND (frame, truncate_stat_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->stat, loc);
+                    FIRST_CHILD (this)->fops->stat, loc, NULL);
 
         return 0;
 
 unwind:
         gf_log (this->name, GF_LOG_ERROR, "truncate for %s failed with ret: %d, "
                 "error: %s", loc->path, -1, strerror (ENOMEM));
-        STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -250,7 +262,7 @@ unwind:
 
 int
 pl_ftruncate (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, off_t offset)
+              fd_t *fd, off_t offset, dict_t *xdata)
 {
         pl_local_t *local = NULL;
 
@@ -259,18 +271,20 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 
         local->op         = FTRUNCATE;
         local->offset     = offset;
-        local->fd         = fd;
+        local->fd         = fd_ref (fd);
+        if (xdata)
+                local->xdata = dict_ref (xdata);
 
         frame->local = local;
 
         STACK_WIND (frame, truncate_stat_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fstat, fd);
+                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
         return 0;
 
 unwind:
         gf_log (this->name, GF_LOG_ERROR, "ftruncate failed with ret: %d, "
                 "error: %s", -1, strerror (ENOMEM));
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -325,7 +339,8 @@ delete_locks_of_fd (xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
 
        list_for_each_entry_safe (l, tmp, &blocked_list, list) {
                list_del_init(&l->list);
-               STACK_UNWIND_STRICT (lk, l->frame, -1, EAGAIN, &l->user_flock);
+               STACK_UNWIND_STRICT (lk, l->frame, -1, EAGAIN, &l->user_flock,
+                                    NULL);
                __destroy_lock (l);
        }
 
@@ -368,16 +383,16 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
 
 int32_t
 pl_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *dict)
+                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
         return 0;
 
 }
 
 int32_t
 pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             const char *name)
+             const char *name, dict_t *xdata)
 {
         int                     op_errno        = EINVAL;
         int                     op_ret          = -1;
@@ -457,7 +472,7 @@ pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         op_ret = 0;
 out:
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
 
         if (args.opts)
                 GF_FREE (args.opts);
@@ -469,17 +484,17 @@ out:
 
 usual:
         STACK_WIND (frame, pl_getxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getxattr, loc, name);
+                    FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
         return 0;
 }
 
 int32_t
 pl_opendir_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     fd_t *fd)
+                void *cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                fd_t *fd, dict_t *xdata)
 {
         pl_fdctx_t *fdctx = NULL;
 
@@ -498,28 +513,28 @@ unwind:
                              frame,
                              op_ret,
                              op_errno,
-                             fd);
+                             fd, xdata);
         return 0;
 }
 
 int32_t
 pl_opendir (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, fd_t *fd)
+             loc_t *loc, fd_t *fd, dict_t *xdata)
 {
         STACK_WIND (frame,
                     pl_opendir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->opendir,
-                    loc, fd);
+                    loc, fd, xdata);
         return 0;
 
 }
 
 int
 pl_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-              int32_t op_ret, int32_t op_errno)
+              int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno, xdata);
 
         return 0;
 }
@@ -527,7 +542,7 @@ pl_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 pl_flush (call_frame_t *frame, xlator_t *this,
-          fd_t *fd)
+          fd_t *fd, dict_t *xdata)
 {
         pl_inode_t *pl_inode = NULL;
 
@@ -535,7 +550,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 
         if (!pl_inode) {
                 gf_log (this->name, GF_LOG_DEBUG, "Could not get inode.");
-                STACK_UNWIND_STRICT (flush, frame, -1, EBADFD);
+                STACK_UNWIND_STRICT (flush, frame, -1, EBADFD, NULL);
                 return 0;
         }
 
@@ -565,14 +580,14 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 
 wind:
         STACK_WIND (frame, pl_flush_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->flush, fd);
+                    FIRST_CHILD(this)->fops->flush, fd, xdata);
         return 0;
 }
 
 
 int
 pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-             int32_t op_ret, int32_t op_errno, fd_t *fd)
+             int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         pl_fdctx_t *fdctx = NULL;
 
@@ -587,7 +602,7 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 unwind:
-        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, xdata);
 
         return 0;
 }
@@ -595,12 +610,12 @@ unwind:
 
 int
 pl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-         fd_t *fd, int32_t wbflags)
+         fd_t *fd, dict_t *xdata)
 {
         /* why isn't O_TRUNC being handled ? */
         STACK_WIND (frame, pl_open_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
-                    loc, flags & ~O_TRUNC, fd, wbflags);
+                    loc, flags & ~O_TRUNC, fd, xdata);
 
         return 0;
 }
@@ -610,7 +625,7 @@ int
 pl_create_cbk (call_frame_t *frame, void *cookie,
                xlator_t *this, int32_t op_ret, int32_t op_errno,
                fd_t *fd, inode_t *inode, struct iatt *buf,
-               struct iatt *preparent, struct iatt *postparent)
+               struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
         pl_fdctx_t *fdctx = NULL;
 
@@ -626,7 +641,7 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
 
 unwind:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
-                             preparent, postparent);
+                             preparent, postparent, xdata);
 
         return 0;
 }
@@ -634,11 +649,12 @@ unwind:
 
 int
 pl_create (call_frame_t *frame, xlator_t *this,
-           loc_t *loc, int32_t flags, mode_t mode, fd_t *fd, dict_t *params)
+           loc_t *loc, int32_t flags, mode_t mode, mode_t umask, fd_t *fd,
+           dict_t *xdata)
 {
         STACK_WIND (frame, pl_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
-                    loc, flags, mode, fd, params);
+                    loc, flags, mode, umask, fd, xdata);
         return 0;
 }
 
@@ -647,10 +663,10 @@ int
 pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno,
               struct iovec *vector, int32_t count, struct iatt *stbuf,
-              struct iobref *iobref)
+              struct iobref *iobref, dict_t *xdata)
 {
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
-                             vector, count, stbuf, iobref);
+                             vector, count, stbuf, iobref, xdata);
 
         return 0;
 }
@@ -658,9 +674,10 @@ pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-               struct iatt *postbuf)
+               struct iatt *postbuf, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
 
         return 0;
 }
@@ -718,12 +735,12 @@ __rw_allowable (pl_inode_t *pl_inode, posix_lock_t *region,
 
 
 int
-pl_readv_cont (call_frame_t *frame, xlator_t *this,
-               fd_t *fd, size_t size, off_t offset, uint32_t flags)
+pl_readv_cont (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+               off_t offset, uint32_t flags, dict_t *xdata)
 {
         STACK_WIND (frame, pl_readv_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
-                    fd, size, offset, flags);
+                    fd, size, offset, flags, xdata);
 
         return 0;
 }
@@ -731,7 +748,7 @@ pl_readv_cont (call_frame_t *frame, xlator_t *this,
 
 int
 pl_readv (call_frame_t *frame, xlator_t *this,
-          fd_t *fd, size_t size, off_t offset, uint32_t flags)
+          fd_t *fd, size_t size, off_t offset, uint32_t flags, dict_t *xdata)
 {
         posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
@@ -778,7 +795,8 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                         }
 
                         rw->stub = fop_readv_stub (frame, pl_readv_cont,
-                                                   fd, size, offset, flags);
+                                                   fd, size, offset, flags,
+                                                   xdata);
                         if (!rw->stub) {
                                 op_errno = ENOMEM;
                                 op_ret = -1;
@@ -798,12 +816,12 @@ pl_readv (call_frame_t *frame, xlator_t *this,
         if (wind_needed) {
                 STACK_WIND (frame, pl_readv_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
-                            fd, size, offset, flags);
+                            fd, size, offset, flags, xdata);
         }
 
         if (op_ret == -1)
                 STACK_UNWIND_STRICT (readv, frame, -1, op_errno,
-                                     NULL, 0, NULL, NULL);
+                                     NULL, 0, NULL, NULL, NULL);
 
         return 0;
 }
@@ -812,11 +830,11 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 int
 pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iovec *vector, int count, off_t offset,
-                uint32_t flags, struct iobref *iobref)
+                uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         STACK_WIND (frame, pl_writev_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
-                    fd, vector, count, offset, flags, iobref);
+                    fd, vector, count, offset, flags, iobref, xdata);
 
         return 0;
 }
@@ -825,7 +843,7 @@ pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int
 pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
            struct iovec *vector, int32_t count, off_t offset,
-           uint32_t flags, struct iobref *iobref)
+           uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
@@ -872,7 +890,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                         rw->stub = fop_writev_stub (frame, pl_writev_cont,
                                                     fd, vector, count, offset,
-                                                    flags, iobref);
+                                                    flags, iobref, xdata);
                         if (!rw->stub) {
                                 op_errno = ENOMEM;
                                 op_ret = -1;
@@ -892,10 +910,11 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (wind_needed)
                 STACK_WIND (frame, pl_writev_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
-                            fd, vector, count, offset, flags, iobref);
+                            fd, vector, count, offset, flags, iobref, xdata);
 
         if (op_ret == -1)
-                STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);
+                STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
 
         return 0;
 }
@@ -1079,7 +1098,7 @@ unlock:
 
 int
 pl_lk (call_frame_t *frame, xlator_t *this,
-       fd_t *fd, int32_t cmd, struct gf_flock *flock)
+       fd_t *fd, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
         void         *transport  = NULL;
         pid_t         client_pid = 0;
@@ -1237,7 +1256,7 @@ unwind:
         else
                 flock->l_type = F_UNLCK;
 
-        STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock);
+        STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock, xdata);
 out:
         return 0;
 }
@@ -1314,7 +1333,7 @@ pl_forget (xlator_t *this,
 
                                 list_for_each_entry_safe (ino_l, ino_tmp, &dom->inodelk_list, list) {
                                         __delete_inode_lock (ino_l);
-                                        __destroy_inode_lock (ino_l);
+                                        __pl_inodelk_unref (ino_l);
                                 }
 
                                 list_splice_init (&dom->blocked_inodelks, &inodelks_released);
@@ -1348,19 +1367,20 @@ pl_forget (xlator_t *this,
 
         list_for_each_entry_safe (ext_l, ext_tmp, &posixlks_released, list) {
 
-                STACK_UNWIND_STRICT (lk, ext_l->frame, -1, 0, &ext_l->user_flock);
+                STACK_UNWIND_STRICT (lk, ext_l->frame, -1, 0,
+                                     &ext_l->user_flock, NULL);
                 __destroy_lock (ext_l);
         }
 
         list_for_each_entry_safe (ino_l, ino_tmp, &inodelks_released, blocked_locks) {
 
-                STACK_UNWIND_STRICT (inodelk, ino_l->frame, -1, 0);
-                __destroy_inode_lock (ino_l);
+                STACK_UNWIND_STRICT (inodelk, ino_l->frame, -1, 0, NULL);
+                __pl_inodelk_unref (ino_l);
         }
 
         list_for_each_entry_safe (entry_l, entry_tmp, &entrylks_released, blocked_locks) {
 
-                STACK_UNWIND_STRICT (entrylk, entry_l->frame, -1, 0);
+                STACK_UNWIND_STRICT (entrylk, entry_l->frame, -1, 0, NULL);
                 if (entry_l->basename)
                         GF_FREE ((char *)entry_l->basename);
                 GF_FREE (entry_l);
@@ -1488,6 +1508,24 @@ out:
 }
 
 void
+pl_parent_entrylk_xattr_fill (xlator_t *this, inode_t *parent,
+                              char *basename, dict_t *dict)
+{
+        uint32_t         entrylk = 0;
+        int             ret     = -1;
+
+        if (!parent || !basename || !strlen (basename))
+                goto out;
+        entrylk = check_entrylk_on_basename (this, parent, basename);
+out:
+        ret = dict_set_uint32 (dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_PARENT_ENTRYLK);
+        }
+}
+
+void
 pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
                        dict_t *dict)
 {
@@ -1543,50 +1581,55 @@ pl_lookup_cbk (call_frame_t *frame,
                     int32_t op_errno,
                     inode_t *inode,
                     struct iatt *buf,
-                    dict_t *dict,
+                    dict_t *xdata,
                     struct iatt *postparent)
 {
         pl_local_t *local = NULL;
 
         GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
 
-        if (op_ret) {
+        if (op_ret)
                 goto out;
-        }
 
         local = frame->local;
 
+        if (local->parent_entrylk_req)
+                pl_parent_entrylk_xattr_fill (this, local->loc.parent,
+                                              (char*)local->loc.name, xdata);
         if (local->entrylk_count_req)
-                pl_entrylk_xattr_fill (this, inode, dict);
+                pl_entrylk_xattr_fill (this, inode, xdata);
         if (local->inodelk_count_req)
-                pl_inodelk_xattr_fill (this, inode, dict);
+                pl_inodelk_xattr_fill (this, inode, xdata);
         if (local->posixlk_count_req)
-                pl_posixlk_xattr_fill (this, inode, dict);
+                pl_posixlk_xattr_fill (this, inode, xdata);
 
-
-        frame->local = NULL;
-
-        if (local != NULL)
-                mem_put (local);
 
 out:
+        local = frame->local;
+        frame->local = NULL;
+
+        if (local != NULL) {
+                loc_wipe (&local->loc);
+                mem_put (local);
+        }
+
         STACK_UNWIND_STRICT (
                      lookup,
                      frame,
-                      op_ret,
-                      op_errno,
-                      inode,
-                      buf,
-                      dict,
-                      postparent);
+                     op_ret,
+                     op_errno,
+                     inode,
+                     buf,
+                     xdata,
+                     postparent);
         return 0;
 }
 
 int32_t
 pl_lookup (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc,
-                dict_t *xattr_req)
+           xlator_t *this,
+           loc_t *loc,
+           dict_t *xdata)
 {
         pl_local_t *local  = NULL;
         int         ret    = -1;
@@ -1598,33 +1641,36 @@ pl_lookup (call_frame_t *frame,
         local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
-        if (xattr_req) {
-                if (dict_get (xattr_req, GLUSTERFS_ENTRYLK_COUNT))
+        if (xdata) {
+                if (dict_get (xdata, GLUSTERFS_ENTRYLK_COUNT))
                         local->entrylk_count_req = 1;
-                if (dict_get (xattr_req, GLUSTERFS_INODELK_COUNT))
+                if (dict_get (xdata, GLUSTERFS_INODELK_COUNT))
                         local->inodelk_count_req = 1;
-                if (dict_get (xattr_req, GLUSTERFS_POSIXLK_COUNT))
+                if (dict_get (xdata, GLUSTERFS_POSIXLK_COUNT))
                         local->posixlk_count_req = 1;
+                if (dict_get (xdata, GLUSTERFS_PARENT_ENTRYLK))
+                        local->parent_entrylk_req = 1;
         }
 
         frame->local = local;
+        loc_copy (&local->loc, loc);
 
         STACK_WIND (frame,
                     pl_lookup_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup,
-                    loc,
-                    xattr_req);
+                    loc, xdata);
         ret = 0;
 out:
         if (ret == -1)
-                STACK_UNWIND_STRICT (lookup, frame, -1, 0, NULL, NULL, NULL, NULL);
+                STACK_UNWIND_STRICT (lookup, frame, -1, 0, NULL,
+                                     NULL, NULL, NULL);
 
         return 0;
 }
 int
 pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int op_ret, int op_errno, gf_dirent_t *entries)
+                 int op_ret, int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
         pl_local_t *local  = NULL;
         gf_dirent_t *entry = NULL;
@@ -1645,7 +1691,7 @@ pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
         frame->local = NULL;
-        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
 
         if (local)
                 mem_put (local);
@@ -1679,7 +1725,7 @@ pl_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         return 0;
 out:
-        STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM, NULL);
+        STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM, NULL, NULL);
         return 0;
 }
 
@@ -2089,21 +2135,23 @@ fini (xlator_t *this)
 
 int
 pl_inodelk (call_frame_t *frame, xlator_t *this,
-            const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock);
+            const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock,
+            dict_t *xdata);
 
 int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock);
+             const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock,
+             dict_t *xdata);
 
 int
 pl_entrylk (call_frame_t *frame, xlator_t *this,
             const char *volume, loc_t *loc, const char *basename,
-            entrylk_cmd cmd, entrylk_type type);
+            entrylk_cmd cmd, entrylk_type type, dict_t *xdata);
 
 int
 pl_fentrylk (call_frame_t *frame, xlator_t *this,
              const char *volume, fd_t *fd, const char *basename,
-             entrylk_cmd cmd, entrylk_type type);
+             entrylk_cmd cmd, entrylk_type type, dict_t *xdata);
 
 struct xlator_fops fops = {
         .lookup      = pl_lookup,

@@ -129,6 +129,27 @@ fd_lk_ctx_ref (fd_lk_ctx_t *lk_ctx)
 }
 
 fd_lk_ctx_t *
+fd_lk_ctx_try_ref (fd_lk_ctx_t *lk_ctx)
+{
+        int         ret         = -1;
+        fd_lk_ctx_t *new_lk_ctx = NULL;
+
+        if (!lk_ctx) {
+                goto out;
+        }
+
+        ret = TRY_LOCK (&lk_ctx->lock);
+        if (ret)
+                goto out;
+
+        new_lk_ctx = _fd_lk_ctx_ref (lk_ctx);
+        UNLOCK (&lk_ctx->lock);
+
+out:
+        return new_lk_ctx;
+}
+
+fd_lk_ctx_t *
 fd_lk_ctx_create ()
 {
         fd_lk_ctx_t *fd_lk_ctx = NULL;
@@ -404,7 +425,7 @@ print_lock_list (fd_lk_ctx_t *lk_ctx)
 {
         fd_lk_ctx_node_t    *lk     = NULL;
 
-        gf_log ("fd-lk", GF_LOG_WARNING, "lock list:");
+        gf_log ("fd-lk", GF_LOG_DEBUG, "lock list:");
 
         list_for_each_entry (lk, &lk_ctx->lk_list, next)
                 gf_log ("fd-lk", GF_LOG_DEBUG, "owner = %s, "
