@@ -1203,7 +1203,7 @@ out:
         if (output)
                 dict_unref (output);
         if (rsp.output.output_val)
-                free (rsp.output.output_val);
+                GF_FREE (rsp.output.output_val);
 
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
