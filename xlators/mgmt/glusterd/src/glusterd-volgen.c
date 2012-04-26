@@ -2515,9 +2515,15 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &loglevel_option_handler);
 
-        if (!ret)
-                ret = volgen_graph_set_options_generic (graph, set_dict, "client",
-                                                        &sys_loglevel_option_handler);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING, "changing client log level"
+                        " failed");
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &sys_loglevel_option_handler);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING, "changing client syslog "
+                        "level failed");
 out:
         return ret;
 }
@@ -2826,6 +2832,21 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 ret = volgen_graph_merge_sub (graph, &cgraph, rclusters);
                 if (ret)
                         goto out;
+
+                ret = volgen_graph_set_options_generic (graph, set_dict,
+                                                        "client",
+                                                 &loglevel_option_handler);
+
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_WARNING, "changing loglevel "
+                                "of self-heal daemon failed");
+
+                ret = volgen_graph_set_options_generic (graph, set_dict,
+                                                        "client",
+                                                 &sys_loglevel_option_handler);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_WARNING, "changing syslog "
+                                "level of self-heal daemon failed");
 
                 ret = dict_reset (set_dict);
                 if (ret)
