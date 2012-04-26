@@ -43,7 +43,8 @@
 
 typedef enum {
         AUTH_GLUSTERFS = 5,
-        AUTH_GLUSTERFS_v2 = 6,
+        AUTH_GLUSTERFS_v2 = 390039, /* using a number from  'unused' range,
+                                       from the list available in RFC5531 */
 } gf_rpc_authtype_t;
 
 /* Converts a given network buffer from its XDR format to a structure
