@@ -1596,8 +1596,14 @@ glusterd_op_statedump_volume (dict_t *dict, char **op_errstr)
                         ret = glusterd_brick_statedump (volinfo, brickinfo,
                                                         options, option_cnt,
                                                         op_errstr);
+                        /* Let us take the statedump of other bricks instead of
+                         * exiting, if statedump of this brick fails.
+                         */
                         if (ret)
-                                goto out;
+                                gf_log (THIS->name, GF_LOG_WARNING, "could not "
+                                        "take the statedump of the brick %s:%s."
+                                        " Proceeding to other bricks",
+                                        brickinfo->hostname, brickinfo->path);
                 }
         }
 
