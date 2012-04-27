@@ -1694,23 +1694,20 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         return -1;
         }
 
-        if (glusterd_is_volume_replicate (volinfo)) {
-                xl = volgen_graph_add (graph, "features/index", volname);
-                if (!xl)
-                        return -1;
+        xl = volgen_graph_add (graph, "features/index", volname);
+        if (!xl)
+                return -1;
 
-                snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
-                          path, ".glusterfs/indices");
-                ret = xlator_set_option (xl, "index-base", index_basepath);
-                if (ret)
-                        return -1;
+        snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
+                  path, ".glusterfs/indices");
+        ret = xlator_set_option (xl, "index-base", index_basepath);
+        if (ret)
+                return -1;
 
-                ret = check_and_add_debug_xl (graph, set_dict, volname,
-                                              "index");
-                if (ret)
-                        return -1;
-
-        }
+        ret = check_and_add_debug_xl (graph, set_dict, volname,
+                                      "index");
+        if (ret)
+                return -1;
 
         xl = volgen_graph_add (graph, "features/marker", volname);
         if (!xl)
