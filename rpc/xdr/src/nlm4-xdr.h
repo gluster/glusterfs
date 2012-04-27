@@ -36,6 +36,13 @@ extern "C" {
 #define LM_MAXSTRLEN 1024
 #define MAXNAMELEN 1025
 
+#if defined(__NetBSD__)
+#define xdr_u_quad_t xdr_u_int64_t
+#define xdr_quad_t   xdr_int64_t
+#define xdr_uint32_t xdr_u_int32_t
+#define xdr_uint64_t xdr_u_int64_t
+#endif
+
 /*
  * The following enums are actually bit encoded for efficient
  * boolean algebra.... DON'T change them.....

@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/param.h> /* for PATH_MAX */
+
 
 #include "common-utils.h"
 #include "run.h"

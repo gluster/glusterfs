@@ -600,6 +600,7 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, pid_t *mt
         else
                 mounted = 1;
 
+#ifndef __NetBSD__
         if (geteuid () == 0) {
                 char *newmnt = fuse_mnt_resolve_path ("fuse", mountpoint);
 
@@ -618,6 +619,7 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, pid_t *mt
                         goto out;
                 }
         }
+#endif /* __NetBSD__ */
 
         ret = 0;
 out:
