@@ -1477,6 +1477,7 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 status->block_size = 0;
         }
 
+#ifdef GF_LINUX_HOST_OS
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", i);
         ret = dict_get_str (dict, key, &(status->mount_options));
@@ -1496,6 +1497,7 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         ret = dict_get_str (dict, key, &(status->inode_size));
         if (ret)
                 status->inode_size = NULL;
+#endif /* GF_LINUX_HOST_OS */
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.total_inodes", i);
