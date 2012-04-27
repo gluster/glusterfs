@@ -2567,10 +2567,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 strcpy (key, name);
 
                 size = sys_lgetxattr (real_path, key, NULL, 0);
-                if (size == -1) {
-                        op_ret = -1;
+                if (size <= 0) {
                         op_errno = errno;
-                        goto out;
+                        goto done;
                 }
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
                 if (!value) {
@@ -2727,6 +2726,11 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 strcpy (key, name);
 
                 size = sys_fgetxattr (_fd, key, NULL, 0);
+                if (size <= 0) {
+                        op_errno = errno;
+                        goto done;
+                }
+
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
