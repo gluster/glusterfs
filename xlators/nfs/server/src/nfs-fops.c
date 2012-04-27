@@ -22,6 +22,9 @@
 #include "config.h"
 #endif
 
+#include <grp.h>
+#include <pwd.h>
+
 #include "dict.h"
 #include "xlator.h"
 #include "iobuf.h"
@@ -32,8 +35,142 @@
 #include "inode.h"
 #include "nfs-common.h"
 #include "nfs3-helpers.h"
+#include "nfs-mem-types.h"
 #include <libgen.h>
 #include <semaphore.h>
+
+/*
+ * We treat this as a very simple set-associative LRU cache, with entries aged
+ * out after a configurable interval.  Hardly rocket science, but lots of
+ * details to worry about.
+ */
+#define BUCKET_START(p,n)       ((p) + ((n) * AUX_GID_CACHE_ASSOC))
+
+void
+nfs_fix_groups (xlator_t *this, call_stack_t *root)
+{
+        struct passwd    mypw;
+        char             mystrs[1024];
+        struct passwd    *result;
+        gid_t            mygroups[GF_MAX_AUX_GROUPS];
+        int              ngroups;
+        int              i;
+        struct nfs_state *priv = this->private;
+        aux_gid_list_t   *agl = NULL;
+        int              bucket = 0;
+        time_t           now = 0;
+
+        if (!priv->server_aux_gids) {
+                return;
+        }
+
+        LOCK(&priv->aux_gid_lock);
+        now = time(NULL);
+        bucket = root->uid % priv->aux_gid_nbuckets;
+        agl = BUCKET_START(priv->aux_gid_cache,bucket);
+        for (i = 0; i < AUX_GID_CACHE_ASSOC; ++i, ++agl) {
+                if (!agl->gid_list) {
+                        continue;
+                }
+                if (agl->uid != root->uid) {
+                        continue;
+                }
+                /*
+                 * We don't put new entries in the cache when expiration=0, but
+                 * there might be entries still in there if expiration was
+                 * changed very recently.  Writing the check this way ensures
+                 * that they're not used.
+                 */
+                if (now < agl->deadline) {
+                        for (ngroups = 0; ngroups < agl->gid_count; ++ngroups) {
+                                root->groups[ngroups] = agl->gid_list[ngroups];
+                        }
+                        UNLOCK(&priv->aux_gid_lock);
+                        root->ngrps = ngroups;
+                        return;
+                }
+                /*
+                 * We're not going to find any more UID matches, and reaping
+                 * is handled further down to maintain LRU order.
+                 */
+                break;
+        }
+        UNLOCK(&priv->aux_gid_lock);
+
+        if (getpwuid_r(root->uid,&mypw,mystrs,sizeof(mystrs),&result) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "getpwuid_r(%u) failed", root->uid);
+                return;
+        }
+
+        if (!result) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "getpwuid_r(%u) found nothing", root->uid);
+                return;
+        }
+
+        gf_log (this->name, GF_LOG_TRACE, "mapped %u => %s",
+                root->uid, result->pw_name);
+
+        ngroups = GF_MAX_AUX_GROUPS;
+        if (getgrouplist(result->pw_name,root->gid,mygroups,&ngroups) == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not map %s to group list", result->pw_name);
+                return;
+        }
+
+        if (priv->aux_gid_max_age) {
+                LOCK(&priv->aux_gid_lock);
+                /* Bucket should still be valid from before. */
+                agl = BUCKET_START(priv->aux_gid_cache,bucket);
+                for (i = 0; i < AUX_GID_CACHE_ASSOC; ++i, ++agl) {
+                        if (!agl->gid_list) {
+                                break;
+                        }
+                }
+                /*
+                 * The way we allocate free entries naturally places the newest
+                 * ones at the highest indices, so evicting the lowest makes
+                 * sense, but that also means we can't just replace it with the
+                 * one that caused the eviction.  That would cause us to thrash
+                 * the first entry while others remain idle.  Therefore, we
+                 * need to slide the other entries down and add the new one at
+                 * the end just as if the *last* slot had been free.
+                 *
+                 * Deadline expiration is also handled here, since the oldest
+                 * expired entry will be in the first position.  This does mean
+                 * the bucket can stay full of expired entries if we're idle
+                 * but, if the small amount of extra memory or scan time before
+                 * we decide to evict someone ever become issues, we could
+                 * easily add a reaper thread.
+                 */
+                if (i >= AUX_GID_CACHE_ASSOC) {
+                        agl = BUCKET_START(priv->aux_gid_cache,bucket);
+                        GF_FREE(agl->gid_list);
+                        for (i = 1; i < AUX_GID_CACHE_ASSOC; ++i) {
+                                agl[0] = agl[1];
+                                ++agl;
+                        }
+                }
+                agl->gid_list = GF_CALLOC(ngroups,sizeof(gid_t),
+                                          gf_nfs_mt_aux_gids);
+                if (agl->gid_list) {
+                        /* It's not fatal if the alloc failed. */
+                        agl->uid = root->uid;
+                        agl->gid_count = ngroups;
+                        memcpy(agl->gid_list,mygroups,sizeof(gid_t)*ngroups);
+                        agl->deadline = now + priv->aux_gid_max_age;
+                }
+                UNLOCK(&priv->aux_gid_lock);
+        }
+
+        for (i = 0; i < ngroups; ++i) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "%s is in group %u", result->pw_name, mygroups[i]);
+                root->groups[i] = mygroups[i];
+        }
+        root->ngrps = ngroups;
+}
 
 struct nfs_fop_local *
 nfs_fop_local_init (xlator_t *nfsx)
@@ -122,17 +259,23 @@ nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
         frame->root->uid = nfu->uid;
         frame->root->gid = nfu->gids[NFS_PRIMGID_IDX];
         frame->root->lk_owner = nfu->lk_owner;
-        if (nfu->ngrps == 1)
-                goto err;       /* Done, we only got primary gid */
 
-        frame->root->ngrps = nfu->ngrps - 1;
+        if (nfu->ngrps != 1) {
+                frame->root->ngrps = nfu->ngrps - 1;
 
-        gf_log (GF_NFS, GF_LOG_TRACE,"uid: %d, gid %d, gids: %d",
-                frame->root->uid, frame->root->gid, frame->root->ngrps);
-        for(y = 0, x = 1;  y < frame->root->ngrps; x++,y++) {
-                gf_log (GF_NFS, GF_LOG_TRACE, "gid: %d", nfu->gids[x]);
-                frame->root->groups[y] = nfu->gids[x];
+                gf_log (GF_NFS, GF_LOG_TRACE,"uid: %d, gid %d, gids: %d",
+                        frame->root->uid, frame->root->gid, frame->root->ngrps);
+                for(y = 0, x = 1;  y < frame->root->ngrps; x++,y++) {
+                        gf_log (GF_NFS, GF_LOG_TRACE, "gid: %d", nfu->gids[x]);
+                        frame->root->groups[y] = nfu->gids[x];
+                }
         }
+
+        /*
+         * It's tempting to do this *instead* of using nfu above, but we need
+         * to have those values in case nfs_fix_groups doesn't do anything.
+         */
+        nfs_fix_groups(xl,frame->root);
 
 err:
         return frame;

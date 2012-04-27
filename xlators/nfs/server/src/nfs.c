@@ -41,6 +41,10 @@
 #include "nfs-mem-types.h"
 #include "nfs3-helpers.h"
 #include "nlm4.h"
+#include "options.h"
+
+#define OPT_SERVER_AUX_GIDS             "nfs.server-aux-gids"
+#define OPT_SERVER_GID_CACHE_TIMEOUT    "nfs.server.aux-gid-timeout"
 
 /* Every NFS version must call this function with the init function
  * for its particular version.
@@ -730,6 +734,11 @@ nfs_init_state (xlator_t *this)
                 }
         }
 
+        GF_OPTION_INIT (OPT_SERVER_AUX_GIDS, nfs->server_aux_gids,
+                        bool, free_foppool);
+        GF_OPTION_INIT (OPT_SERVER_GID_CACHE_TIMEOUT,nfs->aux_gid_max_age,
+                        uint32, free_foppool);
+
         if (stat("/sbin/rpc.statd", &stbuf) == -1) {
                 gf_log (GF_NFS, GF_LOG_WARNING, "/sbin/rpc.statd not found. "
                         "Disabling NLM");
@@ -817,6 +826,9 @@ init (xlator_t *this) {
                 ret = 0;
                 goto err;
         }
+
+        LOCK_INIT(&nfs->aux_gid_lock);
+        nfs->aux_gid_nbuckets = AUX_GID_CACHE_BUCKETS;
 
         gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
 err:
@@ -1222,6 +1234,24 @@ struct volume_options options[] = {
           .description = "set the option to 'on' to enable mountd on UDP. "
                          "Needed by Solaris NFS clients if NLM support is"
                          "needed"
+        },
+        { .key = {OPT_SERVER_AUX_GIDS},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Let the server look up which groups a user belongs "
+                         "to, overwriting the list passed from the client. "
+                         "This enables support for group lists longer than "
+                         "can be passed through the NFS protocol, but is not "
+                         "secure unless users and groups are well synchronized "
+                         "between clients and servers."
+        },
+        { .key = {OPT_SERVER_GID_CACHE_TIMEOUT},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .max = 3600,
+          .default_value = "5",
+          .description = "Number of seconds to cache auxiliary-GID data, when "
+                         OPT_SERVER_AUX_GIDS " is set."
         },
 
         { .key  = {NULL} },

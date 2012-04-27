@@ -220,6 +220,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
         {"nfs.nlm",                              "nfs/server",                "nfs.nlm", NULL, GLOBAL_DOC, 0},
         {"nfs.mount-udp",                        "nfs/server",                "nfs.mount-udp", NULL, GLOBAL_DOC, 0},
+        {"nfs.server-aux-gids",                  "nfs/server",                "nfs.server-aux-gids", NULL, NO_DOC, 0},
 
         {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE},
         {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0},

@@ -646,6 +646,11 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         frame->root->uid = 0;
         frame->root->gid = 0;
         frame->local = cs;
+        /*
+         * This is the only place that we call STACK_WIND without nfs_fix_groups,
+         * because in this particular case the relevant identify is in lk_owner and
+         * we don't care about the fields that nfs_fix_groups would set up.
+         */
         STACK_WIND_COOKIE (frame, nlm4_file_open_cbk, cs->vol, cs->vol,
                           cs->vol->fops->open, &cs->resolvedloc, O_RDWR,
                           cs->fd, NULL);
