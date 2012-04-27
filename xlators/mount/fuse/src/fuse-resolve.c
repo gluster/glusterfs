@@ -197,12 +197,11 @@ fuse_resolve_gfid (fuse_state_t *state)
         }
 
 	resolve_loc->inode = inode_new (state->itable);
-	ret = inode_path (resolve_loc->inode, NULL,
-			  (char **)&resolve_loc->path);
+	ret = loc_path (resolve_loc, NULL);
 
         if (ret <= 0) {
                 gf_log (THIS->name, GF_LOG_WARNING,
-                        "failed to get the path from inode %s",
+                        "failed to get the path for inode %s",
                         uuid_utoa (resolve->gfid));
         }
 

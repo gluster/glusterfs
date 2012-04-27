@@ -29,6 +29,7 @@
 #include <sys/types.h>
 
 #define DEFAULT_INODE_MEMPOOL_ENTRIES   32 * 1024
+#define INODE_PATH_FMT "<gfid:%s>"
 struct _inode_table;
 typedef struct _inode_table inode_table_t;
 

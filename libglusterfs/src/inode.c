@@ -1095,8 +1095,9 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
         int            len   = 0;
         char          *buf   = NULL;
 
-        if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+        if (!inode || uuid_is_null (inode->gfid)) {
+                GF_ASSERT (0);
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "invalid inode");
                 return -1;
         }
 
@@ -1153,7 +1154,7 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
 
                 if (!__is_root_gfid (itrav->gfid)) {
                         snprintf (&buf[i-GFID_STR_PFX_LEN], GFID_STR_PFX_LEN,
-                                  "<gfid:%s>", uuid_utoa (itrav->gfid));
+                                  INODE_PATH_FMT, uuid_utoa (itrav->gfid));
                         buf[i-1] = '>';
                 }
 

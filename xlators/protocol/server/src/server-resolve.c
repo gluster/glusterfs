@@ -179,24 +179,19 @@ resolve_gfid (call_frame_t *frame)
         resolve = state->resolve_now;
         resolve_loc = &resolve->resolve_loc;
 
-        if (!uuid_is_null (resolve->pargfid)) {
+        if (!uuid_is_null (resolve->pargfid))
                 uuid_copy (resolve_loc->gfid, resolve->pargfid);
-                resolve_loc->inode = inode_new (state->itable);
-                ret = inode_path (resolve_loc->inode, NULL,
-                                  (char **)&resolve_loc->path);
-        } else if (!uuid_is_null (resolve->gfid)) {
+        else if (!uuid_is_null (resolve->gfid))
                 uuid_copy (resolve_loc->gfid, resolve->gfid);
-                resolve_loc->inode = inode_new (state->itable);
-                ret = inode_path (resolve_loc->inode, NULL,
-                                  (char **)&resolve_loc->path);
-        }
+
+        resolve_loc->inode = inode_new (state->itable);
+        ret = loc_path (resolve_loc, NULL);
 
         STACK_WIND (frame, resolve_gfid_cbk,
                     BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
                     &resolve->resolve_loc, NULL);
         return 0;
 }
-
 
 int
 resolve_continue (call_frame_t *frame)
