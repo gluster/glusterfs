@@ -2186,6 +2186,9 @@ out:
         if (rsp.xdata.xdata_val)
                 free (rsp.xdata.xdata_val);
 
+        if (rsp.flock.lk_owner.lk_owner_val)
+                free (rsp.flock.lk_owner.lk_owner_val);
+
         if (xdata)
                 dict_unref (xdata);
 

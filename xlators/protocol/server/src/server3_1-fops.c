@@ -4866,6 +4866,9 @@ out:
         if (args.xdata.xdata_val)
                 free (args.xdata.xdata_val);
 
+        if (args.flock.lk_owner.lk_owner_val)
+                free (args.flock.lk_owner.lk_owner_val);
+
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
 
@@ -4950,6 +4953,9 @@ server_finodelk (rpcsvc_request_t *req)
 out:
         if (args.xdata.xdata_val)
                 free (args.xdata.xdata_val);
+
+        if (args.flock.lk_owner.lk_owner_val)
+                free (args.flock.lk_owner.lk_owner_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5419,6 +5425,9 @@ server_lk (rpcsvc_request_t *req)
 out:
         if (args.xdata.xdata_val)
                 free (args.xdata.xdata_val);
+
+        if (args.flock.lk_owner.lk_owner_val)
+                free (args.flock.lk_owner.lk_owner_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
