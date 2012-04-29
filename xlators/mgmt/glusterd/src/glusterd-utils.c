@@ -3181,6 +3181,28 @@ glusterd_reconfigure_shd ()
 }
 
 int
+glusterd_reconfigure_nfs ()
+{
+        int             ret             = -1;
+        gf_boolean_t    identical       = _gf_false;
+
+        ret = glusterd_check_nfs_volfile_identical (&identical);
+        if (ret)
+                goto out;
+
+        if (identical) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_check_generate_start_nfs ();
+
+out:
+        return ret;
+}
+
+
+int
 glusterd_check_generate_start_nfs ()
 {
         int ret = 0;
@@ -3304,7 +3326,7 @@ int
 glusterd_nodesvcs_handle_reconfigure (glusterd_volinfo_t *volinfo)
 {
         return glusterd_nodesvcs_batch_op (volinfo,
-                                           glusterd_check_generate_start_nfs,
+                                           glusterd_reconfigure_nfs,
                                            glusterd_reconfigure_shd);
 }
 
@@ -5457,5 +5479,62 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
         if (failures)
                 volinfo->rebalance_failures = failures;
 
+        return ret;
+}
+
+int
+glusterd_check_files_identical (char *filename1, char *filename2,
+                                gf_boolean_t *identical)
+{
+        int                     ret = -1;
+        struct stat             buf1 = {0,};
+        struct stat             buf2 = {0,};
+        uint32_t                cksum1 = 0;
+        uint32_t                cksum2 = 0;
+        xlator_t                *this = NULL;
+
+        GF_ASSERT (filename1);
+        GF_ASSERT (filename2);
+        GF_ASSERT (identical);
+
+        this = THIS;
+
+        ret = stat (filename1, &buf1);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "stat on file: %s failed "
+                        "(%s)", filename1, strerror (errno));
+                goto out;
+        }
+
+        ret = stat (filename2, &buf2);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "stat on file: %s failed "
+                        "(%s)", filename2, strerror (errno));
+                goto out;
+        }
+
+        if (buf1.st_size != buf2.st_size) {
+                *identical = _gf_false;
+                goto out;
+        }
+
+        ret = get_checksum_for_path (filename1, &cksum1);
+        if (ret)
+                goto out;
+
+
+        ret = get_checksum_for_path (filename2, &cksum2);
+        if (ret)
+                goto out;
+
+        if (cksum1 != cksum2)
+                *identical = _gf_false;
+        else
+                *identical = _gf_true;
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }

@@ -3345,6 +3345,58 @@ out:
 }
 
 int
+glusterd_check_nfs_volfile_identical (gf_boolean_t *identical)
+{
+        char            nfsvol[PATH_MAX]        = {0,};
+        char            tmpnfsvol[PATH_MAX]     = {0,};
+        glusterd_conf_t *conf                   = NULL;
+        xlator_t        *this                   = NULL;
+        int             ret                     = -1;
+        int             need_unlink             = 0;
+        int             tmp_fd                  = -1;
+
+        this = THIS;
+
+        GF_ASSERT (this);
+        GF_ASSERT (identical);
+
+        conf = this->private;
+
+        glusterd_get_nodesvc_volfile ("nfs", conf->workdir,
+                                      nfsvol, sizeof (nfsvol));
+
+        snprintf (tmpnfsvol, sizeof (tmpnfsvol), "/tmp/gnfs-XXXXXX");
+
+        tmp_fd = mkstemp (tmpnfsvol);
+        if (tmp_fd < 0) {
+                gf_log ("", GF_LOG_WARNING, "Unable to create temp file %s: "
+                                "(%s)", tmpnfsvol, strerror (errno));
+                goto out;
+        }
+
+        need_unlink = 1;
+
+        ret = glusterd_create_global_volfile (build_nfs_graph,
+                                              tmpnfsvol, NULL);
+        if (ret)
+                goto out;
+
+        ret = glusterd_check_files_identical (nfsvol, tmpnfsvol,
+                                              identical);
+        if (ret)
+                goto out;
+
+out:
+        if (need_unlink)
+                unlink (tmpnfsvol);
+
+        if (tmp_fd >= 0)
+                close (tmp_fd);
+
+        return ret;
+}
+
+int
 glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo)
 {
