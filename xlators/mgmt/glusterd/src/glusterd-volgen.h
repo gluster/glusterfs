@@ -96,4 +96,6 @@ int generate_brick_volfiles (glusterd_volinfo_t *volinfo);
 int glusterd_get_volopt_content (gf_boolean_t xml_out);
 char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
+int
+glusterd_check_nfs_volfile_identical (gf_boolean_t *identical);
 #endif

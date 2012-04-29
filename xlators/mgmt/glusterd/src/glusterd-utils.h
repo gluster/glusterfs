@@ -438,4 +438,8 @@ glusterd_validate_volume_id (dict_t *op_dict, glusterd_volinfo_t *volinfo);
 int
 glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                                       dict_t *rsp_dict);
+
+int
+glusterd_check_files_identical (char *filename1, char *filename2,
+                                gf_boolean_t *identical);
 #endif
