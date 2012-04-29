@@ -5046,7 +5046,7 @@ static int
 _validate_volfile_checksum (xlator_t *this, char *key,
                             uint32_t checksum)
 {
-        char                 filename[ZR_PATH_MAX] = {0,};
+        char                 filename[PATH_MAX] = {0,};
         server_conf_t       *conf         = NULL;
         struct _volfile_ctx *temp_volfile = NULL;
         int                  ret          = 0;
@@ -5121,7 +5121,7 @@ mop_getspec (call_frame_t *frame, xlator_t *bound_xl,
         int32_t               spec_fd = -1;
         size_t                file_len = 0;
         size_t                _hdrlen = 0;
-        char                  filename[ZR_PATH_MAX] = {0,};
+        char                  filename[PATH_MAX] = {0,};
         struct stat           stbuf = {0,};
         gf_mop_getspec_req_t *req = NULL;
         uint32_t              checksum = 0;

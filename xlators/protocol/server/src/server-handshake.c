@@ -190,7 +190,7 @@ int
 _validate_volfile_checksum (xlator_t *this, char *key,
                             uint32_t checksum)
 {
-        char                 filename[ZR_PATH_MAX] = {0,};
+        char                 filename[PATH_MAX] = {0,};
         server_conf_t       *conf         = NULL;
         struct _volfile_ctx *temp_volfile = NULL;
         int                  ret          = 0;
@@ -253,7 +253,7 @@ server_getspec (rpcsvc_request_t *req)
         int32_t              op_errno               = ENOENT;
         int32_t              spec_fd                = -1;
         size_t               file_len               = 0;
-        char                 filename[ZR_PATH_MAX]  = {0,};
+        char                 filename[PATH_MAX]  = {0,};
         struct stat          stbuf                  = {0,};
         uint32_t             checksum               = 0;
         char                *key                    = NULL;
