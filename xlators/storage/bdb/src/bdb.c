@@ -1409,8 +1409,8 @@ dir_read:
 
                 this_entry->buf.st_ino = -1;
                 if (S_ISLNK(this_entry->buf.st_mode)) {
-                        char linkpath[ZR_PATH_MAX] = {0,};
-                        ret = readlink (entry_path, linkpath, ZR_PATH_MAX);
+                        char linkpath[PATH_MAX] = {0,};
+                        ret = readlink (entry_path, linkpath, PATH_MAX);
                         if (ret != -1) {
                                 linkpath[ret] = '\0';
                                 this_entry->link = gf_strdup (linkpath);
@@ -2630,7 +2630,7 @@ bdb_setdents (call_frame_t *frame,
 
         trav = entries->next;
         while (trav) {
-                char pathname[ZR_PATH_MAX] = {0,};
+                char pathname[PATH_MAX] = {0,};
                 strcpy (pathname, entry_path);
                 strcat (pathname, trav->name);
 

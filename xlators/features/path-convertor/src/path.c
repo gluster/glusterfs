@@ -52,7 +52,7 @@ static char *
 name_this_to_that (xlator_t *xl, const char *path, const char *name)
 {
 	path_private_t *priv = xl->private;
-	char priv_path[ZR_PATH_MAX] = {0,};
+	char priv_path[PATH_MAX] = {0,};
 	char *tmp_name = NULL;
 	int32_t path_len = strlen (path);
 	int32_t name_len = strlen (name) - ZR_FILE_CONTENT_STRLEN;

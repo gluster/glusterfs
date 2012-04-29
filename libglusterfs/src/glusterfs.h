@@ -129,9 +129,6 @@
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
 					       ZR_FILE_CONTENT_STRLEN))
 
-/* TODO: Should we use PATH-MAX? On some systems it may save space */
-#define ZR_PATH_MAX 4096
-
 /* GlusterFS's maximum supported Auxilary GIDs */
 /* TODO: Keeping it to 200, so that we can fit in 2KB buffer for auth data
  * in RPC server code, if there is ever need for having more aux-gids, then

@@ -125,7 +125,7 @@ server_getspec (rpcsvc_request_t *req)
         int32_t               op_errno               = 0;
         int32_t               spec_fd                = -1;
         size_t                file_len               = 0;
-        char                  filename[ZR_PATH_MAX]  = {0,};
+        char                  filename[PATH_MAX]  = {0,};
         struct stat           stbuf                  = {0,};
         char                 *volume                 = NULL;
         char                 *tmp                    = NULL;
