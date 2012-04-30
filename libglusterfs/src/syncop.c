@@ -34,6 +34,7 @@ __run (struct synctask *task)
         list_del_init (&task->all_tasks);
 	switch (task->state) {
 	case SYNCTASK_INIT:
+        case SYNCTASK_SUSPEND:
 		break;
 	case SYNCTASK_RUN:
 		gf_log (task->xl->name, GF_LOG_WARNING,
@@ -65,6 +66,7 @@ __wait (struct synctask *task)
         list_del_init (&task->all_tasks);
 	switch (task->state) {
 	case SYNCTASK_INIT:
+        case SYNCTASK_SUSPEND:
 		break;
 	case SYNCTASK_RUN:
 		env->runcount--;
