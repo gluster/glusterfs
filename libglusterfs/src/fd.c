@@ -811,7 +811,6 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 
                 new_xl_count = fd->xl_count + xlator->graph->xl_count;
 
-                begin = fd->_ctx;
                 tmp = GF_REALLOC (fd->_ctx,
                                   (sizeof (struct _fd_ctx)
                                    * new_xl_count));
@@ -826,6 +825,7 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 
                 fd->_ctx = tmp;
 
+                begin = fd->_ctx;
                 begin += (fd->xl_count * sizeof (struct _fd_ctx));
 
                 diff = (new_xl_count - fd->xl_count )
