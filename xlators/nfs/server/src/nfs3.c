@@ -1410,12 +1410,8 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->lookuptype = GF_NFS3_REVALIDATE;
-        if (!nfs3_is_parentdir_entry (name))
-                ret = nfs3_fh_resolve_and_resume (cs, fh, name,
-                                                  nfs3_lookup_resume);
-        else
-                ret = nfs3_fh_resolve_and_resume (cs, fh, NULL,
-                                                  nfs3_lookup_parentdir_resume);
+        ret = nfs3_fh_resolve_and_resume (cs, fh, name,
+                                          nfs3_lookup_resume);
 
         if (ret < 0) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "failed to start hard reslove");
