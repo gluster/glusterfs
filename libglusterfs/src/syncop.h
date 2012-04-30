@@ -46,6 +46,7 @@ typedef int (*synctask_fn_t) (void *opaque);
 typedef enum {
 	SYNCTASK_INIT = 0,
 	SYNCTASK_RUN,
+        SYNCTASK_SUSPEND,
 	SYNCTASK_WAIT,
 	SYNCTASK_DONE,
 } synctask_state_t;
@@ -133,6 +134,7 @@ struct syncargs {
                                                                         \
                 STACK_WIND_COOKIE (task->opframe, cbk, (void *)stb,     \
                                    subvol, op, params);                 \
+                task->state = SYNCTASK_SUSPEND;                         \
                 synctask_yield (stb->task);                             \
                 STACK_RESET (task->opframe->root);                      \
         } while (0)
