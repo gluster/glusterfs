@@ -851,6 +851,11 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                 }
         }
 
+        if (name) {
+                if (!strcmp(name, ".") || !strcmp(name, ".."))
+                        return link_inode;
+        }
+
         /* use only link_inode beyond this point */
         if (parent) {
                 old_dentry = __dentry_grep (table, parent, name);

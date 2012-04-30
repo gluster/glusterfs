@@ -120,8 +120,10 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!__is_root_gfid (inode->gfid)) {
                         link_inode = inode_link (inode, state->loc.parent,
                                                  state->loc.name, stbuf);
-                        inode_lookup (link_inode);
-                        inode_unref (link_inode);
+                        if (link_inode) {
+                                inode_lookup (link_inode);
+                                inode_unref (link_inode);
+                        }
                 }
         } else {
                 if (state->is_revalidate && op_errno == ENOENT) {
