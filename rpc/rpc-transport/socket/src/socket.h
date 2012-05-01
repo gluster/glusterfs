@@ -115,6 +115,8 @@ typedef enum {
 typedef enum {
         SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT,
         SP_STATE_READING_PROC_HEADER,
+        SP_STATE_READING_PROC_OPAQUE,
+        SP_STATE_READ_PROC_OPAQUE,
         SP_STATE_READ_PROC_HEADER,
 } sp_rpcfrag_vectored_reply_accepted_success_state_t;
 
