@@ -603,8 +603,8 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         frame->root->uid = 0;
         frame->root->gid = 0;
         frame->local = cs;
-        STACK_WIND_COOKIE (frame, nlm4_file_open_cbk, cs->nfsx, cs->nfsx,
-                          cs->nfsx->fops->open, &cs->resolvedloc, O_RDWR,
+        STACK_WIND_COOKIE (frame, nlm4_file_open_cbk, cs->vol, cs->vol,
+                          cs->vol->fops->open, &cs->resolvedloc, O_RDWR,
                           cs->fd, NULL);
         ret = 0;
 err:
