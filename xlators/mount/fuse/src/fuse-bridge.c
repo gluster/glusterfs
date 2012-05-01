@@ -2351,6 +2351,7 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fde = (struct fuse_dirent *)(buf + size);
                 fde->ino = entry->d_ino;
                 fde->off = entry->d_off;
+                fde->type = entry->d_type;
                 fde->namelen = strlen (entry->d_name);
                 strncpy (fde->name, entry->d_name, fde->namelen);
                 size += FUSE_DIRENT_SIZE (fde);
