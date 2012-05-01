@@ -2693,6 +2693,10 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                       (rsp.xdata.xdata_len), ret,
                                       rsp.op_errno, out);
 
+#ifdef GF_TESTING_IO_XDATA
+        dict_dump (xdata);
+#endif
+
 out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
@@ -4009,6 +4013,17 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         req.flag   = args->flags;
 
         memcpy (req.gfid, args->fd->inode->gfid, 16);
+
+#ifdef GF_TESTING_IO_XDATA
+        if (!args->xdata)
+                args->xdata = dict_new ();
+
+        ret = dict_set_str (args->xdata, "testing-the-xdata-key",
+                            "testing-the-xdata-value");
+#endif
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_vec_request (this, &req, frame, conf->fops,
                                          GFS3_OP_WRITE, client3_1_writev_cbk,

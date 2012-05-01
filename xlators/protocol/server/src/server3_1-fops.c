@@ -1455,6 +1455,16 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
+#ifdef GF_TESTING_IO_XDATA
+        {
+                int ret = 0;
+                if (!xdata)
+                        xdata = dict_new ();
+
+                ret = dict_set_str (xdata, "testing-the-xdata-key",
+                                       "testing-xdata-value");
+        }
+#endif
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -3392,6 +3402,10 @@ server_writev (rpcsvc_request_t *req)
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
 
+#ifdef GF_TESTING_IO_XDATA
+        dict_dump (state->xdata);
+#endif
+
         ret = 0;
         resolve_and_resume (frame, server_writev_resume);
 out:
@@ -3413,26 +3427,58 @@ server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
 }
 
 #define SERVER3_1_VECWRITE_START 0
-#define SERVER3_1_VECWRITE_READINGHDR 1
+#define SERVER3_1_VECWRITE_READING_HDR 1
+#define SERVER3_1_VECWRITE_READING_OPAQUE 2
 
 int
 server_writev_vecsizer (int state, ssize_t *readsize, char *addr)
 {
-        int nextstate = 0;
-        gfs3_write_req    write_req              = {{0,},};
+        ssize_t         size = 0;
+        int             nextstate = 0;
+        gfs3_write_req  write_req = {{0,},};
+        XDR             xdr;
 
         switch (state) {
         case SERVER3_1_VECWRITE_START:
-                *readsize = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req, &write_req);
-                nextstate = SERVER3_1_VECWRITE_READINGHDR;
+                size = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req,
+                                   &write_req);
+                *readsize = size;
+                nextstate = SERVER3_1_VECWRITE_READING_HDR;
                 break;
-        case SERVER3_1_VECWRITE_READINGHDR:
+        case SERVER3_1_VECWRITE_READING_HDR:
+                size = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req,
+                                           &write_req);
+
+                xdrmem_create (&xdr, addr, size, XDR_DECODE);
+
+                /* This will fail if there is xdata sent from client, if not,
+                   well and good */
+                xdr_gfs3_write_req (&xdr, &write_req);
+
+                /* need to round off to proper roof (%4), as XDR packing pads
+                   the end of opaque object with '0' */
+                size = roof (write_req.xdata.xdata_len, 4);
+
+                *readsize = size;
+
+                if (!size)
+                        nextstate = SERVER3_1_VECWRITE_START;
+                else
+                        nextstate = SERVER3_1_VECWRITE_READING_OPAQUE;
+
+                if (write_req.xdata.xdata_val)
+                        free (write_req.xdata.xdata_val);
+
+                break;
+
+        case SERVER3_1_VECWRITE_READING_OPAQUE:
                 *readsize = 0;
                 nextstate = SERVER3_1_VECWRITE_START;
                 break;
         default:
-                gf_log ("server3_1", GF_LOG_ERROR, "wrong state: %d", state);
+                gf_log ("server", GF_LOG_ERROR, "wrong state: %d", state);
         }
+
         return nextstate;
 }
 
