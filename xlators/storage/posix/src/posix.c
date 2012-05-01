@@ -3578,6 +3578,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 }
                 this_entry->d_off = telldir (dir);
                 this_entry->d_ino = entry->d_ino;
+                this_entry->d_type = entry->d_type;
 
                 list_add_tail (&this_entry->list, &entries->list);
 
