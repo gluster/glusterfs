@@ -437,7 +437,7 @@ gf_pump_traverse_directory (loc_t *loc)
                                                     gf_pump_traverse_directory (&entry_loc);
                                             }
                                     }
-                            }
+                        }
                 }
 
                 gf_dirent_free (&entries);
@@ -447,6 +447,10 @@ gf_pump_traverse_directory (loc_t *loc)
                         (int32_t ) offset);
 
         }
+
+        ret = syncop_close (fd);
+        if (ret < 0)
+                gf_log (this->name, GF_LOG_DEBUG, "closing the fd failed");
 
         if (is_directory_empty && IS_ROOT_PATH (loc->path)) {
                pump_change_state (this, PUMP_STATE_RUNNING);
@@ -2258,6 +2262,17 @@ pump_release (xlator_t *this,
 
 }
 
+static int32_t
+pump_forget (xlator_t *this, inode_t *inode)
+{
+        afr_private_t  *priv  = NULL;
+
+        priv = this->private;
+        if (priv->use_afr_in_pump)
+                afr_forget (this, inode);
+
+        return 0;
+}
 
 static int32_t
 pump_setattr (call_frame_t *frame,
@@ -2622,6 +2637,7 @@ struct xlator_dumpops dumpops = {
 struct xlator_cbks cbks = {
 	.release     = pump_release,
 	.releasedir  = pump_releasedir,
+        .forget      = pump_forget,
 };
 
 struct volume_options options[] = {
