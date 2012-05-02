@@ -2286,7 +2286,7 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,  glusterd_commit_hook
         snprintf (scriptdir, sizeof (scriptdir), "%s/%s/%s",
                   hookdir, cmd_subdir, type_subdir);
 
-        return glusterd_hooks_run_hooks (scriptdir, op_ctx);
+        return glusterd_hooks_run_hooks (scriptdir, op, op_ctx, type);
 }
 
 static int

@@ -45,5 +45,6 @@ char *
 glusterd_hooks_get_hooks_cmd_subdir (glusterd_op_t op);
 
 int
-glusterd_hooks_run_hooks (char *hooks_path, dict_t *op_ctx);
+glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
+                          glusterd_commit_hook_type_t type);
 #endif
