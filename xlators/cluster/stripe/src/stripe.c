@@ -3918,12 +3918,9 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stripe_local_t *local = NULL;
         call_frame_t   *prev = NULL;
         gf_dirent_t    *local_entry = NULL;
-        int32_t        ret = -1;
         gf_dirent_t    *tmp_entry = NULL;
         xlator_list_t  *trav = NULL;
         loc_t          loc = {0, };
-        inode_t        *inode = NULL;
-        char           *path;
         int32_t        count = 0;
         stripe_private_t *priv = NULL;
         int32_t        subvols = 0;
@@ -3969,7 +3966,6 @@ unlock:
         if (xattrs)
                 (void) stripe_xattr_request_build (this, xattrs, 0, 0, 0);
         count = op_ret;
-        ret = 0;
         list_for_each_entry_safe (local_entry, tmp_entry,
                                   (&local->entries.list), list) {
 
@@ -3984,28 +3980,6 @@ unlock:
                         UNLOCK (&frame->lock);
                         continue;
                 }
-
-                inode = inode_new (local->fd->inode->table);
-                if (!inode)
-                        goto out;
-
-                loc.inode = inode;
-                loc.parent = local->fd->inode;
-                ret = inode_path (local->fd->inode, local_entry->d_name, &path);
-                if (ret != -1) {
-                        loc.path = path;
-                } else  if (inode) {
-                        ret = inode_path (inode, NULL, &path);
-                        if (ret != -1) {
-                                loc.path = path;
-                        } else {
-                                goto out;
-                        }
-                }
-
-                loc.name = strrchr (loc.path, '/');
-                loc.name++;
-                uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
 
                 local_frame = copy_frame (frame);
 
@@ -4022,6 +3996,10 @@ unlock:
                         goto out;
                 }
 
+                loc.inode = inode_ref (local_entry->inode);
+
+                uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
+
                 local_ent->orig_frame = frame;
 
                 local_ent->call_count = subvols;
@@ -4037,7 +4015,7 @@ unlock:
                                     &loc, xattrs);
                         trav = trav->next;
                 }
-                inode_unref (loc.inode);
+                loc_wipe (&loc);
         }
 out:
         if (!count) {
