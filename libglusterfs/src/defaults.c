@@ -1265,8 +1265,8 @@ default_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t
 default_forget (xlator_t *this, inode_t *inode)
 {
-        gf_log (this->name, GF_LOG_WARNING, "xlator does not implement "
-                "forget_cbk");
+        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+                          "implement forget_cbk");
         return 0;
 }
 
@@ -1274,16 +1274,16 @@ default_forget (xlator_t *this, inode_t *inode)
 int32_t
 default_releasedir (xlator_t *this, fd_t *fd)
 {
-        gf_log (this->name, GF_LOG_WARNING, "xlator does not implement "
-                "releasedir_cbk");
+        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+                          "implement releasedir_cbk");
         return 0;
 }
 
 int32_t
 default_release (xlator_t *this, fd_t *fd)
 {
-        gf_log (this->name, GF_LOG_WARNING, "xlator does not implement "
-                "release_cbk");
+        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+                          "implement release_cbk");
         return 0;
 }
 
