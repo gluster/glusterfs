@@ -553,6 +553,9 @@ rpcsvc_handle_disconnect (rpcsvc_t *svc, rpc_transport_t *trans)
 
         pthread_mutex_lock (&svc->rpclock);
         {
+                if (!svc->notify_count)
+                        goto unlock;
+
                 wrappers = GF_CALLOC (svc->notify_count, sizeof (*wrapper),
                                       gf_common_mt_rpcsvc_wrapper_t);
                 if (!wrappers) {
