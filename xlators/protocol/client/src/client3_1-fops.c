@@ -955,12 +955,12 @@ int
 client3_1_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
-        call_frame_t    *frame      = NULL;
-        gf_common_rsp    rsp        = {0,};
-        int              ret        = 0;
-        xlator_t *this       = NULL;
-        dict_t  *xdata       = NULL;
-
+        call_frame_t  *frame    = NULL;
+        gf_common_rsp  rsp      = {0,};
+        int            ret      = 0;
+        xlator_t      *this     = NULL;
+        dict_t        *xdata    = NULL;
+        int            op_errno = EINVAL;
 
         this = THIS;
 
@@ -985,12 +985,14 @@ client3_1_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                       rsp.op_errno, out);
 
 out:
+        op_errno = gf_error_to_errno (rsp.op_errno);
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)));
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_WARNING),
+                        "remote operation failed: %s",
+                        strerror (op_errno));
         }
-        CLIENT_STACK_UNWIND (setxattr, frame, rsp.op_ret,
-                             gf_error_to_errno (rsp.op_errno), xdata);
+        CLIENT_STACK_UNWIND (setxattr, frame, rsp.op_ret, op_errno, xdata);
 
         if (rsp.xdata.xdata_val)
                 free (rsp.xdata.xdata_val);
@@ -1048,7 +1050,8 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_WARNING),
                         "remote operation failed: %s. Path: %s",
                         strerror (op_errno),
                         (local) ? local->loc.path : "--");
@@ -1117,7 +1120,8 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_WARNING),
                         "remote operation failed: %s",
                         strerror (op_errno));
         }
@@ -1794,12 +1798,12 @@ int
 client3_1_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                          void *myframe)
 {
-        call_frame_t    *frame      = NULL;
-        gf_common_rsp    rsp        = {0,};
-        int              ret        = 0;
-        xlator_t *this       = NULL;
-        dict_t  *xdata       = NULL;
-
+        call_frame_t  *frame    = NULL;
+        gf_common_rsp  rsp      = {0,};
+        int            ret      = 0;
+        xlator_t      *this     = NULL;
+        dict_t        *xdata    = NULL;
+        int            op_errno = EINVAL;
 
         this = THIS;
 
@@ -1823,12 +1827,15 @@ client3_1_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                       rsp.op_errno, out);
 
 out:
+        op_errno = gf_error_to_errno (rsp.op_errno);
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)));
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_WARNING),
+                        "remote operation failed: %s",
+                        strerror (op_errno));
         }
-        CLIENT_STACK_UNWIND (fsetxattr, frame, rsp.op_ret,
-                             gf_error_to_errno (rsp.op_errno), xdata);
+
+        CLIENT_STACK_UNWIND (fsetxattr, frame, rsp.op_ret, op_errno, xdata);
 
         if (rsp.xdata.xdata_val)
                 free (rsp.xdata.xdata_val);

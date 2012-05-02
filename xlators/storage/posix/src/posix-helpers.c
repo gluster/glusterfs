@@ -660,7 +660,9 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                 GF_LOG_OCCASIONALLY(gf_xattr_enotsup_log,
                                                     this->name,GF_LOG_WARNING,
                                                     "Extended attributes not "
-                                                    "supported");
+                                                    "supported (try remounting "
+                                                    "brick with 'user_xattr' "
+                                                    "flag)");
                         } else if (errno == ENOENT &&
                                    !posix_special_xattr (marker_xattrs,
                                                          trav->key)) {
@@ -707,7 +709,9 @@ posix_fhandle_pair (xlator_t *this, int fd,
                         GF_LOG_OCCASIONALLY(gf_xattr_enotsup_log,
                                             this->name,GF_LOG_WARNING,
                                             "Extended attributes not "
-                                            "supported");
+                                            "supported (try remounting "
+                                            "brick with 'user_xattr' "
+                                            "flag)");
                 } else if (errno == ENOENT) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsetxattr on fd=%d failed: %s", fd,
