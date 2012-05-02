@@ -1601,12 +1601,16 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         int                             ret   = -1;
         char                            msg[1024] = {0,};
         gf1_op_commands                 cmd = GF_OP_CMD_NONE;
-        dict_t                         *dict = NULL;
         char                           *cmd_str = "unknown";
+        cli_local_t                    *local = NULL;
+        call_frame_t                   *frame = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
         }
+
+        frame = myframe;
+        local = frame->local;
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
@@ -1614,14 +1618,7 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        dict = dict_new ();
-
-        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "failed to unserialize rsp to dict");
-                goto out;
-        }
-        ret = dict_get_int32 (dict, "command", (int32_t *)&cmd);
+        ret = dict_get_int32 (local->dict, "command", (int32_t *)&cmd);
         if (ret) {
                  gf_log ("", GF_LOG_ERROR, "failed to get command");
                  goto out;
@@ -1639,7 +1636,7 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 cmd_str = "commit force";
                 break;
         default:
-                cmd_str = "unkown";
+                cmd_str = "unknown";
                 break;
         }
 
@@ -1668,13 +1665,19 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        if (frame)
+                frame->local = NULL;
+
+        if (local) {
+                dict_unref (local->dict);
+                cli_local_wipe (local);
+        }
+
         cli_cmd_broadcast_response (ret);
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
-        if (dict)
-                dict_unref(dict);
 
         return ret;
 }
@@ -2937,13 +2940,26 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
         char                     *volname = NULL;
         dict_t                   *req_dict = NULL;
         int32_t                   cmd = 0;
+        cli_local_t              *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
         }
 
+        local = cli_local_get ();
+        if (!local) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
+
+        frame->local = local;
+
         dict = data;
+
+        local->dict = dict_ref (dict);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
