@@ -2569,6 +2569,19 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 size = sys_lgetxattr (real_path, key, NULL, 0);
                 if (size <= 0) {
                         op_errno = errno;
+                        if ((op_errno == ENOTSUP) || (op_errno == ENOSYS)) {
+                                GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                                     this->name, GF_LOG_WARNING,
+                                                     "Extended attributes not "
+                                                     "supported (try remounting"
+                                                     " brick with 'user_xattr' "
+                                                     "flag)");
+                        } else {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "getxattr failed on %s: %s (%s)",
+                                        real_path, key, strerror (op_errno));
+                        }
+
                         goto done;
                 }
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
@@ -2597,7 +2610,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
                                              this->name, GF_LOG_WARNING,
                                              "Extended attributes not "
-                                             "supported.");
+                                             "supported (try remounting"
+                                             " brick with 'user_xattr' "
+                                             "flag)");
                 }
                 else {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2756,7 +2771,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
                                              this->name, GF_LOG_WARNING,
                                              "Extended attributes not "
-                                             "supported.");
+                                             "supported (try remounting "
+                                             "brick with 'user_xattr' flag)");
                 }
                 else {
                         gf_log (this->name, GF_LOG_ERROR,

@@ -812,7 +812,8 @@ out:
         rsp.op_errno      = gf_errno_to_error (op_errno);
 
         if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
                         "%"PRId64": GETXATTR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
                         state->name, op_ret, strerror (op_errno));
@@ -858,7 +859,8 @@ out:
         rsp.op_errno      = gf_errno_to_error (op_errno);
 
         if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
                         "%"PRId64": FGETXATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         state->name, op_ret, strerror (op_errno));
@@ -889,12 +891,15 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
-        if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": SETXATTR %s (%s) ==> %"PRId32" (%s)",
+        if (op_ret == -1) {
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
+                        "%"PRId64": SETXATTR %s (%s) ==> %s (%s)",
                         frame->root->unique, state->loc.path,
                         state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        "--", state->dict->members_list->key,
+                        strerror (op_errno));
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -926,11 +931,12 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
 
         if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
+                        "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %s (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        state->dict->members_list->key, strerror (op_errno));
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
