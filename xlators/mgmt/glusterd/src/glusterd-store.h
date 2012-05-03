@@ -140,4 +140,7 @@ glusterd_perform_volinfo_version_action (glusterd_volinfo_t *volinfo,
                                          glusterd_volinfo_ver_ac_t ac);
 gf_boolean_t
 glusterd_store_is_valid_brickpath (char *volname, char *brick);
+
+int32_t
+glusterd_store_perform_node_state_store (glusterd_volinfo_t *volinfo);
 #endif
