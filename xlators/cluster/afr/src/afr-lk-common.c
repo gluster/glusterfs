@@ -1180,12 +1180,6 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                AFR_LOCK_OP, NULL, op_ret,
                                op_errno, (long) cookie);
 
-        LOCK (&frame->lock);
-        {
-                call_count = --int_lock->lk_call_count;
-        }
-        UNLOCK (&frame->lock);
-
         if (op_ret < 0 ) {
                 if (op_errno == ENOSYS) {
                         /* return ENOTSUP */
@@ -1202,6 +1196,12 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int_lock->entry_locked_nodes[child_index] |= LOCKED_YES;
                 int_lock->entrylk_lock_count++;
         }
+
+        LOCK (&frame->lock);
+        {
+                call_count = --int_lock->lk_call_count;
+        }
+        UNLOCK (&frame->lock);
 
         if (call_count == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
