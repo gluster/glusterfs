@@ -166,21 +166,28 @@ find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
         pid_t *pida            = (pid_t *)data;
 
         if (ppid != pida[0])
-                return 0;
+                goto out;
 
         ret = gf_asprintf (&p, PROC"/%d/cmdline", pid);
         if (ret == -1) {
                 fprintf (stderr, "out of memory\n");
-                return -1;
+                goto out;
         }
+
+        ret = 0;
 
         fd = open (p, O_RDONLY);
         if (fd == -1)
-                return 0;
+                goto out;
+
         ret = read (fd, buf, sizeof (buf));
         close (fd);
-        if (ret == -1)
-                return 0;
+
+        if (ret == -1) {
+                ret = 0;
+                goto out;
+        }
+
         for (zeros = 0, p = buf; zeros < 2 && p < buf + ret; p++)
                 zeros += !*p;
 
@@ -201,12 +208,18 @@ find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
         if (ret == 1) {
                 if (pida[1] != -1) {
                         fprintf (stderr, GSYNCD_PY" sibling is not unique");
-                        return -1;
+                        ret = -1;
+                        goto out;
                 }
                 pida[1] = pid;
         }
 
-        return 0;
+        ret = 0;
+out:
+        if (p)
+                GF_FREE (p);
+
+        return ret;
 }
 
 static int
@@ -242,6 +255,8 @@ invoke_rsync (int argc, char **argv)
                 }
                 if (strcmp (name, "sshd") == 0)
                         break;
+                GF_FREE (name);
+                name = NULL;
         }
         /* look up "ssh-sibling" gsyncd */
         pida[0] = pid;
@@ -269,10 +284,22 @@ invoke_rsync (int argc, char **argv)
 
         execvp (RSYNC, argv);
 
+        if (p)
+                GF_FREE (p);
+
+        if (name)
+                GF_FREE (name);
+
         fprintf (stderr, "exec of "RSYNC" failed\n");
         return 127;
 
  error:
+        if (p)
+                GF_FREE (p);
+
+        if (name)
+                GF_FREE (name);
+
         fprintf (stderr, "disallowed "RSYNC" invocation\n");
         return 1;
 }
