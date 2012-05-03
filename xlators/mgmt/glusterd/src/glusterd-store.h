@@ -51,6 +51,7 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_RB_STATUS      "rb_status"
 #define GLUSTERD_STORE_KEY_RB_SRC_BRICK   "rb_src"
 #define GLUSTERD_STORE_KEY_RB_DST_BRICK   "rb_dst"
+#define GLUSTERD_STORE_KEY_RB_DST_PORT    "rb_port"
 #define GLUSTERD_STORE_KEY_VOL_DEFRAG     "rebalance_status"
 #define GLUSTERD_STORE_KEY_DEFRAG_OP      "rebalance_op"
 #define GLUSTERD_STORE_KEY_USERNAME       "username"
