@@ -886,6 +886,7 @@ int32_t
 glusterd_store_rbstate_write (int fd, glusterd_volinfo_t *volinfo)
 {
         int     ret             = -1;
+        int     port            = 0;
         char    buf[PATH_MAX]   = {0, };
 
         GF_ASSERT (fd > 0);
@@ -915,11 +916,28 @@ glusterd_store_rbstate_write (int fd, glusterd_volinfo_t *volinfo)
                 if (ret)
                         goto out;
 
+                switch (volinfo->transport_type) {
+                        case GF_TRANSPORT_RDMA:
+                                port = volinfo->rep_brick.dst_brick->rdma_port;
+                                break;
+
+                        case GF_TRANSPORT_TCP:
+                        case GF_TRANSPORT_BOTH_TCP_RDMA:
+                                port = volinfo->rep_brick.dst_brick->port;
+                                break;
+                }
+
+                snprintf (buf, sizeof (buf), "%d", port);
+                ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_RB_DST_PORT,
+                                                 buf);
+                if (ret)
+                        goto out;
                 uuid_unparse (volinfo->rep_brick.rb_id, buf);
                 ret = glusterd_store_save_value (fd, GF_REPLACE_BRICK_TID_KEY,
                                                  buf);
         }
 
+        ret = 0;
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -2177,6 +2195,20 @@ glusterd_store_retrieve_rbstate (char   *volname)
                                                 &volinfo->rep_brick.dst_brick);
                                 if (ret)
                                         goto out;
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_DST_PORT,
+                                             strlen (GLUSTERD_STORE_KEY_RB_DST_PORT))) {
+                                switch (volinfo->transport_type) {
+                                case GF_TRANSPORT_RDMA:
+                                volinfo->rep_brick.dst_brick->rdma_port =
+                                                 atoi (value);
+                                        break;
+
+                                case GF_TRANSPORT_TCP:
+                                case GF_TRANSPORT_BOTH_TCP_RDMA:
+                                volinfo->rep_brick.dst_brick->port =
+                                                atoi (value);
+                                        break;
+                                }
                         } else if (!strncmp (key, GF_REPLACE_BRICK_TID_KEY,
                                              strlen (GF_REPLACE_BRICK_TID_KEY))) {
                                         uuid_parse (value,
