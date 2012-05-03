@@ -679,7 +679,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
                 cli_req.hostname, cli_req.port);
 
         if (!(ret = glusterd_is_local_addr(cli_req.hostname))) {
-                glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST,
+                glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST, NULL,
                                               cli_req.hostname, cli_req.port);
                 goto out;
         }
@@ -691,7 +691,8 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
                         gf_log ("glusterd", GF_LOG_DEBUG, "Probe host %s port %d"
                                " already a peer", cli_req.hostname, cli_req.port);
                         glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND,
-                                                      cli_req.hostname, cli_req.port);
+                                                      NULL, cli_req.hostname,
+                                                      cli_req.port);
                         goto out;
                 }
         }
@@ -2237,10 +2238,11 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
                         event->peerinfo = peerinfo;
                         ret = glusterd_friend_sm_inject_event (event);
                         glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_SUCCESS,
-                                                      (char*)hoststr, port);
+                                                      NULL, (char*)hoststr,
+                                                      port);
                 }
         } else {
-                glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND,
+                glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND, NULL,
                                               (char*)hoststr, port);
         }
 
@@ -2372,7 +2374,8 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
 
 int
 glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
-                              int32_t op_errno, char *hostname, int port)
+                              int32_t op_errno, char *op_errstr, char *hostname,
+                              int port)
 {
         gf1_cli_probe_rsp    rsp = {0, };
         int32_t              ret = -1;
@@ -2381,6 +2384,7 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
 
         rsp.op_ret = op_ret;
         rsp.op_errno = op_errno;
+        rsp.op_errstr = op_errstr ? op_errstr : "";
         rsp.hostname = hostname;
         rsp.port = port;
 
@@ -2800,10 +2804,19 @@ glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
-glusterd_friend_remove_notify (glusterd_peerinfo_t *peerinfo, rpcsvc_request_t *req)
+glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
 {
-        int ret = -1;
-        glusterd_friend_sm_event_t *new_event = NULL;
+        int                             ret = -1;
+        glusterd_friend_sm_event_t      *new_event = NULL;
+        glusterd_peerinfo_t             *peerinfo = peerctx->peerinfo;
+        rpcsvc_request_t                *req = peerctx->args.req;
+        char                            *errstr = peerctx->errstr;
+
+        GF_ASSERT (peerctx);
+
+        peerinfo = peerctx->peerinfo;
+        req = peerctx->args.req;
+        errstr = peerctx->errstr;
 
         ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
                                             &new_event);
@@ -2815,7 +2828,7 @@ glusterd_friend_remove_notify (glusterd_peerinfo_t *peerinfo, rpcsvc_request_t *
                         goto out;
                 }
 
-                glusterd_xfer_cli_probe_resp (req, -1, ENOTCONN,
+                glusterd_xfer_cli_probe_resp (req, -1, ENOTCONN, errstr,
                                               peerinfo->hostname, peerinfo->port);
 
                 new_event->peerinfo = peerinfo;
@@ -2902,8 +2915,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
                 //Inject friend disconnected here
                 if (peerinfo->state.state == GD_FRIEND_STATE_DEFAULT)  {
-                        glusterd_friend_remove_notify (peerinfo,
-                                                       peerctx->args.req);
+                        glusterd_friend_remove_notify (peerctx);
                 }
 
                 //default_notify (this, GF_EVENT_CHILD_DOWN, NULL);

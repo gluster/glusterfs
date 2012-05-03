@@ -419,6 +419,7 @@ glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
         call_frame_t        *frame    = NULL;
         glusterd_peerinfo_t *peerinfo = NULL;
         glusterd_peerctx_t  *peerctx  = NULL;
+        char                msg[1024] = {0,};
 
         this = THIS;
         frame = myframe;
@@ -426,19 +427,25 @@ glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
         peerinfo = peerctx->peerinfo;
 
         if (-1 == req->rpc_status) {
-                gf_log ("", GF_LOG_ERROR,
-                        "error through RPC layer, retry again later");
+                snprintf (msg, sizeof (msg),
+                          "Error through RPC layer, retry again later");
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_dump_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "failed to decode XDR");
+                snprintf (msg, sizeof (msg), "Failed to decode XDR");
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
         if (-1 == rsp.op_ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "failed to get the 'versions' from remote server");
+                snprintf (msg, sizeof (msg),
+                          "Failed to get the 'versions' from remote server");
+                gf_log (frame->this->name, GF_LOG_ERROR, "%s", msg);
+                peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
 
