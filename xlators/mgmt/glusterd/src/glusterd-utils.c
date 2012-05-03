@@ -911,8 +911,11 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
                 peerinfo->rpc->mydata = NULL;
                 peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
                 peerinfo->rpc = NULL;
-                if (peerctx)
+                if (peerctx) {
+                        if (peerctx->errstr)
+                                GF_FREE (peerctx->errstr);
                         GF_FREE (peerctx);
+                }
         }
         glusterd_peer_destroy (peerinfo);
 

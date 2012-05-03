@@ -225,6 +225,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 if (ctx->req) {
                         glusterd_xfer_cli_probe_resp (ctx->req, rsp.op_ret,
                                                       rsp.op_errno,
+                                                      rsp.op_errstr,
                                                       ctx->hostname, ctx->port);
                 }
 
@@ -252,6 +253,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 if (ctx->req) {
                         glusterd_xfer_cli_probe_resp (ctx->req, rsp.op_ret,
                                                       rsp.op_errno,
+                                                      rsp.op_errstr,
                                                       ctx->hostname, ctx->port);
                 }
 
@@ -372,7 +374,8 @@ out:
 
         if (ctx->req)//reverse probe doesn't have req
                 ret = glusterd_xfer_cli_probe_resp (ctx->req, op_ret, op_errno,
-                                                    ctx->hostname, ctx->port);
+                                                    NULL, ctx->hostname,
+                                                    ctx->port);
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();

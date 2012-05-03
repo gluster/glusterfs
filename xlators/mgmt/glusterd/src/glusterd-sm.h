@@ -119,6 +119,7 @@ typedef struct glusterd_peer_ctx_args_ {
 typedef struct glusterd_peer_ctx_ {
         glusterd_peerctx_args_t        args;
         glusterd_peerinfo_t            *peerinfo;
+        char                           *errstr;
 } glusterd_peerctx_t;
 
 typedef enum glusterd_friend_sm_event_type_ {
