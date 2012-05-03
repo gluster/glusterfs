@@ -624,15 +624,6 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        if (volinfo->defrag_cmd == GF_DEFRAG_CMD_STATUS)
-                goto out;
-
-        snprintf (buf, sizeof (buf), "%d", volinfo->defrag_cmd);
-        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG,
-                                        buf);
-        if (ret)
-                goto out;
-
         str = glusterd_auth_get_username (volinfo);
         if (str) {
                 ret = glusterd_store_save_value (fd,
@@ -718,7 +709,7 @@ glusterd_store_rbstatepath_set (glusterd_volinfo_t *volinfo, char *rbstatepath,
         char    voldirpath[PATH_MAX] = {0,};
         GF_ASSERT (volinfo);
         GF_ASSERT (rbstatepath);
-        GF_ASSERT (len >= PATH_MAX);
+        GF_ASSERT (len <= PATH_MAX);
 
         glusterd_store_voldirpath_set (volinfo, voldirpath,
                                        sizeof (voldirpath));
@@ -733,11 +724,26 @@ glusterd_store_volfpath_set (glusterd_volinfo_t *volinfo, char *volfpath,
         char    voldirpath[PATH_MAX] = {0,};
         GF_ASSERT (volinfo);
         GF_ASSERT (volfpath);
-        GF_ASSERT (len >= PATH_MAX);
+        GF_ASSERT (len <= PATH_MAX);
 
         glusterd_store_voldirpath_set (volinfo, voldirpath,
                                        sizeof (voldirpath));
         snprintf (volfpath, len, "%s/%s", voldirpath, GLUSTERD_VOLUME_INFO_FILE);
+}
+
+static void
+glusterd_store_node_state_path_set (glusterd_volinfo_t *volinfo,
+                                    char *node_statepath, size_t len)
+{
+        char    voldirpath[PATH_MAX] = {0,};
+        GF_ASSERT (volinfo);
+        GF_ASSERT (node_statepath);
+        GF_ASSERT (len <= PATH_MAX);
+
+        glusterd_store_voldirpath_set (volinfo, voldirpath,
+                                       sizeof (voldirpath));
+        snprintf (node_statepath, len, "%s/%s", voldirpath,
+                  GLUSTERD_NODE_STATE_FILE);
 }
 
 int32_t
@@ -765,6 +771,23 @@ glusterd_store_create_vol_shandle_on_absence (glusterd_volinfo_t *volinfo)
         glusterd_store_volfpath_set (volinfo, volfpath, sizeof (volfpath));
         ret = glusterd_store_handle_create_on_absence (&volinfo->shandle,
                                                        volfpath);
+        return ret;
+}
+
+int32_t
+glusterd_store_create_nodestate_sh_on_absence (glusterd_volinfo_t *volinfo)
+{
+        char            node_state_path[PATH_MAX] = {0};
+        int32_t         ret                   = 0;
+
+        GF_ASSERT (volinfo);
+
+        glusterd_store_node_state_path_set (volinfo, node_state_path,
+                                            sizeof (node_state_path));
+        ret =
+          glusterd_store_handle_create_on_absence (&volinfo->node_state_shandle,
+                                                   node_state_path);
+
         return ret;
 }
 
@@ -857,6 +880,56 @@ out:
 }
 
 int32_t
+glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
+{
+        int     ret             = -1;
+        char    buf[PATH_MAX]   = {0, };
+
+        GF_ASSERT (fd > 0);
+        GF_ASSERT (volinfo);
+
+        if (volinfo->defrag_cmd == GF_DEFRAG_CMD_STATUS) {
+                ret = 0;
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->defrag_cmd);
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG,
+                                         buf);
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_store_perform_node_state_store (glusterd_volinfo_t *volinfo)
+{
+        int                         fd = -1;
+        int32_t                     ret = -1;
+        GF_ASSERT (volinfo);
+
+        fd = glusterd_store_mkstemp (volinfo->node_state_shandle);
+        if (fd <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_store_node_state_write (fd, volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_rename_tmppath (volinfo->node_state_shandle);
+
+out:
+        if (ret && (fd > 0))
+                glusterd_store_unlink_tmppath (volinfo->node_state_shandle);
+        if (fd > 0)
+                close (fd);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_store_perform_volume_store (glusterd_volinfo_t *volinfo)
 {
         int                         fd = -1;
@@ -922,11 +995,19 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
         if (ret)
                 goto out;
 
+        ret = glusterd_store_create_nodestate_sh_on_absence (volinfo);
+        if (ret)
+                goto out;
+
         ret = glusterd_store_perform_volume_store (volinfo);
         if (ret)
                 goto out;
 
         ret = glusterd_store_perform_rbstate_store (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_perform_node_state_store (volinfo);
         if (ret)
                 goto out;
 
@@ -1815,6 +1896,68 @@ out:
 }
 
 int32_t
+glusterd_store_retrieve_node_state (char   *volname)
+{
+        int32_t                   ret                   = -1;
+        glusterd_volinfo_t        *volinfo              = NULL;
+        glusterd_store_iter_t     *iter                 = NULL;
+        char                      *key                  = NULL;
+        char                      *value                = NULL;
+        char                      volpath[PATH_MAX]     = {0,};
+        glusterd_conf_t           *priv                 = NULL;
+        char                      path[PATH_MAX]        = {0,};
+        glusterd_store_op_errno_t op_errno              = GD_STORE_SUCCESS;
+
+        priv = THIS->private;
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't get"
+                        "volinfo for %s.", volname);
+                goto out;
+        }
+
+        GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
+        snprintf (path, sizeof (path), "%s/%s", volpath,
+                  GLUSTERD_NODE_STATE_FILE);
+
+        ret = glusterd_store_handle_retrieve (path,
+                                              &volinfo->node_state_shandle);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_iter_new (volinfo->node_state_shandle, &iter);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_iter_get_next (iter, &key, &value, &op_errno);
+        if (ret)
+                goto out;
+        if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
+                       strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
+                 volinfo->defrag_cmd = atoi (value);
+        }
+
+        GF_FREE (key);
+        GF_FREE (value);
+
+        if (op_errno != GD_STORE_EOF)
+                goto out;
+
+        ret = glusterd_store_iter_destroy (iter);
+
+        if (ret)
+                goto out;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
+
+int32_t
 glusterd_store_retrieve_volume (char    *volname)
 {
         int32_t                   ret                   = -1;
@@ -1914,11 +2057,7 @@ glusterd_store_retrieve_volume (char    *volname)
                         }
                         gf_log ("", GF_LOG_DEBUG, "Parsed as "GEOREP" "
                                 " slave:key=%s,value:%s", key, value);
-                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
-                        volinfo->defrag_cmd = atoi (value);
-                }
-                else {
+                } else {
                         exists = glusterd_check_option_exists (key, NULL);
                         if (exists == -1) {
                                 ret = -1;
@@ -2054,6 +2193,18 @@ glusterd_store_retrieve_volumes (xlator_t  *this)
                         ret = glusterd_volinfo_find (entry->d_name, &volinfo);
                         ret = glusterd_store_create_rbstate_shandle_on_absence (volinfo);
                         ret = glusterd_store_perform_rbstate_store (volinfo);
+                }
+
+                ret = glusterd_store_retrieve_node_state (entry->d_name);
+                if (ret) {
+                        /* Backward compatibility */
+                        gf_log ("", GF_LOG_INFO, "Creating a new node_state "
+                                "for volume: %s.", entry->d_name);
+                        ret = glusterd_volinfo_find (entry->d_name, &volinfo);
+                        ret =
+                        glusterd_store_create_nodestate_sh_on_absence (volinfo);
+                        ret = glusterd_store_perform_node_state_store (volinfo);
+
                 }
                 glusterd_for_each_entry (entry, dir);
         }

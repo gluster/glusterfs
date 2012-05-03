@@ -219,6 +219,7 @@ struct glusterd_volinfo_ {
         int                     port;
         glusterd_store_handle_t *shandle;
         glusterd_store_handle_t *rb_shandle;
+        glusterd_store_handle_t *node_state_shandle;
 
         /* Defrag/rebalance related */
         gf_defrag_status_t      defrag_status;
@@ -288,6 +289,7 @@ enum glusterd_vol_comp_status_ {
 #define GLUSTERD_VOLUME_RBSTATE_FILE "rbstate"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"
 #define GLUSTERD_CKSUM_FILE "cksum"
+#define GLUSTERD_NODE_STATE_FILE "node_state.info"
 
 /* definitions related to replace brick */
 #define RB_CLIENT_MOUNTPOINT    "rb_mount"

@@ -190,8 +190,7 @@ glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                         }
                  }
 
-                glusterd_store_volinfo (volinfo,
-                                        GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                glusterd_store_perform_node_state_store (volinfo);
 
                 if (defrag->rpc) {
                         rpc_clnt_unref (defrag->rpc);
@@ -261,7 +260,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         volinfo->rebalance_failures = 0;
 
         volinfo->defrag_cmd = cmd;
-        glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        glusterd_store_perform_node_state_store (volinfo);
 
         GLUSTERD_GET_DEFRAG_DIR (defrag_path, volinfo, priv);
         ret = stat (defrag_path, &buf);
