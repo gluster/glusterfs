@@ -38,6 +38,7 @@ pidinfo (pid_t pid, char **name)
         char buf[NAME_MAX * 2] = {0,};
         FILE *f                = NULL;
         char *p                = NULL;
+        char *free_p           = NULL;
         int ret                = 0;
 
         ret = gf_asprintf (&p, PROC"/%d/status", pid);
@@ -45,8 +46,11 @@ pidinfo (pid_t pid, char **name)
                 goto oom;
 
         f = fopen (p, "r");
-        if (!f)
+        if (!f) {
+                GF_FREE (p);
                 return -1;
+        }
+        free_p = p;
 
         if (name)
                 *name = NULL;
@@ -81,17 +85,21 @@ pidinfo (pid_t pid, char **name)
                 pid = -1;
 
  out:
+        if (free_p)
+                GF_FREE (free_p);
         fclose (f);
         return pid;
 
  oom:
+        if (free_p)
+                GF_FREE (free_p);
         fclose (f);
         fprintf (stderr, "out of memory\n");
         return -2;
 }
 
 int
-prociter (int (*proch) (pid_t pid, pid_t ppid, char *name, void *data),
+prociter (int (*proch) (pid_t pid, pid_t ppid, char *tmpname, void *data),
           void *data)
 {
         char *name        = NULL;
@@ -102,23 +110,38 @@ prociter (int (*proch) (pid_t pid, pid_t ppid, char *name, void *data),
         int ret           = 0;
 
         d = opendir (PROC);
+        if (!d) {
+                ret = -1;
+                goto out;
+        }
         while (errno = 0, de = readdir (d)) {
                 if (gf_string2int (de->d_name, &pid) != -1 && pid >= 0) {
                         ppid = pidinfo (pid, &name);
                         switch (ppid) {
                         case -1: continue;
-                        case -2: return -1;
+                        case -2: closedir (d); return -1;
                         }
                         ret = proch (pid, ppid, name, data);
-                        if (ret)
-                                return ret;
+                        if (ret) {
+                                goto out;
+                        }
+                        GF_FREE (name);
+                        name = NULL;
                 }
         }
         if (errno) {
                 fprintf (stderr, "failed to traverse "PROC" (%s)\n",
                          strerror (errno));
-                return -1;
+                goto out;
         }
 
-        return 0;
+        ret = 0;
+out:
+        if (d)
+                closedir (d);
+
+        if (name)
+                GF_FREE (name);
+
+        return ret;
 }
