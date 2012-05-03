@@ -441,12 +441,70 @@ out:
         return ret;
 }
 
+struct updatedict {
+	dict_t *dict;
+	int ret;
+};
+
+static void
+updatefn(dict_t *dict, char *key, data_t *value, void *data)
+{
+	struct updatedict *u = data;
+	const char *mdc_key;
+	int i = 0;
+
+	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
+		if (!mdc_keys[i].check)
+			continue;
+		if (strcmp(mdc_key, key))
+			continue;
+
+		if (!u->dict) {
+			u->dict = dict_new();
+			if (!u->dict) {
+				u->ret = -1;
+				return;
+			}
+		}
+
+		if (dict_set(u->dict, key, value) < 0) {
+			u->ret = -1;
+			return;
+		}
+
+		break;
+	}
+}
+
+static int
+mdc_dict_update(dict_t **tgt, dict_t *src)
+{
+	struct updatedict u = {
+		.dict = *tgt,
+		.ret = 0,
+	};
+
+	dict_foreach(src, updatefn, &u);
+
+	if (*tgt)
+		return u.ret;
+
+	if ((u.ret < 0) && u.dict) {
+		dict_unref(u.dict);
+		return u.ret;
+	}
+
+	*tgt = u.dict;
+
+	return u.ret;
+}
 
 int
 mdc_inode_xatt_set (xlator_t *this, inode_t *inode, dict_t *dict)
 {
         int              ret = -1;
         struct md_cache *mdc = NULL;
+	dict_t		*newdict = NULL;
 
         mdc = mdc_inode_prep (this, inode);
         if (!mdc)
@@ -457,10 +515,19 @@ mdc_inode_xatt_set (xlator_t *this, inode_t *inode, dict_t *dict)
 
         LOCK (&mdc->lock);
         {
-                if (mdc->xattr)
+                if (mdc->xattr) {
                         dict_unref (mdc->xattr);
+			mdc->xattr = NULL;
+		}
 
-                mdc->xattr = dict_ref (dict);
+		ret = mdc_dict_update(&newdict, dict);
+		if (ret < 0) {
+			UNLOCK(&mdc->lock);
+			goto out;
+		}
+
+		if (newdict)
+			mdc->xattr = newdict;
 
                 time (&mdc->xa_time);
         }
@@ -486,10 +553,11 @@ mdc_inode_xatt_update (xlator_t *this, inode_t *inode, dict_t *dict)
 
         LOCK (&mdc->lock);
         {
-                if (!mdc->xattr)
-                        mdc->xattr = dict_ref (dict);
-                else
-                        dict_copy (dict, mdc->xattr);
+		ret = mdc_dict_update(&mdc->xattr, dict);
+		if (ret < 0) {
+			UNLOCK(&mdc->lock);
+			goto out;
+		}
 
                 time (&mdc->xa_time);
         }

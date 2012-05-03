@@ -429,13 +429,32 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
+		/*
+		 * Create our own internal dict and migrate the file content
+		 * over to it so it isn't floating around in other translator
+		 * caches.
+		 */
                 if (qr_inode->xattr) {
                         dict_unref (qr_inode->xattr);
                         qr_inode->xattr = NULL;
                         table->cache_used -= qr_inode->stbuf.ia_size;
                 }
 
-                qr_inode->xattr = dict_ref (xdata);
+		qr_inode->xattr = dict_new();
+		if (!qr_inode->xattr) {
+			op_ret = -1;
+			op_errno = ENOMEM;
+			goto unlock;
+		}
+
+		if (dict_set(qr_inode->xattr, GF_CONTENT_KEY, content) < 0) {
+			op_ret = -1;
+			op_errno = ENOMEM;
+			goto unlock;
+		}
+
+		dict_del(xdata, GF_CONTENT_KEY);
+
                 qr_inode->stbuf = *buf;
                 table->cache_used += buf->ia_size;
 
