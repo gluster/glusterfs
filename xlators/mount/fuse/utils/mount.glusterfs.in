@@ -286,7 +286,7 @@ main ()
                         read key value < <(echo "$pair" | tr "=" " ")
                         # Handle options with values.
                         case "$key" in
-                            "log-level")        new_log_level=$value ;;
+                            "log-level")        log_level_str=$value ;;
                             "log-file")         log_file=$value ;;
                             "transport")        transport=$value ;;
                             "direct-io-mode")   direct_io_mode=$value ;;
