@@ -33,7 +33,7 @@ Working
 * open call does,
   * real_open on the file.
   * fgetxattr(fd).
-  * store the volume-file content got in the dictionary to a temparory file.
+  * store the volume-file content got in the dictionary to a temporary file.
   * look in the hashtable for the mount-point, if already present get the libglusterfsclient handle from the 
     hashtable. Otherwise get a new handle from libglusterfsclient (be careful about mount point not present in 
     the hashtable and multiple glusterfs_inits running simultaneously for the same mount-point there by using 
