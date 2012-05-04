@@ -523,9 +523,10 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_unref (link_inode);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": MKDIR %s  ==> %"PRId32" (%s)",
+                        "%"PRId64": MKDIR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--",op_ret, strerror (op_errno));
         }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -569,9 +570,10 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_unref (link_inode);
         } else {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": MKNOD %s ==> %"PRId32" (%s)",
+                        "%"PRId64": MKNOD %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
-                        op_ret, strerror (op_errno));
+                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
+                        "--",op_ret, strerror (op_errno));
         }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
