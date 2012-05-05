@@ -4428,7 +4428,8 @@ check_xattr:
         /* This 'key' is set when the volume is started for the first time */
         ret = sys_lgetxattr (path, "trusted.glusterfs.volume-id",
                              old_uuid, 16);
-        if (ret >= 0) {
+        if ((ret >= 0 && ret != 16) || ((ret == 16) &&
+                                        uuid_compare (old_uuid, uuid))) {
                 snprintf (msg, sizeof (msg), "'%s:%s' has been part of "
                           "a volume with id %s. Please re-create the brick "
                           "directory.", host, path, uuid_utoa (old_uuid));
