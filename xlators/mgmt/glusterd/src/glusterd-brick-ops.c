@@ -684,21 +684,6 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
 	}
 
-	/* Do not allow remove-brick if the bricks given is less than
-           the replica count or stripe count */
-        if (!replica_count && (volinfo->type != GF_CLUSTER_TYPE_NONE) &&
-            !(volinfo->brick_count <= volinfo->dist_leaf_count)) {
-                if (volinfo->dist_leaf_count &&
-                    (count % volinfo->dist_leaf_count)) {
-                        snprintf (err_str, 2048, "Remove brick incorrect"
-                                  " brick count of %d for %s %d",
-                                  count, vol_type, volinfo->dist_leaf_count);
-                        gf_log ("", GF_LOG_ERROR, "%s", err_str);
-                        ret = -1;
-                        goto out;
-                }
-        }
-
 	if (!replica_count &&
             (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) &&
             (volinfo->brick_count == volinfo->dist_leaf_count)) {
@@ -709,6 +694,32 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
                 ret = -1;
                 goto out;
+        }
+
+	if (!replica_count &&
+            (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
+            (volinfo->brick_count == volinfo->dist_leaf_count)) {
+                snprintf (err_str, 2048,
+                          "Removing bricks from replicate configuration "
+                          "is not allowed without reducing replica count "
+                          "explicitly.");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
+                ret = -1;
+                goto out;
+        }
+
+	/* Do not allow remove-brick if the bricks given is less than
+           the replica count or stripe count */
+        if (!replica_count && (volinfo->type != GF_CLUSTER_TYPE_NONE)) {
+                if (volinfo->dist_leaf_count &&
+                    (count % volinfo->dist_leaf_count)) {
+                        snprintf (err_str, 2048, "Remove brick incorrect"
+                                  " brick count of %d for %s %d",
+                                  count, vol_type, volinfo->dist_leaf_count);
+                        gf_log ("", GF_LOG_ERROR, "%s", err_str);
+                        ret = -1;
+                        goto out;
+                }
         }
 
         brick_list = GF_MALLOC (120000 * sizeof(*brick_list),gf_common_mt_char);
