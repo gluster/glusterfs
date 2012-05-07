@@ -246,18 +246,6 @@ out:
         return ret;
 }
 
-/* defined in glusterd-utils.c -- no
- * glusterd header where it would be
- * appropriate to put to, and too
- * accidental routine to place in
- * libglusterfs.
- *
- * (Indeed, XXX: we'd rather need a general
- * "mkdir -p" like routine in
- * libglusterfs)
- */
-extern int mkdir_if_missing (char *path);
-
 #if SYNCDAEMON_COMPILE
 static int
 glusterd_check_gsync_present (int *valid_state)
@@ -356,7 +344,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         }
 
         snprintf (georepdir, PATH_MAX, "%s/"GEOREP, conf->workdir);
-        ret = mkdir_if_missing (georepdir);
+        ret = mkdir_if_missing (georepdir, NULL);
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" directory %s",
@@ -371,7 +359,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                         georepdir);
                 goto out;
         }
-        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP);
+        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP, NULL);
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" log directory");
@@ -385,7 +373,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                         georepdir);
                 goto out;
         }
-        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves");
+        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves",
+                                NULL);
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" slave log directory");

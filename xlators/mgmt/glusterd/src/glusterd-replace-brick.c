@@ -465,7 +465,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
 
         if (!glusterd_is_local_addr (host)) {
                 ret = glusterd_brick_create_path (host, path,
-                                                  volinfo->volume_id, 0777,
+                                                  volinfo->volume_id,
                                                   op_errstr);
                 if (ret)
                         goto out;

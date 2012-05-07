@@ -39,8 +39,6 @@
 
 #include <fnmatch.h>
 
-extern int mkdir_if_missing (char *dir);
-
 #define EMPTY ""
 char glusterd_hook_dirnames[GD_OP_MAX][256] =
 {
@@ -95,7 +93,7 @@ glusterd_hooks_create_hooks_directory (char *basedir)
         priv = THIS->private;
 
         snprintf (path, sizeof (path), "%s/hooks", basedir);
-        ret = mkdir_if_missing (path);
+        ret = mkdir_if_missing (path, NULL);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to create %s due"
                          "to %s", path, strerror (errno));
@@ -103,7 +101,7 @@ glusterd_hooks_create_hooks_directory (char *basedir)
         }
 
         GLUSTERD_GET_HOOKS_DIR (version_dir, GLUSTERD_HOOK_VER, priv);
-        ret = mkdir_if_missing (version_dir);
+        ret = mkdir_if_missing (version_dir, NULL);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to create %s due "
                         "to %s", version_dir, strerror (errno));
@@ -117,7 +115,7 @@ glusterd_hooks_create_hooks_directory (char *basedir)
 
                 snprintf (path, sizeof (path), "%s/%s", version_dir,
                           cmd_subdir);
-                ret = mkdir_if_missing (path);
+                ret = mkdir_if_missing (path, NULL);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_CRITICAL,
                                 "Unable to create %s due to %s",
@@ -129,7 +127,7 @@ glusterd_hooks_create_hooks_directory (char *basedir)
                      type++) {
                         snprintf (path, sizeof (path), "%s/%s/%s",
                                   version_dir, cmd_subdir, type_subdir[type]);
-                        ret = mkdir_if_missing (path);
+                        ret = mkdir_if_missing (path, NULL);
                         if (ret) {
                                 gf_log (THIS->name, GF_LOG_CRITICAL,
                                         "Unable to create %s due to %s",
