@@ -236,8 +236,6 @@ out:
         return block_size;
 }
 
-
-
 int32_t
 stripe_ctx_handle (xlator_t *this, call_frame_t *prev, stripe_local_t *local,
                    dict_t *dict)
@@ -246,7 +244,6 @@ stripe_ctx_handle (xlator_t *this, call_frame_t *prev, stripe_local_t *local,
         data_t         *data            = NULL;
         int32_t         index           = 0;
         stripe_private_t *priv          = NULL;
-        int32_t         ret             = -1;
 
         priv = this->private;
 
@@ -343,14 +340,31 @@ stripe_ctx_handle (xlator_t *this, call_frame_t *prev, stripe_local_t *local,
                 if (!local->fctx->xl_array[index])
                         local->fctx->xl_array[index] = prev->this;
         }
-        ret = 0;
+
+	sprintf(key, "trusted.%s.stripe-coalesce", this->name);
+	data = dict_get(dict, key);
+	if (!data) {
+		/*
+		 * The file was probably created prior to coalesce support.
+		 * Assume non-coalesce mode for this file to maintain backwards
+		 * compatibility.
+		 */
+		gf_log(this->name, GF_LOG_DEBUG, "missing stripe-coalesce "
+			"attr, assume non-coalesce mode");
+		local->fctx->stripe_coalesce = 0;
+	} else {
+		local->fctx->stripe_coalesce = data_to_int32(data);
+	}
+
+
 out:
-        return ret;
+        return 0;
 }
 
 int32_t
 stripe_xattr_request_build (xlator_t *this, dict_t *dict, uint64_t stripe_size,
-                            uint32_t stripe_count, uint32_t stripe_index)
+                            uint32_t stripe_count, uint32_t stripe_index,
+			    uint32_t stripe_coalesce)
 {
         char            key[256]       = {0,};
         int32_t         ret             = -1;
@@ -378,6 +392,14 @@ stripe_xattr_request_build (xlator_t *this, dict_t *dict, uint64_t stripe_size,
                         "failed to set %s in xattr_req dict", key);
                 goto out;
         }
+
+	sprintf(key, "trusted.%s.stripe-coalesce", this->name);
+	ret = dict_set_int32(dict, key, stripe_coalesce);
+	if (ret) {
+		gf_log(this->name, GF_LOG_WARNING,
+			"failed to set %s in xattr_req_dict", key);
+		goto out;
+	}
 out:
         return ret;
 }
@@ -508,3 +530,61 @@ stripe_iatt_merge (struct iatt *from, struct iatt *to)
                 to->ia_atime = from->ia_atime;
         return 0;
 }
+
+off_t
+coalesced_offset(off_t offset, uint64_t stripe_size, int stripe_count)
+{
+	size_t line_size = 0;
+	uint64_t stripe_num = 0;
+	off_t coalesced_offset = 0;
+
+	line_size = stripe_size * stripe_count;
+	stripe_num = offset / line_size;
+
+	coalesced_offset = (stripe_num * stripe_size) +
+		(offset % stripe_size);
+
+	return coalesced_offset;
+}
+
+off_t
+uncoalesced_size(off_t size, uint64_t stripe_size, int stripe_count,
+		int stripe_index)
+{
+        uint64_t nr_full_stripe_chunks = 0, mod = 0;
+
+        if (!size)
+                return size;
+
+	/*
+	 * Estimate the number of fully written stripes from the
+	 * local file size. Each stripe_size chunk corresponds to
+	 * a stripe.
+	 */
+        nr_full_stripe_chunks = (size / stripe_size) * stripe_count;
+        mod = size % stripe_size;
+
+        if (!mod) {
+                /*
+		 * There is no remainder, thus we could have overestimated
+		 * the size of the file in terms of chunks. Trim the number
+		 * of chunks by the following stripe members and leave it
+		 * up to those nodes to respond with a larger size (if
+		 * necessary).
+		 */
+                nr_full_stripe_chunks -= stripe_count -
+                        (stripe_index + 1);
+                size = nr_full_stripe_chunks * stripe_size;
+        } else {
+		/*
+		 * There is a remainder and thus we own the last chunk of the
+		 * file. Add the preceding stripe members of the final stripe
+		 * along with the remainder to calculate the exact size.
+		 */
+                nr_full_stripe_chunks += stripe_index;
+                size = nr_full_stripe_chunks * stripe_size + mod;
+        }
+
+        return size;
+}
+
