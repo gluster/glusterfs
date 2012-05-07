@@ -1808,7 +1808,7 @@ out:
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
                              fd, (loc)?loc->inode:NULL, &stbuf, &preparent,
-                             &postparent, NULL);
+                             &postparent, xdata);
 
         return 0;
 }

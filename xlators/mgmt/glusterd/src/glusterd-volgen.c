@@ -135,6 +135,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, NO_DOC, 0},
 
         {"cluster.stripe-block-size",            "cluster/stripe",     "block-size", NULL, DOC, 0},
+	{"cluster.stripe-coalesce",              "cluster/stripe",     "coalesce", NULL, DOC, 0},
 
         {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", NO_DOC, 0},
         {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0},
