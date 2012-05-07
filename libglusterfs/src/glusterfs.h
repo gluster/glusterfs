@@ -73,6 +73,7 @@
 #define GF_XATTR_CLRLK_CMD      "glusterfs.clrlk"
 #define GF_XATTR_PATHINFO_KEY   "trusted.glusterfs.pathinfo"
 #define GF_XATTR_NODE_UUID_KEY  "trusted.glusterfs.node-uuid"
+#define GF_XATTR_VOL_ID_KEY   "trusted.glusterfs.volume-id"
 
 #define XATTR_IS_PATHINFO(x)  (strncmp (x, GF_XATTR_PATHINFO_KEY,       \
                                         strlen (GF_XATTR_PATHINFO_KEY)) == 0)
