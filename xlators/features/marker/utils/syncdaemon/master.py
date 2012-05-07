@@ -367,7 +367,7 @@ class GMaster(object):
             except (IOError, OSError):
                 ex = sys.exc_info()[1]
                 if ex.errno == ENOENT:
-                    logging.warn("salvaged ENOENT for" + e)
+                    logging.warn("salvaged ENOENT for " + e)
                     self.add_failjob(blame, 'by-indulgently')
                     return False
                 else:
