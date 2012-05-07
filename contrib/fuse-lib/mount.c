@@ -544,25 +544,19 @@ gf_fuse_unmount (const char *mountpoint, int fd)
 
 #ifndef FUSE_UTIL
 static int
-fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, pid_t *mtab_pid, int in_fd, int status_fd)
+fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, pid_t *mtab_pid)
 {
         int fd = -1, ret = -1;
         unsigned mounted = 0;
         char *mnt_param_mnt = NULL;
         char *fstype = "fuse.glusterfs";
         char *source = fsname;
-        pid_t mypid = -1;
 
-        if (in_fd >= 0) {
-                fd = in_fd;
-        }
-        else {
-                fd = open ("/dev/fuse", O_RDWR);
-                if (fd == -1) {
-                        GFFUSE_LOGERR ("cannot open /dev/fuse (%s)",
-                                        strerror (errno));
-                        return -1;
-                }
+        fd = open ("/dev/fuse", O_RDWR);
+        if (fd == -1) {
+                GFFUSE_LOGERR ("cannot open /dev/fuse (%s)", strerror (errno));
+
+                return -1;
         }
 
         ret = asprintf (&mnt_param_mnt,
@@ -573,14 +567,8 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, pid_t *mt
 
                 goto out;
         }
-        ret = fork();
-        if (ret != 0) {
-                goto parent_out;
-        }
-        GFFUSE_LOGERR("calling mount");
         ret = mount (source, mountpoint, fstype, 0,
                      mnt_param_mnt);
-        GFFUSE_LOGERR("mount returned %d",ret);
         if (ret == -1 && errno == ENODEV) {
                 /* fs subtype support was added by 79c0b2df aka
                    v2.6.21-3159-g79c0b2d. Probably we have an
@@ -619,31 +607,11 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, pid_t *mt
                 }
         }
 
-        ret = 0;
-out:
-        if (status_fd >= 0) {
-                GFFUSE_LOGERR("writing status");
-                (void)write(status_fd,&ret,sizeof(ret));
-                mypid = getpid();
-                /*
-                 * This seems awkward, but the alternative would be to add
-                 * or change return values for functions in multiple layers,
-                 * just so they can store the value for later retrieval by
-                 * the code already running in the right context at the other
-                 * end of this pipe.  That's a lot of disruption for nothing.
-                 */
-                (void)write(status_fd,&mypid,sizeof(mypid));
-        }
-        GFFUSE_LOGERR("Mount child exiting");
-        exit(0);
-
-parent_out:
+ out:
         if (ret == -1) {
                 if (mounted)
                         umount2 (mountpoint, 2); /* lazy umount */
-                if (fd != in_fd) {
-                        close (fd);
-                }
+                close (fd);
                 fd = -1;
         }
         FREE (mnt_param_mnt);
@@ -683,21 +651,13 @@ escape (char *s)
 
 int
 gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
-               pid_t *mtab_pid, int status_fd)
+               pid_t *mtab_pid)
 {
         int fd = -1, rv = -1;
         char *fm_mnt_params = NULL, *p = NULL;
         char *efsname = NULL;
 
-        fd = open ("/dev/fuse", O_RDWR);
-        if (fd == -1) {
-                GFFUSE_LOGERR ("cannot open /dev/fuse (%s)",
-                                strerror (errno));
-                return -1;
-        }
-
-        fd = fuse_mount_sys (mountpoint, fsname, mnt_param, mtab_pid, fd,
-                             status_fd);
+        fd = fuse_mount_sys (mountpoint, fsname, mnt_param, mtab_pid);
         if (fd == -1) {
                 gf_log ("glusterfs-fuse", GF_LOG_INFO,
                         "direct mount failed (%s), "

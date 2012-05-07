@@ -34,36 +34,6 @@ _init ()
     UPDATEDBCONF=/etc/updatedb.conf
 }
 
-# Mount happens asynchronously, so the command status alone will never be
-# sufficient.  Instead, we have to wait for multiple events representing
-# different possible outcomes.
-wait_for ()
-{
-    local daemon_pid=$1
-    local mount_point=$2
-
-    waited=0
-    while true; do
-        kill -s 0 $daemon_pid
-        if [ $? != 0 ]; then
-                echo "Gluster client daemon exited unexpectedly."
-                umount $mount_point &> /dev/null
-                exit 1
-        fi
-        inode=$(stat -c %i $mount_point 2>/dev/null);
-        if [ "$inode" = "1" ]; then
-            break
-        fi
-        if [ $waited -ge 10 ]; then
-            break
-        fi
-        sleep 1
-        waited=$((waited+1))
-    done
-
-    echo "$inode"
-}
-
 start_glusterfs ()
 {
     if [ -n "$log_level_str" ]; then
@@ -151,33 +121,34 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
     fi
 
-    cmd_line=$(echo "$cmd_line $mount_point")
-    err=0
-    $cmd_line
-    daemon_pid=$$
+    cmd_line=$(echo "$cmd_line $mount_point");
+    err=0;
+    $cmd_line;
 
-    # Wait for the inode to change *or* for the daemon to exit (indicating a
-    # problem with the mount).
-    inode=$(wait_for $daemon_pid $mount_point)
+
+    inode=$(stat -c %i $mount_point 2>/dev/null);
+
     # this is required if the stat returns error
     if [ -z "$inode" ]; then
-        inode="0"
+        inode="0";
     fi
 
     # retry the failover
+    # if [ $? != "0" ]; then # <--- TODO: Once glusterfs returns proper error code, change it.
     if [ $inode -ne 1 ]; then
+        err=1;
         if [ -n "$cmd_line1" ]; then
             cmd_line1=$(echo "$cmd_line1 $mount_point");
-            $cmd_line1
-            daemon_pid=$$
+            $cmd_line1;
+            err=0;
 
-            inode=$(wait_for $daemon_pid $mount_point)
+            inode=$(stat -c %i $mount_point 2>/dev/null);
             # this is required if the stat returns error
             if [ -z "$inode" ]; then
                 inode="0";
             fi
             if [ $inode -ne 1 ]; then
-                err=1
+                err=1;
             fi
         fi
     fi
