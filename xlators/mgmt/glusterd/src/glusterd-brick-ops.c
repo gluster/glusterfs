@@ -1164,7 +1164,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                         ret = glusterd_brick_create_path (brickinfo->hostname,
                                                           brickinfo->path,
                                                           volinfo->volume_id,
-                                                          0777, op_errstr);
+                                                          op_errstr);
                         if (ret)
                                 goto out;
                 }
