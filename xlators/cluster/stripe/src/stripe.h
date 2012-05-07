@@ -101,6 +101,7 @@ struct stripe_private {
         int8_t                  child_count;
         int8_t                 *state; /* Current state of child node */
         gf_boolean_t            xattr_supported;  /* default yes */
+	gf_boolean_t		coalesce;
         char                    vol_uuid[UUID_SIZE + 1];
 };
 
@@ -119,6 +120,7 @@ struct readv_replies {
 typedef struct _stripe_fd_ctx {
         off_t      stripe_size;
         int        stripe_count;
+	int	   stripe_coalesce;
         int        static_array;
         xlator_t **xl_array;
 } stripe_fd_ctx_t;
@@ -214,13 +216,41 @@ struct stripe_local {
 typedef struct stripe_local   stripe_local_t;
 typedef struct stripe_private stripe_private_t;
 
+/*
+ * Determine the stripe index of a particular frame based on the translator.
+ */
+static inline int32_t stripe_get_frame_index(stripe_fd_ctx_t *fctx,
+					     call_frame_t *prev)
+{
+	int32_t i, idx = -1;
+
+	for (i = 0; i < fctx->stripe_count; i++) {
+		if (fctx->xl_array[i] == prev->this) {
+			idx = i;
+			break;
+		}
+	}
+
+	return idx;
+}
+
+static inline void stripe_copy_xl_array(xlator_t **dst, xlator_t **src,
+					int count)
+{
+	int i;
+
+	for (i = 0; i < count; i++)
+		dst[i] = src[i];
+}
+
 void stripe_local_wipe (stripe_local_t *local);
 int32_t stripe_ctx_handle (xlator_t *this, call_frame_t *prev,
                            stripe_local_t *local, dict_t *dict);
 void stripe_aggregate_xattr (dict_t *dst, dict_t *src);
 int32_t stripe_xattr_request_build (xlator_t *this, dict_t *dict,
                                     uint64_t stripe_size, uint32_t stripe_count,
-                                    uint32_t stripe_index);
+                                    uint32_t stripe_index,
+				    uint32_t stripe_coalesce);
 int32_t stripe_get_matching_bs (const char *path, stripe_private_t *priv);
 int set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data);
 int32_t stripe_iatt_merge (struct iatt *from, struct iatt *to);
@@ -229,5 +259,27 @@ int32_t stripe_fill_pathinfo_xattr (xlator_t *this, stripe_local_t *local,
 int32_t stripe_free_xattr_str (stripe_local_t *local);
 int32_t stripe_xattr_aggregate (char *buffer, stripe_local_t *local,
                                 int32_t *total);
+off_t coalesced_offset(off_t offset, uint64_t stripe_size, int stripe_count);
+off_t uncoalesced_size(off_t size, uint64_t stripe_size, int stripe_count,
+			int stripe_index);
+
+/*
+ * Adjust the size attribute for files if coalesce is enabled.
+ */
+static inline void correct_file_size(struct iatt *buf, stripe_fd_ctx_t *fctx,
+	call_frame_t *prev)
+{
+	int index;
+
+	if (!IA_ISREG(buf->ia_type))
+		return;
+
+	if (!fctx || !fctx->stripe_coalesce)
+		return;
+
+	index = stripe_get_frame_index(fctx, prev);
+	buf->ia_size = uncoalesced_size(buf->ia_size, fctx->stripe_size,
+		fctx->stripe_count, index);
+}
 
 #endif /* _STRIPE_H_ */
