@@ -4648,9 +4648,9 @@ fini (xlator_t *this_xl)
                 gf_log (this_xl->name, GF_LOG_INFO,
                         "Unmounting '%s'.", mount_point);
 
-                dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);
                 gf_fuse_unmount (mount_point, priv->fd);
                 close (priv->fuse_dump_fd);
+                dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);
         }
         /* Process should terminate once fuse xlator is finished.
          * Required for AUTH_FAILED event.
