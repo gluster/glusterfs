@@ -1118,6 +1118,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
         int32_t        i        = 0;
         char          *node_uuid = NULL;
         char          *node_uuid_str = NULL;
+        double         elapsed_time = 0;
 
         GF_ASSERT (rsp_dict);
 
@@ -1226,6 +1227,19 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *rsp_dict)
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "failed to set failure count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "run-time-%d", index);
+        ret = dict_get_double (rsp_dict, key, &elapsed_time);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "run-time-%d", i);
+                ret = dict_set_double (ctx_dict, key, elapsed_time);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set run-time");
                 }
         }
 

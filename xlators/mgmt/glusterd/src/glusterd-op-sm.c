@@ -3341,6 +3341,13 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set failure count");
 
+        memset (key, 0, 256);
+        snprintf (key, 256, "run-time-%d", i);
+        ret = dict_set_double (op_ctx, key, volinfo->rebalance_time);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set run-time");
+
 out:
         return ret;
 }

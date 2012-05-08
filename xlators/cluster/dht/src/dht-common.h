@@ -206,6 +206,8 @@ struct gf_defrag_info_ {
         pid_t                        pid;
         inode_t                     *root_inode;
         uuid_t                       node_uuid;
+        struct timeval               start_time;
+        gf_boolean_t                 stats;
 
 };
 

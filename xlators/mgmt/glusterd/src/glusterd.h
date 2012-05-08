@@ -229,6 +229,7 @@ struct glusterd_volinfo_ {
         glusterd_defrag_info_t  *defrag;
         gf_cli_defrag_type      defrag_cmd;
         uint64_t                rebalance_failures;
+        double                  rebalance_time;
 
         /* Replace brick status */
         gf_rb_status_t          rb_status;

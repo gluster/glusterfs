@@ -332,6 +332,11 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
                           options, uint32, out);
 
+        if (conf->defrag) {
+                GF_OPTION_RECONF ("rebalance-stats", conf->defrag->stats,
+                                  options, bool, out);
+        }
+
         if (dict_get_str (options, "decommissioned-bricks", &temp_str) == 0) {
                 ret = dht_parse_decommissioned_bricks (this, conf, temp_str);
                 if (ret == -1)
@@ -401,9 +406,11 @@ init (xlator_t *this)
 
                 defrag->cmd = cmd;
 
-                conf->defrag = defrag;
-        }
+                defrag->stats = _gf_false;
 
+                conf->defrag = defrag;
+
+        }
 
         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
         if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
@@ -431,6 +438,10 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("assert-no-child-down", conf->assert_no_child_down,
                         bool, err);
+
+        if (defrag) {
+                GF_OPTION_INIT ("rebalance-stats", defrag->stats, bool, err);
+        }
 
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
@@ -592,6 +603,10 @@ struct volume_options options[] = {
         },
         { .key = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,
+        },
+        { .key = {"rebalance-stats"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
         },
 
         { .key  = {NULL} },
