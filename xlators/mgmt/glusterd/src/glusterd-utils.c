@@ -5483,6 +5483,7 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
         gf_defrag_status_t              status = GF_DEFRAG_STATUS_NOT_STARTED;
         uint64_t                        failures = 0;
         xlator_t                       *this = NULL;
+        double                          run_time = 0;
 
         this = THIS;
 
@@ -5511,6 +5512,11 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 gf_log (this->name, GF_LOG_TRACE,
                         "failed to get failure count");
 
+        ret = dict_get_double (rsp_dict, "run-time", &run_time);
+        if (ret)
+                gf_log (this->name, GF_LOG_TRACE,
+                        "failed to get run-time");
+
         if (files)
                 volinfo->rebalance_files = files;
         if (size)
@@ -5521,6 +5527,8 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 volinfo->defrag_status = status;
         if (failures)
                 volinfo->rebalance_failures = failures;
+        if (run_time)
+                volinfo->rebalance_time = run_time;
 
         return ret;
 }
