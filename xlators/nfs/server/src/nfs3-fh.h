@@ -115,4 +115,8 @@ nfs3_fh_build_parent_fh (struct nfs3_fh *child, struct iatt *newstat,
 
 extern struct nfs3_fh
 nfs3_fh_build_uuid_root_fh (uuid_t volumeid);
+
+extern int
+nfs3_build_fh (inode_t *inode, uuid_t exportid, struct nfs3_fh *newfh);
+
 #endif
