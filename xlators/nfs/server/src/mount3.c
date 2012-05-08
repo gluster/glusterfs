@@ -47,6 +47,9 @@
 
 typedef ssize_t (*mnt3_serializer) (struct iovec outmsg, void *args);
 
+extern void *
+mount3udp_thread (void *argv);
+
 
 /* Generic reply function for MOUNTv3 specific replies. */
 int
@@ -1406,6 +1409,87 @@ err:
         return ret;
 }
 
+/* just declaring, definition is way down below */
+rpcsvc_program_t        mnt3prog;
+
+/* nfs3_rootfh used by mount3udp thread needs to access mount3prog.private
+ * directly as we don't have nfs xlator pointer to dereference it. But thats OK
+ */
+
+struct nfs3_fh *
+nfs3_rootfh (char* path)
+{
+        struct mount3_state     *ms = NULL;
+        struct nfs3_fh          *fh = NULL;
+        struct mnt3_export      *exp = NULL;
+        inode_t                 *inode = NULL;
+        char                    *tmp = NULL;
+
+        ms = mnt3prog.private;
+        exp = mnt3_mntpath_to_export (ms, path);
+        if (exp == NULL)
+                goto err;
+
+        tmp = (char *)path;
+        tmp = strchr (tmp, '/');
+        if (tmp == NULL)
+                tmp = "/";
+
+        inode = inode_from_path (exp->vol->itable, tmp);
+        if (inode == NULL)
+                goto err;
+
+        fh = GF_CALLOC (1, sizeof(*fh), gf_nfs_mt_nfs3_fh);
+        if (fh == NULL)
+                goto err;
+        nfs3_build_fh (inode, exp->volumeid, fh);
+
+err:
+        if (inode)
+                inode_unref (inode);
+        return fh;
+}
+
+int
+mount3udp_add_mountlist (char *host, dirpath *expname)
+{
+        struct mountentry       *me = NULL;
+        struct mount3_state     *ms = NULL;
+        char                    *export = NULL;
+
+        ms = mnt3prog.private;
+        me = GF_CALLOC (1, sizeof (*me), gf_nfs_mt_mountentry);
+        if (!me)
+                return -1;
+        export = (char *)expname;
+        while (*export == '/')
+                export++;
+
+        strcpy (me->exname, export);
+        strcpy (me->hostname, host);
+        INIT_LIST_HEAD (&me->mlist);
+        LOCK (&ms->mountlock);
+        {
+                list_add_tail (&me->mlist, &ms->mountlist);
+        }
+        UNLOCK (&ms->mountlock);
+        return 0;
+}
+
+int
+mount3udp_delete_mountlist (char *hostname, dirpath *expname)
+{
+        struct mount3_state     *ms = NULL;
+        char                    *export = NULL;
+
+        ms = mnt3prog.private;
+        export = (char *)expname;
+        while (*export == '/')
+                export++;
+        __mnt3svc_umount (ms, export, hostname);
+        return 0;
+}
+
 
 struct mnt3_export *
 mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
@@ -1785,6 +1869,7 @@ rpcsvc_program_t        mnt3prog = {
 };
 
 
+
 rpcsvc_program_t *
 mnt3svc_init (xlator_t *nfsx)
 {
@@ -1793,6 +1878,7 @@ mnt3svc_init (xlator_t *nfsx)
         dict_t                  *options = NULL;
         char                    *portstr = NULL;
         int                      ret = -1;
+        pthread_t                udp_thread;
 
         if (!nfsx || !nfsx->private)
                 return NULL;
@@ -1842,6 +1928,9 @@ mnt3svc_init (xlator_t *nfsx)
                 goto err;
         }
 
+        if (nfs->mount_udp) {
+                pthread_create (&udp_thread, NULL, mount3udp_thread, NULL);
+        }
         return &mnt3prog;
 err:
         return NULL;
@@ -1930,5 +2019,3 @@ mnt1svc_init (xlator_t *nfsx)
 err:
         return NULL;
 }
-
-

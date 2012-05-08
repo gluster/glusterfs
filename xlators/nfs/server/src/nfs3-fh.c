@@ -229,6 +229,18 @@ done:
         return 0;
 }
 
+int
+nfs3_build_fh (inode_t *inode, uuid_t exportid, struct nfs3_fh *newfh)
+{
+        if (!newfh || !inode)
+                return -1;
+
+        newfh->ident[0] = GF_NFSFH_IDENT0;
+        newfh->ident[1] = GF_NFSFH_IDENT1;
+        uuid_copy (newfh->gfid, inode->gfid);
+        uuid_copy (newfh->exportid, exportid);
+        return 0;
+}
 
 int
 nfs3_fh_build_child_fh (struct nfs3_fh *parent, struct iatt *newstat,

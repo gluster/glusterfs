@@ -4,7 +4,7 @@ nfsrpclibdir = $(top_srcdir)/rpc/rpc-lib/src
 server_la_LDFLAGS = -module -avoidversion
 server_la_SOURCES = nfs.c nfs-common.c nfs-fops.c nfs-inodes.c \
 	nfs-generics.c mount3.c nfs3-fh.c nfs3.c nfs3-helpers.c nlm4.c \
-	nlmcbk_svc.c
+	nlmcbk_svc.c mount3udp_svc.c
 server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = nfs.h nfs-common.h nfs-fops.h nfs-inodes.h nfs-generics.h \

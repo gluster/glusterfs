@@ -651,6 +651,25 @@ nfs_init_state (xlator_t *this)
                 }
         }
 
+        nfs->mount_udp = 0;
+        if (dict_get(this->options, "nfs.mount-udp")) {
+                ret = dict_get_str (this->options, "nfs.mount-udp", &optstr);
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto free_foppool;
+                }
+
+                if (boolt == _gf_true)
+                        nfs->mount_udp = 1;
+        }
+
         /* support both options rpc-auth.ports.insecure and
          * rpc-auth-allow-insecure for backward compatibility
          */
@@ -1185,6 +1204,13 @@ struct volume_options options[] = {
           .description = "This option, if set to 'off', disables NLM server "
                          "by not registering the service with the portmapper."
                          " Set it to 'on' to re-enable it. Default value: 'on'"
+        },
+
+        { .key = {"nfs.mount-udp"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "set the option to 'on' to enable mountd on UDP. "
+                         "Needed by Solaris NFS clients if NLM support is"
+                         "needed"
         },
 
         { .key  = {NULL} },
