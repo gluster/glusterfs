@@ -49,6 +49,7 @@ Requires(postun): /sbin/service
 BuildRequires: bison flex
 BuildRequires: gcc make automake libtool
 BuildRequires: ncurses-devel readline-devel openssl-devel
+BuildRequires: libxml2-devel
 BuildRequires: python-ctypes
 %if 0%{?suse_version}
 BuildRequires: python-devel
@@ -365,6 +366,10 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Wed May 9 2012 Kaleb S. KEITHLEY <kkeithle[at]redhat.com>
+- Add BuildRequires: libxml2-devel so that configure will DTRT on for
+- Fedora's Koji build system
+
 * Wed Nov 9 2011 Joe Julian <me@joejulian.name> - git master
 - Merge fedora specfile into gluster's spec.in.
 - Add conditionals to allow the same spec file to be used for both 3.1 and 3.2
