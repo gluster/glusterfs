@@ -763,7 +763,10 @@ glusterd_brickinfo_from_brick (char *brick,
         GF_ASSERT (path);
 
         ret = glusterd_brickinfo_new (&new_brickinfo);
+        if (ret)
+                goto out;
 
+        ret = gf_canonicalize_path (path);
         if (ret)
                 goto out;
 
