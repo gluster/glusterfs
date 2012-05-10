@@ -317,6 +317,8 @@ xdr_gf1_cli_deprobe_rsp (XDR *xdrs, gf1_cli_deprobe_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
 		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
 	return TRUE;
 }
 

@@ -532,7 +532,8 @@ glusterd_handle_fsm_log (rpcsvc_request_t *req);
 
 int
 glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
-                                int32_t op_errno, char *hostname);
+                                int32_t op_errno, char *op_errstr,
+                                char *hostname);
 
 int
 glusterd_fetchspec_notify (xlator_t *this);

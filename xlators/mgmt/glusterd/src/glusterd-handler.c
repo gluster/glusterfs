@@ -783,7 +783,7 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                     cli_req.port, (ret) ? "FAILED" : "SUCCESS");
 out:
         if (ret) {
-                ret = glusterd_xfer_cli_deprobe_resp (req, ret, op_errno,
+                ret = glusterd_xfer_cli_deprobe_resp (req, ret, op_errno, NULL,
                                                       cli_req.hostname);
         }
 
@@ -2398,7 +2398,8 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
 
 int
 glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
-                                int32_t op_errno, char *hostname)
+                                int32_t op_errno, char *op_errstr,
+                                char *hostname)
 {
         gf1_cli_deprobe_rsp    rsp = {0, };
         int32_t                ret = -1;
@@ -2407,6 +2408,7 @@ glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
 
         rsp.op_ret = op_ret;
         rsp.op_errno = op_errno;
+        rsp.op_errstr = op_errstr ? op_errstr : "";
         rsp.hostname = hostname;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
