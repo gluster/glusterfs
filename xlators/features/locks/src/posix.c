@@ -1244,6 +1244,13 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                         op_ret = -1;
                         op_errno = EAGAIN;
                         __destroy_lock (reqlock);
+
+                } else if ((0 == ret) && (F_UNLCK == flock->l_type)) {
+                        /* For NLM's last "unlock on fd" detection */
+                        if (pl_locks_by_fd (pl_inode, fd))
+                                flock->l_type = F_RDLCK;
+                        else
+                                flock->l_type = F_UNLCK;
                 }
         }
 
@@ -1251,10 +1258,6 @@ unwind:
         pl_trace_out (this, frame, fd, NULL, cmd, flock, op_ret, op_errno, NULL);
         pl_update_refkeeper (this, fd->inode);
 
-        if (pl_locks_by_fd(pl_inode, fd))
-                flock->l_type = F_RDLCK;
-        else
-                flock->l_type = F_UNLCK;
 
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock, xdata);
 out:
