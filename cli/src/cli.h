@@ -262,9 +262,6 @@ int
 cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 void *data);
 
-int
-cli_canonicalize_path (char *path);
-
 int32_t
 cli_cmd_volume_profile_parse (const char **words, int wordcount,
                               dict_t **options);

@@ -2686,6 +2686,10 @@ nfs_option_handler (volgen_graph_t *graph,
                                         volinfo->volname);
 
                 if (ret != -1) {
+                        ret = gf_canonicalize_path (vme->value);
+                        if (ret)
+                                return -1;
+
                         ret = xlator_set_option (xl, aa, vme->value);
                         GF_FREE (aa);
                 }

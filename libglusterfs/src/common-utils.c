@@ -1953,11 +1953,6 @@ out:
  * power of two is returned.
  */
 
-/*
- * rounds up nr to next power of two. If nr is already a power of two, next
- * power of two is returned.
- */
-
 inline int32_t
 gf_roundup_next_power_of_two (uint32_t nr)
 {
@@ -2091,4 +2086,51 @@ gf_strip_whitespace (char *str, int len)
 
         GF_FREE (new_str);
         return new_len;
+}
+
+/* If the path exists use realpath(3) to handle extra slashes and to resolve
+ * symlinks else strip the extra slashes in the path and return */
+
+int
+gf_canonicalize_path (char *path)
+{
+        int             ret                  = -1;
+        int             path_len             = 0;
+        int             dir_path_len         = 0;
+        char           *tmppath              = NULL;
+        char           *dir                  = NULL;
+        char           *tmpstr               = NULL;
+
+        if (!path || *path != '/')
+                goto out;
+
+        tmppath = gf_strdup (path);
+        if (!tmppath)
+                goto out;
+
+        /* Strip the extra slashes and return */
+        bzero (path, strlen(path));
+        path[0] = '/';
+        dir = strtok_r(tmppath, "/", &tmpstr);
+
+        while (dir) {
+                dir_path_len = strlen(dir);
+                strncpy ((path + path_len + 1), dir, dir_path_len);
+                path_len += dir_path_len + 1;
+                dir = strtok_r (NULL, "/", &tmpstr);
+                if (dir)
+                        strncpy ((path + path_len), "/", 1);
+        }
+        path[path_len] = '\0';
+        ret = 0;
+
+ out:
+        if (ret)
+                gf_log ("common-utils", GF_LOG_ERROR,
+                        "Path manipulation failed");
+
+        if (tmppath)
+                GF_FREE(tmppath);
+
+        return ret;
 }
