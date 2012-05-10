@@ -260,6 +260,7 @@ fi
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
 %exclude %{_libdir}/glusterfs/%{version}/xlator/storage*
 %exclude %{_libdir}/glusterfs/%{version}/xlator/features/posix*
+%exclude %{_libdir}/glusterfs/%{version}/xlator/protocol/server*
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mgmt*
 %exclude %{_libdir}/glusterfs/%{version}/xlator/nfs*
 
@@ -353,6 +354,7 @@ fi
 %{_sbindir}/glusterd
 %{_libdir}/glusterfs/%{version}/xlator/storage*
 %{_libdir}/glusterfs/%{version}/xlator/features/posix*
+%{_libdir}/glusterfs/%{version}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}/xlator/nfs*
 
