@@ -465,7 +465,7 @@ inject:
 
 
 respond:
-        ret = glusterd_xfer_cli_deprobe_resp (ctx->req, op_ret, op_errno,
+        ret = glusterd_xfer_cli_deprobe_resp (ctx->req, op_ret, op_errno, NULL,
                                               ctx->hostname);
         if (!ret && move_sm_now) {
                 glusterd_friend_sm ();

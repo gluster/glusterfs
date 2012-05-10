@@ -224,35 +224,43 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to deprobe");
         if (rsp.op_ret) {
-                switch (rsp.op_errno) {
-                        case GF_DEPROBE_LOCALHOST:
-                                snprintf (msg, sizeof (msg),
-                                          "%s is localhost", rsp.hostname);
-                                break;
-                        case GF_DEPROBE_NOT_FRIEND:
-                                snprintf (msg, sizeof (msg),
-                                          "%s is not part of cluster",
-                                          rsp.hostname);
-                                break;
-                        case GF_DEPROBE_BRICK_EXIST:
-                                snprintf (msg, sizeof (msg),
-                                          "Brick(s) with the peer %s exist in "
-                                          "cluster", rsp.hostname);
-                                break;
-                        case GF_DEPROBE_FRIEND_DOWN:
-                                snprintf (msg, sizeof (msg),
-                                          "One of the peers is probably down."
-                                          " Check with 'peer status'.");
-                                break;
-                        default:
-                                snprintf (msg, sizeof (msg),
-                                          "Detach unsuccessful\nDetach returned"
-                                          " with unknown errno %d",
-                                          rsp.op_errno);
-                                break;
+                if (strlen (rsp.op_errstr) > 0) {
+                        snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+                        gf_log ("cli", GF_LOG_ERROR, "%s", rsp.op_errstr);
+                } else {
+                        switch (rsp.op_errno) {
+                                case GF_DEPROBE_LOCALHOST:
+                                        snprintf (msg, sizeof (msg),
+                                                  "%s is localhost",
+                                                  rsp.hostname);
+                                        break;
+                                case GF_DEPROBE_NOT_FRIEND:
+                                        snprintf (msg, sizeof (msg),
+                                                  "%s is not part of cluster",
+                                                  rsp.hostname);
+                                        break;
+                                case GF_DEPROBE_BRICK_EXIST:
+                                        snprintf (msg, sizeof (msg),
+                                                  "Brick(s) with the peer %s "
+                                                  "exist in cluster",
+                                                  rsp.hostname);
+                                        break;
+                                case GF_DEPROBE_FRIEND_DOWN:
+                                        snprintf (msg, sizeof (msg),
+                                                  "One of the peers is probably"
+                                                  " down. Check with 'peer "
+                                                  "status'.");
+                                        break;
+                                default:
+                                        snprintf (msg, sizeof (msg),
+                                                  "Detach unsuccessful\nDetach"
+                                                  " returned with unknown "
+                                                  "errno %d", rsp.op_errno);
+                                        break;
+                        }
+                        gf_log ("cli", GF_LOG_ERROR,"Detach failed with op_ret "
+                                "%d and op_errno %d", rsp.op_ret, rsp.op_errno);
                 }
-                gf_log ("glusterd",GF_LOG_ERROR,"Detach failed with op_ret %d"
-                        " and op_errno %d", rsp.op_ret, rsp.op_errno);
         } else {
                 snprintf (msg, sizeof (msg), "Detach successful");
         }
