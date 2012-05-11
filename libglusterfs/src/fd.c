@@ -1030,15 +1030,13 @@ fd_ctx_dump (fd_t *fd, char *prefix)
         LOCK (&fd->lock);
         {
                 if (fd->_ctx != NULL) {
-                        fd_ctx = GF_CALLOC (fd->inode->table->xl->graph->xl_count,
-                                            sizeof (*fd_ctx),
+                        fd_ctx = GF_CALLOC (fd->xl_count, sizeof (*fd_ctx),
                                             gf_common_mt_fd_ctx);
                         if (fd_ctx == NULL) {
                                 goto unlock;
                         }
 
-                        for (i = 0; i < fd->inode->table->xl->graph->xl_count;
-                             i++) {
+                        for (i = 0; i < fd->xl_count; i++) {
                                 fd_ctx[i] = fd->_ctx[i];
                         }
                 }
@@ -1050,7 +1048,7 @@ unlock:
                 goto out;
         }
 
-        for (i = 0; i < fd->inode->table->xl->graph->xl_count; i++) {
+        for (i = 0; i < fd->xl_count; i++) {
                 if (fd_ctx[i].xl_key) {
                         xl = (xlator_t *)(long)fd_ctx[i].xl_key;
                         if (xl->dumpops && xl->dumpops->fdctx)
