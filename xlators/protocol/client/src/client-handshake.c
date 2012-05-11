@@ -454,13 +454,13 @@ client_set_lk_version_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = 0;
 out:
-        //TODO: Check for all released fdctx and destroy them
         if (fr)
                 STACK_DESTROY (fr->root);
 
         return ret;
 }
 
+//TODO: Check for all released fdctx and destroy them
 int
 client_set_lk_version (xlator_t *this)
 {
@@ -469,16 +469,24 @@ client_set_lk_version (xlator_t *this)
         call_frame_t       *frame    = NULL;
         gf_set_lk_ver_req   req      = {0, };
 
+        GF_VALIDATE_OR_GOTO ("client", this, err);
+
         conf = (clnt_conf_t *) this->private;
 
         req.lk_ver = client_get_lk_ver (conf);
-        req.uid    = this->ctx->process_uuid;
-
-        gf_log (this->name, GF_LOG_DEBUG, "Sending SET_LK_VERSION");
+        ret = gf_asprintf (&req.uid, "%s-%s-%d",
+                           this->ctx->process_uuid, this->name,
+                           this->graph->id);
+        if (ret == -1)
+                goto err;
 
         frame = create_frame (this, this->ctx->pool);
-        if (!frame)
+        if (!frame) {
+                ret = -1;
                 goto out;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG, "Sending SET_LK_VERSION");
 
         ret = client_submit_request (this, &req, frame,
                                      conf->handshake,
@@ -487,11 +495,11 @@ client_set_lk_version (xlator_t *this)
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf_set_lk_ver_req);
 out:
-        if (ret < 0) {
-                //TODO: Check for all released fdctx and destroy them
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Failed to send SET_LK_VERSION to server");
-        }
+        GF_FREE (req.uid);
+        return ret;
+err:
+        gf_log (this->name, GF_LOG_WARNING,
+                "Failed to send SET_LK_VERSION to server");
 
         return ret;
 }
