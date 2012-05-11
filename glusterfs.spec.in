@@ -248,7 +248,7 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
+%doc AUTHORS ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL NEWS README THANKS
 %doc extras/glusterfs-logrotate
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
