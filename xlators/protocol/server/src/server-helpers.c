@@ -687,7 +687,7 @@ server_connection_get (xlator_t *this, const char *id)
         pthread_mutex_lock (&conf->mutex);
         {
                 list_for_each_entry (trav, &conf->conns, list) {
-                        if (!strncmp (trav->id, id, strlen (id))) {
+                        if (!strcmp (trav->id, id)) {
                                 conn = trav;
                                 conn->bind_ref++;
                                 goto unlock;
