@@ -1890,8 +1890,8 @@ struct cli_cmd volume_cmds[] = {
           "quota translator specific operations"},
 
          { "volume top <VOLNAME> {[open|read|write|opendir|readdir [nfs]] "
-           "|[read-perf|write-perf [nfs|{bs <size> count <count>}]]} "
-           " [brick <brick>] [list-cnt <count>]",
+           "|[read-perf|write-perf [nfs|{bs <size> count <count>}]]"
+           "|[clear [nfs]]} [brick <brick>] [list-cnt <count>]",
            cli_cmd_volume_top_cbk,
            "volume top operations"},
 
