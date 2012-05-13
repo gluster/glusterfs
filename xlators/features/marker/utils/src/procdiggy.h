@@ -17,6 +17,10 @@
   <http://www.gnu.org/licenses/>.
 */
 
+#ifdef __NetBSD__
+#include <sys/syslimits.h>
+#endif /* __NetBSD__ */
+
 #define PROC "/proc"
 
 pid_t pidinfo (pid_t pid, char **name);
