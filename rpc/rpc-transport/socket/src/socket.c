@@ -2805,8 +2805,7 @@ struct volume_options options[] = {
         },
         { .key   = { "transport.address-family",
                      "address-family" },
-          .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
-                    "unix", "inet-sdp" },
+          .value = {"inet", "inet6", "unix", "inet-sdp" },
           .type  = GF_OPTION_TYPE_STR
         },
 
