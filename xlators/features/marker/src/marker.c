@@ -2204,8 +2204,13 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         frame->local = NULL;
 
+        /* copy the gfid from the stat structure instead of inode,
+         * since if the lookup is fresh lookup, then the inode
+         * would have not yet linked to the inode table which happens
+         * in protocol/server.
+         */
         if (!op_ret && local && uuid_is_null (local->loc.gfid))
-                        uuid_copy (local->loc.gfid, inode->gfid);
+                        uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
                              dict, postparent);
