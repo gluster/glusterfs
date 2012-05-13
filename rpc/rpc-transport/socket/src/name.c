@@ -134,24 +134,24 @@ client_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
                 if (!(remote_host_data || connect_path_data) ||
                     (remote_host_data && connect_path_data)) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "transport.address-family not specified and "
-                                "not able to determine the "
-                                "same from other options (remote-host:%s and "
-                                "transport.unix.connect-path:%s)",
+                                "transport.address-family not specified. "
+                                "Could not guess default value from (remote-host:%s or "
+                                "transport.unix.connect-path:%s) options",
                                 data_to_str (remote_host_data),
                                 data_to_str (connect_path_data));
+                        *sa_family = AF_UNSPEC;
                         goto out;
                 }
 
                 if (remote_host_data) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "address-family not specified, guessing it "
-                                "to be inet/inet6");
-                        *sa_family = AF_UNSPEC;
+                                "to be inet from (remote-host: %s)", data_to_str (remote_host_data));
+                        *sa_family = AF_INET;
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "address-family not specified, guessing it "
-                                "to be unix");
+                                "to be unix from (transport.unix.connect-path: %s)", data_to_str (connect_path_data));
                         *sa_family = AF_UNIX;
                 }
 
@@ -165,13 +165,11 @@ client_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
                         *sa_family = AF_INET6;
                 } else if (!strcasecmp (address_family, "inet-sdp")) {
                         *sa_family = AF_INET_SDP;
-                } else if (!strcasecmp (address_family, "inet/inet6")
-                           || !strcasecmp (address_family, "inet6/inet")) {
-                        *sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "unknown address-family (%s) specified",
                                 address_family);
+                        *sa_family = AF_UNSPEC;
                         goto out;
                 }
         }
@@ -542,18 +540,16 @@ server_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
                         *sa_family = AF_INET_SDP;
                 } else if (!strcasecmp (address_family, "unix")) {
                         *sa_family = AF_UNIX;
-                } else if (!strcasecmp (address_family, "inet/inet6")
-                           || !strcasecmp (address_family, "inet6/inet")) {
-                        *sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "unknown address family (%s) specified", address_family);
+                        *sa_family = AF_UNSPEC;
                         goto out;
                 }
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "option address-family not specified, defaulting to inet/inet6");
-                *sa_family = AF_UNSPEC;
+                        "option address-family not specified, defaulting to inet");
+                *sa_family = AF_INET;
         }
 
         ret = 0;
