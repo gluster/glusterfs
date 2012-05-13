@@ -1672,7 +1672,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         char    *delimiter      = NULL;
         char    *opwords[]      = { "open", "read", "write", "opendir",
                                     "readdir", "read-perf", "write-perf",
-                                    NULL };
+                                    "clear", NULL };
         char    *w = NULL;
 
         GF_ASSERT (words);
@@ -1717,6 +1717,13 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         } else if (strcmp (w, "write-perf") == 0) {
                 top_op = GF_CLI_TOP_WRITE_PERF;
                 perf = 1;
+        } else if (strcmp (w, "clear") == 0) {
+                ret = dict_set_int32 (dict, "clear-stats", 1);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Could not set clear-stats in dict");
+                        goto out;
+                }
         } else
                 GF_ASSERT (!"opword mismatch");
         ret = dict_set_int32 (dict, "top-op", (int32_t)top_op);

@@ -4048,7 +4048,7 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp                        rsp   = {0,};
         int                               ret   = -1;
         dict_t                            *dict = NULL;
-        gf1_cli_stats_op                op = GF_CLI_STATS_NONE;
+        gf1_cli_stats_op                  op = GF_CLI_STATS_NONE;
         char                              key[256] = {0};
         int                               i = 0;
         int32_t                           brick_count = 0;
@@ -4056,7 +4056,7 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                           members = 0;
         char                              *filename;
         char                              *bricks;
-        uint64_t                           value = 0;
+        uint64_t                          value = 0;
         int32_t                           j = 0;
         gf1_cli_top_op                    top_op = GF_CLI_TOP_NONE;
         uint64_t                          nr_open = 0;
@@ -4064,10 +4064,13 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         double                            throughput = 0;
         double                            time = 0;
         long int                          time_sec = 0;
-        long int                           time_usec = 0;
+        long int                          time_usec = 0;
         struct tm                         *tm = NULL;
         char                              timestr[256] = {0, };
         char                              *openfd_str = NULL;
+        gf_boolean_t                      nfs = _gf_false;
+        gf_boolean_t                      clear_stats = _gf_false;
+        int                               stats_cleared = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -4132,14 +4135,31 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_int32 (dict, key, (int32_t*)&top_op);
         if (ret)
                 goto out;
+
+        clear_stats = dict_get_str_boolean (dict, "clear-stats", _gf_false);
+
         while (i < brick_count) {
                 i++;
                 snprintf (brick, sizeof (brick), "%d-brick", i);
                 ret = dict_get_str (dict, brick, &bricks);
                 if (ret)
                         goto out;
-                ret = dict_get_str_boolean (dict, "nfs", _gf_false);
-                if (ret)
+
+                nfs = dict_get_str_boolean (dict, "nfs", _gf_false);
+
+                if (clear_stats) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "%d-stats-cleared", i);
+                        ret = dict_get_int32 (dict, key, &stats_cleared);
+                        if (ret)
+                                goto out;
+                        cli_out (stats_cleared ? "Cleared stats for %s %s" :
+                                 "Failed to clear stats for %s %s",
+                                 nfs ? "NFS server on" : "brick", bricks);
+                        continue;
+                }
+
+                if (nfs)
                         cli_out ("NFS Server : %s", bricks);
                 else
                         cli_out ("Brick: %s", bricks);

@@ -58,7 +58,7 @@ typedef enum {
         IOS_STATS_TYPE_READDIRP,
         IOS_STATS_TYPE_READ_THROUGHPUT,
         IOS_STATS_TYPE_WRITE_THROUGHPUT,
-        IOS_STATS_TYPE_MAX,
+        IOS_STATS_TYPE_MAX
 }ios_stats_type_t;
 
 typedef enum {
@@ -1270,6 +1270,16 @@ io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ios_fd_ctx_set (fd, this, iosfd);
 
         ios_inode_ctx_get (fd->inode, this, &iosstat);
+        if (!iosstat) {
+                iosstat = GF_CALLOC (1, sizeof (*iosstat),
+                                     gf_io_stats_mt_ios_stat);
+                if (iosstat) {
+                        iosstat->filename = gf_strdup (path);
+                        uuid_copy (iosstat->gfid, fd->inode->gfid);
+                        LOCK_INIT (&iosstat->lock);
+                        ios_inode_ctx_set (fd->inode, this, iosstat);
+                }
+        }
 
         LOCK (&conf->lock);
         {
@@ -2442,6 +2452,95 @@ io_stats_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
+static int
+ios_init_top_stats (struct ios_conf *conf)
+{
+        int     i = 0;
+
+        GF_ASSERT (conf);
+
+        for (i = 0; i <IOS_STATS_TYPE_MAX; i++) {
+                conf->list[i].iosstats = GF_CALLOC (1,
+                                         sizeof(*conf->list[i].iosstats),
+                                         gf_io_stats_mt_ios_stat);
+
+                if (!conf->list[i].iosstats)
+                        return -1;
+
+                INIT_LIST_HEAD(&conf->list[i].iosstats->list);
+                LOCK_INIT (&conf->list[i].lock);
+        }
+
+	for (i = 0; i < IOS_STATS_THRU_MAX; i ++) {
+		conf->thru_list[i].iosstats = GF_CALLOC (1,
+		                 sizeof (*conf->thru_list[i].iosstats),
+				 gf_io_stats_mt_ios_stat);
+
+	        if (!conf->thru_list[i].iosstats)
+                        return -1;
+
+		INIT_LIST_HEAD(&conf->thru_list[i].iosstats->list);
+		LOCK_INIT (&conf->thru_list[i].lock);
+        }
+
+        return 0;
+}
+
+static void
+ios_destroy_top_stats (struct ios_conf *conf)
+{
+        int                     i = 0;
+        struct ios_stat_head    *list_head = NULL;
+        struct ios_stat_list    *entry     = NULL;
+        struct ios_stat_list    *tmp       = NULL;
+        struct ios_stat_list    *list      = NULL;
+        struct ios_stat         *stat      = NULL;
+
+        GF_ASSERT (conf);
+
+        LOCK (&conf->lock);
+
+        conf->cumulative.nr_opens = 0;
+        conf->cumulative.max_nr_opens = 0;
+        conf->cumulative.max_openfd_time.tv_sec = 0;
+        conf->cumulative.max_openfd_time.tv_usec = 0;
+
+        for (i = 0; i < IOS_STATS_TYPE_MAX; i++) {
+                list_head = &conf->list[i];
+                if (!list_head)
+                        continue;
+                list_for_each_entry_safe (entry, tmp,
+                                          &list_head->iosstats->list, list) {
+                        list = entry;
+                        stat = list->iosstat;
+                        ios_stat_unref (stat);
+                        list_del (&list->list);
+                        if (list)
+                                GF_FREE (list);
+                        list_head->members--;
+                }
+        }
+
+        for (i = 0; i < IOS_STATS_THRU_MAX; i++) {
+                list_head = &conf->thru_list[i];
+                if (!list_head)
+                        continue;
+                list_for_each_entry_safe (entry, tmp,
+                                          &list_head->iosstats->list, list) {
+                        list = entry;
+                        stat = list->iosstat;
+                        ios_stat_unref (stat);
+                        list_del (&list->list);
+                        if (list)
+                                GF_FREE (list);
+                        list_head->members--;
+                }
+        }
+
+        UNLOCK (&conf->lock);
+
+        return;
+}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -2509,7 +2608,6 @@ int
 init (xlator_t *this)
 {
         struct ios_conf    *conf = NULL;
-        int                 i = 0;
         char               *sys_log_str = NULL;
         int                 sys_log_level = -1;
         char               *log_str = NULL;
@@ -2546,35 +2644,9 @@ init (xlator_t *this)
         gettimeofday (&conf->cumulative.started_at, NULL);
         gettimeofday (&conf->incremental.started_at, NULL);
 
-        for (i = 0; i <IOS_STATS_TYPE_MAX; i++) {
-                conf->list[i].iosstats = GF_CALLOC (1,
-                                         sizeof(*conf->list[i].iosstats),
-                                         gf_io_stats_mt_ios_stat);
-
-                if (!conf->list[i].iosstats) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                               "Out of memory");
-                        return -1;
-                }
-
-                INIT_LIST_HEAD(&conf->list[i].iosstats->list);
-                LOCK_INIT (&conf->list[i].lock);
-        }
-
-	for (i = 0; i < IOS_STATS_THRU_MAX; i ++) {
-		conf->thru_list[i].iosstats = GF_CALLOC (1,
-		                 sizeof (*conf->thru_list[i].iosstats),
-				 gf_io_stats_mt_ios_stat);
-
-	        if (!conf->thru_list[i].iosstats) {
-        	        gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
-                	return -1;
-        	}
-
-		INIT_LIST_HEAD(&conf->thru_list[i].iosstats->list);
-		LOCK_INIT (&conf->thru_list[i].lock);
-        }
+        ret = ios_init_top_stats (conf);
+        if (ret)
+                return -1;
 
         GF_OPTION_INIT ("dump-fd-stats", conf->dump_fd_stats, bool, out);
 
@@ -2606,12 +2678,6 @@ void
 fini (xlator_t *this)
 {
         struct ios_conf *conf = NULL;
-        struct ios_stat_head *list_head = NULL;
-        struct ios_stat_list *entry     = NULL;
-        struct ios_stat_list *tmp       = NULL;
-        struct ios_stat_list *list      = NULL;
-        struct ios_stat      *stat      = NULL;
-        int    i                        = 0;
 
         if (!this)
                 return;
@@ -2622,35 +2688,7 @@ fini (xlator_t *this)
                 return;
         this->private = NULL;
 
-        for (i = 0; i < IOS_STATS_TYPE_MAX; i++) {
-                list_head = &conf->list[i];
-                if (!list_head)
-                        continue;
-                list_for_each_entry_safe (entry, tmp,
-                                          &list_head->iosstats->list, list) {
-                        list = entry;
-                        stat = list->iosstat;
-                        ios_stat_unref (stat);
-                        list_del (&list->list);
-                        if (list)
-                                GF_FREE (list);
-                }
-        }
-
-        for (i = 0; i < IOS_STATS_THRU_MAX; i++) {
-                list_head = &conf->thru_list[i];
-                if (!list_head)
-                        continue;
-                list_for_each_entry_safe (entry, tmp,
-                                          &list_head->iosstats->list, list) {
-                        list = entry;
-                        stat = list->iosstat;
-                        ios_stat_unref (stat);
-                        list_del (&list->list);
-                        if (list)
-                                GF_FREE (list);
-                }
-        }
+        ios_destroy_top_stats (conf);
 
         if (conf)
                 GF_FREE(conf);
@@ -2659,7 +2697,6 @@ fini (xlator_t *this)
                 "io-stats translator unloaded");
         return;
 }
-
 
 int
 notify (xlator_t *this, int32_t event, void *data, ...)
@@ -2680,6 +2717,28 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         va_end (ap);
         switch (event) {
         case GF_EVENT_TRANSLATOR_INFO:
+                ret = dict_get_str_boolean (dict, "clear-stats", _gf_false);
+                if (ret) {
+                         ret = dict_set_int32 (output, "top-op", top_op);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set top-op in dict");
+                                goto out;
+                        }
+                        ios_destroy_top_stats (this->private);
+                        ret = ios_init_top_stats (this->private);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to reset top stats");
+                        ret = dict_set_int32 (output, "stats-cleared",
+                                              ret ? 0 : 1);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set stats-cleared"
+                                        " in dict");
+                        goto out;
+                }
+
                 ret = dict_get_int32 (dict, "top-op", &top_op);
                 if (!ret) {
                         ret = dict_get_int32 (dict, "list-cnt", &list_cnt);
