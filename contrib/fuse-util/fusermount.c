@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
+#include <limits.h>
 #include <mntent.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -28,6 +29,7 @@
 #include <sys/utsname.h>
 #include <sched.h>
 
+#define FUSE_DEVFD_ENV		"_FUSE_DEVFD"
 #define FUSE_COMMFD_ENV		"_FUSE_COMMFD"
 
 #define FUSE_DEV_OLD "/proc/fs/fuse/dev"
@@ -1016,8 +1018,36 @@ static int open_fuse_device(char **devp)
 	return -1;
 }
 
+static int check_fuse_device(char *devfd, char **devp)
+{
+	int res;
+	char *devlink;
 
-static int mount_fuse(const char *mnt, const char *opts)
+	res = asprintf(&devlink, "/proc/self/fd/%s", devfd);
+	if (res == -1) {
+		fprintf(stderr, "%s: failed to allocate memory\n", progname);
+		return -1;
+	}
+
+	*devp = (char *) calloc(1, PATH_MAX + 1);
+	if (!*devp) {
+		fprintf(stderr, "%s: failed to allocate memory\n", progname);
+		free(devlink);
+		return -1;
+	}
+
+	res = readlink (devlink, *devp, PATH_MAX);
+	free (devlink);
+	if (res == -1) {
+		fprintf(stderr, "%s: specified fuse fd is invalid\n",
+			progname);
+		return -1;
+	}
+
+	return atoi(devfd);
+}
+
+static int mount_fuse(const char *mnt, const char *opts, char *devfd)
 {
 	int res;
 	int fd;
@@ -1030,7 +1060,7 @@ static int mount_fuse(const char *mnt, const char *opts)
 	int currdir_fd = -1;
 	int mountpoint_fd = -1;
 
-	fd = open_fuse_device(&dev);
+	fd = devfd ? check_fuse_device(devfd, &dev) : open_fuse_device(&dev);
 	if (fd == -1)
 		return -1;
 
@@ -1154,6 +1184,7 @@ int main(int argc, char *argv[])
 	static int unmount = 0;
 	static int lazy = 0;
 	static int quiet = 0;
+	char *devfd;
 	char *commfd;
 	int cfd;
 	const char *opts = "";
@@ -1242,21 +1273,26 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	commfd = getenv(FUSE_COMMFD_ENV);
-	if (commfd == NULL) {
-		fprintf(stderr, "%s: old style mounting not supported\n",
-			progname);
-		exit(1);
+	devfd = getenv(FUSE_DEVFD_ENV);
+	if (devfd == NULL) {
+		commfd = getenv(FUSE_COMMFD_ENV);
+		if (commfd == NULL) {
+			fprintf(stderr, "%s: old style mounting not supported\n",
+				progname);
+			exit(1);
+		}
 	}
 
-	fd = mount_fuse(mnt, opts);
+	fd = mount_fuse(mnt, opts, devfd);
 	if (fd == -1)
 		exit(1);
 
-	cfd = atoi(commfd);
-	res = send_fd(cfd, fd);
-	if (res == -1)
-		exit(1);
+	if (devfd == NULL) {
+		cfd = atoi(commfd);
+		res = send_fd(cfd, fd);
+		if (res == -1)
+			exit(1);
+	}
 
 	return 0;
 }

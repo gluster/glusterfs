@@ -386,7 +386,7 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         }
 
         if (!cmd_args->no_daemon_mode) {
-                 ret = dict_set_static_ptr (master->options, "sync-mtab",
+                 ret = dict_set_static_ptr (master->options, "sync-to-mount",
                                             "enable");
                 if (ret < 0) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
@@ -1502,11 +1502,11 @@ daemonize (glusterfs_ctx_t *ctx)
         case 0:
                 break;
         default:
-                if (ctx->mtab_pid > 0) {
-                        ret = waitpid (ctx->mtab_pid, &cstatus, 0);
-                        if (!(ret == ctx->mtab_pid && cstatus == 0)) {
+                if (ctx->mnt_pid > 0) {
+                        ret = waitpid (ctx->mnt_pid, &cstatus, 0);
+                        if (!(ret == ctx->mnt_pid && cstatus == 0)) {
                                 gf_log ("daemonize", GF_LOG_ERROR,
-                                        "/etc/mtab update failed");
+                                        "mount failed");
                                 exit (1);
                         }
                 }
