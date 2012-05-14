@@ -4378,8 +4378,10 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "opendir on %s for %s failed (%s)",
                         prev->this->name, local->loc.path,
                         strerror (op_errno));
-                local->op_ret = -1;
-                local->op_errno = op_errno;
+                if (op_errno != ENOENT) {
+                        local->op_ret = -1;
+                        local->op_errno = op_errno;
+                }
                 goto err;
         }
 
