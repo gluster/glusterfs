@@ -2113,7 +2113,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         frame->local = local;
         local->fop = GF_FOP_LOOKUP;
 
-        if (!strcmp (loc->path, "/" GF_REPLICATE_TRASH_DIR)) {
+        if (loc->path && !strcmp (loc->path, "/" GF_REPLICATE_TRASH_DIR)) {
                 op_errno = ENOENT;
                 goto out;
         }
