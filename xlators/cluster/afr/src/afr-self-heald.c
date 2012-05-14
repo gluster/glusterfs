@@ -19,8 +19,6 @@
 #include "protocol-common.h"
 #include "event-history.h"
 
-#define AFR_POLL_TIMEOUT 600
-
 typedef enum {
         STOP_CRAWL_ON_SINGLE_SUBVOL = 1
 } afr_crawl_flags_t;
@@ -602,7 +600,7 @@ afr_poll_self_heal (void *data)
         }
         if (shd->enabled && (shd->pos[child] == AFR_POS_LOCAL))
                 _do_self_heal_on_subvol (this, child, INDEX);
-        timeout.tv_sec = AFR_POLL_TIMEOUT;
+        timeout.tv_sec = shd->timeout;
         timeout.tv_usec = 0;
         //notify and previous timer should be synchronized.
         LOCK (&priv->lock);
