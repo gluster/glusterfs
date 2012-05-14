@@ -125,6 +125,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, NO_DOC, 0     },
+        {"cluster.heal-timeout",                 "cluster/replicate",  "!heal-timeout" , NULL, NO_DOC, 0     },
         {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC, 0},
         {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
@@ -2535,20 +2536,35 @@ build_client_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                     &client_graph_builder);
 }
 
+char *gd_shd_options[] = {
+        "!self-heal-daemon",
+        "!heal-timeout",
+        NULL
+};
+
+char*
+gd_get_matching_option (char **options, char *option)
+{
+        while (*options && strcmp (*options, option))
+                options++;
+        return *options;
+}
+
 static int
 shd_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                     void *param)
 {
         int                     ret = 0;
         struct volopt_map_entry new_vme = {0};
-        int                     shd = 0;
+        char                    *shd_option = NULL;
 
-        shd = !strcmp (vme->option, "!self-heal-daemon");
-        if ((vme->option[0] == '!') && !shd)
+        if (vme->option[0] != '!')
+                goto out;
+        shd_option = gd_get_matching_option (gd_shd_options, vme->option);
+        if (!shd_option)
                 goto out;
         new_vme = *vme;
-        if (shd)
-                new_vme.option = "self-heal-daemon";
+        new_vme.option = shd_option + 1;//option with out '!'
 
         ret = no_filter_option_handler (graph, &new_vme, param);
 out:
@@ -3415,6 +3431,26 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
 }
 
 int
+validate_shdopts (glusterd_volinfo_t *volinfo,
+                  dict_t *val_dict,
+                  char **op_errstr)
+{
+        volgen_graph_t graph = {0,};
+        int     ret = -1;
+
+        graph.errstr = op_errstr;
+
+        ret = build_shd_graph (&graph, val_dict);
+        if (!ret)
+                ret = graph_reconf_validateopt (&graph.graph, op_errstr);
+
+        volgen_graph_free (&graph);
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 validate_nfsopts (glusterd_volinfo_t *volinfo,
                     dict_t *val_dict,
                     char **op_errstr)
@@ -3618,6 +3654,16 @@ glusterd_validate_globalopts (glusterd_volinfo_t *volinfo,
         }
 
         ret = validate_nfsopts (volinfo, val_dict, op_errstr);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Could not Validate nfs");
+                goto out;
+        }
+
+        ret = validate_shdopts (volinfo, val_dict, op_errstr);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Could not Validate self-heald");
+                goto out;
+        }
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3667,6 +3713,17 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
         }
 
         ret = validate_nfsopts (volinfo, val_dict, op_errstr);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Could not Validate nfs");
+                goto out;
+        }
+
+
+        ret = validate_shdopts (volinfo, val_dict, op_errstr);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Could not Validate self-heald");
+                goto out;
+        }
 
 
 out:

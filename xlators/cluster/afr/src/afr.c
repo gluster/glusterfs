@@ -164,6 +164,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
                           uint32, out);
         fix_quorum_options(this,priv,qtype);
+        GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
+                          int32, out);
 
         ret = 0;
 out:
@@ -402,6 +404,7 @@ init (xlator_t *this)
                 goto out;
         priv->root_inode = inode_ref (this->itable->root);
         GF_OPTION_INIT ("node-uuid", priv->shd.node_uuid, str, out);
+        GF_OPTION_INIT ("heal-timeout", priv->shd.timeout, int32, out);
 
         ret = 0;
 out:
@@ -595,6 +598,13 @@ struct volume_options options[] = {
         { .key  = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Local glusterd uuid string",
+        },
+        { .key  = {"heal-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 60,
+          .max  = INT_MAX,
+          .default_value = "600",
+          .description = "Poll timeout for checking the need to self-heal"
         },
         { .key  = {NULL} },
 };

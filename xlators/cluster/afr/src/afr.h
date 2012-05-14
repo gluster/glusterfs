@@ -96,6 +96,7 @@ typedef struct afr_self_heald_ {
         eh_t             *heal_failed;
         eh_t             *split_brain;
         char             *node_uuid;
+        int              timeout;
 } afr_self_heald_t;
 
 typedef struct _afr_private {
