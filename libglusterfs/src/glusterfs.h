@@ -357,7 +357,7 @@ struct _glusterfs_ctx {
         int                 graph_id; /* Incremented per graph, value should
                                          indicate how many times the graph has
                                          got changed */
-        pid_t               mtab_pid; /* pid of the process which updates the mtab */
+        pid_t               mnt_pid; /* pid of the mount agent */
         int                 process_mode; /*mode in which process is runninng*/
 	struct syncenv      *env;         /* The env pointer to the synctasks */
 
