@@ -98,6 +98,7 @@ fuse_resolve_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  resolve_loc->name, buf);
 
 	state->loc_now->inode = link_inode;
+
 out:
         loc_wipe (resolve_loc);
 
@@ -132,8 +133,8 @@ fuse_resolve_entry (fuse_state_t *state)
 
 int
 fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
-                       dict_t *xattr, struct iatt *postparent)
+                       int op_ret, int op_errno, inode_t *inode,
+                       struct iatt *buf, dict_t *xattr, struct iatt *postparent)
 {
         fuse_state_t   *state      = NULL;
         fuse_resolve_t *resolve    = NULL;
@@ -153,7 +154,19 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         uuid_utoa (resolve->resolve_loc.gfid),
 			strerror (op_errno));
                 loc_wipe (&resolve->resolve_loc);
-                resolve->op_ret = -1;
+
+                /* resolve->op_ret can have 3 values: 0, -1, -2.
+                 * 0 : resolution was successful.
+                 * -1: parent inode could not be resolved.
+                 * -2: entry (inode corresponding to path) could not be resolved
+                 */
+
+                if (uuid_is_null (resolve->gfid)) {
+                        resolve->op_ret = -1;
+                } else {
+                        resolve->op_ret = -2;
+                }
+
                 resolve->op_errno = op_errno;
                 goto out;
         }

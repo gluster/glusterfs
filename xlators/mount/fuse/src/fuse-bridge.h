@@ -145,9 +145,9 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
 #define FUSE_FOP(state, ret, op_num, fop, args ...)                     \
         do {                                                            \
-                call_frame_t *frame = NULL;                             \
-                xlator_t *xl = NULL;                                    \
-                int32_t   op_ret = 0, op_errno = 0;                     \
+                call_frame_t *frame  = NULL;                            \
+                xlator_t     *xl     = NULL;                            \
+                int32_t       op_ret = 0, op_errno = 0;                 \
                                                                         \
                 frame = get_call_frame_for_req (state);                 \
                 if (!frame) {                                           \
@@ -177,26 +177,46 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                 xl = state->active_subvol;				\
                 if (!xl) {                                              \
                         gf_log_callingfn ("glusterfs-fuse", GF_LOG_ERROR, \
-                                          "xl is NULL");                  \
+                                          "xl is NULL");                \
                         op_errno = ENOENT;                              \
                         op_ret = -1;                                    \
                 } else if (state->resolve.op_ret < 0) {                 \
-                        op_errno = state->resolve.op_errno;               \
-                        op_ret = -1;                                      \
-/*                        gf_log_callingfn ("glusterfs-fuse", GF_LOG_WARNING, \
-                                          "resolve failed (%s)",             \
-                                          strerror (op_errno));             */ \
-                } else if (state->resolve2.op_ret < 0) {                     \
-                        op_errno = state->resolve2.op_errno;                 \
-                        op_ret = -1;                                         \
-                        /* gf_log_callingfn ("glusterfs-fuse", GF_LOG_WARNING, \
-                                          "resolve of second entity "        \
-                                          "failed (%s)",                     \
-                                          strerror (op_errno));             */ \
-                }                                                            \
-                                                                             \
-                if (op_ret < 0) {                                            \
-                        send_fuse_err (state->this, state->finh, op_errno);  \
+                        op_errno = state->resolve.op_errno;             \
+                        op_ret = -1;                                    \
+                        if (op_num == GF_FOP_LOOKUP) {                  \
+                                gf_log ("glusterfs-fuse",               \
+                                        (op_errno == ENOENT ? GF_LOG_TRACE \
+                                         : GF_LOG_WARNING),             \
+                                        "%"PRIu64": %s() %s => -1 (%s)", \
+                                        frame->root->unique,            \
+                                        gf_fop_list[frame->root->op],   \
+                                        state->resolve.resolve_loc.path, \
+                                        strerror (op_errno));           \
+                        } else {                                        \
+                                gf_log ("glusterfs-fuse",               \
+                                        GF_LOG_WARNING,                 \
+                                        "%"PRIu64": %s() inode "        \
+                                        "migration of %s failed (%s)",  \
+                                        frame->root->unique,            \
+                                        gf_fop_list[frame->root->op],   \
+                                        state->resolve.resolve_loc.path, \
+                                        strerror (op_errno));           \
+                        }                                               \
+                } else if (state->resolve2.op_ret < 0) {                \
+                        op_errno = state->resolve2.op_errno;            \
+                        op_ret = -1;                                    \
+                        gf_log ("glusterfs-fuse",                       \
+                                GF_LOG_WARNING,                         \
+                                "%"PRIu64": %s() inode "                \
+                                "migration of %s failed (%s)",          \
+                                frame->root->unique,                    \
+                                gf_fop_list[frame->root->op],           \
+                                state->resolve2.resolve_loc.path,       \
+                                strerror (op_errno));                   \
+                }                                                       \
+                                                                        \
+                if (op_ret < 0) {                                       \
+                        send_fuse_err (state->this, state->finh, op_errno); \
                         free_fuse_state (state);                        \
                         STACK_DESTROY (frame->root);                    \
                 } else {                                                \
@@ -208,7 +228,9 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
 #define FUSE_FOP_COOKIE(state, xl, ret, cky, op_num, fop, args ...)     \
         do {                                                            \
-                call_frame_t *frame = NULL;                             \
+                call_frame_t *frame  = NULL;                            \
+                xlator_t     *xl     = NULL;                            \
+                int32_t       op_ret = 0, op_errno = 0;                 \
                                                                         \
                 frame = get_call_frame_for_req (state);                 \
                 if (!frame) {                                           \
@@ -226,7 +248,56 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                 frame->root->state = state;                             \
                 frame->root->op    = op_num;                            \
 		frame->op          = op_num;				\
-                STACK_WIND_COOKIE (frame, ret, cky, xl, xl->fops->fop, args); \
+                                                                        \
+                xl = state->active_subvol;				\
+                if (!xl) {                                              \
+                        gf_log_callingfn ("glusterfs-fuse", GF_LOG_ERROR, \
+                                          "xl is NULL");                \
+                        op_errno = ENOENT;                              \
+                        op_ret = -1;                                    \
+                } else if (state->resolve.op_ret < 0) {                 \
+                        op_errno = state->resolve.op_errno;             \
+                        op_ret = -1;                                    \
+                        if (op_num == GF_FOP_LOOKUP) {                  \
+                                gf_log ("glusterfs-fuse",               \
+                                        (op_errno == ENOENT ? GF_LOG_TRACE \
+                                         : GF_LOG_WARNING),             \
+                                        "%"PRIu64": %s() %s => -1 (%s)", \
+                                        frame->root->unique,            \
+                                        gf_fop_list[frame->root->op],   \
+                                        state->resolve.resolve_loc.path, \
+                                        strerror (op_errno));           \
+                        } else {                                        \
+                                gf_log ("glusterfs-fuse",               \
+                                        GF_LOG_WARNING,                 \
+                                        "%"PRIu64": %s() inode "        \
+                                        "migration of %s failed (%s)",  \
+                                        frame->root->unique,            \
+                                        gf_fop_list[frame->root->op],   \
+                                        state->resolve.resolve_loc.path, \
+                                        strerror (op_errno));           \
+                        }                                               \
+                } else if (state->resolve2.op_ret < 0) {                \
+                        op_errno = state->resolve2.op_errno;            \
+                        op_ret = -1;                                    \
+                        gf_log ("glusterfs-fuse",                       \
+                                GF_LOG_WARNING,                         \
+                                "%"PRIu64": %s() inode "                \
+                                "migration of %s failed (%s)",          \
+                                frame->root->unique,                    \
+                                gf_fop_list[frame->root->op],           \
+                                state->resolve2.resolve_loc.path,       \
+                                strerror (op_errno));                   \
+                }                                                       \
+                                                                        \
+                if (op_ret < 0) {                                       \
+                        send_fuse_err (state->this, state->finh, op_errno); \
+                        free_fuse_state (state);                        \
+                        STACK_DESTROY (frame->root);                    \
+                } else {                                                \
+                        STACK_WIND_COOKIE (frame, ret, cky, xl, xl->fops->fop, \
+                                           args);                       \
+                }                                                       \
         } while (0)
 
 #define GF_SELECT_LOG_LEVEL(_errno)                     \
