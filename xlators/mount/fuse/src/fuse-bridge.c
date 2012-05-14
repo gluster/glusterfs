@@ -432,6 +432,14 @@ fuse_lookup_resume (fuse_state_t *state)
                 return;
         }
 
+        /* parent was resolved, entry could not, may be a missing gfid?
+         * Hence try to do a regular lookup
+         */
+        if ((state->resolve.op_ret == -2)
+            && (state->resolve.op_errno == ENODATA)) {
+                state->resolve.op_ret = 0;
+        }
+
         if (state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": LOOKUP %s(%s)", state->finh->unique,
