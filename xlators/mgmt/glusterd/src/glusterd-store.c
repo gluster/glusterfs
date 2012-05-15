@@ -1759,19 +1759,38 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_PORT,
                                     strlen (GLUSTERD_STORE_KEY_BRICK_PORT))) {
                                 gf_string2int (value, &brickinfo->port);
-                                /* This is required to have proper ports
-                                   assigned to bricks after restart */
-                                pmap = pmap_registry_get (THIS);
-                                if (pmap->last_alloc <= brickinfo->port)
-                                        pmap->last_alloc = brickinfo->port + 1;
+
+                                if (brickinfo->port < GF_IANA_PRIV_PORTS_START){
+                                        /* This is required to adhere to the
+                                           IANA standards */
+                                        brickinfo->port = 0;
+                                } else {
+                                        /* This is required to have proper ports
+                                           assigned to bricks after restart */
+                                        pmap = pmap_registry_get (THIS);
+                                        if (pmap->last_alloc <= brickinfo->port)
+                                                pmap->last_alloc =
+                                                        brickinfo->port + 1;
+                                }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
                                     strlen (GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
                                 gf_string2int (value, &brickinfo->rdma_port);
-                                /* This is required to have proper ports
-                                   assigned to bricks after restart */
-                                pmap = pmap_registry_get (THIS);
-                                if (pmap->last_alloc <= brickinfo->rdma_port)
-                                        pmap->last_alloc = brickinfo->rdma_port + 1;
+
+                                if (brickinfo->rdma_port <
+                                    GF_IANA_PRIV_PORTS_START){
+                                        /* This is required to adhere to the
+                                           IANA standards */
+                                        brickinfo->rdma_port = 0;
+                                } else {
+                                        /* This is required to have proper ports
+                                           assigned to bricks after restart */
+                                        pmap = pmap_registry_get (THIS);
+                                        if (pmap->last_alloc <=
+                                            brickinfo->rdma_port)
+                                                pmap->last_alloc =
+                                                        brickinfo->rdma_port +1;
+                                }
+
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED))) {
                                 gf_string2int (value, &brickinfo->decommissioned);
