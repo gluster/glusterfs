@@ -155,6 +155,7 @@ typedef struct client_local {
         int32_t              cmd;
         struct list_head     lock_list;
         pthread_mutex_t      mutex;
+        char           *name;
 } clnt_local_t;
 
 typedef struct client_args {
