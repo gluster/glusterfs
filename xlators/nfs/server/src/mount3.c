@@ -1207,6 +1207,7 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         ret = mnt3svc_umount (ms, dirpath, hostname);
 
         if (ret == -1) {
+                ret = 0;
                 mstat = MNT3ERR_NOENT;
         }
         /* FIXME: also take care of the corner case where the
