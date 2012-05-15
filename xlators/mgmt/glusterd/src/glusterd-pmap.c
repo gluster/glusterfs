@@ -79,8 +79,8 @@ pmap_registry_new (void)
                         pmap->ports[i].type = GF_PMAP_PORT_FOREIGN;
         }
 
-        pmap->base_port = GF_DEFAULT_BASE_PORT + 2;
-        pmap->last_alloc = GF_DEFAULT_BASE_PORT + 2;
+        pmap->base_port = GF_IANA_PRIV_PORTS_START;
+        pmap->last_alloc = GF_IANA_PRIV_PORTS_START;
 
         return pmap;
 }
