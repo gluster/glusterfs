@@ -18,6 +18,7 @@
 #define FUSE_DEVFD_ENV "_FUSE_DEVFD"
 
 
+/* FUSE: function is called fuse_kern_unmount() */
 void
 gf_fuse_unmount (const char *mountpoint, int fd)
 {

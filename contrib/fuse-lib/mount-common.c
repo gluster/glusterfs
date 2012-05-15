@@ -20,10 +20,11 @@
  * - there are some other minor things
  *
  * For changes that were made later and syncs with upstream,
- * see the commit log.
+ * see the commit log and per-function comments.
  */
 
 #ifndef __NetBSD__
+/* FUSE: cherry-picked bd99f9cf */
 static int
 mtab_needs_update (const char *mnt)
 {
@@ -47,11 +48,22 @@ mtab_needs_update (const char *mnt)
                 if (errno == ENOENT)
                         return 0;
         } else {
+                uid_t ruid;
+                int err;
+
                 if (S_ISLNK (stbuf.st_mode))
                         return 0;
 
+                ruid = getuid ();
+                if (ruid != 0)
+                        setreuid (0, -1);
+
                 res = access (_PATH_MOUNTED, W_OK);
-                if (res == -1 && errno == EROFS)
+                err = (res == -1) ? errno : 0;
+                if (ruid != 0)
+                        setreuid (ruid, -1);
+
+                if (err == EROFS)
                         return 0;
         }
 
@@ -61,6 +73,7 @@ mtab_needs_update (const char *mnt)
 #define mtab_needs_update(x) 1
 #endif /* __NetBSD__ */
 
+/* FUSE: called add_mount_legacy(); R.I.P. as of cbd3a2a8 */
 int
 fuse_mnt_add_mount (const char *progname, const char *fsname,
                     const char *mnt, const char *type, const char *opts)
@@ -194,6 +207,11 @@ fuse_mnt_resolve_path (const char *progname, const char *orig)
         return dst;
 }
 
+/* FUSE: to support some changes that were reverted since
+ * then, it was split in two (fuse_mnt_umount() and
+ * exec_umount()); however the actual code is same as here
+ * since 0197ce40
+ */
 int
 fuse_mnt_umount (const char *progname, const char *abs_mnt,
                  const char *rel_mnt, int lazy)

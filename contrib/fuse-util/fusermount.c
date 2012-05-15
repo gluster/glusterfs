@@ -116,8 +116,16 @@ static int lock_umount(void)
 
 static void unlock_umount(int mtablock)
 {
-	lockf(mtablock, F_ULOCK, 0);
-	close(mtablock);
+	if (mtablock >= 0) {
+		int res;
+
+		res = lockf(mtablock, F_ULOCK, 0);
+		if (res < 0) {
+			fprintf(stderr, "%s: error releasing lock: %s\n",
+				progname, strerror(errno));
+		}
+		close(mtablock);
+	}
 }
 
 static int add_mount(const char *source, const char *mnt, const char *type,
@@ -240,7 +248,7 @@ static int check_is_mount_child(void *p)
 	}
 
 	count = 0;
-	while ((entp = getmntent(fp)) != NULL)
+	while (getmntent(fp) != NULL)
 		count++;
 	endmntent(fp);
 
@@ -327,7 +335,7 @@ static int check_is_mount(const char *last, const char *mnt)
 	return 0;
 }
 
-static int chdir_to_parent(char *copy, const char **lastp, int *currdir_fd)
+static int chdir_to_parent(char *copy, const char **lastp)
 {
 	char *tmp;
 	const char *parent;
@@ -350,14 +358,6 @@ static int chdir_to_parent(char *copy, const char **lastp, int *currdir_fd)
 	} else {
 		*lastp = ".";
 		parent = "/";
-	}
-
-	*currdir_fd = open(".", O_RDONLY);
-	if (*currdir_fd == -1) {
-		fprintf(stderr,
-			"%s: failed to open current directory: %s\n",
-			progname, strerror(errno));
-		return -1;
 	}
 
 	res = chdir(parent);
@@ -384,7 +384,6 @@ static int chdir_to_parent(char *copy, const char **lastp, int *currdir_fd)
 
 static int unmount_fuse_locked(const char *mnt, int quiet, int lazy)
 {
-	int currdir_fd = -1;
 	char *copy;
 	const char *last;
 	int res;
@@ -401,7 +400,7 @@ static int unmount_fuse_locked(const char *mnt, int quiet, int lazy)
 		return -1;
 	}
 
-	res = chdir_to_parent(copy, &last, &currdir_fd);
+	res = chdir_to_parent(copy, &last);
 	if (res == -1)
 		goto out;
 
@@ -413,10 +412,6 @@ static int unmount_fuse_locked(const char *mnt, int quiet, int lazy)
 
 out:
 	free(copy);
-	if (currdir_fd != -1) {
-		fchdir(currdir_fd);
-		close(currdir_fd);
-	}
 
 	return res;
 }
@@ -825,15 +820,14 @@ static int do_mount(const char *mnt, char **typep, mode_t rootmode,
 			fprintf(stderr, "%s: mount failed: %s\n", progname,
 				strerror(errno_save));
 		goto err;
-	} else {
-		*sourcep = source;
-		*typep = type;
-		*mnt_optsp = mnt_opts;
 	}
+	*sourcep = source;
+	*typep = type;
+	*mnt_optsp = mnt_opts;
 	free(fsname);
 	free(optbuf);
 
-	return res;
+	return 0;
 
 err:
 	free(fsname);
@@ -876,8 +870,7 @@ static int check_version(const char *dev)
 	return 0;
 }
 
-static int check_perm(const char **mntp, struct stat *stbuf, int *currdir_fd,
-		      int *mountpoint_fd)
+static int check_perm(const char **mntp, struct stat *stbuf, int *mountpoint_fd)
 {
 	int res;
 	const char *mnt = *mntp;
@@ -895,13 +888,6 @@ static int check_perm(const char **mntp, struct stat *stbuf, int *currdir_fd,
 		return 0;
 
 	if (S_ISDIR(stbuf->st_mode)) {
-		*currdir_fd = open(".", O_RDONLY);
-		if (*currdir_fd == -1) {
-			fprintf(stderr,
-				"%s: failed to open current directory: %s\n",
-				progname, strerror(errno));
-			return -1;
-		}
 		res = chdir(mnt);
 		if (res == -1) {
 			fprintf(stderr,
@@ -1057,7 +1043,6 @@ static int mount_fuse(const char *mnt, const char *opts, char *devfd)
 	char *source = NULL;
 	char *mnt_opts = NULL;
 	const char *real_mnt = mnt;
-	int currdir_fd = -1;
 	int mountpoint_fd = -1;
 
 	fd = devfd ? check_fuse_device(devfd, &dev) : open_fuse_device(&dev);
@@ -1071,15 +1056,13 @@ static int mount_fuse(const char *mnt, const char *opts, char *devfd)
 		int mount_count = count_fuse_fs();
 		if (mount_count >= mount_max) {
 			fprintf(stderr, "%s: too many FUSE filesystems mounted; mount_max=N can be set in /etc/fuse.conf\n", progname);
-			close(fd);
-			return -1;
+			goto fail_close_fd;
 		}
 	}
 
 	res = check_version(dev);
 	if (res != -1) {
-		res = check_perm(&real_mnt, &stbuf, &currdir_fd,
-				 &mountpoint_fd);
+		res = check_perm(&real_mnt, &stbuf, &mountpoint_fd);
 		restore_privs();
 		if (res != -1)
 			res = do_mount(real_mnt, &type, stbuf.st_mode & S_IFMT,
@@ -1088,33 +1071,38 @@ static int mount_fuse(const char *mnt, const char *opts, char *devfd)
 	} else
 		restore_privs();
 
-	if (currdir_fd != -1) {
-		fchdir(currdir_fd);
-		close(currdir_fd);
-	}
 	if (mountpoint_fd != -1)
 		close(mountpoint_fd);
 
+	if (res == -1)
+		goto fail_close_fd;
+
+	res = chdir("/");
 	if (res == -1) {
-		close(fd);
-		return -1;
+		fprintf(stderr, "%s: failed to chdir to '/'\n", progname);
+		goto fail_close_fd;
 	}
 
 	if (geteuid() == 0) {
 		res = add_mount(source, mnt, type, mnt_opts);
 		if (res == -1) {
-			umount2(mnt, 2); /* lazy umount */
-			close(fd);
-			return -1;
+			/* Can't clean up mount in a non-racy way */
+			goto fail_close_fd;
 		}
 	}
 
+out_free:
 	free(source);
 	free(type);
 	free(mnt_opts);
 	free(dev);
 
 	return fd;
+
+fail_close_fd:
+	close(fd);
+	fd = -1;
+	goto out_free;
 }
 
 static int send_fd(int sock_fd, int fd)
@@ -1253,6 +1241,13 @@ int main(int argc, char *argv[])
 
 	drop_privs();
 	mnt = fuse_mnt_resolve_path(progname, origmnt);
+	if (mnt != NULL) {
+		res = chdir("/");
+		if (res == -1) {
+			fprintf(stderr, "%s: failed to chdir to '/'\n", progname);
+			exit(1);
+		}
+	}
 	restore_privs();
 	if (mnt == NULL)
 		exit(1);
