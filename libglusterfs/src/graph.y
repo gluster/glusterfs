@@ -574,7 +574,7 @@ glusterfs_graph_construct (FILE *fp)
 
 	if (tmp_file == NULL) {
 		gf_log ("parser", GF_LOG_ERROR,
-			"cannot create temparory file");
+			"cannot create temporary file");
 
                 glusterfs_graph_destroy (graph);
 		return NULL;
