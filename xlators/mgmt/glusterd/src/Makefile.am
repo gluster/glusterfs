@@ -31,3 +31,11 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
 >>>>>>> glusterd: prefix added to gluster commands
 
 CLEANFILES =
+
+install-data-hook:
+
+if GF_INSTALL_VAR_LIB_GLUSTERD
+	$(mkdir_p) /var/lib/
+	(stat /etc/glusterd && mv /etc/glusterd /var/lib/) || true;
+	(ln -sf /var/log/glusterd /etc/glusterd) || true;
+endif
