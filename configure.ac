@@ -539,6 +539,8 @@ AC_SUBST(INCLUDES)
 
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
+AM_CONDITIONAL([GF_INSTALL_VAR_LIB_GLUSTERD], test ! -d /var/lib/glusterd && test -d /etc/glusterd )
+
 AC_OUTPUT
 
 echo
