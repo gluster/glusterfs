@@ -1051,11 +1051,12 @@ out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOTSUP) ?
                                      GF_LOG_DEBUG : GF_LOG_WARNING),
-                        "remote operation failed: %s. Path: %s (%s)",
+                        "remote operation failed: %s. Path: %s (%s). Key: %s",
                         strerror (op_errno),
                         (local) ? local->loc.path : "--",
                         (local && local->loc.inode) ?
-                        uuid_utoa (local->loc.inode->gfid) : "--");
+                        uuid_utoa (local->loc.inode->gfid) : "--",
+                        (local) ? local->name : "(null)");
         }
 
         CLIENT_STACK_UNWIND (getxattr, frame, rsp.op_ret, op_errno, dict, xdata);
@@ -4635,6 +4636,9 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto unwind;
         }
+
+        loc_copy (&local->loc, args->loc);
+        local->name = gf_strdup (args->name);
         frame->local = local;
 
         rsp_iobref = iobref_new ();
