@@ -7,48 +7,8 @@
   See the file COPYING.LIB.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <stddef.h>
-#include <limits.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <dirent.h>
-#include <signal.h>
-#ifndef __NetBSD__
-#include <mntent.h>
-#endif /* __NetBSD__ */
-#include <sys/stat.h>
-#include <sys/poll.h>
-#include <sys/un.h>
-#include <sys/wait.h>
-#include <sys/mount.h>
-
-#ifdef __NetBSD__
-#include <perfuse.h>
-#define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
-#endif
-
-#ifdef linux
-#define _PATH_MOUNT "/bin/mount"
-#else /* NetBSD, MacOS X */
-#define _PATH_MOUNT "/sbin/mount"
-#endif
-
-#ifdef FUSE_UTIL
-#define MALLOC(size) malloc (size)
-#define FREE(ptr) free (ptr)
-#define GFFUSE_LOGERR(...) fprintf (stderr, ## __VA_ARGS__)
-#else /* FUSE_UTIL */
-#include "glusterfs.h"
-#include "logging.h"
-#include "common-utils.h"
+#include "mount_util.h"
+#include "mount-gluster-compat.h"
 
 #ifdef GF_FUSERMOUNT
 #define FUSERMOUNT_PROG FUSERMOUNT_DIR "/fusermount-glusterfs"
@@ -57,198 +17,58 @@
 #endif
 #define FUSE_DEVFD_ENV "_FUSE_DEVFD"
 
-#define GFFUSE_LOGERR(...) \
-        gf_log ("glusterfs-fuse", GF_LOG_ERROR, ## __VA_ARGS__)
-#endif /* !FUSE_UTIL */
 
-/*
- * Functions below, until following note, were taken from libfuse
- * (http://git.gluster.com/?p=users/csaba/fuse.git;a=commit;h=b988bbf9)
- * almost verbatim. What has been changed:
- * - style adopted to that of glusterfs
- * - s/fprintf/gf_log/
- * - s/free/FREE/, s/malloc/MALLOC/
- * - there are some other minor things
- */
-
-#ifndef __NetBSD__
-static int
-mtab_needs_update (const char *mnt)
+void
+gf_fuse_unmount (const char *mountpoint, int fd)
 {
         int res;
-        struct stat stbuf;
+        int pid;
 
-        /* If mtab is within new mount, don't touch it */
-        if (strncmp (mnt, _PATH_MOUNTED, strlen (mnt)) == 0 &&
-            _PATH_MOUNTED[strlen (mnt)] == '/')
-                return 0;
+        if (!mountpoint)
+                return;
 
-        /*
-         * Skip mtab update if /etc/mtab:
-         *
-         *  - doesn't exist,
-         *  - is a symlink,
-         *  - is on a read-only filesystem.
-         */
-        res = lstat (_PATH_MOUNTED, &stbuf);
-        if (res == -1) {
-                if (errno == ENOENT)
-                        return 0;
-        } else {
-                if (S_ISLNK (stbuf.st_mode))
-                        return 0;
+        if (fd != -1) {
+                struct pollfd pfd;
 
-                res = access (_PATH_MOUNTED, W_OK);
-                if (res == -1 && errno == EROFS)
-                        return 0;
+                pfd.fd = fd;
+                pfd.events = 0;
+                res = poll (&pfd, 1, 0);
+                /* If file poll returns POLLERR on the device file descriptor,
+                   then the filesystem is already unmounted */
+                if (res == 1 && (pfd.revents & POLLERR))
+                        return;
+
+                /* Need to close file descriptor, otherwise synchronous umount
+                   would recurse into filesystem, and deadlock */
+                close (fd);
         }
 
-        return 1;
-}
-#else /* __NetBSD__ */
-#define mtab_needs_update(x) 1
-#endif /* __NetBSD__ */
-
-#ifndef FUSE_UTIL
-static
-#endif
-int
-fuse_mnt_add_mount (const char *progname, const char *fsname,
-                    const char *mnt, const char *type, const char *opts)
-{
-        int res;
-        int status;
-        sigset_t blockmask;
-        sigset_t oldmask;
-
-        if (!mtab_needs_update (mnt))
-                return 0;
-
-        sigemptyset (&blockmask);
-        sigaddset (&blockmask, SIGCHLD);
-        res = sigprocmask (SIG_BLOCK, &blockmask, &oldmask);
-        if (res == -1) {
-                GFFUSE_LOGERR ("%s: sigprocmask: %s",
-                               progname, strerror (errno));
-                return -1;
+        if (geteuid () == 0) {
+                fuse_mnt_umount ("fuse", mountpoint, mountpoint, 1);
+                return;
         }
 
-        res = fork ();
-        if (res == -1) {
-                GFFUSE_LOGERR ("%s: fork: %s", progname, strerror (errno));
-                goto out_restore;
+        res = umount2 (mountpoint, 2);
+        if (res == 0)
+                return;
+
+        pid = fork ();
+        if (pid == -1)
+                return;
+
+        if (pid == 0) {
+                const char *argv[] = { FUSERMOUNT_PROG, "-u", "-q", "-z",
+                                       "--", mountpoint, NULL };
+
+                execvp (FUSERMOUNT_PROG, (char **)argv);
+                _exit (1);
         }
-        if (res == 0) {
-                char templ[] = "/tmp/fusermountXXXXXX";
-                char *tmp;
-
-                sigprocmask (SIG_SETMASK, &oldmask, NULL);
-                setuid (geteuid ());
-
-                /*
-                 * hide in a directory, where mount isn't able to resolve
-                 * fsname as a valid path
-                 */
-                tmp = mkdtemp (templ);
-                if (!tmp) {
-                        GFFUSE_LOGERR ("%s: failed to create temporary directory",
-                                       progname);
-                        exit (1);
-                }
-                if (chdir (tmp)) {
-                        GFFUSE_LOGERR ("%s: failed to chdir to %s: %s",
-                                       progname, tmp, strerror (errno));
-                        exit (1);
-                }
-                rmdir (tmp);
-                execl (_PATH_MOUNT, _PATH_MOUNT, "-i", "-f", "-t", type,
-                       "-o", opts, fsname, mnt, NULL);
-                GFFUSE_LOGERR ("%s: failed to execute %s: %s",
-                               progname, _PATH_MOUNT, strerror (errno));
-                exit (1);
-        }
-
-        res = waitpid (res, &status, 0);
-        if (res == -1)
-                GFFUSE_LOGERR ("%s: waitpid: %s", progname, strerror (errno));
-        res = (res != -1 && status == 0) ? 0 : -1;
-
- out_restore:
-        sigprocmask (SIG_SETMASK, &oldmask, NULL);
-        return res;
+        waitpid (pid, NULL, 0);
 }
 
-#ifndef FUSE_UTIL
-static
-#endif
-char
-*fuse_mnt_resolve_path (const char *progname, const char *orig)
-{
-        char buf[PATH_MAX];
-        char *copy;
-        char *dst;
-        char *end;
-        char *lastcomp;
-        const char *toresolv;
 
-        if (!orig[0]) {
-                GFFUSE_LOGERR ("%s: invalid mountpoint '%s'", progname, orig);
-                return NULL;
-        }
+/* gluster-specific routines */
 
-        copy = strdup (orig);
-        if (copy == NULL) {
-                GFFUSE_LOGERR ("%s: failed to allocate memory", progname);
-                return NULL;
-        }
-
-        toresolv = copy;
-        lastcomp = NULL;
-        for (end = copy + strlen (copy) - 1; end > copy && *end == '/'; end --);
-        if (end[0] != '/') {
-                char *tmp;
-                end[1] = '\0';
-                tmp = strrchr (copy, '/');
-                if (tmp == NULL) {
-                        lastcomp = copy;
-                        toresolv = ".";
-                } else {
-                        lastcomp = tmp + 1;
-                        if (tmp == copy)
-                                toresolv = "/";
-                }
-                if (strcmp (lastcomp, ".") == 0 || strcmp (lastcomp, "..") == 0) {
-                        lastcomp = NULL;
-                        toresolv = copy;
-                }
-                else if (tmp)
-                        tmp[0] = '\0';
-        }
-        if (realpath (toresolv, buf) == NULL) {
-                GFFUSE_LOGERR ("%s: bad mount point %s: %s", progname, orig,
-                               strerror (errno));
-                FREE (copy);
-                return NULL;
-        }
-        if (lastcomp == NULL)
-                dst = strdup (buf);
-        else {
-                dst = (char *) MALLOC (strlen (buf) + 1 + strlen (lastcomp) + 1);
-                if (dst) {
-                        unsigned buflen = strlen (buf);
-                        if (buflen && buf[buflen-1] == '/')
-                                sprintf (dst, "%s%s", buf, lastcomp);
-                        else
-                                sprintf (dst, "%s/%s", buf, lastcomp);
-                }
-        }
-        FREE (copy);
-        if (dst == NULL)
-                GFFUSE_LOGERR ("%s: failed to allocate memory", progname);
-        return dst;
-}
-
-#ifndef FUSE_UTIL
 static char *
 escape (char *s)
 {
@@ -346,173 +166,7 @@ fuse_mount_fusermount (const char *mountpoint, char *fsname, char *mnt_param,
         FREE (fm_mnt_params);
         return ret;
 }
-#endif
 
-#ifndef FUSE_UTIL
-static
-#endif
-int
-fuse_mnt_umount (const char *progname, const char *abs_mnt,
-                 const char *rel_mnt, int lazy)
-{
-        int res;
-        int status;
-        sigset_t blockmask;
-        sigset_t oldmask;
-
-        if (!mtab_needs_update (abs_mnt)) {
-                res = umount2 (rel_mnt, lazy ? 2 : 0);
-                if (res == -1)
-                        GFFUSE_LOGERR ("%s: failed to unmount %s: %s",
-                                       progname, abs_mnt, strerror (errno));
-                return res;
-        }
-
-        sigemptyset (&blockmask);
-        sigaddset (&blockmask, SIGCHLD);
-        res = sigprocmask (SIG_BLOCK, &blockmask, &oldmask);
-        if (res == -1) {
-                GFFUSE_LOGERR ("%s: sigprocmask: %s", progname,
-                               strerror (errno));
-                return -1;
-        }
-
-        res = fork ();
-        if (res == -1) {
-                GFFUSE_LOGERR ("%s: fork: %s", progname, strerror (errno));
-                goto out_restore;
-        }
-        if (res == 0) {
-                sigprocmask (SIG_SETMASK, &oldmask, NULL);
-                setuid (geteuid ());
-                execl ("/bin/umount", "/bin/umount", "-i", rel_mnt,
-                      lazy ? "-l" : NULL, NULL);
-                GFFUSE_LOGERR ("%s: failed to execute /bin/umount: %s",
-                               progname, strerror (errno));
-                exit (1);
-        }
-        res = waitpid (res, &status, 0);
-        if (res == -1)
-                GFFUSE_LOGERR ("%s: waitpid: %s", progname, strerror (errno));
-
-        if (status != 0)
-                res = -1;
-
- out_restore:
-        sigprocmask (SIG_SETMASK, &oldmask, NULL);
-        return res;
-}
-
-#ifdef FUSE_UTIL
-int
-fuse_mnt_check_empty (const char *progname, const char *mnt,
-                      mode_t rootmode, off_t rootsize)
-{
-        int isempty = 1;
-
-        if (S_ISDIR (rootmode)) {
-                struct dirent *ent;
-                DIR *dp = opendir (mnt);
-                if (dp == NULL) {
-                        fprintf (stderr,
-                                 "%s: failed to open mountpoint for reading: %s\n",
-                                 progname, strerror (errno));
-                        return -1;
-                }
-                while ((ent = readdir (dp)) != NULL) {
-                        if (strcmp (ent->d_name, ".") != 0 &&
-                            strcmp (ent->d_name, "..") != 0) {
-                                isempty = 0;
-                                break;
-                        }
-                }
-                closedir (dp);
-        } else if (rootsize)
-                isempty = 0;
-
-        if (!isempty) {
-                fprintf (stderr, "%s: mountpoint is not empty\n", progname);
-                fprintf (stderr, "%s: if you are sure this is safe, "
-                         "use the 'nonempty' mount option\n", progname);
-                return -1;
-        }
-        return 0;
-}
-
-int
-fuse_mnt_check_fuseblk (void)
-{
-        char buf[256];
-        FILE *f = fopen ("/proc/filesystems", "r");
-        if (!f)
-                return 1;
-
-        while (fgets (buf, sizeof (buf), f))
-                if (strstr (buf, "fuseblk\n")) {
-                        fclose (f);
-                        return 1;
-                }
-
-        fclose (f);
-        return 0;
-}
-#endif
-
-#ifndef FUSE_UTIL
-void
-gf_fuse_unmount (const char *mountpoint, int fd)
-{
-        int res;
-        int pid;
-
-        if (!mountpoint)
-                return;
-
-        if (fd != -1) {
-                struct pollfd pfd;
-
-                pfd.fd = fd;
-                pfd.events = 0;
-                res = poll (&pfd, 1, 0);
-                /* If file poll returns POLLERR on the device file descriptor,
-                   then the filesystem is already unmounted */
-                if (res == 1 && (pfd.revents & POLLERR))
-                        return;
-
-                /* Need to close file descriptor, otherwise synchronous umount
-                   would recurse into filesystem, and deadlock */
-                close (fd);
-        }
-
-        if (geteuid () == 0) {
-                fuse_mnt_umount ("fuse", mountpoint, mountpoint, 1);
-                return;
-        }
-
-        res = umount2 (mountpoint, 2);
-        if (res == 0)
-                return;
-
-        pid = fork ();
-        if (pid == -1)
-                return;
-
-        if (pid == 0) {
-                const char *argv[] = { FUSERMOUNT_PROG, "-u", "-q", "-z",
-                                       "--", mountpoint, NULL };
-
-                execvp (FUSERMOUNT_PROG, (char **)argv);
-                _exit (1);
-        }
-        waitpid (pid, NULL, 0);
-}
-#endif
-
-/*
- * Functions below are loosely modelled after similar functions of libfuse
- */
-
-#ifndef FUSE_UTIL
 static int
 fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, int fd)
 {
@@ -641,4 +295,3 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
 
         return fd;
 }
-#endif
