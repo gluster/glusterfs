@@ -4474,9 +4474,8 @@ glusterd_brick_create_path (char *host, char *path, uuid_t uuid,
         int             ret             = -1;
         char            msg[2048]       = {0,};
         gf_boolean_t    in_use          = _gf_false;
-        gf_boolean_t    created         = _gf_true;
 
-        ret = mkdir_if_missing (path, &created);
+        ret = mkdir_p (path, 0777, _gf_true);
         if (ret)
                 goto out;
 
@@ -4510,8 +4509,6 @@ glusterd_brick_create_path (char *host, char *path, uuid_t uuid,
                 snprintf (msg, sizeof (msg), "Failed to set extended "
                           "attributes %s, reason: %s",
                           GF_XATTR_VOL_ID_KEY, strerror (errno));
-                if (created)
-                        rmdir (path);
                 goto out;
         }
 
@@ -4862,38 +4859,6 @@ glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo)
         return ret;
 }
 
-/* @new should be used by caller only if ret is zero.
- * caller should set @new to 'true' by default.*/
-int
-mkdir_if_missing (char *path, gf_boolean_t *new)
-{
-        struct stat st = {0,};
-        int        ret = 0;
-        gf_boolean_t created = _gf_true;
-
-        ret = mkdir (path, 0777);
-        if (ret && errno != EEXIST)
-                goto out;
-
-        if (ret && errno == EEXIST)
-                created = _gf_false;
-
-        ret = stat (path, &st);
-        if (ret == -1 || !S_ISDIR (st.st_mode)) {
-                ret = -1;
-                goto out;
-        }
-
-        if (new)
-                *new = created;
-
-out:
-        if (ret)
-                gf_log ("", GF_LOG_WARNING, "Failed to create the"
-                        " directory %s", path);
-        return ret;
-}
-
 int
 glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
                       char *glusterd_uuid_str, char **op_errstr)
@@ -4921,7 +4886,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
                 goto out;
 
         snprintf (buf, PATH_MAX, "%s/"GEOREP"/%s", priv->workdir, master_vol->volname);
-        ret = mkdir_if_missing (buf, NULL);
+        ret = mkdir_p (buf, 0777, _gf_true);
         if (ret) {
                 errcode = -1;
                 goto out;
@@ -4929,7 +4894,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
 
         snprintf (buf, PATH_MAX, DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/%s",
                   master_vol->volname);
-        ret = mkdir_if_missing (buf, NULL);
+        ret = mkdir_p (buf, 0777, _gf_true);
         if (ret) {
                 errcode = -1;
                 goto out;

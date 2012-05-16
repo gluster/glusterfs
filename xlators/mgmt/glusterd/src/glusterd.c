@@ -344,7 +344,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         }
 
         snprintf (georepdir, PATH_MAX, "%s/"GEOREP, conf->workdir);
-        ret = mkdir_if_missing (georepdir, NULL);
+        ret = mkdir_p (georepdir, 0777, _gf_true);
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" directory %s",
@@ -359,7 +359,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                         georepdir);
                 goto out;
         }
-        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP, NULL);
+        ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP, 0777, _gf_true);
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" log directory");
@@ -373,8 +373,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                         georepdir);
                 goto out;
         }
-        ret = mkdir_if_missing (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves",
-                                NULL);
+        ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves", 0777,
+                      _gf_true);
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" slave log directory");

@@ -59,17 +59,14 @@ struct dnscache6 {
 
 
 /* works similar to mkdir(1) -p.
- * @start returns the point in path from which components were created
- * @start is -1 if the entire path existed before.
  */
 int
-mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks, int *start)
+mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
 {
         int             i               = 0;
         int             ret             = -1;
         char            dir[PATH_MAX]   = {0,};
         struct stat     stbuf           = {0,};
-        int             created         = -1;
 
         strcpy (dir, path);
         i = (dir[0] == '/')? 1: 0;
@@ -84,9 +81,6 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks, int *start)
                                 strerror (errno));
                         goto out;
                 }
-
-                if (ret && errno == EEXIST)
-                        created = i;
 
                 if (ret && errno == EEXIST && !allow_symlinks) {
                         ret = lstat (dir, &stbuf);
@@ -113,8 +107,6 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks, int *start)
         }
 
         ret = 0;
-        if (start)
-                *start = created;
 out:
 
         return ret;
