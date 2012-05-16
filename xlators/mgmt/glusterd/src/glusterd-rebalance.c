@@ -262,7 +262,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         glusterd_store_perform_node_state_store (volinfo);
 
         GLUSTERD_GET_DEFRAG_DIR (defrag_path, volinfo, priv);
-        ret = mkdir_p (defrag_path, 0777, 0, NULL);
+        ret = mkdir_p (defrag_path, 0777, _gf_true);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to create "
                         "directory %s", defrag_path);

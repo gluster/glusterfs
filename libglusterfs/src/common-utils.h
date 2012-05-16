@@ -393,7 +393,7 @@ memdup (const void *ptr, size_t size)
 }
 
 int
-mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks, int *start);
+mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks);
 /*
  * rounds up nr to power of two. If nr is already a power of two, just returns
  * nr
