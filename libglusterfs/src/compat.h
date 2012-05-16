@@ -107,13 +107,6 @@ enum {
 #define F_SETLK64       F_SETLK
 #define F_SETLKW64      F_SETLKW
 
-#ifdef __NetBSD__
-char *basename_r(const char *);
-char *dirname_r(char *);
-
-#define basename(path) basename_r(path)
-#define dirname(path) dirname_r(path)
-#endif /* __NetBSD__ */
 #endif /* GF_BSD_HOST_OS */
 
 #ifdef GF_DARWIN_HOST_OS
@@ -341,6 +334,15 @@ dirent_size (struct dirent *entry)
         return size;
 }
 
+#ifdef THREAD_UNSAFE_BASENAME
+char *basename_r(const char *);
+#define basename(path) basename_r(path)
+#endif /* THREAD_UNSAFE_BASENAME */
+
+#ifdef THREAD_UNSAFE_DIRNAME
+char *dirname_r(const char *path);
+#define dirname(path) dirname_r(path)
+#endif /* THREAD_UNSAFE_DIRNAME */
 
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 /* Linux, Solaris, Cygwin */
