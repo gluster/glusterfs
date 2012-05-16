@@ -3097,8 +3097,10 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         goto done;
                                 }
                                 memset (iobuf->ptr, 0, vec[count].iov_len);
-                                iobref_add (local->iobref, iobuf);
                                 vec[count].iov_base = iobuf->ptr;
+
+                                iobref_add (local->iobref, iobuf);
+                                iobuf_unref(iobuf);
 
                                 op_ret += vec[count].iov_len;
                                 count++;
