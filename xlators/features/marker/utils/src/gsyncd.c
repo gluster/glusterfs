@@ -159,6 +159,7 @@ static int
 find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
 {
         char buf[NAME_MAX * 2] = {0,};
+        char path[PATH_MAX]    = {0,};
         char *p                = NULL;
         int zeros              = 0;
         int ret                = 0;
@@ -166,28 +167,16 @@ find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
         pid_t *pida            = (pid_t *)data;
 
         if (ppid != pida[0])
-                goto out;
+                return 0;
 
-        ret = gf_asprintf (&p, PROC"/%d/cmdline", pid);
-        if (ret == -1) {
-                fprintf (stderr, "out of memory\n");
-                goto out;
-        }
-
-        ret = 0;
-
-        fd = open (p, O_RDONLY);
+        sprintf (path, PROC"/%d/cmdline", pid);
+        fd = open (path, O_RDONLY);
         if (fd == -1)
-                goto out;
-
+                return 0;
         ret = read (fd, buf, sizeof (buf));
         close (fd);
-
-        if (ret == -1) {
-                ret = 0;
-                goto out;
-        }
-
+        if (ret == -1)
+                return 0;
         for (zeros = 0, p = buf; zeros < 2 && p < buf + ret; p++)
                 zeros += !*p;
 
@@ -208,25 +197,19 @@ find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
         if (ret == 1) {
                 if (pida[1] != -1) {
                         fprintf (stderr, GSYNCD_PY" sibling is not unique");
-                        ret = -1;
-                        goto out;
+                        return -1;
                 }
                 pida[1] = pid;
         }
 
-        ret = 0;
-out:
-        if (p)
-                GF_FREE (p);
-
-        return ret;
+        return 0;
 }
 
 static int
 invoke_rsync (int argc, char **argv)
 {
         int i                  = 0;
-        char *p                = NULL;
+        char path[PATH_MAX]    = {0,};
         pid_t pid              = -1;
         pid_t ppid             = -1;
         pid_t pida[]           = {-1, -1};
@@ -253,10 +236,11 @@ invoke_rsync (int argc, char **argv)
                         fprintf (stderr, "sshd ancestor not found\n");
                         goto error;
                 }
-                if (strcmp (name, "sshd") == 0)
+                if (strcmp (name, "sshd") == 0) {
+                        GF_FREE (name);
                         break;
+                }
                 GF_FREE (name);
-                name = NULL;
         }
         /* look up "ssh-sibling" gsyncd */
         pida[0] = pid;
@@ -266,15 +250,12 @@ invoke_rsync (int argc, char **argv)
                 goto error;
         }
         /* check if rsync target matches gsyncd target */
-        if (gf_asprintf (&p, PROC"/%d/cwd", pida[1]) == -1) {
-                fprintf (stderr, "out of memory\n");
-                goto error;
-        }
-        ret = readlink (p, buf, sizeof (buf));
+        sprintf (path, PROC"/%d/cwd", pida[1]);
+        ret = readlink (path, buf, sizeof (buf));
         if (ret == -1 || ret == sizeof (buf))
                 goto error;
         if (strcmp (argv[argc - 1], "/") == 0 /* root dir cannot be a target */ ||
-            (strcmp (argv[argc - 1], p) /* match against gluster target */ &&
+            (strcmp (argv[argc - 1], path) /* match against gluster target */ &&
              strcmp (argv[argc - 1], buf) /* match against file target */) != 0) {
                 fprintf (stderr, "rsync target does not match "GEOREP" session\n");
                 goto error;
@@ -284,22 +265,10 @@ invoke_rsync (int argc, char **argv)
 
         execvp (RSYNC, argv);
 
-        if (p)
-                GF_FREE (p);
-
-        if (name)
-                GF_FREE (name);
-
         fprintf (stderr, "exec of "RSYNC" failed\n");
         return 127;
 
  error:
-        if (p)
-                GF_FREE (p);
-
-        if (name)
-                GF_FREE (name);
-
         fprintf (stderr, "disallowed "RSYNC" invocation\n");
         return 1;
 }
