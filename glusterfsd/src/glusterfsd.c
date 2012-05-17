@@ -220,7 +220,7 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         if (ctx->process_mode != GF_CLIENT_PROCESS) {
                 gf_log("glusterfsd", GF_LOG_ERROR,
                        "Not a client process, not performing mount operation");
-                return -1;
+                return 0;
         }
 
         master = GF_CALLOC (1, sizeof (*master),
