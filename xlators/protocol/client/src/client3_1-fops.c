@@ -4638,7 +4638,9 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         loc_copy (&local->loc, args->loc);
-        local->name = gf_strdup (args->name);
+        if (args->name)
+                local->name = gf_strdup (args->name);
+
         frame->local = local;
 
         rsp_iobref = iobref_new ();
