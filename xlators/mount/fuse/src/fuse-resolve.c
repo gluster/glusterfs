@@ -237,12 +237,6 @@ fuse_resolve_parent_simple (fuse_state_t *state)
 		/* no graph switches since */
 		loc->parent = inode_ref (parent);
 		loc->inode = inode_grep (state->itable, parent, loc->name);
-
-                if (loc->inode == NULL) {
-                        /* non decisive result - entry missing */
-                        return -1;
-                }
-
 		/* decisive result - resolution success */
 		return 0;
 	}
