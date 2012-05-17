@@ -321,8 +321,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 break;
 
         case GF_REPLACE_OP_ABORT:
-                if ((!glusterd_is_rb_paused (volinfo)) &&
-                     (!glusterd_is_rb_started (volinfo))) {
+                if (!glusterd_is_rb_ongoing (volinfo)) {
                         gf_log ("", GF_LOG_ERROR, "Replace brick is not"
                                 " started or paused for volume ");
                         ret = -1;
@@ -331,7 +330,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 break;
 
         case GF_REPLACE_OP_COMMIT:
-                if (!glusterd_is_rb_started (volinfo)) {
+                if (!glusterd_is_rb_ongoing (volinfo)) {
                         gf_log ("", GF_LOG_ERROR, "Replace brick is not "
                                 "started for volume ");
                         ret = -1;
@@ -445,7 +444,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
-       if ((volinfo->rb_status ==GF_RB_STATUS_NONE) &&
+       if (!glusterd_is_rb_ongoing (volinfo) &&
             (replace_op == GF_REPLACE_OP_START ||
              replace_op == GF_REPLACE_OP_COMMIT_FORCE)) {
 
@@ -463,13 +462,15 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 goto out;
        }
 
-        if (!glusterd_is_local_addr (host)) {
+        if (!glusterd_is_rb_ongoing (volinfo)) {
                 ret = glusterd_brick_create_path (host, path,
                                                   volinfo->volume_id,
                                                   op_errstr);
                 if (ret)
                         goto out;
-        } else {
+        }
+
+        if (glusterd_is_local_addr (host)) {
                 ret = glusterd_friend_find (NULL, host, &peerinfo);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "%s, is not a friend",
