@@ -51,6 +51,8 @@ _init ()
     esac
 
     UPDATEDBCONF=/etc/updatedb.conf
+    LD_LIBRARY_PATH=@libdir@:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH
 }
 
 # Mount happens asynchronously, so the command status alone will never be
