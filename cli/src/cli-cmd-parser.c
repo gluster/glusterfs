@@ -523,16 +523,26 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto out;
         }
 
-        if ((strcmp (w, "enable")) == 0 && wordcount == 4) {
-                type = GF_QUOTA_OPTION_TYPE_ENABLE;
-                ret = 0;
-                goto set_type;
+        if (strcmp (w, "enable") == 0) {
+                if (wordcount == 4) {
+                        type = GF_QUOTA_OPTION_TYPE_ENABLE;
+                        ret = 0;
+                        goto set_type;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
         }
 
-        if (strcmp (w, "disable") == 0 && wordcount == 4) {
-                type = GF_QUOTA_OPTION_TYPE_DISABLE;
-                ret = 0;
-                goto set_type;
+        if (strcmp (w, "disable") == 0) {
+                if (wordcount == 4) {
+                        type = GF_QUOTA_OPTION_TYPE_DISABLE;
+                        ret = 0;
+                        goto set_type;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
         }
 
         if (strcmp (w, "limit-usage") == 0) {
