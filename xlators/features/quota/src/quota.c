@@ -3233,9 +3233,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
         LOCK (&priv->lock);
         {
-                list_for_each_entry (limit, &priv->limit_head, limit_list) {
-                        top = ((glusterfs_ctx_t *)this->ctx)->active->top;
+                top = ((glusterfs_ctx_t *)this->ctx)->active->top;
+                GF_ASSERT (top);
 
+                list_for_each_entry (limit, &priv->limit_head, limit_list) {
                         __quota_reconfigure (this, top->itable, limit);
                 }
 
