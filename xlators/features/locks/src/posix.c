@@ -360,6 +360,8 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
         /* TODO: what if it is a blocked lock with pending l->frame */
 
         list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
+                if (l->blocked)
+                        continue;
                 if ((l->transport == transport) &&
                     is_same_lkowner (&l->owner, owner)) {
                         gf_log ("posix-locks", GF_LOG_TRACE,
