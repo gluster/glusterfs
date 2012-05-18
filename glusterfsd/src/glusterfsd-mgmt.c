@@ -1684,6 +1684,47 @@ out:
         return ret;
 
 }
+
+int32_t
+glusterfs_rebalance_event_notify_cbk (struct rpc_req *req, struct iovec *iov,
+                                      int count, void *myframe)
+{
+        gf_event_notify_rsp      rsp   = {0,};
+        call_frame_t            *frame = NULL;
+        glusterfs_ctx_t         *ctx = NULL;
+        int                      ret   = 0;
+
+        frame = myframe;
+        ctx = frame->this->ctx;
+
+        if (-1 == req->rpc_status) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to get the rsp from server");
+                ret = -1;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_event_notify_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding error");
+                ret   = -1;
+                goto out;
+        }
+
+        if (-1 == rsp.op_ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Recieved error (%s) from server",
+                        strerror (rsp.op_errno));
+                ret = -1;
+                goto out;
+        }
+out:
+        if (rsp.dict.dict_val)
+                free (rsp.dict.dict_val); //malloced by xdr
+        return ret;
+
+}
+
 int32_t
 glusterfs_rebalance_event_notify (dict_t *dict)
 {
@@ -1710,7 +1751,8 @@ glusterfs_rebalance_event_notify (dict_t *dict)
         }
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
-                                   GF_HNDSK_EVENT_NOTIFY, NULL,
+                                   GF_HNDSK_EVENT_NOTIFY,
+                                   glusterfs_rebalance_event_notify_cbk,
                                    (xdrproc_t)xdr_gf_event_notify_req);
 
         if (req.dict.dict_val)
