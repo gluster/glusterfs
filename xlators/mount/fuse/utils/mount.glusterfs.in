@@ -31,6 +31,25 @@ _init ()
     exec_prefix=@exec_prefix@;
     cmd_line=$(echo "@sbindir@/glusterfs");
 
+    case `uname -s` in
+    NetBSD)
+        getinode="stat -f %i"
+        getdev="stat -f %d"
+        lgetinode="${getinode} -L"
+        lgetdev="${getdev} -L"
+
+        mounttab=/proc/mounts
+        ;;
+    Linux)
+        getinode="stat -c $i"
+        getdev="stat -c $d"
+        lgetinode="${getinode} -L"
+        lgetdev="${getdev} -L"
+
+        mounttab=/etc/mtab
+        ;;
+    esac
+
     UPDATEDBCONF=/etc/updatedb.conf
 }
 
@@ -50,7 +69,7 @@ wait_for ()
                 umount $mount_point &> /dev/null
                 exit 1
         fi
-        inode=$(stat -c %i $mount_point 2>/dev/null);
+        inode=$( ${getinode} $mount_point 2>/dev/null);
         if [ "$inode" = "1" ]; then
             break
         fi
@@ -234,10 +253,10 @@ check_recursive_mount ()
     fi
 
     brick_path=`grep ^path "$GLUSTERD_WORKDIR"/vols/*/bricks/* | cut -d "=" -f 2`;
-    root_inode=`stat -Lc %i /`;
-    root_dev=`stat -Lc %d /`;
-    mnt_inode=`stat -Lc %i $mnt_dir`;
-    mnt_dev=`stat -Lc %d $mnt_dir`;
+    root_inode=`${lgetinode} /`;
+    root_dev=`${lgetdev} /`;
+    mnt_inode=`${lgetinode} $mnt_dir`;
+    mnt_dev=`${lgetdev} $mnt_dir`;
     for brick in "$brick_path";
     do
         # evaluate brick path to see if this is local, if non-local, skip iteration
@@ -254,8 +273,8 @@ check_recursive_mount ()
             do
                 tmp_brick="$brick";
                 brick="$brick"/..;
-                brick_dev=`stat -Lc %d $brick`;
-                brick_inode=`stat -Lc %i $brick`;
+                brick_dev=`${lgetdev} $brick`;
+                brick_inode=`${gletdev} $brick`;
                 if [ "$mnt_inode" -eq "$brick_inode" -a "$mnt_dev" -eq "$brick_dev" ]; then
                     echo ERROR: $mnt_dir is a parent of the brick $tmp_brick;
                     exit 2;
@@ -342,15 +361,6 @@ main ()
         usage;
         exit 0;
     }
-
-    case `uname -s` in
-    NetBSD)
-        mounttab=/proc/mounts
-        ;;
-    Linux)
-        mounttab=/etc/mtab
-        ;;
-    esac
 
     # Simple check to avoid multiple identical mounts
     if grep -q " ${mount_point}.*fuse" $mounttab; then
