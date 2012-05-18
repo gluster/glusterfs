@@ -783,6 +783,8 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
         struct _values v = { .locks = {0, 0, 0} };
 
         list_for_each_entry_safe (conf, t, &pl_inode->ext_list, list) {
+                if (conf->blocked)
+                        continue;
                 if (!locks_overlap (conf, lock))
                         continue;
 
