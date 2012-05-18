@@ -17,7 +17,7 @@ from ipaddr import IPAddress, IPNetwork
 
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
-from syncdutils import GsyncdError, select
+from syncdutils import GsyncdError, select, set_term_handler
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -111,7 +111,8 @@ def startup(**kw):
 
 def main():
     """main routine, signal/exception handling boilerplates"""
-    signal.signal(signal.SIGTERM, lambda *a: finalize(*a, **{'exval': 1}))
+    gconf.starttime = time.time()
+    set_term_handler()
     GLogger.setup()
     excont = FreeObject(exval = 0)
     try:

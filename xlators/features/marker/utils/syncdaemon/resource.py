@@ -731,7 +731,15 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     d = self.mntpt
                     os.write(mpo, d + '\0')
                 os.write(mpo, 'M')
-                os.chdir(d)
+                t = syncdutils.Thread(target=lambda: os.chdir(d))
+                t.start()
+                tlim = gconf.starttime + int(gconf.connection_timeout)
+                while True:
+                    if not t.isAlive():
+                        break
+                    if time.time() >= tlim:
+                        syncdutils.finalize(exval = 1)
+                    time.sleep(1)
                 os.close(mpo)
                 _, rv = syncdutils.waitpid(mh, 0)
                 if rv:
