@@ -2113,20 +2113,25 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         frame->local = local;
         local->fop = GF_FOP_LOOKUP;
 
-        if (!strcmp (loc->path, "/" GF_REPLICATE_TRASH_DIR)) {
+        loc_copy (&local->loc, loc);
+        ret = loc_path (&local->loc, NULL);
+        if (ret < 0) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (!strcmp (local->loc.path, "/" GF_REPLICATE_TRASH_DIR)) {
                 op_errno = ENOENT;
                 goto out;
         }
 
-        loc_copy (&local->loc, loc);
-
-        ret = inode_ctx_get (loc->inode, this, &ctx);
+        ret = inode_ctx_get (local->loc.inode, this, &ctx);
         if (ret == 0) {
                 /* lookup is a revalidate */
 
                 local->read_child_index = afr_inode_get_read_ctx (this,
-                                                                  loc->inode,
-                                                                  NULL);
+                                                               local->loc.inode,
+                                                               NULL);
         } else {
                 LOCK (&priv->read_child_lock);
                 {
@@ -2164,14 +2169,14 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
         local->call_count = afr_up_children_count (local->child_up,
                                                    priv->child_count);
-        ret = afr_lookup_xattr_req_prepare (local, this, xattr_req, loc,
+        ret = afr_lookup_xattr_req_prepare (local, this, xattr_req, &local->loc,
                                             &gfid_req);
         if (ret) {
                 local->op_errno = -ret;
                 goto out;
         }
         afr_lookup_save_gfid (local->cont.lookup.gfid_req, gfid_req,
-                              loc);
+                              &local->loc);
         local->fop = GF_FOP_LOOKUP;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2179,7 +2184,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->lookup,
-                                           loc, local->xattr_req);
+                                           &local->loc, local->xattr_req);
                         if (!--call_count)
                                 break;
                 }
