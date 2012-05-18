@@ -7,7 +7,7 @@ import shutil
 import logging
 from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED, EINTR, errorcode
-from signal import SIGTERM, SIGKILL
+from signal import signal, SIGTERM, SIGKILL
 from time import sleep
 import select as oselect
 from os import waitpid as owaitpid
@@ -271,3 +271,6 @@ def select(*a):
 
 def waitpid (*a):
     return eintr_wrap(owaitpid, OSError, *a)
+
+def set_term_handler(hook=lambda *a: finalize(*a, **{'exval': 1})):
+    signal(SIGTERM, hook)
