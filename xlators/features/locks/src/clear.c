@@ -141,8 +141,9 @@ clrlk_parse_args (const char* cmd, clrlk_args *args)
         if ((args->type == CLRLK_TYPE_MAX) || (args->kind == CLRLK_KIND_MAX))
                 goto out;
 
-        /*optional args*/
-        tok = strtok_r (NULL, ".", &sptr);
+        /*optional args, neither range nor basename can 'legally' contain
+         * "/" in them*/
+        tok = strtok_r (NULL, "/", &sptr);
         if (tok)
                 args->opts = gf_strdup (tok);
 
