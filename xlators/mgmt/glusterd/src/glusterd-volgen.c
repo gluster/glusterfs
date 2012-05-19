@@ -2784,6 +2784,7 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         xlator_t           *iostxl        = NULL;
         int                rclusters      = 0;
         int                replica_count  = 0;
+        gf_boolean_t       graph_check    = _gf_false;
 
         this = THIS;
         priv = this->private;
@@ -2794,6 +2795,7 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 goto out;
         }
 
+        graph_check = dict_get_str_boolean (mod_dict, "graph-check", 0);
         iostxl = volgen_graph_add_as (graph, "debug/io-stats", "glustershd");
         if (!iostxl) {
                 ret = -1;
@@ -2801,7 +2803,8 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         }
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                if (!graph_check &&
+                   (voliter->status != GLUSTERD_STATUS_STARTED))
                         continue;
 
                 if (!glusterd_is_volume_replicate (voliter))
@@ -3447,6 +3450,13 @@ validate_shdopts (glusterd_volinfo_t *volinfo,
 
         graph.errstr = op_errstr;
 
+        if (!glusterd_is_volume_replicate (volinfo)) {
+                ret = 0;
+                goto out;
+        }
+        ret = dict_set_str (val_dict, "graph-check", "on");
+        if (ret)
+                goto out;
         ret = build_shd_graph (&graph, val_dict);
         if (!ret)
                 ret = graph_reconf_validateopt (&graph.graph, op_errstr);
@@ -3454,6 +3464,8 @@ validate_shdopts (glusterd_volinfo_t *volinfo,
         volgen_graph_free (&graph);
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+out:
+        dict_del (val_dict, "graph-check");
         return ret;
 }
 
