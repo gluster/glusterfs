@@ -56,12 +56,20 @@ afr_build_parent_loc (loc_t *parent, loc_t *child, int32_t *op_errno)
                         *op_errno = ENOMEM;
                 goto out;
         }
-        parent->path = dirname (child_path);
+        parent->path = gf_strdup( dirname (child_path) );
+	if (!parent->path) {
+                if (op_errno)
+                        *op_errno = ENOMEM;
+                goto out;
+        }
         parent->inode  = inode_ref (child->parent);
         uuid_copy (parent->gfid, child->pargfid);
 
         ret = 0;
 out:
+	if (child_path)
+		GF_FREE(child_path);
+
         return ret;
 }
 
