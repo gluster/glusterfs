@@ -57,6 +57,9 @@
 int
 afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index);
 
+static int
+afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this);
+
 static uint64_t afr_lock_number = 1;
 
 static uint64_t
@@ -860,6 +863,7 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (op_ret != 0) {
+                afr_copy_locked_nodes (frame, this);
                 afr_unlock (frame, this);
                 goto out;
         } else {
