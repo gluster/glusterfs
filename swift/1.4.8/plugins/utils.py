@@ -323,31 +323,19 @@ def check_user_xattr(path):
 def _check_valid_account(account, fs_object):
     mount_path = getattr(fs_object, 'mount_path', MOUNT_PATH)
 
-    if not check_account_exists(fs_object.get_export_from_account_id(account), \
-                                fs_object):
+    if os.path.ismount(os.path.join(mount_path, account)):
+        return True
+
+    if not check_account_exists(fs_object.get_export_from_account_id(account), fs_object):
         logging.error('Account not present %s', account)
         return False
 
-    if not os.path.ismount(os.path.join(mount_path, account)):
-        if not os.path.isdir(os.path.join(mount_path, account)):
-            mkdirs(os.path.join(mount_path, account))
-
+    if not os.path.isdir(os.path.join(mount_path, account)):
+        mkdirs(os.path.join(mount_path, account))
         fs_object.unmount(os.path.join(mount_path, account))
 
     if fs_object:
         if not fs_object.mount(account):
-            return False
-
-    if not check_user_xattr(os.path.join(mount_path, account)):
-        logging.error('Error: No support for user.xattr on backend %s' % account)
-        return False
-
-    chmod_cmd = ['chmod 777 %s' % (mount_path), \
-                 'chmod 777 %s/%s' % (mount_path, account)]
-
-    for cmd in chmod_cmd:
-        if os.system(cmd):
-            logging.error('Chmod failed: %s' % (cmd))
             return False
 
     return True

@@ -67,7 +67,6 @@ class Glusterfs(object):
     def get_export_list_remote(self):
         export_list = []
         cmnd = 'ssh %s gluster volume info' % self.mount_ip
-        print 'Remote'
 
         if os.system(cmnd + ' >> /dev/null'):
             raise Exception('Getting volume info failed %s, make sure to have \

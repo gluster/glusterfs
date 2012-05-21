@@ -220,14 +220,14 @@ class DiskDir(DiskCommon):
         self.metadata[X_BYTES_USED] = int(self.metadata[X_BYTES_USED]) - int(content_length)
         self.put_metadata(self.metadata)
 
-    def put_container(self, timestamp, object_count, bytes_used):
+    def put_container(self, container, put_timestamp, del_timestamp, object_count, bytes_used):
         """
         For account server.
         """
         self.metadata[X_OBJECTS_COUNT] = 0
         self.metadata[X_BYTES_USED] = 0
         self.metadata[X_CONTAINER_COUNT] = int(self.metadata[X_CONTAINER_COUNT]) + 1
-        self.metadata[X_PUT_TIMESTAMP] = timestamp
+        self.metadata[X_PUT_TIMESTAMP] = 1
         self.put_metadata(self.metadata)
 
     def delete_container(self, object_count, bytes_used):
