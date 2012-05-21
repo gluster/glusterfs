@@ -4388,17 +4388,27 @@ glusterd_is_uuid_present (char *path, char *xattr, gf_boolean_t *present)
                 goto out;
 
         ret = sys_lgetxattr (path, xattr, &uid, 16);
-        if (ret < 0 && errno != ENODATA) {
-                goto out;
 
-        } else if (ret >= 0) {
+        if (ret >= 0) {
                 *present = _gf_true;
-
-        } else {
-                *present = _gf_false;
+                ret = 0;
+                goto out;
         }
-
-        ret = 0;
+                
+        switch (errno) {
+#if defined(ENODATA)
+                case ENODATA: /* FALLTHROUGH */
+#endif
+#if defined(ENOATTR) && (ENOATTR != ENODATA)
+                case ENOATTR: /* FALLTHROUGH */
+#endif
+                case ENOTSUP:
+                        *present = _gf_false;
+                        ret = 0;
+                        break;
+                default:
+                        break;
+        }
 out:
         return ret;
 }
@@ -4433,7 +4443,7 @@ glusterd_is_path_in_use (char *path, gf_boolean_t *in_use, char **op_errstr)
                 if (used)
                         break;
 
-                curdir = dirname (dir);
+                curdir = dirname (curdir);
                 if (!strcmp (curdir, "."))
                         goto out;
 
