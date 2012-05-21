@@ -123,6 +123,7 @@ client_local_wipe (clnt_local_t *local)
 {
         if (local) {
                 loc_wipe (&local->loc);
+                loc_wipe (&local->loc2);
 
                 if (local->fd) {
                         fd_unref (local->fd);
