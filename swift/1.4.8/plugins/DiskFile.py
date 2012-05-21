@@ -15,6 +15,8 @@
 
 import os
 from eventlet import tpool
+from tempfile import mkstemp
+from contextlib import contextmanager
 from swift.common.utils import normalize_timestamp, renamer
 from swift.plugins.utils import mkdirs, rmdirs, validate_object, \
     check_valid_account, create_object_metadata,  do_open, \
@@ -294,3 +296,21 @@ class Gluster_DiskFile(DiskFile):
         if X_OBJECT_TYPE in self.metadata:
             self.metadata.pop(X_OBJECT_TYPE)
 
+    @contextmanager
+    def mkstemp(self):
+        """Contextmanager to make a temporary file."""
+
+        if not os.path.exists(self.tmpdir):
+            mkdirs(self.tmpdir)
+        fd, tmppath = mkstemp(dir=self.tmpdir)
+        try:
+            yield fd, tmppath
+        finally:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            try:
+                os.unlink(tmppath)
+            except OSError:
+                pass
