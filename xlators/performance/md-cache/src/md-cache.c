@@ -1482,7 +1482,7 @@ mdc_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         local->fd = fd_ref (fd);
 
-        STACK_WIND (frame, mdc_setattr_cbk,
+        STACK_WIND (frame, mdc_fsetattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fsetattr,
                     fd, stbuf, valid, xdata);
         return 0;
