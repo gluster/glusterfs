@@ -62,6 +62,7 @@ struct gd1_mgmt_probe_rsp {
 	int port;
 	int op_ret;
 	int op_errno;
+	char *op_errstr;
 };
 typedef struct gd1_mgmt_probe_rsp gd1_mgmt_probe_rsp;
 

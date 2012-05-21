@@ -1779,6 +1779,11 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         uuid_copy (rsp.uuid, conf->uuid);
 
         rsp.hostname = probe_req.hostname;
+        /*
+         *TODO: Fix this temporary assignment when the full probe errstr
+         *      patch is added
+         */
+        rsp.op_errstr = "";
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
@@ -2383,6 +2388,11 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
         rsp.op_errno = op_errno;
         rsp.hostname = hostname;
         rsp.port = port;
+        /*
+         *TODO: Fix this temprary assignment when the full probe errstr
+         *      patch is added
+         */
+        rsp.op_errstr = "";
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf1_cli_probe_rsp);
@@ -2404,6 +2414,11 @@ glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
         rsp.op_ret = op_ret;
         rsp.op_errno = op_errno;
         rsp.hostname = hostname;
+        /*
+         *TODO: Fix this temporary assignment when the full deprobe errstr
+         *      patch is added
+         */
+        rsp.op_errstr = "";
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf1_cli_deprobe_rsp);

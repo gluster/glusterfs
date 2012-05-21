@@ -200,6 +200,7 @@ struct gf1_cli_probe_rsp {
 	int op_errno;
 	int port;
 	char *hostname;
+	char *op_errstr;
 };
 typedef struct gf1_cli_probe_rsp gf1_cli_probe_rsp;
 
@@ -214,6 +215,7 @@ struct gf1_cli_deprobe_rsp {
 	int op_ret;
 	int op_errno;
 	char *hostname;
+	char *op_errstr;
 };
 typedef struct gf1_cli_deprobe_rsp gf1_cli_deprobe_rsp;
 

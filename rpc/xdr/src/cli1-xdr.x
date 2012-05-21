@@ -135,6 +135,7 @@ enum gf_cli_status_type {
         int     op_errno;
 	int	port;
         string  hostname<>;
+        string  op_errstr<>;
 }  ;
 
  struct gf1_cli_deprobe_req {
@@ -147,6 +148,7 @@ enum gf_cli_status_type {
         int     op_ret;
         int     op_errno;
         string  hostname<>;
+        string  op_errstr<>;
 }  ;
 
 struct gf1_cli_peer_list_req {

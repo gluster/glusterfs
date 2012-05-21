@@ -252,6 +252,8 @@ xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 		}
 		 if (!xdr_string (xdrs, &objp->hostname, ~0))
 			 return FALSE;
+		 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+			 return FALSE;
 		return TRUE;
 	} else if (xdrs->x_op == XDR_DECODE) {
 		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
@@ -270,6 +272,8 @@ xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 		}
 		 if (!xdr_string (xdrs, &objp->hostname, ~0))
 			 return FALSE;
+		 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+			 return FALSE;
 	 return TRUE;
 	}
 
@@ -280,6 +284,8 @@ xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->port))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 		 return FALSE;
 	return TRUE;
 }
@@ -310,6 +316,8 @@ xdr_gf1_cli_deprobe_rsp (XDR *xdrs, gf1_cli_deprobe_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 		 return FALSE;
 	return TRUE;
 }

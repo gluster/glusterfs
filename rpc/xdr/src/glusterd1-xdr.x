@@ -16,6 +16,7 @@
         int     port;
         int     op_ret;
         int     op_errno;
+        string op_errstr<>;
 }  ;
 
 struct gd1_mgmt_friend_req {
