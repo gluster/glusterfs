@@ -17,7 +17,7 @@ from select import error as selecterror
 from gconf import gconf
 import repce
 from repce import RepceServer, RepceClient
-from master import GMaster
+from  master import gmaster_builder
 import syncdutils
 from syncdutils import GsyncdError, select, privileged
 
@@ -359,10 +359,36 @@ class Server(object):
                 raise
 
     @classmethod
+    def xtime_vec(cls, path, *uuids):
+        """vectored version of @xtime
+
+        accepts a list of uuids and returns a dictionary
+        with uuid as key(s) and xtime as value(s)
+        """
+        xt = {}
+        for uuid in uuids:
+            xtu = cls.xtime(path, uuid)
+            if xtu == ENODATA:
+                xtu = None
+            if isinstance(xtu, int):
+                return xtu
+            xt[uuid] = xtu
+        return xt
+
+    @classmethod
     @_pathguard
     def set_xtime(cls, path, uuid, mark):
         """set @mark as xtime for @uuid on @path"""
         Xattr.lsetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), struct.pack('!II', *mark))
+
+    @classmethod
+    def set_xtime_vec(cls, path, mark_dct):
+        """vectored (or dictered) version of set_xtime
+
+        ignore values that match @ignore
+        """
+        for u,t in mark_dct.items():
+            cls.set_xtime(path, u, t)
 
     @staticmethod
     @_pathguard
@@ -604,6 +630,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     if x[0] > now:
                         logging.debug("volinfo[%s] expires: %d (%d sec later)" % \
                                       (d['uuid'], x[0], x[0] - now))
+                        d['timeout'] = x[0]
                         dict_list.append(d)
                     else:
                         try:
@@ -820,7 +847,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         - else do that's what's inherited
         """
         if args:
-            GMaster(self, args[0]).crawl_loop()
+            gmaster_builder()(self, args[0]).crawl_loop()
         else:
             sup(self, *args)
 
