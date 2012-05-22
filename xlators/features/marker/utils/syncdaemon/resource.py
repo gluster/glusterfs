@@ -188,9 +188,17 @@ class Popen(subprocess.Popen):
             filling = ", saying:"
         logging.error("""command "%s" returned with %s%s""" % \
                       (" ".join(self.args), repr(self.returncode), filling))
+        lp = ''
+        def logerr(l):
+            logging.error(self.args[0] + "> " + l)
         for l in self.elines:
-            for ll in l.rstrip().split("\n"):
-                logging.error(self.args[0] + "> " + ll.rstrip())
+            ls = l.split('\n')
+            ls[0] = lp + ls[0]
+            lp = ls.pop()
+            for ll in ls:
+                logerr(ll)
+        if lp:
+            logerr(lp)
 
     def errfail(self):
         """fail nicely if child did not terminate with success"""
