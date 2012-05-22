@@ -336,8 +336,6 @@ nlm_set_rpc_clnt (rpc_clnt_t *rpc_clnt, char *caller_name)
         nlm_client_t *nlmclnt = NULL;
         int nlmclnt_found = 0;
         int ret = -1;
-        rpc_clnt_t *rpc_clnt_old = NULL;
-        char *old_name = NULL;
 
         LOCK (&nlm_client_list_lk);
         list_for_each_entry (nlmclnt, &nlm_client_list, nlm_clients) {
@@ -350,34 +348,23 @@ nlm_set_rpc_clnt (rpc_clnt_t *rpc_clnt, char *caller_name)
                 nlmclnt = GF_CALLOC (1, sizeof(*nlmclnt),
                                      gf_nfs_mt_nlm4_nlmclnt);
                 if (nlmclnt == NULL) {
-                        gf_log (GF_NLM, GF_LOG_DEBUG, "malloc error");
+                        gf_log (GF_NLM, GF_LOG_ERROR, "mem-alloc error");
                         goto ret;
                 }
 
                 INIT_LIST_HEAD(&nlmclnt->fdes);
                 INIT_LIST_HEAD(&nlmclnt->nlm_clients);
+                INIT_LIST_HEAD(&nlmclnt->shares);
 
                 list_add (&nlmclnt->nlm_clients, &nlm_client_list);
+                nlmclnt->caller_name = gf_strdup (caller_name);
         }
-        rpc_clnt_old = nlmclnt->rpc_clnt;
-        old_name = nlmclnt->caller_name;
-        if (rpc_clnt)
+        if (nlmclnt->rpc_clnt == NULL) {
                 nlmclnt->rpc_clnt = rpc_clnt_ref (rpc_clnt);
-        nlmclnt->caller_name = gf_strdup (caller_name);
-
+        }
         ret = 0;
 ret:
         UNLOCK (&nlm_client_list_lk);
-
-        if (rpc_clnt_old) {
-                /* cleanup the saved-frames before last unref */
-                rpc_clnt_connection_cleanup (&rpc_clnt_old->conn);
-
-                rpc_clnt_unref (rpc_clnt_old);
-        }
-
-        if (old_name)
-                GF_FREE (old_name);
         return ret;
 }
 
