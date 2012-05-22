@@ -41,8 +41,8 @@ _init ()
         mounttab=/proc/mounts
         ;;
     Linux)
-        getinode="stat -c $i"
-        getdev="stat -c $d"
+        getinode="stat -c %i $i"
+        getdev="stat -c %d $d"
         lgetinode="${getinode} -L"
         lgetdev="${getdev} -L"
 
