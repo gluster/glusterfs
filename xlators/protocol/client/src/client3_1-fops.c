@@ -179,12 +179,14 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
+                /* no need to print the gfid, because it will be null, since
+                 * symlink operation failed.
+                 */
                 gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: %s (%s)",
+                        "remote operation failed: %s. Path: (%s to %s)",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         (local) ? local->loc.path : "--",
-                        (local && local->loc.inode) ?
-                        uuid_utoa (local->loc.inode->gfid) : "--");
+                        (local) ? local->loc2.path: "--");
         }
 
         CLIENT_STACK_UNWIND (symlink, frame, rsp.op_ret,
@@ -3436,6 +3438,7 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         req.linkname = (char *)args->linkname;
         req.bname    = (char *)args->loc->name;
         req.umask = args->umask;
+        local->loc2.path = gf_strdup (req.linkname);
 
         conf = this->private;
 
