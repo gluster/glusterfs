@@ -171,6 +171,14 @@ def main_i():
     op.add_option('--allow-network',       metavar='IPS',   default='')
     op.add_option('--state-socket-unencoded', metavar='SOCKF', type=str, action='callback', callback=store_abs)
     op.add_option('--checkpoint',          metavar='LABEL', default='')
+    # tunables for failover/failback mechanism:
+    # None   - gsyncd behaves as normal
+    # blind  - gsyncd works with xtime pairs to identify
+    #          candidates for synchronization
+    # wrapup - same as normal mode but does not assign
+    #          xtimes to orphaned files
+    # see crawl() for usage of the above tunables
+    op.add_option('--special-sync-mode', type=str, help=SUPPRESS_HELP)
 
     op.add_option('-c', '--config-file',   metavar='CONF',  type=str, action='callback', callback=store_local)
     # duh. need to specify dest or value will be mapped to None :S
