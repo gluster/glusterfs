@@ -57,8 +57,10 @@ _init ()
 
 start_glusterfs ()
 {
+    # lets the comparsion be case insensitive for all strings
+
     if [ -n "$log_level_str" ]; then
-	case "$log_level_str" in
+	case "$( echo $log_level_str | tr '[a-z]' '[A-Z]')" in
 	    "ERROR")
 		log_level=$LOG_ERROR;
 		;;
@@ -247,7 +249,7 @@ check_recursive_mount ()
                 tmp_brick="$brick";
                 brick="$brick"/..;
                 brick_dev=`${lgetdev} $brick`;
-                brick_inode=`${gletdev} $brick`;
+                brick_inode=`${lgetinode} $brick`;
                 if [ "$mnt_inode" -eq "$brick_inode" -a "$mnt_dev" -eq "$brick_dev" ]; then
                     echo ERROR: $mnt_dir is a parent of the brick $tmp_brick;
                     exit 2;
@@ -275,7 +277,9 @@ main ()
                     # "mount -t glusterfs" sends this, but it's useless.
                     "rw")       ;;
                     *)
-                        (echo "$pair" | tr "=" " ")|read key value
+                        key=$(echo "$pair" | cut -f1 -d'=');
+                        value=$(echo "$pair" | cut -f2- -d'=');
+
                         # Handle options with values.
                         case "$key" in
                             "log-level")        log_level_str=$value ;;
