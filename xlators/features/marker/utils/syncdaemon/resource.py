@@ -493,7 +493,7 @@ class SlaveRemote(object):
         if not files:
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
-        argv = gconf.rsync_command.split() + gconf.rsync_extra.split() + ['-aR'] + files + list(args)
+        argv = gconf.rsync_command.split() + ['-aRS', '--super', '--numeric-ids'] + files + list(args)
         po = Popen(argv, stderr=subprocess.PIPE)
         po.wait()
         po.terminate_geterr(fail_on_err = False)
