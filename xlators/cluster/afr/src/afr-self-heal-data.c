@@ -373,6 +373,9 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
 
         if (call_count == 0) {
                 if (sh->op_failed) {
+                        if (sh->old_loop_frame)
+                                sh_loop_finish (sh->old_loop_frame, this);
+                        sh->old_loop_frame = NULL;
                         afr_sh_data_fail (frame, this);
                         goto out;
                 }
