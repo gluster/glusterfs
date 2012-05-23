@@ -612,9 +612,7 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         nlmclnt = nlm_get_uniq (cs->args.nlm4_lockargs.alock.caller_name);
         if (nlmclnt == NULL) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "nlm_get_uniq() returned NULL");
-                cs->resolve_ret = -1;
-                cs->resume_fn(cs);
-                ret = -1;
+                ret = -ENOLCK;
                 goto err;
         }
         cs->resume_fn = resume;
@@ -630,15 +628,19 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         fd = fd_create_uint64 (cs->resolvedloc.inode, (uint64_t)nlmclnt);
         if (fd == NULL) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "fd_create_uint64() returned NULL");
-                cs->resolve_ret = -1;
-                cs->resume_fn(cs);
-                ret = -1;
+                ret = -ENOLCK;
                 goto err;
         }
 
         cs->fd = fd;
 
         frame = create_frame (cs->nfsx, cs->nfsx->ctx->pool);
+        if (!frame) {
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to create frame");
+                ret = -ENOMEM;
+                goto err;
+        }
+
         frame->root->pid = NFS_PID;
         frame->root->uid = 0;
         frame->root->gid = 0;
@@ -768,7 +770,6 @@ err:
 int
 nlm4_test_fd_resume (void *carg)
 {
-        nlm4_stats                      stat = nlm4_denied;
         int                             ret = -EFAULT;
         nfs_user_t                      nfu = {0, };
         nfs3_call_state_t               *cs = NULL;
@@ -778,21 +779,12 @@ nlm4_test_fd_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
-        nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         nfs_request_user_init (&nfu, cs->req);
         nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_testargs.alock,
                                cs->args.nlm4_testargs.exclusive);
         nlm_copy_lkowner (&nfu.lk_owner, &cs->args.nlm4_testargs.alock.oh);
         ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_GETLK, &flock,
                       nlm4svc_test_cbk, cs);
-        if (ret < 0)
-                stat = nlm4_errno_to_nlm4stat (-ret);
-nlm4err:
-        if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Unable to call lk()");
-                nlm4_test_reply (cs, stat, &flock);
-                nfs3_call_state_wipe (cs);
-        }
 
         return ret;
 }
@@ -812,14 +804,15 @@ nlm4_test_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         fd = fd_anonymous (cs->resolvedloc.inode);
+        if (!fd)
+                goto nlm4err;
         cs->fd = fd;
         ret = nlm4_test_fd_resume (cs);
-        if (ret < 0)
-                stat = nlm4_errno_to_nlm4stat (-ret);
 
 nlm4err:
         if (ret < 0) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "unable to open_and_resume");
+                stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_test_reply (cs, stat, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -880,9 +873,9 @@ nlm4err:
         }
 
 rpcerr:
-        if (ret < 0) {
+        if (ret < 0)
                 nfs3_call_state_wipe (cs);
-        }
+
         return ret;
 }
 
@@ -1337,7 +1330,6 @@ nlm4_lock_fd_resume (void *carg)
 
         cs = (nfs3_call_state_t *)carg;
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
-
         (void) nlm_search_and_add (cs->fd,
                                    cs->args.nlm4_lockargs.alock.caller_name);
         nfs_request_user_init (&nfu, cs->req);
@@ -1349,14 +1341,17 @@ nlm4_lock_fd_resume (void *carg)
                                     nlm4_blocked);
                 ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLKW,
                               &flock, nlm4svc_lock_cbk, cs);
+                /* FIXME: handle error from nfs_lk() specially  by just
+                 * cleaning up cs and unblock the client lock request.
+                 */
+                ret = 0;
         } else
                 ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLK,
                               &flock, nlm4svc_lock_cbk, cs);
 
-        if (ret < 0)
-                stat = nlm4_errno_to_nlm4stat (-ret);
 nlm4err:
         if (ret < 0) {
+                stat = nlm4_errno_to_nlm4stat (-ret);
                 gf_log (GF_NLM, GF_LOG_ERROR, "unable to call lk()");
                 nlm4_generic_reply (cs->req, cs->args.nlm4_lockargs.cookie,
                                     stat);
@@ -1380,12 +1375,11 @@ nlm4_lock_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         ret = nlm4_file_open_and_resume (cs, nlm4_lock_fd_resume);
-        if (ret < 0)
-                stat = nlm4_errno_to_nlm4stat (-ret);
 
 nlm4err:
         if (ret < 0) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "unable to open and resume");
+                stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_generic_reply (cs->req, cs->args.nlm4_lockargs.cookie,
                                     stat);
                 nfs3_call_state_wipe (cs);
@@ -1497,7 +1491,6 @@ err:
 int
 nlm4_cancel_fd_resume (void *carg)
 {
-        nlm4_stats                      stat = nlm4_denied;
         int                             ret = -EFAULT;
         nfs_user_t                      nfu = {0, };
         nfs3_call_state_t               *cs = NULL;
@@ -1507,7 +1500,6 @@ nlm4_cancel_fd_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
-        nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         nfs_request_user_init (&nfu, cs->req);
         nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_cancargs.alock,
                                 cs->args.nlm4_cancargs.exclusive);
@@ -1516,74 +1508,6 @@ nlm4_cancel_fd_resume (void *carg)
         ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLK,
                       &flock, nlm4svc_cancel_cbk, cs);
 
-        if (ret < 0)
-                stat = nlm4_errno_to_nlm4stat (-ret);
-nlm4err:
-        if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to call lk()");
-                nlm4_generic_reply (cs->req, cs->args.nlm4_cancargs.cookie,
-                                    stat);
-                nfs3_call_state_wipe (cs);
-        }
-
-        return ret;
-}
-
-int
-nlm4svc_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
-                    dict_t *xdata)
-{
-        nlm4_stats                      stat = nlm4_denied;
-        nfs3_call_state_t              *cs = NULL;
-
-        cs = frame->local;
-        if (op_ret == -1) {
-                stat = nlm4_errno_to_nlm4stat (op_errno);
-                goto err;
-        } else {
-                stat = nlm4_granted;
-                if (flock->l_type == F_UNLCK)
-                        nlm_search_and_delete (cs->fd,
-                                               cs->args.nlm4_unlockargs.alock.caller_name);
-        }
-
-err:
-        nlm4_generic_reply (cs->req, cs->args.nlm4_unlockargs.cookie, stat);
-        nfs3_call_state_wipe (cs);
-        return 0;
-}
-
-int
-nlm4_unlock_fd_resume (void *carg)
-{
-        nlm4_stats                      stat = nlm4_denied;
-        int                             ret = -EFAULT;
-        nfs_user_t                      nfu = {0, };
-        nfs3_call_state_t               *cs = NULL;
-        struct gf_flock                 flock = {0, };
-
-        if (!carg)
-                return ret;
-        cs = (nfs3_call_state_t *)carg;
-        nlm4_check_fh_resolve_status (cs, stat, nlm4err);
-        nfs_request_user_init (&nfu, cs->req);
-        nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_unlockargs.alock, 0);
-        nlm_copy_lkowner (&nfu.lk_owner, &cs->args.nlm4_unlockargs.alock.oh);
-        flock.l_type = F_UNLCK;
-        ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLK,
-                      &flock, nlm4svc_unlock_cbk, cs);
-
-        if (ret < 0)
-                stat = nlm4_errno_to_nlm4stat (-ret);
-nlm4err:
-        if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to call lk()");
-                nlm4_generic_reply (cs->req, cs->args.nlm4_unlockargs.cookie,
-                                    stat);
-                nfs3_call_state_wipe (cs);
-        }
-
         return ret;
 }
 
@@ -1591,7 +1515,7 @@ int
 nlm4_cancel_resume (void *carg)
 {
         nlm4_stats                      stat = nlm4_failed;
-        int                             ret = -1;
+        int                             ret = -EFAULT;
         nfs3_call_state_t               *cs = NULL;
         nlm_client_t                    *nlmclnt = NULL;
 
@@ -1608,20 +1532,22 @@ nlm4_cancel_resume (void *carg)
         }
         cs->fd = fd_lookup_uint64 (cs->resolvedloc.inode, (uint64_t)nlmclnt);
         if (cs->fd == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "nlm_get_uniq() returned NULL");
+                gf_log (GF_NLM, GF_LOG_ERROR, "fd_lookup_uint64 retrned NULL");
                 goto nlm4err;
         }
         ret = nlm4_cancel_fd_resume (cs);
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlock_fd_resume()");
+                gf_log (GF_NLM, GF_LOG_WARNING, "unable to unlock_fd_resume()");
+                stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_generic_reply (cs->req, cs->args.nlm4_cancargs.cookie,
                                     stat);
+
                 nfs3_call_state_wipe (cs);
         }
-
-        return ret;
+        /* clean up is taken care of */
+        return 0;
 }
 
 int
@@ -1685,6 +1611,52 @@ rpcerr:
 }
 
 int
+nlm4svc_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                    dict_t *xdata)
+{
+        nlm4_stats                      stat = nlm4_denied;
+        nfs3_call_state_t              *cs = NULL;
+
+        cs = frame->local;
+        if (op_ret == -1) {
+                stat = nlm4_errno_to_nlm4stat (op_errno);
+                goto err;
+        } else {
+                stat = nlm4_granted;
+                if (flock->l_type == F_UNLCK)
+                        nlm_search_and_delete (cs->fd,
+                                               cs->args.nlm4_unlockargs.alock.caller_name);
+        }
+
+err:
+        nlm4_generic_reply (cs->req, cs->args.nlm4_unlockargs.cookie, stat);
+        nfs3_call_state_wipe (cs);
+        return 0;
+}
+
+int
+nlm4_unlock_fd_resume (void *carg)
+{
+        int                             ret = -EFAULT;
+        nfs_user_t                      nfu = {0, };
+        nfs3_call_state_t               *cs = NULL;
+        struct gf_flock                 flock = {0, };
+
+        if (!carg)
+                return ret;
+        cs = (nfs3_call_state_t *)carg;
+        nfs_request_user_init (&nfu, cs->req);
+        nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_unlockargs.alock, 0);
+        nlm_copy_lkowner (&nfu.lk_owner, &cs->args.nlm4_unlockargs.alock.oh);
+        flock.l_type = F_UNLCK;
+        ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLK,
+                      &flock, nlm4svc_unlock_cbk, cs);
+
+        return ret;
+}
+
+int
 nlm4_unlock_resume (void *carg)
 {
         nlm4_stats                      stat = nlm4_failed;
@@ -1716,13 +1688,14 @@ nlm4_unlock_resume (void *carg)
 nlm4err:
         if (ret < 0) {
                 gf_log (GF_NLM, GF_LOG_WARNING, "unable to unlock_fd_resume");
+                stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_generic_reply (cs->req, cs->args.nlm4_unlockargs.cookie,
                                     stat);
 
                 nfs3_call_state_wipe (cs);
         }
-
-        return ret;
+        /* we have already taken care of cleanup */
+        return 0;
 }
 
 int
@@ -1765,6 +1738,7 @@ nlm4svc_unlock (rpcsvc_request_t *req)
         }
 
         cs->vol = vol;
+        /* FIXME: check if trans is being used at all for unlock */
         cs->trans = rpcsvc_request_transport_ref(req);
         nlm4_volume_started_check (nfs3, vol, ret, rpcerr);
 
