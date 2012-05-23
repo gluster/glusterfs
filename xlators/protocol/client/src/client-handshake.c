@@ -614,7 +614,7 @@ clnt_release_reopen_fd (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         conf = (clnt_conf_t *) this->private;
 
-        frame  = create_frame (THIS, THIS->ctx->pool);
+        frame  = create_frame (this, this->ctx->pool);
         if (!frame)
                 goto out;
 
@@ -819,7 +819,7 @@ _client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
                 memcpy (req.gfid, fdctx->inode->gfid, 16);
 
-                frame = create_frame (THIS, THIS->ctx->pool);
+                frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
                         ret = -1;
                         break;
