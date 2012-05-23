@@ -9,7 +9,7 @@ noinst_HEADERS_common = $(CONTRIBDIR)/fuse-include/fuse-mount.h\
 if GF_DARWIN_HOST_OS
     noinst_HEADERS = $(noinst_HEADERS_common) $(noinst_HEADERS_darwin)
 else
-    noinst_HEADERS = $(noinst_HEADERS_common) $(noinst_HEADERS_darwin)
+    noinst_HEADERS = $(noinst_HEADERS_common) $(noinst_HEADERS_linux)
 endif
 
 xlator_LTLIBRARIES = fuse.la
