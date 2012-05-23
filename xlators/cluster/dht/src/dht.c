@@ -453,15 +453,6 @@ init (xlator_t *this)
 
         conf->gen = 1;
 
-        /* Create 'syncop' environment */
-	conf->env = syncenv_new (0);
-        if (!conf->env) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to create sync environment %s",
-                        strerror (errno));
-                goto err;
-        }
-
         this->local_pool = mem_pool_new (dht_local_t, 512);
         if (!this->local_pool) {
                 gf_log (this->name, GF_LOG_ERROR,
