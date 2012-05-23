@@ -201,6 +201,8 @@ get_ip_from_addrinfo (struct addrinfo *addr, char **ip)
         return *ip;
 }
 
+/*TODO:FIXME: The function is expected to return a "yes/no" result.
+              change return type to bool.*/
 int32_t
 glusterd_is_local_addr (char *hostname)
 {
