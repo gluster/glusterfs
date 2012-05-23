@@ -48,6 +48,7 @@
 #include <rpc/pmap_clnt.h>
 #include <rpc/rpc.h>
 #include <rpc/xdr.h>
+#include <statedump.h>
 
 /* TODO:
  * 1) 2 opens racing .. creating an fd leak.
@@ -2436,4 +2437,45 @@ nlm4svc_init(xlator_t *nfsx)
         return &nlm4prog;
 err:
         return NULL;
+}
+
+int32_t
+nlm_priv (xlator_t *this)
+{
+        int32_t                  ret                       = -1;
+        uint32_t                 client_count              = 0;
+        uint64_t                 file_count                = 0;
+        nlm_client_t            *client                    = NULL;
+        nlm_fde_t               *fde                       = NULL;
+        char                     key[GF_DUMP_MAX_BUF_LEN]  = {0};
+        char                     gfid_str[64]              = {0};
+
+        gf_proc_dump_add_section("nfs.nlm");
+
+        LOCK (&nlm_client_list_lk);
+
+        list_for_each_entry (client, &nlm_client_list, nlm_clients) {
+
+                gf_proc_dump_build_key (key, "client", "%d.hostname", client_count);
+                gf_proc_dump_write (key, "%s\n", client->caller_name);
+
+                file_count = 0;
+                list_for_each_entry (fde, &client->fdes, fde_list) {
+                        gf_proc_dump_build_key (key, "file", "%ld.gfid", file_count);
+                        memset (gfid_str, 0, 64);
+                        uuid_utoa_r (fde->fd->inode->gfid, gfid_str);
+                        gf_proc_dump_write (key, "%s", gfid_str);
+                        file_count++;
+                }
+
+                gf_proc_dump_build_key (key, "client", "files-locked");
+                gf_proc_dump_write (key, "%ld\n", file_count);
+                client_count++;
+        }
+
+        gf_proc_dump_build_key (key, "nlm", "client-count");
+        gf_proc_dump_write (key, "%d", client_count);
+
+        UNLOCK (&nlm_client_list_lk);
+        return ret;
 }
