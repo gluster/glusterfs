@@ -965,6 +965,16 @@ out:
         return ret;
 }
 
+extern int32_t
+nlm_priv (xlator_t *this);
+
+int32_t
+nfs_priv (xlator_t *this)
+{
+        return nlm_priv (this);
+}
+
+
 struct xlator_cbks cbks = {
         .forget      = nfs_forget,
 };
@@ -972,6 +982,7 @@ struct xlator_cbks cbks = {
 struct xlator_fops fops = { };
 
 struct xlator_dumpops dumpops = {
+        .priv           = nfs_priv,
         .priv_to_dict   = nfs_priv_to_dict,
 };
 
