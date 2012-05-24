@@ -17,6 +17,7 @@
    <http://www.gnu.org/licenses/>.
 */
 
+#include <sys/wait.h>
 #include "fuse-bridge.h"
 
 static int gf_fuse_conn_err_log;
@@ -3874,20 +3875,50 @@ unlock:
         return 0;
 }
 
+int
+fuse_get_mount_status (xlator_t *this)
+{
+        int             kid_status = -1;
+        pid_t           kid_pid = -1;
+        fuse_private_t *priv = this->private;
+        int             our_status = -1;
+
+        if (read(priv->status_pipe[0],&kid_status, sizeof(kid_status)) < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "could not get mount status");
+                goto out;
+        }
+        gf_log (this->name, GF_LOG_DEBUG, "mount status is %d", kid_status);
+
+        if (read(priv->status_pipe[0],&kid_pid, sizeof(kid_pid)) < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "could not get mount PID");
+                goto out;
+        }
+        gf_log (this->name, GF_LOG_DEBUG, "mount PID is %d", kid_pid);
+
+        (void)waitpid(kid_pid,NULL,0);
+        our_status = kid_status;
+
+out:
+        close(priv->status_pipe[0]);
+        close(priv->status_pipe[1]);
+        return our_status;
+}
 
 static void *
 fuse_thread_proc (void *data)
 {
-        char           *mount_point = NULL;
-        xlator_t       *this = NULL;
-        fuse_private_t *priv = NULL;
-        ssize_t         res = 0;
-        struct iobuf   *iobuf = NULL;
-        fuse_in_header_t *finh;
-        struct iovec iov_in[2];
-        void *msg = NULL;
-        const size_t msg0_size = sizeof (*finh) + 128;
-        fuse_handler_t **fuse_ops = NULL;
+        char                     *mount_point = NULL;
+        xlator_t                 *this = NULL;
+        fuse_private_t           *priv = NULL;
+        ssize_t                   res = 0;
+        struct iobuf             *iobuf = NULL;
+        fuse_in_header_t         *finh;
+        struct iovec              iov_in[2];
+        void                     *msg = NULL;
+        const size_t              msg0_size = sizeof (*finh) + 128;
+        fuse_handler_t          **fuse_ops = NULL;
+        struct pollfd             pfd[2] = {{0,}};
+        gf_boolean_t              mount_finished = _gf_false;
 
         this = data;
         priv = this->private;
@@ -3903,6 +3934,41 @@ fuse_thread_proc (void *data)
         for (;;) {
                 /* THIS has to be reset here */
                 THIS = this;
+
+                if (!mount_finished) {
+                        memset(pfd,0,sizeof(pfd));
+                        pfd[0].fd = priv->status_pipe[0];
+                        pfd[0].events = POLLIN | POLLHUP | POLLERR;
+                        pfd[1].fd = priv->fd;
+                        pfd[1].events = POLLIN | POLLHUP | POLLERR;
+                        if (poll(pfd,2,-1) < 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "poll error %s", strerror(errno));
+                                break;
+                        }
+                        if (pfd[0].revents & POLLIN) {
+                                if (fuse_get_mount_status(this) != 0) {
+                                        break;
+                                }
+                                mount_finished = _gf_true;
+                        }
+                        else if (pfd[0].revents) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "mount pipe closed without status");
+                                break;
+                        }
+                        if (!pfd[1].revents) {
+                                continue;
+                        }
+                }
+
+                /*
+                 * We don't want to block on readv while we're still waiting
+                 * for mount status.  That means we only want to get here if
+                 * mount_status is true (meaning that our wait completed
+                 * already) or if we already called poll(2) on priv->fd to
+                 * make sure it's ready.
+                 */
 
                 if (priv->init_recvd)
                         fuse_graph_sync (this);
@@ -4025,8 +4091,11 @@ fuse_thread_proc (void *data)
                 GF_FREE (iov_in[0].iov_base);
         }
 
-        iobuf_unref (iobuf);
-        GF_FREE (iov_in[0].iov_base);
+        /*
+         * We could be in all sorts of states with respect to iobuf and iov_in
+         * by the time we get here, and it's just not worth untangling them if
+         * we're about to kill ourselves anyway.
+         */
 
         if (dict_get (this->options, ZR_MOUNTPOINT_OPT))
                 mount_point = data_to_str (dict_get (this->options,
@@ -4034,11 +4103,10 @@ fuse_thread_proc (void *data)
         if (mount_point) {
                 gf_log (this->name, GF_LOG_INFO,
                         "unmounting %s", mount_point);
-                dict_del (this->options, ZR_MOUNTPOINT_OPT);
         }
 
+        /* Kill the whole process, not just this thread. */
         kill (getpid(), SIGTERM);
-
         return NULL;
 }
 
@@ -4507,8 +4575,15 @@ init (xlator_t *this_xl)
         if (!mnt_args)
                 goto cleanup_exit;
 
+        if (pipe(priv->status_pipe) < 0) {
+                gf_log (this_xl->name, GF_LOG_ERROR,
+                        "could not create pipe to separate mount process");
+                goto cleanup_exit;
+        }
+
         priv->fd = gf_fuse_mount (priv->mount_point, fsname, mnt_args,
-                                  sync_mtab ? &ctx->mtab_pid : NULL);
+                                  sync_mtab ? &ctx->mtab_pid : NULL,
+                                  priv->status_pipe[1]);
         if (priv->fd == -1)
                 goto cleanup_exit;
 
