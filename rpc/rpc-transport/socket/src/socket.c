@@ -875,7 +875,8 @@ sp_state_read_verfbytes:
                 proghdr_buf = priv->incoming.frag.fragcurrent;
                 priv->incoming.frag.call_body.request.vector_sizer_state =
                         vector_sizer (priv->incoming.frag.call_body.request.vector_sizer_state,
-                                      &readsize, proghdr_buf);
+                                      &readsize, proghdr_buf,
+                                      priv->incoming.frag.fragcurrent);
                 __socket_proto_init_pending (priv, readsize);
                 priv->incoming.frag.call_body.request.vector_state
                         = SP_STATE_READING_PROGHDR;
@@ -887,7 +888,8 @@ sp_state_read_verfbytes:
 sp_state_reading_proghdr:
                 priv->incoming.frag.call_body.request.vector_sizer_state =
                         vector_sizer (priv->incoming.frag.call_body.request.vector_sizer_state,
-                                      &readsize, proghdr_buf);
+                                      &readsize, proghdr_buf,
+                                      priv->incoming.frag.fragcurrent);
                 if (readsize == 0) {
                         priv->incoming.frag.call_body.request.vector_state =
                                 SP_STATE_READ_PROGHDR;

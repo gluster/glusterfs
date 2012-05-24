@@ -3431,7 +3431,8 @@ server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
 #define SERVER3_1_VECWRITE_READING_OPAQUE 2
 
 int
-server_writev_vecsizer (int state, ssize_t *readsize, char *addr)
+server_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
+                        char *curr_addr)
 {
         ssize_t         size = 0;
         int             nextstate = 0;
@@ -3449,7 +3450,7 @@ server_writev_vecsizer (int state, ssize_t *readsize, char *addr)
                 size = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req,
                                            &write_req);
 
-                xdrmem_create (&xdr, addr, size, XDR_DECODE);
+                xdrmem_create (&xdr, base_addr, size, XDR_DECODE);
 
                 /* This will fail if there is xdata sent from client, if not,
                    well and good */
