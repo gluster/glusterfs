@@ -3335,6 +3335,14 @@ glusterd_create_shd_volfile ()
         if (ret)
                 goto out;
 
+        ret = dict_set_str (mod_dict, "cluster.metadata-self-heal", "on");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (mod_dict, "cluster.entry-self-heal", "on");
+        if (ret)
+                goto out;
+
         glusterd_get_nodesvc_volfile ("glustershd", conf->workdir,
                                       filepath, sizeof (filepath));
         ret = glusterd_create_global_volfile (build_shd_graph, filepath,
