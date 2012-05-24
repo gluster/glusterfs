@@ -5397,6 +5397,20 @@ glusterd_restart_rebalance (glusterd_conf_t *conf)
         return ret;
 }
 
+
+void
+glusterd_volinfo_reset_defrag_stats (glusterd_volinfo_t *volinfo)
+{
+        GF_ASSERT (volinfo);
+
+        volinfo->rebalance_files = 0;
+        volinfo->rebalance_data = 0;
+        volinfo->lookedup_files = 0;
+        volinfo->rebalance_failures = 0;
+        volinfo->rebalance_time = 0;
+
+}
+
 /* Return hostname for given uuid if it exists
  * else return NULL
  */
