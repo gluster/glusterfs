@@ -45,13 +45,14 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req = frame->local;
 
-        if (op_ret >= 0) {
-                gf_statfs_from_statfs (&rsp.statfs, buf);
-        } else {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": STATFS %"PRId32" (%s)",
-                        frame->root->unique, op_ret, strerror (op_errno));
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%"PRId64": STATFS (%s)",
+                        frame->root->unique, strerror (op_errno));
+                goto out;
         }
+
+        gf_statfs_from_statfs (&rsp.statfs, buf);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -84,9 +85,8 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_lookup_rsp   rsp        = {0,};
         uuid_t            rootgfid   = {0,};
 
-        state = CALL_STATE(frame);
-
         req = frame->local;
+        state = CALL_STATE(frame);
 
         if (state->is_revalidate == 1 && op_ret == -1) {
                 state->is_revalidate = 2;
@@ -104,34 +104,35 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.postparent, postparent);
 
-        if (op_ret == 0) {
-                root_inode = BOUND_XL(frame)->itable->root;
-                if (inode == root_inode) {
-                        /* we just looked up root ("/") */
-                        stbuf->ia_ino = 1;
-                        rootgfid[15]  = 1;
-                        uuid_copy (stbuf->ia_gfid, rootgfid);
-                        if (inode->ia_type == 0)
-                                inode->ia_type = stbuf->ia_type;
-                }
-
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-
-                if (!__is_root_gfid (inode->gfid)) {
-                        link_inode = inode_link (inode, state->loc.parent,
-                                                 state->loc.name, stbuf);
-                        if (link_inode) {
-                                inode_lookup (link_inode);
-                                inode_unref (link_inode);
-                        }
-                }
-        } else {
+        if (op_ret) {
                 if (state->is_revalidate && op_errno == ENOENT) {
-                        if (!__is_root_gfid (state->loc.inode->gfid)) {
+                        if (!__is_root_gfid (state->resolve.gfid)) {
                                 inode_unlink (state->loc.inode,
                                               state->loc.parent,
                                               state->loc.name);
                         }
+                }
+                goto out;
+        }
+
+        root_inode = BOUND_XL(frame)->itable->root;
+        if (inode == root_inode) {
+                /* we just looked up root ("/") */
+                stbuf->ia_ino = 1;
+                rootgfid[15]  = 1;
+                uuid_copy (stbuf->ia_gfid, rootgfid);
+                if (inode->ia_type == 0)
+                        inode->ia_type = stbuf->ia_type;
+        }
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+
+        if (!__is_root_gfid (inode->gfid)) {
+                link_inode = inode_link (inode, state->loc.parent,
+                                         state->loc.name, stbuf);
+                if (link_inode) {
+                        inode_lookup (link_inode);
+                        inode_unref (link_inode);
                 }
         }
 
@@ -143,12 +144,22 @@ out:
         rsp.op_errno = gf_errno_to_error (op_errno);
 
         if (op_ret) {
-                gf_log (this->name,
-                        ((op_errno == ENOENT) ? GF_LOG_TRACE : GF_LOG_INFO),
-                        "%"PRId64": LOOKUP %s (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                if (state->resolve.bname) {
+                        gf_log (this->name, ((op_errno == ENOENT) ?
+                                             GF_LOG_TRACE : GF_LOG_INFO),
+                                "%"PRId64": LOOKUP %s (%s/%s) ==> (%s)",
+                                frame->root->unique, state->loc.path,
+                                uuid_utoa (state->resolve.pargfid),
+                                state->resolve.bname,
+                                strerror (op_errno));
+                } else {
+                        gf_log (this->name, ((op_errno == ENOENT) ?
+                                             GF_LOG_TRACE : GF_LOG_INFO),
+                                "%"PRId64": LOOKUP %s (%s) ==> (%s)",
+                                frame->root->unique, state->loc.path,
+                                uuid_utoa (state->resolve.gfid),
+                                strerror (op_errno));
+                }
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -171,37 +182,39 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t   *state = NULL;
 
         req = frame->local;
+        state = CALL_STATE(frame);
+
+        if (op_ret) {
+                if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "%"PRId64": LK %"PRId64" (%s) ==> (%s)",
+                                frame->root->unique, state->resolve.fd_no,
+                                uuid_utoa (state->resolve.gfid),
+                                strerror (op_errno));
+                }
+                goto out;
+        }
+
+        switch (lock->l_type) {
+        case F_RDLCK:
+                lock->l_type = GF_LK_F_RDLCK;
+                break;
+        case F_WRLCK:
+                lock->l_type = GF_LK_F_WRLCK;
+                break;
+        case F_UNLCK:
+                lock->l_type = GF_LK_F_UNLCK;
+                break;
+        default:
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unknown lock type: %"PRId32"!", lock->l_type);
+                break;
+        }
+
+        gf_proto_flock_from_flock (&rsp.flock, lock);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
-
-        state = CALL_STATE(frame);
-
-        if (op_ret == 0) {
-                switch (lock->l_type) {
-                case F_RDLCK:
-                        lock->l_type = GF_LK_F_RDLCK;
-                        break;
-                case F_WRLCK:
-                        lock->l_type = GF_LK_F_WRLCK;
-                        break;
-                case F_UNLCK:
-                        lock->l_type = GF_LK_F_UNLCK;
-                        break;
-                default:
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Unknown lock type: %"PRId32"!", lock->l_type);
-                        break;
-                }
-
-                gf_proto_flock_from_flock (&rsp.flock, lock);
-        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": LK %"PRId64" (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
-        }
 
 out:
         rsp.op_ret    = op_ret;
@@ -226,31 +239,33 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
 
-        req           = frame->local;
+        req = frame->local;
+        conn = SERVER_CONNECTION(frame);
+        state = CALL_STATE(frame);
+
+        if (op_ret < 0) {
+                if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "%"PRId64": INODELK %s (%s) ==> (%s)",
+                                frame->root->unique, state->loc.path,
+                                uuid_utoa (state->resolve.gfid),
+                                strerror (op_errno));
+                }
+                goto out;
+        }
+
+        if (state->flock.l_type == F_UNLCK)
+                gf_del_locker (conn, state->volume,
+                               &state->loc, NULL, &frame->root->lk_owner,
+                               GF_FOP_INODELK);
+        else
+                gf_add_locker (conn, state->volume,
+                               &state->loc, NULL, frame->root->pid,
+                               &frame->root->lk_owner,
+                               GF_FOP_INODELK);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
-
-        conn  = SERVER_CONNECTION(frame);
-        state = CALL_STATE(frame);
-
-        if (op_ret >= 0) {
-                if (state->flock.l_type == F_UNLCK)
-                        gf_del_locker (conn, state->volume,
-                                       &state->loc, NULL, &frame->root->lk_owner,
-                                       GF_FOP_INODELK);
-                else
-                        gf_add_locker (conn, state->volume,
-                                       &state->loc, NULL, frame->root->pid,
-                                       &frame->root->lk_owner,
-                                       GF_FOP_INODELK);
-        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": INODELK %s (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
-        }
 
 out:
         rsp.op_ret    = op_ret;
@@ -276,27 +291,29 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t    *req   = NULL;
 
         req = frame->local;
-
         conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
-        if (op_ret >= 0) {
-                if (state->flock.l_type == F_UNLCK)
-                        gf_del_locker (conn, state->volume,
-                                       NULL, state->fd,
-                                       &frame->root->lk_owner,  GF_FOP_INODELK);
-                else
-                        gf_add_locker (conn, state->volume,
-                                       NULL, state->fd,
-                                       frame->root->pid,
-                                       &frame->root->lk_owner, GF_FOP_INODELK);
-        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FINODELK %"PRId64" (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+        if (op_ret < 0) {
+                if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "%"PRId64": FINODELK %"PRId64" (%s) ==> (%s)",
+                                frame->root->unique, state->resolve.fd_no,
+                                uuid_utoa (state->resolve.gfid),
+                                strerror (op_errno));
+                }
+                goto out;
         }
+
+        if (state->flock.l_type == F_UNLCK)
+                gf_del_locker (conn, state->volume,
+                               NULL, state->fd,
+                               &frame->root->lk_owner,  GF_FOP_INODELK);
+        else
+                gf_add_locker (conn, state->volume,
+                               NULL, state->fd,
+                               frame->root->pid,
+                               &frame->root->lk_owner, GF_FOP_INODELK);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -324,27 +341,29 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
 
         req = frame->local;
-
-        conn  = SERVER_CONNECTION(frame);
+        conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
-        if (op_ret >= 0) {
-                if (state->cmd == ENTRYLK_UNLOCK)
-                        gf_del_locker (conn, state->volume,
-                                       &state->loc, NULL, &frame->root->lk_owner,
-                                       GF_FOP_ENTRYLK);
-                else
-                        gf_add_locker (conn, state->volume,
-                                       &state->loc, NULL, frame->root->pid,
-                                       &frame->root->lk_owner,
-                                       GF_FOP_ENTRYLK);
-        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": ENTRYLK %s (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+        if (op_ret < 0) {
+                if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "%"PRId64": ENTRYLK %s (%s) ==> (%s)",
+                                frame->root->unique, state->loc.path,
+                                uuid_utoa (state->resolve.gfid),
+                                strerror (op_errno));
+                }
+                goto out;
         }
+
+        if (state->cmd == ENTRYLK_UNLOCK)
+                gf_del_locker (conn, state->volume,
+                               &state->loc, NULL, &frame->root->lk_owner,
+                               GF_FOP_ENTRYLK);
+        else
+                gf_add_locker (conn, state->volume,
+                               &state->loc, NULL, frame->root->pid,
+                               &frame->root->lk_owner,
+                               GF_FOP_ENTRYLK);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -375,23 +394,26 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req   = frame->local;
         conn  = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
-        if (op_ret >= 0) {
-                if (state->cmd == ENTRYLK_UNLOCK)
-                        gf_del_locker (conn, state->volume,
-                                       NULL, state->fd, &frame->root->lk_owner,
-                                       GF_FOP_ENTRYLK);
-                else
-                        gf_add_locker (conn, state->volume,
-                                       NULL, state->fd, frame->root->pid,
-                                       &frame->root->lk_owner, GF_FOP_ENTRYLK);
-        } else if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FENTRYLK %"PRId64" (%s) "
-                        " ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+
+        if (op_ret < 0) {
+                if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "%"PRId64": FENTRYLK %"PRId64" (%s) ==>(%s)",
+                                frame->root->unique, state->resolve.fd_no,
+                                uuid_utoa (state->resolve.gfid),
+                                strerror (op_errno));
+                }
+                goto out;
         }
+
+        if (state->cmd == ENTRYLK_UNLOCK)
+                gf_del_locker (conn, state->volume,
+                               NULL, state->fd, &frame->root->lk_owner,
+                               GF_FOP_ENTRYLK);
+        else
+                gf_add_locker (conn, state->volume,
+                               NULL, state->fd, frame->root->pid,
+                               &frame->root->lk_owner, GF_FOP_ENTRYLK);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -419,15 +441,16 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t   *state = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret)
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": ACCESS %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": ACCESS %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -456,31 +479,31 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req    = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret == 0) {
-                inode_unlink (state->loc.inode, state->loc.parent,
-                              state->loc.name);
-                parent = inode_parent (state->loc.inode, 0, NULL);
-                if (parent)
-                        /* parent should not be found for directories after
-                         * inode_unlink, since directories cannot have
-                         * hardlinks.
-                         */
-                        inode_unref (parent);
-                else
-                        inode_forget (state->loc.inode, 0);
-
-                gf_stat_from_iatt (&rsp.preparent, preparent);
-                gf_stat_from_iatt (&rsp.postparent, postparent);
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": RMDIR %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": RMDIR %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.pargfid),
+                        state->resolve.bname, strerror (op_errno));
+                goto out;
         }
+
+        inode_unlink (state->loc.inode, state->loc.parent,
+                      state->loc.name);
+        parent = inode_parent (state->loc.inode, 0, NULL);
+        if (parent)
+                /* parent should not be found for directories after
+                 * inode_unlink, since directories cannot have
+                 * hardlinks.
+                 */
+                inode_unref (parent);
+        else
+                inode_forget (state->loc.inode, 0);
+
+        gf_stat_from_iatt (&rsp.preparent, preparent);
+        gf_stat_from_iatt (&rsp.postparent, postparent);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -510,24 +533,25 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req        = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
-        if (op_ret >= 0) {
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-                gf_stat_from_iatt (&rsp.preparent, preparent);
-                gf_stat_from_iatt (&rsp.postparent, postparent);
 
-                link_inode = inode_link (inode, state->loc.parent,
-                                         state->loc.name, stbuf);
-                inode_lookup (link_inode);
-                inode_unref (link_inode);
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": MKDIR %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": MKDIR %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--",op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.pargfid),
+                        state->resolve.bname, strerror (op_errno));
+                goto out;
         }
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+        gf_stat_from_iatt (&rsp.preparent, preparent);
+        gf_stat_from_iatt (&rsp.postparent, postparent);
+
+        link_inode = inode_link (inode, state->loc.parent,
+                                 state->loc.name, stbuf);
+        inode_lookup (link_inode);
+        inode_unref (link_inode);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -557,24 +581,25 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req        = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
-        if (op_ret >= 0) {
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-                gf_stat_from_iatt (&rsp.preparent, preparent);
-                gf_stat_from_iatt (&rsp.postparent, postparent);
 
-                link_inode = inode_link (inode, state->loc.parent,
-                                         state->loc.name, stbuf);
-                inode_lookup (link_inode);
-                inode_unref (link_inode);
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": MKNOD %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": MKNOD %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--",op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.pargfid),
+                        state->resolve.bname, strerror (op_errno));
+                goto out;
         }
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+        gf_stat_from_iatt (&rsp.preparent, preparent);
+        gf_stat_from_iatt (&rsp.postparent, postparent);
+
+        link_inode = inode_link (inode, state->loc.parent,
+                                 state->loc.name, stbuf);
+        inode_lookup (link_inode);
+        inode_unref (link_inode);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -601,15 +626,15 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSYNCDIR %"PRId64" (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": FSYNCDIR %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
         }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -630,7 +655,8 @@ out:
 
 int
 server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, gf_dirent_t *entries, dict_t *xdata)
+                    int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                    dict_t *xdata)
 {
         gfs3_readdir_rsp  rsp   = {0,};
         server_state_t   *state = NULL;
@@ -638,22 +664,25 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int               ret   = 0;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
-        if (op_ret > 0) {
+
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": READDIR %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->fd->inode->gfid),
+                        strerror (op_errno));
+                goto out;
+        }
+
+        /* (op_ret == 0) is valid, and means EOF */
+        if (op_ret) {
                 ret = serialize_rsp_dirent (entries, &rsp);
                 if (ret == -1) {
                         op_ret   = -1;
                         op_errno = ENOMEM;
                         goto out;
                 }
-        } else {
-                /* (op_ret == 0) is valid, and means EOF, don't log for that */
-                gf_log (this->name, (op_ret) ? GF_LOG_INFO : GF_LOG_TRACE,
-                        "%"PRId64": READDIR %"PRId64" (%s) ==> %"PRId32
-                        " (%s)", frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
         }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -684,23 +713,21 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_opendir_rsp     rsp   = {0,};
         uint64_t             fd_no = 0;
 
+        req = frame->local;
         conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
-        if (op_ret >= 0) {
-                fd_bind (fd);
-
-                fd_no = gf_fd_unused_get (conn->fdtable, fd);
-                fd_ref (fd); // on behalf of the client
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": OPENDIR %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": OPENDIR %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
 
-        req = frame->local;
+        fd_bind (fd);
+        fd_no = gf_fd_unused_get (conn->fdtable, fd);
+        fd_ref (fd); // on behalf of the client
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -725,17 +752,19 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gf_common_rsp     rsp = {0,};
         rpcsvc_request_t *req = NULL;
-        server_state_t      *state = NULL;
+        server_state_t   *state = NULL;
 
         req   = frame->local;
         state = CALL_STATE(frame);
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": REMOVEXATTR %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": REMOVEXATTR %s (%s) of key %s ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        state->name, strerror (op_errno));
+                goto out;
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -764,13 +793,14 @@ server_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req   = frame->local;
         state = CALL_STATE(frame);
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FREMOVEXATTR (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, ((state->fd->inode) ?
-                                              uuid_utoa (state->fd->inode->gfid) :
-                                              "--"),
-                        op_ret, strerror (op_errno));
+                        "%"PRId64": FREMOVEXATTR %"PRId64" (%s) (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->resolve.gfid), state->name,
+                        strerror (op_errno));
+                goto out;
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -797,30 +827,28 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t  *req   = NULL;
         server_state_t    *state = NULL;
 
+        req = frame->local;
         state = CALL_STATE (frame);
 
-        if (op_ret >= 0) {
-                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
-                                            (&rsp.dict.dict_val),
-                                            rsp.dict.dict_len,
-                                            op_errno, out);
+        if (op_ret == -1) {
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
+                        "%"PRId64": GETXATTR %s (%s) (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
+                        uuid_utoa (state->resolve.gfid),
+                        state->name, strerror (op_errno));
+                goto out;
         }
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
+                                    rsp.dict.dict_len, op_errno, out);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
 out:
-        req               = frame->local;
-
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-
-        if (op_ret == -1)
-                gf_log (this->name, ((op_errno == ENOTSUP) ?
-                                     GF_LOG_DEBUG : GF_LOG_INFO),
-                        "%"PRId64": GETXATTR %s (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->loc.path,
-                        state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_getxattr_rsp);
@@ -844,30 +872,29 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t     *state = NULL;
         rpcsvc_request_t   *req   = NULL;
 
+        req = frame->local;
         state = CALL_STATE (frame);
 
-        if (op_ret >= 0) {
-                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
-                                            (&rsp.dict.dict_val),
-                                            rsp.dict.dict_len,
-                                            op_errno, out);
+        if (op_ret == -1) {
+                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
+                        "%"PRId64": FGETXATTR %"PRId64" (%s) (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->resolve.gfid),
+                        state->name, strerror (op_errno));
+                goto out;
         }
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
+                                    rsp.dict.dict_len, op_errno, out);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
 out:
-        req               = frame->local;
 
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-
-        if (op_ret == -1)
-                gf_log (this->name, ((op_errno == ENOTSUP) ?
-                                     GF_LOG_DEBUG : GF_LOG_INFO),
-                        "%"PRId64": FGETXATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        state->name, op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fgetxattr_rsp);
@@ -889,22 +916,20 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
         server_state_t      *state = NULL;
 
-        req           = frame->local;
-
+        req = frame->local;
         state = CALL_STATE(frame);
-        rsp.op_ret    = op_ret;
-        rsp.op_errno  = gf_errno_to_error (op_errno);
 
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOTSUP) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
                         "%"PRId64": SETXATTR %s (%s) ==> %s (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", ((state->dict) ? ((state->dict->members_list) ?
-                                                state->dict->members_list->key :
-                                                "(null)") : ("null")),
+                        uuid_utoa (state->resolve.gfid),
+                        ((state->dict) ? ((state->dict->members_list) ?
+                                          state->dict->members_list->key :
+                                          "(null)") : ("null")),
                         strerror (op_errno));
+                goto out;
         }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -933,19 +958,20 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOTSUP) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
                         "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %s (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
+                        uuid_utoa (state->resolve.gfid),
                         ((state->dict) ? ((state->dict->members_list) ?
                                           state->dict->members_list->key :
                                           "(null)") : "null"),
                         strerror (op_errno));
+                goto out;
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -975,59 +1001,63 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
         inode_t     *tmp_inode = NULL;
         inode_t     *tmp_parent = NULL;
+        char         oldpar_str[50] = {0,};
+        char         newpar_str[50] = {0,};
 
         req   = frame->local;
         state = CALL_STATE(frame);
 
-        if (op_ret == 0) {
-                stbuf->ia_type = state->loc.inode->ia_type;
-
-                /* TODO: log gfid of the inodes */
-                gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                        "%"PRId64": RENAME_CBK  %s ==> %s",
-                        frame->root->unique, state->loc.name, state->loc2.name);
-
-                /* Before renaming the inode, we have to get the inode for the
-                 * destination entry (i.e. inode with state->loc2.parent as
-                 * parent and state->loc2.name as name). If it exists, then
-                 * unlink that inode, and send forget on that inode if the
-                 * unlinked entry is the last entry. In case of fuse client
-                 * the fuse kernel module itself sends the forget on the
-                 * unlinked inode.
-                 */
-                tmp_inode = inode_grep (state->loc.inode->table,
-                                        state->loc2.parent, state->loc2.name);
-                if (tmp_inode) {
-                        inode_unlink (tmp_inode, state->loc2.parent,
-                                      state->loc2.name);
-                        tmp_parent = inode_parent (tmp_inode, 0, NULL);
-                        if (tmp_parent)
-                                inode_unref (tmp_parent);
-                        else
-                                inode_forget (tmp_inode, 0);
-
-                        inode_unref (tmp_inode);
-                }
-
-                inode_rename (state->itable,
-                              state->loc.parent, state->loc.name,
-                              state->loc2.parent, state->loc2.name,
-                              state->loc.inode, stbuf);
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-
-                gf_stat_from_iatt (&rsp.preoldparent, preoldparent);
-                gf_stat_from_iatt (&rsp.postoldparent, postoldparent);
-
-                gf_stat_from_iatt (&rsp.prenewparent, prenewparent);
-                gf_stat_from_iatt (&rsp.postnewparent, postnewparent);
+        if (op_ret == -1) {
+                uuid_utoa_r (state->resolve.gfid, oldpar_str);
+                uuid_utoa_r (state->resolve2.gfid, newpar_str);
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": RENAME %s (%s/%s) -> %s (%s/%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
+                        oldpar_str, state->resolve.bname, state->loc2.path,
+                        newpar_str, state->resolve2.bname, strerror (op_errno));
+                goto out;
         }
 
-        if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": RENAME %s (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+        stbuf->ia_type = state->loc.inode->ia_type;
+
+        /* TODO: log gfid of the inodes */
+        gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
+                "%"PRId64": RENAME_CBK  %s ==> %s",
+                frame->root->unique, state->loc.name, state->loc2.name);
+
+        /* Before renaming the inode, we have to get the inode for the
+         * destination entry (i.e. inode with state->loc2.parent as
+         * parent and state->loc2.name as name). If it exists, then
+         * unlink that inode, and send forget on that inode if the
+         * unlinked entry is the last entry. In case of fuse client
+         * the fuse kernel module itself sends the forget on the
+         * unlinked inode.
+         */
+        tmp_inode = inode_grep (state->loc.inode->table,
+                                state->loc2.parent, state->loc2.name);
+        if (tmp_inode) {
+                inode_unlink (tmp_inode, state->loc2.parent,
+                              state->loc2.name);
+                tmp_parent = inode_parent (tmp_inode, 0, NULL);
+                if (tmp_parent)
+                        inode_unref (tmp_parent);
+                else
+                        inode_forget (tmp_inode, 0);
+
+                inode_unref (tmp_inode);
+        }
+
+        inode_rename (state->itable,
+                      state->loc.parent, state->loc.name,
+                      state->loc2.parent, state->loc2.name,
+                      state->loc.inode, stbuf);
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+
+        gf_stat_from_iatt (&rsp.preoldparent, preoldparent);
+        gf_stat_from_iatt (&rsp.postoldparent, postoldparent);
+
+        gf_stat_from_iatt (&rsp.prenewparent, prenewparent);
+        gf_stat_from_iatt (&rsp.postnewparent, postnewparent);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1056,34 +1086,33 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req    = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret == 0) {
-                /* TODO: log gfid of the inodes */
-                gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                        "%"PRId64": UNLINK_CBK %s",
-                        frame->root->unique, state->loc.name);
-
-                inode_unlink (state->loc.inode, state->loc.parent,
-                              state->loc.name);
-
-                parent = inode_parent (state->loc.inode, 0, NULL);
-                if (parent)
-                        inode_unref (parent);
-                else
-                        inode_forget (state->loc.inode, 0);
-
-                gf_stat_from_iatt (&rsp.preparent, preparent);
-                gf_stat_from_iatt (&rsp.postparent, postparent);
-
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": UNLINK %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": UNLINK %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.pargfid),
+                        state->resolve.bname, strerror (op_errno));
+                goto out;
         }
+
+        /* TODO: log gfid of the inodes */
+        gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
+                "%"PRId64": UNLINK_CBK %s",
+                frame->root->unique, state->loc.name);
+
+        inode_unlink (state->loc.inode, state->loc.parent,
+                      state->loc.name);
+
+        parent = inode_parent (state->loc.inode, 0, NULL);
+        if (parent)
+                inode_unref (parent);
+        else
+                inode_forget (state->loc.inode, 0);
+
+        gf_stat_from_iatt (&rsp.preparent, preparent);
+        gf_stat_from_iatt (&rsp.postparent, postparent);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1113,24 +1142,25 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req        = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
-        if (op_ret >= 0) {
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-                gf_stat_from_iatt (&rsp.preparent, preparent);
-                gf_stat_from_iatt (&rsp.postparent, postparent);
 
-                link_inode = inode_link (inode, state->loc.parent,
-                                         state->loc.name, stbuf);
-                inode_lookup (link_inode);
-                inode_unref (link_inode);
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": SYMLINK %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": SYMLINK %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.pargfid),
+                        state->resolve.bname, strerror (op_errno));
+                goto out;
         }
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+        gf_stat_from_iatt (&rsp.preparent, preparent);
+        gf_stat_from_iatt (&rsp.postparent, postparent);
+
+        link_inode = inode_link (inode, state->loc.parent,
+                                 state->loc.name, stbuf);
+        inode_lookup (link_inode);
+        inode_unref (link_inode);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1159,28 +1189,30 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t   *state      = NULL;
         inode_t          *link_inode = NULL;
         rpcsvc_request_t *req        = NULL;
+        char              gfid_str[50]   = {0,};
+        char              newpar_str[50] = {0,};
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret == 0) {
+        if (op_ret) {
+                uuid_utoa_r (state->resolve.gfid, gfid_str);
+                uuid_utoa_r (state->resolve2.pargfid, newpar_str);
 
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-                gf_stat_from_iatt (&rsp.preparent, preparent);
-                gf_stat_from_iatt (&rsp.postparent, postparent);
-
-                link_inode = inode_link (inode, state->loc2.parent,
-                                         state->loc2.name, stbuf);
-                inode_unref (link_inode);
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": LINK %s (%s) -> %s/%s ==> (%s)",
+                        frame->root->unique, state->loc.path, gfid_str,
+                        newpar_str, state->resolve2.bname, strerror (op_errno));
+                goto out;
         }
 
-        if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": LINK %s (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+        gf_stat_from_iatt (&rsp.preparent, preparent);
+        gf_stat_from_iatt (&rsp.postparent, postparent);
+
+        link_inode = inode_link (inode, state->loc2.parent,
+                                 state->loc2.name, stbuf);
+        inode_unref (link_inode);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1208,20 +1240,18 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t  *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE (frame);
 
-        if (op_ret == 0) {
-                gf_stat_from_iatt (&rsp.prestat, prebuf);
-                gf_stat_from_iatt (&rsp.poststat, postbuf);
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": TRUNCATE %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": TRUNCATE %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
 
+        gf_stat_from_iatt (&rsp.prestat, prebuf);
+        gf_stat_from_iatt (&rsp.poststat, postbuf);
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1240,26 +1270,25 @@ out:
 
 int
 server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *stbuf, dict_t *xdata)
+                  int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                  dict_t *xdata)
 {
         gfs3_fstat_rsp    rsp   = {0,};
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret == 0) {
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSTAT %"PRId64" (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": FSTAT %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
 
+        gf_stat_from_iatt (&rsp.stat, stbuf);
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1286,20 +1315,18 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t   *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE (frame);
 
-        if (op_ret == 0) {
-                gf_stat_from_iatt (&rsp.prestat, prebuf);
-                gf_stat_from_iatt (&rsp.poststat, postbuf);
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FTRUNCATE %"PRId64" (%s)==> %"PRId32" (%s)",
+                        "%"PRId64": FTRUNCATE %"PRId64" (%s)==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
 
+        gf_stat_from_iatt (&rsp.prestat, prebuf);
+        gf_stat_from_iatt (&rsp.poststat, postbuf);
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1325,14 +1352,14 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FLUSH %"PRId64" (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": FLUSH %"PRId64" (%s) ==>  (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -1361,20 +1388,18 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret >= 0) {
-                gf_stat_from_iatt (&(rsp.prestat), prebuf);
-                gf_stat_from_iatt (&(rsp.poststat), postbuf);
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSYNC %"PRId64" (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": FSYNC %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
 
+        gf_stat_from_iatt (&(rsp.prestat), prebuf);
+        gf_stat_from_iatt (&(rsp.poststat), postbuf);
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1401,19 +1426,18 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
-        if (op_ret >= 0) {
-                gf_stat_from_iatt (&rsp.prestat, prebuf);
-                gf_stat_from_iatt (&rsp.poststat, postbuf);
-        } else {
+
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": WRITEV %"PRId64" (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": WRITEV %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
 
+        gf_stat_from_iatt (&rsp.prestat, prebuf);
+        gf_stat_from_iatt (&rsp.poststat, postbuf);
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1442,18 +1466,18 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
-        if (op_ret >= 0) {
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-                rsp.size = op_ret;
-        } else {
+
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": READV %"PRId64" (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": READV %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
         }
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+        rsp.size = op_ret;
 
 #ifdef GF_TESTING_IO_XDATA
         {
@@ -1484,27 +1508,28 @@ out:
 int
 server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      uint32_t weak_checksum, uint8_t *strong_checksum, dict_t *xdata)
+                      uint32_t weak_checksum, uint8_t *strong_checksum,
+                      dict_t *xdata)
 {
         gfs3_rchecksum_rsp  rsp = {0,};
         rpcsvc_request_t   *req = NULL;
         server_state_t      *state = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
-        if (op_ret >= 0) {
-                rsp.weak_checksum = weak_checksum;
 
-                rsp.strong_checksum.strong_checksum_val = (char *)strong_checksum;
-                rsp.strong_checksum.strong_checksum_len = MD5_DIGEST_LENGTH;
-        }
-        if (op_ret == -1)
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": RCHECKSUM %"PRId64" (%s)==> %"PRId32" (%s)",
+                        "%"PRId64": RCHECKSUM %"PRId64" (%s)==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
+        }
+
+        rsp.weak_checksum = weak_checksum;
+
+        rsp.strong_checksum.strong_checksum_val = (char *)strong_checksum;
+        rsp.strong_checksum.strong_checksum_len = MD5_DIGEST_LENGTH;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1533,22 +1558,22 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t             fd_no = 0;
         gfs3_open_rsp        rsp   = {0,};
 
+        req = frame->local;
         conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
-        if (op_ret >= 0) {
-                fd_bind (fd);
-                fd_no = gf_fd_unused_get (conn->fdtable, fd);
-                fd_ref (fd);
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": OPEN %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": OPEN %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
         }
 
-        req    = frame->local;
+        fd_bind (fd);
+        fd_no = gf_fd_unused_get (conn->fdtable, fd);
+        fd_ref (fd);
         rsp.fd = fd_no;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -1569,9 +1594,9 @@ out:
 
 int
 server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno,
-                   fd_t *fd, inode_t *inode, struct iatt *stbuf,
-                   struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+                   int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+                   struct iatt *stbuf, struct iatt *preparent,
+                   struct iatt *postparent, dict_t *xdata)
 {
         server_connection_t *conn       = NULL;
         server_state_t      *state      = NULL;
@@ -1580,65 +1605,65 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t             fd_no      = 0;
         gfs3_create_rsp      rsp        = {0,};
 
+        req = frame->local;
         conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
-        if (op_ret >= 0) {
-                /* TODO: log gfid too */
-                gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                        "%"PRId64": CREATE %s (%s)",
-                        frame->root->unique, state->loc.name,
-                        uuid_utoa (inode->gfid));
-
-                link_inode = inode_link (inode, state->loc.parent,
-                                         state->loc.name, stbuf);
-
-                if (!link_inode) {
-                        op_ret = -1;
-                        op_errno = ENOENT;
-                        goto out;
-                }
-
-                if (link_inode != inode) {
-                        /*
-                          VERY racy code (if used anywhere else)
-                          -- don't do this without understanding
-                        */
-
-                        inode_unref (fd->inode);
-                        fd->inode = inode_ref (link_inode);
-                }
-
-                inode_lookup (link_inode);
-                inode_unref (link_inode);
-
-                fd_bind (fd);
-
-                fd_no = gf_fd_unused_get (conn->fdtable, fd);
-                fd_ref (fd);
-
-                if ((fd_no < 0) || (fd == 0)) {
-                        op_ret = fd_no;
-                        op_errno = errno;
-                }
-
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-                gf_stat_from_iatt (&rsp.preparent, preparent);
-                gf_stat_from_iatt (&rsp.postparent, postparent);
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": CREATE %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": CREATE %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.pargfid),
+                        state->resolve.bname, strerror (op_errno));
+                goto out;
         }
+
+        /* TODO: log gfid too */
+        gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
+                "%"PRId64": CREATE %s (%s)",
+                frame->root->unique, state->loc.name,
+                uuid_utoa (stbuf->ia_gfid));
+
+        link_inode = inode_link (inode, state->loc.parent,
+                                 state->loc.name, stbuf);
+
+        if (!link_inode) {
+                op_ret = -1;
+                op_errno = ENOENT;
+                goto out;
+        }
+
+        if (link_inode != inode) {
+                /*
+                  VERY racy code (if used anywhere else)
+                  -- don't do this without understanding
+                */
+
+                inode_unref (fd->inode);
+                fd->inode = inode_ref (link_inode);
+        }
+
+        inode_lookup (link_inode);
+        inode_unref (link_inode);
+
+        fd_bind (fd);
+
+        fd_no = gf_fd_unused_get (conn->fdtable, fd);
+        fd_ref (fd);
+
+        if ((fd_no < 0) || (fd == 0)) {
+                op_ret = fd_no;
+                op_errno = errno;
+        }
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+        gf_stat_from_iatt (&rsp.preparent, preparent);
+        gf_stat_from_iatt (&rsp.postparent, postparent);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
 out:
-        req           = frame->local;
-
         rsp.fd        = fd_no;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -1662,22 +1687,19 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t  *req   = NULL;
 
         req = frame->local;
-
         state = CALL_STATE(frame);
 
-        if (op_ret >= 0) {
-                gf_stat_from_iatt (&rsp.buf, stbuf);
-                rsp.path = (char *)buf;
-        } else {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": READLINK %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": READLINK %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
         }
 
-        if (!rsp.path)
-                rsp.path = "";
+        gf_stat_from_iatt (&rsp.buf, stbuf);
+        rsp.path = (char *)buf;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1685,6 +1707,9 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        if (!rsp.path)
+                rsp.path = "";
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_readlink_rsp);
@@ -1697,26 +1722,26 @@ out:
 
 int
 server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *stbuf, dict_t *xdata)
+                 int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                 dict_t *xdata)
 {
         gfs3_stat_rsp     rsp   = {0,};
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
 
         req = frame->local;
-
         state  = CALL_STATE (frame);
 
-        if (op_ret == 0) {
-                gf_stat_from_iatt (&rsp.stat, stbuf);
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": STAT %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": STAT %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
         }
 
+        gf_stat_from_iatt (&rsp.stat, stbuf);
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1746,17 +1771,17 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE (frame);
 
-        if (op_ret == 0) {
-                gf_stat_from_iatt (&rsp.statpre, statpre);
-                gf_stat_from_iatt (&rsp.statpost, statpost);
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": SETATTR %s (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": SETATTR %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
         }
 
+        gf_stat_from_iatt (&rsp.statpre, statpre);
+        gf_stat_from_iatt (&rsp.statpost, statpost);
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1782,20 +1807,20 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t    *state = NULL;
         rpcsvc_request_t  *req   = NULL;
 
+        req = frame->local;
         state  = CALL_STATE (frame);
 
-        if (op_ret == 0) {
-                gf_stat_from_iatt (&rsp.statpre, statpre);
-                gf_stat_from_iatt (&rsp.statpost, statpost);
-        } else {
+        if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FSETATTR %"PRId64" (%s) ==> %"PRId32" (%s)",
+                        "%"PRId64": FSETATTR %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->fd->inode->gfid),
+                        strerror (op_errno));
+                goto out;
         }
 
-        req = frame->local;
+        gf_stat_from_iatt (&rsp.statpre, statpre);
+        gf_stat_from_iatt (&rsp.statpost, statpost);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1823,39 +1848,27 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
 
+        req = frame->local;
         state = CALL_STATE (frame);
 
         if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "%"PRId64": XATTROP %s (%s) ==> %"PRId32" (%s)",
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": XATTROP %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
                 goto out;
         }
 
-        if ((op_ret >= 0) && dict) {
-                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
-                                            (&rsp.dict.dict_val),
-                                            rsp.dict.dict_len,
-                                            op_errno, out);
-        }
+        GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
+                                    rsp.dict.dict_len, op_errno, out);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
 out:
-        req               = frame->local;
-
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-
-        if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": XATTROP %s (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->loc.path,
-                        state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
-                        "--", op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_xattrop_rsp);
@@ -1879,40 +1892,28 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
 
+        req = frame->local;
         state = CALL_STATE(frame);
 
         if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "%"PRId64": FXATTROP %"PRId64" (%s) ==> %"PRId32" (%s)",
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": FXATTROP %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
                 goto out;
         }
 
-        if ((op_ret >= 0) && dict) {
-                GF_PROTOCOL_DICT_SERIALIZE (this, dict,
-                                            (&rsp.dict.dict_val),
-                                            rsp.dict.dict_len,
-                                            op_errno, out);
-        }
+        GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
+                                    rsp.dict.dict_len, op_errno, out);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
 
 out:
-        req               = frame->local;
-
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
-
-        if (op_ret == -1)
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": FXATTROP %"PRId64" (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fxattrop_rsp);
@@ -1936,28 +1937,30 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t  *req   = NULL;
         int                ret   = 0;
 
-        req           = frame->local;
-
+        req = frame->local;
         state = CALL_STATE(frame);
-        if (op_ret > 0) {
+
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": READDIRP %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
+        }
+
+        /* (op_ret == 0) is valid, and means EOF */
+        if (op_ret) {
                 ret = serialize_rsp_direntp (entries, &rsp);
                 if (ret == -1) {
                         op_ret   = -1;
                         op_errno = ENOMEM;
                         goto out;
                 }
-
-                /* TODO: need more clear thoughts before calling this function. */
-                /* gf_link_inodes_from_dirent (this, state->fd->inode, entries); */
-
-        } else {
-                /* (op_ret == 0) is valid, and means EOF, don't log for that */
-                gf_log (this->name, (op_ret) ? GF_LOG_INFO : GF_LOG_TRACE,
-                        "%"PRId64": READDIRP %"PRId64" (%s) ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        state->fd ? uuid_utoa (state->fd->inode->gfid) : "--",
-                        op_ret, strerror (op_errno));
         }
+
+        /* TODO: need more clear thoughts before calling this function. */
+        /* gf_link_inodes_from_dirent (this, state->fd->inode, entries); */
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
