@@ -1010,6 +1010,8 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
         if (ret)
                 goto out;
 
+        glusterd_volinfo_reset_defrag_stats (volinfo);
+
         if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
                 /* Only if the brick is in this glusterd, do the rebalance */
                 if (need_migrate)

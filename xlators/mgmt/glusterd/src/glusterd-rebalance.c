@@ -253,12 +253,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         volinfo->defrag_status = GF_DEFRAG_STATUS_STARTED;
 
-        volinfo->rebalance_files = 0;
-        volinfo->rebalance_data = 0;
-        volinfo->lookedup_files = 0;
-        volinfo->rebalance_failures = 0;
-        volinfo->rebalance_time = 0;
-
+        glusterd_volinfo_reset_defrag_stats (volinfo);
         volinfo->defrag_cmd = cmd;
         glusterd_store_perform_node_state_store (volinfo);
 
