@@ -278,7 +278,8 @@ struct rpcsvc_request {
 typedef int (*rpcsvc_actor) (rpcsvc_request_t *req);
 typedef int (*rpcsvc_vector_actor) (rpcsvc_request_t *req, struct iovec *vec,
                                     int count, struct iobref *iobref);
-typedef int (*rpcsvc_vector_sizer) (int state, ssize_t *readsize, char *addr);
+typedef int (*rpcsvc_vector_sizer) (int state, ssize_t *readsize,
+                                    char *base_addr, char *curr_addr);
 
 /* Every protocol actor will also need to specify the function the RPC layer
  * will use to serialize or encode the message into XDR format just before
