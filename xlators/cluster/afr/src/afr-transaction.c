@@ -592,6 +592,8 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 case AFR_DATA_TRANSACTION:
                 {
                         if (!fdctx) {
+                                afr_set_postop_dict (local, this, xattr[i],
+                                                     0, i);
                                 STACK_WIND (frame, afr_changelog_post_op_cbk,
                                             priv->children[i],
                                             priv->children[i]->fops->xattrop,
