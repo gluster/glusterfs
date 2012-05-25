@@ -410,6 +410,25 @@ glusterd_gsync_get_session_owner (char *master, char *slave, char *session_owner
         return glusterd_query_extutil (session_owner, &runner);
 }
 
+/* check whether @slave is local or remote. normalized
+ * urls starting with ssh are considered to be remote
+ * @returns
+ *    1 if slave is remote
+ *    0 is slave is local
+ */
+int
+glusterd_gsync_slave_is_remote (char *slave)
+{
+        int   ret     = 0;
+        char *ssh_pos = NULL;
+
+        ssh_pos = strstr(slave, "ssh://");
+        if ( ssh_pos && ((ssh_pos - slave) == 0) )
+                ret = 1;
+
+        return ret;
+}
+
 int
 glusterd_gsync_get_slave_log_file (char *master, char *slave, char *log_file)
 {
@@ -1609,7 +1628,6 @@ int
 glusterd_send_log_rotate_signal (pid_t pid, char *logfile1, char *logfile2)
 {
         int         ret         = 0;
-        struct stat stbuf       = {0,};
         char rlogfile[PATH_MAX] = {0,};
         time_t      rottime     = 0;
 
@@ -1622,24 +1640,19 @@ glusterd_send_log_rotate_signal (pid_t pid, char *logfile1, char *logfile2)
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "rename failed for geo-rep log file");
 
-
-        snprintf (rlogfile, sizeof (rlogfile), "%s.%"PRIu64, logfile2,
-                  (uint64_t) rottime);
-        ret = stat (logfile2, &stbuf);
-        if (ret) {
-                if (errno != ENOENT)
-                        gf_log("", GF_LOG_ERROR, "stat failed for slave log"
-                               " file: %s", logfile2);
-                else {
-                        gf_log ("", GF_LOG_DEBUG, "Slave is not local, skipping rotation");
-                        ret = 0;
-                }
+        if (!*logfile2) {
+                gf_log ("", GF_LOG_DEBUG, "Slave is not local,"
+                        " skipping rotation");
+                ret = 0;
                 goto out;
         }
 
+        (void) snprintf (rlogfile, sizeof (rlogfile), "%s.%"PRIu64, logfile2,
+                         (uint64_t) rottime);
         ret = rename (logfile2, rlogfile);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "rename failed for geo-rep slave log file");
+                gf_log ("", GF_LOG_ERROR, "rename failed for geo-rep slave"
+                        " log file");
 
  out:
         ret = glusterd_send_sigcont (-pid);
@@ -1708,11 +1721,17 @@ glusterd_do_gsync_log_rotate (char *master, char *slave, uuid_t *uuid, char **op
         if (ret)
                 goto out;
 
-        /* slave log file */
+        /* check if slave is local or remote */
+        ret = glusterd_gsync_slave_is_remote (slave);
+        if (ret)
+                goto do_rotate;
+
+        /* slave log file - slave is local and it's log can be rotated */
         ret = glusterd_gsync_get_slave_log_file (master, slave, log_file2);
         if (ret)
                 goto out;
 
+ do_rotate:
         ret = glusterd_send_log_rotate_signal (pid, log_file1, log_file2);
 
  out:
@@ -1819,12 +1838,13 @@ glusterd_rotate_gsync_all ()
 static int
 glusterd_rotate_gsync_logs (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
-        char               *slave   = NULL;
-        char               *volname = NULL;
-        char errmsg[1024]           = {0,};
-        gf_boolean_t        exists  = _gf_false;
-        glusterd_volinfo_t *volinfo = NULL;
-        int                 ret     = 0;
+        char                *slave   = NULL;
+        char                *volname = NULL;
+        char errmsg[1024]            = {0,};
+        gf_boolean_t         exists  = _gf_false;
+        glusterd_volinfo_t  *volinfo = NULL;
+        char               **linearr = NULL;
+        int                  ret     = 0;
 
         ret = dict_get_str (dict, "master", &volname);
         if (ret < 0) {
@@ -1849,8 +1869,18 @@ glusterd_rotate_gsync_logs (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_do_gsync_log_rotation_mst_slv (volinfo, slave, op_errstr);
+        /* for the given slave use the normalized url */
+        ret = glusterd_urltransform_single (slave, "normalize", &linearr);
+        if (ret == -1)
+                goto out;
 
+        ret = glusterd_do_gsync_log_rotation_mst_slv (volinfo, linearr[0],
+                                                      op_errstr);
+        if (ret)
+                gf_log ("gsyncd", GF_LOG_ERROR, "gsyncd log-rotate failed for"
+                        " %s & %s", volname, slave);
+
+        glusterd_urltransform_free (linearr, 1);
  out:
         return ret;
 }
