@@ -2271,12 +2271,22 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,  glusterd_commit_hook
         char            scriptdir[PATH_MAX]     = {0, };
         char            type_subdir[256]        = {0, };
         char            *cmd_subdir             = NULL;
+        int             ret                     = -1;
 
         priv = THIS->private;
-        if (type == GD_COMMIT_HOOK_PRE)
-                strcpy (type_subdir, "pre");
-        else if (type == GD_COMMIT_HOOK_POST)
-                strcpy (type_subdir, "post");
+        switch (type) {
+                case GD_COMMIT_HOOK_NONE:
+                case GD_COMMIT_HOOK_MAX:
+                        /*Won't be called*/
+                        break;
+
+                case GD_COMMIT_HOOK_PRE:
+                        strcpy (type_subdir, "pre");
+                        break;
+                case GD_COMMIT_HOOK_POST:
+                        strcpy (type_subdir, "post");
+                        break;
+        }
 
         cmd_subdir = glusterd_hooks_get_hooks_cmd_subdir (op);
         if (strlen (cmd_subdir) == 0)
@@ -2286,7 +2296,23 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,  glusterd_commit_hook
         snprintf (scriptdir, sizeof (scriptdir), "%s/%s/%s",
                   hookdir, cmd_subdir, type_subdir);
 
-        return glusterd_hooks_run_hooks (scriptdir, op, op_ctx, type);
+        switch (type) {
+                case GD_COMMIT_HOOK_NONE:
+                case GD_COMMIT_HOOK_MAX:
+                        /*Won't be called*/
+                        break;
+
+                case GD_COMMIT_HOOK_PRE:
+                        ret = glusterd_hooks_run_hooks (scriptdir, op, op_ctx,
+                                                        type);
+                        break;
+                case GD_COMMIT_HOOK_POST:
+                        ret = glusterd_hooks_post_stub_enqueue (scriptdir, op,
+                                                                op_ctx);
+                        break;
+        }
+
+        return ret;
 }
 
 static int
