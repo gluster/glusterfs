@@ -745,6 +745,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                         "No self-heal needed for %s",
                         local->loc.path);
 
+                local->govinda_gOvinda = 0;
                 afr_sh_data_finish (frame, this);
                 return 0;
         }
@@ -776,6 +777,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
+        local->govinda_gOvinda = 0;
         ret = afr_sh_inode_set_read_ctx (sh, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
