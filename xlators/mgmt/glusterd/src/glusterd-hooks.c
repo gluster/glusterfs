@@ -358,3 +358,171 @@ out:
         return ret;
 }
 
+int
+glusterd_hooks_post_stub_enqueue (char *scriptdir, glusterd_op_t op,
+                                  dict_t *op_ctx)
+{
+        int                     ret     = -1;
+        glusterd_hooks_stub_t   *stub   = NULL;
+        glusterd_hooks_private_t *hooks_priv = NULL;
+        glusterd_conf_t         *conf   = NULL;
+
+        conf = THIS->private;
+        hooks_priv = conf->hooks_priv;
+
+        ret = glusterd_hooks_stub_init (&stub, scriptdir, op, op_ctx);
+        if (ret)
+                goto out;
+
+        pthread_mutex_lock (&hooks_priv->mutex);
+        {
+                hooks_priv->waitcount++;
+                list_add_tail (&stub->all_hooks, &hooks_priv->list);
+                pthread_cond_signal (&hooks_priv->cond);
+        }
+        pthread_mutex_unlock (&hooks_priv->mutex);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_hooks_stub_init (glusterd_hooks_stub_t **stub, char *scriptdir,
+                          glusterd_op_t op, dict_t *op_ctx)
+{
+        int                     ret             = -1;
+        glusterd_hooks_stub_t   *hooks_stub     = NULL;
+
+        GF_ASSERT (stub);
+        if (!stub)
+                goto out;
+
+        hooks_stub = GF_CALLOC (1, sizeof (*hooks_stub),
+                                gf_gld_mt_hooks_stub_t);
+        if (!hooks_stub)
+                goto out;
+
+        INIT_LIST_HEAD (&hooks_stub->all_hooks);
+        hooks_stub->op = op;
+        hooks_stub->scriptdir = gf_strdup (scriptdir);
+        if (!hooks_stub->scriptdir)
+                goto out;
+
+        hooks_stub->op_ctx = dict_copy_with_ref (op_ctx, hooks_stub->op_ctx);
+        if (!hooks_stub->op_ctx)
+                goto out;
+
+        *stub = hooks_stub;
+        ret = 0;
+out:
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to initialize "
+                        "post hooks stub");
+                glusterd_hooks_stub_cleanup (hooks_stub);
+        }
+
+        return ret;
+}
+
+void
+glusterd_hooks_stub_cleanup (glusterd_hooks_stub_t *stub)
+{
+        if (!stub) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "hooks_stub is NULL");
+                return;
+        }
+
+        if (stub->op_ctx)
+                dict_unref (stub->op_ctx);
+
+        if (stub->scriptdir)
+                GF_FREE (stub->scriptdir);
+
+        if (stub)
+                GF_FREE (stub);
+}
+
+static void*
+hooks_worker (void *args)
+{
+        glusterd_conf_t *conf = NULL;
+        glusterd_hooks_private_t *hooks_priv = NULL;
+        glusterd_hooks_stub_t *stub = NULL;
+
+        THIS = args;
+        conf = THIS->private;
+        hooks_priv = conf->hooks_priv;
+
+        for (;;) {
+                pthread_mutex_lock (&hooks_priv->mutex);
+                {
+                        while (list_empty (&hooks_priv->list)) {
+                                pthread_cond_wait (&hooks_priv->cond,
+                                                   &hooks_priv->mutex);
+                        }
+                        stub = list_entry (hooks_priv->list.next,
+                                           glusterd_hooks_stub_t,
+                                           all_hooks);
+                        list_del_init (&stub->all_hooks);
+                        hooks_priv->waitcount--;
+
+                }
+                pthread_mutex_unlock (&hooks_priv->mutex);
+
+                glusterd_hooks_run_hooks (stub->scriptdir, stub->op,
+                                          stub->op_ctx, GD_COMMIT_HOOK_POST);
+                glusterd_hooks_stub_cleanup (stub);
+        }
+
+        return NULL;
+}
+
+int
+glusterd_hooks_priv_init (glusterd_hooks_private_t **new)
+{
+        int                      ret            = -1;
+        glusterd_hooks_private_t *hooks_priv    = NULL;
+
+        if (!new)
+                goto out;
+
+        hooks_priv = GF_CALLOC (1, sizeof (*hooks_priv),
+                                gf_gld_mt_hooks_priv_t);
+        if (!hooks_priv)
+                goto out;
+
+        pthread_mutex_init (&hooks_priv->mutex, NULL);
+        pthread_cond_init (&hooks_priv->cond, NULL);
+        INIT_LIST_HEAD (&hooks_priv->list);
+        hooks_priv->waitcount = 0;
+
+        *new = hooks_priv;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_hooks_spawn_worker (xlator_t *this)
+{
+        int                       ret          = -1;
+        glusterd_conf_t           *conf        = NULL;
+        glusterd_hooks_private_t  *hooks_priv  = NULL;
+
+
+        ret = glusterd_hooks_priv_init (&hooks_priv);
+        if (ret)
+                goto out;
+
+        conf = this->private;
+        conf->hooks_priv = hooks_priv;
+        ret = pthread_create (&hooks_priv->worker, NULL, hooks_worker,
+                              (void *)this);
+        if (ret)
+                gf_log (this->name, GF_LOG_CRITICAL, "Failed to spawn post "
+                        "hooks worker thread");
+out:
+        return ret;
+}

@@ -1022,6 +1022,10 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        ret = glusterd_hooks_spawn_worker (this);
+        if (ret)
+                goto out;
+
         glusterd_restart_rebalance (conf);
         ret = 0;
 out:

@@ -73,7 +73,9 @@ typedef enum gf_gld_mem_types_ {
         gf_gld_mt_georep_meet_spec              = gf_common_mt_end + 47,
         gf_gld_mt_nodesrv_t                     = gf_common_mt_end + 48,
         gf_gld_mt_charptr                       = gf_common_mt_end + 49,
-        gf_gld_mt_end                           = gf_common_mt_end + 50,
+        gf_gld_mt_hooks_stub_t                  = gf_common_mt_end + 50,
+        gf_gld_mt_hooks_priv_t                  = gf_common_mt_end + 51,
+        gf_gld_mt_end                           = gf_common_mt_end + 52,
 } gf_gld_mem_types_t;
 #endif
 
