@@ -2239,7 +2239,6 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         sh              = &sh_local->self_heal;
 
         sh->inode       = inode_ref (inode);
-
         sh->orig_frame  = frame;
 
         sh->completion_cbk = afr_self_heal_completion_cbk;

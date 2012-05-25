@@ -745,6 +745,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                         "No self-heal needed for %s",
                         local->loc.path);
 
+                local->govinda_gOvinda = 0;
                 afr_sh_data_finish (frame, this);
                 return 0;
         }
@@ -776,6 +777,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
+        local->govinda_gOvinda = 0;
         ret = afr_sh_inode_set_read_ctx (sh, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1392,6 +1394,8 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
         sh = &local->self_heal;
+
+        local->govinda_gOvinda = afr_is_split_brain (this, sh->inode);
 
         if (sh->do_data_self_heal &&
             afr_data_self_heal_enabled (priv->data_self_heal)) {
