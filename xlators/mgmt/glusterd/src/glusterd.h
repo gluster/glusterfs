@@ -125,6 +125,7 @@ typedef struct {
         gf_boolean_t      valgrind;
 #endif
         pthread_t       brick_thread;
+        void           *hooks_priv;
         xlator_t       *xl;  /* Should be set to 'THIS' before creating thread */
 } glusterd_conf_t;
 

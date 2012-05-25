@@ -38,6 +38,23 @@ typedef enum glusterd_commit_hook_type {
         GD_COMMIT_HOOK_MAX
 } glusterd_commit_hook_type_t;
 
+typedef struct hooks_private {
+        struct list_head        list;
+        int                     waitcount; //debug purposes
+        pthread_mutex_t         mutex;
+        pthread_cond_t          cond;
+        pthread_t               worker;
+} glusterd_hooks_private_t;
+
+typedef struct hooks_stub {
+        struct list_head        all_hooks;
+        char                    *scriptdir;
+        glusterd_op_t           op;
+        dict_t                  *op_ctx;
+
+} glusterd_hooks_stub_t;
+
+
 int
 glusterd_hooks_create_hooks_directory (char *basedir);
 
@@ -47,4 +64,18 @@ glusterd_hooks_get_hooks_cmd_subdir (glusterd_op_t op);
 int
 glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                           glusterd_commit_hook_type_t type);
+int
+glusterd_hooks_spawn_worker (xlator_t *this);
+
+int
+glusterd_hooks_stub_init (glusterd_hooks_stub_t **stub, char *scriptdir,
+                          glusterd_op_t op, dict_t *op_ctx);
+void
+glusterd_hooks_stub_cleanup (glusterd_hooks_stub_t *stub);
+
+int
+glusterd_hooks_post_stub_enqueue (char *scriptdir, glusterd_op_t op,
+                                      dict_t *op_ctx);
+int
+glusterd_hooks_priv_init (glusterd_hooks_private_t **new);
 #endif
