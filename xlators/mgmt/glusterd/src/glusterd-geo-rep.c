@@ -378,7 +378,7 @@ glusterd_query_extutil (char *resbuf, runner_t *runner)
         return ret ? -1 : 0;
 }
 
-int
+static int
 glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
                                char *slave, char *gl_workdir)
 {
@@ -394,7 +394,7 @@ glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
         return glusterd_query_extutil (prmfile, &runner);
 }
 
-int
+static int
 glusterd_gsync_get_session_owner (char *master, char *slave, char *session_owner,
                                   char *gl_workdir)
 {
@@ -416,7 +416,7 @@ glusterd_gsync_get_session_owner (char *master, char *slave, char *session_owner
  *    1 if slave is remote
  *    0 is slave is local
  */
-int
+static int
 glusterd_gsync_slave_is_remote (char *slave)
 {
         int   ret     = 0;
@@ -429,7 +429,7 @@ glusterd_gsync_slave_is_remote (char *slave)
         return ret;
 }
 
-int
+static int
 glusterd_gsync_get_slave_log_file (char *master, char *slave, char *log_file)
 {
         int              ret        = -1;
@@ -555,7 +555,7 @@ gsync_status (char *master, char *slave, int *status)
 }
 
 
-int32_t
+static int32_t
 glusterd_gsync_volinfo_dict_set (glusterd_volinfo_t *volinfo,
                                  char *key, char *value)
 {
@@ -579,7 +579,7 @@ out:
         return 0;
 }
 
-int
+static int
 gsync_verify_config_options (dict_t *dict, char **op_errstr)
 {
         char  **resopt    = NULL;
@@ -659,6 +659,10 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr)
 
         return 0;
 }
+
+static int
+glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
+                                   char *slave, dict_t *rsp_dict);
 
 static void
 _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
@@ -1125,7 +1129,7 @@ out:
         return ret;
 }
 
-int
+static int
 stop_gsync (char *master, char *slave, char **msg)
 {
         int32_t         ret     = 0;
@@ -1188,11 +1192,11 @@ out:
         return ret;
 }
 
-int
+static int
 glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
                                       dict_t *resp_dict);
 
-int
+static int
 glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                           dict_t *dict, dict_t *resp_dict, char **op_errstr)
 {
@@ -1276,7 +1280,7 @@ out:
         return ret;
 }
 
-int
+static int
 glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
 {
         int                 ret = 0;
@@ -1304,7 +1308,7 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
         return ret;
 }
 
-int
+static int
 glusterd_read_status_file (char *master, char *slave,
                            dict_t *dict)
 {
@@ -1394,7 +1398,7 @@ glusterd_read_status_file (char *master, char *slave,
         return ret;
 }
 
-int
+static int
 glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
                                       dict_t *resp_dict)
 {
@@ -1429,7 +1433,7 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
         return ret;
 }
 
-int32_t
+static int32_t
 glusterd_marker_create_volfile (glusterd_volinfo_t *volinfo)
 {
         int32_t          ret     = 0;
@@ -1453,7 +1457,7 @@ out:
         return ret;
 }
 
-int
+static int
 glusterd_set_marker_gsync (glusterd_volinfo_t *volinfo)
 {
         int                      ret     = -1;
@@ -1498,8 +1502,8 @@ out:
 
 
 
-int
-glusterd_get_gsync_status_mst_slv( glusterd_volinfo_t *volinfo,
+static int
+glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
                                    char *slave, dict_t *rsp_dict)
 {
         uuid_t             uuid = {0, };
@@ -1611,7 +1615,7 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         return ret;
 }
 
-int
+static int
 glusterd_send_sigstop (pid_t pid)
 {
         int ret = 0;
@@ -1621,7 +1625,7 @@ glusterd_send_sigstop (pid_t pid)
         return ret;
 }
 
-int
+static int
 glusterd_send_sigcont (pid_t pid)
 {
         int ret = 0;
@@ -1643,7 +1647,7 @@ glusterd_send_sigcont (pid_t pid)
  *   monitor detects absence of worker and starts it again, which in-turn
  *   starts the slave.
  */
-int
+static int
 glusterd_send_log_rotate_signal (pid_t pid, char *logfile1, char *logfile2)
 {
         int         ret         = 0;
@@ -1679,7 +1683,7 @@ glusterd_send_log_rotate_signal (pid_t pid, char *logfile1, char *logfile2)
         return ret;
 }
 
-int
+static int
 glusterd_get_pid_from_file (char *master, char *slave, pid_t *pid)
 {
         int ret                = -1;
@@ -1717,7 +1721,7 @@ out:
         return ret;
 }
 
-int
+static int
 glusterd_do_gsync_log_rotate (char *master, char *slave, uuid_t *uuid, char **op_errstr)
 {
         int              ret     = 0;
@@ -1759,7 +1763,7 @@ glusterd_do_gsync_log_rotate (char *master, char *slave, uuid_t *uuid, char **op
         return ret;
 }
 
-int
+static int
 glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave,
                                         char **op_errstr)
 {
@@ -1819,7 +1823,7 @@ _iterate_log_rotate_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         (void) glusterd_do_gsync_log_rotation_mst_slv (param->volinfo, slave, NULL);
 }
 
-int
+static int
 glusterd_do_gsync_log_rotation_mst (glusterd_volinfo_t *volinfo)
 {
         glusterd_gsync_status_temp_t  param = {0, };
