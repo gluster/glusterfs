@@ -5,12 +5,20 @@ import stat
 import random
 import signal
 import logging
+import socket
 import errno
-from errno import ENOENT, ENODATA
+from errno import ENOENT, ENODATA, EPIPE
 from threading import currentThread, Condition, Lock
+from datetime import datetime
+try:
+    from hashlib import md5 as md5
+except ImportError:
+    # py 2.4
+    from md5 import new as md5
 
 from gconf import gconf
-from syncdutils import FreeObject, Thread, GsyncdError, boolify
+from syncdutils import FreeObject, Thread, GsyncdError, boolify, \
+                       escape, unescape, select
 
 URXTIME = (-1, 0)
 
@@ -113,6 +121,122 @@ class GMaster(object):
         # the actual volinfo we make use of
         self.volinfo = None
         self.terminate = False
+        self.checkpoint_thread = None
+
+    @staticmethod
+    def _checkpt_param(chkpt, prm, timish=True):
+        """use config backend to lookup a parameter belonging to
+           checkpoint @chkpt"""
+        cprm = getattr(gconf, 'checkpoint_' + prm, None)
+        if not cprm:
+            return
+        chkpt_mapped, val = cprm.split(':', 1)
+        if unescape(chkpt_mapped) != chkpt:
+            return
+        if timish:
+            val = tuple(int(x) for x in val.split("."))
+        return val
+
+    @staticmethod
+    def _set_checkpt_param(chkpt, prm, val, timish=True):
+        """use config backend to store a parameter associated
+           with checkpoint @chkpt"""
+        if timish:
+            val = "%d.%d" % tuple(val)
+        gconf.configinterface.set('checkpoint_' + prm, "%s:%s" % (escape(chkpt), val))
+
+    @staticmethod
+    def humantime(*tpair):
+        """format xtime-like (sec, nsec) pair to human readable format"""
+        ts = datetime.fromtimestamp(float('.'.join(str(n) for n in tpair))).\
+               strftime("%Y-%m-%d %H:%M:%S")
+        if len(tpair) > 1:
+            ts += '.' + str(tpair[1])
+        return ts
+
+    def checkpt_service(self, chan, chkpt, tgt):
+        """checkpoint service loop
+
+        monitor and verify checkpoint status for @chkpt, and listen
+        for incoming requests for whom we serve a pretty-formatted
+        status report"""
+        if not chkpt:
+            # dummy loop for the case when there is no checkpt set
+            while True:
+                select([chan], [], [])
+                conn, _ = chan.accept()
+                conn.send('\0')
+                conn.close()
+        completed = self._checkpt_param(chkpt, 'completed')
+        while True:
+            s,_,_ = select([chan], [], [], (not completed) and 5 or None)
+            # either request made and we re-check to not
+            # give back stale data, or we still hunting for completion
+            if tgt < self.volmark:
+                # indexing has been reset since setting the checkpoint
+                status = "is invalid"
+            else:
+                xtr = self.xtime('.', self.slave)
+                if isinstance(xtr, int):
+                    raise GsyncdError("slave root directory is unaccessible (%s)",
+                                      os.strerror(xtr))
+                ncompleted = (xtr >= tgt)
+                if completed and not ncompleted: # stale data
+                    logging.warn("completion time %s for checkpoint %s became stale" % \
+                                 (self.humantime(*completed), chkpt))
+                    completed = None
+                    gconf.confdata.delete('checkpoint-completed')
+                if ncompleted and not completed: # just reaching completion
+                    completed = [ int(x) for x in ("%.6f" % time.time()).split('.') ]
+                    self._set_checkpt_param(chkpt, 'completed', completed)
+                    logging.info("checkpoint %s completed" % chkpt)
+                status = completed and \
+                  "completed at " + self.humantime(completed[0]) or \
+                  "not reached yet"
+            if s:
+                conn = None
+                try:
+                    conn, _ = chan.accept()
+                    try:
+                        conn.send("  | checkpoint %s %s\0" % (chkpt, status))
+                    except:
+                        exc = sys.exc_info()[1]
+                        if (isinstance(exc, OSError) or isinstance(exc, IOError)) and \
+                           exc.errno == EPIPE:
+                            logging.debug('checkpoint client disconnected')
+                        else:
+                            raise
+                finally:
+                    if conn:
+                        conn.close()
+
+    def start_checkpoint_thread(self):
+        """prepare and start checkpoint service"""
+        if self.checkpoint_thread or not getattr(gconf, 'state_socket_unencoded', None):
+            return
+        chan = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        state_socket = "/tmp/%s.socket" % md5(gconf.state_socket_unencoded).hexdigest()
+        try:
+            os.unlink(state_socket)
+        except:
+            if sys.exc_info()[0] == OSError:
+                pass
+        chan.bind(state_socket)
+        chan.listen(1)
+        checkpt_tgt = None
+        if gconf.checkpoint:
+            checkpt_tgt = self._checkpt_param(gconf.checkpoint, 'target')
+            if not checkpt_tgt:
+                checkpt_tgt = self.xtime('.')
+                if isinstance(checkpt_tgt, int):
+                    raise GsyncdError("master root directory is unaccessible (%s)",
+                                      os.strerror(checkpt_tgt))
+                self._set_checkpt_param(gconf.checkpoint, 'target', checkpt_tgt)
+            logging.debug("checkpoint target %d.%d has been determined for checkpoint %s" % \
+                          (checkpt_tgt[0], checkpt_tgt[1], gconf.checkpoint))
+        t = Thread(target=self.checkpt_service, args=(chan, gconf.checkpoint, checkpt_tgt))
+        t.start()
+        self.checkpoint_thread = t
 
     def crawl_loop(self):
         """start the keep-alive thread and iterate .crawl"""
@@ -291,6 +415,7 @@ class GMaster(object):
             if self.volinfo:
                 if self.volinfo['retval']:
                     raise GsyncdError ("master is corrupt")
+                self.start_checkpoint_thread()
             else:
                 if should_display_info or self.crawls == 0:
                     if self.inter_master:
