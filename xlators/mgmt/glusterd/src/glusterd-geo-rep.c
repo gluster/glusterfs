@@ -355,9 +355,9 @@ glusterd_get_slave (glusterd_volinfo_t *vol, const char *slaveurl, char **slavek
 
 
 static int
-glusterd_query_extutil (char *resbuf, runner_t *runner)
+glusterd_query_extutil_generic (char *resbuf, size_t blen, runner_t *runner, void *data,
+                                int (*fcbk)(char *resbuf, size_t blen, FILE *fp, void *data))
 {
-        char               *ptr = NULL;
         int                 ret = 0;
 
         runner_redir (runner, STDOUT_FILENO, RUN_PIPE);
@@ -367,15 +367,87 @@ glusterd_query_extutil (char *resbuf, runner_t *runner)
                 return -1;
         }
 
-        ptr = fgets(resbuf, PATH_MAX, runner_chio (runner, STDOUT_FILENO));
-        if (ptr)
-                resbuf[strlen(resbuf)-1] = '\0'; //strip off \n
+        ret = fcbk (resbuf, blen, runner_chio (runner, STDOUT_FILENO), data);
 
-        ret = runner_end (runner);
+        ret |= runner_end (runner);
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "reading data from child failed");
 
         return ret ? -1 : 0;
+}
+
+static int
+_fcbk_singleline(char *resbuf, size_t blen, FILE *fp, void *data)
+{
+        char *ptr = NULL;
+
+        errno = 0;
+        ptr = fgets (resbuf, blen, fp);
+        if (ptr)
+                resbuf[strlen(resbuf)-1] = '\0'; //strip off \n
+
+        return errno ? -1 : 0;
+}
+
+static int
+glusterd_query_extutil (char *resbuf, runner_t *runner)
+{
+        return glusterd_query_extutil_generic (resbuf, PATH_MAX, runner, NULL,
+                                               _fcbk_singleline);
+}
+
+static int
+_fcbk_conftodict (char *resbuf, size_t blen, FILE *fp, void *data)
+{
+        char   *ptr = NULL;
+        dict_t *dict = data;
+        char   *v = NULL;
+
+        for (;;) {
+                errno = 0;
+                ptr = fgets (resbuf, blen, fp);
+                if (!ptr)
+                        break;
+                v = resbuf + strlen(resbuf) - 1;
+                while (isspace (*v))
+                        /* strip trailing space */
+                        *v-- = '\0';
+                if (v == resbuf)
+                        /* skip empty line */
+                        continue;
+                v = strchr (resbuf, ':');
+                if (!v)
+                        return -1;
+                *v++ = '\0';
+                while (isspace (*v))
+                        v++;
+                v = gf_strdup (v);
+                if (!v)
+                        return -1;
+                if (dict_set_dynstr (dict, resbuf, v) != 0) {
+                        GF_FREE (v);
+                        return -1;
+                }
+        }
+
+        return errno ? -1 : 0;
+}
+
+static int
+glusterd_gsync_get_config (char *master, char *slave, char *gl_workdir, dict_t *dict)
+{
+        /* key + value, where value must be able to accommodate a path */
+        char resbuf[256 + PATH_MAX] = {0,};
+        runner_t             runner = {0,};
+
+        runinit (&runner);
+        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (&runner, "%s/"GSYNC_CONF, gl_workdir);
+        runner_argprintf (&runner, ":%s", master);
+        runner_add_args  (&runner, slave, "--config-get-all", NULL);
+
+        return glusterd_query_extutil_generic (resbuf, sizeof (resbuf),
+                                               &runner, dict, _fcbk_conftodict);
 }
 
 static int
@@ -1309,29 +1381,112 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
 }
 
 static int
+glusterd_gsync_fetch_status_extra (char *path, char *buf, size_t blen)
+{
+        char sockpath[PATH_MAX] = {0,};
+        struct sockaddr_un   sa = {0,};
+        size_t                l = 0;
+        int                   s = -1;
+        struct pollfd       pfd = {0,};
+        int                 ret = 0;
+
+        l = strlen (buf);
+        /* seek to end of data in buf */
+        buf += l;
+        blen -= l;
+
+        glusterd_set_socket_filepath (path, sockpath, sizeof (sockpath));
+
+        strncpy(sa.sun_path, sockpath, sizeof(sa.sun_path));
+        if (sa.sun_path[sizeof (sa.sun_path) - 1])
+                return -1;
+        sa.sun_family = AF_UNIX;
+
+        s = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (s == -1)
+                return -1;
+
+        ret = connect (s, (struct sockaddr *)&sa, sizeof (sa));
+        if (ret == -1)
+                goto out;
+        pfd.fd = s;
+        pfd.events = POLLIN;
+        /* we don't want to hang on gsyncd */
+        if (poll (&pfd, 1, 5000) < 1 ||
+            !(pfd.revents & POLLIN)) {
+                ret = -1;
+                goto out;
+        }
+        ret = read(s, buf, blen);
+        /* we expect a terminating 0 byte */
+        if (ret == 0 || (ret > 0 && buf[ret - 1]))
+                ret = -1;
+        if (ret > 0)
+                ret = 0;
+
+ out:
+        close (s);
+        return ret;
+}
+
+static int
+dict_get_param (dict_t *dict, char *key, char **param)
+{
+        char  *dk = NULL;
+        char   *s = NULL;
+        char    x = '\0';
+        int   ret = 0;
+
+        if (dict_get_str (dict, key, param) == 0)
+                return 0;
+
+        dk = gf_strdup (key);
+        if (!key)
+                return -1;
+
+        s = strpbrk (dk, "-_");
+        if (!s)
+                return -1;
+        x = (*s == '-') ? '_' : '-';
+        *s++ = x;
+        while ((s = strpbrk (s, "-_")))
+                *s++ = x;
+
+        ret = dict_get_str (dict, dk, param);
+
+        GF_FREE (dk);
+        return ret;
+}
+
+static int
 glusterd_read_status_file (char *master, char *slave,
                            dict_t *dict)
 {
         glusterd_conf_t *priv = NULL;
         int              ret = 0;
-        char             statefile[PATH_MAX] = {0, };
+        char            *statefile = NULL;
         char             buf[1024] = {0, };
         char             mst[1024] = {0, };
         char             slv[1024] = {0, };
         char             sts[1024] = {0, };
         char            *bufp = NULL;
+        dict_t          *confd = NULL;
         int              gsync_count = 0;
         int              status = 0;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
 
+        confd = dict_new ();
+        if (!dict)
+                return -1;
+
         priv = THIS->private;
-        ret = glusterd_gsync_get_param_file (statefile, "state", master,
-                                             slave, priv->workdir);
+        ret = glusterd_gsync_get_config (master, slave, priv->workdir,
+                                         confd);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get the name of status"
-                        "file for %s(master), %s(slave)", master, slave);
+                gf_log ("", GF_LOG_ERROR, "Unable to get configuration data"
+                        "for %s(master), %s(slave)", master, slave);
                 goto out;
 
         }
@@ -1343,11 +1498,38 @@ glusterd_read_status_file (char *master, char *slave,
         } else if (ret == -1)
                 goto out;
 
+        ret = dict_get_param (confd, "state_file", &statefile);
+        if (ret)
+                goto out;
         ret = glusterd_gsync_read_frm_status (statefile, buf, sizeof (buf));
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to read the status"
                         "file for %s(master), %s(slave)", master, slave);
                 strncpy (buf, "defunct", sizeof (buf));
+                goto done;
+        }
+        if (strcmp (buf, "OK") != 0)
+                goto done;
+
+        ret = dict_get_param (confd, "state_socket_unencoded", &statefile);
+        if (ret)
+                goto out;
+        ret = glusterd_gsync_fetch_status_extra (statefile, buf, sizeof (buf));
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch extra status"
+                        "for %s(master), %s(slave)", master, slave);
+                /* there is a slight chance that this occurs due to race
+                 * -- in that case, the following options all seem bad:
+                 *
+                 * - suppress irregurlar behavior by just leaving status
+                 *   on "OK"
+                 * - freak out users with a misleading "defunct"
+                 * - overload the meaning of the regular error signal
+                 *   mechanism of gsyncd, that is, when status is "faulty"
+                 *
+                 * -- so we just come up with something new...
+                 */
+                strncpy (buf, "N/A", sizeof (buf));
                 goto done;
         }
 
@@ -1394,6 +1576,8 @@ glusterd_read_status_file (char *master, char *slave,
 
         ret = 0;
  out:
+        dict_destroy (confd);
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d ", ret);
         return ret;
 }

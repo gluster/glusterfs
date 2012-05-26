@@ -138,6 +138,12 @@ def finalize(*a, **kw):
                     raise
     if gconf.ssh_ctl_dir and not gconf.cpid:
         shutil.rmtree(gconf.ssh_ctl_dir)
+    if getattr(gconf, 'state_socket', None):
+        try:
+            os.unlink(gconf.state_socket)
+        except:
+            if sys.exc_info()[0] == OSError:
+                pass
     if gconf.log_exit:
         logging.info("exiting.")
     sys.stdout.flush()
