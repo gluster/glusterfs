@@ -1130,8 +1130,8 @@ stop_gsync (char *master, char *slave, char **msg)
                 gf_log ("", GF_LOG_ERROR, "gsyncd b/w %s & %s is not"
                         " running", master, slave);
                 if (msg)
-                        *msg = gf_strdup ("Warning: "GEOREP" session was in "
-                                          "corrupt  state");
+                        *msg = gf_strdup ("Warning: "GEOREP" session was "
+                                          "defunct at stop time");
                 /* monitor gsyncd already dead */
                 goto out;
         }
@@ -1258,41 +1258,45 @@ out:
 }
 
 int
-glusterd_gsync_read_frm_status (char *path, char *data)
+glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
 {
         int                 ret = 0;
-        FILE               *status_file = NULL;
+        int           status_fd = -1;
+        char                 *p = NULL;
 
         GF_ASSERT (path);
-        GF_ASSERT (data);
-        status_file = fopen (path, "r");
-        if (status_file  == NULL) {
-                gf_log ("", GF_LOG_WARNING, "Unable to read gsyncd status"
+        GF_ASSERT (buf);
+        status_fd = open (path, O_RDONLY);
+        if (status_fd == -1) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read gsyncd status"
                         " file");
                 return -1;
         }
-        ret = fread (data, PATH_MAX, 1, status_file);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "Status file of gsyncd is corrupt");
-                return -1;
-        }
+        ret = read (status_fd, buf, blen - 1);
+        if (ret > 0) {
+                p = buf + strlen (buf) - 1;
+                while (isspace (*p))
+                        *p-- = '\0';
+                ret = 0;
+        } else if (ret < 0)
+                gf_log ("", GF_LOG_ERROR, "Status file of gsyncd is corrupt");
 
-        data[strlen(data)-1] = '\0';
-
-        return 0;
+        close (status_fd);
+        return ret;
 }
 
 int
 glusterd_read_status_file (char *master, char *slave,
                            dict_t *dict)
 {
-        glusterd_conf_t  *priv = NULL;
+        glusterd_conf_t *priv = NULL;
         int              ret = 0;
-        char             statusfile[PATH_MAX] = {0, };
-        char             buff[PATH_MAX] = {0, };
-        char             mst[PATH_MAX] = {0, };
-        char             slv[PATH_MAX] = {0, };
-        char             sts[PATH_MAX] = {0, };
+        char             statefile[PATH_MAX] = {0, };
+        char             buf[1024] = {0, };
+        char             mst[1024] = {0, };
+        char             slv[1024] = {0, };
+        char             sts[1024] = {0, };
+        char            *bufp = NULL;
         int              gsync_count = 0;
         int              status = 0;
 
@@ -1300,10 +1304,10 @@ glusterd_read_status_file (char *master, char *slave,
         GF_ASSERT (THIS->private);
 
         priv = THIS->private;
-        ret = glusterd_gsync_get_param_file (statusfile, "state", master,
+        ret = glusterd_gsync_get_param_file (statefile, "state", master,
                                              slave, priv->workdir);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to get the name of status"
+                gf_log ("", GF_LOG_ERROR, "Unable to get the name of status"
                         "file for %s(master), %s(slave)", master, slave);
                 goto out;
 
@@ -1311,17 +1315,17 @@ glusterd_read_status_file (char *master, char *slave,
 
         ret = gsync_status (master, slave, &status);
         if (ret == 0 && status == -1) {
-                strncpy (buff, "corrupt", sizeof (buff));
+                strncpy (buf, "defunct", sizeof (buf));
                 goto done;
         } else if (ret == -1)
                 goto out;
 
-        ret = glusterd_gsync_read_frm_status (statusfile, buff);
+        ret = glusterd_gsync_read_frm_status (statefile, buf, sizeof (buf));
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to read the status"
+                gf_log ("", GF_LOG_ERROR, "Unable to read the status"
                         "file for %s(master), %s(slave)", master, slave);
-                goto out;
-
+                strncpy (buf, "defunct", sizeof (buf));
+                goto done;
         }
 
  done:
@@ -1333,19 +1337,34 @@ glusterd_read_status_file (char *master, char *slave,
                 gsync_count++;
 
         snprintf (mst, sizeof (mst), "master%d", gsync_count);
-        ret = dict_set_dynstr (dict, mst, gf_strdup (master));
-        if (ret)
+        master = gf_strdup (master);
+        if (!master)
                 goto out;
+        ret = dict_set_dynstr (dict, mst, master);
+        if (ret) {
+                GF_FREE (master);
+                goto out;
+        }
 
         snprintf (slv, sizeof (slv), "slave%d", gsync_count);
-        ret = dict_set_dynstr (dict, slv, gf_strdup (slave));
-        if (ret)
+        slave = gf_strdup (slave);
+        if (!slave)
                 goto out;
+        ret = dict_set_dynstr (dict, slv, slave);
+        if (ret) {
+                GF_FREE (slave);
+                goto out;
+        }
 
         snprintf (sts, sizeof (slv), "status%d", gsync_count);
-        ret = dict_set_dynstr (dict, sts, gf_strdup (buff));
-        if (ret)
+        bufp = gf_strdup (buf);
+        if (!bufp)
                 goto out;
+        ret = dict_set_dynstr (dict, sts, bufp);
+        if (ret) {
+                GF_FREE (bufp);
+                goto out;
+        }
         ret = dict_set_int32 (dict, "gsync-count", gsync_count);
         if (ret)
                 goto out;
