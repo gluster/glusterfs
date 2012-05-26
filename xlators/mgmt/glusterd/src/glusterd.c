@@ -502,6 +502,13 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
+        /* state-socket */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "state-socket-unencoded");
+        runner_argprintf (&runner, "%s/${mastervol}/${eSlave}.socket", georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
         /* log-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner,

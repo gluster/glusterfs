@@ -1563,6 +1563,29 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         }
                         append_str[append_len - 2] = '\0';
 
+                        /* "checkpoint now" is special: we resolve that "now" */
+                        if (strcmp (words[cmdi + 1], "checkpoint") == 0 &&
+                            strcmp (append_str, "now") == 0) {
+                                struct timeval tv = {0,};
+                                struct tm     *tm = NULL;
+
+                                ret = gettimeofday (&tv, NULL);
+                                if (ret == -1)
+                                         goto out;
+                                tm = localtime (&tv.tv_sec);
+
+                                GF_FREE (append_str);
+                                append_str = GF_CALLOC (1, 300, cli_mt_append_str);
+                                if (!append_str) {
+                                        ret = -1;
+                                        goto out;
+                                }
+                                strcpy (append_str, "as of ");
+                                strftime (append_str + strlen ("as of "),
+                                          300 - strlen ("as of "),
+                                          "%Y-%m-%d %H:%M:%S", tm);
+                        }
+
                         ret = dict_set_dynstr (dict, "op_value", append_str);
                 }
 
