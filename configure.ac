@@ -134,6 +134,8 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-SuSE
 		extras/benchmarking/Makefile
                 extras/hook-scripts/Makefile
+                extras/hook-scripts/start/Makefile
+                extras/hook-scripts/start/post/Makefile
 		contrib/fuse-util/Makefile
 		contrib/uuid/uuid_types.h
                 xlators/nfs/Makefile

@@ -47,7 +47,7 @@ function mount_volume () {
 
 function sighup_samba () {
         pid=`cat /var/run/smbd.pid`
-        if [ $pid != "" ]
+        if [ $pid != " " ]
         then
                 kill -HUP $pid;
         else
