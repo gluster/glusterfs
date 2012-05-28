@@ -13,7 +13,7 @@ be granted or denied access by using POSIX ACLs.
 </para>
   <section id="sect-Administration_Guide-ACLs-Activating_ACLs">
     <title>Activating POSIX ACLs Support </title>
-    <para>To use POSIX ACLs for a file or directory, the partition of the file or directory must be mounted with
+    <para>To use POSIX ACLs for a file or directory, the mount point where the file or directory exists, must be mounted with
 POSIX ACLs support.
 </para>
     <section id="sect-Administration_Guide-ACLs-Activating_ACLs-Server">
@@ -22,23 +22,28 @@ POSIX ACLs support.
 </para>
       <para><command># mount -o acl <replaceable>device-name</replaceable><replaceable>partition</replaceable></command>
 </para>
+      <para>If the backend export directory is already mounted, use the following command:
+</para>
+      <para><command># mount -oremount,acl <replaceable>device-name</replaceable><replaceable>partition</replaceable></command>
+</para>
+
       <para>For example:
 </para>
       <para><command># mount -o acl /dev/sda1 /export1 </command></para>
       <para>Alternatively, if the partition is listed in the /etc/fstab file, add the following entry for the partition
 to include the POSIX ACLs option:
 </para>
-      <para><command>LABEL=/work /export1 ext3 rw, acl 14 </command></para>
+      <para><command>LABEL=/work /export1 xfs rw,acl 1 4 </command></para>
     </section>
     <section>
       <title>Activating POSIX ACLs Support on Client </title>
-      <para>To mount the glusterfs volumes for POSIX ACLs support, use the following command:
+      <para>To mount the glusterfs volume with POSIX ACLs support, use the following command:
 </para>
-      <para><command># mount –t glusterfs -o acl <replaceable>severname:volume-id</replaceable><replaceable>mount point</replaceable></command>
+      <para><command># mount –t glusterfs -o acl <replaceable>severname:/volume-id</replaceable><replaceable>mount point</replaceable></command>
 </para>
       <para>For example:
 </para>
-      <para><command># mount -t glusterfs -o acl 198.192.198.234:glustervolume /mnt/gluster</command>
+      <para><command># mount -t glusterfs -o acl 198.192.198.234:/glustervolume /mnt/gluster</command>
 </para>
     </section>
   </section>

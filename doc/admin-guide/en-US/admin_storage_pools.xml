@@ -3,17 +3,17 @@
 <chapter id="chap-Administration_Guide-Storage-pool">
   <title>Setting up Trusted Storage Pools</title>
   <para>Before you can configure a GlusterFS volume, you must create a trusted storage pool consisting of the storage servers that provides bricks to a volume.  </para>
-  <para>A storage pool is a trusted network of storage servers. When you start the first server, the storage pool consists of that server alone. To add additional storage servers to the storage pool, you can use the probe command from a storage server that is already trusted. </para>
+  <para>A storage pool is a trusted network of storage servers. When you start the first server, the storage pool consists of that server alone. To add additional storage servers to the storage pool, you can use the probe command from a storage server that is already part of the trusted storage pool. </para>
   <para><note>
       <para>Do not self-probe the first server/localhost.</para>
     </note></para>
-  <para>The GlusterFS service must be running on all storage servers that you want to add to the storage pool. See <xref linkend="chap-Administration_Guide-Start_Stop_Daemon"/>  for more information.</para>
+  <para>The glusterd service must be running on all storage servers that you want to add to the storage pool. See <xref linkend="chap-Administration_Guide-Start_Stop_Daemon"/>  for more information.</para>
   <section id="sect-Administration_Guide-Storage_Pools-Adding_Servers">
     <title>Adding Servers to Trusted Storage Pool</title>
     <para>To create a trusted storage pool, add servers to the trusted storage pool</para>
     <orderedlist>
       <listitem>
-        <para>The hostnames used to create the storage pool must be resolvable by DNS.</para>
+        <para>The hostnames used to create the storage pool must be resolvable by DNS. Also make sure that firewall is not blocking the probe requests/replies. (iptables -F)</para>
         <para>To add a server to the storage pool:</para>
         <para><command># gluster peer probe <replaceable>server</replaceable></command></para>
         <para>For example, to create a trusted storage pool of four servers, add three servers to the storage pool from server1:</para>

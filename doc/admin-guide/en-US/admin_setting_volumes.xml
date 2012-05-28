@@ -41,7 +41,7 @@ information, see <xref linkend="sect-Administration_Guide-Setting_Volumes-Stripe
   <itemizedlist>
     <listitem>
       <para>Create a new volume :</para>
-      <para><command># gluster volume create<replaceable> NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable> | replica <replaceable>COUNT</replaceable>] [transport tcp | rdma | tcp, rdma] <replaceable>NEW-BRICK1 NEW-BRICK2 NEW-BRICK3...</replaceable></command></para>
+      <para><command># gluster volume create<replaceable> NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable> | replica <replaceable>COUNT</replaceable>] [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK1 NEW-BRICK2 NEW-BRICK3...</replaceable></command></para>
       <para>For example, to create a volume called test-volume consisting of server3:/exp3 and server4:/exp4:</para>
       <para><programlisting># gluster volume create test-volume server3:/exp3 server4:/exp4
 Creation of test-volume has been successful
@@ -69,7 +69,7 @@ Please start the volume to access data.</programlisting></para>
       </listitem>
       <listitem>
         <para>Create the distributed volume:</para>
-        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [transport tcp | rdma | tcp,rdma] <replaceable>NEW-BRICK...</replaceable></command></para>
+        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK...</replaceable></command></para>
         <para>For example, to create a distributed volume with four storage servers using tcp:</para>
         <para><programlisting># gluster volume create test-volume server1:/exp1 server2:/exp2 server3:/exp3 server4:/exp4
 Creation of test-volume has been successful
@@ -119,7 +119,7 @@ To protect against server and disk failures, it is recommended that the bricks o
       </listitem>
       <listitem>
         <para>Create the replicated volume:</para>
-        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [replica <replaceable>COUNT</replaceable>] [transport tcp | rdma tcp,rdma] <replaceable>NEW-BRICK...</replaceable></command></para>
+        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [replica <replaceable>COUNT</replaceable>] [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK...</replaceable></command></para>
         <para>For example, to create a replicated volume with two storage servers:</para>
         <para><programlisting># gluster volume create test-volume replica 2 transport tcp server1:/exp1 server2:/exp2
 Creation of test-volume has been successful
@@ -152,7 +152,7 @@ Please start the volume to access data.</programlisting></para>
       </listitem>
       <listitem>
         <para>Create the striped volume:</para>
-        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [transport tcp | rdma | tcp,rdma] <replaceable>NEW-BRICK...</replaceable></command></para>
+        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK...</replaceable></command></para>
         <para>For example, to create a striped volume across two storage servers:</para>
         <para><programlisting># gluster volume create test-volume stripe 2 transport tcp server1:/exp1 server2:/exp2
 Creation of test-volume has been successful
@@ -185,7 +185,7 @@ Please start the volume to access data.</programlisting></para>
       </listitem>
       <listitem>
         <para>Create the distributed striped volume:</para>
-        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [transport tcp | rdma | tcp,rdma] <replaceable>NEW-BRICK...</replaceable></command></para>
+        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK...</replaceable></command></para>
         <para>For example, to create a distributed striped volume across eight storage servers:</para>
         <para><programlisting># gluster volume create test-volume stripe 4 transport tcp server1:/exp1 server2:/exp2 server3:/exp3 server4:/exp4 server5:/exp5 server6:/exp6 server7:/exp7 server8:/exp8
 Creation of test-volume has been successful
@@ -218,7 +218,7 @@ Please start the volume to access data.</programlisting></para>
       </listitem>
       <listitem>
         <para>Create the distributed replicated volume:</para>
-        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [replica <replaceable>COUNT</replaceable>] [transport tcp | rdma | tcp,rdma] <replaceable>NEW-BRICK...</replaceable></command></para>
+        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [replica <replaceable>COUNT</replaceable>] [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK...</replaceable></command></para>
         <para>For example, four node distributed (replicated) volume with a two-way mirror:
 </para>
         <para><programlisting># gluster volume create test-volume replica 2 transport tcp server1:/exp1 server2:/exp2 server3:/exp3 server4:/exp4
@@ -251,7 +251,7 @@ a distributed striped replicated volume.
       </listitem>
       <listitem>
         <para>Create a distributed striped replicated volume using the following command:</para>
-        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [replica <replaceable>COUNT</replaceable>] [transport tcp | rdma | tcp,rdma] <replaceable>NEW-BRICK...</replaceable></command></para>
+        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [replica <replaceable>COUNT</replaceable>] [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK...</replaceable></command></para>
         <para>For example, to create a distributed replicated striped volume across eight storage servers:
 </para>
         <para><programlisting># gluster volume create test-volume stripe 2 replica 2 transport tcp server1:/exp1 server2:/exp2 server3:/exp3 server4:/exp4 server5:/exp5 server6:/exp6 server7:/exp7 server8:/exp8
@@ -289,7 +289,7 @@ striped replicated volume.
       </listitem>
       <listitem>
         <para>Create a striped replicated volume :</para>
-        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [replica <replaceable>COUNT</replaceable>] [transport tcp | rdma | tcp,rdma] <replaceable>NEW-BRICK...</replaceable></command></para>
+        <para><command># gluster volume create <replaceable>NEW-VOLNAME</replaceable> [stripe <replaceable>COUNT</replaceable>] [replica <replaceable>COUNT</replaceable>] [transport [tcp | rdma | tcp,rdma]] <replaceable>NEW-BRICK...</replaceable></command></para>
         <para>For example, to create a striped replicated volume across four storage servers:
 
 </para>

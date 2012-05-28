@@ -5,9 +5,9 @@
 ]>
 <bookinfo id="book-Administration_Guide-Administration_Guide">
 	<title>Administration Guide</title>
-	<subtitle>Using Gluster File System <remark> Beta 3</remark> </subtitle>
+	<subtitle>Using Gluster File System </subtitle>
 	<productname>Gluster File System</productname>
-	<productnumber>3.3</productnumber>
+	<productnumber>3.3.0</productnumber>
 	<edition>1</edition>
 	<pubsnumber>1</pubsnumber>
 	<abstract>

@@ -3,7 +3,7 @@
 <chapter>
   <title>Introducing Gluster File System</title>
   <para>GlusterFS is an open source, clustered file system capable of scaling to several petabytes and handling thousands of clients. GlusterFS can be flexibly combined with commodity physical, virtual, and cloud resources to deliver highly available and performant enterprise storage at a fraction of the cost of traditional solutions.</para>
-  <para>GlusterFS clusters together storage building blocks over Infiniband RDMA and/or TCP/IP interconnect, aggregating disk and memory resources and managing data in a single global namespace. GlusterFS is based on a stackable user space design, delivering exceptional performance for diverse workloads. 
+  <para>GlusterFS clusters together storage building blocks over Infiniband RDMA and/or TCP/IP interconnect, aggregating disk and memory resources and managing data in a single global namespace. GlusterFS is based on a stackable user space design, delivering exceptional performance for diverse workloads.
 </para>
   <figure>
     <title>Virtualized Cloud Environments</title>
@@ -17,7 +17,7 @@
     </mediaobject>
   </figure>
   <para>GlusterFS is designed for today&apos;s high-performance, virtualized cloud environments. Unlike traditional data centers, cloud environments require multi-tenancy along with the ability to grow or shrink resources on demand. Enterprises can scale capacity, performance, and availability on demand, with no vendor lock-in, across on-premise, public cloud, and hybrid environments.    </para>
-  <para>GlusterFS  is in production at thousands of enterprises spanning media, healthcare, government, education, web 2.0, and financial services. The following table lists the commercial offerings and its documentation location:  
+  <para>GlusterFS  is in production at thousands of enterprises spanning media, healthcare, government, education, web 2.0, and financial services. The following table lists the commercial offerings and its documentation location:
 </para>
   <informaltable frame="all">
     <tgroup cols="2">

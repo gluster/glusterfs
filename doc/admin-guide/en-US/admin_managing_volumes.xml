@@ -36,7 +36,7 @@
     <title>Tuning Volume Options</title>
     <para>You can tune volume options, as needed, while the cluster is online and available. </para>
     <para><note>
-        <para>Red Hat recommends you to set server.allow-insecure option to ON if there are too many bricks in each volume or if there are too many services which have already utilized all the privileged ports in the system. Turning this option ON allows ports to accept/reject messages from insecure ports. So, use this option only if your deployment requires it. </para>
+        <para>It is recommend to set server.allow-insecure option to ON if there are too many bricks in each volume or if there are too many services which have already utilized all the privileged ports in the system. Turning this option ON allows ports to accept/reject messages from insecure ports. So, use this option only if your deployment requires it. </para>
       </note></para>
     <para>To tune volume options </para>
     <itemizedlist>
@@ -387,7 +387,7 @@ Brick4: server4:/exp4</programlisting></para>
         <para>Remove the brick using the following command:</para>
         <para><command># gluster volume remove-brick <varname>VOLNAME</varname><replaceable> BRICK</replaceable></command> <command>start</command></para>
         <para>For example, to remove server2:/exp2:</para>
-        <para><programlisting># gluster volume remove-brick test-volume server2:/exp2
+        <para><programlisting># gluster volume remove-brick test-volume server2:/exp2 start
 
 Removing brick(s) can result in data loss. Do you want to Continue? (y/n)</programlisting></para>
       </listitem>
@@ -403,6 +403,13 @@ Removing brick(s) can result in data loss. Do you want to Continue? (y/n)</progr
                                 Node  Rebalanced-files  size  scanned       status
                            ---------  ----------------  ----  -------  -----------
 617c923e-6450-4065-8e33-865e28d9428f               34   340      162   in progress</screen></para>
+      </listitem>
+      <listitem>
+        <para>Commit the remove brick operation using the following command:</para>
+        <para><command># gluster volume remove-brick <varname>VOLNAME</varname><replaceable> BRICK</replaceable></command><command> commit</command></para>
+        <para>For example, to view the status of remove brick operation on server2:/exp2 brick:</para>
+        <para><screen># gluster volume remove-brick test-volume server2:/exp2 commit</screen></para>
+        <para><programlisting>Remove Brick successful </programlisting></para>
       </listitem>
       <listitem>
         <para>Check the volume information using the following command: </para>

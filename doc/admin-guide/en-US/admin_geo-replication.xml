@@ -39,7 +39,7 @@
         </thead>
         <tbody>
           <row>
-            <entry>Mirrors data across clusters</entry>
+            <entry>Mirrors data across nodes in a cluster</entry>
             <entry>Mirrors data across geographically distributed clusters </entry>
           </row>
           <row>
@@ -47,7 +47,7 @@
             <entry>Ensures backing up of data for disaster recovery</entry>
           </row>
           <row>
-            <entry>Synchronous replication (each and every file operation is sent across all the bricks)</entry>
+            <entry>Synchronous replication (each and every file modify operation is sent across all the bricks)</entry>
             <entry>Asynchronous replication (checks for the changes in files periodically and syncs them on detecting differences) </entry>
           </row>
         </tbody>
@@ -79,11 +79,11 @@
       <para>Geo-replication provides an incremental replication service over Local Area Networks (LANs), Wide Area Network (WANs), and across the Internet. This section illustrates the most common deployment scenarios for  Geo-replication, including the following: </para>
       <itemizedlist>
         <listitem>
-          <para>Geo-replication over LAN 
+          <para>Geo-replication over LAN
 </para>
         </listitem>
         <listitem>
-          <para>Geo-replication over WAN 
+          <para>Geo-replication over WAN
 </para>
         </listitem>
         <listitem>
@@ -104,7 +104,7 @@
         </imageobject>
       </mediaobject>
       <para><emphasis role="bold">Geo-replication over WAN</emphasis></para>
-      <para>You can configure  Geo-replication to replicate data over a Wide Area Network.</para>
+      <para>You can configure Geo-replication to replicate data over a Wide Area Network.</para>
       <mediaobject>
         <textobject>
           <phrase>
@@ -116,7 +116,7 @@
         </imageobject>
       </mediaobject>
       <para><emphasis role="bold">Geo-replication over Internet</emphasis></para>
-      <para>You can configure  Geo-replication to mirror data over the Internet.</para>
+      <para>You can configure Geo-replication to mirror data over the Internet.</para>
       <mediaobject>
         <textobject>
           <phrase>
@@ -128,7 +128,7 @@
         </imageobject>
       </mediaobject>
       <para><emphasis role="bold">Multi-site cascading Geo-replication</emphasis> </para>
-      <para>You can configure  Geo-replication to mirror data in a cascading fashion across multiple sites. </para>
+      <para>You can configure Geo-replication to mirror data in a cascading fashion across multiple sites. </para>
       <mediaobject>
         <textobject>
           <phrase>
@@ -142,16 +142,16 @@
     </section>
     <section id="chap-Administration_Guide-Geo_Rep-Preparation-Deployment_Overview">
       <title>Geo-replication Deployment Overview</title>
-      <para>Deploying  Geo-replication involves the following steps:</para>
+      <para>Deploying Geo-replication involves the following steps:</para>
       <orderedlist>
         <listitem>
-          <para>Verify that your environment matches the minimum system requirement. For more information, see <xref linkend="chap-Administration_Guide-Geo_Rep-Preparation-Minimum_Reqs"/>.</para>
+          <para>Verify that your environment matches the minimum system requirements. For more information, see <xref linkend="chap-Administration_Guide-Geo_Rep-Preparation-Minimum_Reqs"/>.</para>
         </listitem>
         <listitem>
           <para>Determine the appropriate deployment scenario. For more information, see <xref linkend="chap-Administration_Guide-Geo_Rep-Preparation-Deployment_options"/>.</para>
         </listitem>
         <listitem>
-          <para>Start  Geo-replication on master and slave systems, as required. For more information, see <xref linkend="chap-Administration_Guide-Geo_Rep-Starting"/>.</para>
+          <para>Start Geo-replication on master and slave systems, as required. For more information, see <xref linkend="chap-Administration_Guide-Geo_Rep-Starting"/>.</para>
         </listitem>
       </orderedlist>
     </section>
@@ -180,7 +180,7 @@
             <row>
               <entry>Filesystem</entry>
               <entry>GlusterFS 3.2 or higher</entry>
-              <entry>GlusterFS 3.2 or higher (GlusterFS needs to be installed, but does not need to be running), ext3, ext4, or XFS (any other POSIX compliant file system would work, but has not been tested extensively) </entry>
+              <entry>GlusterFS 3.2 or higher, ext3, ext4, or XFS (any other POSIX compliant file system would work, but has not been tested extensively) </entry>
             </row>
             <row>
               <entry>Python </entry>
@@ -194,8 +194,8 @@
             </row>
             <row>
               <entry>Remote synchronization</entry>
-              <entry>rsync 3.0.7 or higher </entry>
-              <entry>rsync 3.0.7 or higher </entry>
+              <entry>rsync 3.0.0 or higher </entry>
+              <entry>rsync 3.0.0 or higher </entry>
             </row>
             <row>
               <entry>FUSE </entry>
@@ -211,37 +211,36 @@
       <para><emphasis role="bold">Time Synchronization</emphasis> </para>
       <itemizedlist>
         <listitem>
-          <para>On bricks of a geo-replication master volume, all the servers&apos; time must be uniform. You are recommended to set up NTP (Network Time Protocol) service to keep the bricks sync in time and avoid out-of-time sync effect.</para>
+          <para>All servers that are part of a geo-replication master volume need to have their clocks in sync. You are recommended to set up NTP (Network Time Protocol) daemon service to keep the clocks in sync.</para>
           <para>For example:  In a Replicated volume where brick1 of the master is at 12.20 hrs and brick 2 of the master is at 12.10 hrs with 10 minutes time lag, all the changes in brick2 between this period may go unnoticed during synchronization of files with Slave.</para>
-          <para>For more information on setting up NTP, see <ulink url="http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/ch04s07.html"/>.</para>
+          <para>For more information on setting up NTP daemon, see <ulink url="http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/ch04s07.html"/>.</para>
         </listitem>
       </itemizedlist>
       <para><emphasis role="bold">To setup Geo-replication for SSH </emphasis></para>
-      <para>Password-less login has to be set up between the host machine (where geo-replication Start command will be issued) and  the remote machine (where slave process should be launched through SSH).</para>
+      <para>Password-less login has to be set up between the host machine (where geo-replication start command will be issued) and  the remote machine (where slave process should be launched through SSH).</para>
       <orderedlist>
         <listitem>
-          <para>On the node where geo-replication sessions are to be set up, run the following command:</para>
-          <para><command># ssh-keygen -f /etc/glusterd/geo-replication/secret.pem</command>
+          <para>On the node where geo-replication start commands are to be issued, run the following command:</para>
+          <para><command># ssh-keygen -f /var/lib/glusterd/geo-replication/secret.pem</command>
 </para>
           <para>Press Enter twice to avoid passphrase.
 </para>
         </listitem>
         <listitem>
           <para>Run the following command on master for all the slave hosts: </para>
-          <para><command># ssh-copy-id -i /etc/glusterd/geo-replication/secret.pem.pub <varname>user</varname>@<varname>slavehost</varname></command></para>
+          <para><command># ssh-copy-id -i /var/lib/glusterd/geo-replication/secret.pem.pub <varname>user</varname>@<varname>slavehost</varname></command></para>
         </listitem>
       </orderedlist>
     </section>
     <section id="chap-Administration_Guide-Geo_Rep-Preparation-Settingup_Slave">
       <title>Setting Up the Environment for a Secure Geo-replication Slave</title>
-      <para>You can configure a secure slave using SSH so that master is granted a
-restricted access. With GlusterFS, you need not specify
-configuration parameters regarding the slave on the master-side
-configuration. For example, the master does not require the location of
+      <para>You can configure a secure slave using SSH so that master is granted
+restricted access. With GlusterFS 3.3, you need not specify slave
+configuration parameters on the master-side. For example, the master does not require the location of
 the rsync program on slave but the slave must ensure that rsync is in
 the PATH of the user which the master connects using SSH. The only
 information that master and slave have to negotiate are the slave-side
-user account, slave&apos;s resources that master uses as slave resources, and
+user account, slave&apos;s resources and
 the master&apos;s public key. Secure access to the slave can be established
 using the following options:</para>
       <itemizedlist>
@@ -256,43 +255,39 @@ using the following options:</para>
         </listitem>
       </itemizedlist>
       <para><emphasis role="bold">Backward Compatibility</emphasis> </para>
-      <para>Your existing Ge-replication environment will work with GlusterFS,
-except for the following:</para>
+      <para>Your existing Geo-replication environment will work with GlusterFS
+              3.3, except for the following:</para>
       <itemizedlist>
         <listitem>
-          <para>The process of secure reconfiguration affects only the glusterfs
+          <para>The process of secure reconfiguration affects only the GlusterFS
 instance on slave. The changes are transparent to master with the
 exception that you may have to  change the SSH target to an unprivileged
- account on slave.</para>
+ account on the slave.</para>
         </listitem>
         <listitem>
-          <para>The following are the some exceptions where this might not work:</para>
+          <para>The following are some exceptions where backward compatibility cannot be provided:</para>
           <para><itemizedlist>
               <listitem>
-                <para>Geo-replication URLs which specify the slave resource when configuring master will include the following special characters: space, *, ?, [;</para>
+                <para>Geo-replication URLs which specify the slave resource include the following special characters: space, *, ?, [;</para>
               </listitem>
               <listitem>
-                <para>Slave must have a running instance of glusterd, even if there is no
-gluster volume among the mounted slave resources (that is, file tree
-slaves are used exclusively) .</para>
+                <para>Slave does not have glusterd running.</para>
               </listitem>
             </itemizedlist></para>
         </listitem>
       </itemizedlist>
       <section>
         <title>Restricting Remote Command Execution</title>
-        <para>If you restrict remote command execution, then the Slave audits commands
-coming from the master and the commands related to the given
-geo-replication session is allowed. The Slave also provides access only
-to the files within the slave resource which can be read or manipulated
-by the Master.</para>
+        <para>If you restrict remote command execution, then the slave audits commands
+coming from the master and only the pre-configured commands are allowed. The slave also provides access only
+to the files which are pre-configured to be read or manipulated by the master.</para>
         <para>To restrict remote command execution:</para>
         <orderedlist>
           <listitem>
             <para>Identify the location of the gsyncd helper utility on Slave. This utility is installed in <filename>PREFIX/libexec/glusterfs/gsyncd</filename>, where PREFIX is a compile-time parameter of glusterfs. For example,  <filename>--prefix=PREFIX</filename> to the configure script with the following common  values<filename> /usr, /usr/local, and /opt/glusterfs/glusterfs_version</filename>.</para>
           </listitem>
           <listitem>
-            <para>Ensure that command invoked from master to slave passed through the slave&apos;s gsyncd utility. </para>
+            <para>Ensure that command invoked from master to slave is passed through the slave&apos;s gsyncd utility. </para>
             <para>You can use either of the following two options:</para>
             <itemizedlist>
               <listitem>
@@ -312,14 +307,13 @@ account, then set it up by creating  a new user with UID 0. </para>
       <section>
         <title>Using Mountbroker for Slaves </title>
         <para><filename>mountbroker</filename> is a new service of glusterd. This service allows an
-unprivileged process to own a GlusterFS mount by registering a label
-(and DSL (Domain-specific language) options ) with glusterd through a
-glusterd volfile. Using CLI, you can send a mount request to glusterd to
-receive an alias (symlink) of the mounted volume.</para>
-        <para>A request from the agent , the unprivileged slave agents use the
-mountbroker service of glusterd to set up an auxiliary gluster mount for
-the agent in a special environment which  ensures that the agent is only
-allowed to access with special parameters that provide administrative
+unprivileged process to own a GlusterFS mount. This is accomplished by registering a label
+(and DSL (Domain-specific language) options ) with glusterd through the
+glusterd volfile. Using CLI, you can send a mount request to glusterd and
+receive an alias (symlink) to the mounted volume.</para>
+        <para>The unprivileged process/agent uses the
+mountbroker service of glusterd to set up an auxiliary gluster mount. The mount
+is setup so as to allow only that agent to provide administrative
 level access to the particular volume.</para>
         <para><emphasis role="bold">To setup an auxiliary gluster mount for the agent</emphasis>:</para>
         <orderedlist>
@@ -330,15 +324,17 @@ level access to the particular volume.</para>
             <para>Create a unprivileged account. For example, <filename> geoaccount</filename>. Make it a member of  <filename> geogroup</filename>.</para>
           </listitem>
           <listitem>
-            <para>Create a new directory owned by root and with permissions <emphasis role="italic">0711.</emphasis> For example, create a create mountbroker-root  directory <filename>/var/mountbroker-root</filename>.</para>
+                  <para>Create a new directory as superuser to be used as mountbroker's root. </para>
           </listitem>
           <listitem>
-            <para>Add the following options to the glusterd volfile, assuming the name of the slave gluster volume as <filename>slavevol</filename>:</para>
+                  <para> Change the  permission of the directory to <emphasis role="italic">0711.</emphasis> </para>
+          </listitem>
+          <listitem>
+            <para>Add the following options to the glusterd volfile, located at /etc/glusterfs/glusterd.vol, assuming the name of the slave gluster volume as <filename>slavevol</filename>:</para>
             <para><command>option mountbroker-root /var/mountbroker-root </command></para>
             <para><command>option mountbroker-geo-replication.geoaccount slavevol</command></para>
             <para><command>option geo-replication-log-group geogroup</command></para>
-            <para>If you are unable to locate the glusterd volfile at <filename>/etc/glusterfs/glusterd.vol</filename>, you can  create a volfile  containing both the default configuration and the above options and place it at <filename>/etc/glusterfs/</filename>. </para>
-            <para>A sample glusterd volfile along with default options:</para>
+           <para>A sample glusterd volfile along with default options:</para>
             <para><screen>volume management
     type mgmt/glusterd
     option working-directory /etc/glusterd
@@ -347,17 +343,18 @@ level access to the particular volume.</para>
     option transport.socket.keepalive-interval 2
     option transport.socket.read-fail-log off
 
-    option mountbroker-root /var/mountbroker-root 
+    option mountbroker-root /var/mountbroker-root
     option mountbroker-geo-replication.geoaccount slavevol
     option geo-replication-log-group geogroup
 end-volume</screen></para>
-            <para>If you host multiple slave volumes on Slave, you can repeat step 2. for each of them and add the following options to the <filename>volfile</filename>:</para>
+            <para>If you host multiple slave volumes, you can repeat step 2. for each of the slave volumes and add the following options to the <filename>volfile</filename>:</para>
             <para><screen>option mountbroker-geo-replication.geoaccount2 slavevol2
 option mountbroker-geo-replication.geoaccount3 slavevol3</screen></para>
           </listitem>
           <listitem>
             <para>Setup Master to access Slave as <filename>geoaccount@Slave</filename>.</para>
-            <para>You can add multiple slave volumes within the same account (geoaccount)  by providing  comma-separated list (without spaces) as the argument of <command>mountbroker-geo-replication.geogroup</command>. You can also have multiple options of the form <command>mountbroker-geo-replication.*</command>. It is recommended to  use one service account per Master machine. For example, if there are multiple slave volumes on Slave for the master machines Master1, Master2, and Master3, then create a dedicated service user on Slave for them by repeating Step 2. for each (like geogroup1, geogroup2, and geogroup3), and then add the following corresponding options to the volfile:
+            <para>You can add multiple slave volumes within the same account (geoaccount) by providing comma-separated list of slave
+                    volumes (without spaces) as the argument of <command>mountbroker-geo-replication.geogroup</command>. You can also have multiple options of the form <command>mountbroker-geo-replication.*</command>. It is recommended to  use one service account per Master machine. For example, if there are multiple slave volumes on Slave for the master machines Master1, Master2, and Master3, then create a dedicated service user on Slave for them by repeating Step 2. for each (like geogroup1, geogroup2, and geogroup3), and then add the following corresponding options to the volfile:
 </para>
             <para><command>option mountbroker-geo-replication.geoaccount1 slavevol11,slavevol12,slavevol13</command></para>
             <para><command>option mountbroker-geo-replication.geoaccount2 slavevol21,slavevol22</command></para>
@@ -365,17 +362,16 @@ option mountbroker-geo-replication.geoaccount3 slavevol3</screen></para>
             <para>
 Now set up Master1 to ssh to geoaccount1@Slave, etc.
 </para>
-            <para>You must restart glusterd after making changes in the configuration to effect the updates. </para>
+            <para>You must restart glusterd to make the configuration changes effective. </para>
           </listitem>
         </orderedlist>
       </section>
       <section>
         <title>Using IP based Access Control</title>
-        <para>You can use IP based access control method to provide access control for
-the slave resources using IP address. You can use method for both Slave
-and file tree slaves, but in the section, we are focusing on file tree
-slaves using this method.</para>
-        <para>To set access control based on IP address for file tree slaves:</para>
+        <para>You can provide access control for the slave resources using IP
+                addresses. You can use method for both Gluster volume and and
+                file tree slaves, but in this section, we are focusing on file tree slaves.</para>
+        <para>To set IP address based access control for file tree slaves:</para>
         <orderedlist>
           <listitem>
             <para>Set a general restriction for accessibility of file tree resources:
@@ -427,7 +423,7 @@ comma-separated lists of CIDR subnets.</para>
         <listitem>
           <para>Start geo-replication between the hosts using the following command:
  </para>
-          <para><command># gluster volume geo-replication <replaceable>MASTER SLAVE</replaceable> start</command> 
+          <para><command># gluster volume geo-replication <replaceable>MASTER SLAVE</replaceable> start</command>
 </para>
           <para>For example:
 </para>
@@ -435,7 +431,8 @@ comma-separated lists of CIDR subnets.</para>
 Starting geo-replication session between Volume1
 example.com:/data/remote_dir has been successful</programlisting></para>
           <para><note>
-              <para>You may need to configure the service before starting Gluster Geo-replication. For more information, see <xref linkend="chap-Administration_Guide-Geo_Rep-Starting-Configure"/>.</para>
+              <para>You may need to configure the Geo-replication service before
+                      starting it. For more information, see <xref linkend="chap-Administration_Guide-Geo_Rep-Starting-Configure"/>.</para>
             </note></para>
         </listitem>
       </itemizedlist>
@@ -730,3 +727,4 @@ example.com:/data/remote_dir has been successful</programlisting></para>
 </para>
   </section>
 </chapter>
+
