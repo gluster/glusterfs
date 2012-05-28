@@ -325,11 +325,10 @@ if [ $? -eq 0 ]; then
 
     killall glusterd &> /dev/null
     #add marker translator
-    glusterd --xlator-option *.upgrade=on
+    glusterd --xlator-option *.upgrade=on -N
+    glusterd
 else
-    glusterd --xlator-option *.upgrade=on
-    sleep 10
-    killall glusterd &> /dev/null
+    glusterd --xlator-option *.upgrade=on -N
 fi
 
 %preun server
