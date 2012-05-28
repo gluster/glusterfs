@@ -1804,7 +1804,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	conf = this->private;
 
-	GF_OPTION_RECONF ("timeout", conf->timeout, options, int32, out);
+	GF_OPTION_RECONF ("md-cache-timeout", conf->timeout, options, int32, out);
 out:
 	return 0;
 }
@@ -1830,7 +1830,7 @@ init (xlator_t *this)
 		return -1;
 	}
 
-        GF_OPTION_INIT ("timeout", conf->timeout, int32, out);
+        GF_OPTION_INIT ("md-cache-timeout", conf->timeout, int32, out);
 
 out:
 	this->private = conf;
@@ -1879,7 +1879,7 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
-        { .key = {"timeout"},
+        { .key = {"md-cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
           .max = 60,
