@@ -35,7 +35,7 @@ Summary: Cluster File System
 Name: @PACKAGE_NAME@
 Version: %{version}
 Release: %{release}
-License: GPLv3+
+License: GPLv2 or LGPLv3+
 Group: System Environment/Base
 Vendor: Gluster Inc
 Packager: @PACKAGE_BUGREPORT@
@@ -72,13 +72,12 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
-This package includes the glusterfs binary, the glusterd daemon and the gluster
-command line, libglusterfs and glusterfs translator modules common to both
-GlusterFS server and client framework.
+This package includes libraries and utility scripts.
 
 %if 0%{!?_without_rdma:1}
 %package rdma
 Summary: GlusterFS rdma support for ib-verbs
+License: GPLv2 or LGPLv3+
 Group: Applications/File
 BuildRequires: libibverbs-devel
 
@@ -100,6 +99,7 @@ This package provides support to ib-verbs library.
 %if 0%{!?_without_georeplication:1}
 %package geo-replication
 Summary: GlusterFS Geo-replication
+License: GPLv3+
 Group: Applications/File
 Requires: %{name} = %{version}-%{release} , python-ctypes , rsync >= 3.0.0
 
@@ -118,6 +118,7 @@ This package provides support to geo-replication.
 
 %package fuse
 Summary: GlusterFS Fuse client
+License: GPLv2 or LGPLv3+
 Group: Applications/File
 
 Requires: %{name} >= %{version}-%{release}
@@ -138,6 +139,7 @@ This package provides support to FUSE based clients.
 
 %package server
 Summary:          Clustered file-system server
+License:          GPLv3+
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
@@ -152,10 +154,12 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
-This package provides the glusterfs server daemon.
+This package provides the glusterfs server daemon and translators that
+are loaded on the server.
 
 %package devel
 Summary:        Development Libraries
+License:        GPLv2 or LGPLv3+
 Group:          Development/Libraries
 Requires:       %{name} = %{version}-%{release}
 
