@@ -369,7 +369,7 @@ _fd_lk_insert_and_merge (fd_lk_ctx_t *lk_ctx,
 
                 if (entry->fl_type == lock->fl_type) {
                         sum = _fd_lk_add_locks (entry, lock);
-                        if (sum)
+                        if (!sum)
                                 return;
                         sum->fl_type = entry->fl_type;
                         sum->user_flock.l_type = entry->fl_type;
