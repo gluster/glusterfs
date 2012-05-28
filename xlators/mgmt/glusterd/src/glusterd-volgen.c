@@ -154,6 +154,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.cache-size",               "performance/io-cache",      NULL, NULL, NO_DOC, 0 },
         {"performance.cache-size",               "performance/quick-read",    NULL, NULL, NO_DOC, 0 },
         {"performance.flush-behind",             "performance/write-behind",  "flush-behind", NULL, DOC, 0},
+        {"performance.md-cache-timeout",         "performance/md-cache",      "md-cache-timeout", NULL, DOC, 0},
 
         {"performance.io-thread-count",          "performance/io-threads",    "thread-count", DOC, 0},
         {"performance.high-prio-threads",        "performance/io-threads",    NULL, DOC, 0},
