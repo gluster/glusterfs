@@ -3238,11 +3238,17 @@ int32_t
 client3_1_readlink (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
-        clnt_conf_t       *conf     = NULL;
-        clnt_args_t       *args     = NULL;
-        gfs3_readlink_req  req      = {{0,},};
-        int                ret      = 0;
-        int                op_errno = ESTALE;
+        clnt_conf_t       *conf              = NULL;
+        clnt_args_t       *args              = NULL;
+        gfs3_readlink_req  req               = {{0,},};
+        int                ret               = 0;
+        int                op_errno          = ESTALE;
+        clnt_local_t      *local             = NULL;
+        struct iobuf      *rsp_iobuf         = NULL;
+        struct iobref     *rsp_iobref        = NULL;
+        struct iovec      *rsphdr            = NULL;
+        int                count             = 0;
+        struct iovec       vector[MAX_IOVEC] = {{0}, };
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -3263,14 +3269,43 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
         req.size = args->size;
         conf = this->private;
 
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        frame->local = local;
+
         GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
                                     req.xdata.xdata_len, op_errno, unwind);
+
+        rsp_iobref = iobref_new ();
+        if (rsp_iobref == NULL) {
+                goto unwind;
+        }
+
+        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+        if (rsp_iobuf == NULL) {
+                goto unwind;
+        }
+
+        iobref_add (rsp_iobref, rsp_iobuf);
+        iobuf_unref (rsp_iobuf);
+        rsphdr = &vector[0];
+        rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
+        rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
+        count = 1;
+        local->iobref = rsp_iobref;
+        rsp_iobuf = NULL;
+        rsp_iobref = NULL;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_READLINK,
                                      client3_1_readlink_cbk, NULL,
-                                     NULL, 0, NULL, 0,
-                                     NULL, (xdrproc_t)xdr_gfs3_readlink_req);
+                                     rsphdr, count, NULL, 0,
+                                     local->iobref,
+                                     (xdrproc_t)xdr_gfs3_readlink_req);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
@@ -3280,6 +3315,10 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        if (rsp_iobref != NULL) {
+                iobref_unref (rsp_iobref);
+        }
+
         CLIENT_STACK_UNWIND (readlink, frame, -1, op_errno, NULL, NULL, NULL);
         if (req.xdata.xdata_val)
                 GF_FREE (req.xdata.xdata_val);
