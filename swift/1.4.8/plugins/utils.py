@@ -332,7 +332,6 @@ def _check_valid_account(account, fs_object):
 
     if not os.path.isdir(os.path.join(mount_path, account)):
         mkdirs(os.path.join(mount_path, account))
-        fs_object.unmount(os.path.join(mount_path, account))
 
     if fs_object:
         if not fs_object.mount(account):
