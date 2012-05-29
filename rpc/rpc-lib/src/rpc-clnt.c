@@ -684,8 +684,6 @@ rpc_clnt_reply_init (rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
                 saved_frame->rpcreq->prog->progver,
                 saved_frame->rpcreq->procnum, conn->trans->name);
 
-        req->rpc_status = 0;
-
 out:
         if (ret != 0) {
                 req->rpc_status = -1;
