@@ -1044,13 +1044,21 @@ out:
 }
 
 void
+glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len)
+{
+        char md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};
+
+        md5_wrapper ((unsigned char *) sock_filepath, strlen(sock_filepath), md5_sum);
+        snprintf (sockpath, len, "%s/%s.socket", glusterd_sock_dir, md5_sum);
+}
+
+void
 glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
                                     glusterd_brickinfo_t *brickinfo,
                                     char *sockpath, size_t len)
 {
         char                    export_path[PATH_MAX] = {0,};
         char                    sock_filepath[PATH_MAX] = {0,};
-        char                    md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};
         char                    volume_dir[PATH_MAX] = {0,};
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
@@ -1068,8 +1076,8 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, export_path);
         snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
                   volume_dir, brickinfo->hostname, export_path);
-        md5_wrapper ((unsigned char *) sock_filepath, strlen(sock_filepath), md5_sum);
-        snprintf (sockpath, len, "%s/%s.socket", glusterd_sock_dir, md5_sum);
+
+        glusterd_set_socket_filepath (sock_filepath, sockpath, len);
 }
 
 /* connection happens only if it is not aleady connected,
@@ -2693,13 +2701,11 @@ glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
                                       char *socketpath, int len)
 {
         char                    sockfilepath[PATH_MAX] = {0,};
-        char                    md5_str[MD5_DIGEST_LENGTH*2+1] = {0,};
 
         snprintf (sockfilepath, sizeof (sockfilepath), "%s/run-%s",
                   rundir, uuid_utoa (uuid));
-        md5_wrapper ((unsigned char *) sockfilepath, strlen (sockfilepath), md5_str);
-        snprintf (socketpath, len, "%s/%s.socket", glusterd_sock_dir,
-                  md5_str);
+
+        glusterd_set_socket_filepath (sockfilepath, socketpath, len);
         return 0;
 }
 
