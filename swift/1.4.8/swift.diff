@@ -18,7 +18,7 @@ index d195d34..b5b5ca2 100644
          },
      )
 diff --git a/swift/account/server.py b/swift/account/server.py
-index 800b3c0..99f5de3 100644
+index 800b3c0..cb17970 100644
 --- a/swift/account/server.py
 +++ b/swift/account/server.py
 @@ -1,4 +1,5 @@
@@ -81,7 +81,7 @@ index 800b3c0..99f5de3 100644
              broker.stale_reads_ok = True
          if broker.is_deleted():
              return HTTPNotFound(request=req)
-+        if self.fs_object:
++        if self.fs_object and not self.fs_object.object_only:
 +            broker.list_containers_iter(None, None,None,
 +                                        None, None)
          info = broker.get_info()
@@ -229,7 +229,7 @@ index 0000000..341285d
 +        return Gluster_plugin(app, conf)
 +    return gluster_filter
 diff --git a/swift/common/utils.py b/swift/common/utils.py
-index 47edce8..afc356c 100644
+index 47edce8..03701ce 100644
 --- a/swift/common/utils.py
 +++ b/swift/common/utils.py
 @@ -1,4 +1,5 @@
@@ -238,7 +238,7 @@ index 47edce8..afc356c 100644
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -1138,3 +1139,12 @@ def streq_const_time(s1, s2):
+@@ -1138,3 +1139,11 @@ def streq_const_time(s1, s2):
      for (a, b) in zip(s1, s2):
          result |= ord(a) ^ ord(b)
      return result == 0
@@ -250,9 +250,8 @@ index 47edce8..afc356c 100644
 +        return swift_conf.get('DEFAULT', 'Enable_plugin', 'no') in TRUE_VALUES
 +    except NoOptionError, NoSectionError:
 +        return False
-+
 diff --git a/swift/container/server.py b/swift/container/server.py
-index 8a18cfd..356150f 100644
+index 8a18cfd..93943a3 100644
 --- a/swift/container/server.py
 +++ b/swift/container/server.py
 @@ -1,4 +1,5 @@
@@ -337,7 +336,7 @@ index 8a18cfd..356150f 100644
          if broker.is_deleted():
              return HTTPNotFound(request=req)
 +
-+        if self.fs_object:
++        if self.fs_object and not self.fs_object.object_only:
 +            broker.list_objects_iter(None, None, None, None,
 +                                     None, None)
 +

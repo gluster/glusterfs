@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import os
+import os, fcntl, time
 from ConfigParser import ConfigParser
 from swift.common.utils import TRUE_VALUES
 from hashlib import md5
+from swift.plugins.utils import mkdirs
 
 class Glusterfs(object):
     def __init__(self):
@@ -27,16 +28,43 @@ class Glusterfs(object):
         self.auth_account = self.fs_conf.get('DEFAULT', 'auth_account', 'auth')
         self.mount_ip = self.fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
         self.remote_cluster = self.fs_conf.get('DEFAULT', 'remote_cluster', False) in TRUE_VALUES
+        self.object_only = self.fs_conf.get('DEFAULT', 'object_only', "no") in TRUE_VALUES
+
+    def busy_wait(self, mount_path):
+        # Iterate for definite number of time over a given
+        # interval for successful mount
+        for i in range(0, 5):
+            if os.path.ismount(os.path.join(mount_path)):
+                return True
+            time.sleep(2)
+        return False
 
     def mount(self, account):
-        export = self.get_export_from_account_id(account)
         mount_path = os.path.join(self.mount_path, account)
-        mnt_cmd = 'mount -t glusterfs %s:%s %s' % (self.mount_ip, export, \
-                                                   mount_path)
-        if os.system(mnt_cmd) or \
-        not os.path.exists(os.path.join(mount_path)):
-            raise Exception('Mount failed %s: %s' % (self.name, mnt_cmd))
-            return False
+        export = self.get_export_from_account_id(account)
+
+        pid_dir  = "/var/lib/glusterd/vols/%s/run/" %export
+        pid_file = os.path.join(pid_dir, 'swift.pid');
+
+        if not os.path.exists(pid_dir):
+            mkdirs(pid_dir)
+
+        fd = os.open(pid_file, os.O_CREAT|os.O_RDWR)
+        with os.fdopen(fd, 'r+b') as f:
+            try:
+                fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except:
+                ex = sys.exc_info()[1]
+                if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+                # This means that some other process is mounting the
+                # filesystem, so wait for the mount process to complete
+                    return self.busy_wait(mount_path)
+
+            mnt_cmd = 'mount -t glusterfs %s:%s %s' % (self.mount_ip, export, \
+                                                       mount_path)
+            if os.system(mnt_cmd) or not self.busy_wait(mount_path):
+                raise Exception('Mount failed %s: %s' % (self.name, mnt_cmd))
+                return False
         return True
 
     def unmount(self, mount_path):
