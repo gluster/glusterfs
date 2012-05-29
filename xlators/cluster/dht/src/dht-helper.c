@@ -773,11 +773,8 @@ int
 dht_rebalance_complete_check (xlator_t *this, call_frame_t *frame)
 {
         int         ret     = -1;
-        dht_conf_t *conf    = NULL;
 
-        conf = this->private;
-
-        ret = synctask_new (conf->env, dht_migration_complete_check_task,
+        ret = synctask_new (this->ctx->env, dht_migration_complete_check_task,
                             dht_migration_complete_check_done,
                             frame, frame);
         return ret;
@@ -906,11 +903,8 @@ dht_rebalance_in_progress_check (xlator_t *this, call_frame_t *frame)
 {
 
         int         ret     = -1;
-        dht_conf_t *conf    = NULL;
 
-        conf = this->private;
-
-        ret = synctask_new (conf->env, dht_rebalance_inprogress_task,
+        ret = synctask_new (this->ctx->env, dht_rebalance_inprogress_task,
                             dht_inprogress_check_done,
                             frame, frame);
         return ret;

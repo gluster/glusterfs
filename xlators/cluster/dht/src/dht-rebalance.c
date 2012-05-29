@@ -938,11 +938,8 @@ int
 dht_start_rebalance_task (xlator_t *this, call_frame_t *frame)
 {
         int         ret     = -1;
-        dht_conf_t *conf    = NULL;
 
-        conf = this->private;
-
-        ret = synctask_new (conf->env, rebalance_task,
+        ret = synctask_new (this->ctx->env, rebalance_task,
                             rebalance_task_completion,
                             frame, frame);
         return ret;

@@ -240,8 +240,6 @@ struct dht_conf {
         /* Will be a global flag to control the layout spread count */
         uint32_t       dir_spread_cnt;
 
-	struct syncenv *env; /* The env pointer to the rebalance synctask */
-
         /* to keep track of nodes which are decomissioned */
         xlator_t     **decommissioned_bricks;
         int            decommission_in_progress;
