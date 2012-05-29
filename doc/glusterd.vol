@@ -1,6 +1,6 @@
 volume management
     type mgmt/glusterd
-    option working-directory /etc/glusterd
+    option working-directory /var/lib/glusterd
     option transport-type socket,rdma
     option transport.socket.keepalive-time 10
     option transport.socket.keepalive-interval 2
