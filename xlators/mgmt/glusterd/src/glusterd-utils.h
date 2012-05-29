@@ -195,6 +195,9 @@ glusterd_shd_start ();
 int32_t
 glusterd_shd_stop ();
 
+void
+glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len);
+
 int32_t
 glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
                                       char *socketpath, int len);
