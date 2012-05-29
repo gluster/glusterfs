@@ -21,6 +21,7 @@
 #include "name.h"
 #include "byte-order.h"
 #include "xlator.h"
+#include "xdr-rpc.h"
 #include <signal.h>
 
 #define GF_RDMA_LOG_NAME "rpc-transport/rdma"
@@ -355,33 +356,33 @@ gf_rdma_post_send (struct ibv_qp *qp, gf_rdma_post_t *post, int32_t len)
 
 int
 __gf_rdma_encode_error(gf_rdma_peer_t *peer, gf_rdma_reply_info_t *reply_info,
-                       struct iovec *rpchdr, uint32_t *ptr,
+                       struct iovec *rpchdr, gf_rdma_header_t *hdr,
                        gf_rdma_errcode_t err)
 {
-        uint32_t       *startp  = NULL;
         struct rpc_msg *rpc_msg = NULL;
 
-        startp = ptr;
         if (reply_info != NULL) {
-                *ptr++ = hton32(reply_info->rm_xid);
+                hdr->rm_xid = hton32(reply_info->rm_xid);
         } else {
                 rpc_msg = rpchdr[0].iov_base; /* assume rpchdr contains
                                                * only one vector.
                                                * (which is true)
                                                */
-                *ptr++ = rpc_msg->rm_xid;
+                hdr->rm_xid = rpc_msg->rm_xid;
         }
 
-        *ptr++ = hton32(GF_RDMA_VERSION);
-        *ptr++ = hton32(peer->send_count);
-        *ptr++ = hton32(GF_RDMA_ERROR);
-        *ptr++ = hton32(err);
+        hdr->rm_vers = hton32(GF_RDMA_VERSION);
+        hdr->rm_credit = hton32(peer->send_count);
+        hdr->rm_type = hton32(GF_RDMA_ERROR);
+        hdr->rm_body.rm_error.rm_type = hton32(err);
         if (err == ERR_VERS) {
-                *ptr++ = hton32(GF_RDMA_VERSION);
-                *ptr++ = hton32(GF_RDMA_VERSION);
+                hdr->rm_body.rm_error.rm_version.gf_rdma_vers_low
+                        = hton32(GF_RDMA_VERSION);
+                hdr->rm_body.rm_error.rm_version.gf_rdma_vers_high
+                        = hton32(GF_RDMA_VERSION);
         }
 
-        return (int)((unsigned long)ptr - (unsigned long)startp);
+        return sizeof (*hdr);
 }
 
 
@@ -393,7 +394,7 @@ __gf_rdma_send_error (gf_rdma_peer_t *peer, gf_rdma_ioq_t *entry,
         int32_t  ret = -1, len = 0;
 
         len = __gf_rdma_encode_error (peer, reply_info, entry->rpchdr,
-                                      (uint32_t *)post->buf, err);
+                                      (gf_rdma_header_t *)post->buf, err);
         if (len == -1) {
                 gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
                         "encode error returned -1");
@@ -2770,10 +2771,11 @@ inline int32_t
 gf_rdma_decode_error_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                           size_t bytes_in_post)
 {
-        gf_rdma_header_t *header = NULL;
-        struct iobuf     *iobuf  = NULL;
-        struct iobref    *iobref = NULL;
-        int32_t           ret    = -1;
+        gf_rdma_header_t *header  = NULL;
+        struct iobuf     *iobuf   = NULL;
+        struct iobref    *iobref  = NULL;
+        int32_t           ret     = -1;
+        struct rpc_msg    rpc_msg = {0, };
 
         header = (gf_rdma_header_t *)post->buf;
         header->rm_body.rm_error.rm_type
@@ -2784,6 +2786,10 @@ gf_rdma_decode_error_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                 header->rm_body.rm_error.rm_version.gf_rdma_vers_high =
                         ntoh32 (header->rm_body.rm_error.rm_version.gf_rdma_vers_high);
         }
+
+        rpc_msg.rm_xid = header->rm_xid;
+        rpc_msg.rm_direction = REPLY;
+        rpc_msg.rm_reply.rp_stat = MSG_DENIED;
 
         iobuf = iobuf_get2 (peer->trans->ctx->iobuf_pool, bytes_in_post);
         if (iobuf == NULL) {
@@ -2799,15 +2805,15 @@ gf_rdma_decode_error_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
 
         iobref_add (iobref, iobuf);
         iobuf_unref (iobuf);
-        /*
-         * FIXME: construct an appropriate rpc-msg here, what is being sent
-         * to rpc is not correct.
-         */
-        post->ctx.vector[0].iov_base = iobuf_ptr (iobuf);
-        post->ctx.vector[0].iov_len = bytes_in_post;
 
-        memcpy (post->ctx.vector[0].iov_base, (char *)post->buf,
-                post->ctx.vector[0].iov_len);
+        ret = rpc_reply_to_xdr (&rpc_msg, iobuf_ptr (iobuf),
+                                iobuf_pagesize (iobuf), &post->ctx.vector[0]);
+        if (ret == -1) {
+                gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
+                        "Failed to create RPC reply");
+                goto out;
+        }
+
         post->ctx.count = 1;
 
         iobuf = NULL;
@@ -2978,7 +2984,7 @@ gf_rdma_decode_header (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
         case GF_RDMA_ERROR:
                 gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
                         "recieved a msg of type RDMA_ERROR");
-                /* ret = gf_rdma_decode_error_msg (peer, post, bytes_in_post); */
+                ret = gf_rdma_decode_error_msg (peer, post, bytes_in_post);
                 break;
 
         default:
@@ -3370,24 +3376,32 @@ gf_rdma_process_recv (gf_rdma_peer_t *peer, struct ibv_wc *wc)
                 break;
 
         case GF_RDMA_ERROR:
-                gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
-                        "an error has happened while transmission of msg, "
-                        "disconnecting the transport");
-                rpc_transport_disconnect (peer->trans);
-                goto out;
-
-/*                ret = gf_rdma_pollin_notify (peer, post);
-                  if (ret == -1) {
-                  gf_log (GF_RDMA_LOG_NAME, GF_LOG_DEBUG,
-                  "pollin notification failed");
-                  }
-                  goto out;
-*/
+                if (header->rm_body.rm_error.rm_type == ERR_CHUNK) {
+                        gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
+                                "peer (%s), couldn't encode or decode the msg "
+                                "properly or write chunks were not provided "
+                                "for replies that were bigger than "
+                                "RDMA_INLINE_THRESHOLD (%d)",
+                                peer->trans->peerinfo.identifier,
+                                GLUSTERFS_RDMA_INLINE_THRESHOLD);
+                        ret = gf_rdma_pollin_notify (peer, post);
+                        if (ret == -1) {
+                                gf_log (GF_RDMA_LOG_NAME, GF_LOG_DEBUG,
+                                        "pollin notification failed");
+                        }
+                        goto out;
+                } else {
+                        gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
+                                "an error has happened while transmission of "
+                                "msg, disconnecting the transport");
+                        ret = -1;
+                        goto out;
+                }
 
         default:
                 gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
                         "invalid rdma msg-type (%d)", header->rm_type);
-                break;
+                goto out;
         }
 
         if (msg_type == CALL) {
