@@ -274,27 +274,27 @@ _gf_log_nomem (const char *domain, const char *file,
 
         tm    = localtime (&tv.tv_sec);
 
+        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                  ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+
+        basename = strrchr (file, '/');
+        if (basename)
+                basename++;
+        else
+                basename = file;
+
+        ret = sprintf (msg, "[%s] %s [%s:%d:%s] %s %s: no memory "
+                       "available for size (%"GF_PRI_SIZET")",
+                       timestr, level_strings[level],
+                       basename, line, function, callstr,
+                       domain, size);
+        if (-1 == ret) {
+                goto out;
+        }
+
         pthread_mutex_lock (&logfile_mutex);
         {
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
-                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
-
-                basename = strrchr (file, '/');
-                if (basename)
-                        basename++;
-                else
-                        basename = file;
-
-                ret = sprintf (msg, "[%s] %s [%s:%d:%s] %s %s: no memory "
-                               "available for size (%"GF_PRI_SIZET")",
-                               timestr, level_strings[level],
-                               basename, line, function, callstr,
-                               domain, size);
-                if (-1 == ret) {
-                        goto unlock;
-                }
-
                 if (logfile) {
                         fprintf (logfile, "%s\n", msg);
                         fflush (logfile);
@@ -310,7 +310,6 @@ _gf_log_nomem (const char *domain, const char *file,
 #endif
         }
 
-unlock:
         pthread_mutex_unlock (&logfile_mutex);
 out:
         return ret;
@@ -393,41 +392,41 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
 
         tm    = localtime (&tv.tv_sec);
 
+        va_start (ap, fmt);
+
+        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                  ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+
+        basename = strrchr (file, '/');
+        if (basename)
+                basename++;
+        else
+                basename = file;
+
+        ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s %d-%s: ",
+                           timestr, level_strings[level],
+                           basename, line, function, callstr,
+                           ((this->graph) ? this->graph->id:0), domain);
+        if (-1 == ret) {
+                goto out;
+        }
+
+        ret = vasprintf (&str2, fmt, ap);
+        if (-1 == ret) {
+                goto out;
+        }
+
+        va_end (ap);
+
+        len = strlen (str1);
+        msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+
+        strcpy (msg, str1);
+        strcpy (msg + len, str2);
+
         pthread_mutex_lock (&logfile_mutex);
         {
-                va_start (ap, fmt);
-
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
-                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
-
-                basename = strrchr (file, '/');
-                if (basename)
-                        basename++;
-                else
-                        basename = file;
-
-                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s %d-%s: ",
-                                   timestr, level_strings[level],
-                                   basename, line, function, callstr,
-                                   ((this->graph) ? this->graph->id:0), domain);
-                if (-1 == ret) {
-                        goto unlock;
-                }
-
-                ret = vasprintf (&str2, fmt, ap);
-                if (-1 == ret) {
-                        goto unlock;
-                }
-
-                va_end (ap);
-
-                len = strlen (str1);
-                msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
-
-                strcpy (msg, str1);
-                strcpy (msg + len, str2);
-
                 if (logfile) {
                         fprintf (logfile, "%s\n", msg);
                         fflush (logfile);
@@ -443,12 +442,11 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
 #endif
         }
 
-unlock:
         pthread_mutex_unlock (&logfile_mutex);
 
-        if (msg) {
+out:
+        if (msg)
                 GF_FREE (msg);
-        }
 
         if (str1)
                 GF_FREE (str1);
@@ -456,7 +454,6 @@ unlock:
         if (str2)
                 FREE (str2);
 
-out:
         return ret;
 }
 
@@ -527,10 +524,15 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                         goto log;
                 }
 
-                if (logfile)
-                        fclose (logfile);
+                pthread_mutex_lock (&logfile_mutex);
+                {
+                        if (logfile)
+                                fclose (logfile);
 
-                gf_log_logfile = logfile = new_logfile;
+                        gf_log_logfile = logfile = new_logfile;
+                }
+                pthread_mutex_unlock (&logfile_mutex);
+
         }
 
 log:
@@ -540,40 +542,41 @@ log:
 
         tm    = localtime (&tv.tv_sec);
 
+        va_start (ap, fmt);
+
+        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                  ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+
+        basename = strrchr (file, '/');
+        if (basename)
+                basename++;
+        else
+                basename = file;
+
+        ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %d-%s: ",
+                           timestr, level_strings[level],
+                           basename, line, function,
+                           ((this->graph)?this->graph->id:0), domain);
+        if (-1 == ret) {
+                goto err;
+        }
+
+        ret = vasprintf (&str2, fmt, ap);
+        if (-1 == ret) {
+                goto err;
+        }
+
+        va_end (ap);
+
+        len = strlen (str1);
+        msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+
+        strcpy (msg, str1);
+        strcpy (msg + len, str2);
+
         pthread_mutex_lock (&logfile_mutex);
         {
-                va_start (ap, fmt);
-
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
-                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
-
-                basename = strrchr (file, '/');
-                if (basename)
-                        basename++;
-                else
-                        basename = file;
-
-                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %d-%s: ",
-                                   timestr, level_strings[level],
-                                   basename, line, function,
-                                   ((this->graph)?this->graph->id:0), domain);
-                if (-1 == ret) {
-                        goto unlock;
-                }
-
-                ret = vasprintf (&str2, fmt, ap);
-                if (-1 == ret) {
-                        goto unlock;
-                }
-
-                va_end (ap);
-
-                len = strlen (str1);
-                msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
-
-                strcpy (msg, str1);
-                strcpy (msg + len, str2);
 
                 if (logfile) {
                         fprintf (logfile, "%s\n", msg);
@@ -590,9 +593,9 @@ log:
 #endif
         }
 
-unlock:
         pthread_mutex_unlock (&logfile_mutex);
 
+err:
         if (msg) {
                 GF_FREE (msg);
         }
