@@ -2641,13 +2641,13 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 }
         }
 
-#ifdef DISABLE_SELINUX
-        if (!strncmp (name, "security.", 9)) {
-                send_fuse_err (this, finh, EOPNOTSUPP);
-                GF_FREE (finh);
-                return;
-        }
-#endif
+	if (!priv->selinux) {
+		if (strncmp (name, "security.", 9) == 0) {
+			send_fuse_err (this, finh, EOPNOTSUPP);
+			GF_FREE (finh);
+			return;
+		}
+	}
 
         /* Check if the command is for changing the log
            level of process or specific xlator */
@@ -2913,13 +2913,13 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 }
         }
 
-#ifdef DISABLE_SELINUX
-        if (!strncmp (name, "security.", 9)) {
-                send_fuse_err (this, finh, ENODATA);
-                GF_FREE (finh);
-                return;
-        }
-#endif
+	if (!priv->selinux) {
+		if (strncmp (name, "security.", 9) == 0) {
+			send_fuse_err (this, finh, ENODATA);
+			GF_FREE (finh);
+			return;
+		}
+	}
 
         GET_STATE (this, finh, state);
 
@@ -4495,6 +4495,13 @@ init (xlator_t *this_xl)
         }
         if (priv->uid_map_root)
                 priv->acl = 1;
+
+        priv->selinux = 0;
+        ret = dict_get_str (options, "selinux", &value_string);
+        if (ret == 0) {
+                ret = gf_string2boolean (value_string, &priv->selinux);
+                GF_ASSERT (ret == 0);
+        }
 
         priv->read_only = 0;
         ret = dict_get_str (options, "read-only", &value_string);

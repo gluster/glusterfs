@@ -152,6 +152,8 @@ static struct argp_option gf_options[] = {
          "Mount the filesystem in 'read-only' mode"},
         {"acl", ARGP_ACL_KEY, 0, 0,
          "Mount the filesystem with POSIX ACL support"},
+        {"selinux", ARGP_SELINUX_KEY, 0, 0,
+         "Enable SELinux label (extened attributes) support on inodes"},
         {"worm", ARGP_WORM_KEY, 0, 0,
          "Mount the filesystem in 'worm' mode"},
         {"mac-compat", ARGP_MAC_COMPAT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -344,6 +346,15 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 if (ret < 0) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value for key acl");
+                        goto err;
+                }
+        }
+
+        if (cmd_args->selinux) {
+                ret = dict_set_static_ptr (master->options, "selinux", "on");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key selinux");
                         goto err;
                 }
         }
@@ -562,6 +573,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_ACL_KEY:
                 cmd_args->acl = 1;
+                break;
+
+        case ARGP_SELINUX_KEY:
+                cmd_args->selinux = 1;
                 break;
 
         case ARGP_WORM_KEY:
