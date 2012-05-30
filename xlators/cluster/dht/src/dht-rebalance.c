@@ -1487,8 +1487,10 @@ out:
         }
         UNLOCK (&defrag->lock);
 
-        if (defrag)
+        if (defrag) {
                 GF_FREE (defrag);
+                conf->defrag = NULL;
+        }
 
         return ret;
 }
@@ -1499,7 +1501,6 @@ gf_defrag_done  (int ret, call_frame_t *sync_frame, void *data)
 {
         gf_listener_stop();
 
-        GF_FREE (data);
         STACK_DESTROY (sync_frame->root);
         kill (getpid(), SIGTERM);
         return 0;
