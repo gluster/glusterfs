@@ -66,8 +66,6 @@
 
 #define MAX_FUSE_PROC_DELAY 1
 
-//#define DISABLE_SELINUX 1
-
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
                                void *msg);
@@ -109,6 +107,7 @@ struct fuse_private {
         gf_boolean_t         client_pid_set;
         unsigned             uid_map_root;
         gf_boolean_t         acl;
+        gf_boolean_t         selinux;
         gf_boolean_t         read_only;
         fdtable_t           *fdtable;
 

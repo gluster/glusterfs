@@ -288,6 +288,7 @@ struct _cmd_args {
 	int              debug_mode;
         int              read_only;
         int              acl;
+        int              selinux;
         int              worm;
         int              mac_compat;
 	struct list_head xlator_options;  /* list of xlator_option_t */

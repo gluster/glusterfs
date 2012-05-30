@@ -100,6 +100,10 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --acl");
     fi
 
+    if [ -n "$selinux" ]; then
+	cmd_line=$(echo "$cmd_line --selinux");
+    fi
+
     if [ -n "$worm" ]; then
         cmd_line=$(echo "$cmd_line --worm");
     fi
@@ -273,6 +277,7 @@ main ()
                 case "$pair" in
                     "ro")       read_only=1 ;;
                     "acl")      acl=1 ;;
+                    "selinux")  selinux=1 ;;
                     "worm")     worm=1 ;;
                     # "mount -t glusterfs" sends this, but it's useless.
                     "rw")       ;;
