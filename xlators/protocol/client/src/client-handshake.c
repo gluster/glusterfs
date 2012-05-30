@@ -750,8 +750,8 @@ client_reacquire_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 get_lk_type (lock.l_type), uuid_utoa (fdctx->inode->gfid),
                 lock.l_start, lock.l_start + lock.l_len);
 
-        if (clnt_fd_lk_local_unref (this, local) == 0 &&
-            !clnt_fd_lk_local_error_status (this, local)) {
+        if (!clnt_fd_lk_local_error_status (this, local) &&
+            clnt_fd_lk_local_unref (this, local) == 0) {
                 pthread_mutex_lock (&conf->lock);
                 {
                         fdctx->lk_heal_state = GF_LK_HEAL_DONE;
