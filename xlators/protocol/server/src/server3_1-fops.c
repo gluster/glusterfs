@@ -831,7 +831,7 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE (frame);
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOTSUP) ?
+                gf_log (this->name, (((op_errno == ENOTSUP) || (op_errno == ENODATA)) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
                         "%"PRId64": GETXATTR %s (%s) (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
