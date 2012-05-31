@@ -92,14 +92,17 @@ environment and verify that it is functioning correctly.
     <orderedlist>
       <para>To install and configure Hadoop compatible storage:</para>
       <listitem>
-        <para>Download  <filename>glusterfs-hadoop-0.20.2-0.1.x86_64.rpm</filename> file to each server on your cluster. You can download the file from <ulink url="http://download.gluster.com/pub/gluster/glusterfs/qa-releases/3.3-beta-2/glusterfs-hadoop-0.20.2-0.1.x86_64.rpm"/>.
+        <para>Download
+                <filename>glusterfs-hadoop-plugin-0.20.2-0.1.x86_64.rpm</filename>
+                file to each server on your cluster. You can download the file from
+                <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.3/3.3.0/Hadoop/glusterfs-hadoop-plugin-0.20.2_0.1-beta.noarch.rpm"/>.
 
 </para>
       </listitem>
       <listitem>
         <para>To install Hadoop Compatible Storage on all servers in your cluster, run the following command:
 </para>
-        <para><command># rpm –ivh --nodeps glusterfs-hadoop-0.20.2-0.1.x86_64.rpm</command>
+        <para><command># rpm –ivh --nodeps glusterfs-hadoop-plugin-0.20.2-0.1.x86_64.rpm</command>
 </para>
         <para>The following files will be extracted:
  </para>
@@ -116,7 +119,8 @@ environment and verify that it is functioning correctly.
         <para>(Optional) To install Hadoop Compatible Storage in a different location, run the following
 command:
 </para>
-        <para><command># rpm –ivh --nodeps –prefix /usr/local/glusterfs/hadoop glusterfs-hadoop- 0.20.2-0.1.x86_64.rpm</command>
+        <para><command># rpm –ivh --nodeps –prefix /usr/local/glusterfs/hadoop
+                        glusterfs-hadoop-plugin-0.20.2-0.1.x86_64.rpm</command>
 </para>
       </listitem>
       <listitem>
