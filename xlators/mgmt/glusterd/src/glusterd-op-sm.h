@@ -228,8 +228,6 @@ set_xlator_option (dict_t *dict, char *key, char *value);
 
 void
 glusterd_do_replace_brick (void *data);
-int
-glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key, int32_t is_force);
 
 char*
 glusterd_op_sm_state_name_get (int state);

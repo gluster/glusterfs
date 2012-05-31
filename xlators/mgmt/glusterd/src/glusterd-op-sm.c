@@ -880,23 +880,23 @@ out:
 }
 
 
-void
+static void
 _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
 {
-        int             exists = 0;
-        int32_t         is_force = 0;
+        int32_t        *is_force = 0;
 
         GF_ASSERT (data);
-        is_force = *((int32_t*)data);
-        exists = glusterd_check_option_exists(key, NULL);
+        is_force = (int32_t*)data;
 
-        if (exists != 1)
-                goto out;
-
-        if ((!is_force) &&
+        if (*is_force != 1 &&
             (_gf_true == glusterd_check_voloption_flags (key,
-                                                         OPT_FLAG_FORCE)))
+                                                         OPT_FLAG_FORCE))) {
+                /* indicate to caller that we don't set the option
+                 * due to being protected
+                 */
+                *is_force = -1;
                 goto out;
+        }
 
         gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s",
                 key, value->data);
@@ -905,12 +905,13 @@ out:
         return;
 }
 
-int
+static int
 glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
-                        int32_t is_force)
+                        int32_t *is_force)
 {
         int                      ret = 0;
         data_t                  *value = NULL;
+        char                    *key_fixed = NULL;
 
         gf_log ("", GF_LOG_DEBUG, "Received volume set reset command");
 
@@ -918,15 +919,22 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         GF_ASSERT (key);
 
         if (!strncmp(key, "all", 3))
-                dict_foreach (volinfo->dict, _delete_reconfig_opt, &is_force);
+                dict_foreach (volinfo->dict, _delete_reconfig_opt, is_force);
         else {
-                value = dict_get (volinfo->dict, key);
-                if (!value) {
+                if (glusterd_check_option_exists (key, &key_fixed) != 1) {
                         gf_log ("glusterd", GF_LOG_ERROR,
-                                "Could not get value");
+                                "volinfo dict inconsistency: option %s not found",
+                                key);
+                        ret = -1;
                         goto out;
                 }
-                _delete_reconfig_opt (volinfo->dict, key, value, &is_force);
+                value = dict_get (volinfo->dict, key_fixed);
+                if (!value) {
+                        gf_log ("glusterd", GF_LOG_DEBUG,
+                                "no value set for option %s", key_fixed);
+                        goto out;
+                }
+                _delete_reconfig_opt (volinfo->dict, key_fixed, value, is_force);
         }
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
@@ -951,13 +959,15 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         ret = 0;
 
 out:
+        if (key_fixed)
+                GF_FREE (key_fixed);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
 
 static int
-glusterd_op_reset_volume (dict_t *dict)
+glusterd_op_reset_volume (dict_t *dict, char **op_errstr)
 {
         glusterd_volinfo_t      *volinfo    = NULL;
         int                     ret         = -1;
@@ -987,7 +997,12 @@ glusterd_op_reset_volume (dict_t *dict)
                 goto out;
         }
 
-        ret = glusterd_options_reset (volinfo, key, is_force);
+        ret = glusterd_options_reset (volinfo, key, &is_force);
+        if (is_force == -1) {
+                ret = -1;
+                gf_asprintf(op_errstr, "'%s' is protected. To reset use 'force'.",
+                            key);
+        }
 
 out:
         gf_log ("", GF_LOG_DEBUG, "'volume reset' returning %d", ret);
@@ -3019,7 +3034,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_RESET_VOLUME:
-                        ret = glusterd_op_reset_volume (dict);
+                        ret = glusterd_op_reset_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_REMOVE_BRICK:
