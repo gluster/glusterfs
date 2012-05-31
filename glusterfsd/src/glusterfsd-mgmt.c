@@ -1601,6 +1601,8 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = glusterfs_process_volfp (ctx, tmpfp);
+        /* tmpfp closed */
+        tmpfp = NULL;
         if (ret)
                 goto out;
 
@@ -1626,6 +1628,10 @@ out:
                         ctx->cmd_args.volfile_id);
                 cleanup_and_exit (0);
         }
+
+        if (tmpfp)
+                fclose (tmpfp);
+
         return 0;
 }
 
