@@ -1492,6 +1492,7 @@ glusterd_store_iter_new (glusterd_store_handle_t  *shandle,
         }
 
         strncpy (tmp_iter->filepath, shandle->path, sizeof (tmp_iter->filepath));
+        tmp_iter->filepath[sizeof (tmp_iter->filepath) - 1] = 0;
         *iter = tmp_iter;
         ret = 0;
 
