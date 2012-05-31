@@ -209,7 +209,7 @@ environment.</para>
       <para>To install Unified File and Object Storage:</para>
       <orderedlist>
         <listitem>
-          <para>Download  <filename>rhel_install.sh</filename> install script from <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.2/UFO/"/>  .
+          <para>Download  <filename>rhel_install.sh</filename> install script from <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.3/3.3.0/UFO/"/>  .
 </para>
         </listitem>
         <listitem>
@@ -218,17 +218,9 @@ environment.</para>
 </para>
           <para><command># sh rhel_install.sh</command></para>
         </listitem>
-        <listitem>
-          <para>Download   <filename>swift-1.4.5-1.noarch.rpm</filename> and <filename>swift-plugin-1.0.-1.el6.noarch.rpm</filename> files from <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.2/UFO/"/>.</para>
-        </listitem>
-        <listitem>
-          <para>Install  <filename>swift-1.4.5-1.noarch.rpm</filename> and <filename>swift-plugin-1.0.-1.el6.noarch.rpm</filename>  using the following commands:</para>
-          <para><command># rpm -ivh swift-1.4.5-1.noarch.rpm</command></para>
-          <para><command># rpm -ivh swift-plugin-1.0.-1.el6.noarch.rpm</command></para>
           <para><note>
               <para>You must repeat the above steps on all the machines on which you want to install Unified File and Object Storage. If you install the Unified File and Object Storage on multiple servers, you can use a load balancer like pound, nginx, and so on to distribute the request across the machines.</para>
             </note></para>
-        </listitem>
       </orderedlist>
     </section>
     <section>
