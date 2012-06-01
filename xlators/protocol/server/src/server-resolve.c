@@ -422,6 +422,10 @@ out:
         if (inode)
                 inode_unref (inode);
 
+        if (ret != 0)
+                gf_log ("server", GF_LOG_WARNING, "inode for the gfid (%s) is "
+                        "not found. anonymous fd creation failed",
+                        uuid_utoa (resolve->gfid));
         return ret;
 }
 

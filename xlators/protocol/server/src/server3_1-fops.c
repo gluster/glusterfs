@@ -670,7 +670,7 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": READDIR %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        uuid_utoa (state->fd->inode->gfid),
+                        uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
         }
@@ -1814,7 +1814,7 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FSETATTR %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        uuid_utoa (state->fd->inode->gfid),
+                        uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
         }
@@ -2330,6 +2330,8 @@ server_readdir_resume (call_frame_t *frame, xlator_t *bound_xl)
         if (state->resolve.op_ret != 0)
                 goto err;
 
+        GF_ASSERT (state->fd);
+
         STACK_WIND (frame, server_readdir_cbk,
                     bound_xl,
                     bound_xl->fops->readdir,
@@ -2375,6 +2377,10 @@ server_opendir_resume (call_frame_t *frame, xlator_t *bound_xl)
                 goto err;
 
         state->fd = fd_create (state->loc.inode, frame->root->pid);
+        if (!state->fd) {
+                gf_log ("server", GF_LOG_ERROR, "could not create the fd");
+                goto err;
+        }
 
         STACK_WIND (frame, server_opendir_cbk,
                     bound_xl, bound_xl->fops->opendir,
