@@ -37,5 +37,5 @@ install-data-hook:
 if GF_INSTALL_VAR_LIB_GLUSTERD
 	$(mkdir_p) /var/lib/
 	(stat /etc/glusterd && mv /etc/glusterd /var/lib/) || true;
-	(ln -sf /var/log/glusterd /etc/glusterd) || true;
+	(ln -sf /var/lib/glusterd /etc/glusterd) || true;
 endif
