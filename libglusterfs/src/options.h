@@ -131,6 +131,7 @@ xlator_option_init_##type (xlator_t *this, dict_t *options, char *key,  \
         if (!value) {                                                   \
                 gf_log (this->name, GF_LOG_TRACE, "option %s not set",  \
                         key);                                           \
+                *val_p = (type_t)0;                                     \
                 return 0;                                               \
         }                                                               \
         if (value == def_value) {                                       \
@@ -209,6 +210,7 @@ xlator_option_reconf_##type (xlator_t *this, dict_t *options, char *key, \
         if (!value) {                                                   \
                 gf_log (this->name, GF_LOG_TRACE, "option %s not set",  \
                         key);                                           \
+                *val_p = (type_t)0;                                     \
                 return 0;                                               \
         }                                                               \
         if (value == def_value) {                                       \
