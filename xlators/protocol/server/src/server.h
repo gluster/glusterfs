@@ -137,7 +137,7 @@ struct resolve_comp {
 
 typedef struct {
         server_resolve_type_t  type;
-        uint64_t               fd_no;
+        int64_t               fd_no;
         u_char                 gfid[16];
         u_char                 pargfid[16];
         char                  *path;
