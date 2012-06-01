@@ -988,11 +988,8 @@ out:
 
 
 static int
-not_null (char *in, char **out)
+pass (char *in, char **out)
 {
-        if (!in || !out)
-                return -1;
-
         *out = in;
         return 0;
 }
@@ -1031,7 +1028,7 @@ pc_or_size (char *in, uint64_t *out)
 }
 
 
-DEFINE_INIT_OPT(char *, str, not_null);
+DEFINE_INIT_OPT(char *, str, pass);
 DEFINE_INIT_OPT(uint64_t, uint64, gf_string2uint64);
 DEFINE_INIT_OPT(int64_t, int64, gf_string2int64);
 DEFINE_INIT_OPT(uint32_t, uint32, gf_string2uint32);
@@ -1041,11 +1038,11 @@ DEFINE_INIT_OPT(uint32_t, percent, gf_string2percent);
 DEFINE_INIT_OPT(uint64_t, percent_or_size, pc_or_size);
 DEFINE_INIT_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_INIT_OPT(xlator_t *, xlator, xl_by_name);
-DEFINE_INIT_OPT(char *, path, not_null);
+DEFINE_INIT_OPT(char *, path, pass);
 
 
 
-DEFINE_RECONF_OPT(char *, str, not_null);
+DEFINE_RECONF_OPT(char *, str, pass);
 DEFINE_RECONF_OPT(uint64_t, uint64, gf_string2uint64);
 DEFINE_RECONF_OPT(int64_t, int64, gf_string2int64);
 DEFINE_RECONF_OPT(uint32_t, uint32, gf_string2uint32);
@@ -1055,4 +1052,4 @@ DEFINE_RECONF_OPT(uint32_t, percent, gf_string2percent);
 DEFINE_RECONF_OPT(uint64_t, percent_or_size, pc_or_size);
 DEFINE_RECONF_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_RECONF_OPT(xlator_t *, xlator, xl_by_name);
-DEFINE_RECONF_OPT(char *, path, not_null);
+DEFINE_RECONF_OPT(char *, path, pass);
