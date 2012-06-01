@@ -4180,6 +4180,8 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         req.data = args->flags;
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FSYNC, client3_1_fsync_cbk, NULL,
@@ -4291,6 +4293,9 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
                                        unwind, op_errno, EINVAL);
 
         conf = this->private;
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_OPENDIR, client3_1_opendir_cbk,
@@ -5197,6 +5202,9 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
 
         memcpy (req.gfid, args->fd->inode->gfid, 16);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
+
         ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_LK,
                                      client3_1_lk_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
@@ -5845,6 +5853,9 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
         req.fd = remote_fd;
         req.valid = args->valid;
         gf_stat_from_iatt (&req.stbuf, args->stbuf);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FSETATTR,
