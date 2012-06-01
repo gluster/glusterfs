@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE authorgroup PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Administration_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<authorgroup>
+  <author>
+    <firstname>GlusterFS</firstname>
+    <surname>Developers</surname>
+    <affiliation>
+      <orgname>Red Hat</orgname>
+      <orgdiv>Storage</orgdiv>
+    </affiliation>
+    <email>gluster-devel@nongnu.org</email>
+  </author>
+</authorgroup>
+

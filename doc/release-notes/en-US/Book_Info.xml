@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. -->
+<!DOCTYPE bookinfo PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Release_Notes.ent">
+%BOOK_ENTITIES;
+]>
+<bookinfo id="book-Release_Notes-Release_Notes">
+  <title>Release Notes</title>
+  <subtitle>Release Notes for GlusterFS<remark> 3.3.0 </remark></subtitle>
+  <productname>GlusterFS</productname>
+  <productnumber>3.3</productnumber>
+  <edition>1</edition>
+  <pubsnumber>1</pubsnumber>
+  <abstract>
+    <para>
+  This Release Notes introduces GlusterFS and provides information including key features and managing the software. 
+  </para>
+  </abstract>
+  <corpauthor>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="Common_Content/images/title_logo.svg" format="SVG"/>
+      </imageobject>
+    </inlinemediaobject>
+  </corpauthor>
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Common_Content/Legal_Notice.xml"/>
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Author_Group.xml"/>
+</bookinfo>

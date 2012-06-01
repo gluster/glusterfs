@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Release_Notes.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-Release_Notes-Product_Documentation">
+  <title>Product Documentation</title>
+  <para>Product documentation of GlusterFS
+
+ is available at <ulink url="http://www.gluster.org/community/documentation/index.php/Main_Page"/> .
+</para>
+</chapter>

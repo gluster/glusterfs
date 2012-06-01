@@ -1,0 +1,164 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Release_Notes.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-Release_Notes-Known_Issues">
+  <title>Known Issues</title>
+  <para>
+  The following are the known issues:
+
+ </para>
+  <para><itemizedlist>
+      <listitem>
+        <para>Issues related to Distributed Replicated Volumes:
+</para>
+        <itemizedlist>
+          <listitem>
+            <para>When process has done <emphasis role="italic">
+                <emphasis role="italic">
+                  <command>cd</command>
+                </emphasis>
+              </emphasis> into a directory, stat of deleted file recreates it (directory self-
+heal not triggered).
+</para>
+            <para>In GlusterFS replicated setup, if you are inside a directory (for example, <filename>Test</filename> directory) of
+replicated volume. From another node, you will delete a file inside <filename>Test</filename> directory. Then if you
+perform <command>stat</command> operation on the same file name, the file will be automatically created. (that is, a
+proper directory self-heal is not triggered when process has done <command>cd</command> into a path).
+</para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>Issues related to Distributed Volumes:
+</para>
+        <itemizedlist>
+          <listitem>
+            <para>Rebalance does not happen if bricks are down.
+
+</para>
+            <para>Currently while running rebalance, make sure all the bricks are in operating or connected state.
+
+</para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>glusterfsd - Error return code is not proper after daemonizing the process.
+</para>
+        <para>Due to this, scripts that mount glusterfs or start glusterfs process must not depend on its return
+value.
+</para>
+      </listitem>
+      <listitem>
+        <para>After <command># gluster volume replace-brick <replaceable>VOLNAME Brick New-Brick</replaceable> commit</command> command
+is issued, the file system operations on that particular volume, which are in transit will fail.
+</para>
+      </listitem>
+      <listitem>
+        <para>Command <command># gluster volume replace-brick ...</command> will fail in a RDMA set up.
+</para>
+      </listitem>
+      <listitem>
+        <para>If files and directories have different GFIDs on different backends, GlusterFS client may hang or
+display errors.
+</para>
+        <para><emphasis role="bold">Work Around</emphasis>: The workaround for this issue is explained at <ulink url="http://gluster.org/pipermail/gluster-users/2011-July/008215.html"/>
+.
+</para>
+      </listitem>
+      <listitem>
+        <para>Issues related to Directory Quota:
+</para>
+        <itemizedlist>
+          <listitem>
+            <para>Some writes can appear to pass even though the quota limit is exceeded (write returns
+success). This is because they could be cached in write-behind. However disk-space would
+not exceed the quota limit, since when writes to backend happen, quota does not allow
+them. Hence it is advised that applications should check for return value of close call.
+</para>
+          </listitem>
+          <listitem>
+            <para>If a user has done <command>cd</command> into a directory on which the administrator is setting the limit, even
+ though the command succeeds and the new limit value will be applicable to all the users
+except for those users’ who has done <command>cd</command> in to that particular directory. The old limit value
+   will be applicable until the user has <command>cd</command> out of that directory.
+</para>
+          </listitem>
+          <listitem>
+            <para>Rename operation (that is, removing oldpath and creating newpath) requires additional disk
+space equal to file size. This is because, during rename, it subtracts the size on oldpath after
+rename operation is performed, but it checks whether quota limit is exceeded on parents of
+newfile before rename operation.
+</para>
+          </listitem>
+          <listitem>
+            <para>With striped volumes, Quota feature is not available.</para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>Issues related to POSIX ACLs:
+</para>
+        <itemizedlist>
+          <listitem>
+            <para>Even though POSIX ACLs are set on the file or directory, the <computeroutput>+</computeroutput> (plus) sign in the file
+   permissions will not be displayed. This is for performance optimization and will be fixed in a
+  future release.
+</para>
+          </listitem>
+        </itemizedlist>
+        <itemizedlist>
+          <listitem>
+            <para>When glusterfs is mounted with <command>-o acl</command>, directory read performance can be bad. Commands
+like recursive directory listing can be slower than normal.
+</para>
+          </listitem>
+        </itemizedlist>
+        <itemizedlist>
+          <listitem>
+            <para>When POSIX ACLs are set and multiple NFS clients are used, there could be inconsistency in
+the way ACLs are applied due to attribute caching in NFS. For a consistent view of POSIX ACLs
+in a multiple client setup, use <command>-o noac</command> option on NFS mount to switch off attribute caching.
+   This could have a performance impact on operations involving attributes.
+</para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>If you have enabled Gluster NLM, you cannot mount kernel NFS client on your storage nodes. 
+
+</para>
+      </listitem>
+      <listitem condition="gfs">
+        <para>Error with lost and found directory while using multiple disks.</para>
+        <para><emphasis role="bold">Work Around</emphasis>: You must ensure that the brick directories are one of the extra directories in the back-end mount point. For Example, if <filename>/dev/sda1</filename> is mounted on <filename>/export1</filename>, use <filename>/export1/volume</filename> as the glusterfs&apos;s export directory. </para>
+      </listitem>
+      <listitem>
+        <para>Due to enhancements in Graphs, you may experience excessive memory usage with this release.
+
+</para>
+      </listitem>
+      <listitem>
+        <para>After you restart the NFS server, the unlock within the grace-period may fail and previously held locks may not be reclaimed. 
+
+</para>
+      </listitem>
+      <listitem>
+        <para>After a rebalancing a volume, if you run <command>rm -rf</command> command at the mount point to remove all contents of the current working directory recursively without prompting, you may get &quot;Directory not Empty&quot; error message. 
+
+</para>
+      </listitem>
+      <listitem>
+        <para>The following is a known missing (minor) feature:
+</para>
+        <itemizedlist>
+          <listitem>
+            <para>locks - <emphasis role="italic">mandatory</emphasis> locking is not supported.
+</para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+    </itemizedlist></para>
+</chapter>

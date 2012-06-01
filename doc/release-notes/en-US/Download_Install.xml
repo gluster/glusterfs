@@ -1,0 +1,107 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Release_Notes.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-Release_Notes-Launch">
+  <title>Downloading and Installing GlusterFS </title>
+  <para>You can download and install the GlusterFS 3.3.0 or upgrade to latest version
+ </para>
+  <section id="sect-Release_Notes-Download_and_Install-Test_Section_1">
+    <title>Downloading GlusterFS 3.3 </title>
+    <para>You can download the latest software to each server in your cluster from <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.0/3.3.0/ "/>.
+  </para>
+  </section>
+  <section id="sect-Release_Notes-Download_and_Install-Test_Section_2">
+    <title>New Installation </title>
+    <para>
+The installation process for GlusterFS server is available at:
+
+   <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.2/Documentation/IG/html/chap-Installation_Guide-Installing.html"/>
+  </para>
+  </section>
+  <section>
+    <title>Compatibility </title>
+    <para>Release 3.3 of GlusterFS is not compatible with 2.0.x, 3.0.x, 3.1.x, and 3.2.x releases of GlusterFS.
+</para>
+  </section>
+  <section>
+    <title>Upgrade </title>
+    <para>Red Hat recommends that you back up your data before upgrading to GlusterFS 3.3.
+</para>
+    <note>
+      <para>Configurations generated outside the scope of gluster CLI are neither recommended nor
+supported by Red Hat.
+</para>
+    </note>
+    <section>
+      <title>Upgrade from GlusterFS v3.2.x or 3.1.x to GlusterFS v3.3 </title>
+      <para>In an environment with replicated bricks it is recommended that you upgrade a single storage server,
+confirm stability, and then upgrade the replica.
+</para>
+      <para>Use the same installation method for the upgrade as the original glusterfs installation.
+</para>
+      <para><emphasis role="bold">Using RPMs on RHEL, CentOS, Fedora</emphasis></para>
+      <orderedlist>
+        <listitem>
+          <para>Download the 3.3 RPMs from the following location:
+</para>
+          <para><emphasis role="bold">RHEL:</emphasis> <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.0/3.3.0/RHEL/ "/></para>
+          <para><emphasis role="bold">Fedora:</emphasis> <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.0/3.3.0/Fedora/ "/></para>
+        </listitem>
+        <listitem>
+          <para>Run rpm using the following command:
+</para>
+          <para><command># rpm -U glusterfs*</command>
+</para>
+        </listitem>
+      </orderedlist>
+      <para><emphasis role="bold">Using dpkg on Debian, Ubuntu</emphasis>
+</para>
+      <orderedlist>
+        <listitem>
+          <para>Download the 3.3 packages from
+</para>
+          <para><emphasis role="bold">Debian:</emphasis> <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.0/3.3.0/Debian/ "/></para>
+          <para><emphasis role="bold">Ubuntu:</emphasis> <ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.0/3.3.0/Ubuntu/ "/></para>
+        </listitem>
+        <listitem>
+          <para>Run dpkg using the following command:
+</para>
+          <para><command># dpkg -i glusterfs* </command></para>
+        </listitem>
+      </orderedlist>
+      <para><emphasis role="bold">Building from source </emphasis></para>
+      <orderedlist>
+        <listitem>
+          <para>Download the 3.3 source code from
+</para>
+          <para><ulink url="http://download.gluster.com/pub/gluster/glusterfs/3.0/3.3.0/glusterf3-3.0.tar.gz"/></para>
+        </listitem>
+        <listitem>
+          <para>Unpack and install GlusterFS using the following commands:
+</para>
+          <screen># gunzip glusterfs-3.3.0.tar.gz
+# tar xvf glusterfs-3.3.0.tar
+# cd glusterfs-3.3.0
+# ./configure
+# make
+# make install</screen>
+        </listitem>
+        <listitem>
+          <para>Stop and start GlusterFS using the following commands, this step will disconnect Gluster Native
+clients.
+</para>
+          <para><command># killall glusterfsd </command></para>
+          <para><command># killall glusterfs </command></para>
+          <para><command># killall glusterd </command></para>
+        </listitem>
+        <listitem>
+          <para>Start GlusterFS using the following command:
+</para>
+          <para><command># /etc/init.d/glusterd start </command></para>
+        </listitem>
+      </orderedlist>
+    </section>
+  </section>
+</chapter>

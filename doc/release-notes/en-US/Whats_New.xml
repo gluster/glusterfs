@@ -1,0 +1,90 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Release_Notes.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-2.0_Release_Notes-Whats_New">
+  <title>What is New in this Release?</title>
+  <para>This section describes the key features available in GlusterFS. The following is a list of feature highlights of this new version of the GlusterFS software: </para>
+  <itemizedlist>
+    <listitem>
+      <para><emphasis role="bold">Unified File and Object Storage</emphasis></para>
+      <para>Unified File and Object Storage (UFO) unifies NAS and object storage technology. It provides a system for data storage that enables users to access the same data, both as an object and as a file, thus simplifying management and controlling storage costs.</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Replicate Improvements (Pro-active Self-heal)</emphasis></para>
+      <para>In replicate module, previously you had to manually trigger a self-heal when a brick goes offline and comes back online, to bring all the replicas in sync. Now the pro-active self-heal daemon runs in the background, diagnoses issues and automatically initiates self-healing when the brick comes on-line.  You can view the list of files that need healing, the list of files which are recently healed, list of files which are in split-brain state, and you can manually trigger self-heal on the entire volume or only on the files which need healing. </para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Network Lock Manager</emphasis>
+</para>
+      <para>GlusterFS 3.3 includes network lock manager (NLM) v4. NLM is a standard and an extension to NFSv3 which allows NFSv3 clients to lock on files across the network. NLM is required to make applications running on top of NFSv3 mount points to use the standard fcntl() (POSIX) and flock() (BSD) lock system calls to synchronize access across clients.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Volume Statedump</emphasis>
+</para>
+      <para>Statedump is a mechanism through which you can get details of all internal variables and state of the glusterfs process at the time of issuing the command.You can perform statedumps of the brick processes and nfs server process of a volume using the statedump command. The statedump information is useful while debugging.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Volume Status and Brick Information</emphasis>
+</para>
+      <para>You can display the status information about a specific volume, brick or all volumes, as needed. Volume status information includes memory usage, memory pool details of the bricks, inode tables of the volume, pending calls of the volume and other statistics. This information can be used to understand the current status of the brick, nfs processes, and overall file
+system. Status information can also be used to monitor and debug the volume information. </para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Geo-replication Enhancements </emphasis></para>
+      <para>Now you can configure a secure slave using SSH so that master is granted a restricted access. You need not specify configuration parameters regarding the slave on the master-side configuration. You can also rotate the log file of a particular master-slave session, all sessions of a mater volume, and all geo-replication sessions, as needed. You can also set ignore-deletes option to 1 so that the file deleted on master will not trigger a delete operation on the slave. Hence, the slave will remain as a superset of the master and can be used to recover the master in case of crash and/or accidental delete.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Mount Server Fail-over </emphasis></para>
+      <para>Now there is an option to add backup volfile server while mounting fuse client. When the first volfile server fails, then the server specified in backupvolfile-server option is used as volfile server to mount the client. You can also specify the number of attempts to fetch while mounting glusterFS server. This option is useful when you mount a server with multiple IPs.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Debugging Locks</emphasis></para>
+      <para>You can use statedump command to list the locks held on files. The statedump output also provides information on each lock with its range, basename, PID of the application holding the lock, and so on. You can analyze and know which locks are valid and relevant at a point of time. After ensuring that the no application is using the file, you can clear the lock using the clear lock command.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Change in Working Directory </emphasis></para>
+      <para>The working directory of glusterd is changed to <emphasis role="italic">/var/lib/glusterd </emphasis>from <emphasis role="italic">/etc/glusterd</emphasis>.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Hadoop Compatible Storage </emphasis></para>
+      <para>GlusterFS provides compatibility for Apache Hadoop and it uses the standard file system APIs available in Hadoop to provide a new storage option for Hadoop deployments. Existing MapReduce based applications can use GlusterFS seamlessly. This new functionality opens up data within Hadoop deployments to any file-based or object-based application.</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Granual Locking for Large Files </emphasis></para>
+      <para>Enables using GlusterFS as a backing store for preserving large files like virtual machine images. Granualar locking enables internal file operations (like self-heal) without blocking user level file operations. The latency for user I/O is reduced during self-heal operation.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Configuration Enhancements</emphasis></para>
+      <para><itemizedlist>
+          <listitem>
+            <para><emphasis role="bold">Remove Brick Enhancements</emphasis></para>
+            <para>Previously, remove-bick command was used to remove a brick that is inaccessible due to hardware or network failure. And as a clean-up operation to remove dead server details from the volume configuration. Now remove-brick command can migrate data to existing bricks before deleting given brick.</para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">Rebalance Enhancements </emphasis></para>
+            <para>GlusterFS 3.3 supports open file rebalance and files that have hardlinks. Rebalance has been enchanced to be more efficient with respect to network usage, completion time, and amount of data movement and starts migration of data immediately without waiting for directory layout to be fixed.</para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">Dynamic Alteration of Volume Type </emphasis></para>
+            <para>You can now the change type of the volume from Distributed volume to Distributed Replicated Volume when performing add-brick and remove-brick operation. You must specify the replica count paramenter to increase the number of replicas to change it to distributed replicated volume.<note>
+                <para>Currently, changing of <emphasis role="italic">stripe</emphasis> count while changing volume configurations is not supported.</para>
+              </note></para>
+          </listitem>
+        </itemizedlist></para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Read-only Volume </emphasis></para>
+      <para>GlusterFS 3.3 enables you to mount volumes as read-only. While mounting the client, you can mount it as read-only for the volumes and you can also make the entire volume as read-only for all the clients (including NFS clients) using volume set option. 
+</para>
+    </listitem>
+  </itemizedlist>
+</chapter>

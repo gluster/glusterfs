@@ -1,0 +1,72 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- This document was created with Syntext Serna Free. --><!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Release_Notes.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-Release_Notes-Key_Features">
+  <title>Key Features</title>
+  <para>This section describes the key features available in Red Hat Storage. The following is a list of feature highlights of this new version of the Red Hat  Storage software: </para>
+  <itemizedlist>
+    <listitem>
+      <para><emphasis role="bold">High Availability</emphasis></para>
+      <para>The Red Hat  Storage provides both synchronous and asynchronous n-way file replication to assure data availability:</para>
+      <para><itemizedlist>
+          <listitem>
+            <para><emphasis role="bold">Synchronous replication</emphasis> provides redundancy and protection within a single data center or multiple data centers and availability zones in a region.</para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">Asynchronous geo-replication</emphasis>-  Red Hat Storage supports Geo-Rep long distance replication. Customers can configure storage server nodes and Red Hat Storage to asynchronously replicate data
+over vast geographical distances.
+.</para>
+          </listitem>
+        </itemizedlist></para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Deploy in Minutes</emphasis></para>
+      <para>The Red Hat  Storage S can be deployed in minutes, providing one of the fastest ways to create an on-demand, high-performance, petabyte-scale storage environment. </para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">No Application Rewrites</emphasis></para>
+      <para>Red Hat   Storage Appliance provides full support for the semantics of a normal Linux file system like ext4 so there is no need to rewrite applications when moving data to the cloud as with cloud-based object storage. </para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Flexibility</emphasis>
+</para>
+      <para>Runs in userspace, eliminating the need for complex
+kernel patches or dependencies.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Scalability</emphasis>
+</para>
+      <para>Elastic volume management enables storage volumes
+to be abstracted from the hardware so data and hardware can be managed independently. Storage can be
+added while data continues to be available, with no
+application interruption. Volumes can grow across
+machines in the system and can be migrated within the
+system to rebalance capacity. Storage server nodes
+can be added on the fly.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">Simple Management</emphasis>
+</para>
+      <para>Simple, single command for storage management. It also includes performance monitoring and analysis tools like Top and Profile. Top provides visibility into the workload pattern and Profile provides performance
+statistics over a user-defined
+time period for metrics including latency and amount of
+data read or written.
+</para>
+    </listitem>
+    <listitem>
+      <para><emphasis role="bold">No Metadata Server </emphasis></para>
+      <para>Rather than using a centralized or
+distributed metadata server, Red Hat Storage software
+ uses an elastic hashing algorithm to locate
+data in the storage pool removing this common source
+of I/O bottlenecks and vulnerability to failure. Data
+access is fully parallelized and performance scales
+linearly.
+</para>
+    </listitem>
+  </itemizedlist>
+</chapter>
