@@ -663,12 +663,13 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                                     "supported (try remounting "
                                                     "brick with 'user_xattr' "
                                                     "flag)");
-                        } else if (errno == ENOENT &&
-                                   !posix_special_xattr (marker_xattrs,
-                                                         trav->key)) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "setxattr on %s failed: %s", real_path,
-                                        strerror (errno));
+                        } else if (errno == ENOENT) {
+                                if (!posix_special_xattr (marker_xattrs,
+                                                          trav->key)) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "setxattr on %s failed: %s",
+                                                real_path, strerror (errno));
+                                }
                         } else {
 
 #ifdef GF_DARWIN_HOST_OS
