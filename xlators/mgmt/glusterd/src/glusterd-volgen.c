@@ -47,8 +47,10 @@
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"
+#define NFS_DISABLE_MAP_KEY "nfs.disable"
 #define AUTH_ALLOW_OPT_KEY "auth.addr.*.allow"
 #define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
+#define NFS_DISABLE_OPT_KEY "nfs.*.disable"
 
 
 /* dispatch table for VOLUME SET
@@ -216,7 +218,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.trusted-write",                    "nfs/server",                "!nfs3.*.trusted-write", NULL, DOC, 0},
         {"nfs.volume-access",                    "nfs/server",                "!nfs3.*.volume-access", NULL, DOC, 0},
         {"nfs.export-dir",                       "nfs/server",                "!nfs3.*.export-dir", NULL, DOC, 0},
-        {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC, 0},
+        {NFS_DISABLE_MAP_KEY,                    "nfs/server",                "!nfs-disable", NULL, DOC, 0},
         {"nfs.nlm",                              "nfs/server",                "nfs.nlm", NULL, GLOBAL_DOC, 0},
         {"nfs.mount-udp",                        "nfs/server",                "nfs.mount-udp", NULL, GLOBAL_DOC, 0},
 
@@ -1985,6 +1987,8 @@ get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
                 *key = gf_strdup (AUTH_ALLOW_OPT_KEY);
         else if (!strcmp (vme->key, AUTH_REJECT_MAP_KEY))
                 *key = gf_strdup (AUTH_REJECT_OPT_KEY);
+        else if (!strcmp (vme->key, NFS_DISABLE_MAP_KEY))
+                *key = gf_strdup (NFS_DISABLE_OPT_KEY);
         else {
                 if (vme->option) {
                         if  (vme->option[0] == '!') {
@@ -2088,7 +2092,8 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                 }
 
                 if (!strcmp (key, AUTH_ALLOW_OPT_KEY) ||
-                    !strcmp (key, AUTH_REJECT_OPT_KEY))
+                    !strcmp (key, AUTH_REJECT_OPT_KEY) ||
+                    !strcmp (key, NFS_DISABLE_OPT_KEY))
                         GF_FREE (key);
         }
 
