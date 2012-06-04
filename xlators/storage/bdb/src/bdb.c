@@ -1360,8 +1360,8 @@ dir_read:
                         }
                 }
 
-                strncpy (&entry_path[real_path_len+1], dirent->d_name,
-                         tmp_name_len);
+                memcpy (&entry_path[real_path_len+1], dirent->d_name,
+                        tmp_name_len + 1);
                 op_ret = stat (entry_path, &buf);
                 if (op_ret < 0) {
                         op_errno = errno;
