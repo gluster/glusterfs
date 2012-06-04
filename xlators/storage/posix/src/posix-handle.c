@@ -108,7 +108,7 @@ posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
 
         if ((ret == 8) && memcmp (linkname, "../../..", 8) == 0) {
                 if (strcmp (base_str, buf) == 0) {
-                        strncpy (buf + pfx_len, "..", 3);
+                        strcpy (buf + pfx_len, "..");
                 }
                 goto out;
         }
