@@ -116,9 +116,6 @@ typedef struct _client_fd_ctx {
                                             fd's position in the saved_fds list.
                                         */
         int64_t           remote_fd;
-        inode_t          *inode;
-        uint64_t          ino;
-        uint64_t          gen;
         char              is_dir;
         char              released;
         int32_t           flags;
@@ -126,6 +123,7 @@ typedef struct _client_fd_ctx {
         fd_lk_ctx_t      *lk_ctx;
         pthread_mutex_t   mutex;
         lk_heal_state_t   lk_heal_state;
+        uuid_t            gfid;
         struct list_head  lock_list;     /* List of all granted locks on this fd */
 } clnt_fd_ctx_t;
 
