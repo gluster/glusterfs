@@ -1644,7 +1644,7 @@ valid_host_name (char *address, int length)
         char            *temp_str = NULL;
         char            *save_ptr = NULL;
 
-        if ((length > _POSIX_HOST_NAME_MAX) || (length == 1)) {
+        if ((length > _POSIX_HOST_NAME_MAX) || (length < 1)) {
                 ret = 0;
                 goto out;
         }
